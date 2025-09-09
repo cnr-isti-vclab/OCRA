@@ -1,9 +1,23 @@
 /**
  * Minimal OAuth2 Authorization Code Flow with PKCE for the browser.
+ * Now integrated with database storage instead of sessionStorage for tokens.
  *
  * This module intentionally uses small, readable functions and inline comments
  * so it can be used in a course to explain the moving parts.
+ * 
+ * DATABASE INTEGRATION:
+ * Instead of storing tokens directly in sessionStorage (which is insecure for production),
+ * we now store them in a database and only keep a session ID in sessionStorage.
+ * This provides better security and allows for server-side session management.
  */
+
+import { 
+  createUserSession, 
+  getValidSession, 
+  deleteSession, 
+  logLoginEvent,
+  type UserProfile 
+} from './db-browser'; // Use browser-compatible simulation
 
 export type OAuthConfig = {
   issuer: string; // e.g. https://localhost:8081/realms/demo (for Keycloak)
@@ -28,11 +42,11 @@ type DiscoveryDoc = {
   end_session_endpoint?: string; // Keycloak exposes logout at a well-known path even if not in discovery
 };
 
-// Keys used in sessionStorage. Keeping them centralized for clarity.
+// Keys used in sessionStorage. Now only stores session ID instead of full tokens.
 const SS = {
   verifier: 'oauth_pkce_verifier',
   state: 'oauth_state',
-  tokens: 'oauth_tokens',
+  sessionId: 'oauth_session_id', // Changed: only store session ID, not full tokens
   discovery: 'oauth_discovery',
 } as const;
 
@@ -133,7 +147,8 @@ export function isReturningFromAuth(loc: Location): boolean {
 }
 
 // 3) Exchange the code for tokens using the PKCE code_verifier.
-export async function completeAuthCodeFlow(): Promise<OAuthTokens> {
+// Now also stores the session in database instead of sessionStorage.
+export async function completeAuthCodeFlow(): Promise<{ sessionId: string; userProfile: UserProfile }> {
   const cfg = getConfig();
   const discovery = await discoverEndpoints(cfg.issuer);
   const params = new URLSearchParams(window.location.search);
@@ -141,10 +156,12 @@ export async function completeAuthCodeFlow(): Promise<OAuthTokens> {
   const state = params.get('state');
   const expectedState = sessionStorage.getItem(SS.state);
   const verifier = sessionStorage.getItem(SS.verifier);
+  
   if (!code || !state) throw new Error('Missing authorization code or state');
   if (!verifier) throw new Error('Missing PKCE verifier in session');
   if (!expectedState || expectedState !== state) throw new Error('State mismatch');
 
+  // Exchange authorization code for tokens
   const body = new URLSearchParams();
   body.set('grant_type', 'authorization_code');
   body.set('code', code);
@@ -159,35 +176,114 @@ export async function completeAuthCodeFlow(): Promise<OAuthTokens> {
   });
   if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`);
   const tokens = (await res.json()) as OAuthTokens;
-  sessionStorage.removeItem(SS.state);
-  sessionStorage.removeItem(SS.verifier);
-  sessionStorage.setItem(SS.tokens, JSON.stringify(tokens));
-  return tokens;
+
+  // Get user profile information
+  const userProfile = await getUserProfileFromToken(tokens.access_token);
+  
+  try {
+    // Store session in database
+    const sessionId = await createUserSession(userProfile, tokens);
+    
+    // Store only session ID in sessionStorage (not the full tokens)
+    sessionStorage.setItem(SS.sessionId, sessionId);
+    
+    // Clean up PKCE temporary data
+    sessionStorage.removeItem(SS.state);
+    sessionStorage.removeItem(SS.verifier);
+    
+    // Log successful login for audit
+    await logLoginEvent(
+      userProfile.sub, 
+      true, 
+      navigator.userAgent,
+      // Note: Getting real IP requires server-side logging
+      'client-side' 
+    );
+    
+    return { sessionId, userProfile };
+  } catch (error) {
+    // Log failed login attempt
+    await logLoginEvent(userProfile.sub, false, navigator.userAgent, 'client-side');
+    throw new Error(`Failed to create session: ${error}`);
+  }
 }
 
-// 4) Call the userinfo endpoint to get a friendly display name/email.
-export async function getUserInfo(accessToken: string): Promise<{ name?: string; email?: string }>
-{
+// 4) Call the userinfo endpoint to get user profile information
+async function getUserProfileFromToken(accessToken: string): Promise<UserProfile> {
   const cfg = getConfig();
   const discovery = await discoverEndpoints(cfg.issuer);
   const res = await fetch(discovery.userinfo_endpoint, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error(`userinfo failed: ${res.status}`);
-  return res.json();
+  const userInfo = await res.json();
+  
+  return {
+    sub: userInfo.sub,
+    email: userInfo.email,
+    name: userInfo.name || userInfo.preferred_username,
+  };
 }
 
-// 5) Logout: clear local tokens and also hit the provider logout endpoint for a clean sign-out.
-export function logout() {
-  const cfg = getConfig();
-  const tokensRaw = sessionStorage.getItem(SS.tokens);
-  sessionStorage.removeItem(SS.tokens);
+// 4) Get user information from current session
+// This replaces the old getUserInfo function - now gets data from database instead of API
+export async function getCurrentUser(): Promise<{ name?: string; email?: string; sub: string } | null> {
+  const sessionId = sessionStorage.getItem(SS.sessionId);
+  if (!sessionId) return null;
+  
+  const session = await getValidSession(sessionId);
+  if (!session) {
+    // Session expired or invalid, clean up
+    sessionStorage.removeItem(SS.sessionId);
+    return null;
+  }
+  
+  return {
+    sub: session.user.sub,
+    name: session.user.name || undefined,
+    email: session.user.email,
+  };
+}
 
-  const idToken = tokensRaw ? (JSON.parse(tokensRaw) as OAuthTokens).id_token : undefined;
-  // Keycloak logout endpoint (front-channel)
+// Helper function to check if user is currently logged in
+export async function isLoggedIn(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return user !== null;
+}
+
+// Helper function to get access token for API calls (if needed)
+export async function getAccessToken(): Promise<string | null> {
+  const sessionId = sessionStorage.getItem(SS.sessionId);
+  if (!sessionId) return null;
+  
+  const session = await getValidSession(sessionId);
+  return session?.accessToken || null;
+}
+
+// 5) Logout: clear session from database and redirect to provider logout endpoint
+export async function logout() {
+  const cfg = getConfig();
+  const sessionId = sessionStorage.getItem(SS.sessionId);
+  
+  // Clean up local session storage
+  sessionStorage.removeItem(SS.sessionId);
+  
+  // Delete session from database
+  if (sessionId) {
+    try {
+      await deleteSession(sessionId);
+    } catch (error) {
+      console.error('Failed to delete session from database:', error);
+      // Continue with logout even if database cleanup fails
+    }
+  }
+
+  // Redirect to provider logout endpoint for complete sign-out
+  // Note: We can't get id_token anymore since we don't store it in sessionStorage
+  // This is a security improvement, but means we lose the id_token_hint optimization
   const logoutUrl = new URL(`${cfg.issuer.replace(/\/$/, '')}/protocol/openid-connect/logout`);
   logoutUrl.searchParams.set('post_logout_redirect_uri', cfg.redirectUri);
   logoutUrl.searchParams.set('client_id', cfg.clientId);
-  if (idToken) logoutUrl.searchParams.set('id_token_hint', idToken);
+  
   window.location.href = logoutUrl.toString();
 }

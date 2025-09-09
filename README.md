@@ -1,5 +1,15 @@
 # ReGoals:
-- Minimal, readable React + TypeScript code
+- Minim## What's inside
+- React 19 + Vite app with routing:
+  - Home page: starts Authorization Code + PKCE login, handles redirect/exchange, Logout
+  - Protected Profile page: only accessible when logged in; shows user info from database
+- **Database integration with Prisma:**
+  - PostgreSQL database for storing user sessions and profiles
+  - Secure session management (tokens stored server-side, only session ID in browser)
+  - Login audit logging and session cleanup
+  - Browser-compatible demo simulation (for frontend-only testing)
+- Keycloak realm export with a SPA client: `react-oauth`
+- Dockerfile and docker-compose.yml to run the app, database, and Keycloak togetheradable React + TypeScript code
 - Clear comments explaining each step of the flow
 - Dockerized app and docker-compose to run with Keycloak locally
 
@@ -96,30 +106,63 @@ The app reads configuration in two ways:
 
 - Build-time (Vite dev): `.env` using VITE_* variables
   - VITE_PROVIDER_URL, VITE_REALM, VITE_CLIENT_ID, VITE_ISSUER, VITE_REDIRECT_URI, VITE_SCOPE
+  - DATABASE_URL for PostgreSQL connection
   - See `.env.example` for commented defaults matching the dev setup.
+
+## Database Integration
+
+This demo now includes **Prisma + PostgreSQL** for secure session management:
+
+**Security Benefits:**
+- OAuth tokens stored server-side in database (not in browser sessionStorage)
+- Session expiry handled server-side
+- Audit logging of login attempts
+- Automatic cleanup of expired sessions
+
+**Database Models:**
+- **Users**: OAuth profile information (sub, email, name)
+- **Sessions**: Access tokens, refresh tokens, expiry times
+- **LoginEvents**: Audit log of authentication attempts
+
+**Demo Implementation:**
+- Uses `src/db-browser.ts` for browser-compatible simulation (localStorage)
+- Real implementation would use `src/db.ts` with Prisma Client in a Node.js backend
+- Database schema defined in `prisma/schema.prisma`
 
 ## Files to look at
 
-- `src/oauth.ts` — Minimal PKCE flow implementation with comments
-- `src/App.tsx` — UI wiring login, token exchange, userinfo, logout
+**Core OAuth + Database:**
+- `src/oauth.ts` — PKCE flow with database session storage
+- `src/db-browser.ts` — Browser simulation of database operations
+- `src/db.ts` — Real Prisma database operations (for backend use)
+- `prisma/schema.prisma` — Database schema definition
+
+**React Components:**
+- `src/App.tsx` — UI wiring login, token exchange, session management
 - `src/main.tsx` — Router setup (home and protected profile)
-- `src/routes/Profile.tsx` — Protected page rendering name/email
-- `src/routes/RequireAuth.tsx` — Simple route guard that checks session tokens
+- `src/routes/Profile.tsx` — Protected page showing user data from database
+- `src/routes/RequireAuth.tsx` — Route guard with async session validation
+
+**Infrastructure:**
 - `public/config.js` — Default runtime config (overridden in Docker via env)
 - `docker/docker-entrypoint.sh` — Writes `config.js` from env at container start
-- `docker-compose.yml` — App + Keycloak
+- `docker-compose.yml` — App + PostgreSQL + Keycloak
 - `keycloak/realm-export/demo-realm.json` — realm with SPA client pre-configured
 
 ## Notes for teaching
 - The flow uses Authorization Code with PKCE (never store a client secret in SPAs).
-- Tokens are kept in sessionStorage to avoid long-lived storage (simple demo choice).
+- **Security Enhancement**: Tokens are now stored in a database instead of browser sessionStorage.
+- Only a session ID is stored in sessionStorage, tokens remain server-side for better security.
 - We use OIDC Discovery to find endpoints dynamically from the issuer.
+- Database integration demonstrates production-ready session management patterns.
 
 ## Troubleshooting
 - If login fails at token exchange, check the browser devtools network tab for the POST to the token endpoint.
-- Make sure the redirect URI and web origins in Keycloak match the app URL.
+- Make sure the redirect URI and web origins in Keycloak match the app URL (check ports 3001, 5173, 5174).
+- If database connection fails, ensure PostgreSQL is running: `docker compose up postgres`
 - If Keycloak is slow to start, wait for it to be ready before attempting login.
- - On newer Keycloak versions, `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` are deprecated. If you run into issues, set `KC_BOOTSTRAP_ADMIN_USERNAME` and `KC_BOOTSTRAP_ADMIN_PASSWORD` instead in `docker-compose.yml`.
+- On newer Keycloak versions, `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` are deprecated. If you run into issues, set `KC_BOOTSTRAP_ADMIN_USERNAME` and `KC_BOOTSTRAP_ADMIN_PASSWORD` instead in `docker-compose.yml`.
+- Check browser console for database simulation logs (prefixed with `[DEMO]`).
 
 ## License
 MIT

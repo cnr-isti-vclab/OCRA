@@ -1,4 +1,21 @@
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: oauth_demo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   keycloak:
     image: "quay.io/keycloak/keycloak:latest"
     command: start-dev --import-realm
@@ -19,7 +36,16 @@ services:
       CLIENT_ID: react-oauth
       REDIRECT_URI: http://localhost:3001
       SCOPE: "openid profile email"
+      # Database connection for Prisma
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/oauth_demo"
     ports:
       - "3001:80"
     depends_on:
-      - keycloak
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+# Persistent volume for PostgreSQL data
+volumes:
+  postgres_data:

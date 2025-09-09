@@ -4,6 +4,9 @@ import App from './App'
 import Profile from './routes/Profile.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 
+// Import database simulation to enable debug functions
+import './db-browser';
+
 /**
  * SINGLE PAGE APPLICATIONS (SPAs)
  * 

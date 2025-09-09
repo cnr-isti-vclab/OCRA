@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - stores OAuth user information
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  sub       String   @unique // OAuth subject identifier
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User sessions
+  sessions Session[]
+
+  @@map("users")
+}
+
+// Session model - stores OAuth tokens and session data
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  accessToken  String   @db.Text
+  refreshToken String?  @db.Text
+  idToken      String?  @db.Text
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Optional: Login audit log
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userSub   String   // OAuth subject
+  userAgent String?
+  ipAddress String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@map("login_events")
+}

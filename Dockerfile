@@ -3,6 +3,12 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
 RUN npm ci || npm install
+
+# Copy Prisma schema and generate client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copy source and build
 COPY . .
 RUN npm run build
 

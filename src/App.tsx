@@ -1,36 +1,46 @@
 import { useEffect, useState } from 'react';
-import { getConfig, isReturningFromAuth, completeAuthCodeFlow, loginWithRedirect, logout, getUserInfo, type OAuthTokens } from './oauth';
+import { getConfig, isReturningFromAuth, completeAuthCodeFlow, loginWithRedirect, logout, getCurrentUser, isLoggedIn } from './oauth';
 
-type User = { name?: string; email?: string };
+type User = { name?: string; email?: string; sub: string };
 
 export default function App() {
   const [loading, setLoading] = useState(true);
-  const [tokens, setTokens] = useState<OAuthTokens | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // On first load, if we have code in URL, finish the PKCE flow; otherwise, check for existing tokens.
+  // On first load, if we have code in URL, finish the PKCE flow; otherwise, check for existing session.
   useEffect(() => {
     const init = async () => {
       try {
         if (isReturningFromAuth(window.location)) {
-          const t = await completeAuthCodeFlow();
-          setTokens(t);
+          // Complete OAuth flow and get session
+          const { sessionId, userProfile } = await completeAuthCodeFlow();
+          console.log('OAuth flow completed, session created:', sessionId);
+          
+          setIsAuthenticated(true);
+          setUser({
+            sub: userProfile.sub,
+            name: userProfile.name,
+            email: userProfile.email,
+          });
+          
           // Clean the URL (remove code/state) for a nicer UX
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
-          const stored = sessionStorage.getItem('oauth_tokens');
-          if (stored) setTokens(JSON.parse(stored));
-        }
-        // If we have an access token, fetch user's basic profile (name/email)
-        const current = sessionStorage.getItem('oauth_tokens');
-        if (current) {
-          const { access_token } = JSON.parse(current) as OAuthTokens;
-          const info = await getUserInfo(access_token);
-          setUser({ name: info.name, email: info.email });
+          // Check if we have an existing valid session
+          const loggedIn = await isLoggedIn();
+          setIsAuthenticated(loggedIn);
+          
+          if (loggedIn) {
+            const currentUser = await getCurrentUser();
+            setUser(currentUser);
+          }
         }
       } catch (e: any) {
+        console.error('Authentication error:', e);
         setError(e?.message ?? String(e));
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
@@ -42,11 +52,14 @@ export default function App() {
 
   if (loading) return <Card><p>Loading…</p></Card>;
 
-  if (!tokens) {
+  if (!isAuthenticated) {
     return (
       <Card>
         <h1>React OAuth2 PKCE Demo</h1>
         <p style={{ color: '#555' }}>Provider: {cfg.issuer} | Realm: {cfg.realm} | Client: {cfg.clientId}</p>
+        <p style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>
+          🔒 Now with <strong>database session storage</strong> instead of browser sessionStorage for improved security!
+        </p>
         {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
         <button onClick={() => loginWithRedirect()}>Login</button>
       </Card>
@@ -57,7 +70,10 @@ export default function App() {
     <Card>
       <h1>Welcome</h1>
       {user ? (
-        <p>Signed in as: First: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
+        <div>
+          <p>Signed in as: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
+          <p style={{ fontSize: 12, color: '#666' }}>Session stored in database • Sub: {user.sub}</p>
+        </div>
       ) : (
         <p>Signed in. (No profile info)</p>
       )}
