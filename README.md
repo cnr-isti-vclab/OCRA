@@ -1,6 +1,6 @@
 # React OAuth2 PKCE Demo (Keycloak)
 
-A tiny, well-commented React app showing the OAuth2 Authorization Code Flow with PKCE against Keycloak (or any OIDC/OAuth2 provider).
+A tiny, well-commented React 19 app showing the OAuth2 Authorization Code Flow with PKCE against Keycloak (or any OIDC/OAuth2 provider).
 
 Goals:
 - Minimal, readable React + TypeScript code
@@ -8,10 +8,9 @@ Goals:
 - Dockerized app and docker-compose to run with Keycloak locally
 
 ## What’s inside
-- React + Vite app with a single page:
-  - Login button that starts Authorization Code + PKCE
-  - After redirect back, token exchange and user info fetch
-  - Shows the user’s name/email and a Logout button
+- React 19 + Vite app with routing:
+  - Home page: starts Authorization Code + PKCE login, handles redirect/exchange, Logout
+  - Protected Profile page: only accessible when logged in; shows name/email from userinfo
 - Keycloak realm export with a SPA client: `react-oauth`
 - Dockerfile and docker-compose.yml to run the app and Keycloak side-by-side
 
@@ -37,7 +36,8 @@ docker compose up --build
 
 3) Login flow in the app
   - In the app, click “Login” and enter the user you created (e.g., student/student).
-  - After login, you’ll be redirected back and the app will display your name/email.
+    - After login, you’ll be redirected back and the app will display your name/email.
+    - Tip: Open the “Profile” page (protected route) to see the user info fetched from the userinfo endpoint.
 
 3) Logout
 - Click “Logout” to clear local tokens and sign out from Keycloak.
@@ -64,7 +64,7 @@ cp .env.example .env
 npm run dev
 ```
 
-- App (dev): http://localhost:5173
+- App (dev): http://localhost:5173 (Vite)
 - Keycloak: http://localhost:8081
 
 Ensure the Keycloak client `react-oauth` has redirect URL `http://localhost:3001/*` and web origin `http://localhost:3001` for Docker; for Vite dev, use `http://localhost:5173/*` and origin `http://localhost:5173`.
@@ -74,20 +74,24 @@ Ensure the Keycloak client `react-oauth` has redirect URL `http://localhost:3001
 The app reads configuration in two ways:
 
 - Runtime (when Docker image runs): `config.js` is generated from environment variables by the container entrypoint.
-  - PROVIDER_URL (e.g. http://keycloak:8080)
+  - PROVIDER_URL (e.g. http://localhost:8081)
   - REALM (e.g. demo)
-  - ISSUER (e.g. http://keycloak:8080/realms/demo)
+  - ISSUER (e.g. http://localhost:8081/realms/demo)
   - CLIENT_ID (e.g. react-oauth)
-  - REDIRECT_URI (e.g. http://localhost)
+  - REDIRECT_URI (e.g. http://localhost:3001)
   - SCOPE (e.g. "openid profile email")
 
 - Build-time (Vite dev): `.env` using VITE_* variables
   - VITE_PROVIDER_URL, VITE_REALM, VITE_CLIENT_ID, VITE_ISSUER, VITE_REDIRECT_URI, VITE_SCOPE
+  - See `.env.example` for commented defaults matching the dev setup.
 
 ## Files to look at
 
 - `src/oauth.ts` — Minimal PKCE flow implementation with comments
 - `src/App.tsx` — UI wiring login, token exchange, userinfo, logout
+- `src/main.tsx` — Router setup (home and protected profile)
+- `src/routes/Profile.tsx` — Protected page rendering name/email
+- `src/routes/RequireAuth.tsx` — Simple route guard that checks session tokens
 - `public/config.js` — Default runtime config (overridden in Docker via env)
 - `docker/docker-entrypoint.sh` — Writes `config.js` from env at container start
 - `docker-compose.yml` — App + Keycloak
@@ -102,6 +106,7 @@ The app reads configuration in two ways:
 - If login fails at token exchange, check the browser devtools network tab for the POST to the token endpoint.
 - Make sure the redirect URI and web origins in Keycloak match the app URL.
 - If Keycloak is slow to start, wait for it to be ready before attempting login.
+ - On newer Keycloak versions, `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` are deprecated. If you run into issues, set `KC_BOOTSTRAP_ADMIN_USERNAME` and `KC_BOOTSTRAP_ADMIN_PASSWORD` instead in `docker-compose.yml`.
 
 ## License
 MIT

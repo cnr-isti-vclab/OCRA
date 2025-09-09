@@ -1,0 +1,25 @@
+services:
+  keycloak:
+    image: "quay.io/keycloak/keycloak:latest"
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak/realm-export:/opt/keycloak/data/import
+
+  app:
+    build: .
+    environment:
+      PROVIDER_URL: http://localhost:8081
+      REALM: demo
+      ISSUER: http://localhost:8081/realms/demo
+      CLIENT_ID: react-oauth
+      REDIRECT_URI: http://localhost:3001
+      SCOPE: "openid profile email"
+    ports:
+      - "3001:80"
+    depends_on:
+      - keycloak
