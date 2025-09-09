@@ -76,7 +76,11 @@ npm run dev
 - App (dev): http://localhost:5173 (Vite)
 - Keycloak: http://localhost:8081
 
-Ensure the Keycloak client `react-oauth` has redirect URL `http://localhost:3001/*` and web origin `http://localhost:3001` for Docker; for Vite dev, use `http://localhost:5173/*` and origin `http://localhost:5173`.
+**Important**: The Keycloak client `react-oauth` needs both redirect URIs configured:
+- For Docker: `http://localhost:3001/*` and web origin `http://localhost:3001`
+- For Vite dev: `http://localhost:5173/*` and web origin `http://localhost:5173`
+
+If you get "Invalid parameter: redirect_uri" errors during login, check that both URLs are configured in Keycloak Admin Console → Realm: demo → Clients → react-oauth → Valid redirect URIs.
 
 ## Configuration
 

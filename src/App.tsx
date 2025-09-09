@@ -57,7 +57,7 @@ export default function App() {
     <Card>
       <h1>Welcome</h1>
       {user ? (
-        <p>Signed in as: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
+        <p>Signed in as: First: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
       ) : (
         <p>Signed in. (No profile info)</p>
       )}
