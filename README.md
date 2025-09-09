@@ -1,4 +1,13 @@
-# React OAuth2 PKCE Demo (Keycloak)
+# ReGoals:
+- Minimal, readable React + TypeScript code
+- Clear comments explaining each step of the flow
+- Dockerized app and docker-compose to run with Keycloak locally
+
+## What is PKCE?
+
+**PKCE** (Proof Key for Code Exchange, pronounced "pixie") is a well-established OAuth2 security standard (RFC 7636) that prevents authorization code interception attacks. Instead of using a static client secret (which can't be safely stored in public clients like SPAs), PKCE generates a random code verifier and sends its hash during authorization. This ensures only the app that initiated the flow can exchange the authorization code for tokens. PKCE is widely supported by all major OAuth2 providers and is now the recommended approach for public clients.
+
+## What's insideuth2 PKCE Demo (Keycloak)
 
 A tiny, well-commented React 19 app showing the OAuth2 Authorization Code Flow with PKCE against Keycloak (or any OIDC/OAuth2 provider).
 
