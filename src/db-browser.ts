@@ -14,21 +14,10 @@
  * without requiring a full backend setup for the demo.
  */
 
+import type { OAuthTokens, UserProfile } from './types';
+
 // Simulate database storage using localStorage
 const DB_PREFIX = 'oauth_demo_db_';
-
-export interface OAuthTokens {
-  access_token: string;
-  refresh_token?: string;
-  id_token?: string;
-  expires_in: number;
-}
-
-export interface UserProfile {
-  sub: string;        // OAuth subject identifier
-  email: string;
-  name?: string;
-}
 
 interface DbUser {
   id: string;
@@ -53,9 +42,12 @@ interface DbSession {
 interface DbLoginEvent {
   id: string;
   userSub: string;
+  eventType: 'login' | 'logout';  // Added event type
   userAgent?: string;
   ipAddress?: string;
   success: boolean;
+  sessionId?: string;  // Added session ID reference
+  errorMessage?: string;  // Added error details
   createdAt: string;
 }
 
@@ -229,23 +221,29 @@ export async function cleanupExpiredSessions(): Promise<number> {
 }
 
 /**
- * Log login attempt for audit purposes
+ * Log login/logout attempt for audit purposes
  */
 export async function logLoginEvent(
   userSub: string,
   success: boolean,
   userAgent?: string,
-  ipAddress?: string
+  ipAddress?: string,
+  eventType: 'login' | 'logout' = 'login',
+  sessionId?: string,
+  errorMessage?: string
 ): Promise<void> {
-  console.log('🔧 [DEMO] Logging login event:', { userSub, success });
+  console.log('🔧 [DEMO] Logging login/logout event:', { userSub, success, eventType });
   
   try {
     const loginEvent: DbLoginEvent = {
       id: generateId(),
       userSub,
+      eventType,
       success,
       userAgent,
       ipAddress,
+      sessionId,
+      errorMessage,
       createdAt: new Date().toISOString(),
     };
 
@@ -253,11 +251,23 @@ export async function logLoginEvent(
     loginEvents.push(loginEvent);
     setStorageData('loginEvents', loginEvents);
     
-    console.log('✅ [DEMO] Login event logged successfully');
+    console.log(`✅ [DEMO] ${eventType} event logged successfully`);
   } catch (error) {
-    console.error('❌ [DEMO] Failed to log login event:', error);
-    // Don't throw - logging failure shouldn't break login
+    console.error(`❌ [DEMO] Failed to log ${eventType} event:`, error);
+    // Don't throw - logging failure shouldn't break login/logout
   }
+}
+
+/**
+ * Log logout event for audit purposes
+ */
+export async function logLogoutEvent(
+  userSub: string,
+  sessionId: string,
+  userAgent?: string,
+  ipAddress?: string
+): Promise<void> {
+  return logLoginEvent(userSub, true, userAgent, ipAddress, 'logout', sessionId);
 }
 
 /**
@@ -297,9 +307,68 @@ export function debugClearDatabase() {
   console.log('🗑️ [DEMO] Database cleared');
 }
 
+// Debug function to view recent audit events
+export function debugViewAuditLog(limit = 10) {
+  const events = getStorageData<DbLoginEvent>('loginEvents')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+  
+  console.log(`📋 [DEMO] Recent ${limit} audit events:`);
+  console.table(events.map(e => ({
+    eventType: e.eventType,
+    success: e.success,
+    userSub: e.userSub.substring(0, 8) + '...',
+    time: new Date(e.createdAt).toLocaleString(),
+    error: e.errorMessage || '—'
+  })));
+  
+  return events;
+}
+
 // Expose debug functions to window for easy testing
 if (typeof window !== 'undefined') {
   (window as any).debugViewDatabase = debugViewDatabase;
   (window as any).debugClearDatabase = debugClearDatabase;
-  console.log('🔧 [DEMO] Debug functions available: debugViewDatabase(), debugClearDatabase()');
+  (window as any).debugViewAuditLog = debugViewAuditLog;
+  console.log('🔧 [DEMO] Debug functions available: debugViewDatabase(), debugClearDatabase(), debugViewAuditLog()');
+  
+  // Add some demo audit events if database is empty (first time setup)
+  const existingEvents = getStorageData<DbLoginEvent>('loginEvents');
+  if (existingEvents.length === 0) {
+    const demoEvents: DbLoginEvent[] = [
+      {
+        id: generateId(),
+        userSub: 'demo-user-12345',
+        eventType: 'login',
+        success: false,
+        userAgent: 'Mozilla/5.0 (Demo Browser) Example Failed Login',
+        ipAddress: '192.168.1.100',
+        errorMessage: 'Invalid credentials',
+        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+      },
+      {
+        id: generateId(),
+        userSub: 'demo-user-12345',
+        eventType: 'login',
+        success: true,
+        userAgent: 'Mozilla/5.0 (Demo Browser) Example Successful Login',
+        ipAddress: '192.168.1.100',
+        sessionId: 'demo-session-123',
+        createdAt: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString(), // 23 hours ago
+      },
+      {
+        id: generateId(),
+        userSub: 'demo-user-12345',
+        eventType: 'logout',
+        success: true,
+        userAgent: 'Mozilla/5.0 (Demo Browser) Example Logout',
+        ipAddress: '192.168.1.100',
+        sessionId: 'demo-session-123',
+        createdAt: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(), // 22 hours ago
+      }
+    ];
+    
+    setStorageData('loginEvents', demoEvents);
+    console.log('📋 [DEMO] Added sample audit events for demonstration');
+  }
 }

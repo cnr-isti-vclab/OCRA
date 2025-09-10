@@ -12,6 +12,7 @@
  */
 
 import { PrismaClient } from './generated/prisma';
+import type { OAuthTokens, UserProfile } from './types';
 
 // Singleton Prisma client - reuse across the application
 let prisma: PrismaClient;
@@ -28,21 +29,6 @@ export function getPrismaClient(): PrismaClient {
     });
   }
   return prisma;
-}
-
-// OAuth token data structure
-export interface OAuthTokens {
-  access_token: string;
-  refresh_token?: string;
-  id_token?: string;
-  expires_in: number;
-}
-
-// User profile data from OAuth provider
-export interface UserProfile {
-  sub: string;        // OAuth subject identifier
-  email: string;
-  name?: string;
 }
 
 /**
@@ -167,13 +153,16 @@ export async function cleanupExpiredSessions(): Promise<number> {
 }
 
 /**
- * Log login attempt for audit purposes
+ * Log login/logout attempt for audit purposes
  */
 export async function logLoginEvent(
   userSub: string,
   success: boolean,
   userAgent?: string,
-  ipAddress?: string
+  ipAddress?: string,
+  eventType: 'login' | 'logout' = 'login',
+  sessionId?: string,
+  errorMessage?: string
 ): Promise<void> {
   const db = getPrismaClient();
   
@@ -181,15 +170,30 @@ export async function logLoginEvent(
     await db.loginEvent.create({
       data: {
         userSub,
+        eventType,
         success,
         userAgent,
         ipAddress,
+        sessionId,
+        errorMessage,
       },
     });
   } catch (error) {
-    console.error('Failed to log login event:', error);
-    // Don't throw - logging failure shouldn't break login
+    console.error(`Failed to log ${eventType} event:`, error);
+    // Don't throw - logging failure shouldn't break login/logout
   }
+}
+
+/**
+ * Log logout event for audit purposes
+ */
+export async function logLogoutEvent(
+  userSub: string,
+  sessionId: string,
+  userAgent?: string,
+  ipAddress?: string
+): Promise<void> {
+  return logLoginEvent(userSub, true, userAgent, ipAddress, 'logout', sessionId);
 }
 
 /**

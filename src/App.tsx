@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getConfig, isReturningFromAuth, completeAuthCodeFlow, loginWithRedirect, logout, getCurrentUser, isLoggedIn } from './oauth';
+import { startAuthFlow, completeAuthCodeFlow, logout, getCurrentUser, OAUTH_CONFIG } from './oauth-backend';
 
 type User = { name?: string; email?: string; sub: string };
 
@@ -13,27 +13,27 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        if (isReturningFromAuth(window.location)) {
+        // Check if we're returning from OAuth provider (code in URL)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('code')) {
           // Complete OAuth flow and get session
-          const { sessionId, userProfile } = await completeAuthCodeFlow();
-          console.log('OAuth flow completed, session created:', sessionId);
+          await completeAuthCodeFlow();
           
-          setIsAuthenticated(true);
-          setUser({
-            sub: userProfile.sub,
-            name: userProfile.name,
-            email: userProfile.email,
-          });
-          
-          // Clean the URL (remove code/state) for a nicer UX
-          window.history.replaceState({}, document.title, window.location.pathname);
+          // Get the user after session is created
+          const currentUser = await getCurrentUser();
+          if (currentUser) {
+            setIsAuthenticated(true);
+            setUser({
+              sub: currentUser.sub,
+              name: currentUser.name,
+              email: currentUser.email,
+            });
+          }
         } else {
           // Check if we have an existing valid session
-          const loggedIn = await isLoggedIn();
-          setIsAuthenticated(loggedIn);
-          
-          if (loggedIn) {
-            const currentUser = await getCurrentUser();
+          const currentUser = await getCurrentUser();
+          if (currentUser) {
+            setIsAuthenticated(true);
             setUser(currentUser);
           }
         }
@@ -48,20 +48,18 @@ export default function App() {
     init();
   }, []);
 
-  const cfg = getConfig();
-
   if (loading) return <Card><p>Loading…</p></Card>;
 
   if (!isAuthenticated) {
     return (
       <Card>
-        <h1>React OAuth2 PKCE Demo</h1>
-        <p style={{ color: '#555' }}>Provider: {cfg.issuer} | Realm: {cfg.realm} | Client: {cfg.clientId}</p>
+        <h1>React OAuth2 PKCE Demo with Backend API</h1>
+        <p style={{ color: '#555' }}>Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
         <p style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>
-          🔒 Now with <strong>database session storage</strong> instead of browser sessionStorage for improved security!
+          🔒 Now with <strong>backend API session storage</strong> for production-ready security!
         </p>
         {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
-        <button onClick={() => loginWithRedirect()}>Login</button>
+        <button onClick={() => startAuthFlow()}>Login</button>
       </Card>
     );
   }
@@ -72,7 +70,7 @@ export default function App() {
       {user ? (
         <div>
           <p>Signed in as: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
-          <p style={{ fontSize: 12, color: '#666' }}>Session stored in database • Sub: {user.sub}</p>
+          <p style={{ fontSize: 12, color: '#666' }}>Session stored via backend API • Sub: {user.sub}</p>
         </div>
       ) : (
         <p>Signed in. (No profile info)</p>
@@ -80,7 +78,8 @@ export default function App() {
       {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <a href="/profile">Profile</a>
-        <button onClick={() => logout()}>Logout</button>
+        <a href="/audit">Audit Log</a>
+        <button onClick={() => logout().then(() => window.location.reload())}>Logout</button>
       </div>
     </Card>
   );

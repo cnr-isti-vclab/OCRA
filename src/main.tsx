@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import App from './App'
 import Profile from './routes/Profile.tsx'
+import AuditLog from './routes/AuditLog.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 
 // Import database simulation to enable debug functions
@@ -74,6 +75,16 @@ const router = createBrowserRouter([
 		element: (
 			<RequireAuth>
 				<Profile />
+			</RequireAuth>
+		)
+	},
+	
+	// Protected audit log route: shows user's login/logout history
+	{
+		path: '/audit',
+		element: (
+			<RequireAuth>
+				<AuditLog />
 			</RequireAuth>
 		)
 	},

@@ -43,14 +43,17 @@ model Session {
   @@map("sessions")
 }
 
-// Optional: Login audit log
+// Login/logout audit log
 model LoginEvent {
-  id        String   @id @default(cuid())
-  userSub   String   // OAuth subject
-  userAgent String?
-  ipAddress String?
-  success   Boolean
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  userSub     String   // OAuth subject
+  eventType   String   // 'login' or 'logout'
+  userAgent   String?
+  ipAddress   String?
+  success     Boolean
+  sessionId   String?  // Reference to session (if applicable)
+  errorMessage String? // Error details for failed attempts
+  createdAt   DateTime @default(now())
 
   @@map("login_events")
 }

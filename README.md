@@ -1,5 +1,7 @@
-# ReGoals:
-- Minim## What's inside
+# Ocra min
+a minimal ## Prerequisites
+- Docker and Docker Compose
+- macOS/Linux/Windows## What's inside
 - React 19 + Vite app with routing:
   - Home page: starts Authorization Code + PKCE login, handles redirect/exchange, Logout
   - Protected Profile page: only accessible when logged in; shows user info from database
@@ -9,9 +11,9 @@
   - Login audit logging and session cleanup
   - Browser-compatible demo simulation (for frontend-only testing)
 - Keycloak realm export with a SPA client: `react-oauth`
-- Dockerfile and docker-compose.yml to run the app, database, and Keycloak togetheradable React + TypeScript code
+- Dockerfile and docker-compose.yml to run the app, database, and Keycloak together
+- Minimal, readable React + TypeScript code
 - Clear comments explaining each step of the flow
-- Dockerized app and docker-compose to run with Keycloak locally
 
 ## What is PKCE?
 
@@ -39,14 +41,16 @@ Goals:
 
 ## Quick start with Docker
 
-1) Build and start everything:
+1) Build and start everything (includes backend API server):
 
 ```sh
 docker compose up --build
 ```
 
-- App: http://localhost:3001
-- Keycloak Admin Console: http://localhost:8081 (admin / admin)
+- **App**: http://localhost:3001
+- **Backend API**: http://localhost:3002 (session management)
+- **Keycloak Admin Console**: http://localhost:8081 (admin / admin)
+- **PostgreSQL**: http://localhost:5432 (oauth_demo database)
 
 2) Create a user for the demo realm (don’t use admin/admin here)
   - Go to Keycloak Admin Console → Realm: demo → Users → Add user.
@@ -132,9 +136,11 @@ This demo now includes **Prisma + PostgreSQL** for secure session management:
 ## Files to look at
 
 **Core OAuth + Database:**
-- `src/oauth.ts` — PKCE flow with database session storage
-- `src/db-browser.ts` — Browser simulation of database operations
+- `src/oauth-backend.ts` — PKCE flow with backend API session storage
+- `src/db-browser.ts` — Browser simulation of database operations (legacy)
 - `src/db.ts` — Real Prisma database operations (for backend use)
+- `backend/server.js` — Express.js backend API server
+- `backend/db.js` — Backend database operations
 - `prisma/schema.prisma` — Database schema definition
 
 **React Components:**

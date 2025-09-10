@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { getCurrentUser } from '../oauth';
+import { getCurrentUser } from '../oauth-backend';
 
 /**
- * PROFILE ROUTE COMPONENT (Updated for Database Authentication)
+ * PROFILE ROUTE COMPONENT (Updated for Backend API)
  * 
  * This is a route component - a React component that gets rendered when
  * the user navigates to a specific URL (in this case: /profile).
  * 
- * DATABASE INTEGRATION CHANGES:
- * - Now fetches user data from database session instead of calling userinfo API
- * - Better performance (no external API call needed)
- * - Data is cached in database and always available
- * - More secure as tokens aren't exposed in browser storage
+ * BACKEND API INTEGRATION:
+ * - Now fetches user data from backend API session endpoint
+ * - Better security (tokens stored server-side only)
+ * - Data is validated and served by backend database
+ * - Session management handled by dedicated API service
  * 
  * Route components are just regular React components, but they:
  * 1. Are associated with a URL pattern in the router configuration
@@ -21,8 +21,8 @@ import { getCurrentUser } from '../oauth';
  * 
  * This component demonstrates a common pattern for protected routes:
  * - It's wrapped by RequireAuth (authentication guard)
- * - It fetches data on mount using the authenticated user's session
- * - It displays user-specific information from the database
+ * - It fetches data on mount using the backend API
+ * - It displays user-specific information from the session
  */
 
 export default function Profile() {
@@ -75,10 +75,10 @@ export default function Profile() {
       ) : (
         <p>Loading user info…</p>
       )}
-      <p style={{ marginTop: 16 }}>
-        {/* Simple navigation back to home - could also use useNavigate() hook */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 16 }}>
         <a href="/">← Back</a>
-      </p>
+        <a href="/audit">🔍 View Audit Log</a>
+      </div>
     </div>
   );
 }

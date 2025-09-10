@@ -1,0 +1,24 @@
+{
+  "name": "oauth-backend",
+  "version": "1.0.0",
+  "description": "OAuth session management backend API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:generate": "npx prisma generate"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "@prisma/client": "^5.0.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,21 +1,22 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { isLoggedIn } from '../oauth';
+import { getCurrentUser } from '../oauth-backend';
 
 /**
- * ROUTE GUARD COMPONENT (Updated for Database Authentication)
+ * ROUTE GUARD COMPONENT (Updated for Backend API)
  * 
  * RequireAuth is a "route guard" or "protected route" component that controls
  * access to certain parts of the application based on authentication status.
  * 
- * DATABASE INTEGRATION CHANGES:
- * - Now checks authentication status via database session instead of sessionStorage
- * - Validates session expiry server-side for better security
+ * BACKEND API INTEGRATION:
+ * - Now checks authentication status via backend API session validation
+ * - Validates session expiry and token validity server-side
  * - Handles async authentication checking with loading state
+ * - More secure than client-side token validation
  * 
  * How route guards work:
  * 1. They wrap other components/routes that need protection
- * 2. They check some condition (here: if user has valid session in database)
+ * 2. They check some condition (here: if user has valid session via API)
  * 3. If condition passes: render the protected content (children)
  * 4. If condition fails: redirect to a different route (usually login/home)
  * 
@@ -36,8 +37,8 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     // Check authentication status asynchronously
     const checkAuth = async () => {
       try {
-        const loggedIn = await isLoggedIn();
-        setAuthenticated(loggedIn);
+        const currentUser = await getCurrentUser();
+        setAuthenticated(!!currentUser);
       } catch (error) {
         console.error('Authentication check failed:', error);
         setAuthenticated(false);

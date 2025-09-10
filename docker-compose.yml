@@ -17,15 +17,34 @@ services:
       retries: 5
 
   keycloak:
-    image: "quay.io/keycloak/keycloak:latest"
-    command: start-dev --import-realm
+    image: quay.io/keycloak/keycloak:legacy
+    container_name: keycloak
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+      DB_VENDOR: h2
     ports:
       - "8081:8080"
     volumes:
-      - ./keycloak/realm-export:/opt/keycloak/data/import
+      - ./keycloak/realm-export:/opt/jboss/keycloak/imports
+    command: ["-b", "0.0.0.0", "-Dkeycloak.import=/opt/jboss/keycloak/imports/demo-realm.json"]
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: oauth-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+      - ./prisma:/app/prisma
 
   app:
     build: .
