@@ -5,10 +5,6 @@ import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 
-// Import database simulation to enable debug functions
-// Demo-only: expose mock DB debug helpers in development
-import './demo/db-mock';
-
 /**
  * SINGLE PAGE APPLICATIONS (SPAs)
  * 

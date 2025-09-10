@@ -189,7 +189,7 @@ export async function getCurrentUser(): Promise<any> {
   }
 }
 
-// Logout - clear session from backend and browser
+// Logout - clear session from backend and redirect to Keycloak logout
 export async function logout(): Promise<void> {
   const sessionId = localStorage.getItem('oauth_session_id');
   
@@ -209,7 +209,14 @@ export async function logout(): Promise<void> {
   localStorage.removeItem('oauth_session_id');
   sessionStorage.removeItem('oauth_code_verifier');
   
-  console.log('✅ Logout successful');
+  console.log('✅ Backend logout successful, redirecting to Keycloak logout...');
+  
+  // Redirect to Keycloak logout endpoint to terminate the Keycloak session
+  const logoutUrl = new URL(`${OAUTH_CONFIG.issuer.replace(/\/$/, '')}/protocol/openid-connect/logout`);
+  logoutUrl.searchParams.set('post_logout_redirect_uri', OAUTH_CONFIG.redirectUri);
+  logoutUrl.searchParams.set('client_id', OAUTH_CONFIG.clientId);
+  
+  window.location.href = logoutUrl.toString();
 }
 
 // Get user's audit log
