@@ -174,17 +174,8 @@ export async function getUserLoginHistory(userSub, limit = 20) {
   const db = getPrismaClient();
   
   try {
-    // Find user by sub
-    const user = await db.user.findUnique({
-      where: { sub: userSub },
-    });
-    
-    if (!user) {
-      return [];
-    }
-    
     const events = await db.loginEvent.findMany({
-      where: { userId: user.id },
+      where: { userSub: userSub },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
