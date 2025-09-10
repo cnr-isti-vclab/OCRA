@@ -19,8 +19,11 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 # Now copy the backend source code
 COPY backend/ .
 
+# Make the startup script executable
+RUN chmod +x start.sh
+
 # Expose port
 EXPOSE 3002
 
-# Start the server
-CMD ["node", "server.js"]
+# Start with the startup script that runs migrations first
+CMD ["sh", "./start.sh"]
