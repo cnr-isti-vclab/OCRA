@@ -11,14 +11,14 @@
  * This provides better security and allows for server-side session management.
  */
 
-import { 
-  createUserSession, 
-  getValidSession, 
-  deleteSession, 
+import {
+  createUserSession,
+  getValidSession,
+  deleteSession,
   logLoginEvent,
   logLogoutEvent,
   getUserLoginHistory,
-} from './db-browser'; // Use browser-compatible simulation
+} from './demo/db-mock'; // Use browser-compatible simulation
 
 import type { OAuthTokens, UserProfile } from './types';
 

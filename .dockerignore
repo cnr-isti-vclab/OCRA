@@ -1,0 +1,13 @@
+node_modules
+backend/node_modules
+backend/.env*
+.env*
+dist
+.vite
+.git
+.gitignore
+Dockerfile
+backend/Dockerfile
+**/*.log
+**/.DS_Store
+keycloak/realm-export/*.json

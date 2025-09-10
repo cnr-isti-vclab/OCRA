@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # PostgreSQL Database
   postgres:
@@ -47,11 +49,9 @@ services:
     depends_on:
       - postgres
     volumes:
-      # Bind mount backend sources, but keep container's node_modules via anonymous volume
       - ./backend:/app/backend:delegated
-      - /app/backend/node_modules
-      # Mount prisma schema read-only
-      - ./prisma:/app/prisma:ro
+      - backend_node_modules:/app/backend/node_modules
+      - ./prisma:/app/backend/prisma:ro
 
   app:
     build: .
@@ -72,6 +72,6 @@ services:
       keycloak:
         condition: service_started
 
-# Persistent volume for PostgreSQL data
 volumes:
   postgres_data:
+  backend_node_modules:

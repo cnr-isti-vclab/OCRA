@@ -6,7 +6,8 @@ import AuditLog from './routes/AuditLog.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 
 // Import database simulation to enable debug functions
-import './db-browser';
+// Demo-only: expose mock DB debug helpers in development
+import './demo/db-mock';
 
 /**
  * SINGLE PAGE APPLICATIONS (SPAs)

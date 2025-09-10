@@ -74,16 +74,13 @@ export async function getValidSession(sessionId) {
   const db = getPrismaClient();
   
   try {
-    const session = await db.session.findUnique({
-      where: { 
+    // findUnique cannot include additional filters; use findFirst with AND condition
+    const session = await db.session.findFirst({
+      where: {
         id: sessionId,
-        expiresAt: {
-          gt: new Date(), // Session must not be expired
-        },
+        expiresAt: { gt: new Date() },
       },
-      include: {
-        user: true, // Include user data
-      },
+      include: { user: true },
     });
     
     if (!session) {
@@ -143,19 +140,9 @@ export async function logLoginEvent(
   const db = getPrismaClient();
   
   try {
-    // Find user by sub
-    const user = await db.user.findUnique({
-      where: { sub: userSub },
-    });
-    
-    if (!user) {
-      console.warn(`User ${userSub} not found for logging`);
-      return;
-    }
-    
     await db.loginEvent.create({
       data: {
-        userId: user.id,
+  userSub,
         eventType,
         success,
         userAgent,
