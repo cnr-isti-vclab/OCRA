@@ -1,30 +1,26 @@
-# Backend service Dockerfile
+## Backend service Dockerfile
 FROM node:18-alpine
 
-WORKDIR /app
-
-# Copy package files first for better Docker layer caching
-COPY backend/package*.json ./backend/
-COPY prisma/ ./prisma/
-
-# Install dependencies in backend directory  
+# Work in the backend package folder
 WORKDIR /app/backend
+
+# Copy package files first for efficient layer caching
+COPY backend/package*.json ./
+
+# Install dependencies (include devDeps to run Prisma CLI during build)
 RUN npm install
 
-# Copy backend source files (but preserve node_modules)
-COPY backend/server.js ./server.js
-COPY backend/db.js ./db.js
+# Copy Prisma schema into a stable path
+COPY prisma /app/prisma
 
-# Copy prisma files to app root for generation
-WORKDIR /app
-COPY prisma/ ./prisma/
+# Generate Prisma Client for the container platform, using the backend's Prisma version
+RUN npx prisma generate --schema=/app/prisma/schema.prisma
 
-# Generate Prisma client
-RUN npx prisma generate
+# Now copy the backend source code
+COPY backend/ .
 
 # Expose port
 EXPOSE 3002
 
-# Start the server from backend directory
-WORKDIR /app/backend
+# Start the server
 CMD ["node", "server.js"]

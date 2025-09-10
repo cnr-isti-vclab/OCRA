@@ -17,17 +17,22 @@ services:
       retries: 5
 
   keycloak:
-    image: quay.io/keycloak/keycloak:legacy
+    image: quay.io/keycloak/keycloak:latest
     container_name: keycloak
     environment:
-      KEYCLOAK_USER: admin
-      KEYCLOAK_PASSWORD: admin
-      DB_VENDOR: h2
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
       - "8081:8080"
     volumes:
-      - ./keycloak/realm-export:/opt/jboss/keycloak/imports
-    command: ["-b", "0.0.0.0", "-Dkeycloak.import=/opt/jboss/keycloak/imports/demo-realm.json"]
+      - ./keycloak/realm-export:/opt/keycloak/data/import
+    command: start-dev --import-realm
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
 
   backend:
     build:
@@ -42,9 +47,11 @@ services:
     depends_on:
       - postgres
     volumes:
-      - ./backend:/app/backend
-      - ./src:/app/src
-      - ./prisma:/app/prisma
+      # Bind mount backend sources, but keep container's node_modules via anonymous volume
+      - ./backend:/app/backend:delegated
+      - /app/backend/node_modules
+      # Mount prisma schema read-only
+      - ./prisma:/app/prisma:ro
 
   app:
     build: .

@@ -164,10 +164,10 @@ This demo now includes **Prisma + PostgreSQL** for secure session management:
 
 ## Troubleshooting
 - If login fails at token exchange, check the browser devtools network tab for the POST to the token endpoint.
-- Make sure the redirect URI and web origins in Keycloak match the app URL (check ports 3001, 5173, 5174).
+- Make sure the redirect URI and web origins in Keycloak match the app URL (check ports 3001, 5173).
 - If database connection fails, ensure PostgreSQL is running: `docker compose up postgres`
-- If Keycloak is slow to start, wait for it to be ready before attempting login.
-- On newer Keycloak versions, `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` are deprecated. If you run into issues, set `KC_BOOTSTRAP_ADMIN_USERNAME` and `KC_BOOTSTRAP_ADMIN_PASSWORD` instead in `docker-compose.yml`.
+- If Keycloak is slow to start, wait for it to be ready before attempting login (it can take 60-90 seconds on first start).
+- The current configuration uses latest Keycloak with `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` environment variables.
 - Check browser console for database simulation logs (prefixed with `[DEMO]`).
 
 ## License

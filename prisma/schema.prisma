@@ -3,7 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  // Prisma 6 uses Node-API engines by default; no binaryTargets needed.
 }
 
 datasource db {

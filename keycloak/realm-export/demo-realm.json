@@ -4,6 +4,44 @@
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "sslRequired": "none",
+  "users": [
+    {
+      "username": "demo",
+      "email": "demo@example.com",
+      "firstName": "Demo",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "locale": ["en"]
+      }
+    },
+    {
+      "username": "student",
+      "email": "student@example.com", 
+      "firstName": "Student",
+      "lastName": "Example",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "student",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "locale": ["en"]
+      }
+    }
+  ],
   "clients": [
     {
       "clientId": "react-oauth",
