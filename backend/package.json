@@ -1,5 +1,5 @@
 {
-  "name": "oauth-backend",
+  "name": "backend",
   "version": "1.0.0",
   "description": "OAuth session management backend API",
   "main": "server.js",

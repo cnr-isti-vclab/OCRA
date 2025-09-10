@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getCurrentUser } from '../oauth-backend';
+import { getCurrentUser } from '../backend';
 
 /**
  * ROUTE GUARD COMPONENT (Updated for Backend API)

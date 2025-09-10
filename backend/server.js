@@ -26,7 +26,7 @@ app.use(express.json());
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'oauth-backend' });
+  res.json({ status: 'ok', service: 'backend' });
 });
 
 // Create user session after OAuth token exchange

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { startAuthFlow, completeAuthCodeFlow, logout, getCurrentUser, OAUTH_CONFIG } from './oauth-backend';
+import { startAuthFlow, completeAuthCodeFlow, logout, getCurrentUser, OAUTH_CONFIG } from './backend';
 
 type User = { name?: string; email?: string; sub: string };
 

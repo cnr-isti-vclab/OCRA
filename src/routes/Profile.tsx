@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getCurrentUser } from '../oauth-backend';
+import { getCurrentUser } from '../backend';
 
 /**
  * PROFILE ROUTE COMPONENT (Updated for Backend API)

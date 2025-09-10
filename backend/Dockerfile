@@ -4,8 +4,8 @@ FROM node:18-alpine
 # Work in the backend package folder
 WORKDIR /app/backend
 
-# Copy package files first for efficient layer caching
-COPY backend/package*.json ./
+# Copy only package.json for efficient layer caching (avoid stale lockfile pinning old Prisma)
+COPY backend/package.json ./
 
 # Install dependencies (include devDeps to run Prisma CLI during build)
 RUN npm install

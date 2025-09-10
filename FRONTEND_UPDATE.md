@@ -5,7 +5,7 @@
 The frontend has been successfully updated to use the new backend API instead of the browser localStorage simulation:
 
 ### Changed Files:
-- `src/App.tsx` - Updated to use `oauth-backend.ts` with proper error handling
+- `src/App.tsx` - Updated to use `backend.ts` with proper error handling
 - `src/routes/Profile.tsx` - Updated to fetch user data from backend API
 - `src/routes/AuditLog.tsx` - Updated to fetch audit logs from backend API  
 - `src/routes/RequireAuth.tsx` - Updated authentication check via backend API
@@ -23,7 +23,7 @@ import { createUserSession } from './db-browser';
 
 #### After (Backend API):
 ```typescript
-import { getCurrentUser, startAuthFlow } from './oauth-backend';
+import { getCurrentUser, startAuthFlow } from './backend';
 
 // Only stores session ID locally
 // All session management via backend API at http://localhost:3002

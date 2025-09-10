@@ -136,7 +136,7 @@ This demo now includes **Prisma + PostgreSQL** for secure session management:
 ## Files to look at
 
 **Core OAuth + Database:**
-- `src/oauth-backend.ts` — PKCE flow with backend API session storage
+- `src/backend.ts` — PKCE flow with backend API session storage
 - `src/db-browser.ts` — Browser simulation of database operations (legacy)
 - `src/db.ts` — Real Prisma database operations (for backend use)
 - `backend/server.js` — Express.js backend API server

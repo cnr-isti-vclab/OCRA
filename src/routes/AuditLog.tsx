@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getUserAuditLog } from '../oauth-backend';
+import { getUserAuditLog } from '../backend';
 
 /**
  * AUDIT LOG COMPONENT (Updated for Backend API)

@@ -38,7 +38,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: oauth-backend
+    container_name: backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo
       PORT: 3002
