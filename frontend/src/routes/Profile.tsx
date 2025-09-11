@@ -50,35 +50,73 @@ export default function Profile() {
   }, []); // Empty dependency array means this runs once on mount
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Profile</h1>
-      {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
+    <div>
+      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>Profile</h1>
+      {error && <p style={{ color: 'crimson', marginBottom: '1rem' }}>Error: {error}</p>}
       {info ? (
         <div>
-          <ul>
-            <li><strong>Name:</strong> {info.name ?? '—'}</li>
-            <li><strong>Email:</strong> {info.email ?? '—'}</li>
-            <li><strong>OAuth Subject:</strong> {info.sub ?? '—'}</li>
-          </ul>
-          <div style={{ 
-            marginTop: 16, 
-            padding: 12, 
-            backgroundColor: '#f0f8ff', 
-            border: '1px solid #0066cc', 
-            borderRadius: 4,
-            fontSize: 14 
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            marginBottom: '2rem'
           }}>
-            <strong>🔒 Security Note:</strong> This user data is now stored securely in the database 
-            instead of browser sessionStorage. Your access tokens are server-side only!
+            <h2 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#34495e' }}>User Information</h2>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div>
+                <strong style={{ color: '#2c3e50' }}>Name:</strong>
+                <span style={{ marginLeft: '0.5rem', color: '#555' }}>{info.name ?? 'Not provided'}</span>
+              </div>
+              <div>
+                <strong style={{ color: '#2c3e50' }}>Email:</strong>
+                <span style={{ marginLeft: '0.5rem', color: '#555' }}>{info.email ?? 'Not provided'}</span>
+              </div>
+              <div>
+                <strong style={{ color: '#2c3e50' }}>OAuth Subject:</strong>
+                <span style={{ 
+                  marginLeft: '0.5rem', 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.9rem',
+                  color: '#666',
+                  backgroundColor: '#f8f9fa',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px'
+                }}>
+                  {info.sub ?? 'Not provided'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ 
+            backgroundColor: '#e8f5e8',
+            border: '1px solid #27ae60',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            fontSize: '0.95rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>🔒</span>
+              <strong style={{ color: '#27ae60' }}>Security Information</strong>
+            </div>
+            <p style={{ margin: 0, color: '#2d5a2d', lineHeight: '1.5' }}>
+              This user data is securely stored in the database with server-side session management. 
+              Your OAuth access tokens are never exposed to the browser and remain protected on the backend.
+            </p>
           </div>
         </div>
       ) : (
-        <p>Loading user info…</p>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <p style={{ margin: 0, color: '#666' }}>Loading user information...</p>
+        </div>
       )}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 16 }}>
-        <a href="/">← Back</a>
-        <a href="/audit">🔍 View Audit Log</a>
-      </div>
     </div>
   );
 }

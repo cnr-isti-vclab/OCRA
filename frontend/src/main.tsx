@@ -1,9 +1,11 @@
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import './index.css'
 import App from './App'
 import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
+import SidebarLayout from './components/SidebarLayout.tsx'
 
 /**
  * SINGLE PAGE APPLICATIONS (SPAs)
@@ -66,12 +68,14 @@ const router = createBrowserRouter([
 	// Protected route: requires authentication to access
 	// The RequireAuth wrapper component checks if user is logged in
 	// If not authenticated, it redirects to home page
-	// If authenticated, it renders the Profile component
+	// If authenticated, it renders the Profile component with sidebar layout
 	{
 		path: '/profile',
 		element: (
 			<RequireAuth>
-				<Profile />
+				<SidebarLayout>
+					<Profile />
+				</SidebarLayout>
 			</RequireAuth>
 		)
 	},
@@ -81,7 +85,9 @@ const router = createBrowserRouter([
 		path: '/audit',
 		element: (
 			<RequireAuth>
-				<AuditLog />
+				<SidebarLayout>
+					<AuditLog />
+				</SidebarLayout>
 			</RequireAuth>
 		)
 	},

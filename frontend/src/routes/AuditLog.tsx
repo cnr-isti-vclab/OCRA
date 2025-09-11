@@ -52,71 +52,104 @@ export default function AuditLog() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24 }}>
-        <h2>Audit Log</h2>
-        <p>Loading audit events...</p>
+      <div>
+        <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>Audit Log</h1>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <p style={{ margin: 0, color: '#666' }}>Loading audit events...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: 24 }}>
-        <h2>Audit Log</h2>
-        <p style={{ color: 'crimson' }}>Error loading audit log: {error}</p>
+      <div>
+        <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>Audit Log</h1>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }}>
+          <p style={{ color: 'crimson', margin: 0 }}>Error loading audit log: {error}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>🔍 Security Audit Log</h2>
-      <p style={{ color: '#666', marginBottom: 16 }}>
+    <div>
+      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>🔍 Security Audit Log</h1>
+      <p style={{ color: '#666', marginBottom: '2rem', fontSize: '1.1rem' }}>
         Track your login and logout activity for security monitoring.
       </p>
       
       {events.length === 0 ? (
-        <p>No audit events found.</p>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <p style={{ margin: 0, color: '#666' }}>No audit events found.</p>
+        </div>
       ) : (
-        <div style={{ 
-          border: '1px solid #ddd', 
-          borderRadius: 8, 
-          overflow: 'hidden' 
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          overflow: 'hidden'
         }}>
           {events.map((event, index) => (
             <div
               key={event.id}
               style={{
-                padding: 12,
+                padding: '1.5rem',
                 borderBottom: index < events.length - 1 ? '1px solid #eee' : 'none',
-                backgroundColor: index % 2 === 0 ? '#f9f9f9' : 'white',
+                backgroundColor: index % 2 === 0 ? '#fafafa' : 'white',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 flexWrap: 'wrap',
-                gap: 8,
+                gap: '1rem',
               }}
             >
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: '250px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                   <span
                     style={{
                       display: 'inline-block',
-                      width: 8,
-                      height: 8,
+                      width: '10px',
+                      height: '10px',
                       borderRadius: '50%',
                       backgroundColor: event.success 
-                        ? (event.eventType === 'login' ? '#4CAF50' : '#2196F3')
-                        : '#F44336',
+                        ? (event.eventType === 'login' ? '#27ae60' : '#3498db')
+                        : '#e74c3c',
                     }}
                   />
-                  <strong style={{ textTransform: 'capitalize' }}>
+                  <strong style={{ 
+                    textTransform: 'capitalize',
+                    fontSize: '1.1rem',
+                    color: '#2c3e50'
+                  }}>
                     {event.eventType}
                   </strong>
                   <span style={{ 
-                    fontSize: 12, 
-                    color: event.success ? '#4CAF50' : '#F44336',
-                    fontWeight: 'bold'
+                    fontSize: '0.8rem', 
+                    color: 'white',
+                    backgroundColor: event.success 
+                      ? (event.eventType === 'login' ? '#27ae60' : '#3498db')
+                      : '#e74c3c',
+                    fontWeight: 'bold',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '12px'
                   }}>
                     {event.success ? 'SUCCESS' : 'FAILED'}
                   </span>
@@ -124,36 +157,40 @@ export default function AuditLog() {
                 
                 {event.errorMessage && (
                   <div style={{ 
-                    fontSize: 12, 
-                    color: '#F44336', 
-                    marginTop: 4,
-                    fontFamily: 'monospace'
+                    fontSize: '0.9rem', 
+                    color: '#e74c3c', 
+                    marginBottom: '0.5rem',
+                    fontFamily: 'monospace',
+                    backgroundColor: '#fdf2f2',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid #fadbd8'
                   }}>
-                    Error: {event.errorMessage}
+                    <strong>Error:</strong> {event.errorMessage}
                   </div>
                 )}
                 
                 {event.userAgent && (
                   <div style={{ 
-                    fontSize: 11, 
+                    fontSize: '0.85rem', 
                     color: '#666', 
-                    marginTop: 4,
                     fontFamily: 'monospace',
-                    maxWidth: 300,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    backgroundColor: '#f8f9fa',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    wordBreak: 'break-all'
                   }}>
-                    {event.userAgent}
+                    <strong>User Agent:</strong> {event.userAgent}
                   </div>
                 )}
               </div>
               
               <div style={{ 
-                fontSize: 12, 
+                fontSize: '0.9rem', 
                 color: '#666',
                 textAlign: 'right',
-                minWidth: 120
+                minWidth: '150px',
+                fontFamily: 'monospace'
               }}>
                 {new Date(event.createdAt).toLocaleString()}
               </div>
@@ -163,20 +200,22 @@ export default function AuditLog() {
       )}
       
       <div style={{ 
-        marginTop: 16, 
-        padding: 12, 
-        backgroundColor: '#e3f2fd', 
-        border: '1px solid #1976d2', 
-        borderRadius: 4,
-        fontSize: 12 
+        marginTop: '2rem', 
+        padding: '1.5rem', 
+        backgroundColor: '#e8f5e8', 
+        border: '1px solid #27ae60', 
+        borderRadius: '8px',
+        fontSize: '0.95rem'
       }}>
-        <strong>🛡️ Security Note:</strong> This audit log helps you monitor account activity. 
-        If you see any suspicious login attempts, please secure your account immediately.
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>🛡️</span>
+          <strong style={{ color: '#27ae60' }}>Security Information</strong>
+        </div>
+        <p style={{ margin: 0, color: '#2d5a2d', lineHeight: '1.5' }}>
+          This audit log helps you monitor account activity. If you see any suspicious 
+          login attempts, please secure your account immediately and contact support.
+        </p>
       </div>
-      
-      <p style={{ marginTop: 16 }}>
-        <a href="/profile">← Back to Profile</a>
-      </p>
     </div>
   );
 }

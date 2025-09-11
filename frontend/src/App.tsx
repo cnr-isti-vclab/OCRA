@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { startAuthFlow, completeAuthCodeFlow, logout, getCurrentUser, OAUTH_CONFIG } from './backend';
 
 type User = { name?: string; email?: string; sub: string };
 
 export default function App() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -28,6 +30,8 @@ export default function App() {
               name: currentUser.name,
               email: currentUser.email,
             });
+            // Redirect to profile page after successful login
+            navigate('/profile');
           }
         } else {
           // Check if we have an existing valid session
@@ -35,6 +39,8 @@ export default function App() {
           if (currentUser) {
             setIsAuthenticated(true);
             setUser(currentUser);
+            // Redirect to profile page if already authenticated
+            navigate('/profile');
           }
         }
       } catch (e: any) {
@@ -71,16 +77,23 @@ export default function App() {
         <div>
           <p>Signed in as: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
           <p style={{ fontSize: 12, color: '#666' }}>Session stored via backend API • Sub: {user.sub}</p>
+          <p style={{ marginTop: 16 }}>
+            <a href="/profile" style={{ 
+              backgroundColor: '#3498db', 
+              color: 'white', 
+              padding: '0.5rem 1rem', 
+              textDecoration: 'none', 
+              borderRadius: '4px',
+              display: 'inline-block'
+            }}>
+              Go to Dashboard →
+            </a>
+          </p>
         </div>
       ) : (
         <p>Signed in. (No profile info)</p>
       )}
       {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <a href="/profile">Profile</a>
-        <a href="/audit">Audit Log</a>
-        <button onClick={() => logout()}>Logout</button>
-      </div>
     </Card>
   );
 }
