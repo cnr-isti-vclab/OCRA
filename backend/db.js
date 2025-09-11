@@ -38,12 +38,18 @@ export async function createUserSession(profile, tokens) {
       update: {
         name: profile.name,
         email: profile.email,
+        given_name: profile.given_name,
+        family_name: profile.family_name,
+        middle_name: profile.middle_name,
         updatedAt: new Date(),
       },
       create: {
         sub: profile.sub,
         name: profile.name,
         email: profile.email,
+        given_name: profile.given_name,
+        family_name: profile.family_name,
+        middle_name: profile.middle_name,
       },
     });
     
@@ -97,6 +103,9 @@ export async function getValidSession(sessionId) {
         sub: session.user.sub,
         name: session.user.name,
         email: session.user.email,
+        given_name: session.user.given_name,
+        family_name: session.user.family_name,
+        middle_name: session.user.middle_name,
       },
     };
     

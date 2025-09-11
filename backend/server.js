@@ -38,6 +38,9 @@ app.post('/api/sessions', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Debug: Log what profile information we received
+    console.log('📋 Received user profile from OAuth provider:', JSON.stringify(userProfile, null, 2));
+
     const sessionId = await createUserSession(userProfile, tokens);
     
     // Log successful login
@@ -148,6 +151,43 @@ app.get('/api/users/:userSub/audit', async (req, res) => {
   } catch (error) {
     console.error('Failed to get audit log:', error);
     res.status(500).json({ error: 'Failed to get audit log' });
+  }
+});
+
+// Debug endpoint to test userinfo from Keycloak
+app.get('/api/debug/userinfo/:accessToken', async (req, res) => {
+  try {
+    const { accessToken } = req.params;
+    
+    console.log('🔍 Testing userinfo endpoint with access token...');
+    
+    const response = await fetch('http://keycloak:8080/realms/demo/protocol/openid-connect/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Userinfo request failed: ${response.status}`);
+    }
+    
+    const userinfo = await response.json();
+    console.log('📋 Raw userinfo from Keycloak:', JSON.stringify(userinfo, null, 2));
+    
+    res.json({
+      status: 'success',
+      userinfo: userinfo,
+      availableFields: Object.keys(userinfo),
+      standardNameFields: {
+        given_name: userinfo.given_name || 'NOT_AVAILABLE',
+        family_name: userinfo.family_name || 'NOT_AVAILABLE', 
+        middle_name: userinfo.middle_name || 'NOT_AVAILABLE'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Failed to get userinfo:', error);
+    res.status(500).json({ error: 'Failed to get userinfo', details: error.message });
   }
 });
 
