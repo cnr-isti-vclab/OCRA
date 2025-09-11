@@ -1,30 +1,28 @@
 {
-  "name": "react-oauth2-pkce-demo",
+  "name": "ocra-min",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "description": "OAuth2 PKCE Demo with React Frontend and Node.js Backend",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview --port 3000",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force"
+    "dev": "docker compose up -d",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "clean": "docker compose down",
+    "logs": "docker compose logs -f",
+    "logs:backend": "docker compose logs -f backend",
+    "logs:frontend": "docker compose logs -f app",
+    "install": "npm run install:frontend && npm run install:backend",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && npm install",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:generate": "cd backend && npx prisma generate",
+    "db:studio": "cd backend && npx prisma studio",
+    "db:reset": "cd backend && npx prisma migrate reset --force"
   },
-  "dependencies": {
-    "@prisma/client": "^6.15.0",
-    "prisma": "^6.15.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^7.8.2"
-  },
-  "devDependencies": {
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.2",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.5"
-  }
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
 }
