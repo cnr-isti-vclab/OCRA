@@ -19,6 +19,9 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 # Now copy the backend source code
 COPY backend/ .
 
+# Build TypeScript to JavaScript
+RUN npm run build
+
 # Make the startup script executable
 RUN chmod +x start.sh
 

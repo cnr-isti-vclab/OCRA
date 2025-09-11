@@ -2,12 +2,14 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "OAuth session management backend API",
-  "main": "server.js",
+  "main": "server.ts",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "seed": "node seed.js",
+    "start": "node dist/server.js",
+    "dev": "tsx watch server.ts",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "seed": "tsx seed.ts",
     "prisma:push": "npx prisma db push",
     "prisma:generate": "npx prisma generate"
   },
@@ -17,7 +19,12 @@
     "@prisma/client": "^6.15.0"
   },
   "devDependencies": {
-    "prisma": "^6.15.0"
+    "prisma": "^6.15.0",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "tsx": "^4.7.0"
   },
   "engines": {
     "node": ">=18"
