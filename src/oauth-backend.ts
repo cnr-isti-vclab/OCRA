@@ -150,7 +150,7 @@ export async function completeAuthCodeFlow(): Promise<void> {
     sessionStorage.removeItem('oauth_code_verifier');
     window.history.replaceState({}, document.title, window.location.pathname);
     
-    console.log('✅ OAuth login successful');
+    console.log('✅ OAuth login very successful');
     
   } catch (error) {
     // Clean up on error
@@ -162,17 +162,25 @@ export async function completeAuthCodeFlow(): Promise<void> {
 
 // Get current user from backend session
 export async function getCurrentUser(): Promise<any> {
+  console.log('🔍 getCurrentUser called');
+  
   const sessionId = localStorage.getItem('oauth_session_id');
+  console.log('📄 Session ID from localStorage:', sessionId);
+  
   if (!sessionId) {
+    console.log('❌ No session ID found');
     return null;
   }
   
   try {
+    console.log('🌐 Fetching session from backend...');
     const response = await fetch(`${API_BASE}/sessions/${sessionId}`);
     
     if (!response.ok) {
+      console.log(`❌ Backend response not ok: ${response.status}`);
       if (response.status === 404) {
         // Session expired or not found
+        console.log('🗑️ Removing invalid session ID from localStorage');
         localStorage.removeItem('oauth_session_id');
         return null;
       }
@@ -180,10 +188,11 @@ export async function getCurrentUser(): Promise<any> {
     }
     
     const data = await response.json();
+    console.log('✅ Got user from backend:', data.user);
     return data.user;
     
   } catch (error) {
-    console.error('Error getting current user:', error);
+    console.error('❌ Error getting current user:', error);
     localStorage.removeItem('oauth_session_id');
     return null;
   }
@@ -191,16 +200,20 @@ export async function getCurrentUser(): Promise<any> {
 
 // Logout - clear session from backend and redirect to Keycloak logout
 export async function logout(): Promise<void> {
+  console.log('🚀 Logout function called');
   const sessionId = localStorage.getItem('oauth_session_id');
+  console.log('📍 Session ID:', sessionId);
   
   if (sessionId) {
     try {
+      console.log('🔄 Calling backend logout API...');
       // Delete session from backend (this also logs the logout event)
-      await fetch(`${API_BASE}/sessions/${sessionId}`, {
+      const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
         method: 'DELETE'
       });
+      console.log('✅ Backend logout response:', response.status, response.ok);
     } catch (error) {
-      console.error('Error during backend logout:', error);
+      console.error('❌ Error during backend logout:', error);
       // Continue with local cleanup even if backend call fails
     }
   }
@@ -209,14 +222,106 @@ export async function logout(): Promise<void> {
   localStorage.removeItem('oauth_session_id');
   sessionStorage.removeItem('oauth_code_verifier');
   
+  console.log('🧹 Local storage cleared');
   console.log('✅ Backend logout successful, redirecting to Keycloak logout...');
   
-  // Redirect to Keycloak logout endpoint to terminate the Keycloak session
+  // Clear all possible browser storage
+  console.log('🗑️ Clearing all browser storage...');
+  
+  // First, clear specific OAuth-related items
+  const oauthKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.includes('oauth') || key.includes('keycloak') || key.includes('auth') || key.includes('demo') || key.includes('session'))) {
+      oauthKeys.push(key);
+    }
+  }
+  
+  console.log('🔍 Found OAuth-related localStorage keys:', oauthKeys);
+  oauthKeys.forEach(key => {
+    console.log(`🗑️ Removing localStorage key: ${key}`);
+    localStorage.removeItem(key);
+  });
+  
+  // Clear localStorage and sessionStorage completely
+  localStorage.clear();
+  sessionStorage.clear();
+  
+  // Clear all cookies more thoroughly
+  const clearCookies = () => {
+    const cookies = document.cookie.split(";");
+    
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i];
+      const eqPos = cookie.indexOf("=");
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      
+      // Clear for current domain and path
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + window.location.hostname;
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=." + window.location.hostname;
+      
+      // Also try clearing for Keycloak domain if different
+      const keycloakDomain = new URL(OAUTH_CONFIG.issuer).hostname;
+      if (keycloakDomain !== window.location.hostname) {
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + keycloakDomain;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=." + keycloakDomain;
+      }
+    }
+  };
+  
+  clearCookies();
+  
+  // Clear IndexedDB if available
+  if ('indexedDB' in window) {
+    try {
+      indexedDB.databases().then(databases => {
+        databases.forEach(db => {
+          if (db.name) {
+            indexedDB.deleteDatabase(db.name);
+            console.log('🗑️ Cleared IndexedDB:', db.name);
+          }
+        });
+      }).catch(console.error);
+    } catch (error) {
+      console.log('❌ Could not clear IndexedDB:', error);
+    }
+  }
+  
+  // Clear Cache API if available
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        caches.delete(name);
+        console.log('🗑️ Cleared cache:', name);
+      });
+    }).catch(console.error);
+  }
+  
+  console.log('✅ All browser storage cleared');
+  
+  // For complete logout, we need to redirect to Keycloak's logout URL
+  // and then back to our application
   const logoutUrl = new URL(`${OAUTH_CONFIG.issuer.replace(/\/$/, '')}/protocol/openid-connect/logout`);
   logoutUrl.searchParams.set('post_logout_redirect_uri', OAUTH_CONFIG.redirectUri);
   logoutUrl.searchParams.set('client_id', OAUTH_CONFIG.clientId);
   
-  window.location.href = logoutUrl.toString();
+  console.log('🔗 Logout URL prepared:', logoutUrl.toString());
+  console.log('⏳ Waiting 2 seconds for console messages to be visible...');
+  console.log('💡 TIP: Keep DevTools open to see all logout messages');
+  
+  // Store logout completion in sessionStorage for debugging
+  sessionStorage.setItem('logout_debug', JSON.stringify({
+    timestamp: new Date().toISOString(),
+    logoutUrl: logoutUrl.toString(),
+    step: 'about_to_redirect'
+  }));
+  
+  // Wait longer for console messages to be visible before redirect
+  setTimeout(() => {
+    console.log('🚀 Now redirecting to Keycloak logout...');
+    window.location.href = logoutUrl.toString();
+  }, 2000);
 }
 
 // Get user's audit log
@@ -245,4 +350,136 @@ export async function getUserAuditLog(limit: number = 20): Promise<any[]> {
     console.error('Error getting audit log:', error);
     return [];
   }
+}
+
+// Debug function to inspect browser storage
+export function inspectBrowserStorage(): void {
+  console.log('🔍 === BROWSER STORAGE INSPECTION ===');
+  
+  // Check for logout debug info first
+  const logoutDebug = sessionStorage.getItem('logout_debug');
+  if (logoutDebug) {
+    console.log('🚪 Last logout attempt:', JSON.parse(logoutDebug));
+  }
+  
+  // Check localStorage
+  console.log('📦 localStorage:');
+  const oauthRelated = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      const value = localStorage.getItem(key);
+      const isOAuthRelated = key.includes('oauth') || key.includes('keycloak') || key.includes('auth') || key.includes('demo') || key.includes('session');
+      if (isOAuthRelated) {
+        console.log(`  🔑 ${key}:`, value);
+        oauthRelated.push(key);
+      } else {
+        console.log(`  ${key}:`, value);
+      }
+    }
+  }
+  if (oauthRelated.length > 0) {
+    console.log('⚠️ OAuth-related localStorage keys found:', oauthRelated);
+  }
+  
+  // Check sessionStorage
+  console.log('📦 sessionStorage:');
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key) {
+      console.log(`  ${key}:`, sessionStorage.getItem(key));
+    }
+  }
+  
+  // Check cookies
+  console.log('🍪 Cookies:');
+  if (document.cookie) {
+    document.cookie.split(';').forEach(cookie => {
+      console.log(`  ${cookie.trim()}`);
+    });
+  } else {
+    console.log('  No cookies found');
+  }
+  
+  // Check IndexedDB
+  if ('indexedDB' in window) {
+    indexedDB.databases().then(databases => {
+      console.log('🗃️ IndexedDB databases:');
+      databases.forEach(db => {
+        console.log(`  ${db.name} (version: ${db.version})`);
+      });
+    }).catch(error => {
+      console.log('❌ Could not inspect IndexedDB:', error);
+    });
+  }
+  
+  console.log('🔍 === END INSPECTION ===');
+}
+
+// Debug function to check last logout attempt
+export function checkLastLogout(): void {
+  console.log('🚪 === LOGOUT DEBUG INFO ===');
+  const logoutDebug = sessionStorage.getItem('logout_debug');
+  if (logoutDebug) {
+    const debug = JSON.parse(logoutDebug);
+    console.log('📅 Last logout timestamp:', debug.timestamp);
+    console.log('🔗 Logout URL used:', debug.logoutUrl);
+    console.log('📍 Step reached:', debug.step);
+    
+    // Calculate time since logout
+    const logoutTime = new Date(debug.timestamp);
+    const now = new Date();
+    const timeDiff = Math.round((now.getTime() - logoutTime.getTime()) / 1000);
+    console.log(`⏱️ Time since logout: ${timeDiff} seconds ago`);
+  } else {
+    console.log('❌ No logout debug info found');
+  }
+  console.log('🚪 === END LOGOUT DEBUG ===');
+}
+
+// Make inspection function available globally for debugging
+if (typeof window !== 'undefined') {
+  (window as any).inspectBrowserStorage = inspectBrowserStorage;
+  (window as any).checkLastLogout = checkLastLogout;
+  
+  // Add a function to test authentication state
+  (window as any).testAuthState = async () => {
+    console.log('🧪 === AUTHENTICATION STATE TEST ===');
+    
+    const sessionId = localStorage.getItem('oauth_session_id');
+    console.log('📄 Session ID in localStorage:', sessionId);
+    
+    if (sessionId) {
+      try {
+        const response = await fetch(`${API_BASE}/sessions/${sessionId}`);
+        console.log('🌐 Backend session response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Backend session data:', data);
+        } else {
+          console.log('❌ Backend session invalid');
+        }
+      } catch (error) {
+        console.log('❌ Backend session error:', error);
+      }
+    }
+    
+    // Test if clearing ONLY oauth_session_id affects authentication
+    console.log('🧪 Testing if clearing oauth_session_id alone breaks auth...');
+    const originalSessionId = localStorage.getItem('oauth_session_id');
+    if (originalSessionId) {
+      localStorage.removeItem('oauth_session_id');
+      console.log('🗑️ Temporarily removed oauth_session_id');
+      
+      const user = await getCurrentUser();
+      console.log('👤 getCurrentUser() result after removing session ID:', user);
+      
+      // Restore it
+      localStorage.setItem('oauth_session_id', originalSessionId);
+      console.log('🔄 Restored oauth_session_id');
+    }
+    
+    console.log('🧪 === END AUTHENTICATION TEST ===');
+  };
 }

@@ -14,9 +14,9 @@ datasource db {
 // User model - stores OAuth user information
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String   // Removed @unique - emails can be shared across different OAuth providers
   name      String?
-  sub       String   @unique // OAuth subject identifier
+  sub       String   @unique // OAuth subject identifier - this is the true unique ID
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

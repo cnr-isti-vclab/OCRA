@@ -79,7 +79,7 @@ export default function App() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <a href="/profile">Profile</a>
         <a href="/audit">Audit Log</a>
-        <button onClick={() => logout().then(() => window.location.reload())}>Logout</button>
+        <button onClick={() => logout()}>Logout</button>
       </div>
     </Card>
   );
