@@ -88,23 +88,6 @@ export default function Profile() {
               </div>
             </div>
           </div>
-          
-          <div style={{ 
-            backgroundColor: '#e8f5e8',
-            border: '1px solid #27ae60',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            fontSize: '0.95rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>🔒</span>
-              <strong style={{ color: '#27ae60' }}>Security Information</strong>
-            </div>
-            <p style={{ margin: 0, color: '#2d5a2d', lineHeight: '1.5' }}>
-              This user data is securely stored in the database with server-side session management. 
-              Your OAuth access tokens are never exposed to the browser and remain protected on the backend.
-            </p>
-          </div>
         </div>
       ) : (
         <div style={{

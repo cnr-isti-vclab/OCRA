@@ -198,24 +198,6 @@ export default function AuditLog() {
           ))}
         </div>
       )}
-      
-      <div style={{ 
-        marginTop: '2rem', 
-        padding: '1.5rem', 
-        backgroundColor: '#e8f5e8', 
-        border: '1px solid #27ae60', 
-        borderRadius: '8px',
-        fontSize: '0.95rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-          <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>🛡️</span>
-          <strong style={{ color: '#27ae60' }}>Security Information</strong>
-        </div>
-        <p style={{ margin: 0, color: '#2d5a2d', lineHeight: '1.5' }}>
-          This audit log helps you monitor account activity. If you see any suspicious 
-          login attempts, please secure your account immediately and contact support.
-        </p>
-      </div>
     </div>
   );
 }
