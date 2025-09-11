@@ -6,16 +6,16 @@
   "sslRequired": "none",
   "users": [
     {
-      "username": "admin",
-      "email": "demo@example.com",
-      "firstName": "Claudio",
-      "lastName": "Montani",
+      "username": "Administrator",
+      "email": "admin@ocra.it",
+      "firstName": "System",
+      "lastName": "Administrator",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
         {
           "type": "password",
-          "value": "admin",
+          "value": "admin@ocra.it",
           "temporary": false
         }
       ],

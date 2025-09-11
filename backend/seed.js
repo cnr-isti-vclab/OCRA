@@ -56,6 +56,40 @@ async function seedRoles() {
 }
 
 /**
+ * Seed administrator user
+ */
+async function seedAdminUser() {
+  console.log('🌱 Seeding administrator user...');
+  
+  const adminUser = {
+    sub: 'admin-ocra-system', // Unique OAuth subject for the admin user
+    email: 'admin@ocra.it',
+    name: 'Administrator',
+    username: 'Administrator',
+    given_name: 'System',
+    family_name: 'Administrator',
+    roleId: 'admin' // Admin role
+  };
+
+  const result = await prisma.user.upsert({
+    where: { sub: adminUser.sub },
+    update: {
+      email: adminUser.email,
+      name: adminUser.name,
+      username: adminUser.username,
+      given_name: adminUser.given_name,
+      family_name: adminUser.family_name,
+      roleId: adminUser.roleId,
+      updatedAt: new Date(),
+    },
+    create: adminUser
+  });
+  
+  console.log(`  ✓ Administrator user created with email: ${adminUser.email}`);
+  console.log(`✅ Successfully seeded administrator user`);
+}
+
+/**
  * Main seeding function
  */
 async function main() {
@@ -63,6 +97,7 @@ async function main() {
     console.log('🚀 Starting database seeding...');
     
     await seedRoles();
+    await seedAdminUser();
     
     console.log('🎉 Database seeding completed successfully!');
   } catch (error) {
