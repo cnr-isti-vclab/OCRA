@@ -1,7 +1,8 @@
-import { getPrismaClient } from '../../db.ts';
+import { Request, Response } from 'express';
+import { getPrismaClient } from '../../db.js';
 
 /**
- * USER MANAGEMENT CONTROLLER
+ * USER MANAGEMENT CONTROLLER (TypeScript version)
  * 
  * Handles user-related API endpoints including listing all users,
  * user profile management, and admin operations.
@@ -11,7 +12,7 @@ import { getPrismaClient } from '../../db.ts';
  * Get all users in the system
  * Requires authentication (and potentially admin privileges)
  */
-export async function getAllUsers(req, res) {
+export async function getAllUsers(req: Request, res: Response): Promise<void> {
   try {
     const db = getPrismaClient();
     
@@ -40,7 +41,7 @@ export async function getAllUsers(req, res) {
     console.error('Error fetching users:', error);
     res.status(500).json({ 
       error: 'Failed to fetch users',
-      message: error.message 
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }
@@ -48,13 +49,21 @@ export async function getAllUsers(req, res) {
 /**
  * Get a specific user by ID
  */
-export async function getUserById(req, res) {
+export async function getUserById(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
+    
+    if (!userId) {
+      res.status(400).json({
+        error: 'User ID is required'
+      });
+      return;
+    }
+    
     const db = getPrismaClient();
     
     const user = await db.user.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: userId },
       select: {
         id: true,
         sub: true,
@@ -69,35 +78,55 @@ export async function getUserById(req, res) {
         updatedAt: true,
       }
     });
-
+    
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({
+        error: 'User not found'
+      });
+      return;
     }
-
+    
     res.json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ 
       error: 'Failed to fetch user',
-      message: error.message 
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }
 
 /**
- * Update user admin status (admin only operation)
+ * Update user admin status
+ * This is a privileged operation
  */
-export async function updateUserAdminStatus(req, res) {
+export async function updateUserAdminStatus(req: Request, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
     const { sys_admin } = req.body;
+    
+    if (!userId) {
+      res.status(400).json({
+        error: 'User ID is required'
+      });
+      return;
+    }
+    
+    if (typeof sys_admin !== 'boolean') {
+      res.status(400).json({
+        error: 'sys_admin must be a boolean value'
+      });
+      return;
+    }
+    
     const db = getPrismaClient();
     
-    // TODO: Add authorization check to ensure only admins can do this
-    
     const updatedUser = await db.user.update({
-      where: { id: parseInt(id) },
-      data: { sys_admin: Boolean(sys_admin) },
+      where: { id: userId },
+      data: { 
+        sys_admin,
+        updatedAt: new Date()
+      },
       select: {
         id: true,
         sub: true,
@@ -108,13 +137,24 @@ export async function updateUserAdminStatus(req, res) {
         updatedAt: true,
       }
     });
-
-    res.json(updatedUser);
+    
+    res.json({
+      success: true,
+      user: updatedUser
+    });
   } catch (error) {
     console.error('Error updating user admin status:', error);
+    
+    if ((error as any)?.code === 'P2025') {
+      res.status(404).json({
+        error: 'User not found'
+      });
+      return;
+    }
+    
     res.status(500).json({ 
       error: 'Failed to update user admin status',
-      message: error.message 
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }

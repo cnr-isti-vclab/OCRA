@@ -1,5 +1,5 @@
 /**
- * Auth Routes
+ * Auth Routes (TypeScript version)
  * 
  * Route definitions for authentication and audit endpoints
  */

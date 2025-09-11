@@ -1,5 +1,5 @@
 /**
- * Route Index
+ * Route Index (TypeScript version)
  * 
  * Central route configuration
  */

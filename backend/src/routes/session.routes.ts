@@ -1,5 +1,5 @@
 /**
- * Session Routes
+ * Session Routes (TypeScript version)
  * 
  * Route definitions for session management endpoints
  */
@@ -13,13 +13,13 @@ import {
 
 const router = express.Router();
 
-// POST /api/sessions - Create user session after OAuth token exchange
+// POST /api/sessions - Create a new session
 router.post('/', createUserSession);
 
-// GET /api/sessions/:sessionId - Get session info (validate and return user data)
+// GET /api/sessions/:sessionId - Get session details
 router.get('/:sessionId', getUserSession);
 
-// DELETE /api/sessions/:sessionId - Delete session (logout)
+// DELETE /api/sessions/:sessionId - Delete a session
 router.delete('/:sessionId', deleteUserSession);
 
 export default router;
