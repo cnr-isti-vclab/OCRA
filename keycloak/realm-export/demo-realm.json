@@ -6,16 +6,16 @@
   "sslRequired": "none",
   "users": [
     {
-      "username": "demo",
+      "username": "conservator",
       "email": "demo@example.com",
-      "firstName": "Demo",
-      "lastName": "User",
+      "firstName": "Pinco",
+      "lastName": "Pallino",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
         {
           "type": "password",
-          "value": "demo",
+          "value": "conservator",
           "temporary": false
         }
       ],
@@ -26,8 +26,8 @@
     {
       "username": "student",
       "email": "student@example.com", 
-      "firstName": "Student",
-      "lastName": "Example",
+      "firstName": "Mario",
+      "lastName": "Rossi",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
