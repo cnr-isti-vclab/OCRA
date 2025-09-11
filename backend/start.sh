@@ -9,7 +9,7 @@ npx prisma db push --schema=./prisma/schema.prisma
 echo "✅ Database schema synchronized"
 
 echo "🌱 Seeding database with essential data..."
-node seed.js
+npx tsx seed.ts
 
 echo "🚀 Starting the restructured backend server..."
-exec node server.js
+exec npx tsx server.ts

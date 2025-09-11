@@ -1,4 +1,4 @@
-import { getPrismaClient } from '../../db.js';
+import { getPrismaClient } from '../../db.ts';
 
 /**
  * USER MANAGEMENT CONTROLLER
