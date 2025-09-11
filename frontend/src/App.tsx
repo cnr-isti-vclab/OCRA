@@ -53,7 +53,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <Card>
-        <h1>React OAuth2 PKCE Demo with Backend API</h1>
+        <h1>React OCRA Demo</h1>
         <p style={{ color: '#555' }}>Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
         <p style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>
           🔒 Now with <strong>backend API session storage</strong> for production-ready security!
