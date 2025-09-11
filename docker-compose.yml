@@ -52,7 +52,9 @@ services:
       - ./prisma:/app/backend/prisma:ro
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     environment:
       PROVIDER_URL: http://localhost:8081
       REALM: demo
