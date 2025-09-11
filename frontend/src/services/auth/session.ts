@@ -202,7 +202,11 @@ export async function getUserAuditLog(limit: number = 20): Promise<any[]> {
       throw new Error(`Failed to get audit log: ${response.status}`);
     }
     
-    return await response.json();
+    const result = await response.json();
+    
+    // The backend returns { success: true, userSub, auditLog }
+    // We need to return just the auditLog array
+    return result.auditLog || [];
     
   } catch (error) {
     console.error('Error getting audit log:', error);

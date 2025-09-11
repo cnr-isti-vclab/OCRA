@@ -64,7 +64,7 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
         refreshToken: tokens.refresh_token || null,
         idToken: tokens.id_token || null,
         expiresAt: expiresAt,
-        userId: user.sub,
+        userId: user.id, // Use the internal database ID, not the OAuth sub
       },
     });
 
