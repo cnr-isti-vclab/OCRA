@@ -16,6 +16,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   // Removed @unique - emails can be shared across different OAuth providers
   name      String?
+  username  String?  // Keycloak login username (e.g., student, conservator)
   given_name String? // First/given name
   family_name String? // Last/family name
   middle_name String? // Middle name

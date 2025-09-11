@@ -30,6 +30,10 @@ export default function Profile() {
     name?: string; 
     email?: string; 
     sub?: string;
+    username?: string;
+    given_name?: string;
+    family_name?: string;
+    middle_name?: string;
     role?: {
       name: string;
       displayName: string;
@@ -74,9 +78,57 @@ export default function Profile() {
             <h2 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#34495e' }}>User Information</h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
-                <strong style={{ color: '#2c3e50' }}>Name:</strong>
+                <strong style={{ color: '#2c3e50' }}>Display Name:</strong>
                 <span style={{ marginLeft: '0.5rem', color: '#555' }}>{info.name ?? 'Not provided'}</span>
               </div>
+              {info.username && (
+                <div>
+                  <strong style={{ color: '#2c3e50' }}>Username:</strong>
+                  <span style={{ 
+                    marginLeft: '0.5rem', 
+                    color: '#555',
+                    fontFamily: 'monospace',
+                    backgroundColor: '#e3f2fd',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    fontWeight: '500'
+                  }}>
+                    {info.username}
+                  </span>
+                </div>
+              )}
+              {(info.given_name || info.family_name || info.middle_name) && (
+                <div>
+                  <strong style={{ color: '#2c3e50' }}>Login Name Components:</strong>
+                  <div style={{ 
+                    marginLeft: '0.5rem', 
+                    marginTop: '0.5rem',
+                    padding: '0.75rem',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '6px',
+                    border: '1px solid #e9ecef'
+                  }}>
+                    {info.given_name && (
+                      <div style={{ marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: '500', color: '#495057', minWidth: '80px', display: 'inline-block' }}>First:</span>
+                        <span style={{ color: '#6c757d' }}>{info.given_name}</span>
+                      </div>
+                    )}
+                    {info.middle_name && (
+                      <div style={{ marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: '500', color: '#495057', minWidth: '80px', display: 'inline-block' }}>Middle:</span>
+                        <span style={{ color: '#6c757d' }}>{info.middle_name}</span>
+                      </div>
+                    )}
+                    {info.family_name && (
+                      <div>
+                        <span style={{ fontWeight: '500', color: '#495057', minWidth: '80px', display: 'inline-block' }}>Last:</span>
+                        <span style={{ color: '#6c757d' }}>{info.family_name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div>
                 <strong style={{ color: '#2c3e50' }}>Email:</strong>
                 <span style={{ marginLeft: '0.5rem', color: '#555' }}>{info.email ?? 'Not provided'}</span>
