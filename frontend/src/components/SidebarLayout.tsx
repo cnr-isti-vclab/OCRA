@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { logout } from '../backend';
+import { logout, getCurrentUser } from '../backend';
 
 /**
  * SIDEBAR LAYOUT COMPONENT
@@ -18,7 +18,21 @@ interface SidebarLayoutProps {
 
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentUser, setCurrentUser] = useState<{ sys_admin?: boolean } | null>(null);
   const location = useLocation();
+
+  // Fetch current user information to check admin status
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Failed to get current user for sidebar:', error);
+        setCurrentUser(null);
+      }
+    })();
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -83,6 +97,16 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             isActive={isActive('/audit')}
             sidebarOpen={sidebarOpen}
           />
+          {/* Show User Admin only for system administrators */}
+          {currentUser?.sys_admin && (
+            <SidebarItem
+              to="/user-admin"
+              icon="👥"
+              label="User Admin"
+              isActive={isActive('/user-admin')}
+              sidebarOpen={sidebarOpen}
+            />
+          )}
           
           {/* Logout Button */}
           <button

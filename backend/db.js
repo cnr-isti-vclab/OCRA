@@ -89,11 +89,7 @@ export async function getValidSession(sessionId) {
         expiresAt: { gt: new Date() },
       },
       include: { 
-        user: {
-          include: {
-            role: true
-          }
-        }
+        user: true
       },
     });
     
@@ -115,11 +111,7 @@ export async function getValidSession(sessionId) {
         given_name: session.user.given_name,
         family_name: session.user.family_name,
         middle_name: session.user.middle_name,
-        role: session.user.role ? {
-          name: session.user.role.name,
-          displayName: session.user.role.displayName,
-          description: session.user.role.description
-        } : null,
+        sys_admin: session.user.sys_admin,
       },
     };
     

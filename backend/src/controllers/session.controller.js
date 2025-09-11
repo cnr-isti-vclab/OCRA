@@ -28,6 +28,15 @@ export async function createUserSession(req, res) {
       sessionId
     );
 
+    // Set HTTP-only cookie for authentication
+    res.cookie('session_id', sessionId, {
+      httpOnly: true,
+      secure: false, // Set to true in production with HTTPS
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/'
+    });
+
     res.json({ sessionId });
   } catch (error) {
     console.error('Failed to create session:', error);
@@ -76,6 +85,14 @@ export async function deleteUserSession(req, res) {
     const { sessionId } = req.params;
     
     const result = await removeSession(sessionId);
+    
+    // Clear the session cookie
+    res.clearCookie('session_id', {
+      httpOnly: true,
+      secure: false, // Set to true in production with HTTPS
+      sameSite: 'lax',
+      path: '/'
+    });
     
     // Log successful logout
     if (result.userSub) {

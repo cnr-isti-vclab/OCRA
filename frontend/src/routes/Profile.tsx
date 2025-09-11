@@ -34,11 +34,7 @@ export default function Profile() {
     given_name?: string;
     family_name?: string;
     middle_name?: string;
-    role?: {
-      name: string;
-      displayName: string;
-      description: string;
-    };
+    sys_admin?: boolean;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,28 +144,18 @@ export default function Profile() {
                 </span>
               </div>
               <div>
-                <strong style={{ color: '#2c3e50' }}>Role:</strong>
+                <strong style={{ color: '#2c3e50' }}>Admin Status:</strong>
                 <span style={{ 
                   marginLeft: '0.5rem',
                   color: '#555',
-                  backgroundColor: info.role ? '#e8f5e8' : '#f8f9fa',
+                  backgroundColor: info.sys_admin ? '#e8f5e8' : '#f8f9fa',
                   padding: '0.25rem 0.75rem',
                   borderRadius: '20px',
                   fontSize: '0.9rem',
                   fontWeight: '500'
                 }}>
-                  {info.role ? info.role.displayName : 'No role assigned'}
+                  {info.sys_admin ? 'System Administrator' : 'Regular User'}
                 </span>
-                {info.role && (
-                  <div style={{ 
-                    marginTop: '0.5rem', 
-                    fontSize: '0.85rem', 
-                    color: '#666',
-                    fontStyle: 'italic'
-                  }}>
-                    {info.role.description}
-                  </div>
-                )}
               </div>
             </div>
           </div>

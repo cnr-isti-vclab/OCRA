@@ -4,6 +4,7 @@ import './index.css'
 import App from './App'
 import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
+import UserAdmin from './routes/UserAdmin.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 
@@ -87,6 +88,18 @@ const router = createBrowserRouter([
 			<RequireAuth>
 				<SidebarLayout>
 					<AuditLog />
+				</SidebarLayout>
+			</RequireAuth>
+		)
+	},
+	
+	// Protected user admin route: shows list of all users (admin only)
+	{
+		path: '/user-admin',
+		element: (
+			<RequireAuth>
+				<SidebarLayout>
+					<UserAdmin />
 				</SidebarLayout>
 			</RequireAuth>
 		)

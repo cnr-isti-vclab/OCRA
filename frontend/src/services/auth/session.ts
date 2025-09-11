@@ -45,6 +45,7 @@ export async function completeAuthCodeFlow(): Promise<void> {
       headers: {
         'Content-Type': 'application/json'
       },
+      credentials: 'include', // Include cookies in request
       body: JSON.stringify({
         userProfile,
         tokens
@@ -91,7 +92,9 @@ export async function getCurrentUser(): Promise<any> {
   
   try {
     console.log('🌐 Fetching session from backend...');
-    const response = await fetch(`${API_BASE}/sessions/${sessionId}`);
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+      credentials: 'include' // Include cookies in request
+    });
     
     if (!response.ok) {
       console.log(`❌ Backend response not ok: ${response.status}`);
@@ -128,7 +131,8 @@ export async function logout(): Promise<void> {
       console.log('🔄 Calling backend logout API...');
       // Delete session from backend (this also logs the logout event)
       const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include' // Include cookies in request
       });
       console.log('✅ Backend logout response:', response.status, response.ok);
     } catch (error) {

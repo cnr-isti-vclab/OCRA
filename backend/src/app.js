@@ -17,9 +17,31 @@ import { errorHandler, notFoundHandler } from './middleware/error.middleware.js'
 export function createApp() {
   const app = express();
 
+  // CORS configuration - allow credentials for cookie-based auth
+  app.use(cors({
+    origin: ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  }));
+
   // Basic middleware
-  app.use(cors());
   app.use(express.json());
+  
+  // Simple cookie parser middleware
+  app.use((req, res, next) => {
+    req.cookies = {};
+    const cookieHeader = req.headers.cookie;
+    if (cookieHeader) {
+      cookieHeader.split(';').forEach(cookie => {
+        const [name, value] = cookie.trim().split('=');
+        if (name && value) {
+          req.cookies[name] = decodeURIComponent(value);
+        }
+      });
+    }
+    next();
+  });
   
   // Request logging
   app.use(requestLogger);

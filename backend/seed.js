@@ -68,7 +68,6 @@ async function seedAdminUser() {
     username: 'Administrator',
     given_name: 'System',
     family_name: 'Administrator',
-    roleId: 'admin', // Admin role
     sys_admin: true // System administrator flag
   };
 
@@ -80,7 +79,6 @@ async function seedAdminUser() {
       username: adminUser.username,
       given_name: adminUser.given_name,
       family_name: adminUser.family_name,
-      roleId: adminUser.roleId,
       sys_admin: adminUser.sys_admin,
       updatedAt: new Date(),
     },

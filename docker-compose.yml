@@ -2,6 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
+    container_name: ocra_min-postgres
     environment:
       POSTGRES_DB: oauth_demo
       POSTGRES_USER: postgres
@@ -18,7 +19,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
-    container_name: keycloak
+    container_name: ocra_min-keycloak
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -38,7 +39,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: backend
+    container_name: ocra_min-backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo
       PORT: 3002
@@ -55,6 +56,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    container_name: ocra_min-frontend
     environment:
       PROVIDER_URL: http://localhost:8081
       REALM: demo
