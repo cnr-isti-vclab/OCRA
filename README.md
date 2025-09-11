@@ -107,11 +107,28 @@ The app reads configuration in two ways:
   - CLIENT_ID (e.g. react-oauth)
   - REDIRECT_URI (e.g. http://localhost:3001)
   - SCOPE (e.g. "openid profile email")
+  - **SYS_ADMIN_EMAIL** (e.g. admin@example.com) - User with this email gets admin privileges on first login
 
 - Build-time (Vite dev): `.env` using VITE_* variables
   - VITE_PROVIDER_URL, VITE_REALM, VITE_CLIENT_ID, VITE_ISSUER, VITE_REDIRECT_URI, VITE_SCOPE
   - DATABASE_URL for PostgreSQL connection
   - See `.env.example` for commented defaults matching the dev setup.
+
+## Admin User Setup
+
+**Dynamic Admin Creation:**
+The system no longer creates a hardcoded admin user. Instead, admin privileges are granted automatically when the user specified in the `SYS_ADMIN_EMAIL` environment variable logs in for the first time.
+
+**How it works:**
+1. Set `SYS_ADMIN_EMAIL=your-admin@example.com` in docker-compose.yml
+2. When a user with that email logs in via OAuth, they are automatically granted `sys_admin=true`
+3. This approach works with any OAuth provider and doesn't require pre-creating users
+
+**Benefits:**
+- ✅ Works with any OAuth email address
+- ✅ No hardcoded credentials in the codebase
+- ✅ Admin is created only when they actually log in
+- ✅ Easily configurable via environment variables
 
 ## Database Integration
 

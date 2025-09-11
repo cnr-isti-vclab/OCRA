@@ -55,8 +55,12 @@ async function seedRoles(): Promise<void> {
 }
 
 /**
- * Seed admin user - ensures there's always an admin account
+ * Seed admin user (DEPRECATED - now handled dynamically)
+ * 
+ * Admin users are now created automatically when a user with the email
+ * specified in SYS_ADMIN_EMAIL environment variable logs in for the first time.
  */
+/*
 async function seedAdminUser(): Promise<void> {
   console.log('🌱 Seeding administrator user...');
   
@@ -87,6 +91,7 @@ async function seedAdminUser(): Promise<void> {
   console.log(`  ✓ Administrator user ready: ${user.username} (${user.email})`);
   console.log('✅ Successfully seeded administrator user');
 }
+*/
 
 /**
  * Seed example projects - for demonstration and testing
@@ -128,10 +133,12 @@ async function main(): Promise<void> {
     console.log('🚀 Starting database seeding...');
     
     await seedRoles();
-    await seedAdminUser();
+    // Note: Admin user is now created dynamically based on SYS_ADMIN_EMAIL environment variable
+    // when the user with that email logs in for the first time
     await seedProjects();
     
     console.log('🎉 Database seeding completed successfully!');
+    console.log('ℹ️  Admin user will be created automatically when SYS_ADMIN_EMAIL user logs in');
   } catch (error) {
     console.error('❌ Database seeding failed:', error);
     throw error;

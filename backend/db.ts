@@ -33,6 +33,11 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
   
   try {
+    // Check if this email should be granted admin privileges
+    const adminEmail = process.env.SYS_ADMIN_EMAIL?.toLowerCase().trim();
+    const userEmail = (profile.email || '').toLowerCase().trim();
+    const shouldBeAdmin = !!(adminEmail && userEmail && userEmail === adminEmail);
+    
     // Upsert user (create if doesn't exist, update if exists)
     const user = await db.user.upsert({
       where: { sub: profile.sub },
@@ -43,6 +48,8 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
         given_name: profile.given_name || null,
         family_name: profile.family_name || null,
         middle_name: profile.middle_name || null,
+        // Grant admin privileges if email matches SYS_ADMIN_EMAIL (preserves existing admin status)
+        ...(shouldBeAdmin && { sys_admin: true }),
         updatedAt: new Date(),
       },
       create: {
@@ -53,9 +60,14 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
         given_name: profile.given_name || null,
         family_name: profile.family_name || null,
         middle_name: profile.middle_name || null,
-        sys_admin: false, // Default new users to non-admin
+        sys_admin: shouldBeAdmin, // Grant admin on first login if email matches
       },
     });
+
+    // Log admin privilege grant if it happened
+    if (shouldBeAdmin) {
+      console.log(`🔐 Admin privileges granted to user: ${userEmail} (${user.sub})`);
+    }
 
     // Create session
     const session = await db.session.create({
