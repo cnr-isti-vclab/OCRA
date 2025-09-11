@@ -86,7 +86,13 @@ export async function getValidSession(sessionId) {
         id: sessionId,
         expiresAt: { gt: new Date() },
       },
-      include: { user: true },
+      include: { 
+        user: {
+          include: {
+            role: true
+          }
+        }
+      },
     });
     
     if (!session) {
@@ -106,6 +112,11 @@ export async function getValidSession(sessionId) {
         given_name: session.user.given_name,
         family_name: session.user.family_name,
         middle_name: session.user.middle_name,
+        role: session.user.role ? {
+          name: session.user.role.name,
+          displayName: session.user.role.displayName,
+          description: session.user.role.description
+        } : null,
       },
     };
     

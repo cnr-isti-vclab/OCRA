@@ -20,13 +20,30 @@ model User {
   family_name String? // Last/family name
   middle_name String? // Middle name
   sub       String   @unique // OAuth subject identifier - this is the true unique ID
+  roleId    String   @default("viewer") // User role - defaults to viewer
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // User sessions
+  // Relations
+  role     Role      @relation(fields: [roleId], references: [name])
   sessions Session[]
 
   @@map("users")
+}
+
+// Role model - defines user roles and permissions
+model Role {
+  id          String @id @default(cuid())
+  name        String @unique // admin, manager, editor, viewer
+  displayName String // Human-readable name
+  description String // Role description
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users User[]
+
+  @@map("roles")
 }
 
 // Session model - stores OAuth tokens and session data

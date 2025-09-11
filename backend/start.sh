@@ -3,10 +3,13 @@
 # Exit on any error
 set -e
 
-echo "🔄 Running Prisma migrations..."
-npx prisma migrate deploy --schema=./prisma/schema.prisma
+echo "🔄 Syncing database schema..."
+npx prisma db push --schema=./prisma/schema.prisma
 
-echo "✅ Migrations completed successfully"
+echo "✅ Database schema synchronized"
+
+echo "🌱 Seeding database with essential data..."
+node seed.js
 
 echo "🚀 Starting the restructured backend server..."
 exec node server.js
