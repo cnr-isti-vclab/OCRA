@@ -6,6 +6,24 @@
   "sslRequired": "none",
   "users": [
     {
+      "username": "admin",
+      "email": "demo@example.com",
+      "firstName": "Claudio",
+      "lastName": "Montani",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "locale": ["en"]
+      }
+    },
+    {
       "username": "conservator",
       "email": "demo@example.com",
       "firstName": "Pinco",

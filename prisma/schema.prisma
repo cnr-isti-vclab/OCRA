@@ -38,8 +38,6 @@ model Role {
   name        String @unique // admin, manager, editor, viewer
   displayName String // Human-readable name
   description String // Role description
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   // Relations
   users User[]
