@@ -6,4 +6,4 @@ export {
   getCurrentUser,
   getUserAuditLog,
   logout,
-} from './oauth-backend';
+} from './services/auth';
