@@ -68,7 +68,8 @@ async function seedAdminUser() {
     username: 'Administrator',
     given_name: 'System',
     family_name: 'Administrator',
-    roleId: 'admin' // Admin role
+    roleId: 'admin', // Admin role
+    sys_admin: true // System administrator flag
   };
 
   const result = await prisma.user.upsert({
@@ -80,6 +81,7 @@ async function seedAdminUser() {
       given_name: adminUser.given_name,
       family_name: adminUser.family_name,
       roleId: adminUser.roleId,
+      sys_admin: adminUser.sys_admin,
       updatedAt: new Date(),
     },
     create: adminUser
@@ -87,6 +89,39 @@ async function seedAdminUser() {
   
   console.log(`  ✓ Administrator user created with email: ${adminUser.email}`);
   console.log(`✅ Successfully seeded administrator user`);
+}
+
+/**
+ * Seed example projects
+ */
+async function seedProjects() {
+  console.log('🌱 Seeding example projects...');
+  
+  const projects = [
+    {
+      name: 'Marble Head',
+      description: 'A classical marble sculpture head project for detailed scanning and reconstruction analysis.'
+    },
+    {
+      name: 'Stanford Bunny',
+      description: 'The famous Stanford Bunny 3D model used for computer graphics research and testing.'
+    }
+  ];
+
+  for (const project of projects) {
+    const result = await prisma.project.upsert({
+      where: { name: project.name },
+      update: {
+        description: project.description,
+        updatedAt: new Date(),
+      },
+      create: project
+    });
+    
+    console.log(`  ✓ Project '${project.name}' created`);
+  }
+  
+  console.log(`✅ Successfully seeded ${projects.length} projects`);
 }
 
 /**
@@ -98,6 +133,7 @@ async function main() {
     
     await seedRoles();
     await seedAdminUser();
+    await seedProjects();
     
     console.log('🎉 Database seeding completed successfully!');
   } catch (error) {

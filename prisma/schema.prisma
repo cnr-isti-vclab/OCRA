@@ -22,12 +22,14 @@ model User {
   middle_name String? // Middle name
   sub       String   @unique // OAuth subject identifier - this is the true unique ID
   roleId    String   @default("viewer") // User role - defaults to viewer
+  sys_admin Boolean  @default(false) // System administrator flag
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   role     Role      @relation(fields: [roleId], references: [name])
   sessions Session[]
+  projectAssignments UserProject[] // Many-to-many relation with projects
 
   @@map("users")
 }
@@ -75,4 +77,34 @@ model LoginEvent {
   createdAt   DateTime @default(now())
 
   @@map("login_events")
+}
+
+// Project model - represents projects with assigned users
+model Project {
+  id          String @id @default(cuid())
+  name        String @unique // Project name (e.g., "Marble Head", "Stanford Bunny")
+  description String // Project description
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations - list of users assigned to this project
+  userAssignments UserProject[]
+
+  @@map("projects")
+}
+
+// Junction table for many-to-many relationship between users and projects
+model UserProject {
+  id        String @id @default(cuid())
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Ensure a user can only be assigned to a project once
+  @@unique([userId, projectId])
+  @@map("user_projects")
 }
