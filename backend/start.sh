@@ -8,5 +8,5 @@ npx prisma migrate deploy --schema=./prisma/schema.prisma
 
 echo "✅ Migrations completed successfully"
 
-echo "🚀 Starting the backend server..."
-exec node server.js
+echo "🚀 Starting the restructured backend server..."
+exec node server-new.js
