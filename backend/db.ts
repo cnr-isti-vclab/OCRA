@@ -38,21 +38,61 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
     const userEmail = (profile.email || '').toLowerCase().trim();
     const shouldBeAdmin = !!(adminEmail && userEmail && userEmail === adminEmail);
     
-    // Upsert user (create if doesn't exist, update if exists)
-    const user = await db.user.upsert({
-      where: { sub: profile.sub },
-      update: {
-        name: profile.name || null,
-        email: profile.email || 'unknown@example.com',
-        username: profile.username || profile.preferred_username || null,
-        given_name: profile.given_name || null,
-        family_name: profile.family_name || null,
-        middle_name: profile.middle_name || null,
-        // Grant admin privileges if email matches SYS_ADMIN_EMAIL (preserves existing admin status)
-        ...(shouldBeAdmin && { sys_admin: true }),
-        updatedAt: new Date(),
-      },
-      create: {
+    // First check if a user with this sub already exists
+    const existingUserBySub = await db.user.findUnique({
+      where: { sub: profile.sub }
+    });
+    
+    // If user exists by sub, update their information
+    if (existingUserBySub) {
+      const user = await db.user.update({
+        where: { sub: profile.sub },
+        data: {
+          name: profile.name || null,
+          email: profile.email || 'unknown@example.com',
+          username: profile.username || profile.preferred_username || null,
+          given_name: profile.given_name || null,
+          family_name: profile.family_name || null,
+          middle_name: profile.middle_name || null,
+          // Grant admin privileges if email matches SYS_ADMIN_EMAIL (preserves existing admin status)
+          ...(shouldBeAdmin && { sys_admin: true }),
+          updatedAt: new Date(),
+        },
+      });
+      
+      // Log admin privilege grant if it happened
+      if (shouldBeAdmin) {
+        console.log(`🔐 Admin privileges granted to user: ${userEmail} (${user.sub})`);
+      }
+      
+      // Create session and return
+      const session = await db.session.create({
+        data: {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token || null,
+          idToken: tokens.id_token || null,
+          expiresAt: expiresAt,
+          userId: user.id,
+        },
+      });
+      
+      return session.id;
+    }
+    
+    // Check if a user with this email already exists (for new users only)
+    if (profile.email) {
+      const existingUserByEmail = await db.user.findUnique({
+        where: { email: profile.email }
+      });
+      
+      if (existingUserByEmail) {
+        throw new Error(`A user with email "${profile.email}" already exists. Each email can only be associated with one account.`);
+      }
+    }
+    
+    // Create new user (email and sub are both unique at this point)
+    const user = await db.user.create({
+      data: {
         sub: profile.sub,
         name: profile.name || null,
         email: profile.email || 'unknown@example.com',

@@ -14,7 +14,7 @@ datasource db {
 // User model - stores OAuth user information
 model User {
   id        String   @id @default(cuid())
-  email     String   // Removed @unique - emails can be shared across different OAuth providers
+  email     String   @unique // Email must be unique across all users
   name      String?
   username  String?  // Keycloak login username (e.g., student, conservator)
   given_name String? // First/given name

@@ -5,6 +5,7 @@ import App from './App'
 import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
 import UserAdmin from './routes/UserAdmin.tsx'
+import Projects from './routes/Projects.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 
@@ -88,6 +89,18 @@ const router = createBrowserRouter([
 			<RequireAuth>
 				<SidebarLayout>
 					<AuditLog />
+				</SidebarLayout>
+			</RequireAuth>
+		)
+	},
+	
+	// Protected projects route: shows list of all projects
+	{
+		path: '/projects',
+		element: (
+			<RequireAuth>
+				<SidebarLayout>
+					<Projects />
 				</SidebarLayout>
 			</RequireAuth>
 		)

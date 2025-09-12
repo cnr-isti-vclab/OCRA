@@ -91,6 +91,13 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             sidebarOpen={sidebarOpen}
           />
           <SidebarItem
+            to="/projects"
+            icon="📁"
+            label="Projects"
+            isActive={isActive('/projects')}
+            sidebarOpen={sidebarOpen}
+          />
+          <SidebarItem
             to="/audit"
             icon="📊"
             label="Audit Log"
