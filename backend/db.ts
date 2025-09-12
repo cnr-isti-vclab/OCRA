@@ -79,14 +79,48 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
       return session.id;
     }
     
-    // Check if a user with this email already exists (for new users only)
+    // Check if a user with this email already exists
     if (profile.email) {
       const existingUserByEmail = await db.user.findUnique({
         where: { email: profile.email }
       });
       
       if (existingUserByEmail) {
-        throw new Error(`A user with email "${profile.email}" already exists. Each email can only be associated with one account.`);
+        // Reuse existing user - update their OAuth sub and other profile information
+        console.log(`🔄 Reusing existing user with email: ${profile.email}, updating OAuth sub from ${existingUserByEmail.sub} to ${profile.sub}`);
+        
+        const user = await db.user.update({
+          where: { email: profile.email },
+          data: {
+            sub: profile.sub, // Update the OAuth sub to the new one
+            name: profile.name || existingUserByEmail.name,
+            username: profile.username || profile.preferred_username || existingUserByEmail.username,
+            given_name: profile.given_name || existingUserByEmail.given_name,
+            family_name: profile.family_name || existingUserByEmail.family_name,
+            middle_name: profile.middle_name || existingUserByEmail.middle_name,
+            // Grant admin privileges if email matches SYS_ADMIN_EMAIL (preserves existing admin status)
+            ...(shouldBeAdmin && { sys_admin: true }),
+            updatedAt: new Date(),
+          },
+        });
+
+        // Log admin privilege grant if it happened
+        if (shouldBeAdmin) {
+          console.log(`🔐 Admin privileges granted to existing user: ${userEmail} (${user.sub})`);
+        }
+
+        // Create session and return
+        const session = await db.session.create({
+          data: {
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token || null,
+            idToken: tokens.id_token || null,
+            expiresAt: expiresAt,
+            userId: user.id,
+          },
+        });
+        
+        return session.id;
       }
     }
     

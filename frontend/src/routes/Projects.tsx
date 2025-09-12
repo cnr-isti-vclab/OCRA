@@ -20,6 +20,13 @@ interface Project {
   description?: string;
   createdAt: string;
   updatedAt: string;
+  manager?: {
+    id: string;
+    name?: string;
+    email: string;
+    username?: string;
+    displayName: string;
+  } | null;
 }
 
 export default function Projects() {
@@ -178,6 +185,49 @@ export default function Projects() {
                 }}>
                   {project.description}
                 </p>
+              )}
+              
+              {project.manager && (
+                <div style={{
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '6px',
+                  padding: '0.75rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{ 
+                    fontSize: '0.875rem',
+                    color: '#495057',
+                    marginBottom: '0.25rem'
+                  }}>
+                    <strong>👨‍💼 Manager:</strong>
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.875rem',
+                    color: '#6c757d'
+                  }}>
+                    {project.manager.displayName}
+                    {project.manager.email && (
+                      <div style={{ fontSize: '0.8rem', color: '#999' }}>
+                        {project.manager.email}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {!project.manager && (
+                <div style={{
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '6px',
+                  padding: '0.75rem',
+                  marginBottom: '1rem',
+                  fontSize: '0.875rem',
+                  color: '#856404'
+                }}>
+                  <strong>⚠️ No manager assigned</strong>
+                </div>
               )}
               
               <div style={{ 

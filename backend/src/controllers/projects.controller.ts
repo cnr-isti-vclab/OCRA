@@ -15,7 +15,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
   try {
     const db = getPrismaClient();
     
-    // Get all projects with basic information
+    // Get all projects with manager information
     const projects = await db.project.findMany({
       select: {
         id: true,
@@ -23,15 +23,51 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         description: true,
         createdAt: true,
         updatedAt: true,
+        projectRoles: {
+          where: {
+            roleId: 'manager'
+          },
+          select: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                given_name: true,
+                family_name: true
+              }
+            }
+          }
+        }
       },
       orderBy: {
         createdAt: 'desc'
       }
     });
 
+    // Transform the data to include manager information more clearly
+    const projectsWithManagers = projects.map((project: any) => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      manager: project.projectRoles.length > 0 ? {
+        id: project.projectRoles[0].user.id,
+        name: project.projectRoles[0].user.name,
+        email: project.projectRoles[0].user.email,
+        username: project.projectRoles[0].user.username,
+        displayName: project.projectRoles[0].user.name || 
+                     `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
+                     project.projectRoles[0].user.username ||
+                     'Unknown User'
+      } : null
+    }));
+
     res.json({
       success: true,
-      projects
+      projects: projectsWithManagers
     });
   } catch (error) {
     console.error('Error fetching projects:', error);
