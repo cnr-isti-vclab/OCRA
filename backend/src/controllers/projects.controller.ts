@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
+import { getValidSession } from '../../db.js';
 
 /**
  * PROJECTS CONTROLLER (TypeScript)
@@ -9,14 +10,57 @@ import { getPrismaClient } from '../../db.js';
  */
 
 /**
+ * Get current user from session (if authenticated)
+ */
+async function getCurrentUser(req: Request): Promise<any | null> {
+  try {
+    // Get session ID from cookie first, then fall back to header or URL param
+    let sessionId = req.cookies?.session_id;
+    
+    // Fallback: check Authorization header
+    if (!sessionId && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        sessionId = authHeader.substring(7);
+      }
+    }
+    
+    // Fallback: check for session_id in query params
+    if (!sessionId && req.query.session_id) {
+      sessionId = req.query.session_id as string;
+    }
+    
+    if (!sessionId) {
+      return null;
+    }
+
+    // Validate session
+    const session = await getValidSession(sessionId);
+    return session?.user || null;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+}
+
+/**
  * Get all projects in the system
+ * For authenticated users: show all projects they have access to
+ * For unauthenticated users: show only public projects
  */
 export async function getAllProjects(req: Request, res: Response): Promise<void> {
   try {
     const db = getPrismaClient();
     
-    // Get all projects with manager information
+    // Check if user is authenticated
+    const currentUser = await getCurrentUser(req);
+    
+    // Build filter based on authentication status
+    const whereClause = currentUser ? {} : { public: true };
+    
+    // Get projects with manager information
     const projects = await db.project.findMany({
+      where: whereClause,
       select: {
         id: true,
         name: true,
@@ -82,6 +126,8 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
 
 /**
  * Get a specific project by ID
+ * For authenticated users: can access any project
+ * For unauthenticated users: can only access public projects
  */
 export async function getProjectById(req: Request, res: Response): Promise<void> {
   try {
@@ -96,8 +142,16 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
     
     const db = getPrismaClient();
     
+    // Check if user is authenticated
+    const currentUser = await getCurrentUser(req);
+    
+    // Build filter based on authentication status
+    const whereClause = currentUser 
+      ? { id: projectId } 
+      : { id: projectId, public: true };
+    
     const project = await db.project.findUnique({
-      where: { id: projectId },
+      where: whereClause,
       select: {
         id: true,
         name: true,
