@@ -19,6 +19,7 @@ interface User {
   sys_admin: boolean;
   createdAt: string;
   updatedAt: string;
+  lastLoginAt?: string | null;
   managedProjectsCount?: number;
 }
 
@@ -62,6 +63,11 @@ export default function UserAdmin() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatLastLogin = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Never';
+    return formatDate(dateString);
   };
 
   const getDisplayName = (user: User) => {
@@ -165,6 +171,9 @@ export default function UserAdmin() {
                     Managed Projects
                   </th>
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
+                    Last Login
+                  </th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
                     Created
                   </th>
                 </tr>
@@ -211,6 +220,13 @@ export default function UserAdmin() {
                         color: (user.managedProjectsCount || 0) > 0 ? '#1565c0' : '#6c757d'
                       }}>
                         {user.managedProjectsCount || 0}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem', color: '#6c757d', fontSize: '0.9rem' }}>
+                      <span style={{
+                        color: user.lastLoginAt ? '#495057' : '#dc3545'
+                      }}>
+                        {formatLastLogin(user.lastLoginAt)}
                       </span>
                     </td>
                     <td style={{ padding: '1rem', color: '#6c757d', fontSize: '0.9rem' }}>

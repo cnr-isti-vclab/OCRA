@@ -85,15 +85,37 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
       }
     });
 
+    // Get last login information for all users
+    const lastLogins = await db.loginEvent.findMany({
+      where: {
+        eventType: 'login',
+        success: true
+      },
+      select: {
+        userSub: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      distinct: ['userSub']
+    });
+
     // Create a map of userId to project count
     const projectCountMap = new Map(
       managedProjectCounts.map((item: any) => [item.userId, item._count.projectId])
     );
 
-    // Enrich users with project management statistics
+    // Create a map of userSub to last login date
+    const lastLoginMap = new Map(
+      lastLogins.map((login: any) => [login.userSub, login.createdAt])
+    );
+
+    // Enrich users with project management statistics and last login
     const usersWithStats = users.map((user: any) => ({
       ...user,
-      managedProjectsCount: projectCountMap.get(user.id) || 0
+      managedProjectsCount: projectCountMap.get(user.id) || 0,
+      lastLoginAt: lastLoginMap.get(user.sub) || null
     }));
 
     res.json(usersWithStats);

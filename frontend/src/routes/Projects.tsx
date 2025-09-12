@@ -19,6 +19,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
+  public: boolean;
   createdAt: string;
   updatedAt: string;
   manager?: {
@@ -195,7 +196,7 @@ export default function Projects() {
                 backgroundColor: 'white',
                 border: '1px solid #dee2e6',
                 borderRadius: '8px',
-                padding: '1.5rem',
+                padding: '1rem',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 transition: 'box-shadow 0.2s',
                 cursor: 'pointer'
@@ -207,19 +208,41 @@ export default function Projects() {
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
               }}
             >
-              <h3 style={{ 
-                margin: '0 0 1rem 0', 
-                color: '#2c3e50',
-                fontSize: '1.25rem'
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'flex-start',
+                marginBottom: '0.75rem'
               }}>
-                {project.name}
-              </h3>
+                <h3 style={{ 
+                  margin: '0', 
+                  color: '#2c3e50',
+                  fontSize: '1.1rem',
+                  flex: '1'
+                }}>
+                  {project.name}
+                </h3>
+                {!project.public && (
+                  <span style={{
+                    backgroundColor: '#e74c3c',
+                    color: 'white',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '12px',
+                    marginLeft: '0.5rem'
+                  }}>
+                    🔒 Private
+                  </span>
+                )}
+              </div>
               
               {project.description && (
                 <p style={{ 
-                  margin: '0 0 1rem 0', 
+                  margin: '0 0 0.75rem 0', 
                   color: '#666',
-                  lineHeight: '1.5'
+                  lineHeight: '1.4',
+                  fontSize: '0.9rem'
                 }}>
                   {project.description}
                 </p>
@@ -229,28 +252,19 @@ export default function Projects() {
                 <div style={{
                   backgroundColor: '#f8f9fa',
                   border: '1px solid #dee2e6',
-                  borderRadius: '6px',
-                  padding: '0.75rem',
-                  marginBottom: '1rem'
+                  borderRadius: '4px',
+                  padding: '0.5rem',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.85rem',
+                  color: '#495057',
+                  display: 'flex',
+                  alignItems: 'center'
                 }}>
-                  <div style={{ 
-                    fontSize: '0.875rem',
-                    color: '#495057',
-                    marginBottom: '0.25rem'
-                  }}>
-                    <strong>👨‍💼 Manager:</strong>
-                  </div>
-                  <div style={{ 
-                    fontSize: '0.875rem',
-                    color: '#6c757d'
-                  }}>
+                  <span style={{ marginRight: '0.5rem' }}>👨‍💼</span>
+                  <span style={{ fontWeight: '500' }}>Manager:</span>
+                  <span style={{ marginLeft: '0.5rem', color: '#6c757d' }}>
                     {project.manager.displayName}
-                    {project.manager.email && (
-                      <div style={{ fontSize: '0.8rem', color: '#999' }}>
-                        {project.manager.email}
-                      </div>
-                    )}
-                  </div>
+                  </span>
                 </div>
               )}
               
@@ -258,54 +272,62 @@ export default function Projects() {
                 <div style={{
                   backgroundColor: '#fff3cd',
                   border: '1px solid #ffeaa7',
-                  borderRadius: '6px',
-                  padding: '0.75rem',
-                  marginBottom: '1rem',
-                  fontSize: '0.875rem',
-                  color: '#856404'
+                  borderRadius: '4px',
+                  padding: '0.5rem',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.85rem',
+                  color: '#856404',
+                  display: 'flex',
+                  alignItems: 'center'
                 }}>
-                  <strong>⚠️ No manager assigned</strong>
+                  <span style={{ marginRight: '0.5rem' }}>⚠️</span>
+                  <span style={{ fontWeight: '500' }}>No manager assigned</span>
                 </div>
               )}
               
               <div style={{ 
-                fontSize: '0.875rem', 
+                fontSize: '0.8rem', 
                 color: '#999',
                 borderTop: '1px solid #eee',
-                paddingTop: '1rem'
+                paddingTop: '0.75rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}>
-                <div style={{ marginBottom: '0.5rem' }}>
-                  <strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}
-                </div>
-                <div style={{ marginBottom: canEditProject(project.id) ? '1rem' : '0' }}>
-                  <strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}
+                <div>
+                  <div style={{ marginBottom: '0.25rem' }}>
+                    <strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}
+                  </div>
+                  <div>
+                    <strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}
+                  </div>
                 </div>
                 
                 {canEditProject(project.id) && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <Link
-                      to={`/projects/${project.id}/edit`}
-                      style={{
-                        display: 'inline-block',
-                        backgroundColor: '#3498db',
-                        color: 'white',
-                        textDecoration: 'none',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '4px',
-                        fontSize: '0.875rem',
-                        fontWeight: 'bold',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#2980b9';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#3498db';
-                      }}
-                    >
-                      ✏️ Edit Project
-                    </Link>
-                  </div>
+                  <Link
+                    to={`/projects/${project.id}/edit`}
+                    style={{
+                      backgroundColor: '#3498db',
+                      color: 'white',
+                      textDecoration: 'none',
+                      padding: '0.4rem 0.8rem',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      transition: 'background-color 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#2980b9';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#3498db';
+                    }}
+                  >
+                    ✏️ Edit
+                  </Link>
                 )}
               </div>
             </div>
