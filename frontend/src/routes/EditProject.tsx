@@ -64,6 +64,7 @@ export default function EditProject() {
 
         // Fetch current user to check permissions
         const userResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/sessions/current`, {
+          credentials: 'include', // Include session cookies
           headers: {
             'Authorization': `Bearer ${sessionId}`,
             'Content-Type': 'application/json',
@@ -87,6 +88,7 @@ export default function EditProject() {
 
         // Fetch project details
         const projectResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}`, {
+          credentials: 'include', // Include session cookies
           headers: {
             'Content-Type': 'application/json',
           },
@@ -135,6 +137,7 @@ export default function EditProject() {
 
       const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}`, {
         method: 'PUT',
+        credentials: 'include', // Include session cookies
         headers: {
           'Authorization': `Bearer ${sessionId}`,
           'Content-Type': 'application/json',

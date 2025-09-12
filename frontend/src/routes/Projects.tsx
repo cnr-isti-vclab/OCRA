@@ -61,6 +61,7 @@ export default function Projects() {
 
         // Fetch current user information
         const userResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/sessions/current`, {
+          credentials: 'include', // Include session cookies
           headers: {
             'Authorization': `Bearer ${sessionId}`,
             'Content-Type': 'application/json',
@@ -74,6 +75,7 @@ export default function Projects() {
 
         // Fetch projects
         const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects`, {
+          credentials: 'include', // Include session cookies
           headers: {
             'Content-Type': 'application/json',
           },

@@ -163,7 +163,7 @@ export async function logout(): Promise<void> {
   logoutUrl.searchParams.set('client_id', OAUTH_CONFIG.clientId);
   
   console.log('🔗 Logout URL prepared:', logoutUrl.toString());
-  console.log('⏳ Waiting 2 seconds for console messages to be visible...');
+  console.log('⏳ Waiting 0,5 seconds for console messages to be visible...');
   console.log('💡 TIP: Keep DevTools open to see all logout messages');
   
   // Store logout completion in sessionStorage for debugging
@@ -177,7 +177,7 @@ export async function logout(): Promise<void> {
   setTimeout(() => {
     console.log('🚀 Now redirecting to OAuth provider logout...');
     window.location.href = logoutUrl.toString();
-  }, 2000);
+  }, 500);
 }
 
 /**

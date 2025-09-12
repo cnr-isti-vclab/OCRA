@@ -37,9 +37,10 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
     res.cookie('session_id', sessionId, {
       httpOnly: true,
       secure: false, // Set to true in production with HTTPS
-      sameSite: 'lax',
+      sameSite: 'lax', // Use lax for development
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      path: '/'
+      path: '/',
+      domain: 'localhost' // Explicitly set domain for localhost cross-port
     });
 
     res.json({ sessionId });
@@ -131,8 +132,9 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
     res.clearCookie('session_id', {
       httpOnly: true,
       secure: false,
-      sameSite: 'lax',
-      path: '/'
+      sameSite: 'lax', // Must match the original cookie settings
+      path: '/',
+      domain: 'localhost' // Must match the original cookie settings
     });
 
     res.json({ message: 'Session deleted successfully' });

@@ -13,32 +13,51 @@ import { getValidSession } from '../../db.js';
  * Get current user from session (if authenticated)
  */
 async function getCurrentUser(req: Request): Promise<any | null> {
+  console.log('🔐 [getCurrentUser] Starting authentication check...');
+  
   try {
     // Get session ID from cookie first, then fall back to header or URL param
     let sessionId = req.cookies?.session_id;
+    console.log('🍪 [getCurrentUser] Cookie session_id:', sessionId ? 'Present' : 'Missing');
     
     // Fallback: check Authorization header
     if (!sessionId && req.headers.authorization) {
       const authHeader = req.headers.authorization;
       if (authHeader.startsWith('Bearer ')) {
         sessionId = authHeader.substring(7);
+        console.log('🔑 [getCurrentUser] Using Bearer token from Authorization header');
       }
     }
     
     // Fallback: check for session_id in query params
     if (!sessionId && req.query.session_id) {
       sessionId = req.query.session_id as string;
+      console.log('🔗 [getCurrentUser] Using session_id from query params');
     }
     
     if (!sessionId) {
+      console.log('❌ [getCurrentUser] No session ID found in cookies, headers, or query params');
       return null;
     }
 
+    console.log('🔍 [getCurrentUser] Validating session ID...');
     // Validate session
     const session = await getValidSession(sessionId);
-    return session?.user || null;
+    
+    if (session?.user) {
+      console.log('✅ [getCurrentUser] Valid session found for user:', {
+        sub: session.user.sub,
+        email: session.user.email,
+        username: session.user.username,
+        sys_admin: session.user.sys_admin
+      });
+      return session.user;
+    } else {
+      console.log('❌ [getCurrentUser] Invalid or expired session');
+      return null;
+    }
   } catch (error) {
-    console.error('Error getting current user:', error);
+    console.error('❌ [getCurrentUser] Error during authentication:', error);
     return null;
   }
 }
@@ -49,22 +68,42 @@ async function getCurrentUser(req: Request): Promise<any | null> {
  * For unauthenticated users: show only public projects
  */
 export async function getAllProjects(req: Request, res: Response): Promise<void> {
+  console.log('🚀 [getAllProjects] Request received');
+  console.log('📋 [getAllProjects] Headers:', {
+    authorization: req.headers.authorization ? 'Present' : 'None',
+    cookie: req.headers.cookie ? 'Present' : 'None',
+    userAgent: req.headers['user-agent']
+  });
+  
   try {
     const db = getPrismaClient();
+    console.log('✅ [getAllProjects] Database client obtained');
     
     // Check if user is authenticated
+    console.log('🔍 [getAllProjects] Checking user authentication...');
     const currentUser = await getCurrentUser(req);
+    
+    if (currentUser) {
+      console.log('👤 [getAllProjects] User authenticated:', {
+        sub: currentUser.sub,
+        email: currentUser.email,
+        username: currentUser.username,
+        sys_admin: currentUser.sys_admin
+      });
+    } else {
+      console.log('🚫 [getAllProjects] No authenticated user found');
+    }
     
     // Build filter based on authentication status and user privileges
     let whereClause;
     if (currentUser) {
-      // Check if user is sysadmin
-      const isSysAdmin = currentUser.email === process.env.ADMIN_EMAIL;
-      
-      if (isSysAdmin) {
+      // Check if user is sysadmin using the sys_admin field
+      if (currentUser.sys_admin) {
+        console.log('🔑 [getAllProjects] Sysadmin detected - showing ALL projects');
         // For sysadmin: show ALL projects (no filtering)
         whereClause = {};
       } else {
+        console.log('👥 [getAllProjects] Regular user - showing public + managed projects');
         // For regular authenticated users: show public projects OR projects they manage
         whereClause = {
           OR: [
@@ -72,7 +111,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
             { 
               projectRoles: {
                 some: {
-                  userId: currentUser.id,
+                  userId: currentUser.sub,
                   roleId: 'manager'
                 }
               }
@@ -81,9 +120,12 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         };
       }
     } else {
+      console.log('🌍 [getAllProjects] Unauthenticated user - showing only public projects');
       // For unauthenticated users: show only public projects
       whereClause = { public: true };
     }
+    
+    console.log('🔍 [getAllProjects] Database query filter:', JSON.stringify(whereClause, null, 2));
     
     // Get projects with manager information
     const projects = await db.project.findMany({
@@ -118,7 +160,13 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
       }
     });
 
+    console.log(`📊 [getAllProjects] Found ${projects.length} projects from database`);
+    projects.forEach((project: any, index: number) => {
+      console.log(`  ${index + 1}. ${project.name} (public: ${project.public}, manager: ${project.projectRoles[0]?.user?.username || 'none'})`);
+    });
+
     // Transform the data to include manager information more clearly
+    console.log('🔄 [getAllProjects] Transforming project data...');
     const projectsWithManagers = projects.map((project: any) => ({
       id: project.id,
       name: project.name,
@@ -138,12 +186,14 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
       } : null
     }));
 
+    console.log(`✅ [getAllProjects] Sending response with ${projectsWithManagers.length} projects`);
     res.json({
       success: true,
       projects: projectsWithManagers
     });
   } catch (error) {
-    console.error('Error fetching projects:', error);
+    console.error('❌ [getAllProjects] Error occurred:', error);
+    console.error('❌ [getAllProjects] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ 
       error: 'Failed to fetch projects',
       message: error instanceof Error ? error.message : 'Unknown error'
