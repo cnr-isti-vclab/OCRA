@@ -126,6 +126,155 @@ async function seedProjects(): Promise<void> {
 }
 
 /**
+ * Seed demo users - create the users from Keycloak demo realm
+ */
+async function seedDemoUsers(): Promise<void> {
+  console.log('🌱 Seeding demo users...');
+  
+  const demoUsers = [
+    {
+      sub: 'demo-lab-head-sub',
+      email: 'labhead@example.com',
+      name: 'Giulia Verdi',
+      username: 'lab-head',
+      given_name: 'Giulia',
+      family_name: 'Verdi'
+    },
+    {
+      sub: 'demo-museum-director-sub',
+      email: 'director@example.com',
+      name: 'Roberto Neri',
+      username: 'museum-director',
+      given_name: 'Roberto',
+      family_name: 'Neri'
+    }
+  ];
+
+  for (const user of demoUsers) {
+    await prisma.user.upsert({
+      where: { sub: user.sub },
+      update: {
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        given_name: user.given_name,
+        family_name: user.family_name,
+        updatedAt: new Date()
+      },
+      create: user
+    });
+    console.log(`  ✓ Demo user '${user.username}' ready`);
+  }
+  
+  console.log('✅ Successfully seeded demo users');
+}
+
+/**
+ * Seed project roles - assign users to projects with specific roles
+ */
+async function seedProjectRoles(): Promise<void> {
+  console.log('🌱 Seeding project roles...');
+  
+  // Get the projects and users
+  const marbleHeadProject = await prisma.project.findUnique({
+    where: { name: 'Marble Head' }
+  });
+  
+  const stanfordBunnyProject = await prisma.project.findUnique({
+    where: { name: 'Stanford Bunny' }
+  });
+  
+  const labHeadUser = await prisma.user.findUnique({
+    where: { email: 'labhead@example.com' }
+  });
+  
+  const museumDirectorUser = await prisma.user.findUnique({
+    where: { email: 'director@example.com' }
+  });
+
+  if (!marbleHeadProject || !stanfordBunnyProject) {
+    console.log('⚠️  Projects not found, skipping project role seeding');
+    return;
+  }
+
+  if (!labHeadUser || !museumDirectorUser) {
+    console.log('⚠️  Demo users not found, skipping project role seeding');
+    return;
+  }
+
+  // Assign lab-head as manager of Stanford Bunny project
+  await prisma.projectRole.upsert({
+    where: {
+      userId_projectId: {
+        userId: labHeadUser.id,
+        projectId: stanfordBunnyProject.id
+      }
+    },
+    update: {
+      roleId: 'manager',
+      updatedAt: new Date()
+    },
+    create: {
+      userId: labHeadUser.id,
+      projectId: stanfordBunnyProject.id,
+      roleId: 'manager'
+    }
+  });
+  console.log(`  ✓ ${labHeadUser.username} assigned as manager of '${stanfordBunnyProject.name}' project`);
+
+  // Assign museum-director as manager of Marble Head project
+  await prisma.projectRole.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: marbleHeadProject.id
+      }
+    },
+    update: {
+      roleId: 'manager',
+      updatedAt: new Date()
+    },
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: marbleHeadProject.id,
+      roleId: 'manager'
+    }
+  });
+  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
+
+  // Also create user-project assignments
+  await prisma.userProject.upsert({
+    where: {
+      userId_projectId: {
+        userId: labHeadUser.id,
+        projectId: stanfordBunnyProject.id
+      }
+    },
+    update: {},
+    create: {
+      userId: labHeadUser.id,
+      projectId: stanfordBunnyProject.id
+    }
+  });
+
+  await prisma.userProject.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: marbleHeadProject.id
+      }
+    },
+    update: {},
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: marbleHeadProject.id
+    }
+  });
+
+  console.log('✅ Successfully seeded project roles');
+}
+
+/**
  * Main seeding function
  */
 async function main(): Promise<void> {
@@ -136,6 +285,8 @@ async function main(): Promise<void> {
     // Note: Admin user is now created dynamically based on SYS_ADMIN_EMAIL environment variable
     // when the user with that email logs in for the first time
     await seedProjects();
+    await seedDemoUsers();
+    await seedProjectRoles();
     
     console.log('🎉 Database seeding completed successfully!');
     console.log('ℹ️  Admin user will be created automatically when SYS_ADMIN_EMAIL user logs in');

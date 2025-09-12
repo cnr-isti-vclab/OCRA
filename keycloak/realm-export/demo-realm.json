@@ -58,6 +58,60 @@
       "attributes": {
         "locale": ["en"]
       }
+    },
+    {
+      "username": "restorator",
+      "email": "restorator@example.com",
+      "firstName": "Anna",
+      "lastName": "Bianchi",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "restorator",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "locale": ["en"]
+      }
+    },
+    {
+      "username": "lab-head",
+      "email": "labhead@example.com",
+      "firstName": "Giulia",
+      "lastName": "Verdi",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lab-head",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "locale": ["en"]
+      }
+    },
+    {
+      "username": "museum-director",
+      "email": "director@example.com",
+      "firstName": "Roberto",
+      "lastName": "Neri",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "museum-director",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "locale": ["en"]
+      }
     }
   ],
   "clients": [
