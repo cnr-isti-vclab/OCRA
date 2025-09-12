@@ -348,7 +348,7 @@ export async function updateUserAdminStatus(userId: string, isAdmin: boolean) {
 }
 
 /**
- * Get audit log (login events)
+ * Get audit log (login events) with user information
  */
 export async function getAuditLog() {
   const db = getPrismaClient();
@@ -361,7 +361,48 @@ export async function getAuditLog() {
       take: 100, // Limit to last 100 events
     });
     
-    return events;
+    // Get all unique user subs from events
+    const userSubs = [...new Set(events.map((event: any) => event.userSub))];
+    
+    // Fetch user information for all users in the audit log
+    const users = await db.user.findMany({
+      where: {
+        sub: {
+          in: userSubs
+        }
+      },
+      select: {
+        sub: true,
+        name: true,
+        email: true,
+        username: true,
+        given_name: true,
+        family_name: true
+      }
+    });
+    
+    // Create a map of userSub to user info for quick lookup
+    const userMap = new Map(users.map((user: any) => [user.sub, user]));
+    
+    // Enrich events with user information
+    const enrichedEvents = events.map((event: any) => {
+      const user = userMap.get(event.userSub);
+      return {
+        ...event,
+        user: user ? {
+          sub: user.sub,
+          name: user.name,
+          email: user.email,
+          username: user.username,
+          displayName: user.name || 
+                       `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+                       user.username ||
+                       'Unknown User'
+        } : null
+      };
+    });
+    
+    return enrichedEvents;
   } catch (error) {
     console.error('Failed to get audit log:', error);
     throw new Error(`Database error: ${(error as Error).message}`);

@@ -29,6 +29,13 @@ interface AuditEvent {
   createdAt: string;
   errorMessage?: string;
   userSub?: string; // Added for admin view
+  user?: {
+    sub: string;
+    name: string;
+    email: string;
+    username: string;
+    displayName: string;
+  } | null;
 }
 
 export default function AuditLog() {
@@ -176,7 +183,7 @@ export default function AuditLog() {
                   </span>
                 </div>
                 
-                {isAdmin && event.userSub && (
+                {isAdmin && event.user && (
                   <div style={{ 
                     fontSize: '0.9rem', 
                     color: '#2c3e50', 
@@ -187,7 +194,7 @@ export default function AuditLog() {
                     borderRadius: '4px',
                     border: '1px solid #bee5eb'
                   }}>
-                    <strong>User:</strong> {event.userSub}
+                    <strong>User:</strong> {event.user.displayName} ({event.user.username || event.user.email})
                   </div>
                 )}
                 
