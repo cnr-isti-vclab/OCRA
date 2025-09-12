@@ -47,6 +47,66 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * Get all users with project management statistics
+ * Requires authentication and admin privileges
+ */
+export async function getAllUsersWithStats(req: Request, res: Response): Promise<void> {
+  try {
+    const db = getPrismaClient();
+    
+    // Get all users with basic information
+    const users = await db.user.findMany({
+      select: {
+        id: true,
+        sub: true,
+        email: true,
+        name: true,
+        username: true,
+        given_name: true,
+        family_name: true,
+        middle_name: true,
+        sys_admin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Get project management counts for all users
+    const managedProjectCounts = await db.projectRole.groupBy({
+      by: ['userId'],
+      where: {
+        roleId: 'manager'
+      },
+      _count: {
+        projectId: true
+      }
+    });
+
+    // Create a map of userId to project count
+    const projectCountMap = new Map(
+      managedProjectCounts.map((item: any) => [item.userId, item._count.projectId])
+    );
+
+    // Enrich users with project management statistics
+    const usersWithStats = users.map((user: any) => ({
+      ...user,
+      managedProjectsCount: projectCountMap.get(user.id) || 0
+    }));
+
+    res.json(usersWithStats);
+  } catch (error) {
+    console.error('Error fetching users with stats:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch users with statistics',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
  * Get a specific user by ID
  */
 export async function getUserById(req: Request, res: Response): Promise<void> {

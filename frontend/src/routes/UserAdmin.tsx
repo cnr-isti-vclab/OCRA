@@ -19,6 +19,7 @@ interface User {
   sys_admin: boolean;
   createdAt: string;
   updatedAt: string;
+  managedProjectsCount?: number;
 }
 
 export default function UserAdmin() {
@@ -33,7 +34,7 @@ export default function UserAdmin() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/users', {
+      const response = await fetch('/api/users/stats', {
         credentials: 'include',
       });
 
@@ -160,6 +161,9 @@ export default function UserAdmin() {
                   <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#495057' }}>
                     Admin
                   </th>
+                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#495057' }}>
+                    Managed Projects
+                  </th>
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
                     Created
                   </th>
@@ -195,6 +199,18 @@ export default function UserAdmin() {
                         color: user.sys_admin ? '#155724' : '#6c757d'
                       }}>
                         {user.sys_admin ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '12px',
+                        fontSize: '0.8rem',
+                        fontWeight: '500',
+                        backgroundColor: (user.managedProjectsCount || 0) > 0 ? '#e3f2fd' : '#f8f9fa',
+                        color: (user.managedProjectsCount || 0) > 0 ? '#1565c0' : '#6c757d'
+                      }}>
+                        {user.managedProjectsCount || 0}
                       </span>
                     </td>
                     <td style={{ padding: '1rem', color: '#6c757d', fontSize: '0.9rem' }}>
