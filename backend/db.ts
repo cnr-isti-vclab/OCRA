@@ -8,6 +8,28 @@
 import { PrismaClient } from '@prisma/client';
 import { OAuthUserProfile, OAuthTokens } from './src/types/index.js';
 
+// Type definitions for database operations
+interface UserSelectData {
+  sub: string;
+  name: string | null;
+  email: string;
+  username: string | null;
+  given_name: string | null;
+  family_name: string | null;
+}
+
+interface LoginEventData {
+  id: string;
+  userSub: string;
+  eventType: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  success: boolean;
+  sessionId: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+}
+
 // Singleton Prisma client - reuse across the application
 let prisma: PrismaClient | undefined;
 
@@ -362,7 +384,7 @@ export async function getAuditLog() {
     });
     
     // Get all unique user subs from events
-    const userSubs = [...new Set(events.map((event: any) => event.userSub))];
+    const userSubs = [...new Set(events.map((event: LoginEventData) => event.userSub))];
     
     // Fetch user information for all users in the audit log
     const users = await db.user.findMany({
@@ -382,11 +404,11 @@ export async function getAuditLog() {
     });
     
     // Create a map of userSub to user info for quick lookup
-    const userMap = new Map(users.map((user: any) => [user.sub, user]));
+    const userMap = new Map(users.map((user: UserSelectData) => [user.sub, user]));
     
     // Enrich events with user information
-    const enrichedEvents = events.map((event: any) => {
-      const user = userMap.get(event.userSub);
+    const enrichedEvents = events.map((event: LoginEventData) => {
+      const user = userMap.get(event.userSub) as UserSelectData | undefined;
       return {
         ...event,
         user: user ? {

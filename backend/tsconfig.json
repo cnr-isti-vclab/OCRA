@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
@@ -23,8 +23,10 @@
     "types": ["node"]
   },
   "include": [
-    "**/*.ts",
-    "**/*.js"
+    "src/**/*.ts",
+    "db.ts",
+    "server.ts",
+    "seed.ts"
   ],
   "exclude": [
     "node_modules",
