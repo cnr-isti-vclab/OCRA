@@ -156,3 +156,86 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
     });
   }
 }
+
+/**
+ * Get current user information based on session
+ */
+export async function getCurrentUser(req: Request, res: Response): Promise<void> {
+  try {
+    const sessionId = req.headers.authorization?.replace('Bearer ', '') || 
+                     req.cookies.session_id ||
+                     req.query.sessionId as string;
+
+    if (!sessionId) {
+      res.status(401).json({ error: 'No session provided' });
+      return;
+    }
+
+    const session = await getSession(sessionId);
+    
+    if (!session) {
+      res.status(401).json({ error: 'Invalid session' });
+      return;
+    }
+
+    // Get user with their project roles
+    const { getPrismaClient } = await import('../../db.js');
+    const db = getPrismaClient();
+    
+    const user = await db.user.findUnique({
+      where: { sub: session.user.sub },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        username: true,
+        given_name: true,
+        family_name: true,
+        sys_admin: true,
+        projectRoles: {
+          select: {
+            roleId: true,
+            project: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Extract managed projects
+    const managedProjects = user.projectRoles
+      .filter((pr: any) => pr.roleId === 'manager')
+      .map((pr: any) => pr.project);
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+        displayName: user.name || 
+                     `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+                     user.username ||
+                     'Unknown User',
+        sys_admin: user.sys_admin,
+        managedProjects
+      }
+    });
+  } catch (error) {
+    console.error('Failed to get current user:', error);
+    res.status(500).json({ 
+      error: 'Failed to get current user',
+      message: (error as Error).message 
+    });
+  }
+}

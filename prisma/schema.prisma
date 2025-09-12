@@ -83,6 +83,7 @@ model Project {
   id          String @id @default(cuid())
   name        String @unique // Project name (e.g., "Marble Head", "Stanford Bunny")
   description String // Project description
+  public      Boolean @default(false) // Whether the project is publicly visible
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -6,6 +6,7 @@ import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
 import UserAdmin from './routes/UserAdmin.tsx'
 import Projects from './routes/Projects.tsx'
+import EditProject from './routes/EditProject.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 
@@ -101,6 +102,18 @@ const router = createBrowserRouter([
 			<RequireAuth>
 				<SidebarLayout>
 					<Projects />
+				</SidebarLayout>
+			</RequireAuth>
+		)
+	},
+	
+	// Protected edit project route: allows project managers to edit projects
+	{
+		path: '/projects/:projectId/edit',
+		element: (
+			<RequireAuth>
+				<SidebarLayout>
+					<EditProject />
 				</SidebarLayout>
 			</RequireAuth>
 		)

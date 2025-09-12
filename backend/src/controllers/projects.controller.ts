@@ -21,6 +21,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         id: true,
         name: true,
         description: true,
+        public: true,
         createdAt: true,
         updatedAt: true,
         projectRoles: {
@@ -51,6 +52,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
       id: project.id,
       name: project.name,
       description: project.description,
+      public: project.public,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       manager: project.projectRoles.length > 0 ? {
@@ -100,6 +102,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         id: true,
         name: true,
         description: true,
+        public: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -130,7 +133,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
  */
 export async function createProject(req: Request, res: Response): Promise<void> {
   try {
-    const { name, description } = req.body;
+    const { name, description, public: isPublic } = req.body;
     
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       res.status(400).json({
@@ -157,11 +160,13 @@ export async function createProject(req: Request, res: Response): Promise<void> 
       data: {
         name: name.trim(),
         description: description?.trim() || null,
+        public: Boolean(isPublic) || false,
       },
       select: {
         id: true,
         name: true,
         description: true,
+        public: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -175,6 +180,82 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     console.error('Error creating project:', error);
     res.status(500).json({ 
       error: 'Failed to create project',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Update a project (only allowed for project managers)
+ */
+export async function updateProject(req: Request, res: Response): Promise<void> {
+  try {
+    const { projectId } = req.params;
+    const { name, description, public: isPublic } = req.body;
+    
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      res.status(400).json({
+        error: 'Project name is required and must be a non-empty string'
+      });
+      return;
+    }
+
+    const db = getPrismaClient();
+    
+    // Check if project exists
+    const existingProject = await db.project.findUnique({
+      where: { id: projectId }
+    });
+    
+    if (!existingProject) {
+      res.status(404).json({
+        error: 'Project not found'
+      });
+      return;
+    }
+    
+    // Check if another project with this name already exists (excluding current project)
+    const nameConflict = await db.project.findFirst({
+      where: { 
+        name: name.trim(),
+        NOT: { id: projectId }
+      }
+    });
+    
+    if (nameConflict) {
+      res.status(409).json({
+        error: 'A project with this name already exists'
+      });
+      return;
+    }
+
+    // Update the project
+    const updatedProject = await db.project.update({
+      where: { id: projectId },
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        public: isPublic !== undefined ? Boolean(isPublic) : undefined,
+        updatedAt: new Date()
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        public: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    });
+
+    res.json({
+      success: true,
+      project: updatedProject
+    });
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ 
+      error: 'Failed to update project',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }

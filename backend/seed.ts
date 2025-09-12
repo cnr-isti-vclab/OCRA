@@ -102,11 +102,23 @@ async function seedProjects(): Promise<void> {
   const projects = [
     {
       name: 'Marble Head',
-      description: 'Classical sculpture digitization project'
+      description: 'Classical sculpture digitization project',
+      public: true
     },
     {
       name: 'Stanford Bunny', 
-      description: '3D model processing and analysis'
+      description: '3D model processing and analysis',
+      public: false
+    },
+    {
+      name: 'Laurana',
+      description: 'Renaissance sculpture digitization and restoration',
+      public: true
+    },
+    {
+      name: 'Stanford Lucy',
+      description: 'High-resolution 3D model analysis and processing',
+      public: true
     }
   ];
 
@@ -115,6 +127,7 @@ async function seedProjects(): Promise<void> {
       where: { name: project.name },
       update: {
         description: project.description,
+        public: project.public,
         updatedAt: new Date()
       },
       create: project
@@ -122,7 +135,7 @@ async function seedProjects(): Promise<void> {
     console.log(`  ✓ Project '${project.name}' created`);
   }
   
-  console.log('✅ Successfully seeded 2 projects');
+  console.log('✅ Successfully seeded 4 projects');
 }
 
 /**
@@ -151,19 +164,28 @@ async function seedDemoUsers(): Promise<void> {
   ];
 
   for (const user of demoUsers) {
-    await prisma.user.upsert({
-      where: { sub: user.sub },
-      update: {
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        given_name: user.given_name,
-        family_name: user.family_name,
-        updatedAt: new Date()
-      },
-      create: user
-    });
-    console.log(`  ✓ Demo user '${user.username}' ready`);
+    try {
+      await prisma.user.upsert({
+        where: { sub: user.sub },
+        update: {
+          name: user.name,
+          email: user.email,
+          username: user.username,
+          given_name: user.given_name,
+          family_name: user.family_name,
+          updatedAt: new Date()
+        },
+        create: user
+      });
+      console.log(`  ✓ Demo user '${user.username}' ready`);
+    } catch (error: any) {
+      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+        // Email already exists, skip this user
+        console.log(`  ⚠️ Demo user '${user.username}' skipped (email already exists)`);
+      } else {
+        throw error;
+      }
+    }
   }
   
   console.log('✅ Successfully seeded demo users');
@@ -184,6 +206,14 @@ async function seedProjectRoles(): Promise<void> {
     where: { name: 'Stanford Bunny' }
   });
   
+  const lauranaProject = await prisma.project.findUnique({
+    where: { name: 'Laurana' }
+  });
+  
+  const stanfordLucyProject = await prisma.project.findUnique({
+    where: { name: 'Stanford Lucy' }
+  });
+  
   const labHeadUser = await prisma.user.findUnique({
     where: { email: 'labhead@example.com' }
   });
@@ -192,7 +222,7 @@ async function seedProjectRoles(): Promise<void> {
     where: { email: 'director@example.com' }
   });
 
-  if (!marbleHeadProject || !stanfordBunnyProject) {
+  if (!marbleHeadProject || !stanfordBunnyProject || !lauranaProject || !stanfordLucyProject) {
     console.log('⚠️  Projects not found, skipping project role seeding');
     return;
   }
@@ -242,6 +272,46 @@ async function seedProjectRoles(): Promise<void> {
   });
   console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
 
+  // Assign museum-director as manager of Laurana project
+  await prisma.projectRole.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: lauranaProject.id
+      }
+    },
+    update: {
+      roleId: 'manager',
+      updatedAt: new Date()
+    },
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: lauranaProject.id,
+      roleId: 'manager'
+    }
+  });
+  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
+
+  // Assign museum-director as manager of Stanford Lucy project
+  await prisma.projectRole.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: stanfordLucyProject.id
+      }
+    },
+    update: {
+      roleId: 'manager',
+      updatedAt: new Date()
+    },
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: stanfordLucyProject.id,
+      roleId: 'manager'
+    }
+  });
+  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${stanfordLucyProject.name}' project`);
+
   // Also create user-project assignments
   await prisma.userProject.upsert({
     where: {
@@ -268,6 +338,34 @@ async function seedProjectRoles(): Promise<void> {
     create: {
       userId: museumDirectorUser.id,
       projectId: marbleHeadProject.id
+    }
+  });
+
+  await prisma.userProject.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: lauranaProject.id
+      }
+    },
+    update: {},
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: lauranaProject.id
+    }
+  });
+
+  await prisma.userProject.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: stanfordLucyProject.id
+      }
+    },
+    update: {},
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: stanfordLucyProject.id
     }
   });
 

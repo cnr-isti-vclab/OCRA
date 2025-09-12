@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * PROJECTS COMPONENT
@@ -29,13 +30,27 @@ interface Project {
   } | null;
 }
 
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  username?: string;
+  displayName: string;
+  sys_admin: boolean;
+  managedProjects: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const sessionId = localStorage.getItem('oauth_session_id');
@@ -44,6 +59,20 @@ export default function Projects() {
           throw new Error('No session found');
         }
 
+        // Fetch current user information
+        const userResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/sessions/current`, {
+          headers: {
+            'Authorization': `Bearer ${sessionId}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setUser(userData.user);
+        }
+
+        // Fetch projects
         const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects`, {
           headers: {
             'Content-Type': 'application/json',
@@ -57,15 +86,22 @@ export default function Projects() {
         const data = await response.json();
         setProjects(data.projects || data || []);
       } catch (e: any) {
-        console.error('Failed to fetch projects:', e);
+        console.error('Failed to fetch data:', e);
         setError(e?.message ?? String(e));
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProjects();
+    fetchData();
   }, []);
+
+  // Check if current user can edit a specific project
+  const canEditProject = (projectId: string): boolean => {
+    if (!user) return false;
+    if (user.sys_admin) return true;
+    return user.managedProjects.some(p => p.id === projectId);
+  };
 
   if (loading) {
     return (
@@ -239,9 +275,36 @@ export default function Projects() {
                 <div style={{ marginBottom: '0.5rem' }}>
                   <strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}
                 </div>
-                <div>
+                <div style={{ marginBottom: canEditProject(project.id) ? '1rem' : '0' }}>
                   <strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}
                 </div>
+                
+                {canEditProject(project.id) && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <Link
+                      to={`/projects/${project.id}/edit`}
+                      style={{
+                        display: 'inline-block',
+                        backgroundColor: '#3498db',
+                        color: 'white',
+                        textDecoration: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '4px',
+                        fontSize: '0.875rem',
+                        fontWeight: 'bold',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#2980b9';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#3498db';
+                      }}
+                    >
+                      ✏️ Edit Project
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           ))}
