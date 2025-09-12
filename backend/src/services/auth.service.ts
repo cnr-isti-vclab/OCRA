@@ -49,8 +49,9 @@ export async function getUserAuditLog(userSub: string, limit: number = 20) {
 /**
  * Get full audit log (admin only)
  */
-export async function getFullAuditLog() {
-  return await getAuditLog();
+export async function getFullAuditLog(limit: number = 50) {
+  const allEvents = await getAuditLog();
+  return allEvents.slice(0, limit);
 }
 
 /**

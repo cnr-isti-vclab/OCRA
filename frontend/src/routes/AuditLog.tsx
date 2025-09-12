@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getUserAuditLog } from '../backend';
+import { getUserAuditLog, getFullAuditLog, getCurrentUser } from '../backend';
 
 /**
  * AUDIT LOG COMPONENT (Updated for Backend API)
@@ -18,6 +18,7 @@ import { getUserAuditLog } from '../backend';
  * - Displays success/failure status
  * - Shows timestamps and user agent information
  * - Helps users identify suspicious activity
+ * - For admins: Shows all users' audit events
  */
 
 interface AuditEvent {
@@ -27,17 +28,32 @@ interface AuditEvent {
   userAgent?: string;
   createdAt: string;
   errorMessage?: string;
+  userSub?: string; // Added for admin view
 }
 
 export default function AuditLog() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchAuditLog = async () => {
       try {
-        const auditEvents = await getUserAuditLog(20); // Get last 20 events
+        // First check if user is admin
+        const user = await getCurrentUser();
+        const userIsAdmin = user?.sys_admin === true;
+        setIsAdmin(userIsAdmin);
+        
+        let auditEvents;
+        if (userIsAdmin) {
+          // Admin sees all users' events
+          auditEvents = await getFullAuditLog(50);
+        } else {
+          // Regular user sees only their events
+          auditEvents = await getUserAuditLog(20);
+        }
+        
         setEvents(auditEvents);
       } catch (e: any) {
         console.error('Failed to fetch audit log:', e);
@@ -85,9 +101,14 @@ export default function AuditLog() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>🔍 Security Audit Log</h1>
+      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>
+        🔍 {isAdmin ? 'System Audit Log (Admin)' : 'Security Audit Log'}
+      </h1>
       <p style={{ color: '#666', marginBottom: '2rem', fontSize: '1.1rem' }}>
-        Track your login and logout activity for security monitoring.
+        {isAdmin 
+          ? 'Track login and logout activity for all users in the system.'
+          : 'Track your login and logout activity for security monitoring.'
+        }
       </p>
       
       {events.length === 0 ? (
@@ -154,6 +175,21 @@ export default function AuditLog() {
                     {event.success ? 'SUCCESS' : 'FAILED'}
                   </span>
                 </div>
+                
+                {isAdmin && event.userSub && (
+                  <div style={{ 
+                    fontSize: '0.9rem', 
+                    color: '#2c3e50', 
+                    marginBottom: '0.5rem',
+                    fontFamily: 'monospace',
+                    backgroundColor: '#e8f4f8',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid #bee5eb'
+                  }}>
+                    <strong>User:</strong> {event.userSub}
+                  </div>
+                )}
                 
                 {event.errorMessage && (
                   <div style={{ 

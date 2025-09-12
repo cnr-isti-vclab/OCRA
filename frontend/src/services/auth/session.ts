@@ -213,3 +213,37 @@ export async function getUserAuditLog(limit: number = 20): Promise<any[]> {
     return [];
   }
 }
+
+/**
+ * Get full audit log for all users (admin only)
+ */
+export async function getFullAuditLog(limit: number = 50): Promise<any[]> {
+  const sessionId = localStorage.getItem('oauth_session_id');
+  if (!sessionId) {
+    throw new Error('Authentication required');
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/admin/audit?limit=${limit}`, {
+      credentials: 'include' // Include cookies for session
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      } else if (response.status === 403) {
+        throw new Error('Admin privileges required');
+      }
+      throw new Error(`Failed to get admin audit log: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // The backend returns { success: true, totalEvents, auditLog }
+    return result.auditLog || [];
+    
+  } catch (error) {
+    console.error('Error getting admin audit log:', error);
+    throw error;
+  }
+}

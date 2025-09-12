@@ -5,7 +5,7 @@
  */
 
 import { Request, Response } from 'express';
-import { getUserAuditLog, testUserInfo } from '../services/auth.service.js';
+import { getUserAuditLog, getFullAuditLog, testUserInfo } from '../services/auth.service.js';
 
 /**
  * Get audit log for a specific user
@@ -32,6 +32,43 @@ export async function getAuditLog(req: Request, res: Response): Promise<void> {
     console.error('Error getting audit log:', error);
     res.status(500).json({
       error: 'Failed to retrieve audit log',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Get full audit log for all users (admin only)
+ */
+export async function getFullAuditLogController(req: Request, res: Response): Promise<void> {
+  try {
+    // Check if user is authenticated and is admin
+    if (!req.user) {
+      res.status(401).json({
+        error: 'Authentication required'
+      });
+      return;
+    }
+
+    if (!req.user.sys_admin) {
+      res.status(403).json({
+        error: 'Admin privileges required'
+      });
+      return;
+    }
+
+    const limit = parseInt(req.query.limit as string) || 50;
+    const auditLog = await getFullAuditLog(limit);
+    
+    res.json({
+      success: true,
+      totalEvents: auditLog.length,
+      auditLog
+    });
+  } catch (error) {
+    console.error('Error getting full audit log:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve full audit log',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

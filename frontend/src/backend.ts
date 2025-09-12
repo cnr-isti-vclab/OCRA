@@ -5,5 +5,6 @@ export {
   completeAuthCodeFlow,
   getCurrentUser,
   getUserAuditLog,
+  getFullAuditLog,
   logout,
 } from './services/auth';

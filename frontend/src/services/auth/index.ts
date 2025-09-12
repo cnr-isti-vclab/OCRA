@@ -14,7 +14,8 @@ export {
   completeAuthCodeFlow, 
   getCurrentUser, 
   logout, 
-  getUserAuditLog 
+  getUserAuditLog,
+  getFullAuditLog
 } from './session';
 
 // Debug utilities
