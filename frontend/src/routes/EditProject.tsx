@@ -18,6 +18,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
+  public: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,6 +49,7 @@ export default function EditProject() {
   // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export default function EditProject() {
         setProject(projectData.project);
         setName(projectData.project.name);
         setDescription(projectData.project.description || '');
+        setIsPublic(projectData.project.public || false);
 
       } catch (e: any) {
         console.error('Failed to fetch data:', e);
@@ -138,7 +141,8 @@ export default function EditProject() {
         },
         body: JSON.stringify({
           name: name.trim(),
-          description: description.trim() || null
+          description: description.trim() || null,
+          public: isPublic
         })
       });
 
@@ -308,6 +312,40 @@ export default function EditProject() {
               placeholder="Enter project description (optional)"
               disabled={saving}
             />
+          </div>
+
+          <div style={{ marginBottom: '2rem' }}>
+            <label 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 'bold',
+                color: '#2c3e50',
+                cursor: 'pointer'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={saving}
+                style={{
+                  width: '1.2rem',
+                  height: '1.2rem',
+                  cursor: saving ? 'not-allowed' : 'pointer'
+                }}
+              />
+              <span>Public Project</span>
+            </label>
+            <div style={{ 
+              fontSize: '0.875rem', 
+              color: '#6c757d', 
+              marginTop: '0.25rem',
+              marginLeft: '1.7rem'
+            }}>
+              Public projects are visible to all users, including those not logged in
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '1rem' }}>

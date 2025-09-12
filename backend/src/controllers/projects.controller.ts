@@ -55,8 +55,35 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     // Check if user is authenticated
     const currentUser = await getCurrentUser(req);
     
-    // Build filter based on authentication status
-    const whereClause = currentUser ? {} : { public: true };
+    // Build filter based on authentication status and user privileges
+    let whereClause;
+    if (currentUser) {
+      // Check if user is sysadmin
+      const isSysAdmin = currentUser.email === process.env.ADMIN_EMAIL;
+      
+      if (isSysAdmin) {
+        // For sysadmin: show ALL projects (no filtering)
+        whereClause = {};
+      } else {
+        // For regular authenticated users: show public projects OR projects they manage
+        whereClause = {
+          OR: [
+            { public: true },
+            { 
+              projectRoles: {
+                some: {
+                  userId: currentUser.id,
+                  roleId: 'manager'
+                }
+              }
+            }
+          ]
+        };
+      }
+    } else {
+      // For unauthenticated users: show only public projects
+      whereClause = { public: true };
+    }
     
     // Get projects with manager information
     const projects = await db.project.findMany({
