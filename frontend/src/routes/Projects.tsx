@@ -190,22 +190,26 @@ export default function Projects() {
           gap: '1.5rem'
         }}>
           {projects.map((project) => (
-            <div
+            <Link
               key={project.id}
+              to={`/projects/${project.id}`}
               style={{
+                textDecoration: 'none',
+                color: 'inherit',
                 backgroundColor: 'white',
                 border: '1px solid #dee2e6',
                 borderRadius: '8px',
                 padding: '1rem',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 transition: 'box-shadow 0.2s',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'block'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
               }}
             >
               <div style={{ 
@@ -317,8 +321,10 @@ export default function Projects() {
                       transition: 'background-color 0.2s',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.25rem'
+                      gap: '0.25rem',
+                      marginLeft: '1rem'
                     }}
+                    onClick={e => e.stopPropagation()}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#2980b9';
                     }}
@@ -330,7 +336,7 @@ export default function Projects() {
                   </Link>
                 )}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

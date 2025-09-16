@@ -7,6 +7,7 @@ import AuditLog from './routes/AuditLog.tsx'
 import UserAdmin from './routes/UserAdmin.tsx'
 import Projects from './routes/Projects.tsx'
 import EditProject from './routes/EditProject.tsx'
+import ProjectPage from './routes/ProjectPage.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 
@@ -107,17 +108,28 @@ const router = createBrowserRouter([
 		)
 	},
 	
-	// Protected edit project route: allows project managers to edit projects
-	{
-		path: '/projects/:projectId/edit',
-		element: (
-			<RequireAuth>
-				<SidebarLayout>
-					<EditProject />
-				</SidebarLayout>
-			</RequireAuth>
-		)
-	},
+	   // Protected edit project route: allows project managers to edit projects
+	   {
+		   path: '/projects/:projectId/edit',
+		   element: (
+			   <RequireAuth>
+				   <SidebarLayout>
+					   <EditProject />
+				   </SidebarLayout>
+			   </RequireAuth>
+		   )
+	   },
+	   // Protected project detail page
+	   {
+		   path: '/projects/:projectId',
+		   element: (
+			   <RequireAuth>
+				   <SidebarLayout>
+					   <ProjectPage />
+				   </SidebarLayout>
+			   </RequireAuth>
+		   )
+	   },
 	
 	// Protected user admin route: shows list of all users (admin only)
 	{
