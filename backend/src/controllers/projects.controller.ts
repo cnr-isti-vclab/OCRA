@@ -103,6 +103,12 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         // For sysadmin: show ALL projects (no filtering)
         whereClause = {};
       } else {
+        // Get the actual manager role ID
+        const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+        if (!managerRole) {
+          res.status(500).json({ error: 'Manager role not found in database' });
+          return;
+        }
         console.log('👥 [getAllProjects] Regular user - showing public + managed projects');
         // For regular authenticated users: show public projects OR projects they manage
         whereClause = {
@@ -112,7 +118,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
               projectRoles: {
                 some: {
                   userId: currentUser.sub,
-                  roleId: 'manager'
+                  roleId: managerRole.id
                 }
               }
             }
