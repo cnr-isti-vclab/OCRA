@@ -1,4 +1,24 @@
 /**
+ * Helper: Check if a user is manager of a project (or sysadmin)
+ * Returns true if user is manager or sysadmin, false otherwise
+ */
+async function checkIsManagerOfProject(db: any, user: any, projectId: string): Promise<boolean> {
+  if (!user || !projectId) return false;
+  if (user.sys_admin) return true;
+  const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+  if (!managerRole) return false;
+  if (!user.id) return false;
+  const isManager = await db.projectRole.findFirst({
+    where: {
+      projectId,
+      userId: user.id,
+      roleId: managerRole.id
+    }
+  });
+  return !!isManager;
+}
+
+/**
  * Check if current user is manager of a project
  * GET /api/projects/:projectId/is-manager
  * Returns: { isManager: boolean }
@@ -15,6 +35,8 @@ export async function isManagerOfProject(req: Request, res: Response) {
     console.log(`[isManagerOfProject] No authenticated user.`);
     return res.status(401).json({ error: 'Authentication required' });
   }
+  const db = getPrismaClient();
+  const result = await checkIsManagerOfProject(db, currentUser, projectId);
   console.log(`[isManagerOfProject] User:`, {
     sub: currentUser.sub,
     id: currentUser.id,
@@ -22,27 +44,6 @@ export async function isManagerOfProject(req: Request, res: Response) {
     username: currentUser.username,
     sys_admin: currentUser.sys_admin
   });
-  const db = getPrismaClient();
-  const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-  if (!managerRole) {
-    console.log(`[isManagerOfProject] Manager role not found in DB.`);
-    return res.status(500).json({ error: 'Manager role not found' });
-  }
-  // Only check with currentUser.id (internal DB id)
-  let isManager = null;
-  if (currentUser.id) {
-    isManager = await db.projectRole.findFirst({
-      where: {
-        projectId,
-        userId: currentUser.id,
-        roleId: managerRole.id
-      }
-    });
-    console.log(`[isManagerOfProject] Checked with currentUser.id:`, currentUser.id, 'Found:', !!isManager);
-  } else {
-    console.log(`[isManagerOfProject] No internal user id found for current user.`);
-  }
-  const result = Boolean(isManager || currentUser.sys_admin);
   console.log(`[isManagerOfProject] Result:`, result);
   res.json({ isManager: result });
 }
@@ -98,24 +99,13 @@ export async function uploadProjectFile(req: Request, res: Response) {
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
-  // Auth: only manager can upload
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   const db = getPrismaClient();
-  const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-  if (!managerRole) {
-    return res.status(500).json({ error: 'Manager role not found' });
-  }
-  const isManager = await db.projectRole.findFirst({
-    where: {
-      projectId,
-      userId: currentUser.sub,
-      roleId: managerRole.id
-    }
-  });
-  if (!isManager && !currentUser.sys_admin) {
+  const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
+  if (!isManager) {
     return res.status(403).json({ error: 'Only the project manager can upload files' });
   }
   // File is already saved by multer

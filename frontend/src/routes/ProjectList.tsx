@@ -31,6 +31,7 @@ interface Project {
   } | null;
 }
 
+
 interface User {
   id: string;
   email: string;
@@ -38,10 +39,6 @@ interface User {
   username?: string;
   displayName: string;
   sys_admin: boolean;
-  managedProjects: Array<{
-    id: string;
-    name: string;
-  }>;
 }
 
 export default function Projects() {
@@ -49,6 +46,8 @@ export default function Projects() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Map of projectId to isManager boolean
+  const [managerMap, setManagerMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,12 +98,36 @@ export default function Projects() {
     fetchData();
   }, []);
 
-  // Check if current user can edit a specific project
-  const canEditProject = (projectId: string): boolean => {
-    if (!user) return false;
-    if (user.sys_admin) return true;
-    return user.managedProjects.some(p => p.id === projectId);
-  };
+
+  // Fetch manager status for all projects after projects are loaded
+  useEffect(() => {
+    if (!user || projects.length === 0) return;
+    const sessionId = localStorage.getItem('oauth_session_id');
+    const fetchManagerStatus = async () => {
+      const newMap: Record<string, boolean> = {};
+      await Promise.all(projects.map(async (project) => {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${project.id}/is-manager`, {
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${sessionId}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            newMap[project.id] = !!data.isManager;
+          } else {
+            newMap[project.id] = false;
+          }
+        } catch {
+          newMap[project.id] = false;
+        }
+      }));
+      setManagerMap(newMap);
+    };
+    fetchManagerStatus();
+  }, [projects, user]);
 
   if (loading) {
     return (
@@ -307,7 +330,7 @@ export default function Projects() {
                   </div>
                 </div>
                 
-                {canEditProject(project.id) && (
+                {managerMap[project.id] && (
                   <Link
                     to={`/projects/${project.id}/edit`}
                     style={{
