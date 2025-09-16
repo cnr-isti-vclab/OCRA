@@ -309,62 +309,7 @@ async function seedDemoProjectRoles(): Promise<void> {
   });
   console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${stanfordLucyProject.name}' project`);
 
-  // Also create user-project assignments
-  await prisma.userProject.upsert({
-    where: {
-      userId_projectId: {
-        userId: labHeadUser.id,
-        projectId: stanfordBunnyProject.id
-      }
-    },
-    update: {},
-    create: {
-      userId: labHeadUser.id,
-      projectId: stanfordBunnyProject.id
-    }
-  });
 
-  await prisma.userProject.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: marbleHeadProject.id
-      }
-    },
-    update: {},
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: marbleHeadProject.id
-    }
-  });
-
-  await prisma.userProject.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: lauranaProject.id
-      }
-    },
-    update: {},
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: lauranaProject.id
-    }
-  });
-
-  await prisma.userProject.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: stanfordLucyProject.id
-      }
-    },
-    update: {},
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: stanfordLucyProject.id
-    }
-  });
 
   console.log('✅ Successfully seeded project roles');
 }

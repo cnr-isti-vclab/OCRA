@@ -28,7 +28,7 @@ model User {
 
   // Relations
   sessions Session[]
-  projectAssignments UserProject[] // Many-to-many relation with projects
+  // projectAssignments removed; use projectRoles only
   projectRoles ProjectRole[] // User roles per project
 
   @@map("users")
@@ -89,27 +89,14 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   // Relations - list of users assigned to this project
-  userAssignments UserProject[]
+  // userAssignments removed; use projectRoles only
   projectRoles ProjectRole[] // User roles within this project
 
   @@map("projects")
 }
 
 // Junction table for many-to-many relationship between users and projects
-model UserProject {
-  id        String @id @default(cuid())
-  userId    String
-  projectId String
-  createdAt DateTime @default(now())
 
-  // Relations
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  // Ensure a user can only be assigned to a project once
-  @@unique([userId, projectId])
-  @@map("user_projects")
-}
 
 // ProjectRole model - manages user roles within specific projects
 model ProjectRole {
