@@ -1,9 +1,8 @@
 /**
  * Database Seeding Script
  * 
- * This script seeds the database with essential data that the application
- * requires to function properly. It runs on every startup to ensure
- * the required data is always present.
+ * This script seeds the database with required data and some sample data to allow to test the application
+ * properly. It runs on every time the db volume is created to ensure the required data is always present.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -11,7 +10,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Seed roles - these are required for the application to function
+ * Seed basic roles - these are required for the application to function
  */
 async function seedRoles(): Promise<void> {
   console.log('🌱 Seeding user roles...');
@@ -96,7 +95,7 @@ async function seedAdminUser(): Promise<void> {
 /**
  * Seed example projects - for demonstration and testing
  */
-async function seedProjects(): Promise<void> {
+async function seedDemoProjects(): Promise<void> {
   console.log('🌱 Seeding example projects...');
   
   const projects = [
@@ -192,35 +191,32 @@ async function seedDemoUsers(): Promise<void> {
 }
 
 /**
- * Seed project roles - assign users to projects with specific roles
+ * Seed project roles - assign users to projects with specific roles,
+ * to be run after seeding users and projects
  */
-async function seedProjectRoles(): Promise<void> {
+async function seedDemoProjectRoles(): Promise<void> {
   console.log('🌱 Seeding project roles...');
   
+
   // Get the projects and users
-  const marbleHeadProject = await prisma.project.findUnique({
-    where: { name: 'Marble Head' }
-  });
-  
-  const stanfordBunnyProject = await prisma.project.findUnique({
-    where: { name: 'Stanford Bunny' }
-  });
-  
-  const lauranaProject = await prisma.project.findUnique({
-    where: { name: 'Laurana' }
-  });
-  
-  const stanfordLucyProject = await prisma.project.findUnique({
-    where: { name: 'Stanford Lucy' }
-  });
-  
-  const labHeadUser = await prisma.user.findUnique({
-    where: { email: 'labhead@example.com' }
-  });
-  
-  const museumDirectorUser = await prisma.user.findUnique({
-    where: { email: 'director@example.com' }
-  });
+  const [marbleHeadProject, stanfordBunnyProject, lauranaProject, stanfordLucyProject] = await Promise.all([
+    prisma.project.findUnique({ where: { name: 'Marble Head' } }),
+    prisma.project.findUnique({ where: { name: 'Stanford Bunny' } }),
+    prisma.project.findUnique({ where: { name: 'Laurana' } }),
+    prisma.project.findUnique({ where: { name: 'Stanford Lucy' } })
+  ]);
+
+  const [labHeadUser, museumDirectorUser] = await Promise.all([
+    prisma.user.findUnique({ where: { email: 'labhead@example.com' } }),
+    prisma.user.findUnique({ where: { email: 'director@example.com' } })
+  ]);
+
+  // Fetch role ids
+  const managerRole = await prisma.role.findUnique({ where: { name: 'manager' } });
+  if (!managerRole) {
+    console.log('⚠️  Manager role not found, skipping project role seeding');
+    return;
+  }
 
   if (!marbleHeadProject || !stanfordBunnyProject || !lauranaProject || !stanfordLucyProject) {
     console.log('⚠️  Projects not found, skipping project role seeding');
@@ -232,6 +228,7 @@ async function seedProjectRoles(): Promise<void> {
     return;
   }
 
+
   // Assign lab-head as manager of Stanford Bunny project
   await prisma.projectRole.upsert({
     where: {
@@ -241,61 +238,58 @@ async function seedProjectRoles(): Promise<void> {
       }
     },
     update: {
-      roleId: 'manager',
+      roleId: managerRole.id,
       updatedAt: new Date()
     },
     create: {
       userId: labHeadUser.id,
       projectId: stanfordBunnyProject.id,
-      roleId: 'manager'
+      roleId: managerRole.id
     }
   });
   console.log(`  ✓ ${labHeadUser.username} assigned as manager of '${stanfordBunnyProject.name}' project`);
 
-  // NOTE: Giulia Verdi (museum-director) will only manage Stanford Lucy project
-  // Commenting out Marble Head and Laurana assignments to fix project count
+  // Assign museum-director as manager of Marble Head project
+  await prisma.projectRole.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: marbleHeadProject.id
+      }
+    },
+    update: {
+      roleId: managerRole.id,
+      updatedAt: new Date()
+    },
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: marbleHeadProject.id,
+      roleId: managerRole.id
+    }
+  });
+  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
 
-  // // Assign museum-director as manager of Marble Head project
-  // await prisma.projectRole.upsert({
-  //   where: {
-  //     userId_projectId: {
-  //       userId: museumDirectorUser.id,
-  //       projectId: marbleHeadProject.id
-  //     }
-  //   },
-  //   update: {
-  //     roleId: 'manager',
-  //     updatedAt: new Date()
-  //   },
-  //   create: {
-  //     userId: museumDirectorUser.id,
-  //     projectId: marbleHeadProject.id,
-  //     roleId: 'manager'
-  //   }
-  // });
-  // console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
+  // Assign museum-director as manager of Laurana project
+  await prisma.projectRole.upsert({
+    where: {
+      userId_projectId: {
+        userId: museumDirectorUser.id,
+        projectId: lauranaProject.id
+      }
+    },
+    update: {
+      roleId: managerRole.id,
+      updatedAt: new Date()
+    },
+    create: {
+      userId: museumDirectorUser.id,
+      projectId: lauranaProject.id,
+      roleId: managerRole.id
+    }
+  });
+  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
 
-  // // Assign museum-director as manager of Laurana project
-  // await prisma.projectRole.upsert({
-  //   where: {
-  //     userId_projectId: {
-  //       userId: museumDirectorUser.id,
-  //       projectId: lauranaProject.id
-  //     }
-  //   },
-  //   update: {
-  //     roleId: 'manager',
-  //     updatedAt: new Date()
-  //   },
-  //   create: {
-  //     userId: museumDirectorUser.id,
-  //     projectId: lauranaProject.id,
-  //     roleId: 'manager'
-  //   }
-  // });
-  // console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
-
-  // Assign museum-director as manager of Stanford Lucy project (ONLY)
+  // Assign museum-director as manager of Stanford Lucy project
   await prisma.projectRole.upsert({
     where: {
       userId_projectId: {
@@ -304,13 +298,13 @@ async function seedProjectRoles(): Promise<void> {
       }
     },
     update: {
-      roleId: 'manager',
+      roleId: managerRole.id,
       updatedAt: new Date()
     },
     create: {
       userId: museumDirectorUser.id,
       projectId: stanfordLucyProject.id,
-      roleId: 'manager'
+      roleId: managerRole.id
     }
   });
   console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${stanfordLucyProject.name}' project`);
@@ -385,9 +379,9 @@ async function main(): Promise<void> {
     await seedRoles();
     // Note: Admin user is now created dynamically based on SYS_ADMIN_EMAIL environment variable
     // when the user with that email logs in for the first time
-    await seedProjects();
+    await seedDemoProjects();
     await seedDemoUsers();
-    await seedProjectRoles();
+  await seedDemoProjectRoles();
     
     console.log('🎉 Database seeding completed successfully!');
     console.log('ℹ️  Admin user will be created automatically when SYS_ADMIN_EMAIL user logs in');
