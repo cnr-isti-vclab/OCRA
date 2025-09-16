@@ -236,6 +236,23 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         public: true,
         createdAt: true,
         updatedAt: true,
+        projectRoles: {
+          where: {
+            roleId: 'manager'
+          },
+          select: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                username: true,
+                given_name: true,
+                family_name: true,
+              }
+            }
+          }
+        }
       }
     });
     
@@ -245,10 +262,25 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
       });
       return;
     }
-    
+
+    // Transform the project data to include manager information
+    const projectWithManager = {
+      ...project,
+      manager: project.projectRoles.length > 0 ? {
+        id: project.projectRoles[0].user.id,
+        email: project.projectRoles[0].user.email,
+        name: project.projectRoles[0].user.name,
+        username: project.projectRoles[0].user.username,
+        displayName: project.projectRoles[0].user.name || 
+                     project.projectRoles[0].user.username || 
+                     project.projectRoles[0].user.email
+      } : null,
+      projectRoles: undefined // Remove from response
+    };
+
     res.json({
       success: true,
-      project
+      project: projectWithManager
     });
   } catch (error) {
     console.error('Error fetching project:', error);
@@ -322,7 +354,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
 export async function updateProject(req: Request, res: Response): Promise<void> {
   try {
     const { projectId } = req.params;
-    const { name, description, public: isPublic } = req.body;
+    const { name, description, public: isPublic, managerId } = req.body;
     
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       res.status(400).json({
@@ -360,6 +392,20 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // If managerId is provided, verify the user exists
+    if (managerId) {
+      const managerUser = await db.user.findUnique({
+        where: { id: managerId }
+      });
+      
+      if (!managerUser) {
+        res.status(400).json({
+          error: 'Selected manager user not found'
+        });
+        return;
+      }
+    }
+
     // Update the project
     const updatedProject = await db.project.update({
       where: { id: projectId },
@@ -378,6 +424,28 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         updatedAt: true,
       }
     });
+
+    // Handle manager role assignment if managerId is provided
+    if (managerId !== undefined) {
+      // Remove existing manager role (if any)
+      await db.projectRole.deleteMany({
+        where: {
+          projectId: projectId,
+          roleId: 'manager'
+        }
+      });
+
+      // If managerId is provided (not null), assign new manager
+      if (managerId) {
+        await db.projectRole.create({
+          data: {
+            userId: managerId,
+            projectId: projectId,
+            roleId: 'manager'
+          }
+        });
+      }
+    }
 
     res.json({
       success: true,

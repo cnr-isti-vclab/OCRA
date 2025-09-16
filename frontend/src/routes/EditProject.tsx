@@ -21,6 +21,13 @@ interface Project {
   public: boolean;
   createdAt: string;
   updatedAt: string;
+  manager?: {
+    id: string;
+    email: string;
+    name?: string;
+    username?: string;
+    displayName: string;
+  } | null;
 }
 
 interface User {
@@ -36,12 +43,22 @@ interface User {
   }>;
 }
 
+interface SimpleUser {
+  id: string;
+  email: string;
+  name?: string;
+  username?: string;
+  given_name?: string;
+  family_name?: string;
+}
+
 export default function EditProject() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +67,13 @@ export default function EditProject() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [selectedManagerId, setSelectedManagerId] = useState<string>('');
   const [nameError, setNameError] = useState<string | null>(null);
+  
+  // Manager change confirmation state
+  const [showManagerConfirmation, setShowManagerConfirmation] = useState(false);
+  const [pendingManagerId, setPendingManagerId] = useState<string>('');
+  const [originalManagerId, setOriginalManagerId] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,6 +129,27 @@ export default function EditProject() {
         setName(projectData.project.name);
         setDescription(projectData.project.description || '');
         setIsPublic(projectData.project.public || false);
+        
+        // Set initial manager
+        const managerId = projectData.project.manager?.id || '';
+        setSelectedManagerId(managerId);
+        setOriginalManagerId(managerId);
+
+        // Fetch all users for manager dropdown
+        const usersResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/users/list`, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${sessionId}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setAllUsers(usersData);
+        } else {
+          console.warn('Failed to fetch users for manager dropdown');
+        }
 
       } catch (e: any) {
         console.error('Failed to fetch data:', e);
@@ -119,6 +163,32 @@ export default function EditProject() {
       fetchData();
     }
   }, [projectId]);
+
+  // Helper function to get display name for users
+  const getUserDisplayName = (user: SimpleUser): string => {
+    return user.name || user.username || user.email;
+  };
+
+  // Handle manager change with confirmation
+  const handleManagerChange = (newManagerId: string) => {
+    if (newManagerId !== originalManagerId) {
+      setPendingManagerId(newManagerId);
+      setShowManagerConfirmation(true);
+    } else {
+      setSelectedManagerId(newManagerId);
+    }
+  };
+
+  const confirmManagerChange = () => {
+    setSelectedManagerId(pendingManagerId);
+    setShowManagerConfirmation(false);
+    setPendingManagerId('');
+  };
+
+  const cancelManagerChange = () => {
+    setShowManagerConfirmation(false);
+    setPendingManagerId('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +215,8 @@ export default function EditProject() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || null,
-          public: isPublic
+          public: isPublic,
+          managerId: selectedManagerId || null
         })
       });
 
@@ -351,6 +422,50 @@ export default function EditProject() {
             </div>
           </div>
 
+          <div style={{ marginBottom: '2rem' }}>
+            <label 
+              htmlFor="projectManager"
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: 'bold',
+                color: '#2c3e50'
+              }}
+            >
+              Project Manager
+            </label>
+            <select
+              id="projectManager"
+              value={selectedManagerId}
+              onChange={(e) => handleManagerChange(e.target.value)}
+              disabled={saving}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                backgroundColor: 'white',
+                boxSizing: 'border-box',
+                cursor: saving ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <option value="">-- No Manager --</option>
+              {allUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {getUserDisplayName(user)} ({user.email})
+                </option>
+              ))}
+            </select>
+            <div style={{ 
+              fontSize: '0.875rem', 
+              color: '#6c757d', 
+              marginTop: '0.25rem'
+            }}>
+              Project managers can edit project details and manage access
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
               type="submit"
@@ -388,6 +503,110 @@ export default function EditProject() {
         </form>
       </div>
 
+      {/* Manager Change Confirmation Modal */}
+      {showManagerConfirmation && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+          }}>
+            <h3 style={{ 
+              margin: '0 0 1rem 0', 
+              color: '#2c3e50',
+              fontSize: '1.25rem'
+            }}>
+              🔄 Confirm Manager Change
+            </h3>
+            
+            <div style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              <p style={{ margin: '0 0 1rem 0', color: '#666' }}>
+                Are you sure you want to change the project manager?
+              </p>
+              
+              <div style={{ 
+                backgroundColor: '#f8f9fa', 
+                padding: '1rem', 
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <strong>Current Manager:</strong>{' '}
+                  <span style={{ color: '#dc3545' }}>
+                    {originalManagerId 
+                      ? (() => {
+                          const user = allUsers.find(u => u.id === originalManagerId);
+                          return user ? getUserDisplayName(user) : 'Unknown';
+                        })()
+                      : 'No Manager'
+                    }
+                  </span>
+                </div>
+                <div>
+                  <strong>New Manager:</strong>{' '}
+                  <span style={{ color: '#28a745' }}>
+                    {pendingManagerId 
+                      ? (() => {
+                          const user = allUsers.find(u => u.id === pendingManagerId);
+                          return user ? getUserDisplayName(user) : 'Unknown';
+                        })()
+                      : 'No Manager'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={cancelManagerChange}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmManagerChange}
+                style={{
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Confirm Change
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{
         marginTop: '2rem',
         padding: '1rem',
@@ -399,6 +618,97 @@ export default function EditProject() {
       }}>
         <strong>📝 Note:</strong> Changes will be saved immediately. Make sure all information is correct before saving.
       </div>
+
+      {/* Manager Change Confirmation Dialog */}
+      {showManagerConfirmation && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h3 style={{ 
+              margin: '0 0 1rem 0', 
+              color: '#2c3e50',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              ⚠️ Confirm Manager Change
+            </h3>
+            <p style={{ margin: '0 0 1.5rem 0', color: '#555' }}>
+              You are about to change the project manager from{' '}
+              <strong>
+                {originalManagerId ? 
+                  (() => {
+                    const currentManager = allUsers.find(u => u.id === originalManagerId);
+                    return currentManager ? getUserDisplayName(currentManager) : 'Unknown';
+                  })() 
+                  : 'No Manager'
+                }
+              </strong>{' '}
+              to{' '}
+              <strong>
+                {pendingManagerId ? 
+                  (() => {
+                    const newManager = allUsers.find(u => u.id === pendingManagerId);
+                    return newManager ? getUserDisplayName(newManager) : 'Unknown';
+                  })() 
+                  : 'No Manager'
+                }
+              </strong>.
+            </p>
+            <p style={{ margin: '0 0 1.5rem 0', color: '#666', fontSize: '0.9rem' }}>
+              This change will affect who can edit this project. Are you sure you want to continue?
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={cancelManagerChange}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmManagerChange}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                Confirm Change
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

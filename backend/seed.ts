@@ -252,47 +252,50 @@ async function seedProjectRoles(): Promise<void> {
   });
   console.log(`  ✓ ${labHeadUser.username} assigned as manager of '${stanfordBunnyProject.name}' project`);
 
-  // Assign museum-director as manager of Marble Head project
-  await prisma.projectRole.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: marbleHeadProject.id
-      }
-    },
-    update: {
-      roleId: 'manager',
-      updatedAt: new Date()
-    },
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: marbleHeadProject.id,
-      roleId: 'manager'
-    }
-  });
-  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
+  // NOTE: Giulia Verdi (museum-director) will only manage Stanford Lucy project
+  // Commenting out Marble Head and Laurana assignments to fix project count
 
-  // Assign museum-director as manager of Laurana project
-  await prisma.projectRole.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: lauranaProject.id
-      }
-    },
-    update: {
-      roleId: 'manager',
-      updatedAt: new Date()
-    },
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: lauranaProject.id,
-      roleId: 'manager'
-    }
-  });
-  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
+  // // Assign museum-director as manager of Marble Head project
+  // await prisma.projectRole.upsert({
+  //   where: {
+  //     userId_projectId: {
+  //       userId: museumDirectorUser.id,
+  //       projectId: marbleHeadProject.id
+  //     }
+  //   },
+  //   update: {
+  //     roleId: 'manager',
+  //     updatedAt: new Date()
+  //   },
+  //   create: {
+  //     userId: museumDirectorUser.id,
+  //     projectId: marbleHeadProject.id,
+  //     roleId: 'manager'
+  //   }
+  // });
+  // console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
 
-  // Assign museum-director as manager of Stanford Lucy project
+  // // Assign museum-director as manager of Laurana project
+  // await prisma.projectRole.upsert({
+  //   where: {
+  //     userId_projectId: {
+  //       userId: museumDirectorUser.id,
+  //       projectId: lauranaProject.id
+  //     }
+  //   },
+  //   update: {
+  //     roleId: 'manager',
+  //     updatedAt: new Date()
+  //   },
+  //   create: {
+  //     userId: museumDirectorUser.id,
+  //     projectId: lauranaProject.id,
+  //     roleId: 'manager'
+  //   }
+  // });
+  // console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
+
+  // Assign museum-director as manager of Stanford Lucy project (ONLY)
   await prisma.projectRole.upsert({
     where: {
       userId_projectId: {

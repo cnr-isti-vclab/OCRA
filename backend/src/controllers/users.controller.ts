@@ -240,3 +240,84 @@ export async function updateUserAdminStatus(req: Request, res: Response): Promis
     });
   }
 }
+
+/**
+ * Get simplified user list for dropdowns (available to all authenticated users)
+ * Returns only essential information needed for user selection
+ */
+export async function getUsersForDropdown(req: Request, res: Response): Promise<void> {
+  try {
+    const db = getPrismaClient();
+    
+    // Get basic user information for dropdowns
+    const users = await db.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        username: true,
+        given_name: true,
+        family_name: true,
+      },
+      orderBy: [
+        { name: 'asc' },
+        { username: 'asc' },
+        { email: 'asc' }
+      ]
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users for dropdown:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch users',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Debug endpoint to check project role assignments
+ */
+export async function debugProjectRoles(req: Request, res: Response): Promise<void> {
+  try {
+    const db = getPrismaClient();
+    
+    const projectRoles = await db.projectRole.findMany({
+      where: {
+        roleId: 'manager'
+      },
+      include: {
+        user: {
+          select: { 
+            id: true,
+            email: true, 
+            name: true, 
+            username: true 
+          }
+        },
+        project: {
+          select: { 
+            id: true,
+            name: true 
+          }
+        }
+      },
+      orderBy: [
+        { user: { name: 'asc' } },
+        { project: { name: 'asc' } }
+      ]
+    });
+
+    res.json({
+      totalManagerRoles: projectRoles.length,
+      roles: projectRoles
+    });
+  } catch (error) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to debug project roles',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
