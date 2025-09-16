@@ -5,26 +5,45 @@
  */
 export async function isManagerOfProject(req: Request, res: Response) {
   const { projectId } = req.params;
+  console.log(`[isManagerOfProject] Called for projectId:`, projectId);
   if (!projectId) {
+    console.log(`[isManagerOfProject] No projectId provided.`);
     return res.status(400).json({ error: 'Project ID is required' });
   }
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
+    console.log(`[isManagerOfProject] No authenticated user.`);
     return res.status(401).json({ error: 'Authentication required' });
   }
+  console.log(`[isManagerOfProject] User:`, {
+    sub: currentUser.sub,
+    id: currentUser.id,
+    email: currentUser.email,
+    username: currentUser.username,
+    sys_admin: currentUser.sys_admin
+  });
   const db = getPrismaClient();
   const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
   if (!managerRole) {
+    console.log(`[isManagerOfProject] Manager role not found in DB.`);
     return res.status(500).json({ error: 'Manager role not found' });
   }
-  const isManager = await db.projectRole.findFirst({
-    where: {
-      projectId,
-      userId: currentUser.sub,
-      roleId: managerRole.id
-    }
-  });
+  // Only check with currentUser.id (internal DB id)
+  let isManager = null;
+  if (currentUser.id) {
+    isManager = await db.projectRole.findFirst({
+      where: {
+        projectId,
+        userId: currentUser.id,
+        roleId: managerRole.id
+      }
+    });
+    console.log(`[isManagerOfProject] Checked with currentUser.id:`, currentUser.id, 'Found:', !!isManager);
+  } else {
+    console.log(`[isManagerOfProject] No internal user id found for current user.`);
+  }
   const result = Boolean(isManager || currentUser.sys_admin);
+  console.log(`[isManagerOfProject] Result:`, result);
   res.json({ isManager: result });
 }
 import path from 'path';
@@ -169,13 +188,25 @@ async function getCurrentUser(req: Request): Promise<any | null> {
     const session = await getValidSession(sessionId);
     
     if (session?.user) {
+      // Fetch internal user id from DB using sub
+      const db = getPrismaClient();
+      let userWithId: any = { ...session.user };
+      try {
+        const dbUser = await db.user.findUnique({ where: { sub: session.user.sub } });
+        if (dbUser && dbUser.id) {
+          userWithId.id = dbUser.id;
+        }
+      } catch (e) {
+        console.log('⚠️ [getCurrentUser] Could not fetch user id from DB:', e);
+      }
       console.log('✅ [getCurrentUser] Valid session found for user:', {
-        sub: session.user.sub,
-        email: session.user.email,
-        username: session.user.username,
-        sys_admin: session.user.sys_admin
+        sub: userWithId.sub,
+        id: userWithId.id,
+        email: userWithId.email,
+        username: userWithId.username,
+        sys_admin: userWithId.sys_admin
       });
-      return session.user;
+      return userWithId;
     } else {
       console.log('❌ [getCurrentUser] Invalid or expired session');
       return null;

@@ -24,8 +24,12 @@ npx prisma db push --schema=./prisma/schema.prisma
 
 echo "✅ Database schema synchronized"
 
+echo "🚀 Starting the restructured backend server..."
 echo "🌱 Seeding database with essential data..."
 npx tsx seed.ts
+
+echo "🟢 Starting Prisma Studio in background..."
+npx prisma studio --schema=./prisma/schema.prisma --port 5555 &
 
 echo "🚀 Starting the restructured backend server..."
 exec npx tsx server.ts
