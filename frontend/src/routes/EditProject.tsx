@@ -30,19 +30,6 @@ interface Project {
   } | null;
 }
 
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  username?: string;
-  displayName: string;
-  sys_admin: boolean;
-  managedProjects: Array<{
-    id: string;
-    name: string;
-  }>;
-}
-
 interface SimpleUser {
   id: string;
   email: string;
@@ -57,7 +44,6 @@ export default function EditProject() {
   const navigate = useNavigate();
   
   const [project, setProject] = useState<Project | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,56 +66,44 @@ export default function EditProject() {
       try {
         setLoading(true);
         const sessionId = localStorage.getItem('oauth_session_id');
-        
         if (!sessionId) {
           throw new Error('No session found');
         }
 
-        // Fetch current user to check permissions
-        const userResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/sessions/current`, {
-          credentials: 'include', // Include session cookies
+        // Use backend API to check if user is manager
+        const isManagerResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/is-manager`, {
+          credentials: 'include',
           headers: {
             'Authorization': `Bearer ${sessionId}`,
             'Content-Type': 'application/json',
           },
         });
-
-        if (!userResponse.ok) {
-          throw new Error('Failed to fetch user information');
+        if (!isManagerResponse.ok) {
+          throw new Error('Failed to check manager permissions');
         }
-
-        const userData = await userResponse.json();
-        setUser(userData.user);
-
-        // Check if user can manage this project
-        const canManage = userData.user.sys_admin || 
-                         userData.user.managedProjects.some((p: any) => p.id === projectId);
-        
-        if (!canManage) {
+        const isManagerData = await isManagerResponse.json();
+        if (!isManagerData.isManager) {
           throw new Error('You do not have permission to edit this project');
         }
 
         // Fetch project details
         const projectResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}`, {
-          credentials: 'include', // Include session cookies
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
         });
-
         if (!projectResponse.ok) {
           if (projectResponse.status === 404) {
             throw new Error('Project not found');
           }
           throw new Error('Failed to fetch project details');
         }
-
         const projectData = await projectResponse.json();
         setProject(projectData.project);
         setName(projectData.project.name);
         setDescription(projectData.project.description || '');
         setIsPublic(projectData.project.public || false);
-        
         // Set initial manager
         const managerId = projectData.project.manager?.id || '';
         setSelectedManagerId(managerId);
@@ -143,14 +117,12 @@ export default function EditProject() {
             'Content-Type': 'application/json',
           },
         });
-
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           setAllUsers(usersData);
         } else {
           console.warn('Failed to fetch users for manager dropdown');
         }
-
       } catch (e: any) {
         console.error('Failed to fetch data:', e);
         setError(e?.message ?? String(e));
@@ -158,7 +130,6 @@ export default function EditProject() {
         setLoading(false);
       }
     };
-
     if (projectId) {
       fetchData();
     }

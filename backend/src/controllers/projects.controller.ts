@@ -2,16 +2,20 @@
  * Helper: Check if a user is manager of a project (or sysadmin)
  * Returns true if user is manager or sysadmin, false otherwise
  */
-async function checkIsManagerOfProject(db: any, user: any, projectId: string): Promise<boolean> {
+import type { PrismaClient } from '@prisma/client';
+// (import type { User } from '../types/index.js';) Already imported at the top
+async function checkIsManagerOfProject(db: PrismaClient, user: User, projectId: string): Promise<boolean> {
   if (!user || !projectId) return false;
   if (user.sys_admin) return true;
   const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
   if (!managerRole) return false;
-  if (!user.id) return false;
+  // user.id may not be present in User type, so fetch by sub
+  const dbUser = await db.user.findUnique({ where: { sub: user.sub } });
+  if (!dbUser) return false;
   const isManager = await db.projectRole.findFirst({
     where: {
       projectId,
-      userId: user.id,
+      userId: dbUser.id,
       roleId: managerRole.id
     }
   });
@@ -25,26 +29,15 @@ async function checkIsManagerOfProject(db: any, user: any, projectId: string): P
  */
 export async function isManagerOfProject(req: Request, res: Response) {
   const { projectId } = req.params;
-  console.log(`[isManagerOfProject] Called for projectId:`, projectId);
   if (!projectId) {
-    console.log(`[isManagerOfProject] No projectId provided.`);
     return res.status(400).json({ error: 'Project ID is required' });
   }
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
-    console.log(`[isManagerOfProject] No authenticated user.`);
     return res.status(401).json({ error: 'Authentication required' });
   }
   const db = getPrismaClient();
   const result = await checkIsManagerOfProject(db, currentUser, projectId);
-  console.log(`[isManagerOfProject] User:`, {
-    sub: currentUser.sub,
-    id: currentUser.id,
-    email: currentUser.email,
-    username: currentUser.username,
-    sys_admin: currentUser.sys_admin
-  });
-  console.log(`[isManagerOfProject] Result:`, result);
   res.json({ isManager: result });
 }
 import path from 'path';
@@ -145,7 +138,8 @@ import { getValidSession } from '../../db.js';
 /**
  * Get current user from session (if authenticated)
  */
-async function getCurrentUser(req: Request): Promise<any | null> {
+import type { User } from '../types/index.js';
+async function getCurrentUser(req: Request): Promise<User | null> {
   console.log('🔐 [getCurrentUser] Starting authentication check...');
   
   try {
@@ -180,23 +174,14 @@ async function getCurrentUser(req: Request): Promise<any | null> {
     if (session?.user) {
       // Fetch internal user id from DB using sub
       const db = getPrismaClient();
-      let userWithId: any = { ...session.user };
-      try {
-        const dbUser = await db.user.findUnique({ where: { sub: session.user.sub } });
-        if (dbUser && dbUser.id) {
-          userWithId.id = dbUser.id;
-        }
-      } catch (e) {
-        console.log('⚠️ [getCurrentUser] Could not fetch user id from DB:', e);
-      }
+      // session.user is already of type User
       console.log('✅ [getCurrentUser] Valid session found for user:', {
-        sub: userWithId.sub,
-        id: userWithId.id,
-        email: userWithId.email,
-        username: userWithId.username,
-        sys_admin: userWithId.sys_admin
+        sub: session.user.sub,
+        email: session.user.email,
+        username: session.user.username,
+        sys_admin: session.user.sys_admin
       });
-      return userWithId;
+      return session.user;
     } else {
       console.log('❌ [getCurrentUser] Invalid or expired session');
       return null;
@@ -318,13 +303,14 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     });
 
     console.log(`📊 [getAllProjects] Found ${projects.length} projects from database`);
-    projects.forEach((project: any, index: number) => {
+
+  projects.forEach((project: any, index: number) => {
       console.log(`  ${index + 1}. ${project.name} (public: ${project.public}, manager: ${project.projectRoles[0]?.user?.username || 'none'})`);
     });
 
     // Transform the data to include manager information more clearly
     console.log('🔄 [getAllProjects] Transforming project data...');
-    const projectsWithManagers = projects.map((project: any) => ({
+  const projectsWithManagers = projects.map((project: any) => ({
       id: project.id,
       name: project.name,
       description: project.description,
