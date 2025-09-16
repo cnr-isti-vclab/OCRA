@@ -1,3 +1,127 @@
+/**
+ * Check if current user is manager of a project
+ * GET /api/projects/:projectId/is-manager
+ * Returns: { isManager: boolean }
+ */
+export async function isManagerOfProject(req: Request, res: Response) {
+  const { projectId } = req.params;
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
+  }
+  const currentUser = await getCurrentUser(req);
+  if (!currentUser) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const db = getPrismaClient();
+  const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+  if (!managerRole) {
+    return res.status(500).json({ error: 'Manager role not found' });
+  }
+  const isManager = await db.projectRole.findFirst({
+    where: {
+      projectId,
+      userId: currentUser.sub,
+      roleId: managerRole.id
+    }
+  });
+  const result = Boolean(isManager || currentUser.sys_admin);
+  res.json({ isManager: result });
+}
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+
+// Multer setup for file uploads
+const uploadDir = process.env.PROJECT_FILES_PATH || '/app/project_files';
+const storage = multer.diskStorage({
+  destination: (req: Request, file: any, cb: (error: Error | null, destination: string) => void) => {
+    const { projectId } = req.params;
+    const projectPath = path.join(uploadDir, projectId);
+    fs.mkdirSync(projectPath, { recursive: true });
+    cb(null, projectPath);
+  },
+  filename: (req: Request, file: any, cb: (error: Error | null, filename: string) => void) => {
+    cb(null, file.originalname);
+  }
+});
+export const upload = multer({ storage });
+
+/**
+ * List files for a project
+ * GET /api/projects/:projectId/files
+ */
+export async function listProjectFiles(req: Request, res: Response) {
+  const { projectId } = req.params;
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
+  }
+  const dir = path.join(uploadDir, projectId);
+  try {
+    if (!fs.existsSync(dir)) {
+      return res.json({ files: [] });
+    }
+    const files = fs.readdirSync(dir).map(filename => ({
+      name: filename,
+      url: `/api/projects/${projectId}/files/${encodeURIComponent(filename)}`
+    }));
+    res.json({ files });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list files', message: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}
+
+/**
+ * Upload a file to a project (manager only)
+ * POST /api/projects/:projectId/files
+ */
+export async function uploadProjectFile(req: Request, res: Response) {
+  const { projectId } = req.params;
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
+  }
+  // Auth: only manager can upload
+  const currentUser = await getCurrentUser(req);
+  if (!currentUser) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const db = getPrismaClient();
+  const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+  if (!managerRole) {
+    return res.status(500).json({ error: 'Manager role not found' });
+  }
+  const isManager = await db.projectRole.findFirst({
+    where: {
+      projectId,
+      userId: currentUser.sub,
+      roleId: managerRole.id
+    }
+  });
+  if (!isManager && !currentUser.sys_admin) {
+    return res.status(403).json({ error: 'Only the project manager can upload files' });
+  }
+  // File is already saved by multer
+  const file = (req as any).file;
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  res.json({ success: true, file: file.filename });
+}
+
+/**
+ * Download a file for a project
+ * GET /api/projects/:projectId/files/:filename
+ */
+export async function downloadProjectFile(req: Request, res: Response) {
+  const { projectId, filename } = req.params;
+  if (!projectId || !filename) {
+    return res.status(400).json({ error: 'Project ID and filename are required' });
+  }
+  const filePath = path.join(uploadDir, projectId, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  res.download(filePath);
+}
 import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
 import { getValidSession } from '../../db.js';

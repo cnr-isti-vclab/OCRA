@@ -53,6 +53,7 @@ services:
       - ./backend:/app/backend:delegated
       - backend_node_modules:/app/backend/node_modules
       - ./prisma:/app/backend/prisma:ro
+      - project_files:/app/project_files
 
   app:
     build:
@@ -79,3 +80,4 @@ services:
 volumes:
   postgres_data:
   backend_node_modules:
+  project_files:

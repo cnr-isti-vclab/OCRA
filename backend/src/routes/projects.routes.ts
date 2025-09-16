@@ -4,10 +4,24 @@
  * Route definitions for project management endpoints
  */
 
+
+
 import express from 'express';
-import { getAllProjects, getProjectById, createProject, updateProject } from '../controllers/projects.controller.js';
+import { getAllProjects, getProjectById, createProject, updateProject, listProjectFiles, uploadProjectFile, downloadProjectFile, upload, isManagerOfProject } from '../controllers/projects.controller.js';
 
 const router = express.Router();
+
+// Check if current user is manager of a project
+router.get('/:projectId/is-manager', isManagerOfProject);
+
+// List files for a project
+router.get('/:projectId/files', listProjectFiles);
+
+// Upload a file to a project (manager only)
+router.post('/:projectId/files', upload.single('file'), uploadProjectFile);
+
+// Download a file for a project
+router.get('/:projectId/files/:filename', downloadProjectFile);
 
 // GET /api/projects - Get all projects
 router.get('/', getAllProjects);
