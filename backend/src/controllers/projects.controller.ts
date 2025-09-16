@@ -127,6 +127,12 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     
     console.log('🔍 [getAllProjects] Database query filter:', JSON.stringify(whereClause, null, 2));
     
+    // Get the actual manager role ID
+    const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+    if (!managerRole) {
+      res.status(500).json({ error: 'Manager role not found in database' });
+      return;
+    }
     // Get projects with manager information
     const projects = await db.project.findMany({
       where: whereClause,
@@ -139,7 +145,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         updatedAt: true,
         projectRoles: {
           where: {
-            roleId: 'manager'
+            roleId: managerRole.id
           },
           select: {
             user: {
@@ -227,6 +233,12 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
       ? { id: projectId } 
       : { id: projectId, public: true };
     
+    // Get the actual manager role ID
+    const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+    if (!managerRole) {
+      res.status(500).json({ error: 'Manager role not found in database' });
+      return;
+    }
     const project = await db.project.findUnique({
       where: whereClause,
       select: {
@@ -238,7 +250,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         updatedAt: true,
         projectRoles: {
           where: {
-            roleId: 'manager'
+            roleId: managerRole.id
           },
           select: {
             user: {
@@ -427,11 +439,17 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 
     // Handle manager role assignment if managerId is provided
     if (managerId !== undefined) {
+      // Get the actual manager role ID
+      const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
+      if (!managerRole) {
+        res.status(500).json({ error: 'Manager role not found in database' });
+        return;
+      }
       // Remove existing manager role (if any)
       await db.projectRole.deleteMany({
         where: {
           projectId: projectId,
-          roleId: 'manager'
+          roleId: managerRole.id
         }
       });
 
@@ -441,7 +459,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
           data: {
             userId: managerId,
             projectId: projectId,
-            roleId: 'manager'
+            roleId: managerRole.id
           }
         });
       }
