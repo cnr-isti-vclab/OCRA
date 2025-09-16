@@ -5,7 +5,7 @@ import App from './App'
 import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
 import UserAdmin from './routes/UserAdmin.tsx'
-import Projects from './routes/Projects.tsx'
+import ProjectList from './routes/ProjectList.tsx'
 import EditProject from './routes/EditProject.tsx'
 import ProjectPage from './routes/ProjectPage.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
@@ -102,7 +102,7 @@ const router = createBrowserRouter([
 		element: (
 			<RequireAuth>
 				<SidebarLayout>
-					<Projects />
+					<ProjectList />
 				</SidebarLayout>
 			</RequireAuth>
 		)
