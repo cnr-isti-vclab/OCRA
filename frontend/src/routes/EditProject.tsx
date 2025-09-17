@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
@@ -208,50 +209,20 @@ export default function EditProject() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <div style={{ 
-          fontSize: '2rem', 
-          marginBottom: '1rem',
-          animation: 'spin 1s linear infinite'
-        }}>⚙️</div>
-        <p>Loading project details...</p>
-        <style>
-          {`
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}
-        </style>
+      <div className="container py-5 text-center">
+        <div className="display-4 mb-3">⚙️</div>
+        <p className="text-muted">Loading project details...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div>
-        <div style={{
-          backgroundColor: '#fee',
-          border: '1px solid #fcc',
-          borderRadius: '8px',
-          padding: '1rem',
-          margin: '1rem 0'
-        }}>
-          <h3 style={{ color: '#c33', margin: '0 0 0.5rem 0' }}>Error</h3>
-          <p style={{ margin: '0 0 1rem 0', color: '#666' }}>{error}</p>
-          <Link 
-            to="/projects"
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#3498db',
-              color: 'white',
-              textDecoration: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '4px'
-            }}
-          >
-            Back to Projects
-          </Link>
+      <div className="container py-5">
+        <div className="alert alert-danger mb-3">
+          <h3 className="h5">Error</h3>
+          <p className="mb-3">{error}</p>
+          <Link to="/projects" className="btn btn-primary">Back to Projects</Link>
         </div>
       </div>
     );
@@ -259,427 +230,158 @@ export default function EditProject() {
 
   if (!project) {
     return (
-      <div>
-        <h1>Project not found</h1>
-        <Link to="/projects">Back to Projects</Link>
+      <div className="container py-5">
+        <h1 className="mb-3">Project not found</h1>
+        <Link to="/projects" className="btn btn-secondary">Back to Projects</Link>
       </div>
     );
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: '2rem' }}>
-        <Link 
-          to="/projects"
-          style={{
-            color: '#3498db',
-            textDecoration: 'none',
-            fontSize: '0.9rem'
-          }}
-        >
-          ← Back to Projects
-        </Link>
+    <div className="container py-5">
+      <div className="mb-3">
+        <Link to="/projects" className="text-primary text-decoration-none small">← Back to Projects</Link>
       </div>
-
-      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>
-        ✏️ Edit Project
-      </h1>
-
-      <div style={{
-        backgroundColor: 'white',
-        border: '1px solid #dee2e6',
-        borderRadius: '8px',
-        padding: '2rem',
-        maxWidth: '600px'
-      }}>
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label 
-              htmlFor="projectName"
-              style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#2c3e50'
-              }}
-            >
-              Project Name *
-            </label>
-            <input
-              id="projectName"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: `1px solid ${nameError ? '#dc3545' : '#ced4da'}`,
-                borderRadius: '4px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter project name"
-              disabled={saving}
-            />
-            {nameError && (
-              <div style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-                {nameError}
-              </div>
-            )}
-          </div>
-
-          <div style={{ marginBottom: '2rem' }}>
-            <label 
-              htmlFor="projectDescription"
-              style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#2c3e50'
-              }}
-            >
-              Description
-            </label>
-            <textarea
-              id="projectDescription"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #ced4da',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter project description (optional)"
-              disabled={saving}
-            />
-          </div>
-
-          <div style={{ marginBottom: '2rem' }}>
-            <label 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontWeight: 'bold',
-                color: '#2c3e50',
-                cursor: 'pointer'
-              }}
-            >
+      <h1 className="mb-4 text-dark">✏️ Edit Project</h1>
+      <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
+        <div className="card-body">
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label htmlFor="projectName" className="form-label fw-bold text-dark">
+                Project Name *
+              </label>
               <input
+                id="projectName"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={`form-control${nameError ? ' is-invalid' : ''}`}
+                placeholder="Enter project name"
+                disabled={saving}
+              />
+              {nameError && (
+                <div className="invalid-feedback">{nameError}</div>
+              )}
+            </div>
+            <div className="mb-3">
+              <label htmlFor="projectDescription" className="form-label fw-bold text-dark">
+                Description
+              </label>
+              <textarea
+                id="projectDescription"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="form-control"
+                placeholder="Enter project description (optional)"
+                disabled={saving}
+              />
+            </div>
+            <div className="form-check mb-3">
+              <input
+                className="form-check-input"
                 type="checkbox"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
+                id="publicCheck"
                 disabled={saving}
-                style={{
-                  width: '1.2rem',
-                  height: '1.2rem',
-                  cursor: saving ? 'not-allowed' : 'pointer'
-                }}
               />
-              <span>Public Project</span>
-            </label>
-            <div style={{ 
-              fontSize: '0.875rem', 
-              color: '#6c757d', 
-              marginTop: '0.25rem',
-              marginLeft: '1.7rem'
-            }}>
-              Public projects are visible to all users, including those not logged in
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '2rem' }}>
-            <label 
-              htmlFor="projectManager"
-              style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 'bold',
-                color: '#2c3e50'
-              }}
-            >
-              Project Manager
-            </label>
-            <select
-              id="projectManager"
-              value={selectedManagerId}
-              onChange={(e) => handleManagerChange(e.target.value)}
-              disabled={saving}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #ced4da',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                backgroundColor: 'white',
-                boxSizing: 'border-box',
-                cursor: saving ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <option value="">-- No Manager --</option>
-              {allUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {getUserDisplayName(user)} ({user.email})
-                </option>
-              ))}
-            </select>
-            <div style={{ 
-              fontSize: '0.875rem', 
-              color: '#6c757d', 
-              marginTop: '0.25rem'
-            }}>
-              Project managers can edit project details and manage access
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                backgroundColor: saving ? '#95a5a6' : '#27ae60',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                cursor: saving ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              {saving ? '💾 Saving...' : '💾 Save Changes'}
-            </button>
-
-            <Link
-              to="/projects"
-              style={{
-                display: 'inline-block',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                textDecoration: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                fontWeight: 'bold'
-              }}
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </div>
-
-      {/* Manager Change Confirmation Modal */}
-      {showManagerConfirmation && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '2rem',
-            maxWidth: '500px',
-            width: '90%',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-          }}>
-            <h3 style={{ 
-              margin: '0 0 1rem 0', 
-              color: '#2c3e50',
-              fontSize: '1.25rem'
-            }}>
-              🔄 Confirm Manager Change
-            </h3>
-            
-            <div style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>
-              <p style={{ margin: '0 0 1rem 0', color: '#666' }}>
-                Are you sure you want to change the project manager?
-              </p>
-              
-              <div style={{ 
-                backgroundColor: '#f8f9fa', 
-                padding: '1rem', 
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
-                <div style={{ marginBottom: '0.5rem' }}>
-                  <strong>Current Manager:</strong>{' '}
-                  <span style={{ color: '#dc3545' }}>
-                    {originalManagerId 
-                      ? (() => {
-                          const user = allUsers.find(u => u.id === originalManagerId);
-                          return user ? getUserDisplayName(user) : 'Unknown';
-                        })()
-                      : 'No Manager'
-                    }
-                  </span>
-                </div>
-                <div>
-                  <strong>New Manager:</strong>{' '}
-                  <span style={{ color: '#28a745' }}>
-                    {pendingManagerId 
-                      ? (() => {
-                          const user = allUsers.find(u => u.id === pendingManagerId);
-                          return user ? getUserDisplayName(user) : 'Unknown';
-                        })()
-                      : 'No Manager'
-                    }
-                  </span>
-                </div>
+              <label className="form-check-label fw-bold text-dark" htmlFor="publicCheck">
+                Public Project
+              </label>
+              <div className="form-text ms-4">
+                Public projects are visible to all users, including those not logged in
               </div>
             </div>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button
-                onClick={cancelManagerChange}
-                style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '4px',
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
+            <div className="mb-3">
+              <label htmlFor="projectManager" className="form-label fw-bold text-dark">
+                Project Manager
+              </label>
+              <select
+                id="projectManager"
+                value={selectedManagerId}
+                onChange={(e) => handleManagerChange(e.target.value)}
+                className="form-select"
+                disabled={saving}
               >
+                <option value="">-- No Manager --</option>
+                {allUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {getUserDisplayName(user)} ({user.email})
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                Project managers can edit project details and manage access
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn btn-success fw-bold"
+              >
+                {saving ? '💾 Saving...' : '💾 Save Changes'}
+              </button>
+              <Link to="/projects" className="btn btn-secondary fw-bold">
                 Cancel
-              </button>
-              <button
-                onClick={confirmManagerChange}
-                style={{
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '4px',
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Confirm Change
-              </button>
+              </Link>
+            </div>
+          </form>
+        </div>
+      </div>
+      {/* Manager Change Confirmation Modal */}
+      {showManagerConfirmation && (
+        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">🔄 Confirm Manager Change</h5>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to change the project manager?</p>
+                <div className="bg-light p-2 rounded mb-2">
+                  <div className="mb-1">
+                    <strong>Current Manager:</strong>{' '}
+                    <span className="text-danger">
+                      {originalManagerId 
+                        ? (() => {
+                            const user = allUsers.find(u => u.id === originalManagerId);
+                            return user ? getUserDisplayName(user) : 'Unknown';
+                          })()
+                        : 'No Manager'
+                      }
+                    </span>
+                  </div>
+                  <div>
+                    <strong>New Manager:</strong>{' '}
+                    <span className="text-success">
+                      {pendingManagerId 
+                        ? (() => {
+                            const user = allUsers.find(u => u.id === pendingManagerId);
+                            return user ? getUserDisplayName(user) : 'Unknown';
+                          })()
+                        : 'No Manager'
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button onClick={cancelManagerChange} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button onClick={confirmManagerChange} className="btn btn-primary">
+                  Confirm Change
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      <div style={{
-        marginTop: '2rem',
-        padding: '1rem',
-        backgroundColor: '#e8f4fd',
-        border: '1px solid #bee5eb',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        color: '#0c5460'
-      }}>
+      <div className="alert alert-info mt-4">
         <strong>📝 Note:</strong> Changes will be saved immediately. Make sure all information is correct before saving.
       </div>
-
-      {/* Manager Change Confirmation Dialog */}
-      {showManagerConfirmation && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '8px',
-            maxWidth: '500px',
-            width: '90%',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{ 
-              margin: '0 0 1rem 0', 
-              color: '#2c3e50',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              ⚠️ Confirm Manager Change
-            </h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#555' }}>
-              You are about to change the project manager from{' '}
-              <strong>
-                {originalManagerId ? 
-                  (() => {
-                    const currentManager = allUsers.find(u => u.id === originalManagerId);
-                    return currentManager ? getUserDisplayName(currentManager) : 'Unknown';
-                  })() 
-                  : 'No Manager'
-                }
-              </strong>{' '}
-              to{' '}
-              <strong>
-                {pendingManagerId ? 
-                  (() => {
-                    const newManager = allUsers.find(u => u.id === pendingManagerId);
-                    return newManager ? getUserDisplayName(newManager) : 'Unknown';
-                  })() 
-                  : 'No Manager'
-                }
-              </strong>.
-            </p>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#666', fontSize: '0.9rem' }}>
-              This change will affect who can edit this project. Are you sure you want to continue?
-            </p>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button
-                onClick={cancelManagerChange}
-                style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmManagerChange}
-                style={{
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold'
-                }}
-              >
-                Confirm Change
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

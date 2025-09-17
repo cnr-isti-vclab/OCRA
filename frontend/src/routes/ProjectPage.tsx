@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
@@ -18,7 +19,6 @@ interface Project {
   } | null;
 }
 
-
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -29,7 +29,6 @@ export default function ProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-
 
   // Fetch project info, user info, and file list
   useEffect(() => {
@@ -81,91 +80,99 @@ export default function ProjectPage() {
   // isManager now comes from backend API
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading...</div>;
+    return <div className="container py-5 text-center text-muted">Loading...</div>;
   }
   if (error) {
-    return <div style={{ color: '#c33', padding: '2rem' }}>Error: {error}</div>;
+    return <div className="container py-5 text-danger">Error: {error}</div>;
   }
   if (!project) {
-    return <div style={{ padding: '2rem' }}>Project not found</div>;
+    return <div className="container py-5">Project not found</div>;
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '2rem auto', background: 'white', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', padding: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '1rem', marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0, fontSize: '2rem', color: '#2c3e50' }}>{project.name}</h1>
-        <div style={{ color: '#888', fontWeight: 500, fontSize: '1.1rem' }}>
-          Manager: {project.manager ? project.manager.displayName : <span style={{ color: '#e67e22' }}>Unassigned</span>}
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
-        {/* 3D Viewer Placeholder */}
-        <div style={{ flex: 2, minHeight: 400, background: '#f4f8fb', border: '2px dashed #b2bec3', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b2bec3', fontSize: '1.5rem' }}>
-          [3D Viewer Placeholder]
-        </div>
-        {/* File List + Upload */}
-        <div style={{ flex: 1, minWidth: 260, background: '#f8fafc', border: '1px solid #e3e8ee', borderRadius: 8, padding: 20 }}>
-          <h3 style={{ marginTop: 0, color: '#2c3e50', fontSize: '1.1rem' }}>Project Files</h3>
-          {isManager && (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setUploadError(null);
-                const form = e.target as HTMLFormElement;
-                const fileInput = form.elements.namedItem('file') as HTMLInputElement;
-                if (!fileInput.files || fileInput.files.length === 0) {
-                  setUploadError('Please select a file to upload.');
-                  return;
-                }
-                const file = fileInput.files[0];
-                const formData = new FormData();
-                formData.append('file', file);
-                setUploading(true);
-                try {
-                  const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                  });
-                  if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error || 'Upload failed');
-                  }
-                  // Refresh file list
-                  const filesRes = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, { credentials: 'include' });
-                  const filesData = await filesRes.json();
-                  setFiles(filesData.files || []);
-                  fileInput.value = '';
-                } catch (err: any) {
-                  setUploadError(err?.message || 'Upload failed');
-                } finally {
-                  setUploading(false);
-                }
-              }}
-              style={{ marginBottom: 16 }}
-            >
-              <input type="file" name="file" style={{ marginRight: 8 }} disabled={uploading} />
-              <button type="submit" disabled={uploading} style={{ background: '#3498db', color: 'white', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 500, cursor: 'pointer' }}>{uploading ? 'Uploading...' : 'Upload'}</button>
-              {uploadError && <div style={{ color: '#c33', marginTop: 6 }}>{uploadError}</div>}
-            </form>
-          )}
-          <div style={{ maxHeight: 350, overflowY: 'auto', borderTop: '1px solid #e3e8ee', paddingTop: 10 }}>
-            {files.length === 0 ? (
-              <div style={{ color: '#888', fontStyle: 'italic', marginTop: 12 }}>No files uploaded yet.</div>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {files.map(f => (
-                  <li key={f.name} style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: '#2980b9', textDecoration: 'underline', wordBreak: 'break-all' }}>{f.name}</a>
-                  </li>
-                ))}
-              </ul>
-            )}
+    <div className="container py-5">
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+            <h1 className="h3 mb-0 text-dark">{project.name}</h1>
+            <div className="text-secondary fw-semibold">
+              Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
+            </div>
+          </div>
+          <div className="row g-4">
+            {/* 3D Viewer Placeholder */}
+            <div className="col-md-8">
+              <div className="bg-light border border-2 border-secondary-subtle rounded d-flex align-items-center justify-content-center" style={{ minHeight: 300, fontSize: '1.5rem', color: '#b2bec3' }}>
+                [3D Viewer Placeholder]
+              </div>
+            </div>
+            {/* File List + Upload */}
+            <div className="col-md-4">
+              <div className="bg-white border rounded p-3">
+                <h3 className="h6 mb-3 text-dark">Project Files</h3>
+                {isManager && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setUploadError(null);
+                      const form = e.target as HTMLFormElement;
+                      const fileInput = form.elements.namedItem('file') as HTMLInputElement;
+                      if (!fileInput.files || fileInput.files.length === 0) {
+                        setUploadError('Please select a file to upload.');
+                        return;
+                      }
+                      const file = fileInput.files[0];
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      setUploading(true);
+                      try {
+                        const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, {
+                          method: 'POST',
+                          credentials: 'include',
+                          body: formData
+                        });
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}));
+                          throw new Error(err.error || 'Upload failed');
+                        }
+                        // Refresh file list
+                        const filesRes = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, { credentials: 'include' });
+                        const filesData = await filesRes.json();
+                        setFiles(filesData.files || []);
+                        fileInput.value = '';
+                      } catch (err: any) {
+                        setUploadError(err?.message || 'Upload failed');
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                    className="mb-3 d-flex align-items-center gap-2"
+                  >
+                    <input type="file" name="file" className="form-control form-control-sm" disabled={uploading} />
+                    <button type="submit" className="btn btn-primary btn-sm fw-semibold" disabled={uploading}>{uploading ? 'Uploading...' : 'Upload'}</button>
+                  </form>
+                )}
+                {uploadError && <div className="text-danger small mb-2">{uploadError}</div>}
+                <div className="border-top pt-2" style={{ maxHeight: 350, overflowY: 'auto' }}>
+                  {files.length === 0 ? (
+                    <div className="text-muted fst-italic mt-2">No files uploaded yet.</div>
+                  ) : (
+                    <ul className="list-unstyled mb-0">
+                      {files.map(f => (
+                        <li key={f.name} className="mb-2">
+                          <a href={f.url} target="_blank" rel="noopener noreferrer" className="link-primary text-break">{f.name}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <Link to="/projects" className="text-primary text-decoration-none fw-semibold">&larr; Back to Projects</Link>
           </div>
         </div>
-      </div>
-      <div style={{ marginTop: '2rem' }}>
-        <Link to="/projects" style={{ color: '#3498db', textDecoration: 'none', fontWeight: 500 }}>&larr; Back to Projects</Link>
       </div>
     </div>
   );
