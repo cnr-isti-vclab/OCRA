@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { startAuthFlow, completeAuthCodeFlow, logout, getCurrentUser, OAUTH_CONFIG } from './backend';
@@ -54,38 +55,31 @@ export default function App() {
     init();
   }, []);
 
-  if (loading) return <Card><p>Loading…</p></Card>;
+  if (loading) return <Card><div className="text-center py-4"><div className="spinner-border text-primary mb-3" role="status"><span className="visually-hidden">Loading...</span></div><p className="text-muted">Loading…</p></div></Card>;
 
   if (!isAuthenticated) {
     return (
       <Card>
-        <h1>React OCRA Demo</h1>
-        <p style={{ color: '#555' }}>Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
-        <p style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>
+        <h1 className="mb-3">React OCRA Demo</h1>
+        <p className="text-secondary mb-1">Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
+        <p className="text-muted small mb-3">
           🔒 Now with <strong>backend API session storage</strong> for production-ready security!
         </p>
-        {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
-        <button onClick={() => startAuthFlow()}>Login</button>
+        {error && <p className="text-danger">Error: {error}</p>}
+        <button className="btn btn-primary fw-bold px-4" onClick={() => startAuthFlow()}>Login</button>
       </Card>
     );
   }
 
   return (
     <Card>
-      <h1>Welcome</h1>
+      <h1 className="mb-3">Welcome</h1>
       {user ? (
         <div>
           <p>Signed in as: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
-          <p style={{ fontSize: 12, color: '#666' }}>Session stored via backend API • Sub: {user.sub}</p>
-          <p style={{ marginTop: 16 }}>
-            <a href="/profile" style={{ 
-              backgroundColor: '#3498db', 
-              color: 'white', 
-              padding: '0.5rem 1rem', 
-              textDecoration: 'none', 
-              borderRadius: '4px',
-              display: 'inline-block'
-            }}>
+          <p className="text-muted small mb-3">Session stored via backend API • Sub: {user.sub}</p>
+          <p className="mt-3">
+            <a href="/profile" className="btn btn-success fw-bold px-4">
               Go to Dashboard →
             </a>
           </p>
@@ -93,14 +87,14 @@ export default function App() {
       ) : (
         <p>Signed in. (No profile info)</p>
       )}
-      {error && <p style={{ color: 'crimson' }}>Error: {error}</p>}
+      {error && <p className="text-danger">Error: {error}</p>}
     </Card>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: 'white', padding: 24, borderRadius: 12, boxShadow: '0 6px 24px rgba(0,0,0,0.08)', width: 520, maxWidth: '90vw' }}>
+    <div className="bg-white rounded-4 shadow p-4 mx-auto my-5" style={{ maxWidth: 520, width: '100%' }}>
       {children}
       <Footer />
     </div>
@@ -109,7 +103,7 @@ function Card({ children }: { children: React.ReactNode }) {
 
 function Footer() {
   return (
-    <p style={{ marginTop: 24, color: '#777', fontSize: 12 }}>
+    <p className="mt-4 text-secondary small">
       This demo shows the Authorization Code Flow with PKCE using a minimal, annotated React setup.
     </p>
   );
