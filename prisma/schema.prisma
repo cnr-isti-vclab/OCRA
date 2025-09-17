@@ -38,9 +38,9 @@ model User {
 // Role enum - defines user roles (fixed set)
 enum RoleEnum {
   admin
-  manager
-  editor
-  viewer
+  manager // Project manager, assigns users to projects, but not a sysadmin, can change roles of users within the project, and change the basic info about the project 
+  editor // can add documents and models, and can add annotations
+  viewer // can view the project and download data
 }
 
 // Session model - stores OAuth tokens and session data
