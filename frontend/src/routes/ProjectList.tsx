@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -131,250 +132,98 @@ export default function Projects() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <div style={{ 
-          fontSize: '2rem', 
-          marginBottom: '1rem',
-          animation: 'spin 1s linear infinite'
-        }}>⚙️</div>
-        <p>Loading projects...</p>
-        <style>
-          {`
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}
-        </style>
+      <div className="container py-5 text-center">
+        <div className="display-4 mb-3 spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="text-muted">Loading projects...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{
-        backgroundColor: '#fee',
-        border: '1px solid #fcc',
-        borderRadius: '8px',
-        padding: '1rem',
-        margin: '1rem 0'
-      }}>
-        <h3 style={{ color: '#c33', margin: '0 0 0.5rem 0' }}>Error Loading Projects</h3>
-        <p style={{ margin: 0, color: '#666' }}>{error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          style={{
-            marginTop: '1rem',
-            backgroundColor: '#3498db',
-            color: 'white',
-            border: 'none',
-            padding: '0.5rem 1rem',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Retry
-        </button>
+      <div className="container py-5">
+        <div className="alert alert-danger mb-3">
+          <h3 className="h5">Error Loading Projects</h3>
+          <p className="mb-3">{error}</p>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>Retry</button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>
+    <div className="container py-5">
+      <h1 className="mb-4 text-dark">
         📁 Projects
       </h1>
-      
-      <div style={{ marginBottom: '2rem' }}>
-        <p style={{ color: '#666', margin: 0 }}>
+      <div className="mb-4">
+        <p className="text-muted mb-0">
           Manage and view all projects in the system.
         </p>
       </div>
-
       {projects.length === 0 ? (
-        <div style={{
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          padding: '3rem',
-          textAlign: 'center',
-          color: '#6c757d'
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
-          <h3 style={{ margin: '0 0 1rem 0' }}>No Projects Found</h3>
-          <p style={{ margin: 0 }}>
+        <div className="alert alert-info text-center py-5">
+          <div className="display-3 mb-2">📁</div>
+          <h3 className="mb-2">No Projects Found</h3>
+          <p className="mb-0">
             No projects have been created yet. Contact an administrator to add projects.
           </p>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '1.5rem'
-        }}>
+        <div className="row g-4">
           {projects.map((project) => (
-            <Link
-              key={project.id}
-              to={`/projects/${project.id}`}
-              style={{
-                textDecoration: 'none',
-                color: 'inherit',
-                backgroundColor: 'white',
-                border: '1px solid #dee2e6',
-                borderRadius: '8px',
-                padding: '1rem',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                transition: 'box-shadow 0.2s',
-                cursor: 'pointer',
-                display: 'block'
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'flex-start',
-                marginBottom: '0.75rem'
-              }}>
-                <h3 style={{ 
-                  margin: '0', 
-                  color: '#2c3e50',
-                  fontSize: '1.1rem',
-                  flex: '1'
-                }}>
-                  {project.name}
-                </h3>
-                {!project.public && (
-                  <span style={{
-                    backgroundColor: '#e74c3c',
-                    color: 'white',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                    padding: '0.25rem 0.5rem',
-                    borderRadius: '12px',
-                    marginLeft: '0.5rem'
-                  }}>
-                    🔒 Private
-                  </span>
-                )}
-              </div>
-              
-              {project.description && (
-                <p style={{ 
-                  margin: '0 0 0.75rem 0', 
-                  color: '#666',
-                  lineHeight: '1.4',
-                  fontSize: '0.9rem'
-                }}>
-                  {project.description}
-                </p>
-              )}
-              
-              {project.manager && (
-                <div style={{
-                  backgroundColor: '#f8f9fa',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '4px',
-                  padding: '0.5rem',
-                  marginBottom: '0.75rem',
-                  fontSize: '0.85rem',
-                  color: '#495057',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ marginRight: '0.5rem' }}>👨‍💼</span>
-                  <span style={{ fontWeight: '500' }}>Manager:</span>
-                  <span style={{ marginLeft: '0.5rem', color: '#6c757d' }}>
-                    {project.manager.displayName}
-                  </span>
-                </div>
-              )}
-              
-              {!project.manager && (
-                <div style={{
-                  backgroundColor: '#fff3cd',
-                  border: '1px solid #ffeaa7',
-                  borderRadius: '4px',
-                  padding: '0.5rem',
-                  marginBottom: '0.75rem',
-                  fontSize: '0.85rem',
-                  color: '#856404',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ marginRight: '0.5rem' }}>⚠️</span>
-                  <span style={{ fontWeight: '500' }}>No manager assigned</span>
-                </div>
-              )}
-              
-              <div style={{ 
-                fontSize: '0.8rem', 
-                color: '#999',
-                borderTop: '1px solid #eee',
-                paddingTop: '0.75rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <div style={{ marginBottom: '0.25rem' }}>
-                    <strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}
-                  </div>
-                  <div>
-                    <strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}
+            <div className="col-12 col-md-6 col-lg-4" key={project.id}>
+              <Link to={`/projects/${project.id}`} className="text-decoration-none text-dark">
+                <div className="card h-100 shadow-sm project-card">
+                  <div className="card-body">
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <h3 className="h6 mb-0 flex-grow-1">{project.name}</h3>
+                      {!project.public && (
+                        <span className="badge bg-danger ms-2">🔒 Private</span>
+                      )}
+                    </div>
+                    {project.description && (
+                      <p className="text-muted small mb-2">{project.description}</p>
+                    )}
+                    {project.manager ? (
+                      <div className="alert alert-secondary py-1 px-2 mb-2 d-flex align-items-center gap-2">
+                        <span>👨‍💼</span>
+                        <span className="fw-semibold">Manager:</span>
+                        <span className="ms-1 text-muted">{project.manager.displayName}</span>
+                      </div>
+                    ) : (
+                      <div className="alert alert-warning py-1 px-2 mb-2 d-flex align-items-center gap-2">
+                        <span>⚠️</span>
+                        <span className="fw-semibold">No manager assigned</span>
+                      </div>
+                    )}
+                    <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                      <div className="small text-muted">
+                        <div><strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}</div>
+                        <div><strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}</div>
+                      </div>
+                      {managerMap[project.id] && (
+                        <Link
+                          to={`/projects/${project.id}/edit`}
+                          className="btn btn-sm btn-primary ms-2 fw-bold d-flex align-items-center gap-1"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          ✏️ Edit
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
-                
-                {managerMap[project.id] && (
-                  <Link
-                    to={`/projects/${project.id}/edit`}
-                    style={{
-                      backgroundColor: '#3498db',
-                      color: 'white',
-                      textDecoration: 'none',
-                      padding: '0.4rem 0.8rem',
-                      borderRadius: '4px',
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      transition: 'background-color 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      marginLeft: '1rem'
-                    }}
-                    onClick={e => e.stopPropagation()}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#2980b9';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#3498db';
-                    }}
-                  >
-                    ✏️ Edit
-                  </Link>
-                )}
-              </div>
-            </Link>
+              </Link>
+            </div>
           ))}
         </div>
       )}
-      
-      <div style={{
-        marginTop: '2rem',
-        padding: '1rem',
-        backgroundColor: '#e8f4fd',
-        border: '1px solid #bee5eb',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        color: '#0c5460'
-      }}>
+      <div className="alert alert-info mt-5">
         <strong>💡 Future Enhancements:</strong>
-        <ul style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.5rem' }}>
+        <ul className="mb-0 ms-3">
           <li>Project creation and editing</li>
           <li>User assignments to projects</li>
           <li>Project-specific permissions</li>

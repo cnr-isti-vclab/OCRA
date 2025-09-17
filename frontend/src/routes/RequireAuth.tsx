@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
@@ -53,8 +54,11 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   // Show loading while checking authentication
   if (isChecking) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
-        <p>Checking authentication...</p>
+      <div className="container py-5 text-center">
+        <div className="spinner-border text-primary mb-3" role="status">
+          <span className="visually-hidden">Checking authentication...</span>
+        </div>
+        <p className="text-muted">Checking authentication...</p>
       </div>
     );
   }
