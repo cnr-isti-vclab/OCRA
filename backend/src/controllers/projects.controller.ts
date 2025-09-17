@@ -173,14 +173,21 @@ async function getCurrentUser(req: Request): Promise<User | null> {
     if (session?.user) {
       // Fetch internal user id from DB using sub
       const db = getPrismaClient();
-      // session.user is already of type User
+      const dbUser = await db.user.findUnique({ where: { sub: session.user.sub } });
+      if (!dbUser) {
+        console.log('❌ [getCurrentUser] No DB user found for sub:', session.user.sub);
+        return null;
+      }
+      // Merge DB id into session user object
+      const userWithId: User = { ...session.user, id: dbUser.id };
       console.log('✅ [getCurrentUser] Valid session found for user:', {
         sub: session.user.sub,
         email: session.user.email,
         username: session.user.username,
-        sys_admin: session.user.sys_admin
+        sys_admin: session.user.sys_admin,
+        id: dbUser.id
       });
-      return session.user;
+      return userWithId;
     } else {
       console.log('❌ [getCurrentUser] Invalid or expired session');
       return null;
@@ -232,16 +239,20 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         // For sysadmin: show ALL projects (no filtering)
         whereClause = {};
       } else {
-        console.log('👥 [getAllProjects] Regular user - showing public + managed projects');
-        // For regular authenticated users: show public projects OR projects they manage
+        console.log('👥 [getAllProjects] Regular user - showing public + visible projects (manager/editor/viewer)');
+        // For regular authenticated users: show public projects OR projects they have any role in (manager/editor/viewer)
+        const db = getPrismaClient();
+        // Fetch DB user to get the correct id (should already be set by getCurrentUser)
+        const dbUser = await db.user.findUnique({ where: { sub: currentUser.sub } });
+        const userId = dbUser ? dbUser.id : currentUser.id;
         whereClause = {
           OR: [
             { public: true },
             { 
               projectRoles: {
                 some: {
-                  userId: currentUser.id,
-                  role: RoleEnum.manager
+                  userId: userId,
+                  role: { in: [RoleEnum.manager, RoleEnum.editor, RoleEnum.viewer] }
                 }
               }
             }
