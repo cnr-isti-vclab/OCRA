@@ -54,9 +54,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     // Add user info to request for use in controllers
-    req.user = session.user;
+    // Ensure user object has internal DB id
+    const db = await import('../../db.js');
+    const prisma = db.getPrismaClient();
+    const dbUser = await prisma.user.findUnique({ where: { sub: session.user.sub } });
+    if (!dbUser) {
+      res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'User not found in database'
+      });
+      return;
+    }
+    req.user = { ...session.user, id: dbUser.id };
     req.sessionId = sessionId;
-    
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

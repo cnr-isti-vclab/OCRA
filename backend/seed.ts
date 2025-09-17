@@ -5,49 +5,9 @@
  * properly. It runs on every time the db volume is created to ensure the required data is always present.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, RoleEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
-
-// Role seeding removed: roles are now a fixed enum in the schema
-/**
- * Seed admin user (DEPRECATED - now handled dynamically)
- * 
- * Admin users are now created automatically when a user with the email
- * specified in SYS_ADMIN_EMAIL environment variable logs in for the first time.
- */
-/*
-async function seedAdminUser(): Promise<void> {
-  console.log('🌱 Seeding administrator user...');
-  
-  const adminUser = {
-    sub: 'admin-123-456-789',
-    email: 'admin@example.com',
-    name: 'System Administrator',
-    username: 'admin',
-    given_name: 'System',
-    family_name: 'Administrator',
-    sys_admin: true
-  };
-
-  const user = await prisma.user.upsert({
-    where: { sub: adminUser.sub },
-    update: {
-      name: adminUser.name,
-      email: adminUser.email,
-      username: adminUser.username,
-      given_name: adminUser.given_name,
-      family_name: adminUser.family_name,
-      sys_admin: true, // Ensure admin flag is always set
-      updatedAt: new Date(),
-    },
-    create: adminUser
-  });
-
-  console.log(`  ✓ Administrator user ready: ${user.username} (${user.email})`);
-  console.log('✅ Successfully seeded administrator user');
-}
-*/
 
 /**
  * Seed example projects - for demonstration and testing
@@ -116,6 +76,14 @@ async function seedDemoUsers(): Promise<void> {
       username: 'museum-director',
       given_name: 'Roberto',
       family_name: 'Neri'
+    },
+    {
+      sub: 'demo-museum-conservator-sub',
+      email: 'conservator@example.com',
+      name: 'Francesca Rossi',
+      username: 'conservator',
+      given_name: 'Pinco',
+      family_name: 'Pallino'
     }
   ];
 
@@ -153,144 +121,57 @@ async function seedDemoUsers(): Promise<void> {
  */
 async function seedDemoProjectRoles(): Promise<void> {
   console.log('🌱 Seeding project roles...');
-  
 
-  // Get the projects and users
-  const [marbleHeadProject, stanfordBunnyProject, lauranaProject, stanfordLucyProject] = await Promise.all([
-    prisma.project.findUnique({ where: { name: 'Marble Head' } }),
-    prisma.project.findUnique({ where: { name: 'Stanford Bunny' } }),
-    prisma.project.findUnique({ where: { name: 'Laurana' } }),
-    prisma.project.findUnique({ where: { name: 'Stanford Lucy' } })
-  ]);
-
-  const [labHeadUser, museumDirectorUser] = await Promise.all([
-    prisma.user.findUnique({ where: { email: 'labhead@example.com' } }),
-    prisma.user.findUnique({ where: { email: 'director@example.com' } })
-  ]);
-
-  if (!marbleHeadProject || !stanfordBunnyProject || !lauranaProject || !stanfordLucyProject) {
-    console.log('⚠️  Projects not found, skipping project role seeding');
-    return;
+  // Helper to assign a role to a user for a project by email and project name
+  async function assignProjectRole(email: string, projectName: string, role: RoleEnum) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    const project = await prisma.project.findUnique({ where: { name: projectName } });
+    if (!user || !project) {
+      console.log(`  ⚠️  Skipping: user or project not found for email='${email}', project='${projectName}'`);
+      return;
+    }
+    await prisma.projectRole.upsert({
+      where: {
+        userId_projectId: {
+          userId: user.id,
+          projectId: project.id
+        }
+      },
+      update: {
+        role: role,
+        updatedAt: new Date()
+      },
+      create: {
+        userId: user.id,
+        projectId: project.id,
+        role: role
+      }
+    });
+    console.log(`  ✓ ${user.username} assigned as ${role} of '${project.name}' project`);
   }
 
-  if (!labHeadUser || !museumDirectorUser) {
-    console.log('⚠️  Demo users not found, skipping project role seeding');
-    return;
-  }
-
-
-  // Assign lab-head as manager of Stanford Bunny project
-  await prisma.projectRole.upsert({
-    where: {
-      userId_projectId: {
-        userId: labHeadUser.id,
-        projectId: stanfordBunnyProject.id
-      }
-    },
-    update: {
-      role: 'manager',
-      updatedAt: new Date()
-    },
-    create: {
-      userId: labHeadUser.id,
-      projectId: stanfordBunnyProject.id,
-      role: 'manager'
-    }
-  });
-  console.log(`  ✓ ${labHeadUser.username} assigned as manager of '${stanfordBunnyProject.name}' project`);
-
-  // Assign museum-director as manager of Marble Head project
-  await prisma.projectRole.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: marbleHeadProject.id
-      }
-    },
-    update: {
-      role: 'manager',
-      updatedAt: new Date()
-    },
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: marbleHeadProject.id,
-      role: 'manager'
-    }
-  });
-  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
-
-  // Assign museum-director as manager of Laurana project
-  await prisma.projectRole.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: lauranaProject.id
-      }
-    },
-    update: {
-      role: 'manager',
-      updatedAt: new Date()
-    },
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: lauranaProject.id,
-      role: 'manager'
-    }
-  });
-  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
-
-  // Assign museum-director as manager of Stanford Lucy project
-  await prisma.projectRole.upsert({
-    where: {
-      userId_projectId: {
-        userId: museumDirectorUser.id,
-        projectId: stanfordLucyProject.id
-      }
-    },
-    update: {
-      role: 'manager',
-      updatedAt: new Date()
-    },
-    create: {
-      userId: museumDirectorUser.id,
-      projectId: stanfordLucyProject.id,
-      role: 'manager'
-    }
-  });
-  console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${stanfordLucyProject.name}' project`);
-
-
+  // Assign roles using the helper
+  await assignProjectRole('labhead@example.com', 'Stanford Bunny', RoleEnum.manager);
+  await assignProjectRole('director@example.com', 'Marble Head', RoleEnum.manager);
+  await assignProjectRole('director@example.com', 'Laurana', RoleEnum.manager);
+  await assignProjectRole('director@example.com', 'Stanford Lucy', RoleEnum.manager);
+  await assignProjectRole('conservator@example.com', 'Stanford Bunny', RoleEnum.editor);
 
   console.log('✅ Successfully seeded project roles');
 }
 
-/**
- * Main seeding function
- */
-async function main(): Promise<void> {
-  try {
-    console.log('🚀 Starting database seeding...');
-    
-  // No need to seed roles: roles are now a fixed enum
-    // Note: Admin user is now created dynamically based on SYS_ADMIN_EMAIL environment variable
-    // when the user with that email logs in for the first time
-    await seedDemoProjects();
-    await seedDemoUsers();
+// Execute the seed functions in order
+async function main() {
+  //await seedAdminUser();
+  await seedDemoProjects();
+  await seedDemoUsers();
   await seedDemoProjectRoles();
-    
-    console.log('🎉 Database seeding completed successfully!');
-    console.log('ℹ️  Admin user will be created automatically when SYS_ADMIN_EMAIL user logs in');
-  } catch (error) {
-    console.error('❌ Database seeding failed:', error);
-    throw error;
-  } finally {
-    await prisma.$disconnect();
-  }
+
+  console.log('✅ Database seeding completed');
 }
 
-// Run the seeding
 main()
-  .catch((error) => {
-    console.error('❌ Seeding script failed:', error);
-    process.exit(1);
+  .catch(e => console.error(e))
+  .finally(async () => {
+    await prisma.$disconnect();
   });
