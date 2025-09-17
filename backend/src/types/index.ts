@@ -1,6 +1,7 @@
 // Shared type definitions for API contracts
 
 export interface User {
+  id: string; // Internal DB user ID
   sub: string;
   name: string | null;
   email: string | null;
@@ -38,21 +39,17 @@ export interface Project {
   updatedAt: Date;
 }
 
-export interface Role {
-  id: string;
-  name: string;
-  description: string | null;
-}
+
+export type RoleEnum = 'admin' | 'manager' | 'editor' | 'viewer';
 
 export interface ProjectRole {
   id: string;
   userId: string;
   projectId: string;
-  roleId: string;
+  role: RoleEnum;
   assignedAt: Date;
   user?: User;
   project?: Project;
-  role?: Role;
 }
 
 // API Response types

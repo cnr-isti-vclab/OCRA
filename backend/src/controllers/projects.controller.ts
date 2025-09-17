@@ -3,12 +3,11 @@
  * Returns true if user is manager or sysadmin, false otherwise
  */
 import type { PrismaClient } from '@prisma/client';
+import { RoleEnum } from '@prisma/client';
 // (import type { User } from '../types/index.js';) Already imported at the top
 async function checkIsManagerOfProject(db: PrismaClient, user: User, projectId: string): Promise<boolean> {
   if (!user || !projectId) return false;
   if (user.sys_admin) return true;
-  const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-  if (!managerRole) return false;
   // user.id may not be present in User type, so fetch by sub
   const dbUser = await db.user.findUnique({ where: { sub: user.sub } });
   if (!dbUser) return false;
@@ -16,7 +15,7 @@ async function checkIsManagerOfProject(db: PrismaClient, user: User, projectId: 
     where: {
       projectId,
       userId: dbUser.id,
-      roleId: managerRole.id
+      role: RoleEnum.manager
     }
   });
   return !!isManager;
@@ -215,7 +214,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     
     if (currentUser) {
       console.log('👤 [getAllProjects] User authenticated:', {
-        sub: currentUser.sub,
+        id: currentUser.id,
         email: currentUser.email,
         username: currentUser.username,
         sys_admin: currentUser.sys_admin
@@ -233,12 +232,6 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         // For sysadmin: show ALL projects (no filtering)
         whereClause = {};
       } else {
-        // Get the actual manager role ID
-        const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-        if (!managerRole) {
-          res.status(500).json({ error: 'Manager role not found in database' });
-          return;
-        }
         console.log('👥 [getAllProjects] Regular user - showing public + managed projects');
         // For regular authenticated users: show public projects OR projects they manage
         whereClause = {
@@ -247,8 +240,8 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
             { 
               projectRoles: {
                 some: {
-                  userId: currentUser.sub,
-                  roleId: managerRole.id
+                  userId: currentUser.id,
+                  role: RoleEnum.manager
                 }
               }
             }
@@ -263,12 +256,6 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     
     console.log('🔍 [getAllProjects] Database query filter:', JSON.stringify(whereClause, null, 2));
     
-    // Get the actual manager role ID
-    const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-    if (!managerRole) {
-      res.status(500).json({ error: 'Manager role not found in database' });
-      return;
-    }
     // Get projects with manager information
     const projects = await db.project.findMany({
       where: whereClause,
@@ -281,7 +268,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         updatedAt: true,
         projectRoles: {
           where: {
-            roleId: managerRole.id
+            role: RoleEnum.manager
           },
           select: {
             user: {
@@ -370,12 +357,6 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
       ? { id: projectId } 
       : { id: projectId, public: true };
     
-    // Get the actual manager role ID
-    const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-    if (!managerRole) {
-      res.status(500).json({ error: 'Manager role not found in database' });
-      return;
-    }
     const project = await db.project.findUnique({
       where: whereClause,
       select: {
@@ -387,7 +368,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         updatedAt: true,
         projectRoles: {
           where: {
-            roleId: managerRole.id
+            role: RoleEnum.manager
           },
           select: {
             user: {
@@ -546,7 +527,6 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       const managerUser = await db.user.findUnique({
         where: { id: managerId }
       });
-      
       if (!managerUser) {
         res.status(400).json({
           error: 'Selected manager user not found'
@@ -576,17 +556,11 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 
     // Handle manager role assignment if managerId is provided
     if (managerId !== undefined) {
-      // Get the actual manager role ID
-      const managerRole = await db.role.findUnique({ where: { name: 'manager' } });
-      if (!managerRole) {
-        res.status(500).json({ error: 'Manager role not found in database' });
-        return;
-      }
       // Remove existing manager role (if any)
       await db.projectRole.deleteMany({
         where: {
           projectId: projectId,
-          roleId: managerRole.id
+          role: RoleEnum.manager
         }
       });
 
@@ -596,7 +570,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
           data: {
             userId: managerId,
             projectId: projectId,
-            roleId: managerRole.id
+            role: RoleEnum.manager
           }
         });
       }

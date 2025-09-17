@@ -9,50 +9,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-/**
- * Seed basic roles - these are required for the application to function
- */
-async function seedRoles(): Promise<void> {
-  console.log('🌱 Seeding user roles...');
-  
-  const roles = [
-    { 
-      name: 'admin', 
-      displayName: 'Administrator', 
-      description: 'Full system access and user management' 
-    },
-    { 
-      name: 'manager', 
-      displayName: 'Manager', 
-      description: 'Manage teams and review processes' 
-    },
-    { 
-      name: 'editor', 
-      displayName: 'Editor', 
-      description: 'Edit content and collaborate on projects' 
-    },
-    { 
-      name: 'viewer', 
-      displayName: 'Viewer', 
-      description: 'View content with read-only access' 
-    }
-  ];
-
-  for (const role of roles) {
-    await prisma.role.upsert({
-      where: { name: role.name },
-      update: {
-        displayName: role.displayName,
-        description: role.description
-      },
-      create: role
-    });
-    console.log(`  ✓ Role '${role.displayName}' ready`);
-  }
-  
-  console.log('✅ Successfully seeded user roles');
-}
-
+// Role seeding removed: roles are now a fixed enum in the schema
 /**
  * Seed admin user (DEPRECATED - now handled dynamically)
  * 
@@ -211,13 +168,6 @@ async function seedDemoProjectRoles(): Promise<void> {
     prisma.user.findUnique({ where: { email: 'director@example.com' } })
   ]);
 
-  // Fetch role ids
-  const managerRole = await prisma.role.findUnique({ where: { name: 'manager' } });
-  if (!managerRole) {
-    console.log('⚠️  Manager role not found, skipping project role seeding');
-    return;
-  }
-
   if (!marbleHeadProject || !stanfordBunnyProject || !lauranaProject || !stanfordLucyProject) {
     console.log('⚠️  Projects not found, skipping project role seeding');
     return;
@@ -238,13 +188,13 @@ async function seedDemoProjectRoles(): Promise<void> {
       }
     },
     update: {
-      roleId: managerRole.id,
+      role: 'manager',
       updatedAt: new Date()
     },
     create: {
       userId: labHeadUser.id,
       projectId: stanfordBunnyProject.id,
-      roleId: managerRole.id
+      role: 'manager'
     }
   });
   console.log(`  ✓ ${labHeadUser.username} assigned as manager of '${stanfordBunnyProject.name}' project`);
@@ -258,13 +208,13 @@ async function seedDemoProjectRoles(): Promise<void> {
       }
     },
     update: {
-      roleId: managerRole.id,
+      role: 'manager',
       updatedAt: new Date()
     },
     create: {
       userId: museumDirectorUser.id,
       projectId: marbleHeadProject.id,
-      roleId: managerRole.id
+      role: 'manager'
     }
   });
   console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${marbleHeadProject.name}' project`);
@@ -278,13 +228,13 @@ async function seedDemoProjectRoles(): Promise<void> {
       }
     },
     update: {
-      roleId: managerRole.id,
+      role: 'manager',
       updatedAt: new Date()
     },
     create: {
       userId: museumDirectorUser.id,
       projectId: lauranaProject.id,
-      roleId: managerRole.id
+      role: 'manager'
     }
   });
   console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${lauranaProject.name}' project`);
@@ -298,13 +248,13 @@ async function seedDemoProjectRoles(): Promise<void> {
       }
     },
     update: {
-      roleId: managerRole.id,
+      role: 'manager',
       updatedAt: new Date()
     },
     create: {
       userId: museumDirectorUser.id,
       projectId: stanfordLucyProject.id,
-      roleId: managerRole.id
+      role: 'manager'
     }
   });
   console.log(`  ✓ ${museumDirectorUser.username} assigned as manager of '${stanfordLucyProject.name}' project`);
@@ -321,7 +271,7 @@ async function main(): Promise<void> {
   try {
     console.log('🚀 Starting database seeding...');
     
-    await seedRoles();
+  // No need to seed roles: roles are now a fixed enum
     // Note: Admin user is now created dynamically based on SYS_ADMIN_EMAIL environment variable
     // when the user with that email logs in for the first time
     await seedDemoProjects();

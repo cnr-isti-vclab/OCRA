@@ -78,7 +78,7 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
     const managedProjectCounts = await db.projectRole.groupBy({
       by: ['userId'],
       where: {
-        roleId: 'manager'
+        role: 'manager'
       },
       _count: {
         projectId: true
@@ -285,7 +285,7 @@ export async function debugProjectRoles(req: Request, res: Response): Promise<vo
     
     const projectRoles = await db.projectRole.findMany({
       where: {
-        roleId: 'manager'
+        role: 'manager'
       },
       include: {
         user: {

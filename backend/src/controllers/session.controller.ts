@@ -196,7 +196,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
         sys_admin: true,
         projectRoles: {
           select: {
-            roleId: true,
+            role: true,
             project: {
               select: {
                 id: true,
@@ -215,7 +215,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
 
     // Extract managed projects
     const managedProjects = user.projectRoles
-      .filter((pr: any) => pr.roleId === 'manager')
+      .filter((pr: any) => pr.role === 'manager')
       .map((pr: any) => pr.project);
 
     res.json({
