@@ -2,7 +2,10 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* frontend/pnpm-lock.yaml* frontend/yarn.lock* ./
+
+# Install dependencies (including bootstrap)
 RUN npm ci || npm install
+RUN npm install bootstrap
 
 # Copy frontend source and build
 COPY frontend/ .

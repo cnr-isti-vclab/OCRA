@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 
@@ -59,117 +60,52 @@ export default function Profile() {
   }, []); // Empty dependency array means this runs once on mount
 
   return (
-    <div>
-      <h1 style={{ marginBottom: '2rem', color: '#2c3e50' }}>Profile</h1>
-      {error && <p style={{ color: 'crimson', marginBottom: '1rem' }}>Error: {error}</p>}
+    <div className="container py-5">
+      <h1 className="mb-4 text-dark">Profile</h1>
+      {error && <div className="alert alert-danger">Error: {error}</div>}
       {info ? (
-        <div>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '8px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            marginBottom: '2rem'
-          }}>
-            <h2 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#34495e' }}>User Information</h2>
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <div>
-                <strong style={{ color: '#2c3e50' }}>Display Name:</strong>
-                <span style={{ marginLeft: '0.5rem', color: '#555' }}>{info.name ?? 'Not provided'}</span>
-              </div>
+        <div className="card shadow-sm mb-4" style={{ maxWidth: 500 }}>
+          <div className="card-body">
+            <h2 className="h5 mb-3 text-secondary">User Information</h2>
+            <ul className="list-group list-group-flush">
+              <li className="list-group-item">
+                <strong>Display Name:</strong> <span>{info.name ?? 'Not provided'}</span>
+              </li>
               {info.username && (
-                <div>
-                  <strong style={{ color: '#2c3e50' }}>Username:</strong>
-                  <span style={{ 
-                    marginLeft: '0.5rem', 
-                    color: '#555',
-                    fontFamily: 'monospace',
-                    backgroundColor: '#e3f2fd',
-                    padding: '0.25rem 0.5rem',
-                    borderRadius: '4px',
-                    fontWeight: '500'
-                  }}>
-                    {info.username}
-                  </span>
-                </div>
+                <li className="list-group-item">
+                  <strong>Username:</strong> <span className="badge bg-info text-dark ms-2">{info.username}</span>
+                </li>
               )}
               {(info.given_name || info.family_name || info.middle_name) && (
-                <div>
-                  <strong style={{ color: '#2c3e50' }}>Login Name Components:</strong>
-                  <div style={{ 
-                    marginLeft: '0.5rem', 
-                    marginTop: '0.5rem',
-                    padding: '0.75rem',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '6px',
-                    border: '1px solid #e9ecef'
-                  }}>
+                <li className="list-group-item">
+                  <strong>Login Name Components:</strong>
+                  <ul className="mb-0 ps-3">
                     {info.given_name && (
-                      <div style={{ marginBottom: '0.25rem' }}>
-                        <span style={{ fontWeight: '500', color: '#495057', minWidth: '80px', display: 'inline-block' }}>First:</span>
-                        <span style={{ color: '#6c757d' }}>{info.given_name}</span>
-                      </div>
+                      <li><span className="text-muted">First:</span> {info.given_name}</li>
                     )}
                     {info.middle_name && (
-                      <div style={{ marginBottom: '0.25rem' }}>
-                        <span style={{ fontWeight: '500', color: '#495057', minWidth: '80px', display: 'inline-block' }}>Middle:</span>
-                        <span style={{ color: '#6c757d' }}>{info.middle_name}</span>
-                      </div>
+                      <li><span className="text-muted">Middle:</span> {info.middle_name}</li>
                     )}
                     {info.family_name && (
-                      <div>
-                        <span style={{ fontWeight: '500', color: '#495057', minWidth: '80px', display: 'inline-block' }}>Last:</span>
-                        <span style={{ color: '#6c757d' }}>{info.family_name}</span>
-                      </div>
+                      <li><span className="text-muted">Last:</span> {info.family_name}</li>
                     )}
-                  </div>
-                </div>
+                  </ul>
+                </li>
               )}
-              <div>
-                <strong style={{ color: '#2c3e50' }}>Email:</strong>
-                <span style={{ marginLeft: '0.5rem', color: '#555' }}>{info.email ?? 'Not provided'}</span>
-              </div>
-              <div>
-                <strong style={{ color: '#2c3e50' }}>OAuth Subject:</strong>
-                <span style={{ 
-                  marginLeft: '0.5rem', 
-                  fontFamily: 'monospace', 
-                  fontSize: '0.9rem',
-                  color: '#666',
-                  backgroundColor: '#f8f9fa',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '4px'
-                }}>
-                  {info.sub ?? 'Not provided'}
-                </span>
-              </div>
-              <div>
-                <strong style={{ color: '#2c3e50' }}>Admin Status:</strong>
-                <span style={{ 
-                  marginLeft: '0.5rem',
-                  color: '#555',
-                  backgroundColor: info.sys_admin ? '#e8f5e8' : '#f8f9fa',
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '20px',
-                  fontSize: '0.9rem',
-                  fontWeight: '500'
-                }}>
-                  {info.sys_admin ? 'System Administrator' : 'Regular User'}
-                </span>
-              </div>
-            </div>
+              <li className="list-group-item">
+                <strong>Email:</strong> <span>{info.email ?? 'Not provided'}</span>
+              </li>
+              <li className="list-group-item">
+                <strong>OAuth Subject:</strong> <span className="text-monospace ms-2">{info.sub ?? 'Not provided'}</span>
+              </li>
+              <li className="list-group-item">
+                <strong>Admin Status:</strong> <span className={`badge ms-2 ${info.sys_admin ? 'bg-success' : 'bg-secondary'}`}>{info.sys_admin ? 'System Administrator' : 'Regular User'}</span>
+              </li>
+            </ul>
           </div>
         </div>
       ) : (
-        <div style={{
-          backgroundColor: 'white',
-          padding: '2rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <p style={{ margin: 0, color: '#666' }}>Loading user information...</p>
-        </div>
+        <div className="card p-4 text-center text-muted">Loading user information...</div>
       )}
     </div>
   );
