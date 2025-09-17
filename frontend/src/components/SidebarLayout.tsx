@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { logout, getCurrentUser } from '../backend';
@@ -64,107 +65,47 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div className="d-flex flex-column min-vh-100 bg-light">
       {/* Header Bar */}
-      <div style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e0e0e0',
-        padding: '0.75rem 1.5rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        zIndex: 1000
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#2c3e50' }}>OCRA Demo</h1>
-        </div>
-        
-        {/* User Info and Logout */}
-        {currentUser && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.9rem', color: '#2c3e50', fontWeight: '500' }}>
-                {getDisplayName(currentUser)}
+      <nav className="navbar navbar-expand navbar-light bg-white border-bottom shadow-sm px-3" style={{zIndex: 1000}}>
+        <span className="navbar-brand fw-bold fs-4 me-4">OCRA Demo</span>
+        <div className="ms-auto d-flex align-items-center gap-3">
+          {currentUser && (
+            <>
+              <div className="text-end">
+                <div className="fw-semibold text-dark small">{getDisplayName(currentUser)}</div>
+                {currentUser.username && (
+                  <div className="badge bg-light text-secondary border border-1 border-secondary-subtle mt-1">
+                    {currentUser.username}
+                  </div>
+                )}
               </div>
-              {currentUser.username && (
-                <div style={{ 
-                  fontSize: '0.8rem', 
-                  color: '#666',
-                  fontFamily: 'monospace',
-                  backgroundColor: '#f8f9fa',
-                  padding: '0.125rem 0.375rem',
-                  borderRadius: '3px',
-                  border: '1px solid #e9ecef'
-                }}>
-                  {currentUser.username}
-                </div>
-              )}
-            </div>
-            <button
-              onClick={handleLogout}
-              style={{
-                backgroundColor: '#e74c3c',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '0.5rem 1rem',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '500',
-                transition: 'background-color 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c0392b'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e74c3c'}
-            >
-              <span>🚪</span>
-              <span>Logout</span>
-            </button>
-          </div>
-        )}
-      </div>
-
+              <button
+                onClick={handleLogout}
+                className="btn btn-danger d-flex align-items-center gap-1 fw-bold"
+              >
+                <span>🚪</span>
+                <span>Logout</span>
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
       {/* Main Layout Container */}
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div className="d-flex flex-grow-1" style={{minHeight: 0}}>
         {/* Sidebar */}
-        <div style={{
-          width: sidebarOpen ? '250px' : '60px',
-          backgroundColor: '#2c3e50',
-          color: 'white',
-          transition: 'width 0.3s ease',
-          boxShadow: '2px 0 5px rgba(0,0,0,0.1)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {/* Sidebar Header */}
-          <div style={{
-            padding: '1rem',
-            borderBottom: '1px solid #34495e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: sidebarOpen ? 'space-between' : 'center'
-          }}>
-            {sidebarOpen && <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Navigation</h2>}
+        <aside className={`bg-dark text-white flex-shrink-0 d-flex flex-column transition-width ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`} style={{width: sidebarOpen ? 220 : 56, transition: 'width 0.3s'}}>
+          <div className="d-flex align-items-center justify-content-between px-3 py-3 border-bottom border-secondary">
+            {sidebarOpen && <span className="fw-bold">Navigation</span>}
             <button
+              className="btn btn-sm btn-outline-light ms-auto"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '1.2rem',
-                padding: '0.5rem'
-              }}
+              aria-label="Toggle sidebar"
             >
               {sidebarOpen ? '←' : '→'}
             </button>
           </div>
-
-          {/* Navigation Items */}
-          <nav style={{ flex: 1, padding: '1rem 0' }}>
+          <nav className="nav flex-column py-2">
             <SidebarItem
               to="/profile"
               icon="👤"
@@ -197,21 +138,13 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
               />
             )}
           </nav>
-        </div>
-
+        </aside>
         {/* Main Content */}
-        <div style={{ 
-          flex: 1, 
-          padding: '2rem',
-          overflow: 'auto'
-        }}>
-          <div style={{
-            maxWidth: '1200px',
-            margin: '0 auto'
-          }}>
+        <main className="flex-grow-1 p-4 overflow-auto" style={{minWidth: 0}}>
+          <div className="container-fluid" style={{maxWidth: 1200}}>
             {children}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
@@ -229,29 +162,8 @@ function SidebarItem({ to, icon, label, isActive, sidebarOpen }: SidebarItemProp
   return (
     <Link
       to={to}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        padding: '0.75rem 1rem',
-        color: 'white',
-        textDecoration: 'none',
-        margin: '0 0.5rem',
-        borderRadius: '4px',
-        backgroundColor: isActive ? '#3498db' : 'transparent',
-        transition: 'background-color 0.2s',
-        fontSize: '0.9rem'
-      }}
-      onMouseEnter={(e) => {
-        if (!isActive) {
-          e.currentTarget.style.backgroundColor = '#34495e';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isActive) {
-          e.currentTarget.style.backgroundColor = 'transparent';
-        }
-      }}
+      className={`nav-link d-flex align-items-center gap-2 px-3 py-2 rounded ${isActive ? 'bg-primary text-white fw-bold' : 'text-white'}`}
+      style={{margin: '0 0.25rem', fontSize: '0.97rem', transition: 'background-color 0.2s'}}
     >
       <span style={{ fontSize: '1.2rem' }}>{icon}</span>
       {sidebarOpen && <span>{label}</span>}
