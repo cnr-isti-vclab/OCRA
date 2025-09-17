@@ -221,15 +221,7 @@ export default function Projects() {
           ))}
         </div>
       )}
-      <div className="alert alert-info mt-5">
-        <strong>💡 Future Enhancements:</strong>
-        <ul className="mb-0 ms-3">
-          <li>Project creation and editing</li>
-          <li>User assignments to projects</li>
-          <li>Project-specific permissions</li>
-          <li>File uploads and management</li>
-        </ul>
-      </div>
+      {/* Future Enhancements box removed */}
     </div>
   );
 }

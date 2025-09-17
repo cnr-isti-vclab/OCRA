@@ -60,11 +60,11 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <Card>
-        <h1 className="mb-3">React OCRA Demo</h1>
-        <p className="text-secondary mb-1">Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
-        <p className="text-muted small mb-3">
-          🔒 Now with <strong>backend API session storage</strong> for production-ready security!
+        <h1 className="mb-3">OCRA: Collaborative 3D Annotation Platform</h1>
+        <p className="text-muted mb-2">
+          OCRA is an online platform for collaborative annotation and management of 3D assets, designed for conservation-restoration and heritage science workflows.
         </p>
+        <p className="text-secondary mb-2">Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
         {error && <p className="text-danger">Error: {error}</p>}
         <button className="btn btn-primary fw-bold px-4" onClick={() => startAuthFlow()}>Login</button>
       </Card>
@@ -96,15 +96,6 @@ function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-4 shadow p-4 mx-auto my-5" style={{ maxWidth: 520, width: '100%' }}>
       {children}
-      <Footer />
     </div>
-  );
-}
-
-function Footer() {
-  return (
-    <p className="mt-4 text-secondary small">
-      This demo shows the Authorization Code Flow with PKCE using a minimal, annotated React setup.
-    </p>
   );
 }
