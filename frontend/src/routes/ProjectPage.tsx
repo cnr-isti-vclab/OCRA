@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
+import ThreeViewer from '../components/ThreeViewer';
 
 interface Project {
   id: string;
@@ -100,10 +101,12 @@ export default function ProjectPage() {
             </div>
           </div>
           <div className="row g-4">
-            {/* 3D Viewer Placeholder */}
+            {/* 3D Viewer */}
             <div className="col-md-8">
-              <div className="bg-light border border-2 border-secondary-subtle rounded d-flex align-items-center justify-content-center" style={{ minHeight: 300, fontSize: '1.5rem', color: '#b2bec3' }}>
-                [3D Viewer Placeholder]
+              <div className="bg-light border border-2 border-secondary-subtle rounded" style={{ minHeight: 300 }}>
+                <div style={{ padding: 8 }}>
+                  <ThreeViewer height={320} />
+                </div>
               </div>
             </div>
             {/* File List + Upload */}
