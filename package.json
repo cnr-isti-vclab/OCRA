@@ -13,7 +13,6 @@
     "logs": "docker compose logs -f",
     "logs:backend": "docker compose logs -f backend",
     "logs:frontend": "docker compose logs -f app",
-    "install": "npm run install:frontend && npm run install:backend",
     "install:frontend": "cd frontend && npm install",
     "install:backend": "cd backend && npm install",
     "db:migrate": "cd backend && npx prisma migrate dev",

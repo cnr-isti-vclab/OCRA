@@ -60,7 +60,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <Card>
-        <h1 className="mb-3">OCRA: Collaborative 3D Annotation Platform</h1>
+        <h1 className="mb-3">OCRA a Collaborative 3D Annotation Platform</h1>
         <p className="text-muted mb-2">
           OCRA is an online platform for collaborative annotation and management of 3D assets, designed for conservation-restoration and heritage science workflows.
         </p>

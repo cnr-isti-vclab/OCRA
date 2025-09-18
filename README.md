@@ -1,4 +1,6 @@
 # OCRA
+**OCRA** stands for **O**nline **C**onservation-**R**estoration **A**nnotator.
+
 OCRA is a minimal open-source platform for collaborative annotation and management of 3D assets, designed for conservation-restoration and heritage science workflows. It enables users to set up projects, define hierarchical roles, and organize 3D-centric data and annotations in a web-based environment. The platform supports direct spatial annotation on high-resolution 3D models, semantic mapping of annotations, and project-specific task management. Advanced tools allow users to trace, map, and export metric 3D annotations for interoperability and analysis. OCRA emphasizes simplicity, transparency, and ease of deployment for research and cultural heritage institutions.
 
 ## Framework Overview
