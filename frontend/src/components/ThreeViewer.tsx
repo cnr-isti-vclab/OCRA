@@ -1,9 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 export default function ThreeViewer({ width = '100%', height = 400 }: { width?: string | number; height?: number | string }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const ambientRef = useRef<THREE.AmbientLight | null>(null);
+  const dirRef = useRef<THREE.DirectionalLight | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const [lightsOn, setLightsOn] = useState(true);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -20,11 +26,14 @@ export default function ThreeViewer({ width = '100%', height = 400 }: { width?: 
     mountRef.current.appendChild(renderer.domElement);
 
     // Lights
-    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambient);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-    dir.position.set(5, 10, 7.5);
-    scene.add(dir);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambient);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+  dir.position.set(5, 10, 7.5);
+  scene.add(dir);
+  // store refs so we can toggle them from UI
+  ambientRef.current = ambient;
+  dirRef.current = dir;
 
     // Cube
     const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -48,11 +57,20 @@ export default function ThreeViewer({ width = '100%', height = 400 }: { width?: 
     };
     window.addEventListener('resize', onWindowResize);
     // Render once and also on user interaction
-    const render = () => renderer.render(scene, camera);
+    // store renderer and scene refs for external updates
+    rendererRef.current = renderer;
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+
+    const render = () => {
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
+    };
     render();
 
-    const onControlsChange = () => render();
-    controls.addEventListener('change', onControlsChange);
+  const onControlsChange = () => render();
+  controls.addEventListener('change', onControlsChange);
 
     // Cleanup
     return () => {
@@ -68,7 +86,28 @@ export default function ThreeViewer({ width = '100%', height = 400 }: { width?: 
     };
   }, [height]);
 
+  // Toggle lights on/off
+  useEffect(() => {
+    if (!ambientRef.current || !dirRef.current) return;
+    ambientRef.current.visible = lightsOn;
+    dirRef.current.visible = lightsOn;
+    // re-render once to reflect lighting change
+    if (rendererRef.current && sceneRef.current && cameraRef.current) {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    }
+  }, [lightsOn]);
+
   return (
-    <div ref={mountRef} style={{ width, height }} />
+    <div style={{ position: 'relative', width, height }}>
+      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      <button
+        onClick={() => setLightsOn(v => !v)}
+        style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}
+        className="btn btn-sm btn-outline-primary"
+        aria-pressed={!lightsOn}
+      >
+        {lightsOn ? 'Lights: On' : 'Lights: Off'}
+      </button>
+    </div>
   );
 }
