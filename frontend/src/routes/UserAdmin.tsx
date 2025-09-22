@@ -27,6 +27,8 @@ interface User {
 
 export default function UserAdmin() {
   const [users, setUsers] = useState<User[]>([]);
+  const [filterCreator, setFilterCreator] = useState<'all' | 'creators' | 'non-creators'>('all');
+  const [sortCreatorAsc, setSortCreatorAsc] = useState<boolean | null>(null); // null = no sort, true = asc, false = desc
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +58,20 @@ export default function UserAdmin() {
       setLoading(false);
     }
   };
+
+  // Derived list applying filter and sort
+  const displayedUsers = users
+    .filter((u) => {
+      if (filterCreator === 'all') return true;
+      if (filterCreator === 'creators') return !!u.sys_creator;
+      return !u.sys_creator;
+    })
+    .sort((a, b) => {
+      if (sortCreatorAsc === null) return 0;
+      const av = a.sys_creator ? 1 : 0;
+      const bv = b.sys_creator ? 1 : 0;
+      return sortCreatorAsc ? av - bv : bv - av;
+    });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -106,35 +122,53 @@ export default function UserAdmin() {
         <div className="card-header bg-light">
           <h2 className="h6 mb-0 text-secondary">All Users ({users.length})</h2>
         </div>
-        {users.length === 0 ? (
+        {displayedUsers.length === 0 ? (
           <div className="card-body text-center text-muted">No users found.</div>
         ) : (
           <div className="table-responsive">
+            <div className="d-flex align-items-center justify-content-between p-2">
+              <div>
+                <div className="btn-group" role="group" aria-label="Creator filter">
+                  <button type="button" className={`btn btn-sm ${filterCreator === 'all' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('all')}>All</button>
+                  <button type="button" className={`btn btn-sm ${filterCreator === 'creators' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('creators')}>Creators</button>
+                  <button type="button" className={`btn btn-sm ${filterCreator === 'non-creators' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('non-creators')}>Non-creators</button>
+                </div>
+              </div>
+              <div className="text-muted small">Showing {displayedUsers.length} of {users.length}</div>
+            </div>
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light">
                 <tr>
                   <th>Name</th>
-                  <th>Creator</th>
                   <th>Email</th>
                   <th>Username</th>
                   <th className="text-center">Admin</th>
+                  <th className="text-center" style={{cursor: 'pointer'}} onClick={() => setSortCreatorAsc(sortCreatorAsc === null ? false : sortCreatorAsc ? false : null)}>
+                    Creator
+                    {sortCreatorAsc === null ? null : (
+                      <span className="ms-2">{sortCreatorAsc ? '▲' : '▼'}</span>
+                    )}
+                  </th>
                   <th className="text-center">Managed Projects</th>
                   <th>Last Login</th>
                   <th>Created</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {displayedUsers.map((user) => (
                   <tr key={user.id}>
                     <td className="fw-semibold text-dark">{getDisplayName(user)}</td>
-                    <td className="text-center">
-                      <span className={`badge ${user.sys_creator ? 'bg-primary' : 'bg-secondary'}`}>{user.sys_creator ? 'Yes' : 'No'}</span>
-                    </td>
-                    <td className="text-secondary">{user.email || 'N/A'}</td>
-                    <td className="text-secondary">{user.username || 'N/A'}</td>
-                    <td className="text-center">
-                      <span className={`badge ${user.sys_admin ? 'bg-success' : 'bg-secondary'}`}>{user.sys_admin ? 'Yes' : 'No'}</span>
-                    </td>
+                      <td className="text-secondary">{user.email || 'N/A'}</td>
+                      <td className="text-secondary">{user.username || 'N/A'}</td>
+                      <td className="text-center">
+                        <span className={`badge ${user.sys_admin ? 'bg-success' : 'bg-secondary'}`}>{user.sys_admin ? 'Yes' : 'No'}</span>
+                      </td>
+                      <td className="text-center">
+                        <span className={`badge ${user.sys_creator ? 'bg-primary' : 'bg-secondary'}`}>{user.sys_creator ? 'Yes' : 'No'}</span>
+                      </td>
+                      <td className="text-center">
+                        <span className={`badge ${user.managedProjectsCount ? 'bg-info text-dark' : 'bg-secondary'}`}>{user.managedProjectsCount || 0}</span>
+                      </td>
                     <td className="text-center">
                       <span className={`badge ${user.managedProjectsCount ? 'bg-info text-dark' : 'bg-secondary'}`}>{user.managedProjectsCount || 0}</span>
                     </td>

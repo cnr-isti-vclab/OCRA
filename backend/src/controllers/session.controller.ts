@@ -194,6 +194,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
         given_name: true,
         family_name: true,
         sys_admin: true,
+        sys_creator: true,
         projectRoles: {
           select: {
             role: true,
@@ -230,6 +231,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
                      user.username ||
                      'Unknown User',
         sys_admin: user.sys_admin,
+        sys_creator: user.sys_creator,
         managedProjects
       }
     });

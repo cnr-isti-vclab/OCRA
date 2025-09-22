@@ -220,6 +220,7 @@ export async function getValidSession(sessionId: string) {
         family_name: session.user.family_name,
         middle_name: session.user.middle_name,
         sys_admin: session.user.sys_admin,
+        sys_creator: session.user.sys_creator,
       },
     };
     

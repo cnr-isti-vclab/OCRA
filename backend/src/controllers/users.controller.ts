@@ -28,6 +28,7 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
         family_name: true,
         middle_name: true,
         sys_admin: true,
+        sys_creator: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -66,6 +67,7 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
         family_name: true,
         middle_name: true,
         sys_admin: true,
+        sys_creator: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -156,6 +158,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
         family_name: true,
         middle_name: true,
         sys_admin: true,
+        sys_creator: true,
         createdAt: true,
         updatedAt: true,
       }

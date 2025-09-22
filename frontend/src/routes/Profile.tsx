@@ -36,6 +36,7 @@ export default function Profile() {
     family_name?: string;
     middle_name?: string;
     sys_admin?: boolean;
+    sys_creator?: boolean;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,6 +102,9 @@ export default function Profile() {
               <li className="list-group-item">
                 <strong>Admin Status:</strong> <span className={`badge ms-2 ${info.sys_admin ? 'bg-success' : 'bg-secondary'}`}>{info.sys_admin ? 'System Administrator' : 'Regular User'}</span>
               </li>
+                <li className="list-group-item">
+                  <strong>Creator Privilege:</strong> <span className={`badge ms-2 ${info.sys_creator ? 'bg-primary' : 'bg-secondary'}`}>{info.sys_creator ? 'Creator' : 'No'}</span>
+                </li>
             </ul>
           </div>
         </div>
