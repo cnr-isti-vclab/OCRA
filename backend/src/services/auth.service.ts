@@ -4,7 +4,9 @@
  * Business logic for authentication and audit operations
  */
 
-import { logLoginEvent, getAuditLog } from '../../db.js';
+import { logAuditEvent } from '../../db.js';
+import { connect } from './audit.service.js';
+import { getPrismaClient } from '../../db.js';
 
 /**
  * Log a login event
@@ -16,7 +18,7 @@ export async function logLogin(
   ipAddress: string | null, 
   sessionId: string | null
 ): Promise<void> {
-  return await logLoginEvent(userSub, 'login', success, userAgent, ipAddress, sessionId);
+  return await logAuditEvent({ userSub, eventType: 'login', type: 'login', success, userAgent, ipAddress, payload: { sessionId } });
 }
 
 /**
@@ -28,7 +30,7 @@ export async function logLogout(
   userAgent: string | null, 
   ipAddress: string | null
 ): Promise<void> {
-  return await logLoginEvent(userSub, 'logout', true, userAgent, ipAddress, sessionId);
+  return await logAuditEvent({ userSub, eventType: 'logout', type: 'logout', success: true, userAgent, ipAddress, payload: { sessionId } });
 }
 
 /**
@@ -38,20 +40,15 @@ export async function getUserAuditLog(userSub: string, limit: number = 20) {
   if (!userSub) {
     throw new Error('User subject is required');
   }
-  
-  // Get all audit events and filter for this user
-  const allEvents = await getAuditLog();
-  return allEvents
-    .filter((event: any) => event.userSub === userSub)
-    .slice(0, limit);
+  return await (await import('./audit.service.js')).getUserAuditLogFromMongo(userSub, limit);
 }
 
 /**
  * Get full audit log (admin only)
  */
 export async function getFullAuditLog(limit: number = 50) {
-  const allEvents = await getAuditLog();
-  return allEvents.slice(0, limit);
+  // Prefer Mongo for full audit log
+  return await (await import('./audit.service.js')).getFullAuditLogFromMongo(limit);
 }
 
 /**

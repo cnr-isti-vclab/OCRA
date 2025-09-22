@@ -6,6 +6,7 @@
 
 import express from 'express';
 import { createSession, getSession, removeSession } from '../services/session.service.js';
+import { logAuditEvent } from '../../db.js';
 import { logLogin, logLogout } from '../services/auth.service.js';
 import { CreateSessionRequest } from '../types/index.js';
 
@@ -32,6 +33,22 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
       req.ip || null,
       sessionId
     );
+
+    // Audit log
+    try {
+      await logAuditEvent({
+        userSub: userProfile?.sub,
+        userId: null,
+        action: 'auth.login',
+        resource: null,
+        success: true,
+        ip: req.ip || null,
+        userAgent: req.headers['user-agent'] as string,
+        payload: { sessionId }
+      });
+    } catch (err) {
+      console.warn('Audit logging failed for login:', err instanceof Error ? err.message : err);
+    }
 
     // Set HTTP-only cookie for authentication
     res.cookie('session_id', sessionId, {
@@ -126,6 +143,21 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
         req.headers['user-agent'] as string,
         req.ip || null
       );
+      // Audit log for logout
+      try {
+        await logAuditEvent({
+          userSub: session.user.sub,
+          userId: (session.user as any).id || session.user.sub || null,
+          action: 'auth.logout',
+          resource: null,
+          success: true,
+          ip: req.ip || null,
+          userAgent: req.headers['user-agent'] as string,
+          payload: { sessionId }
+        });
+      } catch (err) {
+        console.warn('Audit logging failed for logout:', err instanceof Error ? err.message : err);
+      }
     }
 
     // Clear the session cookie
@@ -150,6 +182,21 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
         req.headers['user-agent'] as string,
         req.ip || null
       );
+      // Audit log for failed logout
+      try {
+        await logAuditEvent({
+          userSub: session.user.sub,
+          userId: (session.user as any).id || session.user.sub || null,
+          action: 'auth.logout',
+          resource: null,
+          success: false,
+          ip: req.ip || null,
+          userAgent: req.headers['user-agent'] as string,
+          payload: { sessionId: req.params.sessionId }
+        });
+      } catch (err) {
+        console.warn('Audit logging failed for failed logout attempt:', err instanceof Error ? err.message : err);
+      }
     }
     
     res.status(500).json({ 

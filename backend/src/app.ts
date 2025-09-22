@@ -8,6 +8,7 @@ import express from 'express';
 import cors from 'cors';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
+import { connect } from './services/audit.service.js';
 import { requestLogger } from './middleware/logging.middleware.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 
@@ -43,6 +44,8 @@ export function createApp(): Express {
 
   // Basic middleware
   app.use(express.json());
+
+  // (mongo debug route removed)
   
   // Simple cookie parser middleware
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -67,6 +70,10 @@ export function createApp(): Express {
   
   // Health check available at both /health and /api/health
   app.use('/health', healthRoutes);
+
+  // use mounted health router for /health paths
+
+  // (dev route dump removed)
 
   // Error handling
   app.use('*', notFoundHandler); // Handle unmatched routes

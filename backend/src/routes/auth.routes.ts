@@ -11,7 +11,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 const router = express.Router();
 
 // GET /api/users/:userSub/audit - Get user's audit log
-router.get('/users/:userSub/audit', getAuditLog);
+router.get('/users/:userSub/audit', requireAuth, getAuditLog);
 
 // GET /api/admin/audit - Get full audit log for all users (admin only)
 router.get('/admin/audit', requireAuth, requireAdmin, getFullAuditLogController);

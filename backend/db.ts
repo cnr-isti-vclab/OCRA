@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { logEvent as mongoLogEvent } from './src/services/audit.service.js';
 import { OAuthUserProfile, OAuthTokens } from './src/types/index.js';
 
 // Type definitions for database operations
@@ -271,9 +272,69 @@ export async function logLoginEvent(
         sessionId,
       },
     });
+    // Also write the same event to Mongo for audit/read-side consistency.
+    // This is a best-effort write: failures should not affect the main flow.
+    (async () => {
+      try {
+        // Attempt to resolve internal user id for richer audit docs
+        const user = await db.user.findUnique({ where: { sub: userSub }, select: { id: true } }).catch(() => null);
+        await mongoLogEvent({
+          userSub,
+          userId: user?.id || null,
+          action: `login.${eventType}`,
+          resource: null,
+          success,
+          ip: ipAddress,
+          userAgent,
+          payload: { sessionId }
+        });
+      } catch (err) {
+        console.warn('Dual-write to Mongo failed in logLoginEvent:', err instanceof Error ? err.message : err);
+      }
+    })();
   } catch (error) {
     console.error('Failed to log login event:', error);
     // Don't throw error for logging failures
+  }
+}
+
+/**
+ * Unified audit writer (wrapper)
+ * - If called with a login/logout shape, it delegates to logLoginEvent (which also dual-writes to Mongo)
+ * - For generic audit events, it will attempt to write into Mongo via audit.service
+ */
+export async function logAuditEvent(event: any): Promise<void> {
+  try {
+    if (!event) return;
+    // If it's a login/logout event shape, use existing Prisma writer which now dual-writes
+    if (event.type === 'login' || event.type === 'logout' || event.eventType === 'login' || event.eventType === 'logout') {
+      const userSub = event.userSub || event.sub || event.user?.sub;
+      const eventType = event.eventType || event.type || (event.action && event.action.startsWith('login') ? 'login' : 'unknown');
+      const success = typeof event.success === 'boolean' ? event.success : true;
+      const userAgent = event.userAgent || event.user_agent || null;
+      const ip = event.ip || event.ipAddress || null;
+      const sessionId = event.payload?.sessionId || null;
+      await logLoginEvent(userSub, eventType, success, userAgent, ip, sessionId);
+      return;
+    }
+    // Otherwise, attempt to write into Mongo directly (best-effort)
+    try {
+      const { logEvent } = await import('./src/services/audit.service.js');
+      await logEvent({
+        userSub: event.userSub || event.sub || null,
+        userId: event.userId || null,
+        action: event.action || event.eventType || 'event',
+        resource: event.resource || null,
+        success: typeof event.success === 'boolean' ? event.success : true,
+        ip: event.ip || null,
+        userAgent: event.userAgent || null,
+        payload: event.payload || null
+      });
+    } catch (err) {
+      console.warn('Failed to write generic audit event to Mongo in logAuditEvent:', err instanceof Error ? err.message : err);
+    }
+  } catch (err) {
+    console.error('logAuditEvent encountered an error:', err instanceof Error ? err.message : err);
   }
 }
 

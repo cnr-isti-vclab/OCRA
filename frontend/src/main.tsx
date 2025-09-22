@@ -9,6 +9,7 @@ import ProjectList from './routes/ProjectList.tsx'
 import EditProject from './routes/EditProject.tsx'
 import ProjectPage from './routes/ProjectPage.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
+import RequireAdmin from './routes/RequireAdmin.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 
 /**
@@ -89,9 +90,11 @@ const router = createBrowserRouter([
 		path: '/audit',
 		element: (
 			<RequireAuth>
-				<SidebarLayout>
-					<AuditLog />
-				</SidebarLayout>
+				<RequireAdmin>
+					<SidebarLayout>
+						<AuditLog />
+					</SidebarLayout>
+				</RequireAdmin>
 			</RequireAuth>
 		)
 	},

@@ -87,21 +87,15 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
       }
     });
 
-    // Get last login information for all users
-    const lastLogins = await db.loginEvent.findMany({
-      where: {
-        eventType: 'login',
-        success: true
-      },
-      select: {
-        userSub: true,
-        createdAt: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      distinct: ['userSub']
-    });
+    // Get last login information for all users from Mongo audit collection
+    const { getLatestLogins } = await import('../services/audit.service.js');
+    let lastLogins: Array<{ userSub: string; createdAt: Date }> = [];
+    try {
+      lastLogins = await getLatestLogins(200);
+    } catch (err) {
+      console.warn('Failed to read last logins from Mongo audit collection:', err instanceof Error ? err.message : err);
+      lastLogins = [];
+    }
 
     // Create a map of userId to project count
     const projectCountMap = new Map(

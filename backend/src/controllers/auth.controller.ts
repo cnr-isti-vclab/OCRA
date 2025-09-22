@@ -21,13 +21,22 @@ export async function getAuditLog(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const auditLog = await getUserAuditLog(userSub);
-    
-    res.json({
-      success: true,
-      userSub,
-      auditLog
-    });
+    // Ensure only the requested user or a sys_admin can fetch this data
+    const limit = Math.min(100, parseInt((req.query.limit as string) || '20', 10));
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    if (req.user.sub !== userSub && !req.user.sys_admin) {
+      res.status(403).json({ error: 'Not authorized to access this audit log' });
+      return;
+    }
+
+  const raw = await getUserAuditLog(userSub, limit);
+  const auditLog: any[] = Array.isArray(raw) ? raw : [];
+
+  res.json({ success: true, userSub, auditLog });
   } catch (error) {
     console.error('Error getting audit log:', error);
     res.status(500).json({
@@ -58,8 +67,9 @@ export async function getFullAuditLogController(req: Request, res: Response): Pr
     }
 
     const limit = parseInt(req.query.limit as string) || 50;
-    const auditLog = await getFullAuditLog(limit);
-    
+    const raw = await getFullAuditLog(limit);
+    const auditLog: any[] = Array.isArray(raw) ? raw : [];
+
     res.json({
       success: true,
       totalEvents: auditLog.length,

@@ -35,6 +35,23 @@ services:
       retries: 10
       start_period: 90s
 
+  mongodb:
+    image: mongo:6.0
+    container_name: ocra_min-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: ocra_audit
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      # Use the newer mongosh shell and allow extra start time for WiredTiger recovery
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   backend:
     build:
       context: .
@@ -49,6 +66,7 @@ services:
       - "5555:5555"  # Prisma Studio
     depends_on:
       - postgres
+      - mongodb
     volumes:
       - ./backend:/app/backend:delegated
       - backend_node_modules:/app/backend/node_modules
@@ -76,8 +94,11 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+      mongodb:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   backend_node_modules:
   project_files:
+  mongo_data:

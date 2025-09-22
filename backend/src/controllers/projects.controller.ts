@@ -509,6 +509,22 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         displayName: currentUser.name || `${currentUser.given_name || ''} ${currentUser.family_name || ''}`.trim() || currentUser.username || 'Unknown User'
       }
     };
+    // Audit log the project creation
+    try {
+      const { logAuditEvent } = await import('../../db.js');
+      await logAuditEvent({
+        userSub: currentUser.sub,
+        userId: currentUser.id,
+        action: 'project.create',
+        resource: { type: 'project', id: project.id },
+        success: true,
+        ip: req.ip || null,
+        userAgent: req.headers['user-agent'] as string,
+        payload: projectWithManager
+      });
+    } catch (err) {
+      console.warn('Audit logging failed for project creation:', err instanceof Error ? err.message : err);
+    }
     
     res.status(201).json({
       success: true,

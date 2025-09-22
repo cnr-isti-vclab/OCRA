@@ -12,9 +12,12 @@
     "seed": "tsx seed.ts",
     "prisma:push": "npx prisma db push",
     "prisma:generate": "npx prisma generate"
+    ,
+    "test:quick": "tsx ./scripts/test-log-audit.ts && tsx ./scripts/test-get-users-stats.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
+  "mongodb": "^5.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "multer": "^2.0.2"
@@ -22,8 +25,8 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "@types/multer": "^2.0.0",
-    "@types/node": "^22.0.0",
+  "@types/multer": "^2.0.0",
+  "@types/node": "^22.0.0",
     "prisma": "^6.15.0",
     "tsx": "^4.7.0",
     "typescript": "^5.9.2"
