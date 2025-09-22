@@ -10,6 +10,7 @@ export interface User {
   family_name: string | null;
   middle_name: string | null;
   sys_admin: boolean;
+  sys_creator?: boolean;
 }
 
 export interface Session {

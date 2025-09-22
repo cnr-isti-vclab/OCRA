@@ -1,6 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * PROJECTS COMPONENT
@@ -40,6 +40,7 @@ interface User {
   username?: string;
   displayName: string;
   sys_admin: boolean;
+  sys_creator?: boolean;
 }
 
 export default function Projects() {
@@ -49,6 +50,7 @@ export default function Projects() {
   const [error, setError] = useState<string | null>(null);
   // Map of projectId to isManager boolean
   const [managerMap, setManagerMap] = useState<Record<string, boolean>>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -98,6 +100,42 @@ export default function Projects() {
 
     fetchData();
   }, []);
+
+  // Create a new project and open the edit page
+  const createNewProject = async () => {
+    try {
+      const sessionId = localStorage.getItem('oauth_session_id');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionId}`
+        },
+        body: JSON.stringify({
+          name: `New Project ${new Date().toISOString()}`,
+          description: 'Draft project created from UI',
+          public: false
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to create project: ${response.status} - ${err}`);
+      }
+
+      const data = await response.json();
+      const created = data.project || data;
+      if (created && created.id) {
+        navigate(`/projects/${created.id}/edit`);
+      } else {
+        throw new Error('Project created but response missing id');
+      }
+    } catch (e: any) {
+      console.error('Create project failed:', e);
+      alert(`Failed to create project: ${e?.message || String(e)}`);
+    }
+  };
 
 
   // Fetch manager status for all projects after projects are loaded
@@ -158,10 +196,15 @@ export default function Projects() {
       <h1 className="mb-4 text-dark">
         📁 Projects
       </h1>
-      <div className="mb-4">
+      <div className="mb-4 d-flex align-items-center justify-content-between">
         <p className="text-muted mb-0">
           Manage and view all projects in the system.
         </p>
+        <div>
+          {(user?.sys_creator || user?.sys_admin) && (
+            <button className="btn btn-success btn-sm" onClick={createNewProject}>➕ Create New Project</button>
+          )}
+        </div>
       </div>
       {projects.length === 0 ? (
         <div className="alert alert-info text-center py-5">

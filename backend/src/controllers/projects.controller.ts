@@ -447,6 +447,17 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     }
     
     const db = getPrismaClient();
+    // Permission check: only sys_admin or sys_creator can create projects
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    if (!currentUser.sys_admin && !currentUser.sys_creator) {
+      console.log(`🚫 [createProject] User ${currentUser.email || currentUser.sub} is not allowed to create projects`);
+      res.status(403).json({ error: 'Insufficient permissions to create projects' });
+      return;
+    }
     
     // Check if a project with this name already exists
     const existingProject = await db.project.findFirst({
@@ -475,10 +486,33 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         updatedAt: true,
       }
     });
+    // Assign the creating user as project manager
+    try {
+      await db.projectRole.create({
+        data: {
+          userId: currentUser.id,
+          projectId: project.id,
+          role: RoleEnum.manager
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to assign project manager role:', err instanceof Error ? err.message : err);
+    }
+    // Attach manager info to the returned project for immediate UI use
+    const projectWithManager = {
+      ...project,
+      manager: {
+        id: currentUser.id,
+        name: currentUser.name,
+        email: currentUser.email,
+        username: currentUser.username,
+        displayName: currentUser.name || `${currentUser.given_name || ''} ${currentUser.family_name || ''}`.trim() || currentUser.username || 'Unknown User'
+      }
+    };
     
     res.status(201).json({
       success: true,
-      project
+      project: projectWithManager
     });
   } catch (error) {
     console.error('Error creating project:', error);
