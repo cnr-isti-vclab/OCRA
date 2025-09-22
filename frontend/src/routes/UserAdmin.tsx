@@ -18,6 +18,7 @@ interface User {
   family_name?: string;
   middle_name?: string;
   sys_admin: boolean;
+  sys_creator?: boolean;
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string | null;
@@ -113,6 +114,7 @@ export default function UserAdmin() {
               <thead className="table-light">
                 <tr>
                   <th>Name</th>
+                  <th>Creator</th>
                   <th>Email</th>
                   <th>Username</th>
                   <th className="text-center">Admin</th>
@@ -125,6 +127,9 @@ export default function UserAdmin() {
                 {users.map((user) => (
                   <tr key={user.id}>
                     <td className="fw-semibold text-dark">{getDisplayName(user)}</td>
+                    <td className="text-center">
+                      <span className={`badge ${user.sys_creator ? 'bg-primary' : 'bg-secondary'}`}>{user.sys_creator ? 'Yes' : 'No'}</span>
+                    </td>
                     <td className="text-secondary">{user.email || 'N/A'}</td>
                     <td className="text-secondary">{user.username || 'N/A'}</td>
                     <td className="text-center">

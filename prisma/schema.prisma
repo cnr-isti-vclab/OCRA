@@ -22,6 +22,7 @@ model User {
   middle_name String? // Middle name
   sub       String   @unique // OAuth subject identifier - this is the true unique ID
   sys_admin Boolean  @default(false) // System administrator flag
+  sys_creator Boolean @default(false) // Creator flag: can create new projects
   lastLoginAt DateTime? // Last successful login timestamp
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

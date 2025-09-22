@@ -88,6 +88,8 @@ async function seedDemoUsers(): Promise<void> {
   ];
 
   for (const user of demoUsers) {
+    // Grant sys_creator privilege to the demo museum director user
+    const isSysCreator = user.username === 'museum-director';
     try {
       await prisma.user.upsert({
         where: { sub: user.sub },
@@ -97,9 +99,13 @@ async function seedDemoUsers(): Promise<void> {
           username: user.username,
           given_name: user.given_name,
           family_name: user.family_name,
+          sys_creator: isSysCreator,
           updatedAt: new Date()
         },
-        create: user
+        create: {
+          ...user,
+          sys_creator: isSysCreator
+        }
       });
       console.log(`  ✓ Demo user '${user.username}' ready`);
     } catch (error: any) {
