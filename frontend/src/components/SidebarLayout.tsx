@@ -94,18 +94,18 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       {/* Main Layout Container */}
       <div className="d-flex flex-grow-1" style={{minHeight: 0}}>
         {/* Sidebar */}
-        <aside className={`bg-dark text-white flex-shrink-0 d-flex flex-column transition-width ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`} style={{width: sidebarOpen ? 220 : 56, transition: 'width 0.3s'}}>
-          <div className="d-flex align-items-center justify-content-between px-3 py-3 border-bottom border-secondary">
-            {sidebarOpen && <span className="fw-bold">Navigation</span>}
+        <aside className={`bg-dark text-white flex-shrink-0 d-flex flex-column transition-width ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`} style={{width: sidebarOpen ? 180 : 48, transition: 'width 0.2s'}}>
+          <div className={`d-flex align-items-center ${sidebarOpen ? 'justify-content-end' : 'justify-content-center'} px-2 py-2 border-bottom border-secondary`}>
             <button
-              className="btn btn-sm btn-outline-light ms-auto"
+              className="btn btn-sm btn-outline-light"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label="Toggle sidebar"
+              style={{padding: '0.25rem 0.5rem', fontSize: '0.9rem'}}
             >
               {sidebarOpen ? '←' : '→'}
             </button>
           </div>
-          <nav className="nav flex-column py-2">
+          <nav className="nav flex-column py-1">
             <SidebarItem
               to="/profile"
               icon="👤"
@@ -162,10 +162,10 @@ function SidebarItem({ to, icon, label, isActive, sidebarOpen }: SidebarItemProp
   return (
     <Link
       to={to}
-      className={`nav-link d-flex align-items-center gap-2 px-3 py-2 rounded ${isActive ? 'bg-primary text-white fw-bold' : 'text-white'}`}
-      style={{margin: '0 0.25rem', fontSize: '0.97rem', transition: 'background-color 0.2s'}}
+      className={`nav-link d-flex align-items-center gap-2 px-2 py-1 rounded ${isActive ? 'bg-primary text-white fw-semibold' : 'text-white'}`}
+      style={{margin: '0.12rem 0.12rem', fontSize: '0.9rem', transition: 'background-color 0.15s'}}
     >
-      <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+      <span style={{ fontSize: '1.05rem' }}>{icon}</span>
       {sidebarOpen && <span>{label}</span>}
     </Link>
   );
