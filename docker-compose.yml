@@ -36,7 +36,7 @@ services:
       start_period: 90s
 
   mongodb:
-    image: mongo:6.0
+    image: mongo:8.0
     container_name: ocra_min-mongodb
     environment:
       MONGO_INITDB_DATABASE: ocra_audit
