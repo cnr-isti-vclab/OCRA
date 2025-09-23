@@ -98,12 +98,58 @@ export async function uploadProjectFile(req: Request, res: Response) {
   const db = getPrismaClient();
   const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
   if (!isManager) {
+    // Log unauthorized upload attempt
+    try {
+      await logAuditEvent({
+        userSub: currentUser.sub,
+        eventType: 'file.upload',
+        success: false,
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+        payload: { projectId, error: 'Unauthorized: not project manager' }
+      });
+    } catch (auditErr) {
+      console.warn('Failed to log unauthorized file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
+    }
     return res.status(403).json({ error: 'Only the project manager can upload files' });
   }
   // File is already saved by multer
   const file = (req as any).file;
   if (!file) {
+    // Log failed upload
+    try {
+      await logAuditEvent({
+        userSub: currentUser.sub,
+        eventType: 'file.upload',
+        success: false,
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+        payload: { projectId, error: 'No file uploaded' }
+      });
+    } catch (auditErr) {
+      console.warn('Failed to log failed file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
+    }
     return res.status(400).json({ error: 'No file uploaded' });
+  }
+  // Log the file upload event
+  try {
+    await logAuditEvent({
+      userSub: currentUser.sub,
+      eventType: 'file.upload',
+      success: true,
+      userAgent: req.headers['user-agent'] || null,
+      ipAddress: req.ip || req.connection.remoteAddress || null,
+      payload: {
+        projectId,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype
+      }
+    });
+  } catch (auditErr) {
+    console.warn('Failed to log file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
+    // Don't fail the upload if audit logging fails
   }
   res.json({ success: true, file: file.filename });
 }
@@ -126,6 +172,7 @@ export async function downloadProjectFile(req: Request, res: Response) {
 import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
 import { getValidSession } from '../../db.js';
+import { logAuditEvent } from '../../db.js';
 
 /**
  * PROJECTS CONTROLLER (TypeScript)
