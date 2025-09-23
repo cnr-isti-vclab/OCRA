@@ -25,4 +25,6 @@ Notes:
 - Audit logs are read from Mongo; admin Audit UI uses those endpoints.
 - If you change the Prisma schema, run `npx prisma generate` in `backend/` to regenerate the client.
 - For local development without Docker, use the `frontend` and `backend` package.json scripts directly.
+ 
+- For more details on development vs production workflows and the compose override, see `devel.md`.
 

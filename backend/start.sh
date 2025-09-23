@@ -16,6 +16,8 @@
 # The script ensures the database is properly initialized before accepting connections.
 #
 
+#!/bin/sh
+
 # Exit on any error
 set -e
 
@@ -24,12 +26,16 @@ npx prisma db push --schema=./prisma/schema.prisma
 
 echo "✅ Database schema synchronized"
 
-echo "🚀 Starting the restructured backend server..."
 echo "🌱 Seeding database with essential data..."
 npx tsx seed.ts
 
 echo "🟢 Starting Prisma Studio in background..."
 npx prisma studio --schema=./prisma/schema.prisma --port 5555 &
 
-echo "🚀 Starting the restructured backend server..."
-exec npx tsx server.ts
+if [ "$NODE_ENV" = "production" ]; then
+	echo "🚀 NODE_ENV=production — starting compiled server from ./dist"
+	exec node ./dist/server.js
+else
+	echo "🚀 NODE_ENV=$NODE_ENV — starting dev server (tsx)"
+	exec npx tsx server.ts
+fi

@@ -68,7 +68,6 @@ services:
       - postgres
       - mongodb
     volumes:
-      - ./backend:/app/backend:delegated
       - backend_node_modules:/app/backend/node_modules
       - ./prisma:/app/backend/prisma:ro
       - project_files:/app/project_files
@@ -96,6 +95,8 @@ services:
         condition: service_started
       mongodb:
         condition: service_healthy
+      backend:
+        condition: service_started
 
 volumes:
   postgres_data:
