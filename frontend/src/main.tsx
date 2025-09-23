@@ -90,11 +90,9 @@ const router = createBrowserRouter([
 		path: '/audit',
 		element: (
 			<RequireAuth>
-				<RequireAdmin>
-					<SidebarLayout>
-						<AuditLog />
-					</SidebarLayout>
-				</RequireAdmin>
+				<SidebarLayout>
+					<AuditLog />
+				</SidebarLayout>
 			</RequireAuth>
 		)
 	},
