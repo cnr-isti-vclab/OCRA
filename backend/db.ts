@@ -260,41 +260,24 @@ export async function logLoginEvent(
   sessionId: string | null
 ): Promise<void> {
   const db = getPrismaClient();
-  
+
   try {
-    await db.loginEvent.create({
-      data: {
-        userSub,
-        eventType,
-        success,
-        userAgent,
-        ipAddress,
-        sessionId,
-      },
+    // Write login/logout events to MongoDB only. We may enrich the Mongo document
+    // with the internal user id (read-only) for convenience, but we no longer
+    // persist the same event in Postgres to avoid duplicate storage.
+    const user = await db.user.findUnique({ where: { sub: userSub }, select: { id: true } }).catch(() => null);
+    await mongoLogEvent({
+      userSub,
+      userId: user?.id || null,
+      action: `login.${eventType}`,
+      resource: null,
+      success,
+      ip: ipAddress,
+      userAgent,
+      payload: { sessionId }
     });
-    // Also write the same event to Mongo for audit/read-side consistency.
-    // This is a best-effort write: failures should not affect the main flow.
-    (async () => {
-      try {
-        // Attempt to resolve internal user id for richer audit docs
-        const user = await db.user.findUnique({ where: { sub: userSub }, select: { id: true } }).catch(() => null);
-        await mongoLogEvent({
-          userSub,
-          userId: user?.id || null,
-          action: `login.${eventType}`,
-          resource: null,
-          success,
-          ip: ipAddress,
-          userAgent,
-          payload: { sessionId }
-        });
-      } catch (err) {
-        console.warn('Dual-write to Mongo failed in logLoginEvent:', err instanceof Error ? err.message : err);
-      }
-    })();
-  } catch (error) {
-    console.error('Failed to log login event:', error);
-    // Don't throw error for logging failures
+  } catch (err) {
+    console.warn('Failed to write login/logout event to Mongo in logLoginEvent:', err instanceof Error ? err.message : err);
   }
 }
 
@@ -435,60 +418,14 @@ export async function updateUserAdminStatus(userId: string, isAdmin: boolean) {
  * Get audit log (login events) with user information
  */
 export async function getAuditLog() {
-  const db = getPrismaClient();
-  
+  // Prefer Mongo audit collection for read-side audit queries. Use the
+  // audit.service helpers which already enrich documents with Prisma user info.
   try {
-    const events = await db.loginEvent.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 100, // Limit to last 100 events
-    });
-    
-    // Get all unique user subs from events
-    const userSubs = [...new Set(events.map((event: LoginEventData) => event.userSub))];
-    
-    // Fetch user information for all users in the audit log
-    const users = await db.user.findMany({
-      where: {
-        sub: {
-          in: userSubs
-        }
-      },
-      select: {
-        sub: true,
-        name: true,
-        email: true,
-        username: true,
-        given_name: true,
-        family_name: true
-      }
-    });
-    
-    // Create a map of userSub to user info for quick lookup
-    const userMap = new Map(users.map((user: UserSelectData) => [user.sub, user]));
-    
-    // Enrich events with user information
-    const enrichedEvents = events.map((event: LoginEventData) => {
-      const user = userMap.get(event.userSub) as UserSelectData | undefined;
-      return {
-        ...event,
-        user: user ? {
-          sub: user.sub,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          displayName: user.name || 
-                       `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
-                       user.username ||
-                       'Unknown User'
-        } : null
-      };
-    });
-    
-    return enrichedEvents;
-  } catch (error) {
-    console.error('Failed to get audit log:', error);
-    throw new Error(`Database error: ${(error as Error).message}`);
+    const { getFullAuditLogFromMongo } = await import('./src/services/audit.service.js');
+    const docs = await getFullAuditLogFromMongo(100);
+    return docs;
+  } catch (err) {
+    console.error('Failed to get audit log from Mongo:', err instanceof Error ? err.message : err);
+    throw new Error(`Audit read error: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

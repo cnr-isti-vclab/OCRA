@@ -196,7 +196,11 @@ export async function getUserAuditLog(limit: number = 20): Promise<any[]> {
   }
   
   try {
-    const response = await fetch(`${API_BASE}/users/${user.sub}/audit?limit=${limit}`);
+    console.log('🔗 Fetching user audit from', `${API_BASE}/users/${user.sub}/audit?limit=${limit}`);
+    const response = await fetch(`${API_BASE}/users/${user.sub}/audit?limit=${limit}`, {
+      credentials: 'include'
+    });
+    console.log('🔁 Received response for user audit:', response.status, response.ok);
     
     if (!response.ok) {
       throw new Error(`Failed to get audit log: ${response.status}`);
@@ -224,9 +228,11 @@ export async function getFullAuditLog(limit: number = 50): Promise<any[]> {
   }
   
   try {
+    console.log('🔗 Fetching admin audit from', `${API_BASE}/admin/audit?limit=${limit}`);
     const response = await fetch(`${API_BASE}/admin/audit?limit=${limit}`, {
       credentials: 'include' // Include cookies for session
     });
+    console.log('🔁 Received response for admin audit:', response.status, response.ok);
     
     if (!response.ok) {
       if (response.status === 401) {

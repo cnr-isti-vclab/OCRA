@@ -46,18 +46,39 @@ export default function AuditLog() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Try to restore cached events first so navigating away/back doesn't clear console output
+    const cached = sessionStorage.getItem('ocra_audit_events');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as AuditEvent[];
+        setEvents(parsed);
+        setLoading(false);
+      } catch (err) {
+        console.warn('Failed to parse cached audit events, will refetch', err);
+        sessionStorage.removeItem('ocra_audit_events');
+      }
+    }
+
     const fetchAuditLog = async () => {
       try {
         const user = await getCurrentUser();
         const userIsAdmin = user?.sys_admin === true;
         setIsAdmin(userIsAdmin);
-        let auditEvents;
+        console.log('🧭 AuditLog: userIsAdmin=', userIsAdmin, 'user=', user?.sub);
+        let auditEvents: AuditEvent[] = [];
         if (userIsAdmin) {
+          console.log('🧭 AuditLog: fetching full audit (admin)');
           auditEvents = await getFullAuditLog(50);
         } else {
+          console.log('🧭 AuditLog: fetching user audit for', user?.sub);
           auditEvents = await getUserAuditLog(20);
         }
         setEvents(auditEvents);
+        try {
+          sessionStorage.setItem('ocra_audit_events', JSON.stringify(auditEvents));
+        } catch (err) {
+          console.warn('Failed to persist audit events to sessionStorage', err);
+        }
       } catch (e: any) {
         console.error('Failed to fetch audit log:', e);
         setError(e?.message ?? String(e));
@@ -65,6 +86,9 @@ export default function AuditLog() {
         setLoading(false);
       }
     };
+
+    // Always refresh in background to get up-to-date events, but keep cached data
+    // displayed until new data arrives to avoid clearing logs when navigating back.
     fetchAuditLog();
   }, []);
 

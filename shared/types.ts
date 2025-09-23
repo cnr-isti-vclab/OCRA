@@ -37,6 +37,26 @@ export interface LoginEvent {
   timestamp: Date;
 }
 
+// Audit events are stored in MongoDB and returned by the backend API.
+export interface AuditEvent {
+  id: string;
+  eventType: string;
+  success: boolean;
+  userAgent?: string | null;
+  createdAt: Date | string | null;
+  errorMessage?: string | null;
+  userSub?: string | null;
+  user?: {
+    sub: string;
+    name?: string | null;
+    email?: string | null;
+    username?: string | null;
+    displayName?: string | null;
+  } | null;
+  resource?: any;
+  payload?: any;
+}
+
 export interface Project {
   id: string;
   name: string;

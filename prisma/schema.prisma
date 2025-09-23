@@ -60,20 +60,8 @@ model Session {
   @@map("sessions")
 }
 
-// Login/logout audit log
-model LoginEvent {
-  id          String   @id @default(cuid())
-  userSub     String   // OAuth subject
-  eventType   String   // 'login' or 'logout'
-  userAgent   String?
-  ipAddress   String?
-  success     Boolean
-  sessionId   String?  // Reference to session (if applicable)
-  errorMessage String? // Error details for failed attempts
-  createdAt   DateTime @default(now())
-
-  @@map("login_events")
-}
+// NOTE: Login events are now stored in MongoDB audit collection.
+// The Prisma `LoginEvent` model was removed to avoid duplicate storage.
 
 // Project model - represents projects with assigned users
 model Project {
