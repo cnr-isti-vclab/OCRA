@@ -2,7 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
-import ThreeViewer from '../components/ThreeViewer';
+import ThreeDHOPViewer from '../components/ThreeViewer';
 
 interface Project {
   id: string;
@@ -105,7 +105,7 @@ export default function ProjectPage() {
             <div className="col-md-8">
               <div className="bg-light border border-2 border-secondary-subtle rounded" style={{ minHeight: 300 }}>
                 <div style={{ padding: 8 }}>
-                  <ThreeViewer height={320} />
+                  <ThreeDHOPViewer height={320} />
                 </div>
               </div>
             </div>

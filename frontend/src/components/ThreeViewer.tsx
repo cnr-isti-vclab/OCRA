@@ -1,113 +1,142 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import React, { useEffect, useRef } from 'react';
 
-export default function ThreeViewer({ width = '100%', height = 400 }: { width?: string | number; height?: number | string }) {
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const ambientRef = useRef<THREE.AmbientLight | null>(null);
-  const dirRef = useRef<THREE.DirectionalLight | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const [lightsOn, setLightsOn] = useState(true);
+declare global {
+  interface Window {
+    Presenter: any;
+    init3dhop: () => void;
+    $: any;
+  }
+}
+
+export default function ThreeDHOPViewer({ width = '100%', height = 400 }: { width?: string | number; height?: number | string }) {
+  const viewerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!mountRef.current) return;
+    if (!viewerRef.current) return;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf8f9fa);
+    // Initialize 3DHOP when the component mounts
+    const initViewer = () => {
+      if (typeof window.init3dhop === 'function' && typeof window.$ === 'function') {
+        // Clear any existing content
+        viewerRef.current!.innerHTML = '';
 
-    const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / (typeof height === 'number' ? height : mountRef.current.clientHeight), 0.1, 1000);
-    camera.position.set(2, 2, 4);
+        // Create the 3DHOP structure exactly like the example
+        const viewerDiv = document.createElement('div');
+        viewerDiv.id = '3dhop';
+        viewerDiv.className = 'tdhop';
+        viewerDiv.setAttribute('onmousedown', 'if (event.preventDefault) event.preventDefault()');
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(mountRef.current.clientWidth, typeof height === 'number' ? height : mountRef.current.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
-    mountRef.current.appendChild(renderer.domElement);
+        const highlightDiv = document.createElement('div');
+        highlightDiv.id = 'tdhlg';
+        viewerDiv.appendChild(highlightDiv);
 
-    // Lights
-  const ambient = new THREE.AmbientLight(0xffffff, 0.7);
-  scene.add(ambient);
-  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-  dir.position.set(5, 10, 7.5);
-  scene.add(dir);
-  // store refs so we can toggle them from UI
-  ambientRef.current = ambient;
-  dirRef.current = dir;
+        const canvas = document.createElement('canvas');
+        canvas.id = 'draw-canvas';
+        canvas.style.backgroundImage = 'url(/external/3DHOP_4.3/examples/skins/backgrounds/light.jpg)';
+        viewerDiv.appendChild(canvas);
 
-    // Cube
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+        viewerRef.current!.appendChild(viewerDiv);
 
-    // Controls (no damping so we can render on demand)
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = false;
+        // Setup function exactly like the example
+        const setup3dhop = () => {
+          try {
+            const presenter = new window.Presenter('draw-canvas');
 
-    // Resize handling
-    const onWindowResize = () => {
-      if (!mountRef.current) return;
-      const w = mountRef.current.clientWidth;
-      const h = typeof height === 'number' ? height as number : mountRef.current.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      render();
-    };
-    window.addEventListener('resize', onWindowResize);
-    // Render once and also on user interaction
-    // store renderer and scene refs for external updates
-    rendererRef.current = renderer;
-    sceneRef.current = scene;
-    cameraRef.current = camera;
+            presenter.setScene({
+              meshes: {
+                'Gargoyle': { url: '/external/3DHOP_4.3/examples/models/gargo.ply' }
+              },
+              modelInstances: {
+                'Model1': { mesh: 'Gargoyle' }
+              }
+            });
+          } catch (error) {
+            console.error('Failed to setup 3DHOP scene:', error);
+            viewerRef.current!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;">Failed to load 3D model</div>';
+          }
+        };
 
-    const render = () => {
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
+        // Initialize using jQuery ready like the example
+        window.$(document).ready(() => {
+          window.init3dhop();
+          setup3dhop();
+        });
+
+      } else {
+        // 3DHOP not loaded yet, show loading message
+        viewerRef.current!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;">Loading 3D Viewer...</div>';
       }
     };
-    render();
 
-  const onControlsChange = () => render();
-  controls.addEventListener('change', onControlsChange);
+    // Initialize 3DHOP
+    if (typeof window.init3dhop === 'function' && typeof window.$ === 'function') {
+      initViewer();
+    } else {
+      // Load 3DHOP if not already loaded
+      if (!document.querySelector('script[src*="3dhop"]')) {
+        // Load 3DHOP CSS
+        if (!document.querySelector('link[href*="3dhop"]')) {
+          const cssLink = document.createElement('link');
+          cssLink.rel = 'stylesheet';
+          cssLink.type = 'text/css';
+          cssLink.href = '/external/3DHOP_4.3/minimal/stylesheet/3dhop.css';
+          document.head.appendChild(cssLink);
+        }
 
-    // Cleanup
-    return () => {
-      window.removeEventListener('resize', onWindowResize);
-      controls.removeEventListener('change', onControlsChange);
-      controls.dispose();
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-      if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
-        mountRef.current.removeChild(renderer.domElement);
+        // Load 3DHOP scripts in correct order (same as example)
+        const scripts = [
+          '/external/3DHOP_4.3/minimal/js/spidergl.js',
+          '/external/3DHOP_4.3/minimal/js/jquery.js',
+          '/external/3DHOP_4.3/minimal/js/presenter.js',
+          '/external/3DHOP_4.3/minimal/js/nexus.js',
+          '/external/3DHOP_4.3/minimal/js/ply.js',
+          '/external/3DHOP_4.3/minimal/js/trackball_sphere.js',
+          '/external/3DHOP_4.3/minimal/js/trackball_turntable.js',
+          '/external/3DHOP_4.3/minimal/js/trackball_turntable_pan.js',
+          '/external/3DHOP_4.3/minimal/js/trackball_pantilt.js',
+          '/external/3DHOP_4.3/minimal/js/init.js'
+        ];
+
+        let loadedCount = 0;
+        const totalScripts = scripts.length;
+
+        const loadScript = (index: number) => {
+          if (index >= totalScripts) {
+            initViewer();
+            return;
+          }
+
+          const script = document.createElement('script');
+          script.src = scripts[index];
+          script.onload = () => {
+            loadedCount++;
+            if (loadedCount === totalScripts) {
+              initViewer();
+            } else {
+              loadScript(index + 1);
+            }
+          };
+          script.onerror = () => {
+            viewerRef.current!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #dc3545;">Failed to load 3D Viewer</div>';
+          };
+          document.head.appendChild(script);
+        };
+
+        loadScript(0);
       }
-    };
-  }, [height]);
-
-  // Toggle lights on/off
-  useEffect(() => {
-    if (!ambientRef.current || !dirRef.current) return;
-    ambientRef.current.visible = lightsOn;
-    dirRef.current.visible = lightsOn;
-    // re-render once to reflect lighting change
-    if (rendererRef.current && sceneRef.current && cameraRef.current) {
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
     }
-  }, [lightsOn]);
+
+    // Cleanup function
+    return () => {
+      if (viewerRef.current) {
+        viewerRef.current.innerHTML = '';
+      }
+    };
+  }, []);
 
   return (
     <div style={{ position: 'relative', width, height }}>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-      <button
-        onClick={() => setLightsOn(v => !v)}
-        style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}
-        className="btn btn-sm btn-outline-primary"
-        aria-pressed={!lightsOn}
-      >
-        {lightsOn ? 'Lights: On' : 'Lights: Off'}
-      </button>
+      <div ref={viewerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );
 }
