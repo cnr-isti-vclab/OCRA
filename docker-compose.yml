@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: ocra_min-postgres
+    container_name: ocra-postgres
     environment:
       POSTGRES_DB: oauth_demo
       POSTGRES_USER: postgres
@@ -19,7 +19,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
-    container_name: ocra_min-keycloak
+    container_name: ocra-keycloak
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -27,6 +27,7 @@ services:
       - "8081:8080"
     volumes:
       - ./keycloak/realm-export:/opt/keycloak/data/import
+      - keycloak_config:/opt/keycloak/data
     command: start-dev --import-realm
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
@@ -37,13 +38,14 @@ services:
 
   mongodb:
     image: mongo:8.0
-    container_name: ocra_min-mongodb
+    container_name: ocra-mongodb
     environment:
       MONGO_INITDB_DATABASE: ocra_audit
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - mongo_configdb:/data/configdb
     healthcheck:
       # Use the newer mongosh shell and allow extra start time for WiredTiger recovery
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1 || exit 1"]
@@ -56,7 +58,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: ocra_min-backend
+    container_name: ocra-backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo
       PORT: 3002
@@ -76,7 +78,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    container_name: ocra_min-frontend
+    container_name: ocra-frontend
     environment:
       PROVIDER_URL: http://localhost:8081
       REALM: demo
@@ -103,3 +105,5 @@ volumes:
   backend_node_modules:
   project_files:
   mongo_data:
+  mongo_configdb:
+  keycloak_config:

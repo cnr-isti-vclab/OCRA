@@ -3,7 +3,7 @@
 This project has been reorganized with a clear separation between frontend and backend code:
 
 ```
-OCRA_min/
+ocra/
 ├── frontend/                 # React frontend application
 │   ├── src/                 # Frontend source code
 │   │   ├── routes/          # Page components

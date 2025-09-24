@@ -10,33 +10,38 @@ Quick start - Development
 -------------------------
 
 1. Ensure Docker and Docker Compose are installed.
-2. Use the development override which mounts source and runs dev servers:
+2. For hot-reload dev with source mounts (optional, requires `docker-compose.override.yml`):
 
    docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 
+   Or run production-style (no override) for faster startup:
+
+   docker compose up --build
+
 Notes:
-- The development override starts the frontend dev server (Vite) on port `3001` mapped to the container's `3000`.
-- The backend service runs from the host-mounted `./backend` directory and uses the `npm run dev` script.
+- With override: frontend Vite dev server on `:3001`, backend uses `npm run dev` with source mounts.
+- Without override: production builds, but still suitable for basic dev testing.
 
 Quick start - Production
 ------------------------
 
-1. Build production images and run without the override:
+1. Build production images and run (default behavior):
 
    docker compose up --build -d
 
 Notes:
-- The frontend Dockerfile builds a production `dist/` and Nginx serves the static files.
-- The backend Dockerfile builds the TypeScript project and runs the compiled `dist/` outputs.
+- Frontend serves built `dist/` via Nginx; backend runs compiled TypeScript from `dist/`.
+- No host source mounts for security and performance.
 
 Recommended edits for production readiness
 -----------------------------------------
 
-- Ensure the production `docker-compose.yml` does NOT mount host source into the backend container. That ensures the container runs the baked `dist/` JS and not the host files.
-- Consider updating `start.sh` to choose `node ./dist/server.js` when `NODE_ENV=production` and `npm run dev` or `tsx` when `NODE_ENV=development`.
+- The `start.sh` script already chooses `node ./dist/server.js` for production (`NODE_ENV=production`) and dev commands otherwise.
+- Ensure production `docker-compose.yml` has no host source mounts (currently correct).
 
 Troubleshooting
 ---------------
 
 - If you see stale frontend assets in the browser, clear the browser cache or rebuild the frontend image and restart the containers without the override.
 - If the backend appears to be running different code than your edits, confirm whether the backend container is using the host bind mount (development override) or the baked image (production).
+- MongoDB 8.0 requires fresh data volumes; if starting fails, remove volumes with `docker compose down -v`.
