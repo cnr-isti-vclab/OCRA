@@ -27,12 +27,6 @@ body {
   width: 100%;
 }
 
-/* Override root centering when using sidebar layout */
-#root:has([style*="display: flex"][style*="minHeight: 100vh"]) {
-  align-items: stretch;
-  justify-content: stretch;
-}
-
 /* Responsive design */
 @media (max-width: 768px) {
   #root {

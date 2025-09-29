@@ -10,6 +10,7 @@ declare global {
 
 export default function ThreeDHOPViewer({ width = '100%', height = 400 }: { width?: string | number; height?: number | string }) {
   const viewerRef = useRef<HTMLDivElement | null>(null);
+  const presenterRef = useRef<any>(null);
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -41,6 +42,7 @@ export default function ThreeDHOPViewer({ width = '100%', height = 400 }: { widt
         const setup3dhop = () => {
           try {
             const presenter = new window.Presenter('draw-canvas');
+            presenterRef.current = presenter;
 
             presenter.setScene({
               meshes: {
@@ -50,6 +52,43 @@ export default function ThreeDHOPViewer({ width = '100%', height = 400 }: { widt
                 'Model1': { mesh: 'Gargoyle' }
               }
             });
+
+            // Handle window resize
+            const handleResize = () => {
+              if (presenter && viewerRef.current) {
+                const canvas = document.getElementById('draw-canvas') as HTMLCanvasElement;
+                if (canvas) {
+                  const rect = viewerRef.current.getBoundingClientRect();
+                  canvas.width = rect.width;
+                  canvas.height = rect.height;
+
+                  // Properly resize the 3DHOP viewport
+                  if (presenter.ui && typeof presenter.ui.resize === 'function') {
+                    presenter.ui.resize(canvas.width, canvas.height);
+                  } else {
+                    // Fallback: update renderer size and redraw
+                    presenter.renderer.setSize(canvas.width, canvas.height);
+                    presenter.camera.setAspectRatio(canvas.width / canvas.height);
+                    presenter.ui.postDrawEvent();
+                  }
+                }
+              }
+            };
+
+            // Also watch for container resize using ResizeObserver
+            const resizeObserver = new ResizeObserver(handleResize);
+            if (viewerRef.current) {
+              resizeObserver.observe(viewerRef.current);
+            }
+
+            window.addEventListener('resize', handleResize);
+
+            // Store cleanup function
+            (viewerRef.current as any)._cleanup = () => {
+              window.removeEventListener('resize', handleResize);
+              resizeObserver.disconnect();
+            };
+
           } catch (error) {
             console.error('Failed to setup 3DHOP scene:', error);
             viewerRef.current!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;">Failed to load 3D model</div>';
@@ -129,6 +168,10 @@ export default function ThreeDHOPViewer({ width = '100%', height = 400 }: { widt
     // Cleanup function
     return () => {
       if (viewerRef.current) {
+        // Call stored cleanup function if it exists
+        if ((viewerRef.current as any)._cleanup) {
+          (viewerRef.current as any)._cleanup();
+        }
         viewerRef.current.innerHTML = '';
       }
     };
