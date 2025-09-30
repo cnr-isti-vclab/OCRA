@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
 import ThreeDHOPViewer from '../components/ThreeViewer';
+import ThreeJSViewer from '../components/ThreeJSViewer';
 
 interface Project {
   id: string;
@@ -110,7 +111,18 @@ export default function ProjectPage() {
       <div className="flex-grow-1 d-flex" style={{ overflow: 'hidden' }}>
         {/* 3D Viewer - takes most of the space */}
         <div className="flex-grow-1 bg-light border-end" style={{ minWidth: 0 }}>
-          <ThreeDHOPViewer height="100%" />
+          <ThreeJSViewer
+            height="100%"
+            sceneDesc={{
+              meshes: {
+                Gargoyle: { url: "/external/3DHOP_4.3/examples/models/gargo.ply" }
+              },
+              modelInstances: {
+                Model1: { mesh: "Gargoyle" }
+              },
+              trackball: { type: "TurntableTrackball" }
+            }}
+          />
         </div>
 
         {/* Sidebar - fixed width on desktop, responsive on mobile */}

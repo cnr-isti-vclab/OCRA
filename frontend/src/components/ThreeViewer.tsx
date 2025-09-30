@@ -61,15 +61,18 @@ export default function ThreeDHOPViewer({ width = '100%', height = 400 }: { widt
                   const rect = viewerRef.current.getBoundingClientRect();
                   canvas.width = rect.width;
                   canvas.height = rect.height;
+                  console.log('Resized canvas to', canvas.width, canvas.height);
 
                   // Properly resize the 3DHOP viewport
                   if (presenter.ui && typeof presenter.ui.resize === 'function') {
                     presenter.ui.resize(canvas.width, canvas.height);
+                    console.log('Called presenter.ui.resize');
                   } else {
+                    console.log('Called fallback resize doing nothing');
                     // Fallback: update renderer size and redraw
-                    presenter.renderer.setSize(canvas.width, canvas.height);
-                    presenter.camera.setAspectRatio(canvas.width / canvas.height);
-                    presenter.ui.postDrawEvent();
+                    //presenter.renderer.setSize(canvas.width, canvas.height);
+                    //presenter.camera.setAspectRatio(canvas.width / canvas.height);
+                    //presenter.ui.postDrawEvent();
                   }
                 }
               }
