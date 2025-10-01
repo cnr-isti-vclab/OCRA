@@ -18,6 +18,7 @@ export class ThreePresenter {
   meshDefs: Record<string, { url: string }> = {};
   modelInstances: Record<string, { mesh: string }> = {};
   mount: HTMLDivElement;
+  headLight: THREE.DirectionalLight;
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -25,17 +26,18 @@ export class ThreePresenter {
     this.scene.background = new THREE.Color(0xf5f5f5);
     const widthPx = mount.clientWidth;
     const heightPx = mount.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(75, widthPx / heightPx, 0.1, 1000);
+    this.camera = new THREE.PerspectiveCamera(40, widthPx / heightPx, 0.1, 1000);
     this.camera.position.set(0, 0, 2);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(widthPx, heightPx);
     mount.appendChild(this.renderer.domElement);
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    // Lighting - head light setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
     this.scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(1, 1, 2);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    directionalLight.position.set(0, 0, 1); // Initial position, will be updated
     this.scene.add(directionalLight);
+    this.headLight = directionalLight;
     // Animation loop
     this.animate = this.animate.bind(this);
     this.animate();
@@ -63,6 +65,16 @@ export class ThreePresenter {
   animate() {
     requestAnimationFrame(this.animate);
     if (this.controls) this.controls.update();
+    // Update head light position to follow camera
+    if (this.headLight) {
+      this.headLight.position.copy(this.camera.position);
+      // Point the light towards the scene center (or controls target)
+      if (this.controls && this.controls.target) {
+        this.headLight.lookAt(this.controls.target);
+      } else {
+        this.headLight.lookAt(0, 0, 0);
+      }
+    }
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -91,6 +103,10 @@ export class ThreePresenter {
       this.controls = null;
     }
 
+    // Track loaded meshes for scaling
+    let loadedCount = 0;
+    const totalMeshes = Object.keys(sceneDesc.meshes).length;
+
     // Load meshes
     Object.entries(sceneDesc.meshes).forEach(([meshName, meshDef]) => {
       // Only PLY supported for now
@@ -107,9 +123,42 @@ export class ThreePresenter {
               this.scene.add(mesh);
             }
           });
+          loadedCount++;
+          console.log(`Loaded mesh ${meshName} (${loadedCount}/${totalMeshes})`);
+          // Scale when all meshes are loaded
+          if (loadedCount === totalMeshes) {
+            this.scaleAndCenterScene();
+          }
         });
       }
       // TODO: support other formats (NXS, OBJ, etc.)
     });
+  }
+
+  private scaleAndCenterScene() {
+    const allMeshes = Object.values(this.meshes);
+    if (allMeshes.length === 0) return;
+    const sceneBBox = new THREE.Box3();
+    allMeshes.forEach(m => sceneBBox.expandByObject(m));
+    const size = sceneBBox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    console.log('Scene bounding box size:', size, 'maxDim:', maxDim);
+    console.log('Camera before scaling:', this.camera.position);
+    console.log('Center of bbox:', sceneBBox.getCenter(new THREE.Vector3()));
+    if (maxDim > 0) {
+      // Center the scene
+      const center = sceneBBox.getCenter(new THREE.Vector3());
+      const scale = 1.0 / maxDim;
+      
+      allMeshes.forEach(m => m.scale.set(scale, scale, scale));
+      allMeshes.forEach(m => m.position.sub(center.clone().multiplyScalar(scale)));
+      
+      // Move camera back to fit
+      this.camera.position.set(0, 0, 2);
+      if (this.controls) {
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+      }
+    }
   }
 }

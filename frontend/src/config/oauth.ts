@@ -7,7 +7,7 @@
 export const OAUTH_CONFIG = {
   issuer: 'http://localhost:8081/realms/demo',
   clientId: 'react-oauth',
-  redirectUri: 'http://localhost:3001', // Explicit HTTP for local development
+  redirectUri: 'http://localhost:5173', // Updated for Vite dev server
   scope: 'openid profile email'
 };
 
