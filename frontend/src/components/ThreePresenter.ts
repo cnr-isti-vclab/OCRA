@@ -154,17 +154,28 @@ export class ThreePresenter {
     console.log('Camera before scaling:', this.camera.position);
     console.log('Center of bbox:', sceneBBox.getCenter(new THREE.Vector3()));
     if (maxDim > 0) {
-      // Center the scene
+      // Calculate scale and center
       const center = sceneBBox.getCenter(new THREE.Vector3());
       const scale = 1.0 / maxDim;
       
+      // Apply scaling
       allMeshes.forEach(m => m.scale.set(scale, scale, scale));
-      allMeshes.forEach(m => m.position.sub(center.clone().multiplyScalar(scale)));
       
-      // Move camera back to fit
-      this.camera.position.set(0, 0, 2);
+      // Translate to center in X and Z, but place bottom at y=0
+      // First center in X and Z
+      const offsetX = -center.x * scale;
+      const offsetZ = -center.z * scale;
+      // For Y, translate so bottom (min.y) is at 0
+      const offsetY = -sceneBBox.min.y * scale;
+      
+      allMeshes.forEach(m => m.position.add(new THREE.Vector3(offsetX, offsetY, offsetZ)));
+      
+      // Position camera to view the scene
+      // Target should be at the center of the object (in XZ plane, mid-height in Y)
+      const targetY = (sceneBBox.min.y + sceneBBox.max.y) * 0.5 * scale;
+      this.camera.position.set(0, targetY, 2);
       if (this.controls) {
-        this.controls.target.set(0, 0, 0);
+        this.controls.target.set(0, -targetY, 0);
         this.controls.update();
       }
     }
