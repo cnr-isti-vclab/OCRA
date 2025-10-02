@@ -24,6 +24,9 @@ export class ThreePresenter {
   mount: HTMLDivElement;
   headLight: THREE.DirectionalLight;
   ground: THREE.GridHelper | null = null;
+  homeButton: HTMLButtonElement;
+  initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
+  initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -36,6 +39,34 @@ export class ThreePresenter {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(widthPx, heightPx);
     mount.appendChild(this.renderer.domElement);
+    
+    // Create home button
+    this.homeButton = document.createElement('button');
+    this.homeButton.innerHTML = '🏠';
+    this.homeButton.style.position = 'absolute';
+    this.homeButton.style.top = '10px';
+    this.homeButton.style.left = '10px';
+    this.homeButton.style.width = '40px';
+    this.homeButton.style.height = '40px';
+    this.homeButton.style.fontSize = '20px';
+    this.homeButton.style.border = 'none';
+    this.homeButton.style.borderRadius = '5px';
+    this.homeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+    this.homeButton.style.cursor = 'pointer';
+    this.homeButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+    this.homeButton.style.zIndex = '1000';
+    this.homeButton.title = 'Reset camera view';
+    this.homeButton.addEventListener('mouseenter', () => {
+      this.homeButton.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+      this.homeButton.style.transform = 'scale(1.1)';
+    });
+    this.homeButton.addEventListener('mouseleave', () => {
+      this.homeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+      this.homeButton.style.transform = 'scale(1)';
+    });
+    this.homeButton.addEventListener('click', () => this.resetCamera());
+    mount.style.position = 'relative'; // Ensure mount is positioned for absolute children
+    mount.appendChild(this.homeButton);
     // Lighting - head light setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
     this.scene.add(ambientLight);
@@ -56,6 +87,9 @@ export class ThreePresenter {
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+    }
+    if (this.homeButton.parentNode) {
+      this.homeButton.parentNode.removeChild(this.homeButton);
     }
   }
 
@@ -251,13 +285,27 @@ export class ThreePresenter {
       
       // Position camera to view the scene
       // Target should be at the center of the object (in XZ plane, mid-height in Y)
-      const targetY = (sceneBBox.min.y + sceneBBox.max.y) * 0.5 * scale;
+      const targetY = size.y* 0.5 * scale;
       this.camera.position.set(0, targetY, 2);
       if (this.controls) {
-        this.controls.target.set(0, -targetY, 0);
+        this.controls.target.set(0, targetY, 0);
         this.controls.update();
       }
+      
+      // Store initial position for reset
+      this.initialCameraPosition.copy(this.camera.position);
+      this.initialControlsTarget.set(0, targetY, 0);
     }
+  }
+
+  resetCamera() {
+    // Reset camera to initial position
+    this.camera.position.copy(this.initialCameraPosition);
+    if (this.controls) {
+      this.controls.target.copy(this.initialControlsTarget);
+      this.controls.update();
+    }
+    console.log('📷 Camera view reset to home position');
   }
 
   private addGround() {
