@@ -48,7 +48,7 @@ Once in a project creating an annotation requires the following steps:
 4. Fill in the annotation fields that are not automatically generated (date, author, type, etc.)
 5. Save the annotation
 
-Defining georeferences
+### Defining georeferences
 
-georefs are in theory spatial definitions that are independent wrt the model apart the fact that they are defined in the same space. in practice you use the 3d model to define them interactively
+georefs are spatial definitions that, in theory , are independent wrt the model apart the fact that they are defined in the same space. in practice you use the 3d model to define them interactively
 
