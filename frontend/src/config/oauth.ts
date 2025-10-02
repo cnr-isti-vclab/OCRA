@@ -19,20 +19,26 @@ declare global {
   }
 }
 
-export const OAUTH_CONFIG = {
-  issuer: typeof window !== 'undefined' && window.__APP_CONFIG__?.issuer 
-    ? window.__APP_CONFIG__.issuer 
-    : 'http://localhost:8081/realms/demo',
-  clientId: typeof window !== 'undefined' && window.__APP_CONFIG__?.clientId 
-    ? window.__APP_CONFIG__.clientId 
-    : 'react-oauth',
-  redirectUri: typeof window !== 'undefined' && window.__APP_CONFIG__?.redirectUri 
-    ? window.__APP_CONFIG__.redirectUri 
-    : 'http://localhost:5173', // Fallback for development
-  scope: typeof window !== 'undefined' && window.__APP_CONFIG__?.scope 
-    ? window.__APP_CONFIG__.scope 
-    : 'openid profile email'
-};
+// OAuth configuration as a getter - evaluated when accessed, not when imported
+export const OAUTH_CONFIG = new Proxy({} as any, {
+  get(target, prop) {
+    const config = {
+      issuer: typeof window !== 'undefined' && window.__APP_CONFIG__?.issuer 
+        ? window.__APP_CONFIG__.issuer 
+        : 'http://localhost:8081/realms/demo',
+      clientId: typeof window !== 'undefined' && window.__APP_CONFIG__?.clientId 
+        ? window.__APP_CONFIG__.clientId 
+        : 'react-oauth',
+      redirectUri: typeof window !== 'undefined' && window.__APP_CONFIG__?.redirectUri 
+        ? window.__APP_CONFIG__.redirectUri 
+        : 'http://localhost:5173', // Fallback for development
+      scope: typeof window !== 'undefined' && window.__APP_CONFIG__?.scope 
+        ? window.__APP_CONFIG__.scope 
+        : 'openid profile email'
+    };
+    return config[prop as keyof typeof config];
+  }
+});
 
 // Get API base URL - checks Vite env var first, then runtime config, then fallback
 export function getApiBase(): string {
