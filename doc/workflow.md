@@ -26,11 +26,13 @@ In the following we describe a typical lifecycle of a Conservation-restoration P
 - The editor (c) create annotations on the 3d model using the vocabulary (V)
 - The viewer (d) can view the annotations and export them for reporting or further analysis
 - The project manager (a) can publish a project that will exported in a readonly version with more permissive access rules (e.g. visibile also to unauthenticated users)
+
 users recap
-a alice, has creator previleges and is manager of project p
-b bob admin previleges 
-c carol editor of project p
-d david viewer
+
+- a alice, has creator previleges and is  manager of project p
+- b bob admin previleges 
+- c carol editor of project p
+- d david viewer
 
 
 
@@ -47,5 +49,6 @@ Once in a project creating an annotation requires the following steps:
 5. Save the annotation
 
 Defining georeferences
+
 georefs are in theory spatial definitions that are independent wrt the model apart the fact that they are defined in the same space. in practice you use the 3d model to define them interactively
 
