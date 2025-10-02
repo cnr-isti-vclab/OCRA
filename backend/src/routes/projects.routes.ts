@@ -7,12 +7,18 @@
 
 
 import express from 'express';
-import { getAllProjects, getProjectById, createProject, updateProject, listProjectFiles, uploadProjectFile, downloadProjectFile, upload, isManagerOfProject } from '../controllers/projects.controller.js';
+import { getAllProjects, getProjectById, createProject, updateProject, listProjectFiles, uploadProjectFile, downloadProjectFile, upload, isManagerOfProject, getProjectScene, updateProjectScene } from '../controllers/projects.controller.js';
 
 const router = express.Router();
 
 // Check if current user is manager of a project
 router.get('/:projectId/is-manager', isManagerOfProject);
+
+// Get scene.json for a project
+router.get('/:projectId/scene', getProjectScene);
+
+// Update scene.json for a project (manager only)
+router.put('/:projectId/scene', updateProjectScene);
 
 // List files for a project
 router.get('/:projectId/files', listProjectFiles);

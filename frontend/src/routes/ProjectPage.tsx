@@ -5,6 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import ThreeDHOPViewer from '../components/ThreeViewer';
 import ThreeJSViewer from '../components/ThreeJSViewer';
 import { getApiBase } from '../config/oauth';
+import type { SceneDescription } from '../components/ThreePresenter';
 
 interface Project {
   id: string;
@@ -32,6 +33,7 @@ export default function ProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle file selection and upload
@@ -57,6 +59,16 @@ export default function ProjectPage() {
       const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, { credentials: 'include' });
       const filesData = await filesRes.json();
       setFiles(filesData.files || []);
+      
+      // Refresh scene to include the newly uploaded file
+      const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+        credentials: 'include'
+      });
+      if (sceneRes.ok) {
+        const scene = await sceneRes.json();
+        setSceneDesc(scene);
+      }
+      
       // Clear the input
       e.target.value = '';
     } catch (err: any) {
@@ -109,6 +121,16 @@ export default function ProjectPage() {
         } else {
           setIsManager(false);
         }
+        // Fetch scene.json
+        const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+          credentials: 'include'
+        });
+        if (sceneRes.ok) {
+          const scene = await sceneRes.json();
+          setSceneDesc(scene);
+        } else {
+          setSceneDesc(null);
+        }
       } catch (e: any) {
         setError(e?.message ?? String(e));
       } finally {
@@ -150,19 +172,12 @@ export default function ProjectPage() {
       <div className="flex-grow-1 d-flex overflow-hidden">
         {/* 3D Viewer */}
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
-          <ThreeJSViewer
-            height="100%"
-            sceneDesc={{
-              meshes: {
-                Gargoyle: { url: "/external/3DHOP_4.3/examples/models/gargo.ply" }
-              },
-              modelInstances: {
-                Model1: { mesh: "Gargoyle" }
-              },
-              trackball: { type: "TurntableTrackball" },
-              showGround: true
-            }}
-          />
+          {sceneDesc && (
+            <ThreeJSViewer
+              height="100%"
+              sceneDesc={sceneDesc}
+            />
+          )}
         </div>
 
         {/* Sidebar */}

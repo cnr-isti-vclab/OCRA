@@ -1,7 +1,10 @@
 
 import * as THREE from 'three';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { getApiBase } from '../config/oauth';
 
 export interface SceneDescription {
   meshes: { [key: string]: { url: string } };
@@ -117,27 +120,103 @@ export class ThreePresenter {
 
     // Load meshes
     Object.entries(sceneDesc.meshes).forEach(([meshName, meshDef]) => {
-      // Only PLY supported for now
+      // Construct full URL: if URL is relative, prepend API base
+      const fullUrl = meshDef.url.startsWith('http') 
+        ? meshDef.url 
+        : `${getApiBase()}${meshDef.url}`;
+      
+      console.log(`Loading mesh ${meshName} from ${fullUrl}`);
+      
       if (meshDef.url.endsWith('.ply')) {
+        // PLY format
         const loader = new PLYLoader();
-        loader.load(meshDef.url, (geometry: THREE.BufferGeometry) => {
-          geometry.computeVertexNormals();
-          const material = new THREE.MeshStandardMaterial({ color: 0xcccccc, flatShading: true });
-          const mesh = new THREE.Mesh(geometry, material);
-          this.meshes[meshName] = mesh;
-          // Add model instances
-          Object.entries(sceneDesc.modelInstances).forEach(([instName, instDef]) => {
-            if (instDef.mesh === meshName) {
-              this.scene.add(mesh);
+        
+        // Fetch with credentials, then parse
+        fetch(fullUrl, { credentials: 'include' })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
+            return response.arrayBuffer();
+          })
+          .then(buffer => {
+            const geometry = loader.parse(buffer);
+            geometry.computeVertexNormals();
+            const material = new THREE.MeshStandardMaterial({ color: 0xdddddd, flatShading: true });
+            const mesh = new THREE.Mesh(geometry, material);
+            this.meshes[meshName] = mesh;
+            // Add model instances
+            Object.entries(sceneDesc.modelInstances).forEach(([instName, instDef]) => {
+              if (instDef.mesh === meshName) {
+                this.scene.add(mesh);
+              }
+            });
+            loadedCount++;
+            console.log(`✅ Loaded PLY mesh ${meshName} - ${Object.keys(mesh.geometry.attributes).length} attributes (${loadedCount}/${totalMeshes})`);
+            // Scale when all meshes are loaded
+            if (loadedCount === totalMeshes) {
+              this.scaleAndCenterScene();
+            }
+          })
+          .catch(error => {
+            console.error(`❌ Failed to load PLY mesh ${meshName} from ${fullUrl}:`, error);
           });
-          loadedCount++;
-          console.log(`Loaded mesh ${meshName} (${loadedCount}/${totalMeshes})`);
-          // Scale when all meshes are loaded
-          if (loadedCount === totalMeshes) {
-            this.scaleAndCenterScene();
-          }
-        });
+      } else if (meshDef.url.endsWith('.glb') || meshDef.url.endsWith('.gltf')) {
+        // GLB/GLTF format
+        const loader = new GLTFLoader();
+        
+        // Set up Draco decoder for compressed meshes
+        const dracoLoader = new DRACOLoader();
+        // Use CDN for Draco decoder (wasm files)
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        dracoLoader.setDecoderConfig({ type: 'js' }); // Use JS decoder (works everywhere)
+        loader.setDRACOLoader(dracoLoader);
+        
+        // Fetch with credentials, then parse
+        fetch(fullUrl, { credentials: 'include' })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.arrayBuffer();
+          })
+          .then(buffer => {
+            // GLTFLoader.parse expects a string path for the second argument (resource path)
+            loader.parse(buffer, '', (gltf: any) => {
+              // GLTF models can have multiple meshes, we'll create a group
+              const group = new THREE.Group();
+              gltf.scene.traverse((child: any) => {
+                if ((child as THREE.Mesh).isMesh) {
+                  group.add(child.clone());
+                }
+              });
+              
+              // Store as a "mesh" (actually a group) for consistency
+              this.meshes[meshName] = group as any;
+              
+              // Add model instances
+              Object.entries(sceneDesc.modelInstances).forEach(([instName, instDef]) => {
+                if (instDef.mesh === meshName) {
+                  this.scene.add(group);
+                }
+              });
+              
+              loadedCount++;
+              console.log(`✅ Loaded GLB/GLTF mesh ${meshName} (${loadedCount}/${totalMeshes})`);
+              
+              // Scale when all meshes are loaded
+              if (loadedCount === totalMeshes) {
+                this.scaleAndCenterScene();
+              }
+            }, (error: any) => {
+              console.error(`❌ Failed to parse GLB/GLTF mesh ${meshName}:`, error);
+            });
+          })
+          .catch(error => {
+            console.error(`❌ Failed to load GLB/GLTF mesh ${meshName} from ${fullUrl}:`, error);
+          });
+      } else {
+        console.warn(`⚠️ Unsupported file format for ${meshName}: ${meshDef.url}`);
       }
       // TODO: support other formats (NXS, OBJ, etc.)
     });

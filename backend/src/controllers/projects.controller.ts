@@ -59,6 +59,65 @@ const storage = multer.diskStorage({
 export const upload = multer({ storage });
 
 /**
+ * Get scene.json for a project
+ * GET /api/projects/:projectId/scene
+ */
+export async function getProjectScene(req: Request, res: Response) {
+  const { projectId } = req.params;
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
+  }
+  const scenePath = path.join(uploadDir, projectId, 'scene.json');
+  try {
+    if (!fs.existsSync(scenePath)) {
+      // Return empty scene if file doesn't exist
+      return res.json({
+        meshes: {},
+        modelInstances: {},
+        trackball: { type: "TurntableTrackball" },
+        showGround: true
+      });
+    }
+    const sceneData = fs.readFileSync(scenePath, 'utf-8');
+    res.json(JSON.parse(sceneData));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to read scene', message: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}
+
+/**
+ * Update scene.json for a project (manager only)
+ * PUT /api/projects/:projectId/scene
+ */
+export async function updateProjectScene(req: Request, res: Response) {
+  const { projectId } = req.params;
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
+  }
+  const currentUser = await getCurrentUser(req);
+  if (!currentUser) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const db = getPrismaClient();
+  const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
+  if (!isManager) {
+    return res.status(403).json({ error: 'Only project managers can update the scene' });
+  }
+  const projectPath = path.join(uploadDir, projectId);
+  const scenePath = path.join(projectPath, 'scene.json');
+  try {
+    // Ensure project directory exists
+    fs.mkdirSync(projectPath, { recursive: true });
+    // Validate and write scene data
+    const sceneData = req.body;
+    fs.writeFileSync(scenePath, JSON.stringify(sceneData, null, 2), 'utf-8');
+    res.json({ success: true, scene: sceneData });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update scene', message: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}
+
+/**
  * List files for a project
  * GET /api/projects/:projectId/files
  */
@@ -72,10 +131,12 @@ export async function listProjectFiles(req: Request, res: Response) {
     if (!fs.existsSync(dir)) {
       return res.json({ files: [] });
     }
-    const files = fs.readdirSync(dir).map(filename => ({
-      name: filename,
-      url: `/api/projects/${projectId}/files/${encodeURIComponent(filename)}`
-    }));
+    const files = fs.readdirSync(dir)
+      .filter(filename => filename !== 'scene.json') // Exclude scene.json from file list
+      .map(filename => ({
+        name: filename,
+        url: `/api/projects/${projectId}/files/${encodeURIComponent(filename)}`
+      }));
     res.json({ files });
   } catch (error) {
     res.status(500).json({ error: 'Failed to list files', message: error instanceof Error ? error.message : 'Unknown error' });
@@ -151,6 +212,53 @@ export async function uploadProjectFile(req: Request, res: Response) {
     console.warn('Failed to log file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
     // Don't fail the upload if audit logging fails
   }
+  
+  // Update scene.json to include the new file
+  try {
+    const scenePath = path.join(uploadDir, projectId, 'scene.json');
+    let scene: any = {
+      meshes: {},
+      modelInstances: {},
+      trackball: { type: "TurntableTrackball" },
+      showGround: true
+    };
+    
+    // Read existing scene if it exists
+    if (fs.existsSync(scenePath)) {
+      const sceneData = fs.readFileSync(scenePath, 'utf-8');
+      scene = JSON.parse(sceneData);
+    }
+    
+    // Generate a unique mesh name based on filename (without extension)
+    const fileBaseName = file.originalname.replace(/\.[^/.]+$/, '');
+    let meshName = fileBaseName;
+    let counter = 1;
+    while (scene.meshes[meshName]) {
+      meshName = `${fileBaseName}_${counter}`;
+      counter++;
+    }
+    
+    // Add the mesh to the scene
+    const fileUrl = `/api/projects/${projectId}/files/${encodeURIComponent(file.filename)}`;
+    scene.meshes[meshName] = { url: fileUrl };
+    
+    // Create a model instance for the mesh
+    let instanceName = `Instance_${meshName}`;
+    counter = 1;
+    while (scene.modelInstances[instanceName]) {
+      instanceName = `Instance_${meshName}_${counter}`;
+      counter++;
+    }
+    scene.modelInstances[instanceName] = { mesh: meshName };
+    
+    // Write updated scene
+    fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2), 'utf-8');
+    console.log(`✅ Added ${meshName} to scene.json for project ${projectId}`);
+  } catch (sceneErr) {
+    console.warn('Failed to update scene.json after file upload:', sceneErr instanceof Error ? sceneErr.message : sceneErr);
+    // Don't fail the upload if scene update fails
+  }
+  
   res.json({ success: true, file: file.filename });
 }
 
@@ -533,6 +641,21 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         updatedAt: true,
       }
     });
+    
+    // Create project directory and empty scene.json
+    const projectPath = path.join(uploadDir, project.id);
+    fs.mkdirSync(projectPath, { recursive: true });
+    const emptyScene = {
+      meshes: {},
+      modelInstances: {},
+      trackball: { type: "TurntableTrackball" },
+      showGround: true
+    };
+    fs.writeFileSync(
+      path.join(projectPath, 'scene.json'),
+      JSON.stringify(emptyScene, null, 2),
+      'utf-8'
+    );
     // Assign the creating user as project manager
     try {
       await db.projectRole.create({
