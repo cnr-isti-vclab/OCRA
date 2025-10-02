@@ -199,7 +199,7 @@ export default function ProjectPage() {
                   <tbody>
                     {files.map(f => (
                       <tr key={f.name}>
-                        <td><i className="bi bi-eye"></i></td>
+                        <td>👁️</td>
                         <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a></td>
                       </tr>
                     ))}
