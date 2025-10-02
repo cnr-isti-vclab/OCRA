@@ -65,9 +65,9 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   };
 
   return (
-    <div className="d-flex flex-column min-vh-100 bg-light">
-      {/* Header Bar */}
-      <nav className="navbar navbar-expand navbar-light bg-white border-bottom shadow-sm px-3" style={{zIndex: 1000}}>
+    <div className="d-flex flex-column bg-light" style={{height: '100vh', overflow: 'hidden'}}>
+      {/* Header Bar - Fixed at top */}
+      <nav className="navbar navbar-expand navbar-light bg-white border-bottom shadow-sm px-3 flex-shrink-0" style={{zIndex: 1000}}>
         <span className="navbar-brand fw-bold fs-4 me-4">OCRA Demo</span>
         <div className="ms-auto d-flex align-items-center gap-3">
           {currentUser && (
@@ -91,11 +91,11 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
           )}
         </div>
       </nav>
-      {/* Main Layout Container */}
-      <div className="d-flex flex-grow-1" style={{minHeight: 0}}>
-        {/* Sidebar */}
-        <aside className={`bg-dark text-white flex-shrink-0 d-flex flex-column transition-width ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`} style={{width: sidebarOpen ? 180 : 48, transition: 'width 0.2s'}}>
-          <div className={`d-flex align-items-center ${sidebarOpen ? 'justify-content-end' : 'justify-content-center'} px-2 py-2 border-bottom border-secondary`}>
+      {/* Main Layout Container - Takes remaining height */}
+      <div className="d-flex flex-grow-1" style={{minHeight: 0, overflow: 'hidden'}}>
+        {/* Sidebar - Fixed, scrollable if content overflows */}
+        <aside className={`bg-dark text-white flex-shrink-0 d-flex flex-column ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`} style={{width: sidebarOpen ? 180 : 48, transition: 'width 0.2s', overflowY: 'auto'}}>
+          <div className={`d-flex align-items-center ${sidebarOpen ? 'justify-content-end' : 'justify-content-center'} px-2 py-2 border-bottom border-secondary flex-shrink-0`}>
             <button
               className="btn btn-sm btn-outline-light"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -139,8 +139,8 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             )}
           </nav>
         </aside>
-        {/* Main Content */}
-        <main className="flex-grow-1 p-4 overflow-auto" style={{minWidth: 0}}>
+        {/* Main Content - Scrollable area */}
+        <main className="flex-grow-1 p-4" style={{minWidth: 0, overflowY: 'auto', height: '100%'}}>
           <div className="container-fluid" style={{maxWidth: 1200}}>
             {children}
           </div>
