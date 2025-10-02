@@ -136,14 +136,14 @@ export default function ProjectPage() {
       {/* Project Header */}
       <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
         <div className="d-flex justify-content-between align-items-center">
-          <h1 className="h3 mb-0">{project.name}</h1>
+          <div className="d-flex align-items-center">
+            <h1 className="h3 mb-0 me-3">{project.name}</h1>
+            {project.description && <p className="text-muted mb-0">{project.description}</p>}
+          </div>
           <div className="text-secondary">
             Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
           </div>
         </div>
-        {project.description && (
-          <p className="text-muted mt-2 mb-0">{project.description}</p>
-        )}
       </div>
 
       {/* Main content */}
@@ -195,13 +195,16 @@ export default function ProjectPage() {
               {files.length === 0 ? (
                 <p className="text-muted fst-italic">No files uploaded yet.</p>
               ) : (
-                <ul className="list-unstyled">
-                  {files.map(f => (
-                    <li key={f.name} className="mb-2">
-                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a>
-                    </li>
-                  ))}
-                </ul>
+                <table className="table table-sm">
+                  <tbody>
+                    {files.map(f => (
+                      <tr key={f.name}>
+                        <td><i className="bi bi-eye"></i></td>
+                        <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
