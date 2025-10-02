@@ -1,5 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
+import { getApiBase } from '../config/oauth';
 
 /**
  * USER ADMIN ROUTE COMPONENT
@@ -39,7 +40,7 @@ export default function UserAdmin() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/users/stats', {
+      const response = await fetch(`${getApiBase()}/api/users/stats`, {
         credentials: 'include',
       });
 

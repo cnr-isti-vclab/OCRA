@@ -9,7 +9,8 @@ window.__APP_CONFIG__ = {
   issuer: "${ISSUER:-}",
   clientId: "${CLIENT_ID:-}",
   redirectUri: "${REDIRECT_URI:-}",
-  scope: "${SCOPE:-}"
+  scope: "${SCOPE:-}",
+  apiBase: "${VITE_API_BASE:-http://localhost:3002}"
 };
 EOF
 

@@ -1,6 +1,7 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { getApiBase } from '../config/oauth';
 
 /**
  * EDIT PROJECT COMPONENT
@@ -72,7 +73,7 @@ export default function EditProject() {
         }
 
         // Use backend API to check if user is manager
-        const isManagerResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/is-manager`, {
+        const isManagerResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${sessionId}`,
@@ -88,7 +89,7 @@ export default function EditProject() {
         }
 
         // Fetch project details
-        const projectResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}`, {
+        const projectResponse = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
@@ -111,7 +112,7 @@ export default function EditProject() {
         setOriginalManagerId(managerId);
 
         // Fetch all users for manager dropdown
-        const usersResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/users/list`, {
+        const usersResponse = await fetch(`${getApiBase()}/api/users/list`, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${sessionId}`,
@@ -177,7 +178,7 @@ export default function EditProject() {
       setSaving(true);
       const sessionId = localStorage.getItem('oauth_session_id');
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}`, {
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
         method: 'PUT',
         credentials: 'include', // Include session cookies
         headers: {

@@ -4,6 +4,7 @@ import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
 import ThreeDHOPViewer from '../components/ThreeViewer';
 import ThreeJSViewer from '../components/ThreeJSViewer';
+import { getApiBase } from '../config/oauth';
 
 interface Project {
   id: string;
@@ -48,7 +49,7 @@ export default function ProjectPage() {
     formData.append('file', file);
     setUploading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, {
+      const res = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -58,7 +59,7 @@ export default function ProjectPage() {
         throw new Error(err.error || 'Upload failed');
       }
       // Refresh file list
-      const filesRes = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, { credentials: 'include' });
+      const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, { credentials: 'include' });
       const filesData = await filesRes.json();
       setFiles(filesData.files || []);
       fileInput.value = '';
@@ -76,7 +77,7 @@ export default function ProjectPage() {
         setLoading(true);
         setError(null);
         // Fetch project
-        const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}`, {
+        const response = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         });
@@ -87,7 +88,7 @@ export default function ProjectPage() {
         const userData = await getCurrentUser();
         setUser(userData);
         // Fetch files
-        const filesRes = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/files`, {
+        const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
           credentials: 'include'
         });
         if (filesRes.ok) {
@@ -97,7 +98,7 @@ export default function ProjectPage() {
           setFiles([]);
         }
         // Fetch is-manager
-        const isManagerRes = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${projectId}/is-manager`, {
+        const isManagerRes = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
           credentials: 'include'
         });
         if (isManagerRes.ok) {

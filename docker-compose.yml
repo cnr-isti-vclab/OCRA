@@ -86,6 +86,7 @@ services:
       CLIENT_ID: react-oauth
       REDIRECT_URI: http://localhost:3001
       SCOPE: "openid profile email"
+      VITE_API_BASE: http://localhost:3002
       # Database connection for Prisma
       DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/oauth_demo"
     ports:

@@ -1,6 +1,7 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getApiBase } from '../config/oauth';
 
 /**
  * PROJECTS COMPONENT
@@ -63,7 +64,7 @@ export default function Projects() {
         }
 
         // Fetch current user information
-        const userResponse = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/sessions/current`, {
+        const userResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
           credentials: 'include', // Include session cookies
           headers: {
             'Authorization': `Bearer ${sessionId}`,
@@ -77,7 +78,7 @@ export default function Projects() {
         }
 
         // Fetch projects
-        const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects`, {
+        const response = await fetch(`${getApiBase()}/api/projects`, {
           credentials: 'include', // Include session cookies
           headers: {
             'Content-Type': 'application/json',
@@ -105,7 +106,7 @@ export default function Projects() {
   const createNewProject = async () => {
     try {
       const sessionId = localStorage.getItem('oauth_session_id');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects`, {
+      const response = await fetch(`${getApiBase()}/api/projects`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -146,7 +147,7 @@ export default function Projects() {
       const newMap: Record<string, boolean> = {};
       await Promise.all(projects.map(async (project) => {
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/projects/${project.id}/is-manager`, {
+          const res = await fetch(`${getApiBase()}/api/projects/${project.id}/is-manager`, {
             credentials: 'include',
             headers: {
               'Authorization': `Bearer ${sessionId}`,
