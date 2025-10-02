@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
 import ThreeDHOPViewer from '../components/ThreeViewer';
-import ThreeJSViewer from '../components/ThreeJSViewer';
+import ThreeJSViewer, { type ThreeJSViewerRef } from '../components/ThreeJSViewer';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription } from '../components/ThreePresenter';
 
@@ -34,7 +34,9 @@ export default function ProjectPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
+  const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<ThreeJSViewerRef>(null);
 
   // Handle file selection and upload
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,6 +86,13 @@ export default function ProjectPage() {
     fileInput?.click();
   };
 
+  // Toggle mesh visibility
+  const toggleMeshVisibility = (meshName: string) => {
+    const newVisibility = !meshVisibility[meshName];
+    setMeshVisibility(prev => ({ ...prev, [meshName]: newVisibility }));
+    viewerRef.current?.setMeshVisibility(meshName, newVisibility);
+  };
+
   // Fetch project info, user info, and file list
   useEffect(() => {
     const fetchAll = async () => {
@@ -128,6 +137,12 @@ export default function ProjectPage() {
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
           setSceneDesc(scene);
+          // Initialize visibility state for all meshes (all visible by default)
+          const initialVisibility: Record<string, boolean> = {};
+          Object.keys(scene.meshes || {}).forEach(meshName => {
+            initialVisibility[meshName] = true;
+          });
+          setMeshVisibility(initialVisibility);
         } else {
           setSceneDesc(null);
         }
@@ -174,6 +189,7 @@ export default function ProjectPage() {
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
           {sceneDesc && (
             <ThreeJSViewer
+              ref={viewerRef}
               height="100%"
               sceneDesc={sceneDesc}
             />
@@ -213,12 +229,34 @@ export default function ProjectPage() {
               ) : (
                 <table className="table table-sm">
                   <tbody>
-                    {files.map(f => (
-                      <tr key={f.name}>
-                        <td>👁️</td>
-                        <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a></td>
-                      </tr>
-                    ))}
+                    {files.map(f => {
+                      // Extract mesh name from filename (without extension)
+                      const meshName = f.name.replace(/\.[^/.]+$/, '');
+                      const isVisible = meshVisibility[meshName] !== false;
+                      
+                      return (
+                        <tr key={f.name}>
+                          <td style={{ width: '40px' }}>
+                            <button
+                              onClick={() => toggleMeshVisibility(meshName)}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                fontSize: '18px',
+                                padding: '0',
+                                opacity: isVisible ? 1 : 0.3,
+                                transition: 'opacity 0.2s'
+                              }}
+                              title={isVisible ? 'Hide mesh' : 'Show mesh'}
+                            >
+                              {isVisible ? '👁️' : '👁️'}
+                            </button>
+                          </td>
+                          <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

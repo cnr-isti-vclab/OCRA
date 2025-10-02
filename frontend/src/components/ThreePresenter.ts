@@ -327,4 +327,19 @@ export class ThreePresenter {
       this.ground = null;
     }
   }
+
+  setMeshVisibility(meshName: string, visible: boolean) {
+    const mesh = this.meshes[meshName];
+    if (mesh) {
+      mesh.visible = visible;
+      console.log(`👁️ ${meshName} visibility set to ${visible}`);
+    } else {
+      console.warn(`⚠️ Mesh ${meshName} not found`);
+    }
+  }
+
+  getMeshVisibility(meshName: string): boolean {
+    const mesh = this.meshes[meshName];
+    return mesh ? mesh.visible : false;
+  }
 }
