@@ -7,6 +7,7 @@ export interface SceneDescription {
   meshes: { [key: string]: { url: string } };
   modelInstances: { [key: string]: { mesh: string } };
   trackball?: { type: string };
+  showGround?: boolean;
 }
 
 export class ThreePresenter {
@@ -19,6 +20,7 @@ export class ThreePresenter {
   modelInstances: Record<string, { mesh: string }> = {};
   mount: HTMLDivElement;
   headLight: THREE.DirectionalLight;
+  ground: THREE.GridHelper | null = null;
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -84,6 +86,12 @@ export class ThreePresenter {
       this.scene.remove(mesh);
     });
     this.meshes = {};
+    
+    // Handle ground grid
+    this.removeGround();
+    if (sceneDesc.showGround) {
+      this.addGround();
+    }
     this.meshDefs = sceneDesc.meshes;
     this.modelInstances = sceneDesc.modelInstances;
 
@@ -159,6 +167,26 @@ export class ThreePresenter {
         this.controls.target.set(0, 0, 0);
         this.controls.update();
       }
+    }
+  }
+
+  private addGround() {
+    // Create a grid helper at y = 0
+    // GridHelper(size, divisions, colorCenterLine, colorGrid)
+    const size = 2; // 2 units wide (since we normalize to 1 unit)
+    const divisions = 20; // 20x20 grid
+    const colorCenterLine = 0x444444;
+    const colorGrid = 0xcccccc;
+    
+    this.ground = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid);
+    // GridHelper is created in XZ plane by default, which is what we want (y=0)
+    this.scene.add(this.ground);
+  }
+
+  private removeGround() {
+    if (this.ground) {
+      this.scene.remove(this.ground);
+      this.ground = null;
     }
   }
 }

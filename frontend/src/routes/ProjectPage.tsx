@@ -159,7 +159,8 @@ export default function ProjectPage() {
               modelInstances: {
                 Model1: { mesh: "Gargoyle" }
               },
-              trackball: { type: "TurntableTrackball" }
+              trackball: { type: "TurntableTrackball" },
+              showGround: true
             }}
           />
         </div>
