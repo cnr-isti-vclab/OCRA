@@ -34,20 +34,15 @@ export default function ProjectPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Handle file upload
-  const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setUploadError(null);
-    const form = e.target as HTMLFormElement;
-    const fileInput = form.elements.namedItem('file') as HTMLInputElement;
-    if (!fileInput.files || fileInput.files.length === 0) {
-      setUploadError('Please select a file to upload.');
-      return;
-    }
-    const file = fileInput.files[0];
+  // Handle file selection and upload
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     const formData = new FormData();
     formData.append('file', file);
     setUploading(true);
+    setUploadError(null);
     try {
       const res = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
         method: 'POST',
@@ -62,12 +57,19 @@ export default function ProjectPage() {
       const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, { credentials: 'include' });
       const filesData = await filesRes.json();
       setFiles(filesData.files || []);
-      fileInput.value = '';
+      // Clear the input
+      e.target.value = '';
     } catch (err: any) {
       setUploadError(err?.message || 'Upload failed');
     } finally {
       setUploading(false);
     }
+  };
+
+  // Trigger file input click
+  const triggerFileSelect = () => {
+    const fileInput = document.getElementById('file-input') as HTMLInputElement;
+    fileInput?.click();
   };
 
   // Fetch project info, user info, and file list
@@ -165,18 +167,27 @@ export default function ProjectPage() {
         {/* Sidebar */}
         <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
           <div className="p-3 h-100 d-flex flex-column">
-            <h3 className="h6 mb-3">Project Files</h3>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h3 className="h6 mb-0">Project Files</h3>
+              {isManager && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={triggerFileSelect}
+                  disabled={uploading}
+                >
+                  {uploading ? 'Uploading...' : '➕ Add Model'}
+                </button>
+              )}
+            </div>
 
-            {isManager && (
-              <form onSubmit={handleFileUpload} className="mb-3">
-                <div className="input-group input-group-sm">
-                  <input type="file" name="file" className="form-control" disabled={uploading} />
-                  <button type="submit" className="btn btn-primary" disabled={uploading}>
-                    {uploading ? 'Uploading...' : 'Upload'}
-                  </button>
-                </div>
-              </form>
-            )}
+            {/* Hidden file input */}
+            <input
+              id="file-input"
+              type="file"
+              style={{ display: 'none' }}
+              onChange={handleFileSelect}
+              accept=".ply,.obj,.stl,.gltf,.glb,.dae,.fbx,.3ds,.x3d,.nxs"
+            />
 
             {uploadError && <div className="alert alert-danger small py-2">{uploadError}</div>}
 
