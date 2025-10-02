@@ -71,30 +71,21 @@ export default function App() {
     );
   }
 
+  // This should never be reached - authenticated users are redirected in useEffect
+  console.error('Unexpected state: authenticated user not redirected');
   return (
     <Card>
-      <h1 className="mb-3">Welcome</h1>
-      {user ? (
-        <div>
-          <p>Signed in as: <strong>{user.name ?? user.email ?? 'Unknown user'}</strong></p>
-          <p className="text-muted small mb-3">Session stored via backend API • Sub: {user.sub}</p>
-          <p className="mt-3">
-            <a href="/profile" className="btn btn-success fw-bold px-4">
-              Go to Dashboard →
-            </a>
-          </p>
-        </div>
-      ) : (
-        <p>Signed in. (No profile info)</p>
-      )}
-      {error && <p className="text-danger">Error: {error}</p>}
+      <div className="text-center text-danger">
+        <h2>Unexpected Error</h2>
+        <p>An unexpected state occurred. Please refresh the page.</p>        
+      </div>
     </Card>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-4 shadow p-4 mx-auto my-5" style={{ maxWidth: 520, width: '100%' }}>
+    <div className="bg-white rounded-4 shadow p-3 mx-auto my-auto" style={{ maxWidth: 600, maxHeight: '80vh', overflow: 'auto' }}>
       {children}
     </div>
   );
