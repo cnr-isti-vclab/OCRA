@@ -129,7 +129,7 @@ export default function ProjectPage() {
   }
 
   return (
-    <div ref={containerRef} className="d-flex flex-column vh-100 overflow-hidden">
+    <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
       {/* Project Header */}
       <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
         <div className="d-flex justify-content-between align-items-center">
@@ -146,7 +146,7 @@ export default function ProjectPage() {
       {/* Main content */}
       <div className="flex-grow-1 d-flex overflow-hidden">
         {/* 3D Viewer */}
-        <div className="flex-grow-1 bg-light border-end">
+        <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
           <ThreeJSViewer
             height="100%"
             sceneDesc={{
@@ -162,7 +162,7 @@ export default function ProjectPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="bg-white border-start" style={{ width: '350px', flexShrink: 0 }}>
+        <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
           <div className="p-3 h-100 d-flex flex-column">
             <h3 className="h6 mb-3">Project Files</h3>
 

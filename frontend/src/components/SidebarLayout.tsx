@@ -140,8 +140,8 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
           </nav>
         </aside>
         {/* Main Content - Scrollable area */}
-        <main className="flex-grow-1 p-4" style={{minWidth: 0, overflowY: 'auto', height: '100%'}}>
-          <div className="container-fluid" style={{maxWidth: 1200}}>
+        <main className="flex-grow-1" style={{minWidth: 0, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column'}}>
+          <div className="h-100">
             {children}
           </div>
         </main>
