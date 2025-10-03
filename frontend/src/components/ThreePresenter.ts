@@ -4,8 +4,8 @@ import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { getApiBase } from '../config/oauth';
+import { ViewportGizmo } from "three-viewport-gizmo"
 
 export interface SceneDescription {
   meshes: { [key: string]: { url: string } };
@@ -27,6 +27,7 @@ export class ThreePresenter {
   ground: THREE.GridHelper | null = null;
   homeButton: HTMLButtonElement;
   lightButton: HTMLButtonElement;
+  viewportGizmo: any = null;
   envButton: HTMLButtonElement;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
@@ -92,6 +93,8 @@ export class ThreePresenter {
     btnContainer.appendChild(this.envButton);
     mount.appendChild(btnContainer);
 
+    // The ViewportGizmo (from three-viewport-gizmo) will be attached when controls are created
+
 
     // Lighting - head light setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
@@ -123,6 +126,10 @@ export class ThreePresenter {
     if (this.envButton.parentNode) {
       this.envButton.parentNode.removeChild(this.envButton);
     }
+    if (this.viewportGizmo && this.viewportGizmo.dispose) {
+      this.viewportGizmo.dispose();
+      this.viewportGizmo = null;
+    }
   }
 
   handleResize() {
@@ -131,6 +138,8 @@ export class ThreePresenter {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    if (this.controls) this.controls.update(); 
+    if (this.viewportGizmo) this.viewportGizmo.update();
   }
 
   animate() {
@@ -147,6 +156,11 @@ export class ThreePresenter {
       }
     }
     this.renderer.render(this.scene, this.camera);
+
+    // Render viewport gizmo if present
+    if (this.viewportGizmo && typeof this.viewportGizmo.render === 'function') {
+      this.viewportGizmo.render();
+    }
   }
 
   setScene(sceneDesc: SceneDescription) {
@@ -166,6 +180,7 @@ export class ThreePresenter {
 
     // Camera controls (trackball)
     if (sceneDesc.trackball && sceneDesc.trackball.type === 'TurntableTrackball') {
+      // Dynamically import OrbitControls and attach ViewportGizmo after creation
       import('three/examples/jsm/controls/OrbitControls').then(({ OrbitControls }) => {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
@@ -175,8 +190,20 @@ export class ThreePresenter {
         this.controls.maxDistance = 10;
         this.controls.target.set(0, 0, 0);
         this.controls.update();
+
+        // Create and attach ViewportGizmo now that controls are ready
+        if (!this.viewportGizmo) {
+          // Pass the mount element as the container option so gizmo appends itself there
+          this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
+            container: this.mount
+          });
+          this.viewportGizmo.attachControls(this.controls);
+          
+          console.log('✅ ViewportGizmo created and attached to controls');
+        }
       });
     } else {
+      console.log('No or unknown trackball type specified, camera controls disabled');
       this.controls = null;
     }
 
