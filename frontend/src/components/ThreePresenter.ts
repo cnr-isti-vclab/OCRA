@@ -499,9 +499,9 @@ export class ThreePresenter {
     const model = this.models[modelId];
     if (model) {
       model.visible = visible;
-      console.log(`👁️ ${modelId} visibility set to ${visible}`);
+      console.log(`👁️ Model '${modelId}' visibility set to ${visible}`);
     } else {
-      console.warn(`⚠️ Model ${modelId} not found`);
+      console.warn(`⚠️ Model '${modelId}' not found in loaded models. Available models:`, Object.keys(this.models));
     }
   }
 

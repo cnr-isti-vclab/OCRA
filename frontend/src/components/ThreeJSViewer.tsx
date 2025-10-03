@@ -22,28 +22,27 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       }
     }));
 
+    // Initialize presenter on mount
     useEffect(() => {
       if (!mountRef.current) return;
+      
+      console.log('🎬 Initializing ThreePresenter');
       presenterRef.current = new ThreePresenter(mountRef.current);
-      if (sceneDesc) {
-        presenterRef.current.loadScene(sceneDesc).catch(err => {
-          console.error('Failed to load initial scene:', err);
-        });
-      }
+      
       return () => {
+        console.log('🛑 Disposing ThreePresenter');
         presenterRef.current?.dispose();
       };
-      // Only run on mount/unmount
-      // eslint-disable-next-line
     }, []);
 
-    // Update scene if sceneDesc changes
+    // Load/reload scene when sceneDesc changes
     useEffect(() => {
-      if (sceneDesc && presenterRef.current) {
-        presenterRef.current.loadScene(sceneDesc).catch(err => {
-          console.error('Failed to load scene:', err);
-        });
-      }
+      if (!sceneDesc || !presenterRef.current) return;
+      
+      console.log('🔄 Loading scene from sceneDesc');
+      presenterRef.current.loadScene(sceneDesc).catch(err => {
+        console.error('Failed to load scene:', err);
+      });
     }, [sceneDesc]);
 
     return <div ref={mountRef} style={{ width, height, position: 'relative' }} />;
