@@ -43,25 +43,13 @@ export class ThreePresenter {
     // Create home button
     this.homeButton = document.createElement('button');
     this.homeButton.innerHTML = '<i class="bi bi-house"></i>';
-    this.homeButton.style.position = 'absolute';
-    this.homeButton.style.top = '10px';
-    this.homeButton.style.left = '10px';
-    this.homeButton.style.width = '40px';
-    this.homeButton.style.height = '40px';
-    this.homeButton.style.fontSize = '20px';
-    this.homeButton.style.border = 'none';
-    this.homeButton.style.borderRadius = '5px';
-    this.homeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-    this.homeButton.style.cursor = 'pointer';
-    this.homeButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+    this.homeButton.className = 'btn btn-light position-absolute top-0 start-0 m-1 p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
     this.homeButton.style.zIndex = '1000';
     this.homeButton.title = 'Reset camera view';
     this.homeButton.addEventListener('mouseenter', () => {
-      this.homeButton.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-      this.homeButton.style.transform = 'scale(1.1)';
+      this.homeButton.style.transform = 'scale(1.05)';
     });
     this.homeButton.addEventListener('mouseleave', () => {
-      this.homeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
       this.homeButton.style.transform = 'scale(1)';
     });
     this.homeButton.addEventListener('click', () => this.resetCamera());
