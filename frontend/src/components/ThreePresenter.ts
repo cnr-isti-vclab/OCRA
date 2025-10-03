@@ -1,27 +1,25 @@
-
 import * as THREE from 'three';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader';
 import { getApiBase } from '../config/oauth';
-import { ViewportGizmo } from "three-viewport-gizmo"
+import { ViewportGizmo } from "three-viewport-gizmo";
+import type { 
+  SceneDescription, 
+  ModelDefinition, 
+  PresenterState
+} from '../../../shared/scene-types';
 
-export interface SceneDescription {
-  meshes: { [key: string]: { url: string } };
-  modelInstances: { [key: string]: { mesh: string } };
-  trackball?: { type: string };
-  showGround?: boolean;
-}
+export type { SceneDescription, ModelDefinition, PresenterState };
 
 export class ThreePresenter {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   controls: any;
-  meshes: Record<string, THREE.Mesh> = {};
-  meshDefs: Record<string, { url: string }> = {};
-  modelInstances: Record<string, { mesh: string }> = {};
+  models: Record<string, THREE.Object3D> = {};  // Changed from meshes
+  currentScene: SceneDescription | null = null;
   mount: HTMLDivElement;
   headLight: THREE.DirectionalLight;
   ground: THREE.GridHelper | null = null;
@@ -163,199 +161,372 @@ export class ThreePresenter {
     }
   }
 
-  setScene(sceneDesc: SceneDescription) {
-    // Remove previous meshes
-    Object.values(this.meshes).forEach(mesh => {
-      this.scene.remove(mesh);
+  /**
+   * Load a new scene description
+   * @param sceneDesc Scene description
+   */
+  async loadScene(sceneDesc: SceneDescription): Promise<void> {
+    try {
+      this.currentScene = sceneDesc;
+
+      // Clear existing scene
+      this.clearScene();
+
+      // Apply environment settings
+      if (sceneDesc.environment) {
+        this.applyEnvironmentSettings(sceneDesc.environment);
+      }
+
+      // Setup controls if enabled
+      if (sceneDesc.enableControls !== false) {
+        await this.setupControls();
+      }
+
+      // Load all models
+      if (sceneDesc.models && sceneDesc.models.length > 0) {
+        await this.loadAllModels(sceneDesc.models);
+        this.frameScene();
+      }
+
+      console.log('✅ Scene loaded successfully');
+    } catch (error) {
+      console.error('❌ Failed to load scene:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear all models from the scene
+   */
+  private clearScene(): void {
+    Object.values(this.models).forEach(model => {
+      this.scene.remove(model);
     });
-    this.meshes = {};
-    
+    this.models = {};
+  }
+
+  /**
+   * Apply environment settings (ground, background)
+   */
+  private applyEnvironmentSettings(env: any): void {
     // Handle ground grid
     this.removeGround();
-    if (sceneDesc.showGround) {
+    if (env.showGround) {
       this.addGround();
     }
-    this.meshDefs = sceneDesc.meshes;
-    this.modelInstances = sceneDesc.modelInstances;
-
-    // Camera controls (trackball)
-    if (sceneDesc.trackball && sceneDesc.trackball.type === 'TurntableTrackball') {
-      // Dynamically import OrbitControls and attach ViewportGizmo after creation
-      import('three/examples/jsm/controls/OrbitControls').then(({ OrbitControls }) => {
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.screenSpacePanning = false;
-        this.controls.minDistance = 0.5;
-        this.controls.maxDistance = 10;
-        this.controls.target.set(0, 0, 0);
-        this.controls.update();
-
-        // Create and attach ViewportGizmo now that controls are ready
-        if (!this.viewportGizmo) {
-          // Pass the mount element as the container option so gizmo appends itself there
-          this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
-            container: this.mount,
-            size: 80 // size in pixels
-          });
-          this.viewportGizmo.attachControls(this.controls);
-          
-          console.log('✅ ViewportGizmo created and attached to controls');
-        }
-      });
-    } else {
-      console.log('No or unknown trackball type specified, camera controls disabled');
-      this.controls = null;
+    
+    // Handle background color
+    if (env.background) {
+      this.scene.background = new THREE.Color(env.background);
     }
+  }
 
-    // Track loaded meshes for scaling
-    let loadedCount = 0;
-    const totalMeshes = Object.keys(sceneDesc.meshes).length;
+  /**
+   * Setup orbit controls and viewport gizmo
+   */
+  private async setupControls(): Promise<void> {
+    if (this.controls) return; // Already setup
+    
+    const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls');
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.screenSpacePanning = false;
+    this.controls.minDistance = 0.5;
+    this.controls.maxDistance = 10;
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
 
-    // Load meshes
-    Object.entries(sceneDesc.meshes).forEach(([meshName, meshDef]) => {
-      // Construct full URL: if URL is relative, prepend API base
-      const fullUrl = meshDef.url.startsWith('http') 
-        ? meshDef.url 
-        : `${getApiBase()}${meshDef.url}`;
-      
-      console.log(`Loading mesh ${meshName} from ${fullUrl}`);
-      
-      if (meshDef.url.endsWith('.ply')) {
-        // PLY format
-        const loader = new PLYLoader();
-        
-        // Fetch with credentials, then parse
-        fetch(fullUrl, { credentials: 'include' })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.arrayBuffer();
-          })
-          .then(buffer => {
-            const geometry = loader.parse(buffer);
-            geometry.computeVertexNormals();
-            const material = new THREE.MeshStandardMaterial({ color: 0xdddddd, flatShading: true });
-            const mesh = new THREE.Mesh(geometry, material);
-            this.meshes[meshName] = mesh;
-            // Add model instances
-            Object.entries(sceneDesc.modelInstances).forEach(([instName, instDef]) => {
-              if (instDef.mesh === meshName) {
-                this.scene.add(mesh);
-              }
-            });
-            loadedCount++;
-            console.log(`✅ Loaded PLY mesh ${meshName} - ${Object.keys(mesh.geometry.attributes).length} attributes (${loadedCount}/${totalMeshes})`);
-            // Scale when all meshes are loaded
-            if (loadedCount === totalMeshes) {
-              this.scaleAndCenterScene();
-            }
-          })
-          .catch(error => {
-            console.error(`❌ Failed to load PLY mesh ${meshName} from ${fullUrl}:`, error);
-          });
-      } else if (meshDef.url.endsWith('.glb') || meshDef.url.endsWith('.gltf')) {
-        // GLB/GLTF format
-        const loader = new GLTFLoader();
-        
-        // Set up Draco decoder for compressed meshes
-        const dracoLoader = new DRACOLoader();
-        // Use CDN for Draco decoder (wasm files)
-        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-        dracoLoader.setDecoderConfig({ type: 'js' }); // Use JS decoder (works everywhere)
-        loader.setDRACOLoader(dracoLoader);
-        
-        // Fetch with credentials, then parse
-        fetch(fullUrl, { credentials: 'include' })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.arrayBuffer();
-          })
-          .then(buffer => {
-            // GLTFLoader.parse expects a string path for the second argument (resource path)
-            loader.parse(buffer, '', (gltf: any) => {
-              // GLTF models can have multiple meshes, we'll create a group
-              const group = new THREE.Group();
-              gltf.scene.traverse((child: any) => {
-                if ((child as THREE.Mesh).isMesh) {
-                  group.add(child.clone());
-                }
-              });
-              
-              // Store as a "mesh" (actually a group) for consistency
-              this.meshes[meshName] = group as any;
-              
-              // Add model instances
-              Object.entries(sceneDesc.modelInstances).forEach(([instName, instDef]) => {
-                if (instDef.mesh === meshName) {
-                  this.scene.add(group);
-                }
-              });
-              
-              loadedCount++;
-              console.log(`✅ Loaded GLB/GLTF mesh ${meshName} (${loadedCount}/${totalMeshes})`);
-              
-              // Scale when all meshes are loaded
-              if (loadedCount === totalMeshes) {
-                this.scaleAndCenterScene();
-              }
-            }, (error: any) => {
-              console.error(`❌ Failed to parse GLB/GLTF mesh ${meshName}:`, error);
-            });
-          })
-          .catch(error => {
-            console.error(`❌ Failed to load GLB/GLTF mesh ${meshName} from ${fullUrl}:`, error);
-          });
-      } else {
-        console.warn(`⚠️ Unsupported file format for ${meshName}: ${meshDef.url}`);
+    // Create and attach ViewportGizmo
+    if (!this.viewportGizmo) {
+      this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
+        container: this.mount,
+        size: 80
+      });
+      this.viewportGizmo.attachControls(this.controls);
+      console.log('✅ ViewportGizmo created and attached to controls');
+    }
+  }
+
+  /**
+   * Load all models from the scene description
+   */
+  private async loadAllModels(modelDefs: ModelDefinition[]): Promise<void> {
+    const loadPromises = modelDefs.map(modelDef => this.loadModel(modelDef));
+    await Promise.all(loadPromises);
+  }
+
+  /**
+   * Load a single model
+   */
+  private async loadModel(modelDef: ModelDefinition): Promise<void> {
+    // Construct the full URL for the model file
+    let fullUrl: string;
+    if (modelDef.file.startsWith('http')) {
+      // Absolute URL
+      fullUrl = modelDef.file;
+    } else {
+      // Relative filename - construct URL using projectId from scene
+      const projectId = this.currentScene?.projectId;
+      if (!projectId) {
+        throw new Error(`Cannot load model ${modelDef.id}: no projectId in scene description`);
       }
-      // TODO: support other formats (NXS, OBJ, etc.)
+      fullUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(modelDef.file)}`;
+    }
+    
+    console.log(`Loading model ${modelDef.id} from ${fullUrl}`);
+    
+    try {
+      const model = await this.loadModelFile(fullUrl, modelDef);
+      
+      // Apply transforms
+      if (modelDef.position) {
+        model.position.fromArray(modelDef.position);
+      }
+      if (modelDef.rotation) {
+        model.rotation.fromArray(modelDef.rotation);
+      }
+      if (modelDef.scale) {
+        model.scale.fromArray(modelDef.scale);
+      }
+      if (modelDef.visible !== undefined) {
+        model.visible = modelDef.visible;
+      }
+      
+      // Store and add to scene
+      this.models[modelDef.id] = model;
+      this.scene.add(model);
+      
+      console.log(`✅ Loaded model ${modelDef.id}`);
+    } catch (error) {
+      console.error(`❌ Failed to load model ${modelDef.id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load a model file based on its extension
+   */
+  private async loadModelFile(url: string, modelDef: ModelDefinition): Promise<THREE.Object3D> {
+    const response = await fetch(url, { credentials: 'include' });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const buffer = await response.arrayBuffer();
+    
+    const filename = modelDef.file.toLowerCase();
+    
+    if (filename.endsWith('.ply')) {
+      return this.parsePLY(buffer, modelDef);
+    } else if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
+      return this.parseGLTF(buffer, modelDef);
+    } else {
+      throw new Error(`Unsupported file format: ${modelDef.file}`);
+    }
+  }
+
+  /**
+   * Parse PLY file
+   */
+  private parsePLY(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Mesh> {
+    return new Promise((resolve, reject) => {
+      try {
+        const loader = new PLYLoader();
+        const geometry = loader.parse(buffer);
+        geometry.computeVertexNormals();
+        
+        // Create material with optional overrides
+        const materialProps: any = {
+          color: modelDef.material?.color || 0xdddddd,
+          flatShading: modelDef.material?.flatShading ?? true,
+        };
+        if (modelDef.material?.metalness !== undefined) {
+          materialProps.metalness = modelDef.material.metalness;
+        }
+        if (modelDef.material?.roughness !== undefined) {
+          materialProps.roughness = modelDef.material.roughness;
+        }
+        
+        const material = new THREE.MeshStandardMaterial(materialProps);
+        const mesh = new THREE.Mesh(geometry, material);
+        
+        resolve(mesh);
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
-  private scaleAndCenterScene() {
-    const allMeshes = Object.values(this.meshes);
-    if (allMeshes.length === 0) return;
+  /**
+   * Parse GLTF/GLB file
+   */
+  private parseGLTF(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Group> {
+    return new Promise((resolve, reject) => {
+      const loader = new GLTFLoader();
+      
+      // Set up Draco decoder
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+      dracoLoader.setDecoderConfig({ type: 'js' });
+      loader.setDRACOLoader(dracoLoader);
+      
+      loader.parse(buffer, '', (gltf: any) => {
+        const group = new THREE.Group();
+        gltf.scene.traverse((child: any) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const clonedChild = child.clone();
+            
+            // Apply material overrides if specified
+            if (modelDef.material && (clonedChild as THREE.Mesh).material) {
+              const mat = (clonedChild as THREE.Mesh).material as THREE.Material;
+              if ((mat as any).color && modelDef.material.color) {
+                (mat as any).color = new THREE.Color(modelDef.material.color);
+              }
+              if ((mat as any).metalness !== undefined && modelDef.material.metalness !== undefined) {
+                (mat as any).metalness = modelDef.material.metalness;
+              }
+              if ((mat as any).roughness !== undefined && modelDef.material.roughness !== undefined) {
+                (mat as any).roughness = modelDef.material.roughness;
+              }
+            }
+            
+            group.add(clonedChild);
+          }
+        });
+        resolve(group);
+      }, (error: any) => {
+        reject(error);
+      });
+    });
+  }
+
+  /**
+   * Frame the scene - scale and center all loaded models
+   */
+  private frameScene(): void {
+    const allModels = Object.values(this.models);
+    if (allModels.length === 0) return;
+    
     const sceneBBox = new THREE.Box3();
-    allMeshes.forEach(m => sceneBBox.expandByObject(m));
+    allModels.forEach(m => sceneBBox.expandByObject(m));
     const size = sceneBBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
+    
     console.log('Scene bounding box size:', size, 'maxDim:', maxDim);
-    console.log('Camera before scaling:', this.camera.position);
-    console.log('Center of bbox:', sceneBBox.getCenter(new THREE.Vector3()));
+    
     if (maxDim > 0) {
-      // Calculate scale and center
       const center = sceneBBox.getCenter(new THREE.Vector3());
       const scale = 1.0 / maxDim;
       
       // Apply scaling
-      allMeshes.forEach(m => m.scale.set(scale, scale, scale));
+      allModels.forEach(m => m.scale.multiplyScalar(scale));
       
-      // Translate to center in X and Z, but place bottom at y=0
-      // First center in X and Z
+      // Translate to center in X and Z, place bottom at y=0
       const offsetX = -center.x * scale;
       const offsetZ = -center.z * scale;
-      // For Y, translate so bottom (min.y) is at 0
       const offsetY = -sceneBBox.min.y * scale;
       
-      allMeshes.forEach(m => m.position.add(new THREE.Vector3(offsetX, offsetY, offsetZ)));
+      allModels.forEach(m => m.position.add(new THREE.Vector3(offsetX, offsetY, offsetZ)));
       
-      // Position camera to view the scene
-      // Target should be at the center of the object (in XZ plane, mid-height in Y)
-      const targetY = size.y* 0.5 * scale;
+      // Position camera
+      const targetY = size.y * 0.5 * scale;
       this.camera.position.set(0, targetY, 2);
       if (this.controls) {
         this.controls.target.set(0, targetY, 0);
         this.controls.update();
       }
       
-      // Store initial position for reset
+      // Store initial position
       this.initialCameraPosition.copy(this.camera.position);
       this.initialControlsTarget.set(0, targetY, 0);
     }
+  }
+
+  /**
+   * Get current presenter state (for saving/persistence)
+   */
+  getState(): PresenterState {
+    return {
+      camera: {
+        position: this.camera.position.toArray() as [number, number, number],
+        target: this.controls?.target.toArray() as [number, number, number] || [0, 0, 0],
+        fov: this.camera.fov,
+      },
+      rendering: {
+        headLightEnabled: this.lightEnabled,
+        envLightingEnabled: this.envLightingEnabled,
+      },
+      modelVisibility: this.getModelVisibility(),
+    };
+  }
+
+  /**
+   * Restore presenter state (from saved/persistence)
+   */
+  setState(state: PresenterState): void {
+    // Restore camera
+    this.camera.position.fromArray(state.camera.position);
+    if (this.controls) {
+      this.controls.target.fromArray(state.camera.target);
+      this.controls.update();
+    }
+    if (state.camera.fov) {
+      this.camera.fov = state.camera.fov;
+      this.camera.updateProjectionMatrix();
+    }
+    
+    // Restore rendering settings
+    this.lightEnabled = state.rendering.headLightEnabled;
+    if (this.headLight) {
+      this.headLight.intensity = this.lightEnabled ? 0.9 : 0;
+      this.lightButton.innerHTML = this.lightEnabled ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
+    }
+    
+    this.envLightingEnabled = state.rendering.envLightingEnabled;
+    this.scene.environment = this.envLightingEnabled ? this.envMap : null;
+    this.envButton.innerHTML = this.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
+    
+    // Restore model visibility
+    for (const [modelId, visible] of Object.entries(state.modelVisibility)) {
+      this.setModelVisibility(modelId, visible);
+    }
+  }
+
+  /**
+   * Set visibility of a model by ID
+   */
+  setModelVisibility(modelId: string, visible: boolean): void {
+    const model = this.models[modelId];
+    if (model) {
+      model.visible = visible;
+      console.log(`👁️ ${modelId} visibility set to ${visible}`);
+    } else {
+      console.warn(`⚠️ Model ${modelId} not found`);
+    }
+  }
+
+  /**
+   * Get visibility of a specific model
+   */
+  getModelVisibilityById(modelId: string): boolean {
+    const model = this.models[modelId];
+    return model ? model.visible : false;
+  }
+
+  /**
+   * Get visibility of all models
+   */
+  private getModelVisibility(): Record<string, boolean> {
+    const visibility: Record<string, boolean> = {};
+    for (const [id, model] of Object.entries(this.models)) {
+      visibility[id] = model.visible;
+    }
+    return visibility;
+  }
+
+  private scaleAndCenterScene() {
+    // Deprecated - now handled by frameScene()
+    this.frameScene();
   }
 
   resetCamera() {
@@ -402,21 +573,6 @@ export class ThreePresenter {
       this.scene.remove(this.ground);
       this.ground = null;
     }
-  }
-
-  setMeshVisibility(meshName: string, visible: boolean) {
-    const mesh = this.meshes[meshName];
-    if (mesh) {
-      mesh.visible = visible;
-      console.log(`👁️ ${meshName} visibility set to ${visible}`);
-    } else {
-      console.warn(`⚠️ Mesh ${meshName} not found`);
-    }
-  }
-
-  getMeshVisibility(meshName: string): boolean {
-    const mesh = this.meshes[meshName];
-    return mesh ? mesh.visible : false;
   }
 
   private loadEnvironmentMap() {

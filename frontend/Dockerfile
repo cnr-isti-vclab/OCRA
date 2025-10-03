@@ -11,6 +11,9 @@ COPY frontend/package.json frontend/package-lock.json* frontend/pnpm-lock.yaml* 
 RUN npm ci || npm install
 RUN npm install bootstrap
 
+# Copy shared types (needed for scene-types and scene-migration)
+COPY shared/ ../shared/
+
 # Copy frontend source and build
 COPY frontend/ .
 RUN npm run build

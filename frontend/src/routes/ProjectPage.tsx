@@ -68,7 +68,19 @@ export default function ProjectPage() {
       });
       if (sceneRes.ok) {
         const scene = await sceneRes.json();
+        // Add projectId to scene if not present
+        if (!scene.projectId) {
+          scene.projectId = projectId;
+        }
         setSceneDesc(scene);
+        // Update visibility state for all models
+        const updatedVisibility: Record<string, boolean> = {};
+        if (scene.models) {
+          scene.models.forEach((model: any) => {
+            updatedVisibility[model.id] = model.visible !== false;
+          });
+        }
+        setMeshVisibility(updatedVisibility);
       }
       
       // Clear the input
@@ -136,12 +148,18 @@ export default function ProjectPage() {
         });
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
+          // Add projectId to scene if not present
+          if (!scene.projectId) {
+            scene.projectId = projectId;
+          }
           setSceneDesc(scene);
-          // Initialize visibility state for all meshes (all visible by default)
+          // Initialize visibility state for all models (all visible by default)
           const initialVisibility: Record<string, boolean> = {};
-          Object.keys(scene.meshes || {}).forEach(meshName => {
-            initialVisibility[meshName] = true;
-          });
+          if (scene.models) {
+            scene.models.forEach((model: any) => {
+              initialVisibility[model.id] = model.visible !== false;
+            });
+          }
           setMeshVisibility(initialVisibility);
         } else {
           setSceneDesc(null);

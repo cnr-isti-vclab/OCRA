@@ -217,43 +217,43 @@ export async function uploadProjectFile(req: Request, res: Response) {
   try {
     const scenePath = path.join(uploadDir, projectId, 'scene.json');
     let scene: any = {
-      meshes: {},
-      modelInstances: {},
-      trackball: { type: "TurntableTrackball" },
-      showGround: true
+      models: [],
+      environment: {
+        showGround: true,
+        background: '#404040'
+      },
+      enableControls: true
     };
     
     // Read existing scene if it exists
     if (fs.existsSync(scenePath)) {
       const sceneData = fs.readFileSync(scenePath, 'utf-8');
       scene = JSON.parse(sceneData);
+      // Ensure models array exists
+      if (!scene.models) {
+        scene.models = [];
+      }
     }
     
-    // Generate a unique mesh name based on filename (without extension)
+    // Generate a unique model ID based on filename (without extension)
     const fileBaseName = file.originalname.replace(/\.[^/.]+$/, '');
-    let meshName = fileBaseName;
+    let modelId = fileBaseName;
     let counter = 1;
-    while (scene.meshes[meshName]) {
-      meshName = `${fileBaseName}_${counter}`;
+    while (scene.models.find((m: any) => m.id === modelId)) {
+      modelId = `${fileBaseName}_${counter}`;
       counter++;
     }
     
-    // Add the mesh to the scene
-    const fileUrl = `/api/projects/${projectId}/files/${encodeURIComponent(file.filename)}`;
-    scene.meshes[meshName] = { url: fileUrl };
-    
-    // Create a model instance for the mesh
-    let instanceName = `Instance_${meshName}`;
-    counter = 1;
-    while (scene.modelInstances[instanceName]) {
-      instanceName = `Instance_${meshName}_${counter}`;
-      counter++;
-    }
-    scene.modelInstances[instanceName] = { mesh: meshName };
+    // Add the model to the scene
+    scene.models.push({
+      id: modelId,
+      file: file.originalname,
+      visible: true
+    });
     
     // Write updated scene
     fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2), 'utf-8');
-    console.log(`✅ Added ${meshName} to scene.json for project ${projectId}`);
+    console.log(`✅ Added model ${modelId} to scene.json for project ${projectId}`);
   } catch (sceneErr) {
     console.warn('Failed to update scene.json after file upload:', sceneErr instanceof Error ? sceneErr.message : sceneErr);
     // Don't fail the upload if scene update fails

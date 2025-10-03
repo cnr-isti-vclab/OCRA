@@ -1,0 +1,89 @@
+/**
+ * Shared type definitions for scene description and presenter state
+ * Used by both frontend and backend
+ */
+
+/**
+ * Describes a single 3D model in the scene
+ */
+export interface ModelDefinition {
+  /** Unique identifier for the model */
+  id: string;
+  /** Filename of the model (e.g., "model.glb", "mesh.ply") */
+  file: string;
+  /** Position in 3D space [x, y, z], defaults to [0, 0, 0] */
+  position?: [number, number, number];
+  /** Rotation in radians [x, y, z], defaults to [0, 0, 0] */
+  rotation?: [number, number, number];
+  /** Scale factors [x, y, z], defaults to [1, 1, 1] */
+  scale?: [number, number, number];
+  /** Whether the model is visible, defaults to true */
+  visible?: boolean;
+  /** Optional material property overrides */
+  material?: {
+    color?: string;
+    metalness?: number;
+    roughness?: number;
+    flatShading?: boolean;
+  };
+}
+
+/**
+ * Describes environment settings for the scene
+ */
+export interface EnvironmentSettings {
+  /** Whether to show the ground grid */
+  showGround?: boolean;
+  /** Background color as hex string (e.g., "#404040") */
+  background?: string;
+}
+
+/**
+ * Complete scene description - what models exist and their properties
+ * Stored as scene.json alongside the model files
+ */
+export interface SceneDescription {
+  /** Project ID for resolving file URLs */
+  projectId?: string;
+  /** List of 3D models in the scene */
+  models: ModelDefinition[];
+  /** Environment and rendering settings */
+  environment?: EnvironmentSettings;
+  /** Whether trackball/orbit controls are enabled */
+  enableControls?: boolean;
+}
+
+/**
+ * Camera state for saving/restoring view
+ */
+export interface CameraState {
+  /** Camera position [x, y, z] */
+  position: [number, number, number];
+  /** Camera look-at target [x, y, z] */
+  target: [number, number, number];
+  /** Field of view in degrees */
+  fov?: number;
+}
+
+/**
+ * Rendering settings state
+ */
+export interface RenderingState {
+  /** Whether the head light is enabled */
+  headLightEnabled: boolean;
+  /** Whether environment lighting (HDR) is enabled */
+  envLightingEnabled: boolean;
+}
+
+/**
+ * Complete presenter state - how the user is currently viewing the scene
+ * Can be saved per-user in database or localStorage
+ */
+export interface PresenterState {
+  /** Current camera position and orientation */
+  camera: CameraState;
+  /** Current rendering settings */
+  rendering: RenderingState;
+  /** Visibility state for each model by ID */
+  modelVisibility: Record<string, boolean>;
+}

@@ -15,10 +15,10 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
       setMeshVisibility: (meshName: string, visible: boolean) => {
-        presenterRef.current?.setMeshVisibility(meshName, visible);
+        presenterRef.current?.setModelVisibility(meshName, visible);
       },
       getMeshVisibility: (meshName: string) => {
-        return presenterRef.current?.getMeshVisibility(meshName) ?? false;
+        return presenterRef.current?.getModelVisibilityById(meshName) ?? false;
       }
     }));
 
@@ -26,7 +26,9 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       if (!mountRef.current) return;
       presenterRef.current = new ThreePresenter(mountRef.current);
       if (sceneDesc) {
-        presenterRef.current.setScene(sceneDesc);
+        presenterRef.current.loadScene(sceneDesc).catch(err => {
+          console.error('Failed to load initial scene:', err);
+        });
       }
       return () => {
         presenterRef.current?.dispose();
@@ -38,7 +40,9 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     // Update scene if sceneDesc changes
     useEffect(() => {
       if (sceneDesc && presenterRef.current) {
-        presenterRef.current.setScene(sceneDesc);
+        presenterRef.current.loadScene(sceneDesc).catch(err => {
+          console.error('Failed to load scene:', err);
+        });
       }
     }, [sceneDesc]);
 
