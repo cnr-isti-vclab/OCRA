@@ -33,7 +33,7 @@ export class ThreePresenter {
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf5f5f5);
+    this.scene.background = new THREE.Color(0x404040);
     const widthPx = mount.clientWidth;
     const heightPx = mount.clientHeight;
     this.camera = new THREE.PerspectiveCamera(40, widthPx / heightPx, 0.1, 1000);
