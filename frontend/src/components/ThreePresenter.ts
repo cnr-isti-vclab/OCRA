@@ -42,7 +42,7 @@ export class ThreePresenter {
     
     // Create home button
     this.homeButton = document.createElement('button');
-    this.homeButton.innerHTML = '🏠';
+    this.homeButton.innerHTML = '<i class="bi bi-house"></i>';
     this.homeButton.style.position = 'absolute';
     this.homeButton.style.top = '10px';
     this.homeButton.style.left = '10px';

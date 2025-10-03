@@ -250,7 +250,7 @@ export default function ProjectPage() {
                               }}
                               title={isVisible ? 'Hide mesh' : 'Show mesh'}
                             >
-                              {isVisible ? '👁️' : '👁️'}
+                              <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
                             </button>
                           </td>
                           <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a></td>
