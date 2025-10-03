@@ -206,6 +206,55 @@ export class ThreePresenter {
   }
 
   /**
+   * Apply transforms from ModelDefinition to a loaded Object3D
+   * - position: [x,y,z]
+   * - rotation: [x,y,z] in radians or degrees (auto-detect)
+   * - scale: single number or [x,y,z]
+   */
+  private applyTransforms(model: THREE.Object3D, def: ModelDefinition) {
+    // Position
+    if (def.position && def.position.length === 3) {
+      model.position.set(def.position[0], def.position[1], def.position[2]);
+    }
+
+    // Rotation - prefer explicit units (def.rotationUnits -> scene rotationUnits), otherwise auto-detect
+    if (def.rotation && def.rotation.length === 3) {
+      const r = def.rotation;
+      const sceneUnits = this.currentScene?.rotationUnits;
+      const units = def.rotationUnits || sceneUnits || null; // 'deg' | 'rad' | null
+      let rx = r[0], ry = r[1], rz = r[2];
+      if (units === 'deg') {
+        const degToRad = Math.PI / 180;
+        rx = r[0] * degToRad;
+        ry = r[1] * degToRad;
+        rz = r[2] * degToRad;
+      } else if (units === 'rad') {
+        // use as-is
+      } else {
+        // auto-detect degrees if values are large (> 2π)
+        const maxAbs = Math.max(Math.abs(r[0]), Math.abs(r[1]), Math.abs(r[2]));
+        const twoPi = Math.PI * 2;
+        if (maxAbs > twoPi + 0.0001) {
+          const degToRad = Math.PI / 180;
+          rx = r[0] * degToRad;
+          ry = r[1] * degToRad;
+          rz = r[2] * degToRad;
+        }
+      }
+      model.rotation.set(rx, ry, rz);
+    }
+
+    // Scale - accept number or vec3
+    if (def.scale !== undefined) {
+      if (typeof def.scale === 'number') {
+        model.scale.set(def.scale, def.scale, def.scale);
+      } else if (Array.isArray(def.scale) && def.scale.length === 3) {
+        model.scale.set(def.scale[0], def.scale[1], def.scale[2]);
+      }
+    }
+  }
+
+  /**
    * Apply environment settings (ground, background)
    */
   private applyEnvironmentSettings(env: any): void {
@@ -279,16 +328,8 @@ export class ThreePresenter {
     try {
       const model = await this.loadModelFile(fullUrl, modelDef);
       
-      // Apply transforms
-      if (modelDef.position) {
-        model.position.fromArray(modelDef.position);
-      }
-      if (modelDef.rotation) {
-        model.rotation.fromArray(modelDef.rotation);
-      }
-      if (modelDef.scale) {
-        model.scale.fromArray(modelDef.scale);
-      }
+      // Apply transforms (position, rotation, scale)
+      this.applyTransforms(model, modelDef);
       if (modelDef.visible !== undefined) {
         model.visible = modelDef.visible;
       }

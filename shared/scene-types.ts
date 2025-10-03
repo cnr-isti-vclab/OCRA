@@ -15,8 +15,10 @@ export interface ModelDefinition {
   position?: [number, number, number];
   /** Rotation in radians [x, y, z], defaults to [0, 0, 0] */
   rotation?: [number, number, number];
+  /** Optional explicit rotation units for this model. If provided, overrides scene-level setting. */
+  rotationUnits?: 'deg' | 'rad';
   /** Scale factors [x, y, z], defaults to [1, 1, 1] */
-  scale?: [number, number, number];
+  scale?: number | [number, number, number];
   /** Whether the model is visible, defaults to true */
   visible?: boolean;
   /** Optional material property overrides */
@@ -51,6 +53,8 @@ export interface SceneDescription {
   environment?: EnvironmentSettings;
   /** Whether trackball/orbit controls are enabled */
   enableControls?: boolean;
+  /** Optional scene-level default for rotation units (overridden by model.rotationUnits) */
+  rotationUnits?: 'deg' | 'rad';
 }
 
 /**
