@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { getApiBase } from '../config/oauth';
 
@@ -26,9 +27,12 @@ export class ThreePresenter {
   ground: THREE.GridHelper | null = null;
   homeButton: HTMLButtonElement;
   lightButton: HTMLButtonElement;
+  envButton: HTMLButtonElement;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   lightEnabled: boolean = true;
+  envMap: THREE.Texture | null = null;
+  envLightingEnabled: boolean = true;
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -40,38 +44,55 @@ export class ThreePresenter {
     this.camera.position.set(0, 0, 2);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(widthPx, heightPx);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     mount.appendChild(this.renderer.domElement);
     
+    // Load environment map
+    this.loadEnvironmentMap();
+
+    // Create a single absolute container for the action buttons so they stack vertically
+    const btnContainer = document.createElement('div');
+    // position at top-left of the mount. Use Bootstrap utilities for layout and spacing.
+    btnContainer.className = 'position-absolute top-0 start-0 m-2 d-flex flex-column gap-2';
+    btnContainer.style.zIndex = '1000';
+    mount.style.position = mount.style.position || 'relative'; // ensure mount positioned for absolute children
+
     // Create home button
     this.homeButton = document.createElement('button');
     this.homeButton.innerHTML = '<i class="bi bi-house"></i>';
-    this.homeButton.className = 'btn btn-light position-absolute top-0 start-0 m-1 p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.homeButton.style.zIndex = '1000';
+    // square compact buttons; sizing via padding + fixed min dimensions keeps them consistent
+    this.homeButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
     this.homeButton.title = 'Reset camera view';
-    this.homeButton.addEventListener('mouseenter', () => {
-      this.homeButton.style.transform = 'scale(1.05)';
-    });
-    this.homeButton.addEventListener('mouseleave', () => {
-      this.homeButton.style.transform = 'scale(1)';
-    });
+    this.homeButton.addEventListener('mouseenter', () => { this.homeButton.style.transform = 'scale(1.05)'; });
+    this.homeButton.addEventListener('mouseleave', () => { this.homeButton.style.transform = 'scale(1)'; });
     this.homeButton.addEventListener('click', () => this.resetCamera());
-    mount.style.position = 'relative'; // Ensure mount is positioned for absolute children
-    mount.appendChild(this.homeButton);
-    
+
     // Create light toggle button
     this.lightButton = document.createElement('button');
     this.lightButton.innerHTML = '<i class="bi bi-lightbulb-fill"></i>';
-    this.lightButton.className = 'btn btn-light position-absolute top-0 start-0 mt-5 m-1 p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.lightButton.style.zIndex = '1000';
+    this.lightButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
     this.lightButton.title = 'Toggle lighting';
-    this.lightButton.addEventListener('mouseenter', () => {
-      this.lightButton.style.transform = 'scale(1.05)';
-    });
-    this.lightButton.addEventListener('mouseleave', () => {
-      this.lightButton.style.transform = 'scale(1)';
-    });
+    this.lightButton.addEventListener('mouseenter', () => { this.lightButton.style.transform = 'scale(1.05)'; });
+    this.lightButton.addEventListener('mouseleave', () => { this.lightButton.style.transform = 'scale(1)'; });
     this.lightButton.addEventListener('click', () => this.toggleLight());
-    mount.appendChild(this.lightButton);
+
+    // Create environment lighting toggle button
+    this.envButton = document.createElement('button');
+    this.envButton.innerHTML = '<i class="bi bi-globe"></i>';
+    this.envButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
+    this.envButton.title = 'Toggle environment lighting';
+    this.envButton.addEventListener('mouseenter', () => { this.envButton.style.transform = 'scale(1.05)'; });
+    this.envButton.addEventListener('mouseleave', () => { this.envButton.style.transform = 'scale(1)'; });
+    this.envButton.addEventListener('click', () => this.toggleEnvLighting());
+
+    // Append buttons to container, then container to mount
+    btnContainer.appendChild(this.homeButton);
+    btnContainer.appendChild(this.lightButton);
+    btnContainer.appendChild(this.envButton);
+    mount.appendChild(btnContainer);
+
+
     // Lighting - head light setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
     this.scene.add(ambientLight);
@@ -98,6 +119,9 @@ export class ThreePresenter {
     }
     if (this.lightButton.parentNode) {
       this.lightButton.parentNode.removeChild(this.lightButton);
+    }
+    if (this.envButton.parentNode) {
+      this.envButton.parentNode.removeChild(this.envButton);
     }
   }
 
@@ -325,13 +349,20 @@ export class ThreePresenter {
     }
   }
 
+  toggleEnvLighting() {
+    this.envLightingEnabled = !this.envLightingEnabled;
+    this.scene.environment = this.envLightingEnabled ? this.envMap : null;
+    this.envButton.innerHTML = this.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
+    console.log(`🌍 Environment lighting ${this.envLightingEnabled ? 'enabled' : 'disabled'}`);
+  }
+
   private addGround() {
     // Create a grid helper at y = 0
     // GridHelper(size, divisions, colorCenterLine, colorGrid)
     const size = 2; // 2 units wide (since we normalize to 1 unit)
     const divisions = 20; // 20x20 grid
-    const colorCenterLine = 0x444444;
-    const colorGrid = 0xcccccc;
+    const colorCenterLine = 0xdddddd;
+    const colorGrid = 0x888888;
     
     this.ground = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid);
     // GridHelper is created in XZ plane by default, which is what we want (y=0)
@@ -358,5 +389,23 @@ export class ThreePresenter {
   getMeshVisibility(meshName: string): boolean {
     const mesh = this.meshes[meshName];
     return mesh ? mesh.visible : false;
+  }
+
+  private loadEnvironmentMap() {
+    const exrLoader = new EXRLoader();
+    // Load from public folder
+    exrLoader.load(
+      '/brown_photostudio_02_1k.exr',
+      (texture: THREE.DataTexture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        this.envMap = texture;
+        this.scene.environment = texture;
+        console.log('✅ Environment map loaded successfully');
+      },
+      undefined,
+      (error: any) => {
+        console.error('❌ Failed to load environment map:', error);
+      }
+    );
   }
 }
