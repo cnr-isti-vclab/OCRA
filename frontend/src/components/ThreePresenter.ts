@@ -25,8 +25,10 @@ export class ThreePresenter {
   headLight: THREE.DirectionalLight;
   ground: THREE.GridHelper | null = null;
   homeButton: HTMLButtonElement;
+  lightButton: HTMLButtonElement;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  lightEnabled: boolean = true;
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -55,6 +57,21 @@ export class ThreePresenter {
     this.homeButton.addEventListener('click', () => this.resetCamera());
     mount.style.position = 'relative'; // Ensure mount is positioned for absolute children
     mount.appendChild(this.homeButton);
+    
+    // Create light toggle button
+    this.lightButton = document.createElement('button');
+    this.lightButton.innerHTML = '<i class="bi bi-lightbulb-fill"></i>';
+    this.lightButton.className = 'btn btn-light position-absolute top-0 start-0 mt-5 m-1 p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
+    this.lightButton.style.zIndex = '1000';
+    this.lightButton.title = 'Toggle lighting';
+    this.lightButton.addEventListener('mouseenter', () => {
+      this.lightButton.style.transform = 'scale(1.05)';
+    });
+    this.lightButton.addEventListener('mouseleave', () => {
+      this.lightButton.style.transform = 'scale(1)';
+    });
+    this.lightButton.addEventListener('click', () => this.toggleLight());
+    mount.appendChild(this.lightButton);
     // Lighting - head light setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
     this.scene.add(ambientLight);
@@ -78,6 +95,9 @@ export class ThreePresenter {
     }
     if (this.homeButton.parentNode) {
       this.homeButton.parentNode.removeChild(this.homeButton);
+    }
+    if (this.lightButton.parentNode) {
+      this.lightButton.parentNode.removeChild(this.lightButton);
     }
   }
 
@@ -294,6 +314,15 @@ export class ThreePresenter {
       this.controls.update();
     }
     console.log('📷 Camera view reset to home position');
+  }
+
+  toggleLight() {
+    this.lightEnabled = !this.lightEnabled;
+    if (this.headLight) {
+      this.headLight.intensity = this.lightEnabled ? 0.9 : 0;
+      this.lightButton.innerHTML = this.lightEnabled ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
+      console.log(`💡 Lighting ${this.lightEnabled ? 'enabled' : 'disabled'}`);
+    }
   }
 
   private addGround() {
