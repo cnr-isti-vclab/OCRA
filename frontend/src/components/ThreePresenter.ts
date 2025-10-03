@@ -195,7 +195,8 @@ export class ThreePresenter {
         if (!this.viewportGizmo) {
           // Pass the mount element as the container option so gizmo appends itself there
           this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
-            container: this.mount
+            container: this.mount,
+            size: 80 // size in pixels
           });
           this.viewportGizmo.attachControls(this.controls);
           
