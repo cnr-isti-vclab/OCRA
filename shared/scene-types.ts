@@ -11,6 +11,8 @@ export interface ModelDefinition {
   id: string;
   /** Filename of the model (e.g., "model.glb", "mesh.ply") */
   file: string;
+  /** Human-friendly title for the model (defaults to filename base) */
+  title?: string;
   /** Position in 3D space [x, y, z], defaults to [0, 0, 0] */
   position?: [number, number, number];
   /** Rotation in radians [x, y, z], defaults to [0, 0, 0] */
