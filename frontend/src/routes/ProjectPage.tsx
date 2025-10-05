@@ -218,7 +218,7 @@ export default function ProjectPage() {
         <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
           <div className="p-3 h-100 d-flex flex-column">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3 className="h6 mb-0">Project Files</h3>
+              <h3 className="h6 mb-0">3D Model</h3>
               {isManager && (
                 <button
                   className="btn btn-primary btn-sm"
@@ -248,10 +248,16 @@ export default function ProjectPage() {
                 <table className="table table-sm">
                   <tbody>
                     {files.map(f => {
-                      // Extract mesh name from filename (without extension)
-                      const meshName = f.name.replace(/\.[^/.]+$/, '');
+                      // Determine display name: prefer model.title from scene, otherwise filename without extension
+                      const fileBase = f.name.replace(/\.[^/.]+$/, '');
+                      let displayName = fileBase;
+                      // Find corresponding model in sceneDesc by matching file name
+                      const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
+                      if (sceneModel && sceneModel.title) displayName = sceneModel.title;
+
+                      const meshName = fileBase; // legacy key used in visibility map
                       const isVisible = meshVisibility[meshName] !== false;
-                      
+
                       return (
                         <tr key={f.name}>
                           <td style={{ width: '40px' }}>
@@ -271,7 +277,7 @@ export default function ProjectPage() {
                               <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
                             </button>
                           </td>
-                          <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{f.name}</a></td>
+                          <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{displayName}</a></td>
                         </tr>
                       );
                     })}

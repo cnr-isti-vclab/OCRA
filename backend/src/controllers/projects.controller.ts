@@ -244,10 +244,11 @@ export async function uploadProjectFile(req: Request, res: Response) {
       counter++;
     }
     
-    // Add the model to the scene
+    // Add the model to the scene (include a human-friendly title initialized from filename base)
     scene.models.push({
       id: modelId,
       file: file.originalname,
+      title: fileBaseName,
       visible: true
     });
     

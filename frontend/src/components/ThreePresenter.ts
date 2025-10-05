@@ -1,10 +1,6 @@
 import * as THREE from 'three';
-import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader';
 import { getApiBase } from '../config/oauth';
-import { ViewportGizmo } from "three-viewport-gizmo";
+// Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
   ModelDefinition, 
@@ -286,14 +282,19 @@ export class ThreePresenter {
     this.controls.target.set(0, 0, 0);
     this.controls.update();
 
-    // Create and attach ViewportGizmo
+    // Create and attach ViewportGizmo (dynamically import to avoid bundling it always)
     if (!this.viewportGizmo) {
-      this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
-        container: this.mount,
-        size: 80
-      });
-      this.viewportGizmo.attachControls(this.controls);
-      console.log('✅ ViewportGizmo created and attached to controls');
+      try {
+        const { ViewportGizmo } = await import('three-viewport-gizmo');
+        this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
+          container: this.mount,
+          size: 80
+        });
+        if (this.viewportGizmo.attachControls) this.viewportGizmo.attachControls(this.controls);
+        console.log('✅ ViewportGizmo created and attached to controls');
+      } catch (err) {
+        console.warn('⚠️ Failed to load viewport gizmo dynamically:', err);
+      }
     }
   }
 
@@ -369,54 +370,53 @@ export class ThreePresenter {
   /**
    * Parse PLY file
    */
-  private parsePLY(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Mesh> {
-    return new Promise((resolve, reject) => {
-      try {
-        const loader = new PLYLoader();
-        const geometry = loader.parse(buffer);
-        geometry.computeVertexNormals();
-        
-        // Create material with optional overrides
-        const materialProps: any = {
-          color: modelDef.material?.color || 0xdddddd,
-          flatShading: modelDef.material?.flatShading ?? true,
-        };
-        if (modelDef.material?.metalness !== undefined) {
-          materialProps.metalness = modelDef.material.metalness;
-        }
-        if (modelDef.material?.roughness !== undefined) {
-          materialProps.roughness = modelDef.material.roughness;
-        }
-        
-        const material = new THREE.MeshStandardMaterial(materialProps);
-        const mesh = new THREE.Mesh(geometry, material);
-        
-        resolve(mesh);
-      } catch (error) {
-        reject(error);
-      }
-    });
+  private async parsePLY(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Mesh> {
+    const { PLYLoader } = await import('three/examples/jsm/loaders/PLYLoader');
+    const loader = new PLYLoader();
+    const geometry = loader.parse(buffer);
+    geometry.computeVertexNormals();
+
+    // Create material with optional overrides
+    const materialProps: any = {
+      color: modelDef.material?.color || 0xdddddd,
+      flatShading: modelDef.material?.flatShading ?? true,
+    };
+    if (modelDef.material?.metalness !== undefined) {
+      materialProps.metalness = modelDef.material.metalness;
+    }
+    if (modelDef.material?.roughness !== undefined) {
+      materialProps.roughness = modelDef.material.roughness;
+    }
+
+    const material = new THREE.MeshStandardMaterial(materialProps);
+    const mesh = new THREE.Mesh(geometry, material);
+    return mesh;
   }
 
   /**
    * Parse GLTF/GLB file
    */
-  private parseGLTF(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Group> {
-    return new Promise((resolve, reject) => {
-      const loader = new GLTFLoader();
-      
-      // Set up Draco decoder
-      const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-      dracoLoader.setDecoderConfig({ type: 'js' });
-      loader.setDRACOLoader(dracoLoader);
-      
+  private async parseGLTF(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Group> {
+    const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([
+      import('three/examples/jsm/loaders/GLTFLoader'),
+      import('three/examples/jsm/loaders/DRACOLoader')
+    ]);
+
+    const loader = new GLTFLoader();
+
+    // Set up Draco decoder
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    dracoLoader.setDecoderConfig({ type: 'js' });
+    loader.setDRACOLoader(dracoLoader);
+
+    return await new Promise<THREE.Group>((resolve, reject) => {
       loader.parse(buffer, '', (gltf: any) => {
         const group = new THREE.Group();
         gltf.scene.traverse((child: any) => {
           if ((child as THREE.Mesh).isMesh) {
             const clonedChild = child.clone();
-            
+
             // Apply material overrides if specified
             if (modelDef.material && (clonedChild as THREE.Mesh).material) {
               const mat = (clonedChild as THREE.Mesh).material as THREE.Material;
@@ -430,7 +430,7 @@ export class ThreePresenter {
                 (mat as any).roughness = modelDef.material.roughness;
               }
             }
-            
+
             group.add(clonedChild);
           }
         });
@@ -616,21 +616,28 @@ export class ThreePresenter {
     }
   }
 
-  private loadEnvironmentMap() {
-    const exrLoader = new EXRLoader();
-    // Load from public folder
-    exrLoader.load(
-      '/brown_photostudio_02_1k.exr',
-      (texture: THREE.DataTexture) => {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        this.envMap = texture;
-        this.scene.environment = texture;
-        console.log('✅ Environment map loaded successfully');
-      },
-      undefined,
-      (error: any) => {
-        console.error('❌ Failed to load environment map:', error);
-      }
-    );
+  private async loadEnvironmentMap() {
+    try {
+      // Dynamically import EXRLoader
+      // @ts-ignore - example loaders may not have types in the project
+      const { EXRLoader } = await import('three/examples/jsm/loaders/EXRLoader');
+      const exrLoader = new EXRLoader();
+      // Load from public folder
+      exrLoader.load(
+        '/brown_photostudio_02_1k.exr',
+        (texture: THREE.DataTexture) => {
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          this.envMap = texture;
+          this.scene.environment = texture;
+          console.log('✅ Environment map loaded successfully');
+        },
+        undefined,
+        (error: any) => {
+          console.error('❌ Failed to load environment map:', error);
+        }
+      );
+    } catch (err) {
+      console.warn('EXRLoader dynamic import failed or not available:', err);
+    }
   }
 }

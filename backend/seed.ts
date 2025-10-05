@@ -6,8 +6,119 @@
  */
 
 import { PrismaClient, RoleEnum } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
+
+// Get the project files directory from environment or use default
+const PROJECT_FILES_PATH = process.env.PROJECT_FILES_PATH || '/app/project_files';
+const MEDIA_SOURCE_PATH = path.resolve(__dirname, '../media');
+
+// project Json data
+const sampleProjectData = [
+  {
+  "models": [
+    {
+      "id": "lion_crushing_a_serpent_t1k",
+      "title" : "Lion Crushing a Serpent",
+      "file": "lion_crushing_a_serpent_t1k.glb",
+      "visible": true,
+      "rotation": [180, 0, 0] 
+    }
+  ],
+  "environment": {
+    "showGround": true,
+    "background": "#404040"
+  },
+  "enableControls": true
+  },
+  {
+  "models": [
+    {
+      "id": "louis_xiv_de_france_louvre_paris_t1k",
+      "title": "Louis XIV de France",
+      "file": "louis_xiv_de_france_louvre_paris_t1k.glb",
+      "rotation": [180, 0, 0],   
+      "visible": true
+    }
+  ],
+  "environment": {
+    "showGround": true,
+    "background": "#404040"
+  },
+  "enableControls": true
+}
+];
+
+
+/**
+ * Populate project folders with scene.json and model files
+ * Maps project names to their scene data and copies files from media folder
+ */
+async function populateProjectFolders(): Promise<void> {
+  console.log('📁 Populating project folders with scene.json and model files...');
+
+  // Mapping of project names to their scene data index and model files
+  const projectMapping = [
+    {
+      projectName: 'Lion Crushing a Serpent',
+      sceneDataIndex: 0,
+      modelFiles: ['lion_crushing_a_serpent_t1k.glb']
+    },
+    {
+      projectName: 'louis_xiv_de_france',
+      sceneDataIndex: 1,
+      modelFiles: ['louis_xiv_de_france_louvre_paris_t1k.glb']
+    }
+  ];
+
+  for (const mapping of projectMapping) {
+    try {
+      // Get the project from database
+      const project = await prisma.project.findUnique({
+        where: { name: mapping.projectName }
+      });
+
+      if (!project) {
+        console.log(`  ⚠️  Project '${mapping.projectName}' not found, skipping folder population`);
+        continue;
+      }
+
+      // Create project folder
+      const projectFolder = path.join(PROJECT_FILES_PATH, project.id);
+      fs.mkdirSync(projectFolder, { recursive: true });
+
+      // Write scene.json
+      const sceneData = sampleProjectData[mapping.sceneDataIndex];
+      const sceneJsonPath = path.join(projectFolder, 'scene.json');
+      fs.writeFileSync(sceneJsonPath, JSON.stringify(sceneData, null, 2), 'utf-8');
+      console.log(`  ✓ Created scene.json for '${mapping.projectName}'`);
+
+      // Copy model files from media folder
+      for (const modelFile of mapping.modelFiles) {
+        const sourcePath = path.join(MEDIA_SOURCE_PATH, modelFile);
+        const destPath = path.join(projectFolder, modelFile);
+
+        if (fs.existsSync(sourcePath)) {
+          fs.copyFileSync(sourcePath, destPath);
+          console.log(`  ✓ Copied ${modelFile} to '${mapping.projectName}' folder`);
+        } else {
+          console.log(`  ⚠️  Model file ${modelFile} not found in media folder, skipping`);
+        }
+      }
+
+    } catch (error: any) {
+      console.error(`  ❌ Error populating folder for '${mapping.projectName}':`, error.message);
+    }
+  }
+
+  console.log('✅ Successfully populated project folders');
+}
 
 /**
  * Seed example projects - for demonstration and testing
@@ -22,18 +133,18 @@ async function seedDemoProjects(): Promise<void> {
       public: true
     },
     {
-      name: 'Stanford Bunny', 
-      description: '3D model processing and analysis',
+      name: 'Lion Crushing a Serpent', 
+      description: 'A 3D model of a lion crushing a serpent, used for testing purposes',
       public: false
     },
     {
-      name: 'Laurana',
+      name: 'louis_xiv_de_france',
       description: 'Renaissance sculpture digitization and restoration',
       public: true
     },
     {
-      name: 'Stanford Lucy',
-      description: 'High-resolution 3D model analysis and processing',
+      name: 'Empty Project',
+      description: 'To be used to test adding models',
       public: true
     }
   ];
@@ -157,11 +268,11 @@ async function seedDemoProjectRoles(): Promise<void> {
   }
 
   // Assign roles using the helper
-  await assignProjectRole('labhead@example.com', 'Stanford Bunny', RoleEnum.manager);
+  await assignProjectRole('labhead@example.com', 'Lion Crushing a Serpent', RoleEnum.manager);
   await assignProjectRole('director@example.com', 'Marble Head', RoleEnum.manager);
-  await assignProjectRole('director@example.com', 'Laurana', RoleEnum.manager);
-  await assignProjectRole('director@example.com', 'Stanford Lucy', RoleEnum.manager);
-  await assignProjectRole('conservator@example.com', 'Stanford Bunny', RoleEnum.editor);
+  await assignProjectRole('director@example.com', 'louis_xiv_de_france', RoleEnum.manager);
+  await assignProjectRole('director@example.com', 'Empty Project', RoleEnum.manager);
+  await assignProjectRole('conservator@example.com', 'Lion Crushing a Serpent', RoleEnum.editor);
 
   console.log('✅ Successfully seeded project roles');
 }
@@ -172,6 +283,7 @@ async function main() {
   await seedDemoProjects();
   await seedDemoUsers();
   await seedDemoProjectRoles();
+  await populateProjectFolders(); // Populate project folders with scene.json and model files
 
   console.log('✅ Database seeding completed');
 }

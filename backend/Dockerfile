@@ -19,6 +19,9 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 # Now copy the backend source code
 COPY backend/ .
 
+# Copy media files for seeding projects
+COPY media /app/media
+
 # Build TypeScript to JavaScript
 RUN npm run build
 
