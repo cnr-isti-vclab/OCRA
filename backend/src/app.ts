@@ -6,11 +6,13 @@
 
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
 import { connect } from './services/audit.service.js';
 import { requestLogger } from './middleware/logging.middleware.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
+import { swaggerSpec } from './config/swagger.js';
 
 type Express = express.Express;
 type Request = express.Request;
@@ -64,6 +66,19 @@ export function createApp(): Express {
   
   // Request logging
   app.use(requestLogger);
+
+  // Swagger API Documentation
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'OCRA API Documentation',
+  }));
+  
+  // Swagger JSON spec
+  app.get('/api-docs.json', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 
   // API routes
   app.use('/api', routes);

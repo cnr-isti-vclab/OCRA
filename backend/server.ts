@@ -14,6 +14,7 @@ const app = createApp();
 app.listen(PORT, () => {
   console.log(`🚀 OAuth Backend running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
   console.log(`🏗️ Restructured backend with modular architecture`);
 });
 

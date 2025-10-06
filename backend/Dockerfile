@@ -4,23 +4,20 @@ FROM node:22-alpine
 # Work in the backend package folder
 WORKDIR /app/backend
 
-# Copy only package.json for efficient layer caching (avoid stale lockfile pinning old Prisma)
-COPY backend/package.json backend/package-lock.json* ./
-
-# Install dependencies (include devDeps to run Prisma CLI during build)
-RUN npm ci || npm install
-
-# Copy Prisma schema into backend package path so generation targets backend's node_modules
+# Copy Prisma schema into backend package path (needed before package install for dependencies)
 COPY prisma /app/backend/prisma
 
-# Generate Prisma Client for the container platform using backend's schema
-RUN npx prisma generate --schema=./prisma/schema.prisma
-
-# Now copy the backend source code
+# Copy the backend source code (includes package.json, package-lock.json, and all source files)
 COPY backend/ .
 
 # Copy media files for seeding projects
 COPY media /app/media
+
+# Install dependencies (include devDeps to run Prisma CLI during build)
+RUN npm ci || npm install
+
+# Generate Prisma Client for the container platform using backend's schema
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Build TypeScript to JavaScript
 RUN npm run build
