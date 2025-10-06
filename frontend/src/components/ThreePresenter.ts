@@ -23,6 +23,7 @@ export class ThreePresenter {
   lightButton: HTMLButtonElement;
   viewportGizmo: any = null;
   envButton: HTMLButtonElement;
+  screenshotButton: HTMLButtonElement;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   lightEnabled: boolean = true;
@@ -83,10 +84,20 @@ export class ThreePresenter {
     this.envButton.addEventListener('mouseleave', () => { this.envButton.style.transform = 'scale(1)'; });
     this.envButton.addEventListener('click', () => this.toggleEnvLighting());
 
+    // Create screenshot button
+    this.screenshotButton = document.createElement('button');
+    this.screenshotButton.innerHTML = '<i class="bi bi-camera"></i>';
+    this.screenshotButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
+    this.screenshotButton.title = 'Take screenshot';
+    this.screenshotButton.addEventListener('mouseenter', () => { this.screenshotButton.style.transform = 'scale(1.05)'; });
+    this.screenshotButton.addEventListener('mouseleave', () => { this.screenshotButton.style.transform = 'scale(1)'; });
+    this.screenshotButton.addEventListener('click', () => this.takeScreenshot());
+
     // Append buttons to container, then container to mount
     btnContainer.appendChild(this.homeButton);
     btnContainer.appendChild(this.lightButton);
     btnContainer.appendChild(this.envButton);
+    btnContainer.appendChild(this.screenshotButton);
     mount.appendChild(btnContainer);
 
     // The ViewportGizmo (from three-viewport-gizmo) will be attached when controls are created
@@ -125,6 +136,9 @@ export class ThreePresenter {
     }
     if (this.envButton.parentNode) {
       this.envButton.parentNode.removeChild(this.envButton);
+    }
+    if (this.screenshotButton.parentNode) {
+      this.screenshotButton.parentNode.removeChild(this.screenshotButton);
     }
     if (this.viewportGizmo && this.viewportGizmo.dispose) {
       this.viewportGizmo.dispose();
@@ -667,6 +681,23 @@ export class ThreePresenter {
     this.scene.environment = this.envLightingEnabled ? this.envMap : null;
     this.envButton.innerHTML = this.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
     console.log(`🌍 Environment lighting ${this.envLightingEnabled ? 'enabled' : 'disabled'}`);
+  }
+
+  takeScreenshot() {
+    // Render the current frame to ensure we have the latest state
+    this.renderer.render(this.scene, this.camera);
+    
+    // Get the canvas data as a data URL (PNG format)
+    const dataURL = this.renderer.domElement.toDataURL('image/png');
+    
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    link.download = `screenshot-${timestamp}.png`;
+    link.href = dataURL;
+    link.click();
+    
+    console.log('📸 Screenshot captured and downloaded');
   }
 
   private addGround() {
