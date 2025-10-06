@@ -28,6 +28,8 @@ export class ThreePresenter {
   lightEnabled: boolean = true;
   envMap: THREE.Texture | null = null;
   envLightingEnabled: boolean = true;
+  raycaster: THREE.Raycaster = new THREE.Raycaster();
+  mouse: THREE.Vector2 = new THREE.Vector2();
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -103,10 +105,14 @@ export class ThreePresenter {
     // Resize handler
     this.handleResize = this.handleResize.bind(this);
     window.addEventListener('resize', this.handleResize);
+    // Double-click handler for recentering
+    this.handleDoubleClick = this.handleDoubleClick.bind(this);
+    this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
   }
 
   dispose() {
     window.removeEventListener('resize', this.handleResize);
+    this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
@@ -134,6 +140,73 @@ export class ThreePresenter {
     this.camera.updateProjectionMatrix();
     if (this.controls) this.controls.update(); 
     if (this.viewportGizmo) this.viewportGizmo.update();
+  }
+
+  /**
+   * Handle double-click on the canvas to recenter the camera on the clicked point
+   */
+  handleDoubleClick(event: MouseEvent) {
+    if (!this.controls) return;
+
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update raycaster
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // Get all model objects for raycasting
+    const modelObjects: THREE.Object3D[] = [];
+    Object.values(this.models).forEach(model => {
+      // Recursively collect all meshes in the model
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          modelObjects.push(child);
+        }
+      });
+    });
+
+    // Check for intersections
+    const intersects = this.raycaster.intersectObjects(modelObjects, false);
+
+    if (intersects.length > 0) {
+      const intersectionPoint = intersects[0].point;
+      console.log('🎯 Recentering camera on point:', intersectionPoint);
+
+      // Smoothly animate the controls target to the intersection point
+      this.animateCameraTarget(intersectionPoint);
+    }
+  }
+
+  /**
+   * Smoothly animate the camera controls target to a new position
+   */
+  private animateCameraTarget(targetPosition: THREE.Vector3) {
+    if (!this.controls) return;
+
+    const startTarget = this.controls.target.clone();
+    const endTarget = targetPosition.clone();
+    const duration = 500; // milliseconds
+    const startTime = performance.now();
+
+    const animate = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Ease-out cubic for smooth deceleration
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+      // Interpolate between start and end
+      this.controls.target.lerpVectors(startTarget, endTarget, easeProgress);
+      this.controls.update();
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    animate();
   }
 
   animate() {
