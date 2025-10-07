@@ -99,6 +99,32 @@ chmod +x debug-deployment.sh
 3. Type: `window.__APP_CONFIG__`
 4. Verify it shows your server URLs (not localhost)
 
+**Step 3: Check for JavaScript errors in Console**
+Look for any errors when the page loads or when you click Login:
+- Red error messages
+- Failed to fetch
+- CORS errors
+- OAuth-related errors
+
+**Step 4: Monitor Network tab**
+1. Keep Developer Tools open
+2. Go to Network tab
+3. Click the Login button
+4. Watch for new network requests
+
+**What you should see:**
+- A redirect (type: "document") to your Keycloak server
+- URL should start with: `http://visualmediaservice.isti.cnr.it:8081/realms/demo/protocol/openid-connect/auth`
+
+**If you see nothing in Network tab:**
+- There's a JavaScript error preventing the login function from running
+- Check Console tab for errors
+
+**If you see a request to localhost:8081:**
+- Config is cached in browser
+- Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
+- Or clear browser cache for your domain
+
 **Example of CORRECT output:**
 ```javascript
 {
@@ -267,6 +293,20 @@ sudo firewall-cmd --add-port=8081/tcp --permanent
 sudo firewall-cmd --reload
 ```
 
+#### Error: "Cannot read properties of undefined (reading 'digest')"
+**Error in browser console:**
+```
+Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'digest')
+```
+
+**Cause**: The Web Crypto API (`crypto.subtle`) is not available because you're using HTTP instead of HTTPS.
+
+**This is automatically handled**: The application now falls back to using "plain" PKCE method when `crypto.subtle` is unavailable. This is less secure than SHA-256 hashing but works on HTTP.
+
+**Solution for production**: Use HTTPS with proper SSL/TLS certificates. Once you switch to HTTPS, the application will automatically use the more secure S256 PKCE method.
+
+**Note**: This is not a blocker for HTTP deployments, but HTTPS is strongly recommended for production.
+
 - **Check**: Inspect config.js as shown in Step 4.1
 
 ### Port Configuration
@@ -283,6 +323,10 @@ sudo firewall-cmd --reload
 **⚠️ Before deploying to production:**
 
 1. **Use HTTPS**: Configure SSL/TLS certificates
+   - **Important**: OAuth with PKCE requires HTTPS in production
+   - HTTP deployments use fallback "plain" PKCE method (less secure)
+   - The `crypto.subtle` API (for SHA-256 hashing) only works on HTTPS or localhost
+   
 2. **Change default passwords**:
    - Update `POSTGRES_PASSWORD`
    - Update `KEYCLOAK_ADMIN_PASSWORD`

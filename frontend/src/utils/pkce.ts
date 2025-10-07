@@ -17,8 +17,19 @@ export function generateRandomString(length: number): string {
 
 /**
  * Generate SHA256 hash for PKCE code challenge
+ * Falls back to plain verifier if crypto.subtle is not available (non-HTTPS contexts)
  */
 export async function sha256(plain: string): Promise<string> {
+  // Check if crypto.subtle is available (requires HTTPS or localhost)
+  if (!crypto.subtle) {
+    console.warn('crypto.subtle not available - using plain code verifier (PKCE will use "plain" method instead of S256)');
+    // Return the plain string base64url encoded as fallback
+    return btoa(plain)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  }
+
   const encoder = new TextEncoder();
   const data = encoder.encode(plain);
   const hash = await crypto.subtle.digest('SHA-256', data);

@@ -19,6 +19,9 @@ export async function startAuthFlow(): Promise<void> {
   // Store verifier for later use (temporary, cleared after token exchange)
   sessionStorage.setItem('oauth_code_verifier', codeVerifier);
   
+  // Determine PKCE method based on crypto.subtle availability
+  const challengeMethod = crypto.subtle ? 'S256' : 'plain';
+  
   // Build authorization URL
   const params = new URLSearchParams({
     response_type: 'code',
@@ -26,7 +29,7 @@ export async function startAuthFlow(): Promise<void> {
     redirect_uri: OAUTH_CONFIG.redirectUri,
     scope: OAUTH_CONFIG.scope,
     code_challenge: codeChallenge,
-    code_challenge_method: 'S256'
+    code_challenge_method: challengeMethod
   });
   
   const authUrl = `${OAUTH_CONFIG.issuer}/protocol/openid-connect/auth?${params}`;
