@@ -4,9 +4,9 @@ services:
     image: postgres:15-alpine
     container_name: ocra-postgres
     environment:
-      POSTGRES_DB: oauth_demo
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-oauth_demo}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
@@ -21,8 +21,8 @@ services:
     image: quay.io/keycloak/keycloak:latest
     container_name: ocra-keycloak
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
       - "8081:8080"
     volumes:
@@ -60,9 +60,9 @@ services:
       dockerfile: backend/Dockerfile
     container_name: ocra-backend
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo}
       PORT: 3002
-      SYS_ADMIN_EMAIL: admin@ocra.it  # User with this email gets admin privileges on first login
+      SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}  # User with this email gets admin privileges on first login
     ports:
       - "3002:3002"
       - "5555:5555"  # Prisma Studio
@@ -80,15 +80,15 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: ocra-frontend
     environment:
-      PROVIDER_URL: http://localhost:8081
-      REALM: demo
-      ISSUER: http://localhost:8081/realms/demo
-      CLIENT_ID: react-oauth
-      REDIRECT_URI: http://localhost:3001
-      SCOPE: "openid profile email"
-      VITE_API_BASE: http://localhost:3002
+      PROVIDER_URL: ${PROVIDER_URL:-http://localhost:8081}
+      REALM: ${REALM:-demo}
+      ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
+      CLIENT_ID: ${CLIENT_ID:-react-oauth}
+      REDIRECT_URI: ${REDIRECT_URI:-http://localhost:3001}
+      SCOPE: ${SCOPE:-openid profile email}
+      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:3002}
       # Database connection for Prisma
-      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/oauth_demo"
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo}
     ports:
       - "3001:80"
     depends_on:
