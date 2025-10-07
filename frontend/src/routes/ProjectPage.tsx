@@ -67,6 +67,7 @@ export default function ProjectPage() {
       // Refresh file list
       const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, { credentials: 'include' });
       const filesData = await filesRes.json();
+      console.log('📁 Files received after upload:', filesData.files);
       setFiles(filesData.files || []);
       
       // Refresh scene to include the newly uploaded file
@@ -330,6 +331,7 @@ export default function ProjectPage() {
         });
         if (filesRes.ok) {
           const filesData = await filesRes.json();
+          console.log('📁 Files received from API:', filesData.files);
           setFiles(filesData.files || []);
         } else {
           setFiles([]);
@@ -550,6 +552,22 @@ export default function ProjectPage() {
                                           <>
                                             <div><strong>Triangles:</strong> {stats.triangles.toLocaleString()}</div>
                                             <div><strong>Vertices:</strong> {stats.vertices.toLocaleString()}</div>
+                                            <div>
+                                              <strong>BBox (X,Y,Z):</strong>{' '}
+                                              {stats.bbox.x.toFixed(3)}, {stats.bbox.y.toFixed(3)}, {stats.bbox.z.toFixed(3)}
+                                            </div>
+                                            <div>
+                                              <strong>Textures:</strong> {stats.textures.count}
+                                              {stats.textures.count > 0 && stats.textures.dimensions.length > 0 && (
+                                                <div style={{ marginLeft: '1rem', fontSize: '0.9em' }}>
+                                                  {stats.textures.dimensions.map((dim, idx) => (
+                                                    <div key={idx}>
+                                                      Texture {idx + 1}: {dim.width}×{dim.height}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
                                           </>
                                         );
                                       }

@@ -4,7 +4,7 @@ import { ThreePresenter, SceneDescription } from './ThreePresenter';
 export interface ThreeJSViewerRef {
   setMeshVisibility: (meshName: string, visible: boolean) => void;
   getMeshVisibility: (meshName: string) => boolean;
-  getModelStats: (modelId: string) => { triangles: number; vertices: number } | null;
+  getModelStats: (modelId: string) => { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } } | null;
   applyModelTransform: (
     modelId: string,
     position?: [number, number, number] | null,

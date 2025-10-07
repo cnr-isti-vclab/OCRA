@@ -59,7 +59,7 @@ export class ThreePresenter {
   envLightingEnabled: boolean = true;
   raycaster: THREE.Raycaster = new THREE.Raycaster();
   mouse: THREE.Vector2 = new THREE.Vector2();
-  modelStats: Record<string, { triangles: number; vertices: number }> = {};
+  modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -903,16 +903,17 @@ export class ThreePresenter {
    * @param modelId - The ID of the model to analyze
    * @returns Object with triangle and vertex counts, or null if model not found
    */
-  getModelStats(modelId: string): { triangles: number; vertices: number } | null {
+  getModelStats(modelId: string): { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } } | null {
     return this.modelStats[modelId] || null;
   }
 
   /**
-   * Calculate statistics (triangles, vertices) for a Three.js object
+   * Calculate statistics (triangles, vertices, bounding box, textures) for a Three.js object
    */
-  private calculateObjectStats(obj: THREE.Object3D): { triangles: number; vertices: number } {
+  private calculateObjectStats(obj: THREE.Object3D): { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } } {
     let triangles = 0;
     let vertices = 0;
+    const textureSet = new Set<THREE.Texture>();
 
     obj.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -935,10 +936,52 @@ export class ThreePresenter {
             triangles += positionAttribute.count / 3;
           }
         }
+
+        // Collect textures from materials
+        if (mesh.material) {
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((material: THREE.Material) => {
+            // Check all common texture properties
+            const matAny = material as any;
+            const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap', 'lightMap', 'envMap'];
+            
+            textureProps.forEach(prop => {
+              if (matAny[prop] && matAny[prop] instanceof THREE.Texture) {
+                textureSet.add(matAny[prop]);
+              }
+            });
+          });
+        }
       }
     });
 
-    return { triangles: Math.floor(triangles), vertices };
+    // Collect texture dimensions
+    const textureDimensions: Array<{ width: number; height: number }> = [];
+    textureSet.forEach(texture => {
+      if (texture.image) {
+        const width = texture.image.width || 0;
+        const height = texture.image.height || 0;
+        textureDimensions.push({ width, height });
+      }
+    });
+
+    // Calculate bounding box dimensions
+    const bbox = new THREE.Box3().setFromObject(obj);
+    const size = bbox.getSize(new THREE.Vector3());
+
+    return { 
+      triangles: Math.floor(triangles), 
+      vertices,
+      bbox: {
+        x: size.x,
+        y: size.y,
+        z: size.z
+      },
+      textures: {
+        count: textureSet.size,
+        dimensions: textureDimensions
+      }
+    };
   }
 
   private addGround() {
