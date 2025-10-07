@@ -1,30 +1,85 @@
 # OCRA Deployment Guide
 
-## 🚀 Deploying to a Production Server
+## � Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Step-by-Step Deployment](#step-by-step-deployment)
+3. [Verification](#verification)
+4. [Troubleshooting](#troubleshooting)
+5. [Security & Production Notes](#security--production-notes)
+6. [Advanced Configuration](#advanced-configuration)
+
+---
+
+## Quick Start
+
+**TL;DR for experienced users:**
+
+```bash
+# 1. Clone and create .env
+cd /path/to/OCRA
+cp .env.production.example .env
+# Edit .env with your server URLs
+
+# 2. Configure Keycloak
+# Access http://your-server:8081
+# Update react-oauth client: redirect URIs, web origins, PKCE method to "plain"
+
+# 3. Deploy
+docker-compose up -d --build
+
+# 4. Verify
+docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+# Should show your server URLs, not localhost
+```
+
+---
+
+## 🚀 Step-by-Step Deployment
 
 ### Step 1: Create Environment Configuration
 
-On your server, create a `.env` file in the project root:
+Create a `.env` file in the project root (same directory as `docker-compose.yml`):
 
 ```bash
 cd /path/to/OCRA
 nano .env
 ```
 
-Add the following content (replace with your server details):
+**Minimal required configuration:**
+
+```env
+# OAuth/Keycloak Configuration
+PROVIDER_URL=http://your-server.com:8081
+ISSUER=http://your-server.com:8081/realms/demo
+REDIRECT_URI=http://your-server.com:3001
+VITE_API_BASE=http://your-server.com:3002
+CORS_ORIGINS=http://your-server.com:3001
+
+# Keycloak Admin
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=changeme
+
+# System Admin Email (gets admin privileges on first login)
+SYS_ADMIN_EMAIL=admin@your-domain.com
+```
+
+<details>
+<summary>See full .env template with all options</summary>
 
 ```env
 # Server Configuration
-PROVIDER_URL=http://ocra.mydomain.org:8081
+SERVER_HOST=your-server.com
+PROVIDER_URL=http://your-server.com:8081
 REALM=demo
-ISSUER=http://ocra.mydomain.org:8081/realms/demo
+ISSUER=http://your-server.com:8081/realms/demo
 CLIENT_ID=react-oauth
-REDIRECT_URI=http://ocra.mydomain.org:3001
+REDIRECT_URI=http://your-server.com:3001
 SCOPE=openid profile email
-VITE_API_BASE=http://ocra.mydomain.org:3002
 
-# CORS Configuration - Frontend URL that can access the backend
-CORS_ORIGINS=http://ocra.mydomain.org:3001
+# Frontend & Backend URLs
+VITE_API_BASE=http://your-server.com:3002
+CORS_ORIGINS=http://your-server.com:3001
 
 # Database Configuration
 DATABASE_URL=postgresql://postgres:postgres@postgres:5432/oauth_demo
@@ -34,687 +89,406 @@ POSTGRES_PASSWORD=postgres
 
 # Keycloak Admin Credentials
 KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=yourpassword
+KEYCLOAK_ADMIN_PASSWORD=changeme
 
 # System Admin Email
-SYS_ADMIN_EMAIL=admin@ocra.it
+SYS_ADMIN_EMAIL=admin@your-domain.com
 ```
 
-### Step 2: Configure Keycloak Valid Redirect URIs
+</details>
 
-**Important:** You need to update Keycloak's client configuration to allow redirects from your domain.
+### Step 2: Configure Keycloak Client
 
-1. Access Keycloak admin console: `http://ocra.mydomain.org:8081`
-2. Login with: `admin` / `admin`
-3. Select the `demo` realm from the dropdown
-4. Go to: **Clients** → **react-oauth**
-5. Update the following fields:
-   - **Valid redirect URIs**: `http://ocra.mydomain.org:3001/*`
-   - **Valid post logout redirect URIs**: `http://ocra.mydomain.org:3001/*`
-   - **Web origins**: `http://ocra.mydomain.org:3001`
-6. Scroll down to **Advanced Settings** section
-7. Find **Proof Key for Code Exchange Code Challenge Method**
-8. Change it to **plain** (or leave blank/empty to accept any method)
-   - **Why?** HTTP deployments can't use S256 (SHA-256) because `crypto.subtle` requires HTTPS
-   - "plain" is less secure but works on HTTP
-   - Once you enable HTTPS, you can change this back to S256
-9. Click **Save**
+**Why?** Keycloak needs to know which URLs are allowed to redirect and which domains can make API calls.
 
-### Step 3: Restart the Services
+1. Start Keycloak: `docker-compose up -d keycloak`
+2. Access admin console: `http://your-server:8081`
+3. Login with credentials from your `.env` file
+4. Select **demo** realm from dropdown (top-left)
+5. Go to **Clients** → **react-oauth**
+6. Configure these settings:
 
-**Important**: After creating/modifying the `.env` file, you must recreate the containers (not just restart) to load the new environment variables.
+   | Setting | Value | Notes |
+   |---------|-------|-------|
+   | **Valid redirect URIs** | `http://your-server:3001/*` | Must include `/*` wildcard |
+   | **Valid post logout redirect URIs** | `http://your-server:3001/*` | Must match redirect URIs |
+   | **Web origins** | `http://your-server:3001` | NO trailing slash or `/*` |
+   | **PKCE Code Challenge Method** | `plain` or blank | Required for HTTP deployments |
+
+7. Click **Save**
+
+**PKCE Method Explanation:**
+- HTTP sites cannot use `crypto.subtle` API (browser security)
+- `plain` method works on HTTP (less secure but functional)
+- `S256` method requires HTTPS (more secure)
+- Leave blank to accept both methods
+
+### Step 3: Deploy Application
+
+**Important:** Use `docker-compose down && up` (not `restart`) to load new environment variables.
 
 ```bash
 # Stop existing containers
 docker-compose down
 
-# Start with new environment variables
-# The --force-recreate flag ensures containers are recreated with new env vars
-docker-compose up -d --force-recreate
+# Start all services with new configuration
+docker-compose up -d --build
 
-# Check logs
-docker-compose logs -f app
+# Monitor logs
+docker-compose logs -f
 ```
 
-**Verify the configuration was applied:**
+**Container startup order:**
+1. postgres, mongodb (databases)
+2. keycloak (authentication)
+3. backend (API server)
+4. frontend (nginx web server)
+
+---
+
+## ✅ Verification
+
+### 1. Check All Containers Are Running
+
+```bash
+docker ps
+```
+
+Expected output:
+```
+ocra-frontend   Up X minutes   0.0.0.0:3001->80/tcp
+ocra-backend    Up X minutes   0.0.0.0:3002->3002/tcp
+ocra-keycloak   Up X minutes   0.0.0.0:8081->8080/tcp
+ocra-postgres   Up X minutes   (healthy)
+ocra-mongodb    Up X minutes   (healthy)
+```
+
+### 2. Verify Configuration Was Applied
+
 ```bash
 # Check frontend config.js
 docker exec ocra-frontend cat /usr/share/nginx/html/config.js
-
-# Should show your server URLs, not localhost
 ```
 
-**Note**: If this is a fresh Keycloak setup, the realm import already has the correct PKCE settings. If you're using an existing Keycloak instance, make sure to check Step 2 carefully and configure the PKCE method.
+**Should show:**
+```javascript
+window.__APP_CONFIG__ = {
+  providerUrl: "http://your-server:8081",  // ← Your domain
+  issuer: "http://your-server:8081/realms/demo",
+  redirectUri: "http://your-server:3001",
+  apiBase: "http://your-server:3002"  // ← Your domain
+};
+```
 
-### Step 4: Verify Configuration
+**NOT localhost!** If you see localhost, the .env file wasn't loaded properly.
 
-1. Check that config.js is generated correctly:
-   ```bash
-   docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+### 3. Test Application
+
+1. Open browser: `http://your-server:3001`
+2. Click "Login with Keycloak"
+3. Should redirect to Keycloak login page
+4. Enter credentials (use email from `SYS_ADMIN_EMAIL`)
+5. Should redirect back and show project list
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues & Solutions
+
+<details>
+<summary><strong>❌ Login button does nothing</strong></summary>
+
+**Check browser console:**
+```javascript
+window.__APP_CONFIG__
+// Should show your server URLs, not localhost
+```
+
+**If it shows localhost:**
+1. Verify `.env` file is in same directory as `docker-compose.yml`
+2. Recreate containers: `docker-compose down && docker-compose up -d --build`
+3. Hard refresh browser: Ctrl+Shift+R (or Cmd+Shift+R on Mac)
+4. Try incognito mode
+
+</details>
+
+<details>
+<summary><strong>❌ CORS Error: "blocked by CORS policy"</strong></summary>
+
+**Error message:**
+```
+Access to fetch at 'http://your-server:3002/api/sessions' from origin 'http://your-server:3001'
+has been blocked by CORS policy
+```
+
+**Solution:**
+1. Add to `.env`:
+   ```env
+   CORS_ORIGINS=http://your-server:3001
    ```
-   
-   You should see your server URLs (not localhost).
+2. Restart backend: `docker-compose restart backend`
 
-2. Access your application: `http://ocra.mydomain.org:3001`
+</details>
 
-3. Click "Login with Keycloak" - it should redirect to your Keycloak server
+<details>
+<summary><strong>❌ "Invalid redirect_uri" from Keycloak</strong></summary>
 
-### Troubleshooting
+**Keycloak shows:** "We're sorry... Invalid parameter: redirect_uri"
 
-#### Login button does nothing
-- **Cause**: Frontend still using localhost URLs
-- **Fix**: Verify the `.env` file exists and restart: `docker-compose restart app`
-### Troubleshooting
+**Solution:**
+1. Go to Keycloak admin → Clients → react-oauth
+2. Check **Valid redirect URIs**: Must be `http://your-server:3001/*` (with `/*`)
+3. Check it matches your `.env` REDIRECT_URI exactly
+4. Click Save
 
-#### Login button does nothing / Nothing happens when clicking login
-This is the most common issue. Follow these steps:
+</details>
 
-**Step 1: Run the debug script**
+<details>
+<summary><strong>❌ "code challenge method is not matching"</strong></summary>
+
+**Error in URL:**
+```
+?error=invalid_request&error_description=Invalid+parameter%3A+code+challenge+method
+```
+
+**Solution:**
+1. Go to Keycloak admin → Clients → react-oauth → Advanced tab
+2. Find "Proof Key for Code Exchange Code Challenge Method"
+3. Change to **plain** (or leave blank)
+4. Click Save
+
+**Why?** HTTP deployments can't use S256 because browsers block `crypto.subtle` on non-HTTPS.
+
+</details>
+
+<details>
+<summary><strong>❌ Config.js still has localhost after rebuild</strong></summary>
+
+**Complete reset:**
+```bash
+# Stop everything
+docker-compose down -v
+
+# Remove frontend image
+docker rmi ocra-app
+
+# Verify .env
+cat .env | grep -E "(VITE_API_BASE|ISSUER|REDIRECT_URI)"
+
+# Rebuild from scratch
+docker-compose up -d --build
+
+# Verify immediately
+docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+```
+
+</details>
+
+<details>
+<summary><strong>❌ Browser cache won't clear</strong></summary>
+
+**Try these in order:**
+
+1. **Hard refresh**: Ctrl+Shift+R or Cmd+Shift+R
+2. **Clear site data**: DevTools (F12) → Application → Clear storage
+3. **Incognito mode**: Open in private/incognito window
+4. **Different browser**: Try Firefox/Chrome/Safari
+5. **Different device**: Use phone or another computer
+6. **Add cache buster**: `http://your-server:3001?v=2`
+
+</details>
+
+### Diagnostic Commands
+
+Run these on your server to diagnose issues:
+
+```bash
+# 1. Check .env file exists and has correct syntax
+cat .env
+
+# 2. Verify environment variables in container
+docker exec ocra-frontend env | grep -E "(ISSUER|VITE_API_BASE)"
+
+# 3. Check actual config.js
+docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+
+# 4. Check backend CORS settings
+docker logs ocra-backend | grep -i cors
+
+# 5. Check all containers are healthy
+docker ps
+
+# 6. Check for errors in logs
+docker-compose logs --tail=50 app backend
+```
+
+### Debug Script
+
+Use the included debug script for comprehensive diagnostics:
+
 ```bash
 chmod +x debug-deployment.sh
 ./debug-deployment.sh
 ```
 
-**Step 2: Check browser console**
-1. Open your browser's Developer Tools (F12)
-2. Go to the Console tab
-3. Type: `window.__APP_CONFIG__`
-4. Verify it shows your server URLs (not localhost)
+---
 
-**Step 3: Check for JavaScript errors in Console**
-Look for any errors when the page loads or when you click Login:
-- Red error messages
-- Failed to fetch
-- CORS errors
-- OAuth-related errors
+## 🔒 Security & Production Notes
 
-**Step 4: Monitor Network tab**
-1. Keep Developer Tools open
-2. Go to Network tab
-3. Click the Login button
-4. Watch for new network requests
+### Before Production Deployment
 
-**What you should see:**
-- A redirect (type: "document") to your Keycloak server
-- URL should start with: `http://visualmediaservice.isti.cnr.it:8081/realms/demo/protocol/openid-connect/auth`
+**⚠️ Critical Security Tasks:**
 
-**If you see nothing in Network tab:**
-- There's a JavaScript error preventing the login function from running
-- Check Console tab for errors
+1. **Enable HTTPS**
+   - Configure SSL/TLS certificates
+   - Update `.env` URLs to use `https://`
+   - Set `secure: true` in cookie configuration
+   - Change Keycloak PKCE method back to `S256`
 
-**If you see a request to localhost:8081:**
-- Config is cached in browser
-- Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
-- Or clear browser cache for your domain
-
-**Example of CORRECT output:**
-```javascript
-{
-  providerUrl: "http://visualmediaservice.isti.cnr.it:8081",
-  issuer: "http://visualmediaservice.isti.cnr.it:8081/realms/demo",
-  redirectUri: "http://visualmediaservice.isti.cnr.it:3001",
-  // ...
-}
-```
-
-**Example of WRONG output (has localhost):**
-```javascript
-{
-  providerUrl: "http://localhost:8081",  // ❌ WRONG!
-  // ...
-}
-```
-
-**Step 3: Check Network tab when clicking Login**
-1. Open Developer Tools → Network tab
-2. Click "Login with Keycloak"
-3. Look at the redirect URL in the requests
-
-**Should redirect to:**
-```
-http://visualmediaservice.isti.cnr.it:8081/realms/demo/protocol/openid-connect/auth?...
-```
-
-**If it redirects to localhost:8081**, your config.js is wrong.
-
-**Fix:**
-```bash
-# On your server
-cd /path/to/OCRA
-
-# Verify .env exists and has correct values
-cat .env
-
-# Rebuild containers to regenerate config.js
-docker-compose down
-docker-compose up --build -d
-
-# Verify config.js was regenerated
-docker exec ocra-frontend cat /usr/share/nginx/html/config.js
-
-# Should show your domain, not localhost
-```
-
-#### CORS errors in browser console
-**Error message:**
-```
-Access to fetch at 'http://...:8081/...' from origin 'http://...:3001' has been blocked by CORS policy
-```
-
-**Cause**: Keycloak Web Origins not configured correctly
-
-**Fix:**
-1. Go to Keycloak admin: `http://your-server:8081`
-2. Login: `admin` / `your-password`
-3. Select **demo** realm
-4. **Clients** → **react-oauth** → **Settings** tab
-5. Scroll to **Web origins**
-6. Add: `http://visualmediaservice.isti.cnr.it:3001`
-   - ⚠️ NO trailing slash
-   - ⚠️ NO `/*` at the end
-   - Just the base URL
-7. Click **Save**
-8. Try login again (may need to clear browser cache)
-
-#### "Invalid redirect_uri" error from Keycloak
-**Error message:**
-```
-Invalid parameter: redirect_uri
-```
-
-**Cause**: The redirect URI in your request doesn't match Keycloak's configured URIs
-
-**Fix:**
-1. Check what redirect_uri is being sent:
-   - Open browser Developer Tools → Network tab
-   - Click Login
-   - Find the request to `/auth` endpoint
-   - Check the `redirect_uri` parameter
-
-2. Go to Keycloak admin console
-3. **Clients** → **react-oauth** → **Settings**
-4. Check **Valid redirect URIs** field
-5. It should contain: `http://visualmediaservice.isti.cnr.it:3001/*`
-   - ⚠️ Must include the `/*` wildcard
-   - ⚠️ Must match EXACTLY what's in your `.env` file
-
-6. Also set **Valid post logout redirect URIs**: `http://visualmediaservice.isti.cnr.it:3001/*`
-
-7. Click **Save**
-
-#### Keycloak shows "We're sorry..." page
-**Error message:**
-```
-We're sorry...
-Invalid parameter: redirect_uri
-```
-
-**This means Keycloak is accessible, but redirect URI is wrong.**
-
-**Double-check:**
-```bash
-# On server, check your .env
-grep REDIRECT_URI .env
-# Output should be: REDIRECT_URI=http://visualmediaservice.isti.cnr.it:3001
-
-# Check Keycloak client config matches
-# Web UI: Clients → react-oauth → Valid redirect URIs
-# Should have: http://visualmediaservice.isti.cnr.it:3001/*
-```
-
-#### Still seeing localhost in config.js after rebuild
-**Cause**: .env file not in the correct location or has wrong format
-
-**Fix:**
-```bash
-# On server
-cd /path/to/OCRA  # Must be the directory with docker-compose.yml
-
-# Check if .env is here
-ls -la .env
-
-# Verify format (no spaces around =, no quotes)
-cat .env
-
-# Check for hidden characters
-cat -A .env | head -5
-
-# Rebuild with verbose output
-docker-compose down
-docker-compose build app --no-cache
-docker-compose up -d
-
-# Immediately check config.js
-docker exec ocra-frontend cat /usr/share/nginx/html/config.js
-```
-
-#### Cannot access Keycloak admin console
-**Error**: Connection refused or timeout to port 8081
-
-**Check:**
-```bash
-# Is Keycloak running?
-docker ps | grep keycloak
-
-# Check Keycloak logs
-docker logs ocra-keycloak
-
-# Test from server itself
-curl http://localhost:8081/realms/demo/.well-known/openid-configuration
-
-# If this works, it's a firewall issue
-```
-
-**Fix firewall (if needed):**
-```bash
-# Ubuntu/Debian
-sudo ufw allow 8081/tcp
-
-# CentOS/RHEL
-sudo firewall-cmd --add-port=8081/tcp --permanent
-sudo firewall-cmd --reload
-```
-
-#### Error: "Cannot read properties of undefined (reading 'digest')"
-**Error in browser console:**
-```
-Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'digest')
-```
-
-**Cause**: The Web Crypto API (`crypto.subtle`) is not available because you're using HTTP instead of HTTPS.
-
-**This is automatically handled**: The application now falls back to using "plain" PKCE method when `crypto.subtle` is unavailable. This is less secure than SHA-256 hashing but works on HTTP.
-
-**Solution for production**: Use HTTPS with proper SSL/TLS certificates. Once you switch to HTTPS, the application will automatically use the more secure S256 PKCE method.
-
-**Note**: This is not a blocker for HTTP deployments, but HTTPS is strongly recommended for production.
-
-#### Error: "code challenge method is not matching the configured one"
-**Error in URL after login redirect:**
-```
-?error=invalid_request&error_description=Invalid+parameter%3A+code+challenge+method+is+not+matching+the+configured+one
-```
-
-**Cause**: Keycloak is configured to require S256 (SHA-256) PKCE method, but the application is using "plain" because it's running on HTTP (not HTTPS).
-
-**Fix**:
-1. Go to Keycloak admin: `http://visualmediaservice.isti.cnr.it:8081`
-2. Login with admin credentials
-3. Select **demo** realm
-4. Go to **Clients** → **react-oauth**
-5. Click on **Advanced** tab (or scroll to **Advanced Settings**)
-6. Find **Proof Key for Code Exchange Code Challenge Method**
-7. Change from **S256** to **plain** (or leave **blank** to accept both)
-8. Click **Save**
-9. Try logging in again
-
-**Why this happens:**
-- HTTP sites cannot use `crypto.subtle` API (browser security restriction)
-- The app automatically falls back to "plain" PKCE on HTTP
-- Keycloak must be configured to accept this method
-- Once you enable HTTPS, change it back to S256 for better security
-
-#### Error: "Failed to fetch" after successful Keycloak login
-**Symptom**: Login popup works, you enter credentials, but then returns to login page with "Error: Failed to fetch"
-
-**Check browser console - you'll see one of these:**
-
-**A) Trying to connect to localhost:**
-```
-POST http://localhost:3002/api/sessions net::ERR_FAILED
-```
-
-**Cause**: Frontend config.js still has localhost URLs instead of your server URLs.
-
-**Fix**:
-1. Verify your `.env` file is in the **same directory as docker-compose.yml**
-2. Verify `.env` has the correct `VITE_API_BASE`:
-   ```bash
-   cat .env | grep VITE_API_BASE
-   # Should show: VITE_API_BASE=http://visualmediaservice.isti.cnr.it:3002
-   ```
-3. **Pull latest code** (includes cache-busting fix):
-   ```bash
-   git pull
-   ```
-4. **Must recreate containers** (restart is not enough):
-   ```bash
-   docker-compose down
-   docker-compose up -d --build
-   ```
-5. Verify config.js was updated:
-   ```bash
-   docker exec ocra-frontend cat /usr/share/nginx/html/config.js
-   # Should show your server URLs, not localhost
-   ```
-6. **Clear browser cache completely**:
-   - Open DevTools (F12) → Application tab → Clear storage → Clear site data
-   - Or try in **Incognito/Private mode**
-7. **Check config in browser console**:
-   ```javascript
-   window.__APP_CONFIG__
-   // Should show your server URLs
-   ```
-
-**B) CORS error:**
-```
-Access to fetch at 'http://your-server:3002/api/sessions' from origin 'http://your-server:3001' has been blocked by CORS policy
-```
-
-**Cause**: Backend is not allowing requests from your frontend domain.
-
-**Fix**:
-1. Add `CORS_ORIGINS` to your `.env` file:
+2. **Change Default Passwords**
    ```env
-   CORS_ORIGINS=http://visualmediaservice.isti.cnr.it:3001
+   POSTGRES_PASSWORD=<strong-password>
+   KEYCLOAK_ADMIN_PASSWORD=<strong-password>
    ```
 
-2. Recreate containers:
-   ```bash
-   docker-compose down
-   docker-compose up -d
-   ```
+3. **Secure Keycloak**
+   - Switch from dev mode to production mode
+   - Configure proper database (not H2)
+   - Enable HTTPS for Keycloak
 
-3. Verify the backend logs show the correct CORS origin:
-   ```bash
-   docker logs ocra-backend
-   ```
+4. **Restrict Access**
+   - Configure firewall rules
+   - Close unnecessary ports (5432, 27017 should not be public)
+   - Use private networks for database containers
 
-4. Try logging in again
-
-**For multiple origins** (e.g., development + production):
-```env
-CORS_ORIGINS=http://visualmediaservice.isti.cnr.it:3001,http://localhost:3001
-```
-
-- **Check**: Inspect config.js as shown in Step 4.1
+5. **Enable Backups**
+   - Set up automated database backups
+   - Test restoration procedures
 
 ### Port Configuration
 
-- **Frontend (nginx)**: 3001
-- **Backend (API)**: 3002
-- **Keycloak**: 8081
-- **PostgreSQL**: 5432
-- **MongoDB**: 27017
-- **Prisma Studio**: 5555
+| Service | Port | Public? | Purpose |
+|---------|------|---------|---------|
+| Frontend | 3001 | ✅ Yes | Web UI |
+| Backend | 3002 | ✅ Yes | REST API |
+| Keycloak | 8081 | ✅ Yes | Authentication |
+| PostgreSQL | 5432 | ❌ No | Database |
+| MongoDB | 27017 | ❌ No | Audit logs |
+| Prisma Studio | 5555 | ❌ No | DB admin (dev only) |
 
-### Security Notes for Production
+### HTTPS Configuration
 
-**⚠️ Before deploying to production:**
-
-1. **Use HTTPS**: Configure SSL/TLS certificates
-   - **Important**: OAuth with PKCE requires HTTPS in production
-   - HTTP deployments use fallback "plain" PKCE method (less secure)
-   - The `crypto.subtle` API (for SHA-256 hashing) only works on HTTPS or localhost
-   
-2. **Change default passwords**:
-   - Update `POSTGRES_PASSWORD`
-   - Update `KEYCLOAK_ADMIN_PASSWORD`
-3. **Secure Keycloak**: Use production mode instead of dev mode
-4. **Restrict access**: Configure firewall rules for database ports
-5. **Backup**: Set up regular database backups
-
-### Using HTTPS
-
-If your server has HTTPS configured, update the `.env` file to use `https://` URLs:
+Example `.env` for HTTPS:
 
 ```env
-PROVIDER_URL=https://ocra.mydomain.org:8443
-ISSUER=https://ocra.mydomain.org:8443/realms/demo
-REDIRECT_URI=https://ocra.mydomain.org
-VITE_API_BASE=https://ocra.mydomain.org/api
+PROVIDER_URL=https://your-domain.com
+ISSUER=https://your-domain.com/realms/demo
+REDIRECT_URI=https://your-domain.com
+VITE_API_BASE=https://your-domain.com/api
+CORS_ORIGINS=https://your-domain.com
 ```
 
-Also update Keycloak client configuration accordingly.
+You'll also need:
+- SSL certificates (Let's Encrypt, etc.)
+- Reverse proxy (nginx, Caddy, Traefik)
+- Updated Keycloak client configuration
 
-### Health Checks
+---
 
-Check if all services are running:
+## ⚙️ Advanced Configuration
 
-```bash
-docker ps
+### Multiple Environments
 
-# Should show all 5 containers as "Up" and healthy:
-# - ocra-frontend
-# - ocra-backend  
-# - ocra-keycloak
-# - ocra-postgres
-# - ocra-mongodb
+For multiple origins (development + production):
+
+```env
+CORS_ORIGINS=http://localhost:3001,http://your-server:3001,https://your-domain.com
 ```
 
-### Logs
+### Custom Database
 
-View logs for debugging:
+To use external PostgreSQL:
+
+```env
+DATABASE_URL=postgresql://user:password@your-db-server:5432/ocra_db
+```
+
+### Environment Variables Reference
+
+<details>
+<summary>Click to see all available environment variables</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PROVIDER_URL` | `http://localhost:8081` | Keycloak base URL |
+| `ISSUER` | `http://localhost:8081/realms/demo` | OAuth issuer URL |
+| `REDIRECT_URI` | `http://localhost:3001` | OAuth redirect after login |
+| `VITE_API_BASE` | `http://localhost:3002` | Backend API URL |
+| `CORS_ORIGINS` | `http://localhost:3001` | Allowed CORS origins (comma-separated) |
+| `DATABASE_URL` | PostgreSQL connection string | Main database connection |
+| `KEYCLOAK_ADMIN` | `admin` | Keycloak admin username |
+| `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Keycloak admin password |
+| `SYS_ADMIN_EMAIL` | `admin@ocra.it` | Email of system administrator |
+| `CLIENT_ID` | `react-oauth` | OAuth client identifier |
+| `REALM` | `demo` | Keycloak realm name |
+| `SCOPE` | `openid profile email` | OAuth scopes |
+
+</details>
+
+### Logs and Monitoring
 
 ```bash
-# All services
+# View all logs
 docker-compose logs -f
 
 # Specific service
 docker-compose logs -f app
-docker-compose logs -f backend
+docker-compose logs -f backend  
 docker-compose logs -f keycloak
+
+# Last 100 lines
+docker-compose logs --tail=100
+
+# With timestamps
+docker-compose logs -f -t
 ```
 
-### Advanced Debugging: OAuth Flow Analysis
-
-If login still doesn't work after all the above, trace the OAuth flow:
-
-#### 1. Check what happens when you click "Login"
-
-In browser Developer Tools → Network tab:
-
-**Expected flow:**
-1. Click "Login with Keycloak"
-2. Browser should redirect to Keycloak with parameters
-3. After login, Keycloak redirects back to your app with a code
-4. App exchanges code for token
-
-**Step-by-step check:**
-```javascript
-// In browser console, before clicking login:
-// Check if config is correct
-console.log(window.__APP_CONFIG__);
-
-// Should show your server URLs
-
-// After clicking login, if nothing happens:
-// Check if there's an error in console
-// Common: "Failed to fetch" or CORS errors
-```
-
-#### 2. Manual OAuth URL test
-
-Try constructing the OAuth URL manually:
-
-```
-http://visualmediaservice.isti.cnr.it:8081/realms/demo/protocol/openid-connect/auth?client_id=react-oauth&redirect_uri=http://visualmediaservice.isti.cnr.it:3001&response_type=code&scope=openid+profile+email&code_challenge=TEST&code_challenge_method=S256
-```
-
-If this URL works in your browser, the OAuth endpoint is accessible.
-
-#### 3. Check Keycloak realm settings
-
-In Keycloak admin console:
-1. **Realm Settings** → **General** tab
-2. Verify **Frontend URL** is empty or set correctly
-3. Go to **Clients** → **react-oauth**
-4. **Settings** tab → Check **Access Type** is `public`
-5. **Advanced Settings** → Verify **PKCE** settings
-
-#### 4. Common Keycloak misconfigurations
-
-**Wrong:**
-- Valid Redirect URIs: `http://visualmediaservice.isti.cnr.it:3001` (missing /*)
-- Web Origins: `http://visualmediaservice.isti.cnr.it:3001/*` (should not have /*)
-- Valid Redirect URIs: `visualmediaservice.isti.cnr.it:3001/*` (missing http://)
-
-**Correct:**
-- Valid Redirect URIs: `http://visualmediaservice.isti.cnr.it:3001/*`
-- Valid Post Logout Redirect URIs: `http://visualmediaservice.isti.cnr.it:3001/*`
-- Web Origins: `http://visualmediaservice.isti.cnr.it:3001`
-
-#### 5. Test with curl
-
-From your server:
+### Health Checks
 
 ```bash
-# Test Keycloak OpenID configuration
+# Backend health
+curl http://localhost:3002/health
+
+# Keycloak OpenID configuration
 curl http://localhost:8081/realms/demo/.well-known/openid-configuration
 
-# Should return JSON with endpoints
-
-# Test from outside the server (from your computer)
-curl http://visualmediaservice.isti.cnr.it:8081/realms/demo/.well-known/openid-configuration
-
-# Should return the same JSON
-# If it doesn't, there's a network/firewall issue
+# Frontend (should return HTML)
+curl http://localhost:3001
 ```
 
-#### 6. Enable verbose logging
+---
 
-Add to `.env`:
-```env
-# Enable debug logging
-LOG_LEVEL=debug
-```
+## 📚 Additional Resources
 
-Then:
-```bash
-docker-compose restart app backend
-docker-compose logs -f app
-```
+- [OAuth 2.0 PKCE Flow](https://oauth.net/2/pkce/)
+- [Keycloak Documentation](https://www.keycloak.org/documentation)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
 
-Look for OAuth-related log messages when clicking login.
+---
 
-### Quick Checklist for "Login doesn't work"
+## 🆘 Getting Help
 
-- [ ] `.env` file exists in project root (same directory as docker-compose.yml)
-- [ ] `.env` has your server URLs (not localhost)
-- [ ] `docker exec ocra-frontend cat /usr/share/nginx/html/config.js` shows your URLs
-- [ ] Browser console `window.__APP_CONFIG__` shows your URLs
-- [ ] Keycloak is accessible: `http://your-server:8081`
-- [ ] Keycloak client `react-oauth` has:
-  - [ ] Valid Redirect URIs: `http://your-server:3001/*`
-  - [ ] Valid Post Logout Redirect URIs: `http://your-server:3001/*`
-  - [ ] Web Origins: `http://your-server:3001`
-  - [ ] Access Type: `public`
-- [ ] No CORS errors in browser console
-- [ ] Network tab shows redirect to your-server:8081 (not localhost:8081)
-- [ ] All 5 containers are running: `docker ps`
-- [ ] No error logs: `docker-compose logs app backend keycloak`
+If you're still having issues after following this guide:
 
-If all checkboxes are checked and it still doesn't work, open an issue with:
-- Output of `debug-deployment.sh`
-- Browser console screenshot
-- Network tab screenshot
-- Keycloak client configuration screenshot
-
-### Complete Diagnostic Checklist
-
-If you're still having issues, run these commands on your server and check each output:
-
-```bash
-# 1. Verify .env file location and syntax
-cd /path/to/OCRA  # Same directory as docker-compose.yml
-ls -la .env
-cat .env
-
-# Check for:
-# - File exists in same directory as docker-compose.yml
-# - No spaces around = signs
-# - No quotes around values
-# - All URLs start with http:// or https://
-
-# 2. Verify environment variables are loaded in container
-docker exec ocra-frontend env | grep -E "(PROVIDER_URL|ISSUER|REDIRECT_URI|VITE_API_BASE)"
-
-# Should show your server URLs, not empty or localhost
-
-# 3. Verify config.js was generated correctly
-docker exec ocra-frontend cat /usr/share/nginx/html/config.js
-
-# ALL URLs should be your server, not localhost
-
-# 4. Test config.js from outside the container
-curl http://localhost:3001/config.js
-
-# Should match what's inside the container
-
-# 5. Check if docker-compose is reading .env
-docker-compose config | grep -A 2 "VITE_API_BASE"
-
-# Should show your server URL
-
-# 6. If any of the above show localhost, the .env isn't being read
-# Common causes:
-# - .env file in wrong directory
-# - Syntax errors in .env
-# - Need to use docker-compose down && docker-compose up (not restart)
-```
-
-**If config.js still has localhost after all this:**
-
-1. Stop all containers: `docker-compose down -v`
-2. Remove the frontend image: `docker rmi ocra-app`
-3. Verify .env is correct: `cat .env`
-4. Rebuild from scratch: `docker-compose up -d --build`
-5. Check config.js immediately: `docker exec ocra-frontend cat /usr/share/nginx/html/config.js`
-
-### Browser Caching Issues
-
-**Symptom**: Server config is correct, but browser still connects to localhost
-
-Even with correct server configuration, browsers (including incognito mode) can aggressively cache JavaScript bundles.
-
-**How to verify this is the issue:**
-```bash
-# On server - check config.js is correct
-docker exec ocra-frontend cat /usr/share/nginx/html/config.js
-# Should show your server URLs
-
-# But browser console shows localhost in error messages
-```
-
-**Solutions (try in order):**
-
-1. **Pull latest code** (includes cache-busting fixes):
-   ```bash
-   git pull
-   docker-compose down
-   docker-compose up -d --build
-   ```
-
-2. **Hard reload in browser**:
-   - **Chrome/Firefox**: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
-   - **Or**: Open DevTools (F12) → Right-click refresh → "Empty Cache and Hard Reload"
-
-3. **Clear all browser data for the site**:
-   - Open DevTools (F12)
-   - Go to **Application** tab (Chrome) or **Storage** tab (Firefox)
-   - Click **"Clear site data"**
-   - Reload the page
-
-4. **Access with a different device/browser**:
-   - Use your phone's browser to test
-   - Or use a completely different computer
-   - This confirms it's a caching issue if it works elsewhere
-
-5. **Add a query parameter** to force reload:
-   ```
-   http://visualmediaservice.isti.cnr.it:3001?nocache=1
-   ```
-
-6. **Wait or manually purge CDN** (if you're behind a CDN/proxy):
-   - Some corporate networks or cloud providers cache assets
-   - May need to wait 5-15 minutes for cache TTL to expire
-
-**To verify the fix worked:**
-```javascript
-// In browser console after reload
-window.__APP_CONFIG__
-// Should show visualmediaservice.isti.cnr.it, not localhost
-```
+1. Run the debug script: `./debug-deployment.sh`
+2. Check browser console (F12) for errors
+3. Check Docker logs: `docker-compose logs`
+4. Open an issue with:
+   - Debug script output
+   - Browser console screenshot
+   - Network tab screenshot  
+   - Keycloak client configuration screenshot
 
 
 
