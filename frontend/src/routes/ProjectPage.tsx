@@ -154,11 +154,75 @@ export default function ProjectPage() {
 
   // Cancel editing
   const cancelEditing = () => {
+    // Restore original transformation from scene
+    if (editingModelId && sceneDesc) {
+      const sceneModel = sceneDesc.models?.find((m: any) => m.id === editingModelId);
+      if (sceneModel && viewerRef.current) {
+        // Convert rotation from degrees to radians
+        let rotation: [number, number, number] | null = null;
+        if (sceneModel.rotation) {
+          rotation = [
+            sceneModel.rotation[0] * Math.PI / 180,
+            sceneModel.rotation[1] * Math.PI / 180,
+            sceneModel.rotation[2] * Math.PI / 180
+          ];
+        }
+        
+        viewerRef.current.applyModelTransform(
+          editingModelId,
+          sceneModel.position || null,
+          rotation,
+          sceneModel.scale !== undefined ? sceneModel.scale : null
+        );
+      }
+    }
+    
     setEditingModelId(null);
     setSaveError(null);
     setEditedPosition('');
     setEditedRotation('');
     setEditedScale('');
+  };
+
+  // Apply transformations live as user types (without saving)
+  const applyLiveTransform = (modelId: string, posStr: string, rotStr: string, scaleStr: string) => {
+    if (!viewerRef.current) return;
+
+    try {
+      const parseArray = (str: string): [number, number, number] | null => {
+        const trimmed = str.trim();
+        if (!trimmed) return null;
+        const parts = trimmed.split(',').map(p => parseFloat(p.trim()));
+        if (parts.some(isNaN) || parts.length !== 3) return null;
+        return parts as [number, number, number];
+      };
+
+      const position = parseArray(posStr);
+      
+      // Parse rotation and convert degrees to radians for Three.js
+      const rotationDeg = parseArray(rotStr);
+      const rotation = rotationDeg ? [
+        rotationDeg[0] * Math.PI / 180,
+        rotationDeg[1] * Math.PI / 180,
+        rotationDeg[2] * Math.PI / 180
+      ] as [number, number, number] : null;
+      
+      let scale: number | [number, number, number] | null = null;
+      const trimmedScale = scaleStr.trim();
+      if (trimmedScale) {
+        if (trimmedScale.includes(',')) {
+          scale = parseArray(trimmedScale);
+        } else {
+          const scaleNum = parseFloat(trimmedScale);
+          if (!isNaN(scaleNum)) scale = scaleNum;
+        }
+      }
+
+      viewerRef.current.applyModelTransform(modelId, position, rotation, scale);
+    } catch (err) {
+      // Silently ignore parse errors during live editing
+      console.debug('Parse error during live transform:', err);
+    }
   };
 
   // Save edited model properties
@@ -478,7 +542,19 @@ export default function ProjectPage() {
                                 <div className="px-2 pb-2 pt-1" style={{ fontSize: '0.85em', color: '#666' }}>
                                   <div className="border-top pt-2">
                                     <div><strong>Filename:</strong> {f.name}</div>
-                                    <div><strong>Size:</strong> {f.size ? formatFileSize(f.size) : 'Unknown'}</div>
+                                    <div><strong>File Size:</strong> {f.size ? formatFileSize(f.size) : 'Unknown'}</div>
+                                    {(() => {
+                                      const stats = viewerRef.current?.getModelStats(modelId);
+                                      if (stats) {
+                                        return (
+                                          <>
+                                            <div><strong>Triangles:</strong> {stats.triangles.toLocaleString()}</div>
+                                            <div><strong>Vertices:</strong> {stats.vertices.toLocaleString()}</div>
+                                          </>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                     
                                     {editingModelId === modelId ? (
                                       // Edit mode
@@ -490,7 +566,11 @@ export default function ProjectPage() {
                                             className="form-control form-control-sm mt-1"
                                             placeholder="x, y, z"
                                             value={editedPosition}
-                                            onChange={(e) => setEditedPosition(e.target.value)}
+                                            onChange={(e) => {
+                                              const newValue = e.target.value;
+                                              setEditedPosition(newValue);
+                                              applyLiveTransform(modelId, newValue, editedRotation, editedScale);
+                                            }}
                                           />
                                         </div>
                                         <div className="mt-2">
@@ -500,7 +580,11 @@ export default function ProjectPage() {
                                             className="form-control form-control-sm mt-1"
                                             placeholder="x, y, z"
                                             value={editedRotation}
-                                            onChange={(e) => setEditedRotation(e.target.value)}
+                                            onChange={(e) => {
+                                              const newValue = e.target.value;
+                                              setEditedRotation(newValue);
+                                              applyLiveTransform(modelId, editedPosition, newValue, editedScale);
+                                            }}
                                           />
                                         </div>
                                         <div className="mt-2">
@@ -510,7 +594,11 @@ export default function ProjectPage() {
                                             className="form-control form-control-sm mt-1"
                                             placeholder="1 or x, y, z"
                                             value={editedScale}
-                                            onChange={(e) => setEditedScale(e.target.value)}
+                                            onChange={(e) => {
+                                              const newValue = e.target.value;
+                                              setEditedScale(newValue);
+                                              applyLiveTransform(modelId, editedPosition, editedRotation, newValue);
+                                            }}
                                           />
                                         </div>
                                         {saveError && (

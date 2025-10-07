@@ -37,6 +37,9 @@ export class ThreePresenter {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  orthographicCamera: THREE.OrthographicCamera | null = null;
+  perspectiveCamera: THREE.PerspectiveCamera;
+  isOrthographic: boolean = false;
   controls: any;
   models: Record<string, THREE.Object3D> = {};  // Changed from meshes
   currentScene: SceneDescription | null = null;
@@ -48,6 +51,7 @@ export class ThreePresenter {
   viewportGizmo: any = null;
   envButton: HTMLButtonElement;
   screenshotButton: HTMLButtonElement;
+  cameraButton: HTMLButtonElement;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   lightEnabled: boolean = true;
@@ -55,6 +59,7 @@ export class ThreePresenter {
   envLightingEnabled: boolean = true;
   raycaster: THREE.Raycaster = new THREE.Raycaster();
   mouse: THREE.Vector2 = new THREE.Vector2();
+  modelStats: Record<string, { triangles: number; vertices: number }> = {};
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -62,8 +67,27 @@ export class ThreePresenter {
     this.scene.background = new THREE.Color(0x404040);
     const widthPx = mount.clientWidth;
     const heightPx = mount.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(40, widthPx / heightPx, 0.1, 1000);
-    this.camera.position.set(0, 0, 2);
+    const aspect = widthPx / heightPx;
+    
+    // Create perspective camera
+    this.perspectiveCamera = new THREE.PerspectiveCamera(40, aspect, 0.1, 1000);
+    this.perspectiveCamera.position.set(0, 0, 2);
+    
+    // Create orthographic camera
+    const frustumSize = 2;
+    this.orthographicCamera = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      frustumSize / -2,
+      0.1,
+      1000
+    );
+    this.orthographicCamera.position.set(0, 0, 2);
+    
+    // Start with perspective camera
+    this.camera = this.perspectiveCamera;
+    
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(widthPx, heightPx);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -117,11 +141,21 @@ export class ThreePresenter {
     this.screenshotButton.addEventListener('mouseleave', () => { this.screenshotButton.style.transform = 'scale(1)'; });
     this.screenshotButton.addEventListener('click', () => this.takeScreenshot());
 
+    // Create camera mode toggle button
+    this.cameraButton = document.createElement('button');
+    this.cameraButton.innerHTML = '<i class="bi bi-box"></i>';
+    this.cameraButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
+    this.cameraButton.title = 'Toggle orthographic/perspective';
+    this.cameraButton.addEventListener('mouseenter', () => { this.cameraButton.style.transform = 'scale(1.05)'; });
+    this.cameraButton.addEventListener('mouseleave', () => { this.cameraButton.style.transform = 'scale(1)'; });
+    this.cameraButton.addEventListener('click', () => this.toggleCameraMode());
+
     // Append buttons to container, then container to mount
     btnContainer.appendChild(this.homeButton);
     btnContainer.appendChild(this.lightButton);
     btnContainer.appendChild(this.envButton);
     btnContainer.appendChild(this.screenshotButton);
+    btnContainer.appendChild(this.cameraButton);
     mount.appendChild(btnContainer);
 
     // The ViewportGizmo (from three-viewport-gizmo) will be attached when controls are created
@@ -173,9 +207,28 @@ export class ThreePresenter {
   handleResize() {
     const w = this.mount.clientWidth;
     const h = this.mount.clientHeight;
+    const aspect = w / h;
+    
     this.renderer.setSize(w, h);
-    this.camera.aspect = w / h;
+    
+    // Update perspective camera
+    this.perspectiveCamera.aspect = aspect;
+    this.perspectiveCamera.updateProjectionMatrix();
+    
+    // Update orthographic camera
+    if (this.orthographicCamera) {
+      const frustumSize = 2;
+      this.orthographicCamera.left = frustumSize * aspect / -2;
+      this.orthographicCamera.right = frustumSize * aspect / 2;
+      this.orthographicCamera.top = frustumSize / 2;
+      this.orthographicCamera.bottom = frustumSize / -2;
+      this.orthographicCamera.updateProjectionMatrix();
+    }
+    
+    // Update current camera reference
+    this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
+    
     if (this.controls) this.controls.update(); 
     if (this.viewportGizmo) this.viewportGizmo.update();
   }
@@ -446,6 +499,10 @@ export class ThreePresenter {
         model.visible = modelDef.visible;
       }
       
+      // Calculate and store model statistics
+      this.modelStats[modelDef.id] = this.calculateObjectStats(model);
+      console.log(`📊 Model ${modelDef.id} stats:`, this.modelStats[modelDef.id]);
+      
       // Store and add to scene
       this.models[modelDef.id] = model;
       this.scene.add(model);
@@ -613,6 +670,42 @@ export class ThreePresenter {
   }
 
   /**
+   * Apply transformations to a specific model without saving to scene
+   * Useful for live preview while editing
+   */
+  applyModelTransform(
+    modelId: string,
+    position?: [number, number, number] | null,
+    rotation?: [number, number, number] | null,
+    scale?: number | [number, number, number] | null
+  ): void {
+    const model = this.models[modelId];
+    if (!model) {
+      console.warn(`Model ${modelId} not found`);
+      return;
+    }
+
+    // Apply position
+    if (position && position.length === 3) {
+      model.position.set(position[0], position[1], position[2]);
+    }
+
+    // Apply rotation (always in radians for Three.js)
+    if (rotation && rotation.length === 3) {
+      model.rotation.set(rotation[0], rotation[1], rotation[2]);
+    }
+
+    // Apply scale
+    if (scale !== undefined && scale !== null) {
+      if (typeof scale === 'number') {
+        model.scale.set(scale, scale, scale);
+      } else if (Array.isArray(scale) && scale.length === 3) {
+        model.scale.set(scale[0], scale[1], scale[2]);
+      }
+    }
+  }
+
+  /**
    * Restore presenter state (from saved/persistence)
    */
   setState(state: PresenterState): void {
@@ -707,6 +800,87 @@ export class ThreePresenter {
     console.log(`🌍 Environment lighting ${this.envLightingEnabled ? 'enabled' : 'disabled'}`);
   }
 
+  toggleCameraMode() {
+    if (!this.orthographicCamera) return;
+    
+    // Store current camera state
+    const currentPos = this.camera.position.clone();
+    const currentTarget = this.controls?.target.clone() || new THREE.Vector3(0, 0, 0);
+    const distance = currentPos.distanceTo(currentTarget);
+    
+    // Switch camera
+    this.isOrthographic = !this.isOrthographic;
+    
+    if (this.isOrthographic) {
+      // Switch to orthographic
+      const aspect = this.mount.clientWidth / this.mount.clientHeight;
+      
+      // Calculate frustum size based on perspective camera's FOV and distance
+      // This ensures visual consistency when switching
+      const fov = this.perspectiveCamera.fov * (Math.PI / 180); // Convert to radians
+      const frustumHeight = 2 * Math.tan(fov / 2) * distance;
+      const frustumWidth = frustumHeight * aspect;
+      
+      this.orthographicCamera.left = -frustumWidth / 2;
+      this.orthographicCamera.right = frustumWidth / 2;
+      this.orthographicCamera.top = frustumHeight / 2;
+      this.orthographicCamera.bottom = -frustumHeight / 2;
+      this.orthographicCamera.position.copy(currentPos);
+      this.orthographicCamera.updateProjectionMatrix();
+      
+      this.camera = this.orthographicCamera as any;
+      this.cameraButton.style.opacity = '0.7';
+      console.log('📦 Switched to orthographic camera');
+    } else {
+      // Switch to perspective
+      this.perspectiveCamera.position.copy(currentPos);
+      this.camera = this.perspectiveCamera;
+      this.cameraButton.style.opacity = '1';
+      console.log('📐 Switched to perspective camera');
+    }
+    
+    // Update controls to use new camera
+    if (this.controls) {
+      this.controls.object = this.camera;
+      this.controls.target.copy(currentTarget);
+      this.controls.update();
+    }
+    
+    // Dispose and recreate viewport gizmo with the new camera
+    this.recreateViewportGizmo();
+  }
+
+  /**
+   * Recreate the viewport gizmo with the current camera
+   */
+  async recreateViewportGizmo() {
+    // Dispose existing gizmo
+    if (this.viewportGizmo && this.viewportGizmo.dispose) {
+      try {
+        this.viewportGizmo.dispose();
+        console.log('🗑️ Disposed old viewport gizmo');
+      } catch (err) {
+        console.warn('Failed to dispose viewport gizmo:', err);
+      }
+      this.viewportGizmo = null;
+    }
+    
+    // Create new gizmo with current camera
+    try {
+      const { ViewportGizmo } = await import('three-viewport-gizmo');
+      this.viewportGizmo = new ViewportGizmo(this.camera, this.renderer, {
+        container: this.mount,
+        size: 80
+      });
+      if (this.viewportGizmo.attachControls && this.controls) {
+        this.viewportGizmo.attachControls(this.controls);
+      }
+      console.log('✅ Recreated viewport gizmo with new camera');
+    } catch (err) {
+      console.warn('⚠️ Failed to recreate viewport gizmo:', err);
+    }
+  }
+
   takeScreenshot() {
     // Render the current frame to ensure we have the latest state
     this.renderer.render(this.scene, this.camera);
@@ -722,6 +896,49 @@ export class ThreePresenter {
     link.click();
     
     console.log('📸 Screenshot captured and downloaded');
+  }
+
+  /**
+   * Calculate triangle and vertex counts for a loaded model
+   * @param modelId - The ID of the model to analyze
+   * @returns Object with triangle and vertex counts, or null if model not found
+   */
+  getModelStats(modelId: string): { triangles: number; vertices: number } | null {
+    return this.modelStats[modelId] || null;
+  }
+
+  /**
+   * Calculate statistics (triangles, vertices) for a Three.js object
+   */
+  private calculateObjectStats(obj: THREE.Object3D): { triangles: number; vertices: number } {
+    let triangles = 0;
+    let vertices = 0;
+
+    obj.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const geometry = mesh.geometry;
+        
+        if (geometry) {
+          // Count vertices
+          const positionAttribute = geometry.getAttribute('position');
+          if (positionAttribute) {
+            vertices += positionAttribute.count;
+          }
+
+          // Count triangles
+          if (geometry.index) {
+            // Indexed geometry
+            triangles += geometry.index.count / 3;
+          } else if (positionAttribute) {
+            // Non-indexed geometry
+            triangles += positionAttribute.count / 3;
+          }
+        }
+      }
+    });
+
+    return { triangles: Math.floor(triangles), vertices };
   }
 
   private addGround() {

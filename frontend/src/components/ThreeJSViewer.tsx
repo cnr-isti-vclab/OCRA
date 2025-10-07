@@ -4,6 +4,13 @@ import { ThreePresenter, SceneDescription } from './ThreePresenter';
 export interface ThreeJSViewerRef {
   setMeshVisibility: (meshName: string, visible: boolean) => void;
   getMeshVisibility: (meshName: string) => boolean;
+  getModelStats: (modelId: string) => { triangles: number; vertices: number } | null;
+  applyModelTransform: (
+    modelId: string,
+    position?: [number, number, number] | null,
+    rotation?: [number, number, number] | null,
+    scale?: number | [number, number, number] | null
+  ) => void;
 }
 
 // React wrapper for ThreePresenter
@@ -19,6 +26,17 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       },
       getMeshVisibility: (meshName: string) => {
         return presenterRef.current?.getModelVisibilityById(meshName) ?? false;
+      },
+      getModelStats: (modelId: string) => {
+        return presenterRef.current?.getModelStats(modelId) ?? null;
+      },
+      applyModelTransform: (
+        modelId: string,
+        position?: [number, number, number] | null,
+        rotation?: [number, number, number] | null,
+        scale?: number | [number, number, number] | null
+      ) => {
+        presenterRef.current?.applyModelTransform(modelId, position, rotation, scale);
       }
     }));
 
