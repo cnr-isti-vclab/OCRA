@@ -35,7 +35,7 @@ export default function ProjectPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState<'models' | 'annotations'>('models');
+  const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [editedPosition, setEditedPosition] = useState<string>('');
@@ -431,6 +431,17 @@ export default function ProjectPage() {
             <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
               <li className="nav-item" role="presentation">
                 <button
+                  className={`nav-link ${activeTab === 'scene' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('scene')}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'scene'}
+                >
+                  Scene
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
                   className={`nav-link ${activeTab === 'models' ? 'active' : ''}`}
                   onClick={() => setActiveTab('models')}
                   type="button"
@@ -690,6 +701,159 @@ export default function ProjectPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Scene Tab */}
+              {activeTab === 'scene' && (
+                <div className="p-3 h-100 d-flex flex-column">
+                  <h3 className="h6 mb-3">Scene Settings</h3>
+                  {isManager ? (
+                    <div className="flex-grow-1">
+                      {/* Ground Grid Setting */}
+                      <div className="mb-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="showGroundCheckbox"
+                            checked={sceneDesc?.environment?.showGround ?? false}
+                            onChange={async (e) => {
+                              const showGround = e.target.checked;
+                              const updatedScene = { 
+                                ...sceneDesc,
+                                environment: {
+                                  ...sceneDesc?.environment,
+                                  showGround
+                                }
+                              } as SceneDescription;
+                              
+                              try {
+                                // Save to backend
+                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                  method: 'PUT',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(updatedScene)
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to save scene settings');
+                                }
+
+                                // Update local state
+                                setSceneDesc(updatedScene);
+                                console.log('✅ Ground grid setting saved:', showGround);
+                              } catch (err: any) {
+                                console.error('❌ Failed to save ground setting:', err);
+                                alert('Failed to save ground setting: ' + err.message);
+                              }
+                            }}
+                          />
+                          <label className="form-check-label" htmlFor="showGroundCheckbox">
+                            Show Ground Grid
+                          </label>
+                        </div>
+                        <small className="text-muted d-block mt-1">
+                          Display a reference grid at the base of the scene
+                        </small>
+                      </div>
+
+                      {/* Background Color Setting */}
+                      <div className="mb-3">
+                        <label htmlFor="backgroundColorInput" className="form-label">
+                          Background Color
+                        </label>
+                        <div className="d-flex gap-2 align-items-center">
+                          <input
+                            type="color"
+                            className="form-control form-control-color"
+                            id="backgroundColorInput"
+                            value={sceneDesc?.environment?.background || '#404040'}
+                            onChange={async (e) => {
+                              const background = e.target.value;
+                              const updatedScene = { 
+                                ...sceneDesc,
+                                environment: {
+                                  ...sceneDesc?.environment,
+                                  background
+                                }
+                              } as SceneDescription;
+                              
+                              try {
+                                // Save to backend
+                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                  method: 'PUT',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(updatedScene)
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to save scene settings');
+                                }
+
+                                // Update local state
+                                setSceneDesc(updatedScene);
+                                console.log('✅ Background color saved:', background);
+                              } catch (err: any) {
+                                console.error('❌ Failed to save background color:', err);
+                                alert('Failed to save background color: ' + err.message);
+                              }
+                            }}
+                            title="Choose background color"
+                          />
+                          <input
+                            type="text"
+                            className="form-control"
+                            style={{ maxWidth: '100px' }}
+                            value={sceneDesc?.environment?.background || '#404040'}
+                            onChange={async (e) => {
+                              const background = e.target.value;
+                              // Validate hex color format
+                              if (!/^#[0-9A-Fa-f]{6}$/.test(background)) return;
+                              
+                              const updatedScene = { 
+                                ...sceneDesc,
+                                environment: {
+                                  ...sceneDesc?.environment,
+                                  background
+                                }
+                              } as SceneDescription;
+                              
+                              try {
+                                // Save to backend
+                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                  method: 'PUT',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(updatedScene)
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to save scene settings');
+                                }
+
+                                // Update local state
+                                setSceneDesc(updatedScene);
+                                console.log('✅ Background color saved:', background);
+                              } catch (err: any) {
+                                console.error('❌ Failed to save background color:', err);
+                              }
+                            }}
+                            placeholder="#404040"
+                          />
+                        </div>
+                        <small className="text-muted d-block mt-1">
+                          Set the background color of the 3D viewer
+                        </small>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                      <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
+                    </div>
+                  )}
                 </div>
               )}
 
