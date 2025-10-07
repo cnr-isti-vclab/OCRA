@@ -19,10 +19,13 @@ export default defineConfig({
   }
   ,
   build: {
-    // Increase the warning threshold and split Three.js core vs examples/loaders
-    chunkSizeWarningLimit: 600,
+    // Force unique build hashes for cache busting
     rollupOptions: {
       output: {
+        // Add timestamp to file names to force cache invalidation
+        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
             if (id.includes('three/examples')) return 'three-examples';
@@ -34,6 +37,8 @@ export default defineConfig({
           }
         }
       }
-    }
+    },
+    // Increase the warning threshold
+    chunkSizeWarningLimit: 600
   }
 });

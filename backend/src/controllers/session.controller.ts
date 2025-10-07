@@ -51,13 +51,14 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
     }
 
     // Set HTTP-only cookie for authentication
+    // Cookie domain: undefined allows it to work on any domain (localhost, production, etc.)
     res.cookie('session_id', sessionId, {
       httpOnly: true,
       secure: false, // Set to true in production with HTTPS
       sameSite: 'lax', // Use lax for development
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      path: '/',
-      domain: 'localhost' // Explicitly set domain for localhost cross-port
+      path: '/'
+      // domain: omitted - browser will use current domain automatically
     });
 
     res.json({ sessionId });
@@ -161,12 +162,13 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
     }
 
     // Clear the session cookie
+    // Cookie settings must match how it was set (no domain = current domain)
     res.clearCookie('session_id', {
       httpOnly: true,
       secure: false,
-      sameSite: 'lax', // Must match the original cookie settings
-      path: '/',
-      domain: 'localhost' // Must match the original cookie settings
+      sameSite: 'lax',
+      path: '/'
+      // domain: omitted - browser will use current domain automatically
     });
 
     res.json({ message: 'Session deleted successfully' });

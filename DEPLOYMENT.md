@@ -610,3 +610,111 @@ If all checkboxes are checked and it still doesn't work, open an issue with:
 - Network tab screenshot
 - Keycloak client configuration screenshot
 
+### Complete Diagnostic Checklist
+
+If you're still having issues, run these commands on your server and check each output:
+
+```bash
+# 1. Verify .env file location and syntax
+cd /path/to/OCRA  # Same directory as docker-compose.yml
+ls -la .env
+cat .env
+
+# Check for:
+# - File exists in same directory as docker-compose.yml
+# - No spaces around = signs
+# - No quotes around values
+# - All URLs start with http:// or https://
+
+# 2. Verify environment variables are loaded in container
+docker exec ocra-frontend env | grep -E "(PROVIDER_URL|ISSUER|REDIRECT_URI|VITE_API_BASE)"
+
+# Should show your server URLs, not empty or localhost
+
+# 3. Verify config.js was generated correctly
+docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+
+# ALL URLs should be your server, not localhost
+
+# 4. Test config.js from outside the container
+curl http://localhost:3001/config.js
+
+# Should match what's inside the container
+
+# 5. Check if docker-compose is reading .env
+docker-compose config | grep -A 2 "VITE_API_BASE"
+
+# Should show your server URL
+
+# 6. If any of the above show localhost, the .env isn't being read
+# Common causes:
+# - .env file in wrong directory
+# - Syntax errors in .env
+# - Need to use docker-compose down && docker-compose up (not restart)
+```
+
+**If config.js still has localhost after all this:**
+
+1. Stop all containers: `docker-compose down -v`
+2. Remove the frontend image: `docker rmi ocra-app`
+3. Verify .env is correct: `cat .env`
+4. Rebuild from scratch: `docker-compose up -d --build`
+5. Check config.js immediately: `docker exec ocra-frontend cat /usr/share/nginx/html/config.js`
+
+### Browser Caching Issues
+
+**Symptom**: Server config is correct, but browser still connects to localhost
+
+Even with correct server configuration, browsers (including incognito mode) can aggressively cache JavaScript bundles.
+
+**How to verify this is the issue:**
+```bash
+# On server - check config.js is correct
+docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+# Should show your server URLs
+
+# But browser console shows localhost in error messages
+```
+
+**Solutions (try in order):**
+
+1. **Pull latest code** (includes cache-busting fixes):
+   ```bash
+   git pull
+   docker-compose down
+   docker-compose up -d --build
+   ```
+
+2. **Hard reload in browser**:
+   - **Chrome/Firefox**: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
+   - **Or**: Open DevTools (F12) → Right-click refresh → "Empty Cache and Hard Reload"
+
+3. **Clear all browser data for the site**:
+   - Open DevTools (F12)
+   - Go to **Application** tab (Chrome) or **Storage** tab (Firefox)
+   - Click **"Clear site data"**
+   - Reload the page
+
+4. **Access with a different device/browser**:
+   - Use your phone's browser to test
+   - Or use a completely different computer
+   - This confirms it's a caching issue if it works elsewhere
+
+5. **Add a query parameter** to force reload:
+   ```
+   http://visualmediaservice.isti.cnr.it:3001?nocache=1
+   ```
+
+6. **Wait or manually purge CDN** (if you're behind a CDN/proxy):
+   - Some corporate networks or cloud providers cache assets
+   - May need to wait 5-15 minutes for cache TTL to expire
+
+**To verify the fix worked:**
+```javascript
+// In browser console after reload
+window.__APP_CONFIG__
+// Should show visualmediaservice.isti.cnr.it, not localhost
+```
+
+
+
