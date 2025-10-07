@@ -35,6 +35,7 @@ export default function ProjectPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'models' | 'annotations'>('models');
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
 
@@ -214,75 +215,119 @@ export default function ProjectPage() {
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar with Tabs */}
         <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
-          <div className="p-3 h-100 d-flex flex-column">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3 className="h6 mb-0">3D Model</h3>
-              {isManager && (
+          <div className="h-100 d-flex flex-column">
+            {/* Tab Navigation */}
+            <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
+              <li className="nav-item" role="presentation">
                 <button
-                  className="btn btn-primary btn-sm"
-                  onClick={triggerFileSelect}
-                  disabled={uploading}
+                  className={`nav-link ${activeTab === 'models' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('models')}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'models'}
                 >
-                  {uploading ? 'Uploading...' : '➕ Add Model'}
+                  Models
                 </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('annotations')}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'annotations'}
+                >
+                  Annotations
+                </button>
+              </li>
+            </ul>
+
+            {/* Tab Content */}
+            <div className="tab-content flex-grow-1 overflow-hidden d-flex flex-column">
+              {/* Models Tab */}
+              {activeTab === 'models' && (
+                <div className="p-3 h-100 d-flex flex-column">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h3 className="h6 mb-0">3D Models</h3>
+                    {isManager && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={triggerFileSelect}
+                        disabled={uploading}
+                      >
+                        {uploading ? 'Uploading...' : '➕ Add Model'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Hidden file input */}
+                  <input
+                    id="file-input"
+                    type="file"
+                    style={{ display: 'none' }}
+                    onChange={handleFileSelect}
+                    accept=".ply,.obj,.stl,.gltf,.glb,.dae,.fbx,.3ds,.x3d,.nxs"
+                  />
+
+                  {uploadError && <div className="alert alert-danger small py-2">{uploadError}</div>}
+
+                  <div className="flex-grow-1 overflow-auto">
+                    {files.length === 0 ? (
+                      <p className="text-muted fst-italic">No files uploaded yet.</p>
+                    ) : (
+                      <table className="table table-sm">
+                        <tbody>
+                          {files.map(f => {
+                            // Determine display name: prefer model.title from scene, otherwise filename without extension
+                            const fileBase = f.name.replace(/\.[^/.]+$/, '');
+                            let displayName = fileBase;
+                            // Find corresponding model in sceneDesc by matching file name
+                            const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
+                            if (sceneModel && sceneModel.title) displayName = sceneModel.title;
+
+                            const meshName = fileBase; // legacy key used in visibility map
+                            const isVisible = meshVisibility[meshName] !== false;
+
+                            return (
+                              <tr key={f.name}>
+                                <td style={{ width: '40px' }}>
+                                  <button
+                                    onClick={() => toggleMeshVisibility(meshName)}
+                                    style={{
+                                      border: 'none',
+                                      background: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '18px',
+                                      padding: '0',
+                                      opacity: isVisible ? 1 : 0.3,
+                                      transition: 'opacity 0.2s'
+                                    }}
+                                    title={isVisible ? 'Hide mesh' : 'Show mesh'}
+                                  >
+                                    <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
+                                  </button>
+                                </td>
+                                <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{displayName}</a></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
 
-            {/* Hidden file input */}
-            <input
-              id="file-input"
-              type="file"
-              style={{ display: 'none' }}
-              onChange={handleFileSelect}
-              accept=".ply,.obj,.stl,.gltf,.glb,.dae,.fbx,.3ds,.x3d,.nxs"
-            />
-
-            {uploadError && <div className="alert alert-danger small py-2">{uploadError}</div>}
-
-            <div className="flex-grow-1 overflow-auto">
-              {files.length === 0 ? (
-                <p className="text-muted fst-italic">No files uploaded yet.</p>
-              ) : (
-                <table className="table table-sm">
-                  <tbody>
-                    {files.map(f => {
-                      // Determine display name: prefer model.title from scene, otherwise filename without extension
-                      const fileBase = f.name.replace(/\.[^/.]+$/, '');
-                      let displayName = fileBase;
-                      // Find corresponding model in sceneDesc by matching file name
-                      const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
-                      if (sceneModel && sceneModel.title) displayName = sceneModel.title;
-
-                      const meshName = fileBase; // legacy key used in visibility map
-                      const isVisible = meshVisibility[meshName] !== false;
-
-                      return (
-                        <tr key={f.name}>
-                          <td style={{ width: '40px' }}>
-                            <button
-                              onClick={() => toggleMeshVisibility(meshName)}
-                              style={{
-                                border: 'none',
-                                background: 'none',
-                                cursor: 'pointer',
-                                fontSize: '18px',
-                                padding: '0',
-                                opacity: isVisible ? 1 : 0.3,
-                                transition: 'opacity 0.2s'
-                              }}
-                              title={isVisible ? 'Hide mesh' : 'Show mesh'}
-                            >
-                              <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
-                            </button>
-                          </td>
-                          <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{displayName}</a></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              {/* Annotations Tab */}
+              {activeTab === 'annotations' && (
+                <div className="p-3 h-100 d-flex flex-column">
+                  <h3 className="h6 mb-3">Annotations</h3>
+                  <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                    <p className="text-muted fst-italic">Annotations feature coming soon...</p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
