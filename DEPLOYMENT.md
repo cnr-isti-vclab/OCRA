@@ -62,15 +62,26 @@ SYS_ADMIN_EMAIL=admin@ocra.it
 
 ### Step 3: Restart the Services
 
+**Important**: After creating/modifying the `.env` file, you must recreate the containers (not just restart) to load the new environment variables.
+
 ```bash
 # Stop existing containers
 docker-compose down
 
-# Rebuild and start with new configuration
-docker-compose up --build -d
+# Start with new environment variables
+# The --force-recreate flag ensures containers are recreated with new env vars
+docker-compose up -d --force-recreate
 
 # Check logs
 docker-compose logs -f app
+```
+
+**Verify the configuration was applied:**
+```bash
+# Check frontend config.js
+docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+
+# Should show your server URLs, not localhost
 ```
 
 **Note**: If this is a fresh Keycloak setup, the realm import already has the correct PKCE settings. If you're using an existing Keycloak instance, make sure to check Step 2 carefully and configure the PKCE method.
@@ -346,12 +357,51 @@ Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'd
 #### Error: "Failed to fetch" after successful Keycloak login
 **Symptom**: Login popup works, you enter credentials, but then returns to login page with "Error: Failed to fetch"
 
-**Cause**: CORS error - the backend is not allowing requests from your frontend domain.
+**Check browser console - you'll see one of these:**
 
-**Check browser console for:**
+**A) Trying to connect to localhost:**
+```
+POST http://localhost:3002/api/sessions net::ERR_FAILED
+```
+
+**Cause**: Frontend config.js still has localhost URLs instead of your server URLs.
+
+**Fix**:
+1. Verify your `.env` file is in the **same directory as docker-compose.yml**
+2. Verify `.env` has the correct `VITE_API_BASE`:
+   ```bash
+   cat .env | grep VITE_API_BASE
+   # Should show: VITE_API_BASE=http://visualmediaservice.isti.cnr.it:3002
+   ```
+3. **Pull latest code** (includes cache-busting fix):
+   ```bash
+   git pull
+   ```
+4. **Must recreate containers** (restart is not enough):
+   ```bash
+   docker-compose down
+   docker-compose up -d --build
+   ```
+5. Verify config.js was updated:
+   ```bash
+   docker exec ocra-frontend cat /usr/share/nginx/html/config.js
+   # Should show your server URLs, not localhost
+   ```
+6. **Clear browser cache completely**:
+   - Open DevTools (F12) → Application tab → Clear storage → Clear site data
+   - Or try in **Incognito/Private mode**
+7. **Check config in browser console**:
+   ```javascript
+   window.__APP_CONFIG__
+   // Should show your server URLs
+   ```
+
+**B) CORS error:**
 ```
 Access to fetch at 'http://your-server:3002/api/sessions' from origin 'http://your-server:3001' has been blocked by CORS policy
 ```
+
+**Cause**: Backend is not allowing requests from your frontend domain.
 
 **Fix**:
 1. Add `CORS_ORIGINS` to your `.env` file:
@@ -359,9 +409,10 @@ Access to fetch at 'http://your-server:3002/api/sessions' from origin 'http://yo
    CORS_ORIGINS=http://visualmediaservice.isti.cnr.it:3001
    ```
 
-2. Restart the backend:
+2. Recreate containers:
    ```bash
-   docker-compose restart backend
+   docker-compose down
+   docker-compose up -d
    ```
 
 3. Verify the backend logs show the correct CORS origin:

@@ -10,7 +10,12 @@
       #root { display: grid; place-items: center; min-height: 100vh; }
     </style>
     <!-- Runtime config injected by Docker entrypoint (fallback created for local dev) -->
-    <script src="/config.js"></script>
+    <!-- Add timestamp to prevent browser caching -->
+    <script>
+      var configScript = document.createElement('script');
+      configScript.src = '/config.js?t=' + new Date().getTime();
+      document.head.appendChild(configScript);
+    </script>
   </head>
   <body>
     <div id="root"></div>
