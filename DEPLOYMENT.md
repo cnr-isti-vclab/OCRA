@@ -49,7 +49,13 @@ SYS_ADMIN_EMAIL=admin@ocra.it
    - **Valid redirect URIs**: `http://ocra.mydomain.org:3001/*`
    - **Valid post logout redirect URIs**: `http://ocra.mydomain.org:3001/*`
    - **Web origins**: `http://ocra.mydomain.org:3001`
-6. Click **Save**
+6. Scroll down to **Advanced Settings** section
+7. Find **Proof Key for Code Exchange Code Challenge Method**
+8. Change it to **plain** (or leave blank/empty to accept any method)
+   - **Why?** HTTP deployments can't use S256 (SHA-256) because `crypto.subtle` requires HTTPS
+   - "plain" is less secure but works on HTTP
+   - Once you enable HTTPS, you can change this back to S256
+9. Click **Save**
 
 ### Step 3: Restart the Services
 
@@ -63,6 +69,8 @@ docker-compose up --build -d
 # Check logs
 docker-compose logs -f app
 ```
+
+**Note**: If this is a fresh Keycloak setup, the realm import already has the correct PKCE settings. If you're using an existing Keycloak instance, make sure to check Step 2 carefully and configure the PKCE method.
 
 ### Step 4: Verify Configuration
 
@@ -306,6 +314,31 @@ Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'd
 **Solution for production**: Use HTTPS with proper SSL/TLS certificates. Once you switch to HTTPS, the application will automatically use the more secure S256 PKCE method.
 
 **Note**: This is not a blocker for HTTP deployments, but HTTPS is strongly recommended for production.
+
+#### Error: "code challenge method is not matching the configured one"
+**Error in URL after login redirect:**
+```
+?error=invalid_request&error_description=Invalid+parameter%3A+code+challenge+method+is+not+matching+the+configured+one
+```
+
+**Cause**: Keycloak is configured to require S256 (SHA-256) PKCE method, but the application is using "plain" because it's running on HTTP (not HTTPS).
+
+**Fix**:
+1. Go to Keycloak admin: `http://visualmediaservice.isti.cnr.it:8081`
+2. Login with admin credentials
+3. Select **demo** realm
+4. Go to **Clients** → **react-oauth**
+5. Click on **Advanced** tab (or scroll to **Advanced Settings**)
+6. Find **Proof Key for Code Exchange Code Challenge Method**
+7. Change from **S256** to **plain** (or leave **blank** to accept both)
+8. Click **Save**
+9. Try logging in again
+
+**Why this happens:**
+- HTTP sites cannot use `crypto.subtle` API (browser security restriction)
+- The app automatically falls back to "plain" PKCE on HTTP
+- Keycloak must be configured to accept this method
+- Once you enable HTTPS, change it back to S256 for better security
 
 - **Check**: Inspect config.js as shown in Step 4.1
 

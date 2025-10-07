@@ -23,11 +23,9 @@ export async function sha256(plain: string): Promise<string> {
   // Check if crypto.subtle is available (requires HTTPS or localhost)
   if (!crypto.subtle) {
     console.warn('crypto.subtle not available - using plain code verifier (PKCE will use "plain" method instead of S256)');
-    // Return the plain string base64url encoded as fallback
-    return btoa(plain)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    // For "plain" method, return the verifier as-is (no transformation)
+    // According to RFC 7636, when using "plain": code_challenge = code_verifier
+    return plain;
   }
 
   const encoder = new TextEncoder();

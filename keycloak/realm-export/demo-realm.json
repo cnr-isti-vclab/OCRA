@@ -133,7 +133,7 @@
         "http://localhost:5174"
       ],
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": ""
       }
     }
   ]
