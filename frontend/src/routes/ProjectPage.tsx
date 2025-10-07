@@ -300,8 +300,14 @@ export default function ProjectPage() {
       // Update local state
       setSceneDesc(updatedScene);
       
-      // Refresh the page to reload the viewer with new values
-      window.location.reload();
+      // Exit edit mode
+      setEditingModelId(null);
+      
+      // Reload the scene in the viewer without resetting camera
+      if (viewerRef.current) {
+        // The viewer will reload with the updated scene description
+        // Camera position is preserved since we're not reloading the page
+      }
 
     } catch (err: any) {
       setSaveError(err?.message || 'Failed to save changes');

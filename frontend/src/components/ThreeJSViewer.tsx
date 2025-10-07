@@ -18,6 +18,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
   ({ width = '100%', height = '100%', sceneDesc }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
+    const isFirstLoadRef = useRef<boolean>(true);
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
@@ -57,10 +58,18 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     useEffect(() => {
       if (!sceneDesc || !presenterRef.current) return;
       
-      console.log('🔄 Loading scene from sceneDesc');
-      presenterRef.current.loadScene(sceneDesc).catch(err => {
+      const preserveCamera = !isFirstLoadRef.current;
+      if (preserveCamera) {
+        console.log('🔄 Reloading scene (preserving camera)');
+      } else {
+        console.log('🔄 Loading scene (initial load)');
+      }
+      
+      presenterRef.current.loadScene(sceneDesc, preserveCamera).catch(err => {
         console.error('Failed to load scene:', err);
       });
+      
+      isFirstLoadRef.current = false;
     }, [sceneDesc]);
 
     return <div ref={mountRef} style={{ width, height, position: 'relative' }} />;

@@ -60,6 +60,7 @@ export class ThreePresenter {
   raycaster: THREE.Raycaster = new THREE.Raycaster();
   mouse: THREE.Vector2 = new THREE.Vector2();
   modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
+  sceneBBoxSize: THREE.Vector3 = new THREE.Vector3(2, 2, 2); // Store actual scene size for ground
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -324,9 +325,19 @@ export class ThreePresenter {
   /**
    * Load a new scene description
    * @param sceneDesc Scene description
+   * @param preserveCamera If true, keeps current camera position instead of reframing
    */
-  async loadScene(sceneDesc: SceneDescription): Promise<void> {
+  async loadScene(sceneDesc: SceneDescription, preserveCamera: boolean = false): Promise<void> {
     try {
+      // Save current camera state if preserving
+      let savedCameraPos: THREE.Vector3 | null = null;
+      let savedCameraTarget: THREE.Vector3 | null = null;
+      if (preserveCamera && this.controls) {
+        savedCameraPos = this.camera.position.clone();
+        savedCameraTarget = this.controls.target.clone();
+        console.log('📷 Preserving camera position during scene reload');
+      }
+      
       this.currentScene = sceneDesc;
 
       // Clear existing scene
@@ -345,7 +356,30 @@ export class ThreePresenter {
       // Load all models
       if (sceneDesc.models && sceneDesc.models.length > 0) {
         await this.loadAllModels(sceneDesc.models);
-        this.frameScene();
+        
+        if (!preserveCamera) {
+          this.frameScene();
+        } else {
+          // Update scene bbox size for ground without reframing camera
+          const sceneBBox = new THREE.Box3();
+          Object.values(this.models).forEach(m => sceneBBox.expandByObject(m));
+          const size = sceneBBox.getSize(new THREE.Vector3());
+          this.sceneBBoxSize.copy(size);
+        }
+        
+        // Recreate ground with correct size after framing scene
+        if (sceneDesc.environment?.showGround) {
+          this.removeGround();
+          this.addGround();
+        }
+      }
+      
+      // Restore camera position if preserved
+      if (preserveCamera && savedCameraPos && savedCameraTarget && this.controls) {
+        this.camera.position.copy(savedCameraPos);
+        this.controls.target.copy(savedCameraTarget);
+        this.controls.update();
+        console.log('📷 Camera position restored after scene reload');
       }
 
       console.log('✅ Scene loaded successfully');
@@ -441,8 +475,9 @@ export class ThreePresenter {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.screenSpacePanning = false;
-    this.controls.minDistance = 0.5;
-    this.controls.maxDistance = 10;
+    // Initial limits - will be updated after scene is loaded
+    this.controls.minDistance = 0.1;
+    this.controls.maxDistance = 1000;
     this.controls.target.set(0, 0, 0);
     this.controls.update();
 
@@ -610,44 +645,96 @@ export class ThreePresenter {
   }
 
   /**
-   * Frame the scene - scale and center all loaded models
+   * Frame the scene - position models and camera without scaling
+   * Models without predefined positions are translated so:
+   * - Bottom of bbox is at y=0
+   * - Center of X and Z axes are at origin
+   * Camera is positioned at appropriate distance based on scene size
    */
   private frameScene(): void {
     const allModels = Object.values(this.models);
     if (allModels.length === 0) return;
     
+    // Calculate scene bounding box to determine camera position and ground size
     const sceneBBox = new THREE.Box3();
     allModels.forEach(m => sceneBBox.expandByObject(m));
     const size = sceneBBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
     
-    console.log('Scene bounding box size:', size, 'maxDim:', maxDim);
+    console.log('Scene bounding box size (original):', size, 'maxDim:', maxDim);
+    
+    // Store scene size for ground sizing
+    this.sceneBBoxSize.copy(size);
     
     if (maxDim > 0) {
       const center = sceneBBox.getCenter(new THREE.Vector3());
-      const scale = 1.0 / maxDim;
       
-      // Apply scaling
-      allModels.forEach(m => m.scale.multiplyScalar(scale));
+      // Calculate translation needed to center scene
+      const offsetX = -center.x;
+      const offsetZ = -center.z;
+      const offsetY = -sceneBBox.min.y;
       
-      // Translate to center in X and Z, place bottom at y=0
-      const offsetX = -center.x * scale;
-      const offsetZ = -center.z * scale;
-      const offsetY = -sceneBBox.min.y * scale;
+      // Apply automatic positioning only to models without predefined positions
+      allModels.forEach((model, idx) => {
+        if (this.currentScene?.models) {
+          const modelDef = this.currentScene.models[idx];
+          if (modelDef) {
+            // Only apply automatic positioning if position is not already defined
+            if (!modelDef.position || modelDef.position.length !== 3) {
+              const translation = new THREE.Vector3(offsetX, offsetY, offsetZ);
+              model.position.add(translation);
+              
+              // Store the computed position in the model definition (rounded to 3 decimals)
+              const pos = model.position;
+              modelDef.position = [
+                parseFloat(pos.x.toFixed(3)),
+                parseFloat(pos.y.toFixed(3)),
+                parseFloat(pos.z.toFixed(3))
+              ];
+              console.log(`📍 Model ${modelDef.id} auto-positioned to:`, modelDef.position);
+            } else {
+              console.log(`📍 Model ${modelDef.id} using predefined position:`, modelDef.position);
+            }
+          }
+        }
+      });
       
-      allModels.forEach(m => m.position.add(new THREE.Vector3(offsetX, offsetY, offsetZ)));
+      // Position camera at appropriate distance based on scene size
+      // Use a distance that fits the entire scene in view
+      const fov = this.perspectiveCamera.fov * (Math.PI / 180); // Convert to radians
+      const cameraDistance = (maxDim / 2) / Math.tan(fov / 2);
+      const targetY = size.y * 0.5;
       
-      // Position camera
-      const targetY = size.y * 0.5 * scale;
-      this.camera.position.set(0, targetY, 2);
+      // Add some padding (1.2x distance)
+      const finalDistance = cameraDistance * 1.2;
+      
+      this.camera.position.set(0, targetY, finalDistance);
       if (this.controls) {
         this.controls.target.set(0, targetY, 0);
+        // Set reasonable zoom limits based on scene size
+        this.controls.minDistance = maxDim * 0.1;
+        this.controls.maxDistance = maxDim * 10;
         this.controls.update();
+      }
+      
+      // Update orthographic camera frustum if it exists
+      if (this.orthographicCamera) {
+        const aspect = this.mount.clientWidth / this.mount.clientHeight;
+        const frustumHeight = maxDim;
+        const frustumWidth = frustumHeight * aspect;
+        this.orthographicCamera.left = -frustumWidth / 2;
+        this.orthographicCamera.right = frustumWidth / 2;
+        this.orthographicCamera.top = frustumHeight / 2;
+        this.orthographicCamera.bottom = -frustumHeight / 2;
+        this.orthographicCamera.position.set(0, targetY, finalDistance);
+        this.orthographicCamera.updateProjectionMatrix();
       }
       
       // Store initial position
       this.initialCameraPosition.copy(this.camera.position);
       this.initialControlsTarget.set(0, targetY, 0);
+      
+      console.log(`📷 Camera positioned at distance ${finalDistance.toFixed(2)}, target height ${targetY.toFixed(2)}`);
     }
   }
 
@@ -985,16 +1072,18 @@ export class ThreePresenter {
   }
 
   private addGround() {
-    // Create a grid helper at y = 0
+    // Create a grid helper at y = 0, sized based on actual scene dimensions
     // GridHelper(size, divisions, colorCenterLine, colorGrid)
-    const size = 2; // 2 units wide (since we normalize to 1 unit)
-    const divisions = 20; // 20x20 grid
+    const maxDim = Math.max(this.sceneBBoxSize.x, this.sceneBBoxSize.z);
+    const size = maxDim * 2; // Make ground 2x the scene size for context
+    const divisions = Math.max(10, Math.min(50, Math.floor(size / 0.1))); // Adaptive divisions
     const colorCenterLine = 0xdddddd;
     const colorGrid = 0x888888;
     
     this.ground = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid);
     // GridHelper is created in XZ plane by default, which is what we want (y=0)
     this.scene.add(this.ground);
+    console.log(`🌍 Ground grid created: size=${size.toFixed(2)}, divisions=${divisions}`);
   }
 
   private removeGround() {
