@@ -56,5 +56,5 @@ export function getApiBase(): string {
   return 'http://localhost:3002';
 }
 
-// Backend API base URL (deprecated - use getApiBase() instead)
-export const API_BASE = 'http://localhost:3002/api';
+// Backend API base URL with /api suffix - uses dynamic getApiBase()
+export const API_BASE = `${getApiBase()}/api`;
