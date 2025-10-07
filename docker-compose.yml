@@ -63,6 +63,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo}
       PORT: 3002
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}  # User with this email gets admin privileges on first login
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://localhost:5173,http://localhost:5174}
     ports:
       - "3002:3002"
       - "5555:5555"  # Prisma Studio

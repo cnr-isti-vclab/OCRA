@@ -23,6 +23,9 @@ REDIRECT_URI=http://ocra.mydomain.org:3001
 SCOPE=openid profile email
 VITE_API_BASE=http://ocra.mydomain.org:3002
 
+# CORS Configuration - Frontend URL that can access the backend
+CORS_ORIGINS=http://ocra.mydomain.org:3001
+
 # Database Configuration
 DATABASE_URL=postgresql://postgres:postgres@postgres:5432/oauth_demo
 POSTGRES_DB=oauth_demo
@@ -339,6 +342,39 @@ Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'd
 - The app automatically falls back to "plain" PKCE on HTTP
 - Keycloak must be configured to accept this method
 - Once you enable HTTPS, change it back to S256 for better security
+
+#### Error: "Failed to fetch" after successful Keycloak login
+**Symptom**: Login popup works, you enter credentials, but then returns to login page with "Error: Failed to fetch"
+
+**Cause**: CORS error - the backend is not allowing requests from your frontend domain.
+
+**Check browser console for:**
+```
+Access to fetch at 'http://your-server:3002/api/sessions' from origin 'http://your-server:3001' has been blocked by CORS policy
+```
+
+**Fix**:
+1. Add `CORS_ORIGINS` to your `.env` file:
+   ```env
+   CORS_ORIGINS=http://visualmediaservice.isti.cnr.it:3001
+   ```
+
+2. Restart the backend:
+   ```bash
+   docker-compose restart backend
+   ```
+
+3. Verify the backend logs show the correct CORS origin:
+   ```bash
+   docker logs ocra-backend
+   ```
+
+4. Try logging in again
+
+**For multiple origins** (e.g., development + production):
+```env
+CORS_ORIGINS=http://visualmediaservice.isti.cnr.it:3001,http://localhost:3001
+```
 
 - **Check**: Inspect config.js as shown in Step 4.1
 

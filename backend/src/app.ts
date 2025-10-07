@@ -37,8 +37,13 @@ export function createApp(): Express {
   const app = express();
 
   // CORS configuration - allow credentials for cookie-based auth
+  // Get allowed origins from environment or use defaults
+  const allowedOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',')
+    : ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'];
+  
   app.use(cors({
-    origin: ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
