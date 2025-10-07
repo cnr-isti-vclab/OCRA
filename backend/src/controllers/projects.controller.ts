@@ -133,10 +133,15 @@ export async function listProjectFiles(req: Request, res: Response) {
     }
     const files = fs.readdirSync(dir)
       .filter(filename => filename !== 'scene.json') // Exclude scene.json from file list
-      .map(filename => ({
-        name: filename,
-        url: `/api/projects/${projectId}/files/${encodeURIComponent(filename)}`
-      }));
+      .map(filename => {
+        const filePath = path.join(dir, filename);
+        const stats = fs.statSync(filePath);
+        return {
+          name: filename,
+          url: `/api/projects/${projectId}/files/${encodeURIComponent(filename)}`,
+          size: stats.size
+        };
+      });
     res.json({ files });
   } catch (error) {
     res.status(500).json({ error: 'Failed to list files', message: error instanceof Error ? error.message : 'Unknown error' });

@@ -28,7 +28,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
-  const [files, setFiles] = useState<Array<{ name: string; url: string }>>([]);
+  const [files, setFiles] = useState<Array<{ name: string; url: string; size?: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -36,6 +36,12 @@ export default function ProjectPage() {
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'models' | 'annotations'>('models');
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
+  const [editedPosition, setEditedPosition] = useState<string>('');
+  const [editedRotation, setEditedRotation] = useState<string>('');
+  const [editedScale, setEditedScale] = useState<string>('');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
 
@@ -104,6 +110,137 @@ export default function ProjectPage() {
     const newVisibility = !meshVisibility[meshName];
     setMeshVisibility(prev => ({ ...prev, [meshName]: newVisibility }));
     viewerRef.current?.setMeshVisibility(meshName, newVisibility);
+  };
+
+  // Toggle model info display
+  const toggleModelInfo = (modelId: string) => {
+    setSelectedModelId(prev => prev === modelId ? null : modelId);
+  };
+
+  // Format file size for display
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  // Start editing a model
+  const startEditingModel = (modelId: string, sceneModel: any) => {
+    setEditingModelId(modelId);
+    setSaveError(null);
+    // Initialize edit fields with current values or defaults
+    if (sceneModel?.position) {
+      setEditedPosition(sceneModel.position.join(', '));
+    } else {
+      setEditedPosition('0, 0, 0');
+    }
+    if (sceneModel?.rotation) {
+      setEditedRotation(sceneModel.rotation.join(', '));
+    } else {
+      setEditedRotation('0, 0, 0');
+    }
+    if (sceneModel?.scale !== undefined) {
+      if (Array.isArray(sceneModel.scale)) {
+        setEditedScale(sceneModel.scale.join(', '));
+      } else {
+        setEditedScale(String(sceneModel.scale));
+      }
+    } else {
+      setEditedScale('1');
+    }
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingModelId(null);
+    setSaveError(null);
+    setEditedPosition('');
+    setEditedRotation('');
+    setEditedScale('');
+  };
+
+  // Save edited model properties
+  const saveModelProperties = async (modelId: string, fileName: string) => {
+    setSaveError(null);
+    try {
+      // Parse the input values
+      const parseArray = (str: string): [number, number, number] | null => {
+        const trimmed = str.trim();
+        if (!trimmed) return null;
+        const parts = trimmed.split(',').map(p => parseFloat(p.trim()));
+        if (parts.some(isNaN)) throw new Error('Invalid number format');
+        if (parts.length !== 3) throw new Error('Position and rotation must have exactly 3 values');
+        return parts as [number, number, number];
+      };
+
+      const position = parseArray(editedPosition);
+      const rotation = parseArray(editedRotation);
+      let scale: number | [number, number, number] | undefined = undefined;
+      
+      const scaleStr = editedScale.trim();
+      if (scaleStr) {
+        if (scaleStr.includes(',')) {
+          const scaleArray = parseArray(scaleStr);
+          if (scaleArray) scale = scaleArray;
+        } else {
+          const scaleNum = parseFloat(scaleStr);
+          if (isNaN(scaleNum)) throw new Error('Invalid scale value');
+          scale = scaleNum;
+        }
+      }
+
+      // Update the scene description
+      const updatedScene = { ...sceneDesc } as SceneDescription;
+      if (!updatedScene.models) updatedScene.models = [];
+      
+      // Find or create the model entry
+      let modelIndex = updatedScene.models.findIndex((m: any) => m.id === modelId || m.file === fileName);
+      if (modelIndex === -1) {
+        // Create new model entry
+        updatedScene.models.push({
+          id: modelId,
+          file: fileName,
+          ...(position && { position }),
+          ...(rotation && { rotation }),
+          ...(scale !== undefined && { scale })
+        });
+      } else {
+        // Update existing model
+        const model = updatedScene.models[modelIndex] as any;
+        if (position) model.position = position;
+        else delete model.position;
+        
+        if (rotation) model.rotation = rotation;
+        else delete model.rotation;
+        
+        if (scale !== undefined) model.scale = scale;
+        else delete model.scale;
+      }
+
+      // Save to backend
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedScene)
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save changes');
+      }
+
+      // Update local state
+      setSceneDesc(updatedScene);
+      
+      // Refresh the page to reload the viewer with new values
+      window.location.reload();
+
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to save changes');
+    }
   };
 
   // Fetch project info, user info, and file list
@@ -277,44 +414,168 @@ export default function ProjectPage() {
                     {files.length === 0 ? (
                       <p className="text-muted fst-italic">No files uploaded yet.</p>
                     ) : (
-                      <table className="table table-sm">
-                        <tbody>
-                          {files.map(f => {
-                            // Determine display name: prefer model.title from scene, otherwise filename without extension
-                            const fileBase = f.name.replace(/\.[^/.]+$/, '');
-                            let displayName = fileBase;
-                            // Find corresponding model in sceneDesc by matching file name
-                            const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
-                            if (sceneModel && sceneModel.title) displayName = sceneModel.title;
+                      <div className="list-group list-group-flush">
+                        {files.map(f => {
+                          // Determine display name: prefer model.title from scene, otherwise filename without extension
+                          const fileBase = f.name.replace(/\.[^/.]+$/, '');
+                          let displayName = fileBase;
+                          // Find corresponding model in sceneDesc by matching file name
+                          const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
+                          if (sceneModel && sceneModel.title) displayName = sceneModel.title;
 
-                            const meshName = fileBase; // legacy key used in visibility map
-                            const isVisible = meshVisibility[meshName] !== false;
+                          const meshName = fileBase; // legacy key used in visibility map
+                          const modelId = sceneModel?.id || fileBase;
+                          const isVisible = meshVisibility[meshName] !== false;
+                          const isSelected = selectedModelId === modelId;
 
-                            return (
-                              <tr key={f.name}>
-                                <td style={{ width: '40px' }}>
-                                  <button
-                                    onClick={() => toggleMeshVisibility(meshName)}
-                                    style={{
-                                      border: 'none',
-                                      background: 'none',
-                                      cursor: 'pointer',
-                                      fontSize: '18px',
-                                      padding: '0',
-                                      opacity: isVisible ? 1 : 0.3,
-                                      transition: 'opacity 0.2s'
-                                    }}
-                                    title={isVisible ? 'Hide mesh' : 'Show mesh'}
-                                  >
-                                    <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
-                                  </button>
-                                </td>
-                                <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="text-break">{displayName}</a></td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                          return (
+                            <div key={f.name} className="list-group-item p-0">
+                              <div className="d-flex align-items-center p-2">
+                                <button
+                                  onClick={() => toggleMeshVisibility(meshName)}
+                                  style={{
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '18px',
+                                    padding: '0 8px 0 0',
+                                    opacity: isVisible ? 1 : 0.3,
+                                    transition: 'opacity 0.2s'
+                                  }}
+                                  title={isVisible ? 'Hide mesh' : 'Show mesh'}
+                                >
+                                  <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
+                                </button>
+                                <button
+                                  onClick={() => toggleModelInfo(modelId)}
+                                  style={{
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    flex: 1,
+                                    padding: 0,
+                                    color: 'inherit',
+                                    textDecoration: 'none'
+                                  }}
+                                  className="text-break"
+                                >
+                                  {displayName}
+                                </button>
+                                <a
+                                  href={f.url}
+                                  download
+                                  className="btn btn-sm btn-link p-0 ms-2"
+                                  title="Download file"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <i className="bi bi-download"></i>
+                                </a>
+                              </div>
+
+                              {/* Model Details (expandable) */}
+                              {isSelected && (
+                                <div className="px-2 pb-2 pt-1" style={{ fontSize: '0.85em', color: '#666' }}>
+                                  <div className="border-top pt-2">
+                                    <div><strong>Filename:</strong> {f.name}</div>
+                                    <div><strong>Size:</strong> {f.size ? formatFileSize(f.size) : 'Unknown'}</div>
+                                    
+                                    {editingModelId === modelId ? (
+                                      // Edit mode
+                                      <>
+                                        <div className="mt-2">
+                                          <strong>Position:</strong>
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm mt-1"
+                                            placeholder="x, y, z"
+                                            value={editedPosition}
+                                            onChange={(e) => setEditedPosition(e.target.value)}
+                                          />
+                                        </div>
+                                        <div className="mt-2">
+                                          <strong>Rotation:</strong>
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm mt-1"
+                                            placeholder="x, y, z"
+                                            value={editedRotation}
+                                            onChange={(e) => setEditedRotation(e.target.value)}
+                                          />
+                                        </div>
+                                        <div className="mt-2">
+                                          <strong>Scale:</strong>
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm mt-1"
+                                            placeholder="1 or x, y, z"
+                                            value={editedScale}
+                                            onChange={(e) => setEditedScale(e.target.value)}
+                                          />
+                                        </div>
+                                        {saveError && (
+                                          <div className="alert alert-danger alert-sm mt-2 py-1 px-2" style={{ fontSize: '0.85em' }}>
+                                            {saveError}
+                                          </div>
+                                        )}
+                                        <div className="mt-2 d-flex gap-2">
+                                          <button
+                                            className="btn btn-success btn-sm"
+                                            onClick={() => saveModelProperties(modelId, f.name)}
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={cancelEditing}
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      // View mode
+                                      <>
+                                        <div style={{ color: sceneModel?.position ? '#666' : '#ccc' }}>
+                                          <strong>Position:</strong> {
+                                            sceneModel?.position 
+                                              ? `[${sceneModel.position.join(', ')}]`
+                                              : '[not set]'
+                                          }
+                                        </div>
+                                        <div style={{ color: sceneModel?.rotation ? '#666' : '#ccc' }}>
+                                          <strong>Rotation:</strong> {
+                                            sceneModel?.rotation
+                                              ? `[${sceneModel.rotation.join(', ')}]°`
+                                              : '[not set]'
+                                          }
+                                        </div>
+                                        <div style={{ color: sceneModel?.scale !== undefined ? '#666' : '#ccc' }}>
+                                          <strong>Scale:</strong> {
+                                            sceneModel?.scale !== undefined
+                                              ? (Array.isArray(sceneModel.scale)
+                                                  ? `[${sceneModel.scale.join(', ')}]`
+                                                  : sceneModel.scale)
+                                              : '[not set]'
+                                          }
+                                        </div>
+                                        {isManager && (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary mt-2"
+                                            onClick={() => startEditingModel(modelId, sceneModel)}
+                                          >
+                                            <i className="bi bi-pencil"></i> Edit
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>

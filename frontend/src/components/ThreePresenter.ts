@@ -9,6 +9,30 @@ import type {
 
 export type { SceneDescription, ModelDefinition, PresenterState };
 
+/**
+ * ThreePresenter - Main 3D Scene Presenter Component
+ * 
+ * Manages the complete 3D viewing experience including model loading, rendering,
+ * camera controls, lighting, and user interactions.
+ * 
+ * @description
+ * This class is responsible for:
+ * - Loading and displaying 3D models from scene.json configuration
+ * - Managing Three.js scene, camera, renderer, and controls
+ * - Providing UI controls (visibility, lighting, camera reset, screenshots)
+ * - Handling model transformations (position, rotation, scale)
+ * - Supporting multiple 3D file formats (GLB, PLY, OBJ, etc.)
+ * - Auto-centering and normalizing model sizes
+ * 
+ * @example
+ * ```typescript
+ * const presenter = new ThreePresenter(mountElement);
+ * await presenter.loadScene(sceneDescription);
+ * presenter.setModelVisibility('model_id', false);
+ * ```
+ * 
+ * @see {@link /doc/SCENE_JSON_FORMAT.md} for scene.json format documentation
+ */
 export class ThreePresenter {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
