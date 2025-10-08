@@ -82,10 +82,11 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
               </div>
               <button
                 onClick={handleLogout}
-                className="btn btn-danger d-flex align-items-center gap-1 fw-bold"
+                className="btn btn-link p-0 text-secondary"
+                title="Logout"
+                style={{ fontSize: '1.2em' }}
               >
-                <span>🚪</span>
-                <span>Logout</span>
+                <i className="bi bi-box-arrow-right"></i>
               </button>
             </>
           )}
