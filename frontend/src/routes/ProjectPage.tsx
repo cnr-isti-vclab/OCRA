@@ -591,107 +591,117 @@ export default function ProjectPage() {
                                       return null;
                                     })()}
                                     
-                                    {editingModelId === modelId ? (
-                                      // Edit mode
-                                      <>
-                                        <div className="mt-2">
-                                          <strong>Position:</strong>
-                                          <input
-                                            type="text"
-                                            className="form-control form-control-sm mt-1"
-                                            placeholder="x, y, z"
-                                            value={editedPosition}
-                                            onChange={(e) => {
-                                              const newValue = e.target.value;
-                                              setEditedPosition(newValue);
-                                              applyLiveTransform(modelId, newValue, editedRotation, editedScale);
-                                            }}
-                                          />
+                                    {/* Transformation Controls - Always Visible */}
+                                    <div className="mt-2" style={{ lineHeight: '1.2' }}>
+                                      <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
+                                        <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Position:</strong>
+                                        <input
+                                          type="text"
+                                          className="form-control form-control-sm"
+                                          placeholder="x, y, z"
+                                          value={editingModelId === modelId ? editedPosition : (sceneModel?.position?.join(', ') || '0, 0, 0')}
+                                          disabled={editingModelId !== modelId}
+                                          onChange={(e) => {
+                                            const newValue = e.target.value;
+                                            setEditedPosition(newValue);
+                                            applyLiveTransform(modelId, newValue, editedRotation, editedScale);
+                                          }}
+                                          style={{
+                                            backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
+                                            cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                            padding: '0.2rem 0.4rem',
+                                            fontSize: '0.85em'
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
+                                        <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Rotation:</strong>
+                                        <input
+                                          type="text"
+                                          className="form-control form-control-sm"
+                                          placeholder="x, y, z"
+                                          value={editingModelId === modelId ? editedRotation : (sceneModel?.rotation?.join(', ') || '0, 0, 0')}
+                                          disabled={editingModelId !== modelId}
+                                          onChange={(e) => {
+                                            const newValue = e.target.value;
+                                            setEditedRotation(newValue);
+                                            applyLiveTransform(modelId, editedPosition, newValue, editedScale);
+                                          }}
+                                          style={{
+                                            backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
+                                            cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                            padding: '0.2rem 0.4rem',
+                                            fontSize: '0.85em'
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="d-flex align-items-center" style={{ marginBottom: '0.4rem' }}>
+                                        <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Scale:</strong>
+                                        <input
+                                          type="text"
+                                          className="form-control form-control-sm"
+                                          placeholder="1 or x, y, z"
+                                          value={editingModelId === modelId 
+                                            ? editedScale 
+                                            : (sceneModel?.scale !== undefined
+                                                ? (Array.isArray(sceneModel.scale)
+                                                    ? sceneModel.scale.join(', ')
+                                                    : String(sceneModel.scale))
+                                                : '1')}
+                                          disabled={editingModelId !== modelId}
+                                          onChange={(e) => {
+                                            const newValue = e.target.value;
+                                            setEditedScale(newValue);
+                                            applyLiveTransform(modelId, editedPosition, editedRotation, newValue);
+                                          }}
+                                          style={{
+                                            backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
+                                            cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                            padding: '0.2rem 0.4rem',
+                                            fontSize: '0.85em'
+                                          }}
+                                        />
+                                      </div>
+                                      
+                                      {saveError && editingModelId === modelId && (
+                                        <div className="alert alert-danger alert-sm py-1 px-2" style={{ fontSize: '0.85em', marginBottom: '0.4rem' }}>
+                                          {saveError}
                                         </div>
-                                        <div className="mt-2">
-                                          <strong>Rotation:</strong>
-                                          <input
-                                            type="text"
-                                            className="form-control form-control-sm mt-1"
-                                            placeholder="x, y, z"
-                                            value={editedRotation}
-                                            onChange={(e) => {
-                                              const newValue = e.target.value;
-                                              setEditedRotation(newValue);
-                                              applyLiveTransform(modelId, editedPosition, newValue, editedScale);
-                                            }}
-                                          />
+                                      )}
+                                      
+                                      {isManager && (
+                                        <div className="d-flex gap-2 align-items-center">
+                                          {editingModelId === modelId ? (
+                                            <>
+                                              <button
+                                                className="btn btn-sm btn-success"
+                                                onClick={() => saveModelProperties(modelId, f.name)}
+                                                title="Save changes"
+                                                style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                              >
+                                                <i className="bi bi-check-lg" style={{ fontSize: '1.2em' }}></i>
+                                              </button>
+                                              <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={cancelEditing}
+                                                title="Cancel editing"
+                                                style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                              >
+                                                <i className="bi bi-x-lg" style={{ fontSize: '1.2em' }}></i>
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <button
+                                              className="btn btn-sm btn-outline-primary"
+                                              onClick={() => startEditingModel(modelId, sceneModel)}
+                                              title="Edit transformation"
+                                            >
+                                              <i className="bi bi-pencil"></i> Edit
+                                            </button>
+                                          )}
                                         </div>
-                                        <div className="mt-2">
-                                          <strong>Scale:</strong>
-                                          <input
-                                            type="text"
-                                            className="form-control form-control-sm mt-1"
-                                            placeholder="1 or x, y, z"
-                                            value={editedScale}
-                                            onChange={(e) => {
-                                              const newValue = e.target.value;
-                                              setEditedScale(newValue);
-                                              applyLiveTransform(modelId, editedPosition, editedRotation, newValue);
-                                            }}
-                                          />
-                                        </div>
-                                        {saveError && (
-                                          <div className="alert alert-danger alert-sm mt-2 py-1 px-2" style={{ fontSize: '0.85em' }}>
-                                            {saveError}
-                                          </div>
-                                        )}
-                                        <div className="mt-2 d-flex gap-2">
-                                          <button
-                                            className="btn btn-success btn-sm"
-                                            onClick={() => saveModelProperties(modelId, f.name)}
-                                          >
-                                            Save
-                                          </button>
-                                          <button
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={cancelEditing}
-                                          >
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      </>
-                                    ) : (
-                                      // View mode
-                                      <>
-                                        <div style={{ color: sceneModel?.position ? '#666' : '#ccc' }}>
-                                          <strong>Position:</strong> {
-                                            sceneModel?.position 
-                                              ? `[${sceneModel.position.join(', ')}]`
-                                              : '[not set]'
-                                          }
-                                        </div>
-                                        <div style={{ color: sceneModel?.rotation ? '#666' : '#ccc' }}>
-                                          <strong>Rotation:</strong> {
-                                            sceneModel?.rotation
-                                              ? `[${sceneModel.rotation.join(', ')}]°`
-                                              : '[not set]'
-                                          }
-                                        </div>
-                                        <div style={{ color: sceneModel?.scale !== undefined ? '#666' : '#ccc' }}>
-                                          <strong>Scale:</strong> {
-                                            sceneModel?.scale !== undefined
-                                              ? (Array.isArray(sceneModel.scale)
-                                                  ? `[${sceneModel.scale.join(', ')}]`
-                                                  : sceneModel.scale)
-                                              : '[not set]'
-                                          }
-                                        </div>
-                                        {isManager && (
-                                          <button
-                                            className="btn btn-sm btn-outline-primary mt-2"
-                                            onClick={() => startEditingModel(modelId, sceneModel)}
-                                          >
-                                            <i className="bi bi-pencil"></i> Edit
-                                          </button>
-                                        )}
-                                      </>
-                                    )}
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               )}
