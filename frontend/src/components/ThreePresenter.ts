@@ -48,6 +48,7 @@ export class ThreePresenter {
   ground: THREE.GridHelper | null = null;
   homeButton: HTMLButtonElement;
   lightButton: HTMLButtonElement;
+  lightPositionButton: HTMLButtonElement;
   viewportGizmo: any = null;
   envButton: HTMLButtonElement;
   screenshotButton: HTMLButtonElement;
@@ -124,6 +125,20 @@ export class ThreePresenter {
     this.lightButton.addEventListener('mouseleave', () => { this.lightButton.style.transform = 'scale(1)'; });
     this.lightButton.addEventListener('click', () => this.toggleLight());
 
+    // Create light position button with composed icon (sun + arrows)
+    this.lightPositionButton = document.createElement('button');
+    this.lightPositionButton.innerHTML = `
+      <div style="position: relative; width: 16px; height: 16px;">
+        <i class="bi bi-brightness-high" style="position: absolute; top: -10px; left: -4px; font-size: 24px;"></i>
+        <i class="bi bi-arrows-move" style="position: absolute; font-size: 32px; top: -16px; left: -8px;"></i>
+      </div>
+    `;
+    this.lightPositionButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
+    this.lightPositionButton.title = 'Position headlight';
+    this.lightPositionButton.addEventListener('mouseenter', () => { this.lightPositionButton.style.transform = 'scale(1.05)'; });
+    this.lightPositionButton.addEventListener('mouseleave', () => { this.lightPositionButton.style.transform = 'scale(1)'; });
+    // TODO: Add light positioning functionality
+
     // Create environment lighting toggle button
     this.envButton = document.createElement('button');
     this.envButton.innerHTML = '<i class="bi bi-globe"></i>';
@@ -154,12 +169,11 @@ export class ThreePresenter {
     // Append buttons to container, then container to mount
     btnContainer.appendChild(this.homeButton);
     btnContainer.appendChild(this.lightButton);
+    btnContainer.appendChild(this.lightPositionButton);
     btnContainer.appendChild(this.envButton);
     btnContainer.appendChild(this.screenshotButton);
     btnContainer.appendChild(this.cameraButton);
     mount.appendChild(btnContainer);
-
-    // The ViewportGizmo (from three-viewport-gizmo) will be attached when controls are created
 
 
     // Lighting - head light setup
@@ -183,6 +197,7 @@ export class ThreePresenter {
   dispose() {
     window.removeEventListener('resize', this.handleResize);
     this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
+    
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
@@ -192,6 +207,9 @@ export class ThreePresenter {
     }
     if (this.lightButton.parentNode) {
       this.lightButton.parentNode.removeChild(this.lightButton);
+    }
+    if (this.lightPositionButton.parentNode) {
+      this.lightPositionButton.parentNode.removeChild(this.lightPositionButton);
     }
     if (this.envButton.parentNode) {
       this.envButton.parentNode.removeChild(this.envButton);
@@ -304,7 +322,8 @@ export class ThreePresenter {
   animate() {
     requestAnimationFrame(this.animate);
     if (this.controls) this.controls.update();
-    // Update head light position to follow camera
+    
+    // Update head light position - light follows camera exactly
     if (this.headLight) {
       this.headLight.position.copy(this.camera.position);
       // Point the light towards the scene center (or controls target)
@@ -314,6 +333,7 @@ export class ThreePresenter {
         this.headLight.lookAt(0, 0, 0);
       }
     }
+    
     this.renderer.render(this.scene, this.camera);
 
     // Render viewport gizmo if present
@@ -937,9 +957,6 @@ export class ThreePresenter {
     this.recreateViewportGizmo();
   }
 
-  /**
-   * Recreate the viewport gizmo with the current camera
-   */
   async recreateViewportGizmo() {
     // Dispose existing gizmo
     if (this.viewportGizmo && this.viewportGizmo.dispose) {
