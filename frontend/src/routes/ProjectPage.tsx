@@ -858,6 +858,96 @@ export default function ProjectPage() {
                           Set the background color of the 3D viewer
                         </small>
                       </div>
+
+                      {/* Headlight Offset Setting */}
+                      <div className="mb-3">
+                        <label className="form-label">
+                          Headlight Direction Offset (degrees)
+                        </label>
+                        <div className="d-flex gap-2 align-items-center">
+                          <div className="flex-fill">
+                            <label htmlFor="headlightHorizontal" className="form-label small mb-1">
+                              Horizontal
+                            </label>
+                            <input
+                              type="number"
+                              id="headlightHorizontal"
+                              className="form-control"
+                              step="1"
+                              value={(sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[0] !== undefined) ? String(sceneDesc.environment.headLightOffset[0]) : '0'}
+                              onChange={async (e) => {
+                                const thetaDeg = parseFloat(e.target.value || '0');
+                                const phiDeg = (sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[1] !== undefined) ? sceneDesc.environment.headLightOffset[1] : 0;
+                                const updatedScene = {
+                                  ...sceneDesc,
+                                  environment: {
+                                    ...sceneDesc?.environment,
+                                    headLightOffset: [thetaDeg, phiDeg]
+                                  }
+                                } as SceneDescription;
+
+                                try {
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedScene)
+                                  });
+                                  if (!response.ok) throw new Error('Failed to save headlight offset');
+                                  setSceneDesc(updatedScene);
+                                  console.log('✅ Headlight horizontal offset saved:', thetaDeg);
+                                } catch (err: any) {
+                                  console.error('❌ Failed to save headlight offset:', err);
+                                  alert('Failed to save headlight offset: ' + err.message);
+                                }
+                              }}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="flex-fill">
+                            <label htmlFor="headlightVertical" className="form-label small mb-1">
+                              Vertical
+                            </label>
+                            <input
+                              type="number"
+                              id="headlightVertical"
+                              className="form-control"
+                              step="1"
+                              value={(sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[1] !== undefined) ? String(sceneDesc.environment.headLightOffset[1]) : '0'}
+                              onChange={async (e) => {
+                                const phiDeg = parseFloat(e.target.value || '0');
+                                const thetaDeg = (sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[0] !== undefined) ? sceneDesc.environment.headLightOffset[0] : 0;
+                                const updatedScene = {
+                                  ...sceneDesc,
+                                  environment: {
+                                    ...sceneDesc?.environment,
+                                    headLightOffset: [thetaDeg, phiDeg]
+                                  }
+                                } as SceneDescription;
+
+                                try {
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedScene)
+                                  });
+                                  if (!response.ok) throw new Error('Failed to save headlight offset');
+                                  setSceneDesc(updatedScene);
+                                  console.log('✅ Headlight vertical offset saved:', phiDeg);
+                                } catch (err: any) {
+                                  console.error('❌ Failed to save headlight offset:', err);
+                                  alert('Failed to save headlight offset: ' + err.message);
+                                }
+                              }}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                        <small className="text-muted d-block mt-1">
+                          Adjust the headlight direction relative to the camera (0, 0 = aligned with camera)
+                        </small>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex-grow-1 d-flex align-items-center justify-content-center">

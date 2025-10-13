@@ -40,6 +40,12 @@ export interface EnvironmentSettings {
   showGround?: boolean;
   /** Background color as hex string (e.g., "#404040") */
   background?: string;
+  /**
+   * Optional head light offset expressed in degrees [horizontal, vertical]
+   * Horizontal: degrees to rotate around Y (positive -> rotate right)
+   * Vertical: degrees to rotate from camera polar angle (positive -> rotate up)
+   */
+  headLightOffset?: [number, number];
 }
 
 /**

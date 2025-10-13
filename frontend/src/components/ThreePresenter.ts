@@ -45,6 +45,10 @@ export class ThreePresenter {
   currentScene: SceneDescription | null = null;
   mount: HTMLDivElement;
   headLight: THREE.DirectionalLight;
+  // HeadLight offset wrt to the current camera direction.
+  // It is expressed as two angles in radians: x=horizontal (theta), y=vertical (phi)
+  // (0,0 means headlight aligned with camera direction)
+  headLightOffset: THREE.Vector2;
   ground: THREE.GridHelper | null = null;
   homeButton: HTMLButtonElement;
   lightButton: HTMLButtonElement;
@@ -180,9 +184,11 @@ export class ThreePresenter {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
     this.scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    directionalLight.position.set(0, 0, 1); // Initial position, will be updated
+    directionalLight.position.set(0, 0, 1); // Initial position, will be updated to be attached to the camera
     this.scene.add(directionalLight);
-    this.headLight = directionalLight;
+  this.headLight = directionalLight;
+  // Initialize offset as zero angles (aligned with camera)
+  this.headLightOffset = new THREE.Vector2(0, 0);
     // Animation loop
     this.animate = this.animate.bind(this);
     this.animate();
@@ -192,6 +198,41 @@ export class ThreePresenter {
     // Double-click handler for recentering
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
     this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
+  }
+
+  /**
+   * Apply the angular headLightOffset to compute headLight position relative to camera.
+   * headLightOffset.x = horizontal angle (theta) in radians (positive -> rotate to the right)
+   * headLightOffset.y = vertical angle (phi) in radians (positive -> rotate up)
+   */
+  private applyHeadLightOffset() {
+    if (!this.headLight) return;
+
+    // Determine target to aim at (controls.target or origin)
+    const target = (this.controls && this.controls.target) ? this.controls.target.clone() : new THREE.Vector3(0, 0, 0);
+
+    // Base camera direction (from target to camera)
+    const camDir = new THREE.Vector3().subVectors(this.camera.position, target).normalize();
+
+    // Convert camDir to spherical coordinates
+    // thetaCam: azimuth around Y axis, phiCam: polar angle from Y axis
+    const thetaCam = Math.atan2(camDir.x, camDir.z); // around Y
+    const phiCam = Math.acos(Math.max(-1, Math.min(1, camDir.y))); // 0..PI
+
+    // Apply offsets
+    const theta = thetaCam + (this.headLightOffset ? this.headLightOffset.x : 0);
+    const phi = Math.max(0.01, Math.min(Math.PI - 0.01, phiCam + (this.headLightOffset ? this.headLightOffset.y : 0)));
+
+    // Distance: keep same distance from target as camera
+    const camDistance = this.camera.position.distanceTo(target);
+
+    // Convert back to Cartesian
+    const r = camDistance; // keep same radius so headlight stays relative to camera distance
+    const x = target.x + r * Math.sin(phi) * Math.sin(theta);
+    const y = target.y + r * Math.cos(phi);
+    const z = target.z + r * Math.sin(phi) * Math.cos(theta);
+
+    this.headLight.position.set(x, y, z);
   }
 
   dispose() {
@@ -323,9 +364,9 @@ export class ThreePresenter {
     requestAnimationFrame(this.animate);
     if (this.controls) this.controls.update();
     
-    // Update head light position - light follows camera exactly
+    // Update head light position - apply headLightOffset relative to camera direction
     if (this.headLight) {
-      this.headLight.position.copy(this.camera.position);
+      this.applyHeadLightOffset();
       // Point the light towards the scene center (or controls target)
       if (this.controls && this.controls.target) {
         this.headLight.lookAt(this.controls.target);
@@ -481,6 +522,16 @@ export class ThreePresenter {
     // Handle background color
     if (env.background) {
       this.scene.background = new THREE.Color(env.background);
+    }
+
+    // Handle head light offset (stored in degrees in scene JSON)
+    if (env.headLightOffset && Array.isArray(env.headLightOffset) && env.headLightOffset.length >= 2) {
+      const degToRad = Math.PI / 180;
+      const thetaRad = (env.headLightOffset[0] || 0) * degToRad;
+      const phiRad = (env.headLightOffset[1] || 0) * degToRad;
+      this.headLightOffset = new THREE.Vector2(thetaRad, phiRad);
+      // Immediately apply so the headlight is positioned correctly
+      this.applyHeadLightOffset();
     }
   }
 
