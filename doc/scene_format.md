@@ -21,6 +21,9 @@ A scene description is a JSON object with the following fields:
 - `rotationUnits` (optional, `'deg' | 'rad'`)
   - Scene-level default for rotation units. A model-level `rotationUnits` (see below) overrides this.
 
+- `annotations` (optional array of `Annotation`)
+  - Array of annotation objects marking points, lines, or areas in the 3D scene.
+
 Example top-level structure:
 
 ```json
@@ -90,6 +93,57 @@ Example `ModelDefinition`:
 
 - `showGround` (optional boolean) — whether to display a ground grid/plane.
 - `background` (optional string) — CSS/hex color string for the scene background, e.g. `"#404040"`.
+- `headLightOffset` (optional array [horizontal, vertical]) — Offset for the directional head light in degrees. Horizontal rotates around Y axis, vertical adjusts the polar angle.
+
+## `Annotation`
+
+Each annotation in the `annotations` array represents a marked location or shape in the 3D scene:
+
+- `id` (string, required)
+  - Unique identifier for the annotation (e.g., `"annotation-1698765432100"`).
+
+- `label` (string, required)
+  - User-visible name/label for the annotation (e.g., `"Point 1"`, `"Crack line"`, `"Damage area"`).
+
+- `type` (string, required)
+  - Type of annotation: `"point"`, `"line"`, or `"area"`.
+
+- `geometry` (required)
+  - Geometric data for the annotation:
+    - **Point**: A single 3D coordinate `[x, y, z]`
+    - **Line**: An array of 3D coordinates `[[x1, y1, z1], [x2, y2, z2], ...]`
+    - **Area**: An array of 3D coordinates forming a closed polygon
+
+- `createdAt` (optional string)
+  - ISO 8601 timestamp when the annotation was created.
+
+- `createdBy` (optional string)
+  - User identifier of who created the annotation.
+
+Example annotations:
+
+```json
+"annotations": [
+  {
+    "id": "annotation-1698765432100",
+    "label": "Point 1",
+    "type": "point",
+    "geometry": [0.123, 0.456, 0.789],
+    "createdAt": "2025-10-13T10:30:00.000Z"
+  },
+  {
+    "id": "annotation-1698765432101",
+    "label": "Crack line",
+    "type": "line",
+    "geometry": [
+      [0.1, 0.2, 0.3],
+      [0.2, 0.3, 0.4],
+      [0.3, 0.4, 0.5]
+    ],
+    "createdAt": "2025-10-13T10:35:00.000Z"
+  }
+]
+```
 
 ## Minimal valid scene
 
@@ -133,7 +187,14 @@ The following is a small JSON Schema sketch you can use as a starting point for 
       "type": "object",
       "properties": {
         "showGround": { "type": "boolean" },
-        "background": { "type": "string" }
+        "background": { "type": "string" },
+        "headLightOffset": { 
+          "type": "array", 
+          "items": { "type": "number" }, 
+          "minItems": 2, 
+          "maxItems": 2,
+          "description": "Head light offset in degrees [horizontal, vertical]"
+        }
       }
     },
     "models": {
@@ -151,6 +212,41 @@ The following is a small JSON Schema sketch you can use as a starting point for 
           "material": { "type": "object" }
         },
         "required": ["id", "file"]
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "type": { "type": "string", "enum": ["point", "line", "area"] },
+          "geometry": { 
+            "oneOf": [
+              { 
+                "type": "array", 
+                "items": { "type": "number" }, 
+                "minItems": 3, 
+                "maxItems": 3,
+                "description": "Single point [x, y, z]"
+              },
+              { 
+                "type": "array", 
+                "items": { 
+                  "type": "array", 
+                  "items": { "type": "number" }, 
+                  "minItems": 3, 
+                  "maxItems": 3 
+                },
+                "description": "Array of points for line or area"
+              }
+            ]
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "createdBy": { "type": "string" }
+        },
+        "required": ["id", "label", "type", "geometry"]
       }
     }
   },

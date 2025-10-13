@@ -12,6 +12,7 @@ export interface ThreeJSViewerRef {
     scale?: number | [number, number, number] | null
   ) => void;
   setAnnotationButtonVisible: (visible: boolean) => void;
+  setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
 }
 
 // React wrapper for ThreePresenter
@@ -42,6 +43,11 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       },
       setAnnotationButtonVisible: (visible: boolean) => {
         presenterRef.current?.setAnnotationButtonVisible(visible);
+      },
+      setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => {
+        if (presenterRef.current) {
+          presenterRef.current.onPointPicked = callback;
+        }
       }
     }));
 

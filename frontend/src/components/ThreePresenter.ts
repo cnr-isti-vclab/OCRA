@@ -59,6 +59,7 @@ export class ThreePresenter {
   cameraButton: HTMLButtonElement;
   annotationButton: HTMLButtonElement;
   isPickingMode: boolean = false;
+  onPointPicked: ((point: [number, number, number]) => void) | null = null;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   lightEnabled: boolean = true;
@@ -342,13 +343,20 @@ export class ThreePresenter {
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
       
-      // If in picking mode, log coordinates and exit picking mode
+      // If in picking mode, notify callback and exit picking mode
       if (this.isPickingMode) {
-        console.log('📍 Picked 3D point:', [
-          intersectionPoint.x.toFixed(4),
-          intersectionPoint.y.toFixed(4),
-          intersectionPoint.z.toFixed(4)
-        ]);
+        const coords: [number, number, number] = [
+          intersectionPoint.x,
+          intersectionPoint.y,
+          intersectionPoint.z
+        ];
+        console.log('📍 Picked 3D point:', coords.map(v => v.toFixed(4)));
+        
+        // Call the callback if set
+        if (this.onPointPicked) {
+          this.onPointPicked(coords);
+        }
+        
         this.exitPickingMode();
         return;
       }

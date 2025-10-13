@@ -4,6 +4,39 @@
  */
 
 /**
+ * Annotation type - can be point, line, or area
+ */
+export type AnnotationType = 'point' | 'line' | 'area';
+
+/**
+ * Geometry for different annotation types
+ * - Point: single 3D coordinate [x, y, z]
+ * - Line: array of 3D coordinates [[x1,y1,z1], [x2,y2,z2], ...]
+ * - Area: array of 3D coordinates forming a closed polygon
+ */
+export type AnnotationGeometry = 
+  | [number, number, number]           // Point
+  | [number, number, number][]         // Line or Area (array of points)
+
+/**
+ * A single annotation in the scene
+ */
+export interface Annotation {
+  /** Unique identifier for the annotation */
+  id: string;
+  /** User-visible label/name for the annotation */
+  label: string;
+  /** Type of annotation */
+  type: AnnotationType;
+  /** Geometric data for the annotation */
+  geometry: AnnotationGeometry;
+  /** Optional creation timestamp */
+  createdAt?: string;
+  /** Optional user who created it */
+  createdBy?: string;
+}
+
+/**
  * Describes a single 3D model in the scene
  */
 export interface ModelDefinition {
@@ -63,6 +96,8 @@ export interface SceneDescription {
   enableControls?: boolean;
   /** Optional scene-level default for rotation units (overridden by model.rotationUnits) */
   rotationUnits?: 'deg' | 'rad';
+  /** Array of annotations in the scene */
+  annotations?: Annotation[];
 }
 
 /**

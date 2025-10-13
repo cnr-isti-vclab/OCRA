@@ -5,7 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import ThreeDHOPViewer from '../components/ThreeViewer';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../components/ThreeJSViewer';
 import { getApiBase } from '../config/oauth';
-import type { SceneDescription } from '../components/ThreePresenter';
+import type { SceneDescription, Annotation } from '../../../shared/scene-types';
 
 interface Project {
   id: string;
@@ -35,6 +35,7 @@ export default function ProjectPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -363,6 +364,8 @@ export default function ProjectPage() {
             scene.projectId = projectId;
           }
           setSceneDesc(scene);
+          // Load annotations from scene
+          setAnnotations(scene.annotations || []);
           // Initialize visibility state for all models (all visible by default)
           const initialVisibility: Record<string, boolean> = {};
           if (scene.models) {
@@ -373,6 +376,7 @@ export default function ProjectPage() {
           setMeshVisibility(initialVisibility);
         } else {
           setSceneDesc(null);
+          setAnnotations([]);
         }
       } catch (e: any) {
         setError(e?.message ?? String(e));
@@ -390,6 +394,56 @@ export default function ProjectPage() {
       viewerRef.current.setAnnotationButtonVisible(activeTab === 'annotations');
     }
   }, [activeTab]);
+
+  // Set up annotation point picking callback
+  useEffect(() => {
+    if (viewerRef.current) {
+      viewerRef.current.setOnPointPicked((point: [number, number, number]) => {
+        // Create a new annotation
+        const newAnnotation: Annotation = {
+          id: `annotation-${Date.now()}`,
+          label: `Point ${annotations.length + 1}`,
+          type: 'point',
+          geometry: point,
+          createdAt: new Date().toISOString()
+        };
+        
+        // Add to state
+        const updatedAnnotations = [...annotations, newAnnotation];
+        setAnnotations(updatedAnnotations);
+        
+        // Save to backend
+        saveAnnotationsToBackend(updatedAnnotations);
+      });
+    }
+  }, [annotations]); // Re-create callback when annotations change to have latest count
+
+  // Function to save annotations to backend
+  const saveAnnotationsToBackend = async (updatedAnnotations: Annotation[]) => {
+    if (!projectId || !sceneDesc) return;
+    
+    try {
+      const updatedScene = {
+        ...sceneDesc,
+        annotations: updatedAnnotations
+      };
+      
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedScene)
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to save annotations');
+      } else {
+        console.log('✅ Annotations saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving annotations:', error);
+    }
+  };
 
   // isManager now comes from backend API
 
@@ -968,9 +1022,49 @@ export default function ProjectPage() {
               {activeTab === 'annotations' && (
                 <div className="p-3 h-100 d-flex flex-column">
                   <h3 className="h6 mb-3">Annotations</h3>
-                  <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                    <p className="text-muted fst-italic">Annotations feature coming soon...</p>
-                  </div>
+                  
+                  {annotations.length === 0 ? (
+                    <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                      <p className="text-muted fst-italic">
+                        No annotations yet. Click the pencil button and double-click on the model to add an annotation point.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-grow-1 overflow-auto">
+                      <div className="list-group">
+                        {annotations.map((annotation) => (
+                          <div 
+                            key={annotation.id} 
+                            className="list-group-item list-group-item-action"
+                          >
+                            <div className="d-flex w-100 justify-content-between align-items-start">
+                              <h5 className="mb-1">{annotation.label}</h5>
+                              <span className={`badge ${
+                                annotation.type === 'point' ? 'bg-primary' :
+                                annotation.type === 'line' ? 'bg-success' :
+                                'bg-warning'
+                              }`}>
+                                {annotation.type}
+                              </span>
+                            </div>
+                            <p className="mb-1 small text-muted">
+                              ID: {annotation.id}
+                            </p>
+                            {annotation.type === 'point' && Array.isArray(annotation.geometry) && annotation.geometry.length === 3 && (
+                              <p className="mb-0 small font-monospace">
+                                [{(annotation.geometry as [number, number, number])[0].toFixed(3)}, {(annotation.geometry as [number, number, number])[1].toFixed(3)}, {(annotation.geometry as [number, number, number])[2].toFixed(3)}]
+                              </p>
+                            )}
+                            {annotation.type !== 'point' && Array.isArray(annotation.geometry) && (
+                              <p className="mb-0 small">
+                                {(annotation.geometry as [number, number, number][]).length} points
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
