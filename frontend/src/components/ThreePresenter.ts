@@ -4,7 +4,8 @@ import { getApiBase } from '../config/oauth';
 import type { 
   SceneDescription, 
   ModelDefinition, 
-  PresenterState
+  PresenterState,
+  Annotation
 } from '../../../shared/scene-types';
 
 export type { SceneDescription, ModelDefinition, PresenterState };
@@ -69,6 +70,7 @@ export class ThreePresenter {
   mouse: THREE.Vector2 = new THREE.Vector2();
   modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
   sceneBBoxSize: THREE.Vector3 = new THREE.Vector3(2, 2, 2); // Store actual scene size for ground
+  annotationMarkers: Map<string, THREE.Mesh> = new Map(); // Map annotation ID to sphere mesh
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -254,6 +256,14 @@ export class ThreePresenter {
   dispose() {
     window.removeEventListener('resize', this.handleResize);
     this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
+    
+    // Clean up annotation markers
+    for (const [id, marker] of this.annotationMarkers.entries()) {
+      this.scene.remove(marker);
+      marker.geometry.dispose();
+      (marker.material as THREE.Material).dispose();
+    }
+    this.annotationMarkers.clear();
     
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
@@ -445,6 +455,11 @@ export class ThreePresenter {
       }
     }
     
+    // Update annotation marker scales to maintain constant screen space size
+    if (this.annotationMarkers.size > 0) {
+      this.updateAnnotationScales();
+    }
+    
     this.renderer.render(this.scene, this.camera);
 
     // Render viewport gizmo if present
@@ -511,6 +526,11 @@ export class ThreePresenter {
         this.controls.target.copy(savedCameraTarget);
         this.controls.update();
         console.log('📷 Camera position restored after scene reload');
+      }
+
+      // Render annotations if present
+      if (sceneDesc.annotations && sceneDesc.annotations.length > 0) {
+        this.renderAnnotations(sceneDesc.annotations);
       }
 
       console.log('✅ Scene loaded successfully');
@@ -995,6 +1015,82 @@ export class ThreePresenter {
       visibility[id] = model.visible;
     }
     return visibility;
+  }
+
+  /**
+   * Render annotations as yellow spheres in the scene
+   */
+  renderAnnotations(annotations: Annotation[]): void {
+    // Remove existing annotation markers that are no longer in the list
+    const currentAnnotationIds = new Set(annotations.map(a => a.id));
+    for (const [id, marker] of this.annotationMarkers.entries()) {
+      if (!currentAnnotationIds.has(id)) {
+        this.scene.remove(marker);
+        marker.geometry.dispose();
+        (marker.material as THREE.Material).dispose();
+        this.annotationMarkers.delete(id);
+      }
+    }
+
+    // Add or update annotation markers
+    annotations.forEach(annotation => {
+      // Only handle point annotations for now
+      if (annotation.type !== 'point') return;
+      
+      // Get the point coordinates
+      const geometry = annotation.geometry as [number, number, number];
+      const position = new THREE.Vector3(geometry[0], geometry[1], geometry[2]);
+
+      // Check if marker already exists
+      let marker = this.annotationMarkers.get(annotation.id);
+      
+      if (marker) {
+        // Update existing marker position
+        marker.position.copy(position);
+      } else {
+        // Create new marker with a base radius that will be scaled in animate()
+        const sphereGeometry = new THREE.SphereGeometry(1.0, 16, 16); // Base radius = 1.0
+        const sphereMaterial = new THREE.MeshBasicMaterial({ 
+          color: 0xffff00, // Yellow
+          transparent: true,
+          opacity: 0.9,
+          depthTest: true,
+          depthWrite: true
+        });
+        marker = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        marker.position.copy(position);
+        
+        // Store reference and add to scene
+        this.annotationMarkers.set(annotation.id, marker);
+        this.scene.add(marker);
+      }
+    });
+
+    // Update scales based on camera distance
+    this.updateAnnotationScales();
+
+    console.log(`🎯 Rendered ${annotations.length} annotation(s)`);
+  }
+
+  /**
+   * Update annotation marker scales to maintain constant screen space size
+   */
+  private updateAnnotationScales(): void {
+    const pixelSize = 10; // Target size in pixels
+    const fov = this.camera instanceof THREE.PerspectiveCamera ? this.camera.fov : 45;
+    const fovRadians = fov * Math.PI / 180;
+    const canvasHeight = this.renderer.domElement.clientHeight;
+    
+    for (const marker of this.annotationMarkers.values()) {
+      // Calculate distance from camera to marker
+      const distance = this.camera.position.distanceTo(marker.position);
+      
+      // Calculate scale to maintain constant screen space size
+      // For perspective camera: scale = distance * tan(fov/2) * 2 * pixelSize / canvasHeight
+      const scale = distance * Math.tan(fovRadians / 2) * 2 * pixelSize / canvasHeight;
+      
+      marker.scale.set(scale, scale, scale);
+    }
   }
 
   private scaleAndCenterScene() {

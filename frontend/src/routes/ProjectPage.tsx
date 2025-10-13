@@ -418,6 +418,13 @@ export default function ProjectPage() {
     }
   }, [annotations]); // Re-create callback when annotations change to have latest count
 
+  // Render annotations in 3D viewer when they change
+  useEffect(() => {
+    if (viewerRef.current && annotations.length >= 0) {
+      viewerRef.current.renderAnnotations(annotations);
+    }
+  }, [annotations]);
+
   // Function to save annotations to backend
   const saveAnnotationsToBackend = async (updatedAnnotations: Annotation[]) => {
     if (!projectId || !sceneDesc) return;

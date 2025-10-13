@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ThreePresenter, SceneDescription } from './ThreePresenter';
+import type { Annotation } from '../../../shared/scene-types';
 
 export interface ThreeJSViewerRef {
   setMeshVisibility: (meshName: string, visible: boolean) => void;
@@ -13,6 +14,7 @@ export interface ThreeJSViewerRef {
   ) => void;
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
+  renderAnnotations: (annotations: Annotation[]) => void;
 }
 
 // React wrapper for ThreePresenter
@@ -48,6 +50,9 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
         if (presenterRef.current) {
           presenterRef.current.onPointPicked = callback;
         }
+      },
+      renderAnnotations: (annotations: Annotation[]) => {
+        presenterRef.current?.renderAnnotations(annotations);
       }
     }));
 

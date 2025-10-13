@@ -30,9 +30,14 @@ Example top-level structure:
 {
   "projectId": "my-project-123",
   "models": [ /* array of models */ ],
-  "environment": { "showGround": true, "background": "#404040" },
+  "environment": { 
+    "showGround": true, 
+    "background": "#404040",
+    "headLightOffset": [0, 0]
+  },
   "enableControls": true,
-  "rotationUnits": "deg"
+  "rotationUnits": "deg",
+  "annotations": [ /* array of annotations */ ]
 }
 ```
 
@@ -267,6 +272,45 @@ Scene with scene-level degree rotations and multiple models:
     { "id": "shield", "file": "shield.ply", "position": [0.5,0,0], "rotation": [0,180,0], "scale": [1,1,1], "visible": true }
   ],
   "environment": { "showGround": true, "background": "#202020" }
+}
+```
+
+Scene with annotations and custom lighting:
+
+```json
+{
+  "projectId": "archaeological-site",
+  "rotationUnits": "deg",
+  "models": [
+    { "id": "artifact", "file": "artifact.glb", "position": [0, 0, 0], "rotation": [0, 0, 0] }
+  ],
+  "environment": { 
+    "showGround": false, 
+    "background": "#1a1a1a",
+    "headLightOffset": [15, 10]
+  },
+  "annotations": [
+    {
+      "id": "annotation-1698765432100",
+      "label": "Inscription point",
+      "type": "point",
+      "geometry": [0.123, 0.456, 0.789],
+      "createdAt": "2025-10-13T10:30:00.000Z",
+      "createdBy": "user-123"
+    },
+    {
+      "id": "annotation-1698765432101",
+      "label": "Crack line",
+      "type": "line",
+      "geometry": [
+        [0.1, 0.2, 0.3],
+        [0.15, 0.25, 0.35],
+        [0.2, 0.3, 0.4]
+      ],
+      "createdAt": "2025-10-13T10:35:00.000Z",
+      "createdBy": "user-456"
+    }
+  ]
 }
 ```
 
