@@ -37,7 +37,7 @@ export type { SceneDescription, ModelDefinition, PresenterState };
 export class ThreePresenter {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
+  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   orthographicCamera: THREE.OrthographicCamera | null = null;
   perspectiveCamera: THREE.PerspectiveCamera;
   isOrthographic: boolean = false;
@@ -297,6 +297,7 @@ export class ThreePresenter {
     const w = this.mount.clientWidth;
     const h = this.mount.clientHeight;
     const aspect = w / h;
+    const frustumSize = 2;
     
     this.renderer.setSize(w, h);
     
@@ -306,7 +307,6 @@ export class ThreePresenter {
     
     // Update orthographic camera
     if (this.orthographicCamera) {
-      const frustumSize = 2;
       this.orthographicCamera.left = frustumSize * aspect / -2;
       this.orthographicCamera.right = frustumSize * aspect / 2;
       this.orthographicCamera.top = frustumSize / 2;
@@ -315,7 +315,14 @@ export class ThreePresenter {
     }
     
     // Update current camera reference
-    this.camera.aspect = aspect;
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      this.camera.aspect = aspect;
+    } else if (this.camera instanceof THREE.OrthographicCamera) {
+      this.camera.left = frustumSize * aspect / -2;
+      this.camera.right = frustumSize * aspect / 2;
+      this.camera.top = frustumSize / 2;
+      this.camera.bottom = frustumSize / -2;
+    }
     this.camera.updateProjectionMatrix();
     
     if (this.controls) this.controls.update(); 
@@ -907,7 +914,7 @@ export class ThreePresenter {
       camera: {
         position: this.camera.position.toArray() as [number, number, number],
         target: this.controls?.target.toArray() as [number, number, number] || [0, 0, 0],
-        fov: this.camera.fov,
+        fov: this.camera instanceof THREE.PerspectiveCamera ? this.camera.fov : 45,
       },
       rendering: {
         headLightEnabled: this.lightEnabled,
@@ -963,7 +970,7 @@ export class ThreePresenter {
       this.controls.target.fromArray(state.camera.target);
       this.controls.update();
     }
-    if (state.camera.fov) {
+    if (state.camera.fov && this.camera instanceof THREE.PerspectiveCamera) {
       this.camera.fov = state.camera.fov;
       this.camera.updateProjectionMatrix();
     }
@@ -1077,17 +1084,25 @@ export class ThreePresenter {
    */
   private updateAnnotationScales(): void {
     const pixelSize = 10; // Target size in pixels
-    const fov = this.camera instanceof THREE.PerspectiveCamera ? this.camera.fov : 45;
-    const fovRadians = fov * Math.PI / 180;
     const canvasHeight = this.renderer.domElement.clientHeight;
     
     for (const marker of this.annotationMarkers.values()) {
-      // Calculate distance from camera to marker
-      const distance = this.camera.position.distanceTo(marker.position);
+      let scale: number;
       
-      // Calculate scale to maintain constant screen space size
-      // For perspective camera: scale = distance * tan(fov/2) * 2 * pixelSize / canvasHeight
-      const scale = distance * Math.tan(fovRadians / 2) * 2 * pixelSize / canvasHeight;
+      if (this.camera instanceof THREE.PerspectiveCamera) {
+        // Perspective camera: scale based on distance and FOV
+        const distance = this.camera.position.distanceTo(marker.position);
+        const fovRadians = this.camera.fov * Math.PI / 180;
+        scale = distance * Math.tan(fovRadians / 2) * 2 * pixelSize / canvasHeight;
+      } else if (this.camera instanceof THREE.OrthographicCamera) {
+        // Orthographic camera: scale based on frustum size (no perspective)
+        // The visible height in world units is (top - bottom)
+        const visibleHeight = this.camera.top - this.camera.bottom;
+        scale = visibleHeight * pixelSize / canvasHeight;
+      } else {
+        // Fallback for unknown camera types
+        scale = 0.01;
+      }
       
       marker.scale.set(scale, scale, scale);
     }
