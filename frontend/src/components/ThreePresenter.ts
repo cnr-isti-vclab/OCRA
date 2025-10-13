@@ -57,6 +57,8 @@ export class ThreePresenter {
   envButton: HTMLButtonElement;
   screenshotButton: HTMLButtonElement;
   cameraButton: HTMLButtonElement;
+  annotationButton: HTMLButtonElement;
+  isPickingMode: boolean = false;
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   lightEnabled: boolean = true;
@@ -170,6 +172,18 @@ export class ThreePresenter {
     this.cameraButton.addEventListener('mouseleave', () => { this.cameraButton.style.transform = 'scale(1)'; });
     this.cameraButton.addEventListener('click', () => this.toggleCameraMode());
 
+    // Create annotation pencil button
+    this.annotationButton = document.createElement('button');
+    this.annotationButton.innerHTML = '<i class="bi bi-pencil"></i>';
+    this.annotationButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
+    this.annotationButton.title = 'Add annotation';
+    this.annotationButton.style.display = 'none'; // Hidden by default
+    this.annotationButton.addEventListener('mouseenter', () => { this.annotationButton.style.transform = 'scale(1.05)'; });
+    this.annotationButton.addEventListener('mouseleave', () => { this.annotationButton.style.transform = 'scale(1)'; });
+    this.annotationButton.addEventListener('click', () => {
+      this.togglePickingMode();
+    });
+
     // Append buttons to container, then container to mount
     btnContainer.appendChild(this.homeButton);
     btnContainer.appendChild(this.lightButton);
@@ -177,6 +191,7 @@ export class ThreePresenter {
     btnContainer.appendChild(this.envButton);
     btnContainer.appendChild(this.screenshotButton);
     btnContainer.appendChild(this.cameraButton);
+    btnContainer.appendChild(this.annotationButton);
     mount.appendChild(btnContainer);
 
 
@@ -258,6 +273,9 @@ export class ThreePresenter {
     if (this.screenshotButton.parentNode) {
       this.screenshotButton.parentNode.removeChild(this.screenshotButton);
     }
+    if (this.annotationButton.parentNode) {
+      this.annotationButton.parentNode.removeChild(this.annotationButton);
+    }
     if (this.viewportGizmo && this.viewportGizmo.dispose) {
       this.viewportGizmo.dispose();
       this.viewportGizmo = null;
@@ -323,11 +341,55 @@ export class ThreePresenter {
 
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
+      
+      // If in picking mode, log coordinates and exit picking mode
+      if (this.isPickingMode) {
+        console.log('📍 Picked 3D point:', [
+          intersectionPoint.x.toFixed(4),
+          intersectionPoint.y.toFixed(4),
+          intersectionPoint.z.toFixed(4)
+        ]);
+        this.exitPickingMode();
+        return;
+      }
+      
+      // Otherwise, recenter camera on point
       console.log('🎯 Recentering camera on point:', intersectionPoint);
-
-      // Smoothly animate the controls target to the intersection point
       this.animateCameraTarget(intersectionPoint);
     }
+  }
+
+  /**
+   * Toggle picking mode for annotation placement
+   */
+  togglePickingMode() {
+    if (this.isPickingMode) {
+      this.exitPickingMode();
+    } else {
+      this.enterPickingMode();
+    }
+  }
+
+  /**
+   * Enter picking mode
+   */
+  private enterPickingMode() {
+    this.isPickingMode = true;
+    this.renderer.domElement.style.cursor = 'crosshair';
+    this.annotationButton.style.backgroundColor = '#0d6efd'; // Bootstrap primary blue
+    this.annotationButton.style.color = 'white';
+    console.log('✏️ Entered picking mode - double-click on model to pick a point');
+  }
+
+  /**
+   * Exit picking mode
+   */
+  private exitPickingMode() {
+    this.isPickingMode = false;
+    this.renderer.domElement.style.cursor = 'auto';
+    this.annotationButton.style.backgroundColor = '';
+    this.annotationButton.style.color = '';
+    console.log('✅ Exited picking mode');
   }
 
   /**
@@ -956,6 +1018,17 @@ export class ThreePresenter {
     this.scene.environment = this.envLightingEnabled ? this.envMap : null;
     this.envButton.innerHTML = this.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
     console.log(`🌍 Environment lighting ${this.envLightingEnabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Show or hide the annotation button
+   */
+  setAnnotationButtonVisible(visible: boolean) {
+    this.annotationButton.style.display = visible ? 'flex' : 'none';
+    // Exit picking mode when hiding the button
+    if (!visible && this.isPickingMode) {
+      this.exitPickingMode();
+    }
   }
 
   toggleCameraMode() {

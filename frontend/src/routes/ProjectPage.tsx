@@ -384,6 +384,13 @@ export default function ProjectPage() {
     // eslint-disable-next-line
   }, [projectId]);
 
+  // Show/hide annotation button based on active tab
+  useEffect(() => {
+    if (viewerRef.current) {
+      viewerRef.current.setAnnotationButtonVisible(activeTab === 'annotations');
+    }
+  }, [activeTab]);
+
   // isManager now comes from backend API
 
   if (loading) {

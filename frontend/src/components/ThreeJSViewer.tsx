@@ -11,6 +11,7 @@ export interface ThreeJSViewerRef {
     rotation?: [number, number, number] | null,
     scale?: number | [number, number, number] | null
   ) => void;
+  setAnnotationButtonVisible: (visible: boolean) => void;
 }
 
 // React wrapper for ThreePresenter
@@ -38,6 +39,9 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
         scale?: number | [number, number, number] | null
       ) => {
         presenterRef.current?.applyModelTransform(modelId, position, rotation, scale);
+      },
+      setAnnotationButtonVisible: (visible: boolean) => {
+        presenterRef.current?.setAnnotationButtonVisible(visible);
       }
     }));
 
