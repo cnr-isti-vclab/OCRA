@@ -11,6 +11,7 @@ import healthRoutes from './health.routes.js';
 import usersRoutes from './users.routes.js';
 import projectsRoutes from './projects.routes.js';
 import adminRoutes from './admin.routes.js';
+import vocabulariesRoutes from './vocabularies.routes.js';
 
 const router = express.Router();
 
@@ -21,5 +22,6 @@ router.use('/health', healthRoutes);
 router.use('/users', usersRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/admin', adminRoutes);
+router.use('/vocabularies', vocabulariesRoutes);
 
 export default router;

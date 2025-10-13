@@ -99,3 +99,15 @@ model ProjectRole {
   @@unique([userId, projectId])
   @@map("project_roles")
 }
+
+// Vocabulary model - represents controlled vocabularies and terminologies
+model Vocabulary {
+  id          String   @id @default(cuid())
+  name        String   @unique // Vocabulary name (e.g., "Abaco del restauro")
+  description String   // Vocabulary description
+  public      Boolean  @default(false) // Whether the vocabulary is publicly visible
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("vocabularies")
+}

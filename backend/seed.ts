@@ -277,12 +277,43 @@ async function seedDemoProjectRoles(): Promise<void> {
   console.log('✅ Successfully seeded project roles');
 }
 
+/**
+ * Seed demo vocabularies - create controlled vocabularies and terminologies
+ */
+async function seedDemoVocabularies(): Promise<void> {
+  console.log('🌱 Seeding demo vocabularies...');
+  
+  const vocabularies = [
+    {
+      name: 'Abaco del restauro',
+      description: 'Raccomandazioni NorMaL - 1/88. Alterazioni macroscopiche dei materiali lapidei: lessico, (CNR-ICR, 1990, Roma);',
+      public: true
+    }
+  ];
+
+  for (const vocabulary of vocabularies) {
+    await prisma.vocabulary.upsert({
+      where: { name: vocabulary.name },
+      update: {
+        description: vocabulary.description,
+        public: vocabulary.public,
+        updatedAt: new Date()
+      },
+      create: vocabulary
+    });
+    console.log(`  ✓ Vocabulary '${vocabulary.name}' created`);
+  }
+  
+  console.log('✅ Successfully seeded vocabularies');
+}
+
 // Execute the seed functions in order
 async function main() {
   //await seedAdminUser();
   await seedDemoProjects();
   await seedDemoUsers();
   await seedDemoProjectRoles();
+  await seedDemoVocabularies();
   await populateProjectFolders(); // Populate project folders with scene.json and model files
 
   console.log('✅ Database seeding completed');

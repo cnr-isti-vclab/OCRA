@@ -122,6 +122,13 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
               sidebarOpen={sidebarOpen}
             />
             <SidebarItem
+              to="/vocabularies"
+              icon="📚"
+              label="Vocabularies"
+              isActive={isActive('/vocabularies')}
+              sidebarOpen={sidebarOpen}
+            />
+            <SidebarItem
               to="/audit"
               icon="📊"
               label="Audit Log"

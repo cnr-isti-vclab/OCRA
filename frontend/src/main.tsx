@@ -6,6 +6,7 @@ import Profile from './routes/Profile.tsx'
 import AuditLog from './routes/AuditLog.tsx'
 import UserAdmin from './routes/UserAdmin.tsx'
 import ProjectList from './routes/ProjectList.tsx'
+import VocabularyList from './routes/VocabularyList.tsx'
 import EditProject from './routes/EditProject.tsx'
 import ProjectPage from './routes/ProjectPage.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
@@ -104,6 +105,18 @@ const router = createBrowserRouter([
 			<RequireAuth>
 				<SidebarLayout>
 					<ProjectList />
+				</SidebarLayout>
+			</RequireAuth>
+		)
+	},
+	
+	// Protected vocabularies route: shows list of all vocabularies
+	{
+		path: '/vocabularies',
+		element: (
+			<RequireAuth>
+				<SidebarLayout>
+					<VocabularyList />
 				</SidebarLayout>
 			</RequireAuth>
 		)

@@ -65,6 +65,15 @@ export interface Project {
   updatedAt: Date;
 }
 
+export interface Vocabulary {
+  id: string;
+  name: string;
+  description: string;
+  public: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Role {
   id: string;
   name: string;
