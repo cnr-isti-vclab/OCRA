@@ -20,3 +20,5 @@ frontend/.3dhop-cache/
 src/generated/
 
 /src/generated/prisma
+# internal development doc
+internaldoc/
