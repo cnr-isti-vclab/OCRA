@@ -2,6 +2,7 @@
 node_modules/
 dist/
 dist-standalone/
+docs/
 .vite/
 .DS_Store
 *.log

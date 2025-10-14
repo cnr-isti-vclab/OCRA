@@ -1,0 +1,50 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/components/ThreePresenter.ts"
+  ],
+  "out": "docs/api",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**"
+  ],
+  "plugin": [],
+  "excludePrivate": false,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "readme": "STANDALONE_BUILD.md",
+  "name": "ThreePresenter API Documentation",
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "skipErrorChecking": true,
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true
+  },
+  "visibilityFilters": {
+    "protected": true,
+    "private": true,
+    "inherited": true,
+    "external": false
+  },
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": [
+    "Core",
+    "Managers",
+    "Utilities",
+    "Types",
+    "*"
+  ],
+  "searchInComments": true,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  }
+}
