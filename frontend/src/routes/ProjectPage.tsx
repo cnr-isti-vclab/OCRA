@@ -422,7 +422,7 @@ export default function ProjectPage() {
   // Render annotations in 3D viewer when they change
   useEffect(() => {
     if (viewerRef.current && annotations.length >= 0) {
-      viewerRef.current.renderAnnotations(annotations);
+      viewerRef.current.getAnnotationManager().render(annotations);
     }
   }, [annotations]);
 
@@ -430,7 +430,7 @@ export default function ProjectPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (viewerRef.current) {
-        const selectedIds = viewerRef.current.getSelectedAnnotations();
+        const selectedIds = viewerRef.current.getAnnotationManager().getSelected();
         // Only update state if selection actually changed
         if (JSON.stringify(selectedIds) !== JSON.stringify(selectedAnnotationIds)) {
           setSelectedAnnotationIds(selectedIds);
@@ -1064,22 +1064,21 @@ export default function ProjectPage() {
                               style={{ cursor: 'pointer' }}
                               onClick={(e) => {
                                 if (viewerRef.current) {
+                                  const annotationMgr = viewerRef.current.getAnnotationManager();
                                   if (e.ctrlKey || e.metaKey) {
                                     // Toggle selection with Ctrl/Cmd
                                     if (isSelected) {
                                       // Remove from selection by selecting all others
                                       const newSelection = selectedAnnotationIds.filter(id => id !== annotation.id);
-                                      viewerRef.current.clearAnnotationSelection();
-                                      newSelection.forEach(id => {
-                                        viewerRef.current?.selectAnnotation(id, true);
-                                      });
+                                      annotationMgr.clearSelection();
+                                      annotationMgr.select(newSelection, false);
                                     } else {
                                       // Add to selection
-                                      viewerRef.current.selectAnnotation(annotation.id, true);
+                                      annotationMgr.select([annotation.id], true);
                                     }
                                   } else {
                                     // Single selection
-                                    viewerRef.current.selectAnnotation(annotation.id, false);
+                                    annotationMgr.select([annotation.id], false);
                                   }
                                 }
                               }}

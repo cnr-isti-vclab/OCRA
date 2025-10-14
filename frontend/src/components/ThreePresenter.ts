@@ -16,6 +16,7 @@ import type {
 } from '../../../shared/scene-types';
 
 export type { SceneDescription, ModelDefinition, PresenterState };
+export { AnnotationManager };
 
 /**
  * ThreePresenter - Main 3D Scene Presenter Component
@@ -79,10 +80,6 @@ export class ThreePresenter {
   private cameraManager: CameraManager;
   private lightingManager: LightingManager;
   private modelLoader: ModelLoader;
-  
-  // Legacy properties for backward compatibility (deprecated)
-  private get annotationMarkers() { return new Map(); }  // Empty map for compatibility
-  private get selectedAnnotations() { return new Set(this.annotationManager.getSelected()); }
 
   constructor(mount: HTMLDivElement, fileUrlResolver?: FileUrlResolver) {
     this.mount = mount;
@@ -934,24 +931,22 @@ export class ThreePresenter {
   }
 
   /**
+   * Get the annotation manager instance for direct access to annotation API
+   * @returns The AnnotationManager instance
+   */
+  getAnnotationManager(): AnnotationManager {
+    return this.annotationManager;
+  }
+
+  /**
    * Render annotations (delegates to AnnotationManager)
-   * @deprecated Use annotationManager.render() instead
+   * @deprecated Use getAnnotationManager().render() instead
    */
   renderAnnotations(annotations: Annotation[]): void {
     this.annotationManager.render(annotations);
   }
 
-  /**
-   * @deprecated - No longer needed, handled by AnnotationManager
-   */
-  private updateAnnotationScales(): void {
-    // Empty stub for backward compatibility
-  }
 
-  private scaleAndCenterScene() {
-    // Deprecated - now handled by frameScene()
-    this.frameScene();
-  }
 
   resetCamera() {
     // Use camera manager to reset camera
@@ -1056,17 +1051,6 @@ export class ThreePresenter {
     return this.modelStats[modelId] || null;
   }
 
-  /**
-   * Calculate statistics (triangles, vertices, bounding box, textures) for a Three.js object
-   */
-  /**
-   * @deprecated Use calculateObjectStats from three-presenter/utils/GeometryUtils instead
-   * This method is maintained for backward compatibility only.
-   */
-  private calculateObjectStats(obj: THREE.Object3D): GeometryStats {
-    return calculateObjectStats(obj);
-  }
-
   private addGround() {
     // Create a grid helper at y = 0, sized based on actual scene dimensions
     // GridHelper(size, divisions, colorCenterLine, colorGrid)
@@ -1164,12 +1148,5 @@ export class ThreePresenter {
    */
   selectAnnotations(annotationIds: string[], additive: boolean = false): void {
     this.annotationManager.select(annotationIds, additive);
-  }
-
-  /**
-   * @deprecated - No longer needed, handled by AnnotationManager
-   */
-  private updateAnnotationVisuals(): void {
-    // Empty stub for backward compatibility
   }
 }

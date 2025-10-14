@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { ThreePresenter, SceneDescription } from './ThreePresenter';
+import { ThreePresenter, SceneDescription, AnnotationManager } from './ThreePresenter';
 import type { Annotation } from '../../../shared/scene-types';
 
 export interface ThreeJSViewerRef {
@@ -14,9 +14,14 @@ export interface ThreeJSViewerRef {
   ) => void;
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
+  getAnnotationManager: () => AnnotationManager;
+  /** @deprecated Use getAnnotationManager().render() instead */
   renderAnnotations: (annotations: Annotation[]) => void;
+  /** @deprecated Use getAnnotationManager().getSelected() instead */
   getSelectedAnnotations: () => string[];
+  /** @deprecated Use getAnnotationManager().select() instead */
   selectAnnotation: (annotationId: string, additive?: boolean) => void;
+  /** @deprecated Use getAnnotationManager().clearSelection() instead */
   clearAnnotationSelection: () => void;
 }
 
@@ -54,6 +59,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
           presenterRef.current.onPointPicked = callback;
         }
       },
+      getAnnotationManager: () => {
+        if (!presenterRef.current) {
+          throw new Error('ThreePresenter not initialized');
+        }
+        return presenterRef.current.getAnnotationManager();
+      },
       renderAnnotations: (annotations: Annotation[]) => {
         presenterRef.current?.renderAnnotations(annotations);
       },
@@ -85,11 +96,16 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     useEffect(() => {
       if (!sceneDesc || !presenterRef.current) return;
       
-      const preserveCamera = !isFirstLoadRef.current;
+      // Check if models were added/removed by comparing model counts
+      const currentModelCount = sceneDesc.models?.length || 0;
+      const previousModelCount = presenterRef.current.currentScene?.models?.length || 0;
+      const modelsChanged = isFirstLoadRef.current || currentModelCount !== previousModelCount;
+      
+      const preserveCamera = !modelsChanged;
       if (preserveCamera) {
-        console.log('🔄 Reloading scene (preserving camera)');
+        console.log('🔄 Reloading scene (preserving camera - no model changes)');
       } else {
-        console.log('🔄 Loading scene (initial load)');
+        console.log(`🔄 Loading scene (${isFirstLoadRef.current ? 'initial load' : 'models changed: ' + previousModelCount + ' → ' + currentModelCount})`);
       }
       
       presenterRef.current.loadScene(sceneDesc, preserveCamera).catch(err => {
