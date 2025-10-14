@@ -59,3 +59,10 @@ export type {
   CameraState,
   CameraInfo
 } from './CameraManager';
+
+// Export lighting manager
+export { LightingManager } from './LightingManager';
+export type {
+  LightingConfig,
+  LightingState
+} from './LightingManager';

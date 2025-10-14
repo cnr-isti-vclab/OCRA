@@ -5,6 +5,7 @@ import { OcraFileUrlResolver } from './three-presenter/OcraFileUrlResolver';
 import { calculateObjectStats, type GeometryStats } from './three-presenter/utils/GeometryUtils';
 import { UIControlsBuilder, type ButtonConfig } from './three-presenter/UIControlsBuilder';
 import { CameraManager, type CameraConfig } from './three-presenter/CameraManager';
+import { LightingManager } from './three-presenter/LightingManager';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -50,11 +51,6 @@ export class ThreePresenter {
   models: Record<string, THREE.Object3D> = {};  // Changed from meshes
   currentScene: SceneDescription | null = null;
   mount: HTMLDivElement;
-  headLight: THREE.DirectionalLight;
-  // HeadLight offset wrt to the current camera direction.
-  // It is expressed as two angles in radians: x=horizontal (theta), y=vertical (phi)
-  // (0,0 means headlight aligned with camera direction)
-  headLightOffset: THREE.Vector2;
   ground: THREE.GridHelper | null = null;
   homeButton: HTMLButtonElement;
   lightButton: HTMLButtonElement;
@@ -69,8 +65,6 @@ export class ThreePresenter {
   initialCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 2);
   initialControlsTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   lightEnabled: boolean = true;
-  envMap: THREE.Texture | null = null;
-  envLightingEnabled: boolean = true;
   raycaster: THREE.Raycaster = new THREE.Raycaster();
   mouse: THREE.Vector2 = new THREE.Vector2();
   modelStats: Record<string, GeometryStats> = {};
@@ -79,11 +73,11 @@ export class ThreePresenter {
   // File URL resolver for loading models
   private fileUrlResolver: FileUrlResolver;
   
-  // Camera manager for dual camera system
-  private cameraManager: CameraManager;
-  
-  // Annotation management (now using dedicated manager)
+  // Managers
   private annotationManager: AnnotationManager;
+  private cameraManager: CameraManager;
+  private lightingManager: LightingManager;
+  
   // Legacy properties for backward compatibility (deprecated)
   private get annotationMarkers() { return new Map(); }  // Empty map for compatibility
   private get selectedAnnotations() { return new Set(this.annotationManager.getSelected()); }
@@ -208,15 +202,14 @@ export class ThreePresenter {
     mount.appendChild(uiControls.container);
 
 
-    // Lighting - head light setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Reduced ambient for better head light effect
-    this.scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    directionalLight.position.set(0, 0, 1); // Initial position, will be updated to be attached to the camera
-    this.scene.add(directionalLight);
-    this.headLight = directionalLight;
-    // Initialize offset as zero angles (aligned with camera)
-    this.headLightOffset = new THREE.Vector2(0, 0);
+    // Lighting setup
+    this.lightingManager = new LightingManager(this.scene, {
+      ambientIntensity: 0.1,
+      headLightIntensity: 0.9,
+      lightColor: 0xffffff,
+      initialOffset: new THREE.Vector2(0, 0)
+    });
+    
     // Animation loop
     this.animate = this.animate.bind(this);
     this.animate();
@@ -231,48 +224,14 @@ export class ThreePresenter {
     this.renderer.domElement.addEventListener('click', this.handleClick);
   }
 
-  /**
-   * Apply the angular headLightOffset to compute headLight position relative to camera.
-   * headLightOffset.x = horizontal angle (theta) in radians (positive -> rotate to the right)
-   * headLightOffset.y = vertical angle (phi) in radians (positive -> rotate up)
-   */
-  private applyHeadLightOffset() {
-    if (!this.headLight) return;
-
-    // Determine target to aim at (controls.target or origin)
-    const target = (this.controls && this.controls.target) ? this.controls.target.clone() : new THREE.Vector3(0, 0, 0);
-
-    // Base camera direction (from target to camera)
-    const camDir = new THREE.Vector3().subVectors(this.camera.position, target).normalize();
-
-    // Convert camDir to spherical coordinates
-    // thetaCam: azimuth around Y axis, phiCam: polar angle from Y axis
-    const thetaCam = Math.atan2(camDir.x, camDir.z); // around Y
-    const phiCam = Math.acos(Math.max(-1, Math.min(1, camDir.y))); // 0..PI
-
-    // Apply offsets
-    const theta = thetaCam + (this.headLightOffset ? this.headLightOffset.x : 0);
-    const phi = Math.max(0.01, Math.min(Math.PI - 0.01, phiCam + (this.headLightOffset ? this.headLightOffset.y : 0)));
-
-    // Distance: keep same distance from target as camera
-    const camDistance = this.camera.position.distanceTo(target);
-
-    // Convert back to Cartesian
-    const r = camDistance; // keep same radius so headlight stays relative to camera distance
-    const x = target.x + r * Math.sin(phi) * Math.sin(theta);
-    const y = target.y + r * Math.cos(phi);
-    const z = target.z + r * Math.sin(phi) * Math.cos(theta);
-
-    this.headLight.position.set(x, y, z);
-  }
-
   dispose() {
     window.removeEventListener('resize', this.handleResize);
     this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
     this.renderer.domElement.removeEventListener('click', this.handleClick);
     
-    // Dispose annotation manager
+    // Dispose managers
     this.annotationManager.dispose();
+    this.lightingManager.dispose();
     
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
@@ -480,16 +439,11 @@ export class ThreePresenter {
     requestAnimationFrame(this.animate);
     if (this.controls) this.controls.update();
     
-    // Update head light position - apply headLightOffset relative to camera direction
-    if (this.headLight) {
-      this.applyHeadLightOffset();
-      // Point the light towards the scene center (or controls target)
-      if (this.controls && this.controls.target) {
-        this.headLight.lookAt(this.controls.target);
-      } else {
-        this.headLight.lookAt(0, 0, 0);
-      }
-    }
+    // Update head light position to follow camera
+    const target = (this.controls && this.controls.target) 
+      ? this.controls.target 
+      : new THREE.Vector3(0, 0, 0);
+    this.lightingManager.updateHeadLight(this.camera, target);
     
     // Update annotation marker scales to maintain constant screen space size
     this.annotationManager.updateMarkerScales(this.camera, this.renderer.domElement.clientHeight);
@@ -650,12 +604,13 @@ export class ThreePresenter {
 
     // Handle head light offset (stored in degrees in scene JSON)
     if (env.headLightOffset && Array.isArray(env.headLightOffset) && env.headLightOffset.length >= 2) {
-      const degToRad = Math.PI / 180;
-      const thetaRad = (env.headLightOffset[0] || 0) * degToRad;
-      const phiRad = (env.headLightOffset[1] || 0) * degToRad;
-      this.headLightOffset = new THREE.Vector2(thetaRad, phiRad);
+      this.lightingManager.setHeadLightOffsetFromDegrees(
+        env.headLightOffset[0] || 0,
+        env.headLightOffset[1] || 0
+      );
       // Immediately apply so the headlight is positioned correctly
-      this.applyHeadLightOffset();
+      const target = this.controls?.target || new THREE.Vector3(0, 0, 0);
+      this.lightingManager.updateHeadLight(this.camera, target);
     }
   }
 
@@ -939,7 +894,7 @@ export class ThreePresenter {
       },
       rendering: {
         headLightEnabled: this.lightEnabled,
-        envLightingEnabled: this.envLightingEnabled,
+        envLightingEnabled: this.lightingManager.isEnvironmentLightingEnabled(),
       },
       modelVisibility: this.getModelVisibility(),
     };
@@ -998,14 +953,11 @@ export class ThreePresenter {
     
     // Restore rendering settings
     this.lightEnabled = state.rendering.headLightEnabled;
-    if (this.headLight) {
-      this.headLight.intensity = this.lightEnabled ? 0.9 : 0;
-      this.lightButton.innerHTML = this.lightEnabled ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
-    }
+    this.lightingManager.setHeadLightEnabled(this.lightEnabled);
+    this.lightButton.innerHTML = this.lightEnabled ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
     
-    this.envLightingEnabled = state.rendering.envLightingEnabled;
-    this.scene.environment = this.envLightingEnabled ? this.envMap : null;
-    this.envButton.innerHTML = this.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
+    this.lightingManager.setEnvironmentLightingEnabled(state.rendering.envLightingEnabled);
+    this.envButton.innerHTML = state.rendering.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
     
     // Restore model visibility
     for (const [modelId, visible] of Object.entries(state.modelVisibility)) {
@@ -1072,19 +1024,15 @@ export class ThreePresenter {
   }
 
   toggleLight() {
-    this.lightEnabled = !this.lightEnabled;
-    if (this.headLight) {
-      this.headLight.intensity = this.lightEnabled ? 0.9 : 0;
-      this.lightButton.innerHTML = this.lightEnabled ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
-      console.log(`💡 Lighting ${this.lightEnabled ? 'enabled' : 'disabled'}`);
-    }
+    this.lightEnabled = this.lightingManager.toggleHeadLight();
+    this.lightButton.innerHTML = this.lightEnabled ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
+    console.log(`💡 Lighting ${this.lightEnabled ? 'enabled' : 'disabled'}`);
   }
 
   toggleEnvLighting() {
-    this.envLightingEnabled = !this.envLightingEnabled;
-    this.scene.environment = this.envLightingEnabled ? this.envMap : null;
-    this.envButton.innerHTML = this.envLightingEnabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
-    console.log(`🌍 Environment lighting ${this.envLightingEnabled ? 'enabled' : 'disabled'}`);
+    const enabled = this.lightingManager.toggleEnvironmentLighting();
+    this.envButton.innerHTML = enabled ? '<i class="bi bi-globe"></i>' : '<i class="bi bi-circle"></i>';
+    console.log(`🌍 Environment lighting ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -1216,8 +1164,7 @@ export class ThreePresenter {
         '/brown_photostudio_02_1k.exr',
         (texture: THREE.DataTexture) => {
           texture.mapping = THREE.EquirectangularReflectionMapping;
-          this.envMap = texture;
-          this.scene.environment = texture;
+          this.lightingManager.setEnvironmentMap(texture);
           console.log('✅ Environment map loaded successfully');
         },
         undefined,
