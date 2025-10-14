@@ -2,9 +2,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-# Install curl and unzip for 3DHOP download
-RUN apk add --no-cache curl unzip
-
 COPY frontend/package.json frontend/package-lock.json* frontend/pnpm-lock.yaml* frontend/yarn.lock* ./
 
 # Install dependencies (including bootstrap)

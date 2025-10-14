@@ -2,7 +2,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
-import ThreeDHOPViewer from '../components/ThreeViewer';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../components/ThreeJSViewer';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription, Annotation } from '../../../shared/scene-types';

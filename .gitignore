@@ -6,10 +6,6 @@ docs/
 .vite/
 .DS_Store
 *.log
-# 3DHOP is downloaded automatically during Docker build if not present
-frontend/public/external/
-# Local 3DHOP cache
-frontend/.3dhop-cache/
 
 # Environment variables
 .env
