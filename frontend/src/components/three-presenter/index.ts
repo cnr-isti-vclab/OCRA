@@ -51,3 +51,11 @@ export type {
   ContainerConfig,
   UIControlsResult
 } from './UIControlsBuilder';
+
+// Export camera manager
+export { CameraManager, createCameraManager, calculateFrustumSize } from './CameraManager';
+export type {
+  CameraConfig,
+  CameraState,
+  CameraInfo
+} from './CameraManager';

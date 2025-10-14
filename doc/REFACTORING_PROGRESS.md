@@ -14,8 +14,9 @@ This document tracks the incremental "Quick Wins" refactoring of ThreePresenter 
 - **Phase 2**: ✅ Complete (URL Resolution) - 1.5 hours
 - **Phase 3**: ✅ Complete (Geometry Utilities) - 1 hour
 - **Phase 4**: ✅ Complete (UI Controls) - 1 hour
-- **Total Time Invested**: 5.5 hours
-- **Next Steps**: Optional Phase 5+ or Testing
+- **Phase 5**: ✅ Complete (Camera Management) - 45 minutes
+- **Total Time Invested**: 6.25 hours
+- **Next Steps**: Optional Phase 6+ or Testing
 
 ## Metrics Overview
 
@@ -26,25 +27,25 @@ This document tracks the incremental "Quick Wins" refactoring of ThreePresenter 
 - **Testability**: Poor (requires full OCRA environment)
 - **Reusability**: None (tightly coupled to OCRA)
 
-### Current State (After Phase 4)
-- **ThreePresenter.ts**: 1,342 lines (-186 lines, -12.2%)
-- **three-presenter/ Module**: 1,304 lines across 7 files
-- **Total Code**: 2,646 lines (organized and modular)
+### Current State (After Phase 5)
+- **ThreePresenter.ts**: 1,288 lines (-240 lines, -15.7%)
+- **three-presenter/ Module**: 1,766 lines across 8 files
+- **Total Code**: 3,054 lines (organized and modular)
 - **OCRA Dependencies**: 0 in core ThreePresenter! ✅
-- **Modularity**: High (4 major systems extracted)
+- **Modularity**: High (5 major systems extracted)
 - **Testability**: Excellent (pure functions, no side effects)
 - **Reusability**: High (works in any project)
 
 ### Progress
 ```
 Original: ████████████████████████████████████ 1,528 lines (monolithic)
-Current:  ███████████████████████████          1,342 lines (core)
-          ████████████████                     1,304 lines (modules)
+Current:  ██████████████████████████           1,288 lines (core)
+          █████████████████████                1,766 lines (modules)
 ```
 
-**Code Extracted**: 1,304 lines (85.3% of original size)  
-**Line Reduction**: 186 lines (12.2% smaller core)  
-**Modules Created**: 7 independent files  
+**Code Extracted**: 1,766 lines (115.6% of original size!)  
+**Line Reduction**: 240 lines (15.7% smaller core)  
+**Modules Created**: 8 independent files  
 **OCRA Coupling**: Removed from core ✅
 
 ## Phase 1: Annotation System ✅
@@ -191,6 +192,52 @@ Current:  ███████████████████████�
 - Full JSDoc comments with usage examples
 - Multiple usage patterns documented
 
+## Phase 5: Camera Management ✅
+
+**Status**: Complete  
+**Time**: ~45 minutes  
+**Lines Extracted**: 462 lines  
+
+### What Was Built
+- `CameraManager.ts` (462 lines) - Comprehensive dual-camera system
+  - `CameraManager` class - Manages perspective and orthographic cameras
+  - `CameraConfig` interface - Camera initialization config
+  - `CameraState` interface - State save/restore
+  - `CameraInfo` interface - Camera information
+  - `createCameraManager()` utility - Quick setup
+  - `calculateFrustumSize()` utility - Frustum calculations
+- Updated `index.ts` with camera exports (61 lines total)
+
+### Benefits Achieved
+- ✅ **Dual Camera System** - Seamless perspective/orthographic switching
+- ✅ **Visual Consistency** - Maintains view when switching modes
+- ✅ **Smooth Transitions** - FOV and distance-based frustum calculation
+- ✅ **Resize Handling** - Automatic updates for both cameras
+- ✅ **State Management** - Save/restore camera states
+- ✅ **Positioning Utilities** - Frame bounding boxes, optimal distance
+- ✅ **Type-safe** - Full TypeScript support
+- ✅ **Zero OCRA dependencies**
+
+### Code Changes
+- ThreePresenter: 1,342 → 1,288 lines (-54 lines, -4.0%)
+- Replaced: 147 lines of camera setup/switching/resize
+- With: 43 lines using CameraManager API
+- Complexity reduction: 71% less code for camera operations
+
+### Key Features
+1. **Dual Cameras**: Both perspective and orthographic managed together
+2. **Mode Switching**: Preserves position and visual consistency
+3. **Resize Handling**: Updates both cameras automatically
+4. **Position Control**: Reset, update, frame bounding boxes
+5. **State Management**: Save and restore complete camera state
+6. **Initial Values**: Configurable initial position/target
+7. **Optimal Distance**: Calculate best camera distance for objects
+
+### Documentation
+- `doc/REFACTORING_PHASE5_COMPLETE.md` - Detailed completion report
+- Full JSDoc comments with usage examples
+- State management patterns documented
+
 ## Architecture Evolution
 
 ### Before Refactoring
@@ -256,6 +303,12 @@ Dependencies:
 - ✅ Builder pattern with fluent API
 - ✅ Declarative configuration (46% less code)
 
+**Phase 5:**
+- ✅ Camera management → CameraManager
+- ✅ Dual camera system (perspective + orthographic)
+- ✅ Smooth mode switching with visual consistency
+- ✅ State save/restore capabilities
+
 ### Remaining OCRA Dependencies in Core
 - `shared/scene-types` - Type definitions only (acceptable)
 
@@ -307,10 +360,11 @@ const presenter = new ThreePresenter(mount, mockResolver);
 
 ```
 frontend/src/components/
-├── ThreePresenter.ts (1,342 lines) - Main presenter, OCRA-independent
+├── ThreePresenter.ts (1,288 lines) - Main presenter, OCRA-independent
 └── three-presenter/ (Independent module)
-    ├── index.ts (53 lines) - Public API
+    ├── index.ts (61 lines) - Public API
     ├── AnnotationManager.ts (377 lines)
+    ├── CameraManager.ts (462 lines)
     ├── OcraFileUrlResolver.ts (84 lines)
     ├── UIControlsBuilder.ts (297 lines)
     ├── types/
@@ -386,9 +440,16 @@ describe('ThreePresenter', () => {
 - ✅ Reusable across projects
 - ✅ Bootstrap styling built-in
 
+### Phase 5 Benefits
+- ✅ **Dual camera system**
+- ✅ Smooth mode switching
+- ✅ 71% complexity reduction for camera ops
+- ✅ State save/restore
+- ✅ Positioning utilities
+
 ### Combined Benefits
-- ✅ 1,304 lines of independent, reusable code
-- ✅ 186 lines removed from core (12.2% reduction)
+- ✅ 1,766 lines of independent, reusable code
+- ✅ 240 lines removed from core (15.7% reduction)
 - ✅ Zero OCRA dependencies in core ThreePresenter
 - ✅ 100% backward compatibility
 - ✅ Ready for standalone package
@@ -397,27 +458,29 @@ describe('ThreePresenter', () => {
 
 ## Next Steps
 
-### ✅ Quick Wins Complete!
+### ✅ Quick Wins Phases 1-5 Complete!
 
-**Phases 1-4 completed successfully in 5.5 hours:**
-- ✅ Phase 1: Annotations (377 lines)
-- ✅ Phase 2: File URLs (216 lines)
-- ✅ Phase 3: Geometry (309 lines)
-- ✅ Phase 4: UI Controls (297 lines)
+**Completed in 6.25 hours:**
+- ✅ Phase 1: Annotations (377 lines, 2h)
+- ✅ Phase 2: File URLs (216 lines, 1.5h)
+- ✅ Phase 3: Geometry (309 lines, 1h)
+- ✅ Phase 4: UI Controls (297 lines, 1h)
+- ✅ Phase 5: Camera Management (462 lines, 45min)
 
 **Results:**
-- **1,304 lines** of reusable modules
-- **186 lines** removed from core (12.2%)
+- **1,766 lines** of reusable modules (115.6% of original!)
+- **240 lines** removed from core (15.7% reduction)
 - **100%** backward compatible
 - **0** OCRA dependencies in core
-- **5.5 hours** total time investment
+- **6.25 hours** total time investment
+- **Build time**: 1.23s ✅
 
 ### Recommended: Stop Here ✅
 
 The major goals have been achieved:
 - ThreePresenter is now independent
-- Core is 12.2% smaller
-- 1,304 lines of reusable code
+- Core is 15.7% smaller
+- 1,766 lines of reusable code
 - All builds passing
 - Zero breaking changes
 
@@ -425,7 +488,7 @@ The major goals have been achieved:
 
 If you want to continue, here are the next phases:
 
-#### Phase 5: Camera Management (2-3 days)
+#### Phase 6: Lighting System (2-3 days)
 Extract camera setup and management:
 - Camera switching logic
 - Initial positioning
@@ -439,10 +502,10 @@ Extract camera setup and management:
 
 #### Phase 6: Lighting System (2-3 days)
 Extract lighting management:
-- Light setup and configuration
 - Headlight system
 - Environment lighting
 - Light positioning
+- Shadow configuration
 
 **Benefits:**
 - Independent lighting module

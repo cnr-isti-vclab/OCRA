@@ -4,6 +4,7 @@ import type { FileUrlResolver } from './three-presenter/types/FileUrlResolver';
 import { OcraFileUrlResolver } from './three-presenter/OcraFileUrlResolver';
 import { calculateObjectStats, type GeometryStats } from './three-presenter/utils/GeometryUtils';
 import { UIControlsBuilder, type ButtonConfig } from './three-presenter/UIControlsBuilder';
+import { CameraManager, type CameraConfig } from './three-presenter/CameraManager';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -78,6 +79,9 @@ export class ThreePresenter {
   // File URL resolver for loading models
   private fileUrlResolver: FileUrlResolver;
   
+  // Camera manager for dual camera system
+  private cameraManager: CameraManager;
+  
   // Annotation management (now using dedicated manager)
   private annotationManager: AnnotationManager;
   // Legacy properties for backward compatibility (deprecated)
@@ -95,24 +99,20 @@ export class ThreePresenter {
     // Initialize file URL resolver (use OCRA resolver by default)
     this.fileUrlResolver = fileUrlResolver || new OcraFileUrlResolver();
     
-    // Create perspective camera
-    this.perspectiveCamera = new THREE.PerspectiveCamera(40, aspect, 0.1, 1000);
-    this.perspectiveCamera.position.set(0, 0, 2);
+    // Create camera manager
+    this.cameraManager = new CameraManager(aspect, {
+      fov: 40,
+      near: 0.1,
+      far: 1000,
+      frustumSize: 2,
+      initialPosition: new THREE.Vector3(0, 0, 2),
+      initialTarget: new THREE.Vector3(0, 0, 0)
+    });
     
-    // Create orthographic camera
-    const frustumSize = 2;
-    this.orthographicCamera = new THREE.OrthographicCamera(
-      frustumSize * aspect / -2,
-      frustumSize * aspect / 2,
-      frustumSize / 2,
-      frustumSize / -2,
-      0.1,
-      1000
-    );
-    this.orthographicCamera.position.set(0, 0, 2);
-    
-    // Start with perspective camera
-    this.camera = this.perspectiveCamera;
+    // Get cameras from manager (for backward compatibility)
+    this.perspectiveCamera = this.cameraManager.getPerspectiveCamera();
+    this.orthographicCamera = this.cameraManager.getOrthographicCamera();
+    this.camera = this.cameraManager.getActiveCamera();
     
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(widthPx, heightPx);
@@ -305,34 +305,14 @@ export class ThreePresenter {
   handleResize() {
     const w = this.mount.clientWidth;
     const h = this.mount.clientHeight;
-    const aspect = w / h;
-    const frustumSize = 2;
     
     this.renderer.setSize(w, h);
     
-    // Update perspective camera
-    this.perspectiveCamera.aspect = aspect;
-    this.perspectiveCamera.updateProjectionMatrix();
+    // Use camera manager to handle resize for both cameras
+    this.cameraManager.handleResize(w, h);
     
-    // Update orthographic camera
-    if (this.orthographicCamera) {
-      this.orthographicCamera.left = frustumSize * aspect / -2;
-      this.orthographicCamera.right = frustumSize * aspect / 2;
-      this.orthographicCamera.top = frustumSize / 2;
-      this.orthographicCamera.bottom = frustumSize / -2;
-      this.orthographicCamera.updateProjectionMatrix();
-    }
-    
-    // Update current camera reference
-    if (this.camera instanceof THREE.PerspectiveCamera) {
-      this.camera.aspect = aspect;
-    } else if (this.camera instanceof THREE.OrthographicCamera) {
-      this.camera.left = frustumSize * aspect / -2;
-      this.camera.right = frustumSize * aspect / 2;
-      this.camera.top = frustumSize / 2;
-      this.camera.bottom = frustumSize / -2;
-    }
-    this.camera.updateProjectionMatrix();
+    // Update camera reference
+    this.camera = this.cameraManager.getActiveCamera();
     
     if (this.controls) this.controls.update(); 
     if (this.viewportGizmo) this.viewportGizmo.update();
@@ -939,6 +919,10 @@ export class ThreePresenter {
       this.initialCameraPosition.copy(this.camera.position);
       this.initialControlsTarget.set(0, targetY, 0);
       
+      // Update camera manager's initial values
+      this.cameraManager.setInitialPosition(this.camera.position);
+      this.cameraManager.setInitialTarget(new THREE.Vector3(0, targetY, 0));
+      
       console.log(`📷 Camera positioned at distance ${finalDistance.toFixed(2)}, target height ${targetY.toFixed(2)}`);
     }
   }
@@ -1082,12 +1066,8 @@ export class ThreePresenter {
   }
 
   resetCamera() {
-    // Reset camera to initial position
-    this.camera.position.copy(this.initialCameraPosition);
-    if (this.controls) {
-      this.controls.target.copy(this.initialControlsTarget);
-      this.controls.update();
-    }
+    // Use camera manager to reset camera
+    this.cameraManager.resetCamera(this.controls);
     console.log('📷 Camera view reset to home position');
   }
 
@@ -1121,47 +1101,17 @@ export class ThreePresenter {
   toggleCameraMode() {
     if (!this.orthographicCamera) return;
     
-    // Store current camera state
-    const currentPos = this.camera.position.clone();
-    const currentTarget = this.controls?.target.clone() || new THREE.Vector3(0, 0, 0);
-    const distance = currentPos.distanceTo(currentTarget);
+    // Use camera manager to toggle camera mode
+    this.camera = this.cameraManager.toggleCameraMode(this.controls);
+    this.isOrthographic = this.cameraManager.isOrthographicMode();
     
-    // Switch camera
-    this.isOrthographic = !this.isOrthographic;
-    
+    // Update button opacity
     if (this.isOrthographic) {
-      // Switch to orthographic
-      const aspect = this.mount.clientWidth / this.mount.clientHeight;
-      
-      // Calculate frustum size based on perspective camera's FOV and distance
-      // This ensures visual consistency when switching
-      const fov = this.perspectiveCamera.fov * (Math.PI / 180); // Convert to radians
-      const frustumHeight = 2 * Math.tan(fov / 2) * distance;
-      const frustumWidth = frustumHeight * aspect;
-      
-      this.orthographicCamera.left = -frustumWidth / 2;
-      this.orthographicCamera.right = frustumWidth / 2;
-      this.orthographicCamera.top = frustumHeight / 2;
-      this.orthographicCamera.bottom = -frustumHeight / 2;
-      this.orthographicCamera.position.copy(currentPos);
-      this.orthographicCamera.updateProjectionMatrix();
-      
-      this.camera = this.orthographicCamera as any;
       this.cameraButton.style.opacity = '0.7';
       console.log('📦 Switched to orthographic camera');
     } else {
-      // Switch to perspective
-      this.perspectiveCamera.position.copy(currentPos);
-      this.camera = this.perspectiveCamera;
       this.cameraButton.style.opacity = '1';
       console.log('📐 Switched to perspective camera');
-    }
-    
-    // Update controls to use new camera
-    if (this.controls) {
-      this.controls.object = this.camera;
-      this.controls.target.copy(currentTarget);
-      this.controls.update();
     }
     
     // Dispose and recreate viewport gizmo with the new camera
