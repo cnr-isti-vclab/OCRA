@@ -19,14 +19,6 @@ export interface ThreeJSViewerRef {
   setBackgroundColor: (color: string) => void;
   setGroundVisible: (visible: boolean) => void;
   setHeadLightOffset: (thetaDeg: number, phiDeg: number) => void;
-  /** @deprecated Use getAnnotationManager().render() instead */
-  renderAnnotations: (annotations: Annotation[]) => void;
-  /** @deprecated Use getAnnotationManager().getSelected() instead */
-  getSelectedAnnotations: () => string[];
-  /** @deprecated Use getAnnotationManager().select() instead */
-  selectAnnotation: (annotationId: string, additive?: boolean) => void;
-  /** @deprecated Use getAnnotationManager().clearSelection() instead */
-  clearAnnotationSelection: () => void;
 }
 
 // React wrapper for ThreePresenter
@@ -78,18 +70,6 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       },
       setHeadLightOffset: (thetaDeg: number, phiDeg: number) => {
         presenterRef.current?.setHeadLightOffset(thetaDeg, phiDeg);
-      },
-      renderAnnotations: (annotations: Annotation[]) => {
-        presenterRef.current?.renderAnnotations(annotations);
-      },
-      getSelectedAnnotations: () => {
-        return presenterRef.current?.getSelectedAnnotations() ?? [];
-      },
-      selectAnnotation: (annotationId: string, additive: boolean = false) => {
-        presenterRef.current?.selectAnnotation(annotationId, additive);
-      },
-      clearAnnotationSelection: () => {
-        presenterRef.current?.clearAnnotationSelection();
       }
     }));
 

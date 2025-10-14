@@ -102,7 +102,7 @@ export class ThreePresenter {
       initialTarget: new THREE.Vector3(0, 0, 0)
     });
     
-    // Get cameras from manager (for backward compatibility)
+    // Get cameras from manager
     this.perspectiveCamera = this.cameraManager.getPerspectiveCamera();
     this.orthographicCamera = this.cameraManager.getOrthographicCamera();
     this.camera = this.cameraManager.getActiveCamera();
@@ -187,7 +187,7 @@ export class ThreePresenter {
       .addButtons(buttonConfigs)
       .build();
 
-    // Store button references for backward compatibility
+    // Store button references
     this.homeButton = uiControls.buttons.get('home')!;
     this.lightButton = uiControls.buttons.get('light')!;
     this.lightPositionButton = uiControls.buttons.get('lightPosition')!;
@@ -528,7 +528,7 @@ export class ThreePresenter {
 
       // Render annotations if present
       if (sceneDesc.annotations && sceneDesc.annotations.length > 0) {
-        this.renderAnnotations(sceneDesc.annotations);
+        this.annotationManager.render(sceneDesc.annotations);
       }
 
       console.log('✅ Scene loaded successfully');
@@ -988,16 +988,6 @@ export class ThreePresenter {
     console.log('💡 Head light offset updated to:', thetaDeg, phiDeg);
   }
 
-  /**
-   * Render annotations (delegates to AnnotationManager)
-   * @deprecated Use getAnnotationManager().render() instead
-   */
-  renderAnnotations(annotations: Annotation[]): void {
-    this.annotationManager.render(annotations);
-  }
-
-
-
   resetCamera() {
     // Use camera manager to reset camera
     this.cameraManager.resetCamera(this.controls);
@@ -1154,49 +1144,4 @@ export class ThreePresenter {
   /**
    * Selection management methods (delegate to AnnotationManager)
    */
-
-  /**
-   * Select a single annotation, optionally adding to existing selection
-   * @param annotationId - The ID of the annotation to select
-   * @param additive - If true, add to selection; if false, replace selection
-   * @deprecated Use annotationManager.select() instead
-   */
-  selectAnnotation(annotationId: string, additive: boolean = false): void {
-    this.annotationManager.select([annotationId], additive);
-  }
-
-  /**
-   * Toggle selection state of an annotation
-   * @param annotationId - The ID of the annotation to toggle
-   * @deprecated Use annotationManager.toggleSelection() instead
-   */
-  toggleAnnotationSelection(annotationId: string): void {
-    this.annotationManager.toggleSelection(annotationId);
-  }
-
-  /**
-   * Clear all annotation selections
-   * @deprecated Use annotationManager.clearSelection() instead
-   */
-  clearAnnotationSelection(): void {
-    this.annotationManager.clearSelection();
-  }
-
-  /**
-   * Get array of selected annotation IDs
-   * @deprecated Use annotationManager.getSelected() instead
-   */
-  getSelectedAnnotations(): string[] {
-    return this.annotationManager.getSelected();
-  }
-
-  /**
-   * Select multiple annotations
-   * @param annotationIds - Array of annotation IDs to select
-   * @param additive - If true, add to selection; if false, replace selection
-   * @deprecated Use annotationManager.select() instead
-   */
-  selectAnnotations(annotationIds: string[], additive: boolean = false): void {
-    this.annotationManager.select(annotationIds, additive);
-  }
 }
