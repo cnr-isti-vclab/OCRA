@@ -6,6 +6,7 @@ import { calculateObjectStats, type GeometryStats } from './three-presenter/util
 import { UIControlsBuilder, type ButtonConfig } from './three-presenter/UIControlsBuilder';
 import { CameraManager, type CameraConfig } from './three-presenter/CameraManager';
 import { LightingManager } from './three-presenter/LightingManager';
+import { ModelLoader } from './three-presenter/ModelLoader';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -77,6 +78,7 @@ export class ThreePresenter {
   private annotationManager: AnnotationManager;
   private cameraManager: CameraManager;
   private lightingManager: LightingManager;
+  private modelLoader: ModelLoader;
   
   // Legacy properties for backward compatibility (deprecated)
   private get annotationMarkers() { return new Map(); }  // Empty map for compatibility
@@ -210,6 +212,16 @@ export class ThreePresenter {
       initialOffset: new THREE.Vector2(0, 0)
     });
     
+    // Model loading setup
+    this.modelLoader = new ModelLoader({
+      dracoDecoderPath: 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/',
+      autoComputeNormals: true,
+      defaultMaterial: {
+        color: 0xdddddd,
+        flatShading: true
+      }
+    });
+    
     // Animation loop
     this.animate = this.animate.bind(this);
     this.animate();
@@ -232,6 +244,7 @@ export class ThreePresenter {
     // Dispose managers
     this.annotationManager.dispose();
     this.lightingManager.dispose();
+    this.modelLoader.dispose();
     
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
@@ -693,95 +706,18 @@ export class ThreePresenter {
    * Load a model file based on its extension
    */
   private async loadModelFile(url: string, modelDef: ModelDefinition): Promise<THREE.Object3D> {
-    const response = await fetch(url, { credentials: 'include' });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const buffer = await response.arrayBuffer();
+    // Use the ModelLoader to handle format detection and loading
+    const materialOverrides = modelDef.material ? {
+      color: modelDef.material.color ? parseInt(modelDef.material.color.replace('#', ''), 16) : undefined,
+      flatShading: modelDef.material.flatShading,
+      metalness: modelDef.material.metalness,
+      roughness: modelDef.material.roughness
+    } : undefined;
+
+    const result = await this.modelLoader.loadFromUrl(url, materialOverrides);
+    console.log(`📦 Loaded ${result.format.toUpperCase()} model (${(result.byteSize / 1024).toFixed(2)} KB)`);
     
-    const filename = modelDef.file.toLowerCase();
-    
-    if (filename.endsWith('.ply')) {
-      return this.parsePLY(buffer, modelDef);
-    } else if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
-      return this.parseGLTF(buffer, modelDef);
-    } else {
-      throw new Error(`Unsupported file format: ${modelDef.file}`);
-    }
-  }
-
-  /**
-   * Parse PLY file
-   */
-  private async parsePLY(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Mesh> {
-    const { PLYLoader } = await import('three/examples/jsm/loaders/PLYLoader');
-    const loader = new PLYLoader();
-    const geometry = loader.parse(buffer);
-    geometry.computeVertexNormals();
-
-    // Create material with optional overrides
-    const materialProps: any = {
-      color: modelDef.material?.color || 0xdddddd,
-      flatShading: modelDef.material?.flatShading ?? true,
-    };
-    if (modelDef.material?.metalness !== undefined) {
-      materialProps.metalness = modelDef.material.metalness;
-    }
-    if (modelDef.material?.roughness !== undefined) {
-      materialProps.roughness = modelDef.material.roughness;
-    }
-
-    const material = new THREE.MeshStandardMaterial(materialProps);
-    const mesh = new THREE.Mesh(geometry, material);
-    return mesh;
-  }
-
-  /**
-   * Parse GLTF/GLB file
-   */
-  private async parseGLTF(buffer: ArrayBuffer, modelDef: ModelDefinition): Promise<THREE.Group> {
-    const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([
-      import('three/examples/jsm/loaders/GLTFLoader'),
-      import('three/examples/jsm/loaders/DRACOLoader')
-    ]);
-
-    const loader = new GLTFLoader();
-
-    // Set up Draco decoder
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-    dracoLoader.setDecoderConfig({ type: 'js' });
-    loader.setDRACOLoader(dracoLoader);
-
-    return await new Promise<THREE.Group>((resolve, reject) => {
-      loader.parse(buffer, '', (gltf: any) => {
-        const group = new THREE.Group();
-        gltf.scene.traverse((child: any) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const clonedChild = child.clone();
-
-            // Apply material overrides if specified
-            if (modelDef.material && (clonedChild as THREE.Mesh).material) {
-              const mat = (clonedChild as THREE.Mesh).material as THREE.Material;
-              if ((mat as any).color && modelDef.material.color) {
-                (mat as any).color = new THREE.Color(modelDef.material.color);
-              }
-              if ((mat as any).metalness !== undefined && modelDef.material.metalness !== undefined) {
-                (mat as any).metalness = modelDef.material.metalness;
-              }
-              if ((mat as any).roughness !== undefined && modelDef.material.roughness !== undefined) {
-                (mat as any).roughness = modelDef.material.roughness;
-              }
-            }
-
-            group.add(clonedChild);
-          }
-        });
-        resolve(group);
-      }, (error: any) => {
-        reject(error);
-      });
-    });
+    return result.object;
   }
 
   /**

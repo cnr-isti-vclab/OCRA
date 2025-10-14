@@ -66,3 +66,12 @@ export type {
   LightingConfig,
   LightingState
 } from './LightingManager';
+
+// Export model loader
+export { ModelLoader, createModelLoader } from './ModelLoader';
+export type {
+  LoaderConfig,
+  MaterialProperties,
+  ProgressCallback,
+  LoadResult
+} from './ModelLoader';
