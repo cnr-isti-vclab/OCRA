@@ -835,8 +835,12 @@ export default function ProjectPage() {
                                   throw new Error('Failed to save scene settings');
                                 }
 
-                                // Update local state
+                                // Update local state (for UI only, doesn't trigger scene reload)
                                 setSceneDesc(updatedScene);
+                                
+                                // Update 3D scene directly without reloading
+                                viewerRef.current?.setGroundVisible(showGround);
+                                
                                 console.log('✅ Ground grid setting saved:', showGround);
                               } catch (err: any) {
                                 console.error('❌ Failed to save ground setting:', err);
@@ -887,8 +891,12 @@ export default function ProjectPage() {
                                   throw new Error('Failed to save scene settings');
                                 }
 
-                                // Update local state
+                                // Update local state (for UI only, doesn't trigger scene reload)
                                 setSceneDesc(updatedScene);
+                                
+                                // Update 3D scene directly without reloading
+                                viewerRef.current?.setBackgroundColor(background);
+                                
                                 console.log('✅ Background color saved:', background);
                               } catch (err: any) {
                                 console.error('❌ Failed to save background color:', err);
@@ -978,7 +986,13 @@ export default function ProjectPage() {
                                     body: JSON.stringify(updatedScene)
                                   });
                                   if (!response.ok) throw new Error('Failed to save headlight offset');
+                                  
+                                  // Update local state (for UI only, doesn't trigger scene reload)
                                   setSceneDesc(updatedScene);
+                                  
+                                  // Update 3D scene directly without reloading
+                                  viewerRef.current?.setHeadLightOffset(thetaDeg, phiDeg);
+                                  
                                   console.log('✅ Headlight horizontal offset saved:', thetaDeg);
                                 } catch (err: any) {
                                   console.error('❌ Failed to save headlight offset:', err);
@@ -1017,7 +1031,13 @@ export default function ProjectPage() {
                                     body: JSON.stringify(updatedScene)
                                   });
                                   if (!response.ok) throw new Error('Failed to save headlight offset');
+                                  
+                                  // Update local state (for UI only, doesn't trigger scene reload)
                                   setSceneDesc(updatedScene);
+                                  
+                                  // Update 3D scene directly without reloading
+                                  viewerRef.current?.setHeadLightOffset(thetaDeg, phiDeg);
+                                  
                                   console.log('✅ Headlight vertical offset saved:', phiDeg);
                                 } catch (err: any) {
                                   console.error('❌ Failed to save headlight offset:', err);

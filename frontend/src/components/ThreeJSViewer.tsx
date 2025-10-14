@@ -15,6 +15,10 @@ export interface ThreeJSViewerRef {
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
   getAnnotationManager: () => AnnotationManager;
+  // Efficient environment setters (no scene reload)
+  setBackgroundColor: (color: string) => void;
+  setGroundVisible: (visible: boolean) => void;
+  setHeadLightOffset: (thetaDeg: number, phiDeg: number) => void;
   /** @deprecated Use getAnnotationManager().render() instead */
   renderAnnotations: (annotations: Annotation[]) => void;
   /** @deprecated Use getAnnotationManager().getSelected() instead */
@@ -31,6 +35,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
     const isFirstLoadRef = useRef<boolean>(true);
+    const prevSceneRef = useRef<SceneDescription | null>(null);
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
@@ -65,6 +70,15 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
         }
         return presenterRef.current.getAnnotationManager();
       },
+      setBackgroundColor: (color: string) => {
+        presenterRef.current?.setBackgroundColor(color);
+      },
+      setGroundVisible: (visible: boolean) => {
+        presenterRef.current?.setGroundVisible(visible);
+      },
+      setHeadLightOffset: (thetaDeg: number, phiDeg: number) => {
+        presenterRef.current?.setHeadLightOffset(thetaDeg, phiDeg);
+      },
       renderAnnotations: (annotations: Annotation[]) => {
         presenterRef.current?.renderAnnotations(annotations);
       },
@@ -96,23 +110,39 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     useEffect(() => {
       if (!sceneDesc || !presenterRef.current) return;
       
-      // Check if models were added/removed by comparing model counts
-      const currentModelCount = sceneDesc.models?.length || 0;
-      const previousModelCount = presenterRef.current.currentScene?.models?.length || 0;
-      const modelsChanged = isFirstLoadRef.current || currentModelCount !== previousModelCount;
+      const prevScene = prevSceneRef.current;
       
-      const preserveCamera = !modelsChanged;
-      if (preserveCamera) {
-        console.log('🔄 Reloading scene (preserving camera - no model changes)');
-      } else {
-        console.log(`🔄 Loading scene (${isFirstLoadRef.current ? 'initial load' : 'models changed: ' + previousModelCount + ' → ' + currentModelCount})`);
+      // Determine if we need a full reload
+      let needsReload = isFirstLoadRef.current;
+      
+      if (!isFirstLoadRef.current && prevScene) {
+        // Check if model file paths changed (which requires reloading the models)
+        const currentFiles = (sceneDesc.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
+        const previousFiles = (prevScene.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
+        const filesChanged = currentFiles !== previousFiles;
+        
+        // Only reload if file paths changed
+        needsReload = filesChanged;
       }
       
-      presenterRef.current.loadScene(sceneDesc, preserveCamera).catch(err => {
-        console.error('Failed to load scene:', err);
-      });
+      if (needsReload) {
+        if (isFirstLoadRef.current) {
+          console.log('🔄 Loading scene (initial load)');
+        } else {
+          console.log('🔄 Loading scene (model files changed)');
+        }
+        
+        presenterRef.current.loadScene(sceneDesc, false).catch(err => {
+          console.error('Failed to load scene:', err);
+        });
+        
+        isFirstLoadRef.current = false;
+      } else {
+        console.log('⚡ Skipping scene reload (no file changes - use direct setters for other changes)');
+      }
       
-      isFirstLoadRef.current = false;
+      // Store current scene for next comparison
+      prevSceneRef.current = sceneDesc;
     }, [sceneDesc]);
 
     return <div ref={mountRef} style={{ width, height, position: 'relative' }} />;

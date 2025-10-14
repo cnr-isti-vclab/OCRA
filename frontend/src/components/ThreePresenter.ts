@@ -939,6 +939,56 @@ export class ThreePresenter {
   }
 
   /**
+   * Set background color without reloading the scene
+   * @param color Hex color string (e.g., '#404040')
+   */
+  setBackgroundColor(color: string): void {
+    this.scene.background = new THREE.Color(color);
+    // Update currentScene if it exists
+    if (this.currentScene && this.currentScene.environment) {
+      this.currentScene.environment.background = color;
+    }
+    console.log('🎨 Background color updated to:', color);
+  }
+
+  /**
+   * Toggle ground visibility without reloading the scene
+   * @param visible Whether the ground should be visible
+   */
+  setGroundVisible(visible: boolean): void {
+    if (visible && !this.ground) {
+      this.addGround();
+    } else if (!visible && this.ground) {
+      this.removeGround();
+    }
+    // Update currentScene if it exists
+    if (this.currentScene && this.currentScene.environment) {
+      this.currentScene.environment.showGround = visible;
+    }
+    console.log('🌍 Ground visibility set to:', visible);
+  }
+
+  /**
+   * Set head light offset without reloading the scene
+   * @param thetaDeg Horizontal angle in degrees
+   * @param phiDeg Vertical angle in degrees
+   */
+  setHeadLightOffset(thetaDeg: number, phiDeg: number): void {
+    this.lightingManager.setHeadLightOffsetFromDegrees(thetaDeg, phiDeg);
+    const target = this.controls?.target || new THREE.Vector3(0, 0, 0);
+    this.lightingManager.updateHeadLight(this.camera, target);
+    // Update currentScene if it exists
+    if (this.currentScene && this.currentScene.environment) {
+      if (!this.currentScene.environment.headLightOffset) {
+        this.currentScene.environment.headLightOffset = [0, 0];
+      }
+      this.currentScene.environment.headLightOffset[0] = thetaDeg;
+      this.currentScene.environment.headLightOffset[1] = phiDeg;
+    }
+    console.log('💡 Head light offset updated to:', thetaDeg, phiDeg);
+  }
+
+  /**
    * Render annotations (delegates to AnnotationManager)
    * @deprecated Use getAnnotationManager().render() instead
    */
