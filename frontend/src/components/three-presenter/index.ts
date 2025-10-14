@@ -14,3 +14,17 @@ export type {
   SelectionChangeCallback,
   PointPickedCallback
 } from './types/AnnotationTypes';
+
+// Export file URL resolvers
+export type {
+  FileUrlResolver,
+  FileResolverContext
+} from './types/FileUrlResolver';
+
+export {
+  DefaultFileUrlResolver,
+  StaticBaseUrlResolver,
+  FunctionResolver
+} from './types/FileUrlResolver';
+
+export { OcraFileUrlResolver } from './OcraFileUrlResolver';

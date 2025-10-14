@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { getApiBase } from '../config/oauth';
 import { AnnotationManager } from './three-presenter/AnnotationManager';
+import type { FileUrlResolver } from './three-presenter/types/FileUrlResolver';
+import { OcraFileUrlResolver } from './three-presenter/OcraFileUrlResolver';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -72,19 +73,25 @@ export class ThreePresenter {
   modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
   sceneBBoxSize: THREE.Vector3 = new THREE.Vector3(2, 2, 2); // Store actual scene size for ground
   
+  // File URL resolver for loading models
+  private fileUrlResolver: FileUrlResolver;
+  
   // Annotation management (now using dedicated manager)
   private annotationManager: AnnotationManager;
   // Legacy properties for backward compatibility (deprecated)
   private get annotationMarkers() { return new Map(); }  // Empty map for compatibility
   private get selectedAnnotations() { return new Set(this.annotationManager.getSelected()); }
 
-  constructor(mount: HTMLDivElement) {
+  constructor(mount: HTMLDivElement, fileUrlResolver?: FileUrlResolver) {
     this.mount = mount;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x404040);
     const widthPx = mount.clientWidth;
     const heightPx = mount.clientHeight;
     const aspect = widthPx / heightPx;
+    
+    // Initialize file URL resolver (use OCRA resolver by default)
+    this.fileUrlResolver = fileUrlResolver || new OcraFileUrlResolver();
     
     // Create perspective camera
     this.perspectiveCamera = new THREE.PerspectiveCamera(40, aspect, 0.1, 1000);
@@ -727,19 +734,9 @@ export class ThreePresenter {
    * Load a single model
    */
   private async loadModel(modelDef: ModelDefinition): Promise<void> {
-    // Construct the full URL for the model file
-    let fullUrl: string;
-    if (modelDef.file.startsWith('http')) {
-      // Absolute URL
-      fullUrl = modelDef.file;
-    } else {
-      // Relative filename - construct URL using projectId from scene
-      const projectId = this.currentScene?.projectId;
-      if (!projectId) {
-        throw new Error(`Cannot load model ${modelDef.id}: no projectId in scene description`);
-      }
-      fullUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(modelDef.file)}`;
-    }
+    // Use the file URL resolver to get the full URL
+    const projectId = this.currentScene?.projectId;
+    const fullUrl = this.fileUrlResolver.resolve(modelDef.file, { projectId });
     
     console.log(`Loading model ${modelDef.id} from ${fullUrl}`);
     
