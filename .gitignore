@@ -1,6 +1,7 @@
 # Node / Vite
 node_modules/
 dist/
+dist-standalone/
 .vite/
 .DS_Store
 *.log

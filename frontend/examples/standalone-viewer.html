@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThreePresenter - Minimal Example</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; }
+    #viewer { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+
+  <!-- Load Three.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
+  
+  <!-- Load ThreePresenter UMD bundle (build first: npm run build:standalone) -->
+  <script src="../dist-standalone/three-presenter.umd.js"></script>
+  
+  <script>
+    // ThreePresenter is available as global: OcraThreePresenter
+    const { ThreePresenter } = OcraThreePresenter;
+    
+    // Create presenter
+    const viewer = document.getElementById('viewer');
+    const presenter = new ThreePresenter(viewer);
+    
+    // Load a scene
+    presenter.loadScene({
+      models: [
+        { id: 'model1', file: 'your-model.glb' }
+      ],
+      environment: {
+        backgroundColor: '#2a2a2a',
+        groundVisible: true
+      }
+    }).then(() => {
+      console.log('✅ Scene loaded!');
+    }).catch(error => {
+      console.error('❌ Error:', error);
+    });
+    
+    // Optional: Add controls
+    // presenter.setBackgroundColor('#ffffff');
+    // presenter.setModelVisibility('model1', true);
+    // presenter.resetCamera();
+  </script>
+</body>
+</html>
