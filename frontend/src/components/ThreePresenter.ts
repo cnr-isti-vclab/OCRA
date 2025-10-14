@@ -204,9 +204,9 @@ export class ThreePresenter {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
     directionalLight.position.set(0, 0, 1); // Initial position, will be updated to be attached to the camera
     this.scene.add(directionalLight);
-  this.headLight = directionalLight;
-  // Initialize offset as zero angles (aligned with camera)
-  this.headLightOffset = new THREE.Vector2(0, 0);
+    this.headLight = directionalLight;
+    // Initialize offset as zero angles (aligned with camera)
+    this.headLightOffset = new THREE.Vector2(0, 0);
     // Animation loop
     this.animate = this.animate.bind(this);
     this.animate();
@@ -1099,6 +1099,9 @@ export class ThreePresenter {
         // The visible height in world units is (top - bottom)
         const visibleHeight = this.camera.top - this.camera.bottom;
         scale = visibleHeight * pixelSize / canvasHeight;
+        scale /= this.camera.zoom; 
+        // console.log('visibleHeight:', visibleHeight, 'scale:', scale, 'camera.zoom:', this.camera.zoom);
+        
       } else {
         // Fallback for unknown camera types
         scale = 0.01;
