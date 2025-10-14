@@ -36,6 +36,7 @@ export default function ProjectPage() {
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -424,6 +425,21 @@ export default function ProjectPage() {
       viewerRef.current.renderAnnotations(annotations);
     }
   }, [annotations]);
+
+  // Poll viewer for annotation selection changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (viewerRef.current) {
+        const selectedIds = viewerRef.current.getSelectedAnnotations();
+        // Only update state if selection actually changed
+        if (JSON.stringify(selectedIds) !== JSON.stringify(selectedAnnotationIds)) {
+          setSelectedAnnotationIds(selectedIds);
+        }
+      }
+    }, 200); // Poll every 200ms
+
+    return () => clearInterval(interval);
+  }, [selectedAnnotationIds]);
 
   // Function to save annotations to backend
   const saveAnnotationsToBackend = async (updatedAnnotations: Annotation[]) => {
@@ -1039,36 +1055,61 @@ export default function ProjectPage() {
                   ) : (
                     <div className="flex-grow-1 overflow-auto">
                       <div className="list-group">
-                        {annotations.map((annotation) => (
-                          <div 
-                            key={annotation.id} 
-                            className="list-group-item list-group-item-action"
-                          >
-                            <div className="d-flex w-100 justify-content-between align-items-start">
-                              <h5 className="mb-1">{annotation.label}</h5>
-                              <span className={`badge ${
-                                annotation.type === 'point' ? 'bg-primary' :
-                                annotation.type === 'line' ? 'bg-success' :
-                                'bg-warning'
-                              }`}>
-                                {annotation.type}
-                              </span>
+                        {annotations.map((annotation) => {
+                          const isSelected = selectedAnnotationIds.includes(annotation.id);
+                          return (
+                            <div 
+                              key={annotation.id} 
+                              className={`list-group-item list-group-item-action ${isSelected ? 'active' : ''}`}
+                              style={{ cursor: 'pointer' }}
+                              onClick={(e) => {
+                                if (viewerRef.current) {
+                                  if (e.ctrlKey || e.metaKey) {
+                                    // Toggle selection with Ctrl/Cmd
+                                    if (isSelected) {
+                                      // Remove from selection by selecting all others
+                                      const newSelection = selectedAnnotationIds.filter(id => id !== annotation.id);
+                                      viewerRef.current.clearAnnotationSelection();
+                                      newSelection.forEach(id => {
+                                        viewerRef.current?.selectAnnotation(id, true);
+                                      });
+                                    } else {
+                                      // Add to selection
+                                      viewerRef.current.selectAnnotation(annotation.id, true);
+                                    }
+                                  } else {
+                                    // Single selection
+                                    viewerRef.current.selectAnnotation(annotation.id, false);
+                                  }
+                                }
+                              }}
+                            >
+                              <div className="d-flex w-100 justify-content-between align-items-start">
+                                <h5 className="mb-1">{annotation.label}</h5>
+                                <span className={`badge ${
+                                  annotation.type === 'point' ? 'bg-primary' :
+                                  annotation.type === 'line' ? 'bg-success' :
+                                  'bg-warning'
+                                }`}>
+                                  {annotation.type}
+                                </span>
+                              </div>
+                              <p className="mb-1 small text-muted">
+                                ID: {annotation.id}
+                              </p>
+                              {annotation.type === 'point' && Array.isArray(annotation.geometry) && annotation.geometry.length === 3 && (
+                                <p className="mb-0 small font-monospace">
+                                  [{(annotation.geometry as [number, number, number])[0].toFixed(3)}, {(annotation.geometry as [number, number, number])[1].toFixed(3)}, {(annotation.geometry as [number, number, number])[2].toFixed(3)}]
+                                </p>
+                              )}
+                              {annotation.type !== 'point' && Array.isArray(annotation.geometry) && (
+                                <p className="mb-0 small">
+                                  {(annotation.geometry as [number, number, number][]).length} points
+                                </p>
+                              )}
                             </div>
-                            <p className="mb-1 small text-muted">
-                              ID: {annotation.id}
-                            </p>
-                            {annotation.type === 'point' && Array.isArray(annotation.geometry) && annotation.geometry.length === 3 && (
-                              <p className="mb-0 small font-monospace">
-                                [{(annotation.geometry as [number, number, number])[0].toFixed(3)}, {(annotation.geometry as [number, number, number])[1].toFixed(3)}, {(annotation.geometry as [number, number, number])[2].toFixed(3)}]
-                              </p>
-                            )}
-                            {annotation.type !== 'point' && Array.isArray(annotation.geometry) && (
-                              <p className="mb-0 small">
-                                {(annotation.geometry as [number, number, number][]).length} points
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

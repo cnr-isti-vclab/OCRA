@@ -71,6 +71,7 @@ export class ThreePresenter {
   modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
   sceneBBoxSize: THREE.Vector3 = new THREE.Vector3(2, 2, 2); // Store actual scene size for ground
   annotationMarkers: Map<string, THREE.Mesh> = new Map(); // Map annotation ID to sphere mesh
+  selectedAnnotations: Set<string> = new Set(); // Track selected annotation IDs (local viewer state)
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -216,6 +217,9 @@ export class ThreePresenter {
     // Double-click handler for recentering
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
     this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
+    // Click handler for annotation selection
+    this.handleClick = this.handleClick.bind(this);
+    this.renderer.domElement.addEventListener('click', this.handleClick);
   }
 
   /**
@@ -381,6 +385,53 @@ export class ThreePresenter {
       // Otherwise, recenter camera on point
       console.log('🎯 Recentering camera on point:', intersectionPoint);
       this.animateCameraTarget(intersectionPoint);
+    }
+  }
+
+  /**
+   * Handle single click for annotation selection
+   */
+  handleClick(event: MouseEvent) {
+    // Don't handle clicks while in picking mode or if controls are being used
+    if (this.isPickingMode) return;
+    
+    // Calculate mouse position in normalized device coordinates
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update raycaster
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // Check for intersections with annotation markers
+    const markerObjects = Array.from(this.annotationMarkers.values());
+    const intersects = this.raycaster.intersectObjects(markerObjects, false);
+
+    if (intersects.length > 0) {
+      // Find which annotation was clicked
+      const clickedMarker = intersects[0].object as THREE.Mesh;
+      let clickedAnnotationId: string | null = null;
+      
+      for (const [id, marker] of this.annotationMarkers.entries()) {
+        if (marker === clickedMarker) {
+          clickedAnnotationId = id;
+          break;
+        }
+      }
+
+      if (clickedAnnotationId) {
+        // Toggle selection with Ctrl/Cmd for multi-select, otherwise single select
+        if (event.ctrlKey || event.metaKey) {
+          this.toggleAnnotationSelection(clickedAnnotationId);
+        } else {
+          this.selectAnnotation(clickedAnnotationId, false); // Replace selection
+        }
+      }
+    } else {
+      // Clicked on empty space - clear selection if not using modifier keys
+      if (!event.ctrlKey && !event.metaKey) {
+        this.clearAnnotationSelection();
+      }
     }
   }
 
@@ -1050,17 +1101,27 @@ export class ThreePresenter {
 
       // Check if marker already exists
       let marker = this.annotationMarkers.get(annotation.id);
+      const isSelected = this.selectedAnnotations.has(annotation.id);
       
       if (marker) {
         // Update existing marker position
         marker.position.copy(position);
+        // Update material based on selection state
+        const material = marker.material as THREE.MeshBasicMaterial;
+        if (isSelected) {
+          material.color.setHex(0xffff66); // Brighter yellow when selected
+          material.opacity = 1.0; // Fully opaque when selected
+        } else {
+          material.color.setHex(0xffff00); // Normal yellow
+          material.opacity = 0.9; // Slightly transparent when not selected
+        }
       } else {
         // Create new marker with a base radius that will be scaled in animate()
         const sphereGeometry = new THREE.SphereGeometry(1.0, 16, 16); // Base radius = 1.0
         const sphereMaterial = new THREE.MeshBasicMaterial({ 
-          color: 0xffff00, // Yellow
+          color: isSelected ? 0xffff66 : 0xffff00, // Brighter when selected
           transparent: true,
-          opacity: 0.9,
+          opacity: isSelected ? 1.0 : 0.9,
           depthTest: true,
           depthWrite: true
         });
@@ -1378,6 +1439,90 @@ export class ThreePresenter {
       );
     } catch (err) {
       console.warn('EXRLoader dynamic import failed or not available:', err);
+    }
+  }
+
+  /**
+   * Selection management methods for annotations
+   */
+
+  /**
+   * Select a single annotation, optionally adding to existing selection
+   * @param annotationId - The ID of the annotation to select
+   * @param additive - If true, add to selection; if false, replace selection
+   */
+  selectAnnotation(annotationId: string, additive: boolean = false): void {
+    if (!additive) {
+      this.selectedAnnotations.clear();
+    }
+    this.selectedAnnotations.add(annotationId);
+    this.updateAnnotationVisuals();
+    console.log(`✅ Selected annotation: ${annotationId} (total: ${this.selectedAnnotations.size})`);
+  }
+
+  /**
+   * Toggle selection state of an annotation
+   * @param annotationId - The ID of the annotation to toggle
+   */
+  toggleAnnotationSelection(annotationId: string): void {
+    if (this.selectedAnnotations.has(annotationId)) {
+      this.selectedAnnotations.delete(annotationId);
+      console.log(`❌ Deselected annotation: ${annotationId}`);
+    } else {
+      this.selectedAnnotations.add(annotationId);
+      console.log(`✅ Selected annotation: ${annotationId}`);
+    }
+    this.updateAnnotationVisuals();
+    console.log(`📋 Total selected: ${this.selectedAnnotations.size}`);
+  }
+
+  /**
+   * Clear all annotation selections
+   */
+  clearAnnotationSelection(): void {
+    if (this.selectedAnnotations.size > 0) {
+      this.selectedAnnotations.clear();
+      this.updateAnnotationVisuals();
+      console.log('🗑️ Cleared annotation selection');
+    }
+  }
+
+  /**
+   * Get array of selected annotation IDs
+   */
+  getSelectedAnnotations(): string[] {
+    return Array.from(this.selectedAnnotations);
+  }
+
+  /**
+   * Select multiple annotations
+   * @param annotationIds - Array of annotation IDs to select
+   * @param additive - If true, add to selection; if false, replace selection
+   */
+  selectAnnotations(annotationIds: string[], additive: boolean = false): void {
+    if (!additive) {
+      this.selectedAnnotations.clear();
+    }
+    annotationIds.forEach(id => this.selectedAnnotations.add(id));
+    this.updateAnnotationVisuals();
+    console.log(`✅ Selected ${annotationIds.length} annotation(s) (total: ${this.selectedAnnotations.size})`);
+  }
+
+  /**
+   * Update visual appearance of all annotation markers based on selection state
+   */
+  private updateAnnotationVisuals(): void {
+    for (const [id, marker] of this.annotationMarkers.entries()) {
+      const material = marker.material as THREE.MeshBasicMaterial;
+      const isSelected = this.selectedAnnotations.has(id);
+      
+      if (isSelected) {
+        material.color.setHex(0xffff66); // Brighter yellow when selected
+        material.opacity = 1.0; // Fully opaque
+      } else {
+        material.color.setHex(0xffff00); // Normal yellow
+        material.opacity = 0.9; // Slightly transparent
+      }
     }
   }
 }

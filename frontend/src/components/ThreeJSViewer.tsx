@@ -15,6 +15,9 @@ export interface ThreeJSViewerRef {
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
   renderAnnotations: (annotations: Annotation[]) => void;
+  getSelectedAnnotations: () => string[];
+  selectAnnotation: (annotationId: string, additive?: boolean) => void;
+  clearAnnotationSelection: () => void;
 }
 
 // React wrapper for ThreePresenter
@@ -53,6 +56,15 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       },
       renderAnnotations: (annotations: Annotation[]) => {
         presenterRef.current?.renderAnnotations(annotations);
+      },
+      getSelectedAnnotations: () => {
+        return presenterRef.current?.getSelectedAnnotations() ?? [];
+      },
+      selectAnnotation: (annotationId: string, additive: boolean = false) => {
+        presenterRef.current?.selectAnnotation(annotationId, additive);
+      },
+      clearAnnotationSelection: () => {
+        presenterRef.current?.clearAnnotationSelection();
       }
     }));
 
