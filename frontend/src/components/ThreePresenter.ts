@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getApiBase } from '../config/oauth';
+import { AnnotationManager } from './three-presenter/AnnotationManager';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -70,8 +71,12 @@ export class ThreePresenter {
   mouse: THREE.Vector2 = new THREE.Vector2();
   modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
   sceneBBoxSize: THREE.Vector3 = new THREE.Vector3(2, 2, 2); // Store actual scene size for ground
-  annotationMarkers: Map<string, THREE.Mesh> = new Map(); // Map annotation ID to sphere mesh
-  selectedAnnotations: Set<string> = new Set(); // Track selected annotation IDs (local viewer state)
+  
+  // Annotation management (now using dedicated manager)
+  private annotationManager: AnnotationManager;
+  // Legacy properties for backward compatibility (deprecated)
+  private get annotationMarkers() { return new Map(); }  // Empty map for compatibility
+  private get selectedAnnotations() { return new Set(this.annotationManager.getSelected()); }
 
   constructor(mount: HTMLDivElement) {
     this.mount = mount;
@@ -105,6 +110,13 @@ export class ThreePresenter {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     mount.appendChild(this.renderer.domElement);
+    
+    // Initialize annotation manager
+    this.annotationManager = new AnnotationManager(this.scene, {
+      color: 0xffff00,
+      selectedColor: 0xffff66,
+      markerSize: 10
+    });
     
     // Load environment map
     this.loadEnvironmentMap();
@@ -260,14 +272,10 @@ export class ThreePresenter {
   dispose() {
     window.removeEventListener('resize', this.handleResize);
     this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
+    this.renderer.domElement.removeEventListener('click', this.handleClick);
     
-    // Clean up annotation markers
-    for (const [id, marker] of this.annotationMarkers.entries()) {
-      this.scene.remove(marker);
-      marker.geometry.dispose();
-      (marker.material as THREE.Material).dispose();
-    }
-    this.annotationMarkers.clear();
+    // Dispose annotation manager
+    this.annotationManager.dispose();
     
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
@@ -392,8 +400,8 @@ export class ThreePresenter {
    * Handle single click for annotation selection
    */
   handleClick(event: MouseEvent) {
-    // Don't handle clicks while in picking mode or if controls are being used
-    if (this.isPickingMode) return;
+    // Don't handle clicks while in picking mode
+    if (this.annotationManager.isPickingMode()) return;
     
     // Calculate mouse position in normalized device coordinates
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -404,33 +412,26 @@ export class ThreePresenter {
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
     // Check for intersections with annotation markers
-    const markerObjects = Array.from(this.annotationMarkers.values());
+    const markerObjects = this.annotationManager.getAllMarkers();
     const intersects = this.raycaster.intersectObjects(markerObjects, false);
 
     if (intersects.length > 0) {
       // Find which annotation was clicked
       const clickedMarker = intersects[0].object as THREE.Mesh;
-      let clickedAnnotationId: string | null = null;
-      
-      for (const [id, marker] of this.annotationMarkers.entries()) {
-        if (marker === clickedMarker) {
-          clickedAnnotationId = id;
-          break;
-        }
-      }
+      const clickedAnnotationId = this.annotationManager.getAnnotationIdFromMarker(clickedMarker);
 
       if (clickedAnnotationId) {
         // Toggle selection with Ctrl/Cmd for multi-select, otherwise single select
         if (event.ctrlKey || event.metaKey) {
-          this.toggleAnnotationSelection(clickedAnnotationId);
+          this.annotationManager.toggleSelection(clickedAnnotationId);
         } else {
-          this.selectAnnotation(clickedAnnotationId, false); // Replace selection
+          this.annotationManager.select([clickedAnnotationId], false); // Replace selection
         }
       }
     } else {
       // Clicked on empty space - clear selection if not using modifier keys
       if (!event.ctrlKey && !event.metaKey) {
-        this.clearAnnotationSelection();
+        this.annotationManager.clearSelection();
       }
     }
   }
@@ -514,9 +515,7 @@ export class ThreePresenter {
     }
     
     // Update annotation marker scales to maintain constant screen space size
-    if (this.annotationMarkers.size > 0) {
-      this.updateAnnotationScales();
-    }
+    this.annotationManager.updateMarkerScales(this.camera, this.renderer.domElement.clientHeight);
     
     this.renderer.render(this.scene, this.camera);
 
@@ -1076,100 +1075,18 @@ export class ThreePresenter {
   }
 
   /**
-   * Render annotations as yellow spheres in the scene
+   * Render annotations (delegates to AnnotationManager)
+   * @deprecated Use annotationManager.render() instead
    */
   renderAnnotations(annotations: Annotation[]): void {
-    // Remove existing annotation markers that are no longer in the list
-    const currentAnnotationIds = new Set(annotations.map(a => a.id));
-    for (const [id, marker] of this.annotationMarkers.entries()) {
-      if (!currentAnnotationIds.has(id)) {
-        this.scene.remove(marker);
-        marker.geometry.dispose();
-        (marker.material as THREE.Material).dispose();
-        this.annotationMarkers.delete(id);
-      }
-    }
-
-    // Add or update annotation markers
-    annotations.forEach(annotation => {
-      // Only handle point annotations for now
-      if (annotation.type !== 'point') return;
-      
-      // Get the point coordinates
-      const geometry = annotation.geometry as [number, number, number];
-      const position = new THREE.Vector3(geometry[0], geometry[1], geometry[2]);
-
-      // Check if marker already exists
-      let marker = this.annotationMarkers.get(annotation.id);
-      const isSelected = this.selectedAnnotations.has(annotation.id);
-      
-      if (marker) {
-        // Update existing marker position
-        marker.position.copy(position);
-        // Update material based on selection state
-        const material = marker.material as THREE.MeshBasicMaterial;
-        if (isSelected) {
-          material.color.setHex(0xffff66); // Brighter yellow when selected
-          material.opacity = 1.0; // Fully opaque when selected
-        } else {
-          material.color.setHex(0xffff00); // Normal yellow
-          material.opacity = 0.9; // Slightly transparent when not selected
-        }
-      } else {
-        // Create new marker with a base radius that will be scaled in animate()
-        const sphereGeometry = new THREE.SphereGeometry(1.0, 16, 16); // Base radius = 1.0
-        const sphereMaterial = new THREE.MeshBasicMaterial({ 
-          color: isSelected ? 0xffff66 : 0xffff00, // Brighter when selected
-          transparent: true,
-          opacity: isSelected ? 1.0 : 0.9,
-          depthTest: true,
-          depthWrite: true
-        });
-        marker = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        marker.position.copy(position);
-        
-        // Store reference and add to scene
-        this.annotationMarkers.set(annotation.id, marker);
-        this.scene.add(marker);
-      }
-    });
-
-    // Update scales based on camera distance
-    this.updateAnnotationScales();
-
-    console.log(`🎯 Rendered ${annotations.length} annotation(s)`);
+    this.annotationManager.render(annotations);
   }
 
   /**
-   * Update annotation marker scales to maintain constant screen space size
+   * @deprecated - No longer needed, handled by AnnotationManager
    */
   private updateAnnotationScales(): void {
-    const pixelSize = 10; // Target size in pixels
-    const canvasHeight = this.renderer.domElement.clientHeight;
-    
-    for (const marker of this.annotationMarkers.values()) {
-      let scale: number;
-      
-      if (this.camera instanceof THREE.PerspectiveCamera) {
-        // Perspective camera: scale based on distance and FOV
-        const distance = this.camera.position.distanceTo(marker.position);
-        const fovRadians = this.camera.fov * Math.PI / 180;
-        scale = distance * Math.tan(fovRadians / 2) * 2 * pixelSize / canvasHeight;
-      } else if (this.camera instanceof THREE.OrthographicCamera) {
-        // Orthographic camera: scale based on frustum size (no perspective)
-        // The visible height in world units is (top - bottom)
-        const visibleHeight = this.camera.top - this.camera.bottom;
-        scale = visibleHeight * pixelSize / canvasHeight;
-        scale /= this.camera.zoom; 
-        // console.log('visibleHeight:', visibleHeight, 'scale:', scale, 'camera.zoom:', this.camera.zoom);
-        
-      } else {
-        // Fallback for unknown camera types
-        scale = 0.01;
-      }
-      
-      marker.scale.set(scale, scale, scale);
-    }
+    // Empty stub for backward compatibility
   }
 
   private scaleAndCenterScene() {
@@ -1447,82 +1364,58 @@ export class ThreePresenter {
    */
 
   /**
+   * Selection management methods (delegate to AnnotationManager)
+   */
+
+  /**
    * Select a single annotation, optionally adding to existing selection
    * @param annotationId - The ID of the annotation to select
    * @param additive - If true, add to selection; if false, replace selection
+   * @deprecated Use annotationManager.select() instead
    */
   selectAnnotation(annotationId: string, additive: boolean = false): void {
-    if (!additive) {
-      this.selectedAnnotations.clear();
-    }
-    this.selectedAnnotations.add(annotationId);
-    this.updateAnnotationVisuals();
-    console.log(`✅ Selected annotation: ${annotationId} (total: ${this.selectedAnnotations.size})`);
+    this.annotationManager.select([annotationId], additive);
   }
 
   /**
    * Toggle selection state of an annotation
    * @param annotationId - The ID of the annotation to toggle
+   * @deprecated Use annotationManager.toggleSelection() instead
    */
   toggleAnnotationSelection(annotationId: string): void {
-    if (this.selectedAnnotations.has(annotationId)) {
-      this.selectedAnnotations.delete(annotationId);
-      console.log(`❌ Deselected annotation: ${annotationId}`);
-    } else {
-      this.selectedAnnotations.add(annotationId);
-      console.log(`✅ Selected annotation: ${annotationId}`);
-    }
-    this.updateAnnotationVisuals();
-    console.log(`📋 Total selected: ${this.selectedAnnotations.size}`);
+    this.annotationManager.toggleSelection(annotationId);
   }
 
   /**
    * Clear all annotation selections
+   * @deprecated Use annotationManager.clearSelection() instead
    */
   clearAnnotationSelection(): void {
-    if (this.selectedAnnotations.size > 0) {
-      this.selectedAnnotations.clear();
-      this.updateAnnotationVisuals();
-      console.log('🗑️ Cleared annotation selection');
-    }
+    this.annotationManager.clearSelection();
   }
 
   /**
    * Get array of selected annotation IDs
+   * @deprecated Use annotationManager.getSelected() instead
    */
   getSelectedAnnotations(): string[] {
-    return Array.from(this.selectedAnnotations);
+    return this.annotationManager.getSelected();
   }
 
   /**
    * Select multiple annotations
    * @param annotationIds - Array of annotation IDs to select
    * @param additive - If true, add to selection; if false, replace selection
+   * @deprecated Use annotationManager.select() instead
    */
   selectAnnotations(annotationIds: string[], additive: boolean = false): void {
-    if (!additive) {
-      this.selectedAnnotations.clear();
-    }
-    annotationIds.forEach(id => this.selectedAnnotations.add(id));
-    this.updateAnnotationVisuals();
-    console.log(`✅ Selected ${annotationIds.length} annotation(s) (total: ${this.selectedAnnotations.size})`);
+    this.annotationManager.select(annotationIds, additive);
   }
 
   /**
-   * Update visual appearance of all annotation markers based on selection state
+   * @deprecated - No longer needed, handled by AnnotationManager
    */
   private updateAnnotationVisuals(): void {
-    for (const [id, marker] of this.annotationMarkers.entries()) {
-      const material = marker.material as THREE.MeshBasicMaterial;
-      const isSelected = this.selectedAnnotations.has(id);
-      
-      if (isSelected) {
-        material.color.setHex(0xffff66); // Brighter yellow when selected
-        material.opacity = 1.0; // Fully opaque
-      } else {
-        material.color.setHex(0xffff00); // Normal yellow
-        material.opacity = 0.9; // Slightly transparent
-      }
-    }
+    // Empty stub for backward compatibility
   }
 }
