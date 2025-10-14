@@ -43,3 +43,11 @@ export {
   roundPosition,
   formatStats
 } from './utils/GeometryUtils';
+
+// Export UI controls builder
+export { UIControlsBuilder, createButton, createButtonPanel } from './UIControlsBuilder';
+export type {
+  ButtonConfig,
+  ContainerConfig,
+  UIControlsResult
+} from './UIControlsBuilder';

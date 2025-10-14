@@ -3,6 +3,7 @@ import { AnnotationManager } from './three-presenter/AnnotationManager';
 import type { FileUrlResolver } from './three-presenter/types/FileUrlResolver';
 import { OcraFileUrlResolver } from './three-presenter/OcraFileUrlResolver';
 import { calculateObjectStats, type GeometryStats } from './three-presenter/utils/GeometryUtils';
+import { UIControlsBuilder, type ButtonConfig } from './three-presenter/UIControlsBuilder';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -129,94 +130,82 @@ export class ThreePresenter {
     // Load environment map
     this.loadEnvironmentMap();
 
-    // Create a single absolute container for the action buttons so they stack vertically
-    const btnContainer = document.createElement('div');
-    // position at top-left of the mount. Use Bootstrap utilities for layout and spacing.
-    btnContainer.className = 'position-absolute top-0 start-0 m-2 d-flex flex-column gap-2';
-    btnContainer.style.zIndex = '1000';
+    // Create UI controls using UIControlsBuilder
+    const buttonConfigs: ButtonConfig[] = [
+      {
+        id: 'home',
+        icon: 'bi-house',
+        title: 'Reset camera view',
+        onClick: () => this.resetCamera()
+      },
+      {
+        id: 'light',
+        icon: 'bi-lightbulb-fill',
+        title: 'Toggle lighting',
+        onClick: () => this.toggleLight()
+      },
+      {
+        id: 'lightPosition',
+        icon: 'bi-brightness-high', // Will be overridden by customHTML
+        customHTML: `
+          <div style="position: relative; width: 16px; height: 16px;">
+            <i class="bi bi-brightness-high" style="position: absolute; top: -10px; left: -4px; font-size: 24px;"></i>
+            <i class="bi bi-arrows-move" style="position: absolute; font-size: 32px; top: -16px; left: -8px;"></i>
+          </div>
+        `,
+        title: 'Position headlight',
+        onClick: () => {} // TODO: Add light positioning functionality
+      },
+      {
+        id: 'env',
+        icon: 'bi-globe',
+        title: 'Toggle environment lighting',
+        onClick: () => this.toggleEnvLighting()
+      },
+      {
+        id: 'screenshot',
+        icon: 'bi-camera',
+        title: 'Take screenshot',
+        onClick: () => this.takeScreenshot()
+      },
+      {
+        id: 'camera',
+        icon: 'bi-box',
+        title: 'Toggle orthographic/perspective',
+        onClick: () => this.toggleCameraMode()
+      },
+      {
+        id: 'annotation',
+        icon: 'bi-pencil',
+        title: 'Add annotation',
+        onClick: () => this.togglePickingMode(),
+        visible: false // Hidden by default
+      }
+    ];
+
+    const controlsBuilder = new UIControlsBuilder();
+    const uiControls = controlsBuilder
+      .setContainer({
+        position: 'top-left',
+        direction: 'vertical',
+        gap: 'gap-2',
+        zIndex: '1000'
+      })
+      .addButtons(buttonConfigs)
+      .build();
+
+    // Store button references for backward compatibility
+    this.homeButton = uiControls.buttons.get('home')!;
+    this.lightButton = uiControls.buttons.get('light')!;
+    this.lightPositionButton = uiControls.buttons.get('lightPosition')!;
+    this.envButton = uiControls.buttons.get('env')!;
+    this.screenshotButton = uiControls.buttons.get('screenshot')!;
+    this.cameraButton = uiControls.buttons.get('camera')!;
+    this.annotationButton = uiControls.buttons.get('annotation')!;
+
+    // Append UI controls to mount
     mount.style.position = mount.style.position || 'relative'; // ensure mount positioned for absolute children
-
-    // Create home button
-    this.homeButton = document.createElement('button');
-    this.homeButton.innerHTML = '<i class="bi bi-house"></i>';
-    // square compact buttons; sizing via padding + fixed min dimensions keeps them consistent
-    this.homeButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.homeButton.title = 'Reset camera view';
-    this.homeButton.addEventListener('mouseenter', () => { this.homeButton.style.transform = 'scale(1.05)'; });
-    this.homeButton.addEventListener('mouseleave', () => { this.homeButton.style.transform = 'scale(1)'; });
-    this.homeButton.addEventListener('click', () => this.resetCamera());
-
-    // Create light toggle button
-    this.lightButton = document.createElement('button');
-    this.lightButton.innerHTML = '<i class="bi bi-lightbulb-fill"></i>';
-    this.lightButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.lightButton.title = 'Toggle lighting';
-    this.lightButton.addEventListener('mouseenter', () => { this.lightButton.style.transform = 'scale(1.05)'; });
-    this.lightButton.addEventListener('mouseleave', () => { this.lightButton.style.transform = 'scale(1)'; });
-    this.lightButton.addEventListener('click', () => this.toggleLight());
-
-    // Create light position button with composed icon (sun + arrows)
-    this.lightPositionButton = document.createElement('button');
-    this.lightPositionButton.innerHTML = `
-      <div style="position: relative; width: 16px; height: 16px;">
-        <i class="bi bi-brightness-high" style="position: absolute; top: -10px; left: -4px; font-size: 24px;"></i>
-        <i class="bi bi-arrows-move" style="position: absolute; font-size: 32px; top: -16px; left: -8px;"></i>
-      </div>
-    `;
-    this.lightPositionButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.lightPositionButton.title = 'Position headlight';
-    this.lightPositionButton.addEventListener('mouseenter', () => { this.lightPositionButton.style.transform = 'scale(1.05)'; });
-    this.lightPositionButton.addEventListener('mouseleave', () => { this.lightPositionButton.style.transform = 'scale(1)'; });
-    // TODO: Add light positioning functionality
-
-    // Create environment lighting toggle button
-    this.envButton = document.createElement('button');
-    this.envButton.innerHTML = '<i class="bi bi-globe"></i>';
-    this.envButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.envButton.title = 'Toggle environment lighting';
-    this.envButton.addEventListener('mouseenter', () => { this.envButton.style.transform = 'scale(1.05)'; });
-    this.envButton.addEventListener('mouseleave', () => { this.envButton.style.transform = 'scale(1)'; });
-    this.envButton.addEventListener('click', () => this.toggleEnvLighting());
-
-    // Create screenshot button
-    this.screenshotButton = document.createElement('button');
-    this.screenshotButton.innerHTML = '<i class="bi bi-camera"></i>';
-    this.screenshotButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.screenshotButton.title = 'Take screenshot';
-    this.screenshotButton.addEventListener('mouseenter', () => { this.screenshotButton.style.transform = 'scale(1.05)'; });
-    this.screenshotButton.addEventListener('mouseleave', () => { this.screenshotButton.style.transform = 'scale(1)'; });
-    this.screenshotButton.addEventListener('click', () => this.takeScreenshot());
-
-    // Create camera mode toggle button
-    this.cameraButton = document.createElement('button');
-    this.cameraButton.innerHTML = '<i class="bi bi-box"></i>';
-    this.cameraButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.cameraButton.title = 'Toggle orthographic/perspective';
-    this.cameraButton.addEventListener('mouseenter', () => { this.cameraButton.style.transform = 'scale(1.05)'; });
-    this.cameraButton.addEventListener('mouseleave', () => { this.cameraButton.style.transform = 'scale(1)'; });
-    this.cameraButton.addEventListener('click', () => this.toggleCameraMode());
-
-    // Create annotation pencil button
-    this.annotationButton = document.createElement('button');
-    this.annotationButton.innerHTML = '<i class="bi bi-pencil"></i>';
-    this.annotationButton.className = 'btn btn-light p-2 shadow-sm rounded d-flex align-items-center justify-content-center';
-    this.annotationButton.title = 'Add annotation';
-    this.annotationButton.style.display = 'none'; // Hidden by default
-    this.annotationButton.addEventListener('mouseenter', () => { this.annotationButton.style.transform = 'scale(1.05)'; });
-    this.annotationButton.addEventListener('mouseleave', () => { this.annotationButton.style.transform = 'scale(1)'; });
-    this.annotationButton.addEventListener('click', () => {
-      this.togglePickingMode();
-    });
-
-    // Append buttons to container, then container to mount
-    btnContainer.appendChild(this.homeButton);
-    btnContainer.appendChild(this.lightButton);
-    btnContainer.appendChild(this.lightPositionButton);
-    btnContainer.appendChild(this.envButton);
-    btnContainer.appendChild(this.screenshotButton);
-    btnContainer.appendChild(this.cameraButton);
-    btnContainer.appendChild(this.annotationButton);
-    mount.appendChild(btnContainer);
+    mount.appendChild(uiControls.container);
 
 
     // Lighting - head light setup
