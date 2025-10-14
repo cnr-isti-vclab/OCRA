@@ -41,7 +41,7 @@ export interface LoadResult {
   /** The loaded Three.js object */
   object: THREE.Object3D;
   /** The original format that was loaded */
-  format: 'ply' | 'gltf' | 'glb';
+  format: 'ply' | 'gltf' | 'glb' | 'nxs' | 'nxz';
   /** Size of the loaded data in bytes */
   byteSize: number;
 }
@@ -119,7 +119,20 @@ export class ModelLoader {
     materialOverrides?: MaterialProperties,
     onProgress?: ProgressCallback
   ): Promise<LoadResult> {
-    // Fetch the file
+    // Detect format from URL
+    const format = this.detectFormat(url);
+    
+    // For NXS/NXZ files, use direct URL loading (streaming)
+    if (format === 'nxs' || format === 'nxz') {
+      const object = await this.parseNexus(url, materialOverrides);
+      return {
+        object,
+        format,
+        byteSize: 0 // NXS is streamed, size unknown
+      };
+    }
+    
+    // For other formats, fetch the file
     const response = await fetch(url, { credentials: 'include' });
     
     if (!response.ok) {
@@ -158,26 +171,25 @@ export class ModelLoader {
       buffer.set(chunk, position);
       position += chunk.length;
     }
-
-    // Detect format from URL
-    const format = this.detectFormat(url);
     
     // Load from buffer
-    return this.loadFromBuffer(buffer.buffer, format, materialOverrides);
+    return this.loadFromBuffer(buffer.buffer, format, materialOverrides, url);
   }
 
   /**
    * Load a model from an ArrayBuffer.
    * 
    * @param buffer ArrayBuffer containing the model data
-   * @param format File format ('ply', 'gltf', or 'glb')
+   * @param format File format ('ply', 'gltf', 'glb', 'nxs', or 'nxz')
    * @param materialOverrides Optional material property overrides
+   * @param url Optional URL for streaming formats like NXS
    * @returns Promise resolving to load result
    */
   async loadFromBuffer(
     buffer: ArrayBuffer,
-    format: 'ply' | 'gltf' | 'glb',
-    materialOverrides?: MaterialProperties
+    format: 'ply' | 'gltf' | 'glb' | 'nxs' | 'nxz',
+    materialOverrides?: MaterialProperties,
+    url?: string
   ): Promise<LoadResult> {
     let object: THREE.Object3D;
 
@@ -188,6 +200,14 @@ export class ModelLoader {
       case 'gltf':
       case 'glb':
         object = await this.parseGLTF(buffer, materialOverrides);
+        break;
+      case 'nxs':
+      case 'nxz':
+        // For NXS/NXZ, we need the URL for streaming, not the buffer
+        if (!url) {
+          throw new Error('NXS/NXZ format requires URL for streaming');
+        }
+        object = await this.parseNexus(url, materialOverrides);
         break;
       default:
         throw new Error(`Unsupported format: ${format}`);
@@ -205,7 +225,7 @@ export class ModelLoader {
    * @param filename Filename or URL
    * @returns Detected format
    */
-  detectFormat(filename: string): 'ply' | 'gltf' | 'glb' {
+  detectFormat(filename: string): 'ply' | 'gltf' | 'glb' | 'nxs' | 'nxz' {
     const lower = filename.toLowerCase();
     
     if (lower.endsWith('.ply')) {
@@ -214,6 +234,10 @@ export class ModelLoader {
       return 'glb';
     } else if (lower.endsWith('.gltf')) {
       return 'gltf';
+    } else if (lower.endsWith('.nxs')) {
+      return 'nxs';
+    } else if (lower.endsWith('.nxz')) {
+      return 'nxz';
     }
     
     throw new Error(`Cannot detect format from filename: ${filename}`);
@@ -318,6 +342,37 @@ export class ModelLoader {
         }
       );
     });
+  }
+
+  /**
+   * Parse Nexus (NXS/NXZ) format from URL
+   * Nexus is a multiresolution format that streams data incrementally
+   * @param url URL to the .nxs or .nxz file
+   * @param materialOverrides Optional material overrides (not typically used with Nexus)
+   * @returns Promise resolving to NexusObject
+   */
+  private async parseNexus(
+    url: string,
+    materialOverrides?: MaterialProperties
+  ): Promise<THREE.Object3D> {
+    // Lazy load nexus3d library
+    const { NexusObject } = await import('nexus3d');
+    
+    // Create a NexusObject instance
+    // NexusObject extends THREE.Mesh and handles streaming automatically
+    const nexusObject = new NexusObject(
+      url,
+      () => console.log('✅ Nexus model loaded:', url),
+      () => console.log('🔄 Nexus model updated (new data streamed)'),
+      (error: Error) => console.error('❌ Nexus error:', error)
+    );
+    
+    // NexusObject is a THREE.Mesh that manages its own material and geometry
+    // The material is created internally by Nexus and updated during streaming
+    
+    console.log('🔄 Nexus model created, streaming will begin automatically:', url);
+    
+    return nexusObject;
   }
 
   /**

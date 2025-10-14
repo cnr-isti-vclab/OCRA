@@ -458,6 +458,14 @@ export class ThreePresenter {
     // Update annotation marker scales to maintain constant screen space size
     this.annotationManager.updateMarkerScales(this.camera, this.renderer.domElement.clientHeight);
     
+    // Update Nexus objects for multiresolution streaming
+    this.scene.traverse((object: THREE.Object3D) => {
+      if ((object as any).update && typeof (object as any).update === 'function') {
+        // NexusObject has an update method that needs the camera
+        (object as any).update(this.camera);
+      }
+    });
+    
     this.renderer.render(this.scene, this.camera);
 
     // Render viewport gizmo if present

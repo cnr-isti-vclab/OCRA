@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:standalone": "vite build --config vite.config.standalone.ts",
+    "serve:examples": "python3 -m http.server 8000",
     "docs": "typedoc",
     "docs:serve": "typedoc --watch",
     "preview": "vite preview --port 3000",
@@ -20,6 +21,7 @@
     "@prisma/client": "^6.15.0",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.13.1",
+    "nexus3d": "^1.0.10",
     "prisma": "^6.15.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -28,7 +30,7 @@
     "three-viewport-gizmo": "^2.2.0"
   },
   "devDependencies": {
-    "@types/react": "^19.1.12",
+    "@types/react": "^18.3.5",
     "@types/react-dom": "^19.1.9",
     "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^5.0.2",
