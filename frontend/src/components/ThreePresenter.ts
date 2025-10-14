@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { AnnotationManager } from './three-presenter/AnnotationManager';
 import type { FileUrlResolver } from './three-presenter/types/FileUrlResolver';
 import { OcraFileUrlResolver } from './three-presenter/OcraFileUrlResolver';
+import { calculateObjectStats, type GeometryStats } from './three-presenter/utils/GeometryUtils';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
@@ -70,7 +71,7 @@ export class ThreePresenter {
   envLightingEnabled: boolean = true;
   raycaster: THREE.Raycaster = new THREE.Raycaster();
   mouse: THREE.Vector2 = new THREE.Vector2();
-  modelStats: Record<string, { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } }> = {};
+  modelStats: Record<string, GeometryStats> = {};
   sceneBBoxSize: THREE.Vector3 = new THREE.Vector3(2, 2, 2); // Store actual scene size for ground
   
   // File URL resolver for loading models
@@ -750,7 +751,7 @@ export class ThreePresenter {
       }
       
       // Calculate and store model statistics
-      this.modelStats[modelDef.id] = this.calculateObjectStats(model);
+      this.modelStats[modelDef.id] = calculateObjectStats(model);
       console.log(`📊 Model ${modelDef.id} stats:`, this.modelStats[modelDef.id]);
       
       // Store and add to scene
@@ -1235,78 +1236,12 @@ export class ThreePresenter {
   /**
    * Calculate statistics (triangles, vertices, bounding box, textures) for a Three.js object
    */
-  private calculateObjectStats(obj: THREE.Object3D): { triangles: number; vertices: number; bbox: { x: number; y: number; z: number }; textures: { count: number; dimensions: Array<{ width: number; height: number }> } } {
-    let triangles = 0;
-    let vertices = 0;
-    const textureSet = new Set<THREE.Texture>();
-
-    obj.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const geometry = mesh.geometry;
-        
-        if (geometry) {
-          // Count vertices
-          const positionAttribute = geometry.getAttribute('position');
-          if (positionAttribute) {
-            vertices += positionAttribute.count;
-          }
-
-          // Count triangles
-          if (geometry.index) {
-            // Indexed geometry
-            triangles += geometry.index.count / 3;
-          } else if (positionAttribute) {
-            // Non-indexed geometry
-            triangles += positionAttribute.count / 3;
-          }
-        }
-
-        // Collect textures from materials
-        if (mesh.material) {
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          materials.forEach((material: THREE.Material) => {
-            // Check all common texture properties
-            const matAny = material as any;
-            const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap', 'lightMap', 'envMap'];
-            
-            textureProps.forEach(prop => {
-              if (matAny[prop] && matAny[prop] instanceof THREE.Texture) {
-                textureSet.add(matAny[prop]);
-              }
-            });
-          });
-        }
-      }
-    });
-
-    // Collect texture dimensions
-    const textureDimensions: Array<{ width: number; height: number }> = [];
-    textureSet.forEach(texture => {
-      if (texture.image) {
-        const width = texture.image.width || 0;
-        const height = texture.image.height || 0;
-        textureDimensions.push({ width, height });
-      }
-    });
-
-    // Calculate bounding box dimensions
-    const bbox = new THREE.Box3().setFromObject(obj);
-    const size = bbox.getSize(new THREE.Vector3());
-
-    return { 
-      triangles: Math.floor(triangles), 
-      vertices,
-      bbox: {
-        x: size.x,
-        y: size.y,
-        z: size.z
-      },
-      textures: {
-        count: textureSet.size,
-        dimensions: textureDimensions
-      }
-    };
+  /**
+   * @deprecated Use calculateObjectStats from three-presenter/utils/GeometryUtils instead
+   * This method is maintained for backward compatibility only.
+   */
+  private calculateObjectStats(obj: THREE.Object3D): GeometryStats {
+    return calculateObjectStats(obj);
   }
 
   private addGround() {

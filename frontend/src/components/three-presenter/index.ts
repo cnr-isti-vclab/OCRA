@@ -28,3 +28,18 @@ export {
 } from './types/FileUrlResolver';
 
 export { OcraFileUrlResolver } from './OcraFileUrlResolver';
+
+// Export geometry utilities
+export type { GeometryStats } from './utils/GeometryUtils';
+
+export {
+  calculateObjectStats,
+  calculateSceneBoundingBox,
+  getMaxDimension,
+  calculateCameraDistance,
+  calculateCenteringOffset,
+  calculateSceneCenteringOffset,
+  hasValidPosition,
+  roundPosition,
+  formatStats
+} from './utils/GeometryUtils';

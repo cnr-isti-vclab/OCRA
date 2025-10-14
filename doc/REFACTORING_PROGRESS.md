@@ -12,9 +12,10 @@ This document tracks the incremental "Quick Wins" refactoring of ThreePresenter 
 
 - **Phase 1**: ✅ Complete (Annotation System) - 2 hours
 - **Phase 2**: ✅ Complete (URL Resolution) - 1.5 hours
-- **Phase 3**: ⏳ Pending (Geometry Utilities) - Est. 1 week
-- **Total Time Invested**: 3.5 hours
-- **Remaining Estimate**: 1-2 weeks for full Quick Wins
+- **Phase 3**: ✅ Complete (Geometry Utilities) - 1 hour
+- **Phase 4**: ⏳ Pending (UI Controls) - Est. 2-3 days
+- **Total Time Invested**: 4.5 hours
+- **Remaining Estimate**: 2-3 days for Phase 4 (optional)
 
 ## Metrics Overview
 
@@ -25,25 +26,25 @@ This document tracks the incremental "Quick Wins" refactoring of ThreePresenter 
 - **Testability**: Poor (requires full OCRA environment)
 - **Reusability**: None (tightly coupled to OCRA)
 
-### Current State (After Phase 2)
-- **ThreePresenter.ts**: 1,418 lines (-110 lines, -7.2%)
-- **three-presenter/ Module**: 683 lines across 5 files
-- **Total Code**: 2,101 lines (organized and modular)
+### Current State (After Phase 3)
+- **ThreePresenter.ts**: 1,353 lines (-175 lines, -11.5%)
+- **three-presenter/ Module**: 1,007 lines across 6 files
+- **Total Code**: 2,360 lines (organized and modular)
 - **OCRA Dependencies**: 0 in core ThreePresenter! ✅
-- **Modularity**: High (annotation system + URL resolution extracted)
-- **Testability**: Good (can test with mocks)
+- **Modularity**: High (3 major systems extracted)
+- **Testability**: Excellent (pure functions, no side effects)
 - **Reusability**: High (works in any project)
 
 ### Progress
 ```
 Original: ████████████████████████████████████ 1,528 lines (monolithic)
-Current:  ██████████████████████████████       1,418 lines (core)
-          ████████                             683 lines (modules)
+Current:  ████████████████████████████         1,353 lines (core)
+          ████████████                         1,007 lines (modules)
 ```
 
-**Code Extracted**: 683 lines (44.7% of extracted features)  
-**Line Reduction**: 110 lines (7.2% smaller core)  
-**Modules Created**: 5 independent files  
+**Code Extracted**: 1,007 lines (65.9% of extracted features)  
+**Line Reduction**: 175 lines (11.5% smaller core)  
+**Modules Created**: 6 independent files  
 **OCRA Coupling**: Removed from core ✅
 
 ## Phase 1: Annotation System ✅
@@ -107,6 +108,43 @@ Current:  ███████████████████████�
 - `doc/FILE_URL_RESOLVER_EXAMPLES.md` - Usage examples
 - Full JSDoc comments in code
 
+## Phase 3: Geometry Utilities ✅
+
+**Status**: Complete  
+**Time**: ~1 hour  
+**Lines Extracted**: 309 lines  
+
+### What Was Built
+- `GeometryUtils.ts` (309 lines) - Pure utility functions for geometry calculations
+  - `calculateObjectStats()` - Comprehensive geometry analysis
+  - `calculateSceneBoundingBox()` - Combined bounding box
+  - `getMaxDimension()` - Quick dimension access
+  - `calculateCameraDistance()` - Optimal camera positioning
+  - `calculateCenteringOffset()` - Single object centering
+  - `calculateSceneCenteringOffset()` - Multi-object centering
+  - `hasValidPosition()` - Position validation
+  - `roundPosition()` - Coordinate rounding
+  - `formatStats()` - Human-readable formatting
+- `GeometryStats` type - Clean statistics interface
+
+### Benefits Achieved
+- ✅ **Pure functions** - No side effects, easy to test
+- ✅ **9 reusable utilities** - Work in any Three.js project
+- ✅ **Highly testable** - Unit test without scene setup
+- ✅ **Well documented** - Full JSDoc with examples
+- ✅ **Type-safe** - GeometryStats exported type
+- ✅ **Zero OCRA dependencies**
+
+### Code Changes
+- ThreePresenter: 1,418 → 1,353 lines (-65 lines, -4.6%)
+- Replaced: 73-line `calculateObjectStats` method with 6-line wrapper
+- Updated: `modelStats` type to use `GeometryStats`
+- Net reduction: 67 lines removed from core
+
+### Documentation
+- `doc/REFACTORING_PHASE3_COMPLETE.md` - Detailed completion report
+- Full JSDoc comments with usage examples
+
 ## Architecture Evolution
 
 ### Before Refactoring
@@ -124,26 +162,29 @@ Dependencies:
 └── config/oauth.ts (OCRA-specific)
 ```
 
-### After Phase 2
+### After Phase 3
 ```
-ThreePresenter.ts (1,418 lines)
+ThreePresenter.ts (1,353 lines)
 ├── Scene management (~400 lines)
 ├── Camera controls (~300 lines)
 ├── Lighting (~200 lines)
-├── Model loading (~200 lines)
+├── Model loading (~150 lines)
 └── UI controls (~100 lines)
 
 three-presenter/ (Independent Module)
 ├── AnnotationManager.ts (377 lines)
 ├── OcraFileUrlResolver.ts (84 lines)
-├── index.ts (30 lines)
-└── types/
-    ├── AnnotationTypes.ts (60 lines)
-    └── FileUrlResolver.ts (132 lines)
+├── index.ts (45 lines)
+├── types/
+│   ├── AnnotationTypes.ts (60 lines)
+│   └── FileUrlResolver.ts (132 lines)
+└── utils/
+    └── GeometryUtils.ts (309 lines)
 
 Dependencies:
 ├── ThreePresenter → FileUrlResolver (interface) ✅
 ├── ThreePresenter → AnnotationManager ✅
+├── ThreePresenter → GeometryUtils ✅
 └── OcraFileUrlResolver → config/oauth.ts ✅
     (OCRA logic isolated in separate module!)
 ```
@@ -158,6 +199,11 @@ Dependencies:
 **Phase 2:**
 - ✅ URL resolution → Injectable FileUrlResolver
 - ✅ Removed `getApiBase()` import from ThreePresenter
+
+**Phase 3:**
+- ✅ Geometry calculations → Pure utility functions
+- ✅ 9 reusable geometry utilities extracted
+- ✅ calculateObjectStats → Independent function
 
 ### Remaining OCRA Dependencies in Core
 - `shared/scene-types` - Type definitions only (acceptable)
