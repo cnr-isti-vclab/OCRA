@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AnnotationManager } from './managers/AnnotationManager';
 import type { FileUrlResolver } from './types/FileUrlResolver';
-import { DefaultFileUrlResolver } from './types/FileUrlResolver';
+import { StaticBaseUrlResolver } from './types/FileUrlResolver';
 import { calculateObjectStats, type GeometryStats } from './utils/GeometryUtils';
 import { UIControlsBuilder, type ButtonConfig } from './ui/UIControlsBuilder';
 import { CameraManager, type CameraConfig } from './managers/CameraManager';
@@ -81,16 +81,27 @@ export class ThreePresenter {
   private lightingManager: LightingManager;
   private modelLoader: ModelLoader;
 
-  constructor(mount: HTMLDivElement, fileUrlResolver?: FileUrlResolver) {
-    this.mount = mount;
+  constructor(mount: HTMLDivElement | string, fileUrlResolver?: FileUrlResolver) {
+    // Support both element and element ID
+    if (typeof mount === 'string') {
+      const element = document.getElementById(mount);
+      if (!element) {
+        throw new Error(`Element with ID "${mount}" not found`);
+      }
+      this.mount = element as HTMLDivElement;
+    } else {
+      this.mount = mount;
+    }
+    
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x404040);
-    const widthPx = mount.clientWidth;
-    const heightPx = mount.clientHeight;
+    const widthPx = this.mount.clientWidth;
+    const heightPx = this.mount.clientHeight;
     const aspect = widthPx / heightPx;
     
-    // Initialize file URL resolver (use default resolver if none provided)
-    this.fileUrlResolver = fileUrlResolver || new DefaultFileUrlResolver();
+    // Initialize file URL resolver (use StaticBaseUrlResolver with './assets' as default)
+    // This makes standalone examples work out-of-the-box
+    this.fileUrlResolver = fileUrlResolver || new StaticBaseUrlResolver('./assets');
     
     // Create camera manager
     this.cameraManager = new CameraManager(aspect, {
@@ -111,7 +122,7 @@ export class ThreePresenter {
     this.renderer.setSize(widthPx, heightPx);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    mount.appendChild(this.renderer.domElement);
+    this.mount.appendChild(this.renderer.domElement);
     
     // Initialize annotation manager
     this.annotationManager = new AnnotationManager(this.scene, {
@@ -197,8 +208,8 @@ export class ThreePresenter {
     this.annotationButton = uiControls.buttons.get('annotation')!;
 
     // Append UI controls to mount
-    mount.style.position = mount.style.position || 'relative'; // ensure mount positioned for absolute children
-    mount.appendChild(uiControls.container);
+    this.mount.style.position = this.mount.style.position || 'relative'; // ensure mount positioned for absolute children
+    this.mount.appendChild(uiControls.container);
 
 
     // Lighting setup

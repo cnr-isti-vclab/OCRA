@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThreePresenter - Basic Example</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui; background: #2c2c2c; }
+    #viewer { width: 100vw; height: 100vh; }
+    #info { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); 
+            color: white; padding: 15px 20px; border-radius: 8px; font-size: 14px; 
+            max-width: 350px; line-height: 1.6; }
+    #info h1 { font-size: 18px; margin-bottom: 10px; color: #4fc3f7; }
+    #info code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+  <div id="info">
+    <h1>ThreePresenter Example</h1>
+    <p>✨ Framework-agnostic 3D viewer library</p>
+    <p>🎮 Drag to rotate, scroll to zoom</p>
+    <p>📦 Model loaded via <code>loadScene()</code></p>
+    <p>🔧 Defaults to <code>./assets</code> folder</p>
+  </div>
+
+  <script type="module">
+    // Import ThreePresenter from TypeScript source
+    // This requires running through Vite dev server: npm run dev
+    import { ThreePresenter } from '../src/ThreePresenter.ts';
+
+    // Initialize ThreePresenter (defaults to './assets' for file resolution)
+    const presenter = new ThreePresenter('viewer');
+
+    // Define the scene with a model
+    const sceneDescription = {
+      projectId: 'example',
+      models: [{
+        id: 'venus',
+        file: 'venus.glb',
+        rotation: [-90, 0, 0],
+      }],
+      environment: {
+        showGround: true,
+      }
+    };
+
+    // Load the scene using ThreePresenter API
+    presenter.loadScene(sceneDescription)
+      .then(() => {
+        console.log('✅ Scene loaded successfully via ThreePresenter!');
+        console.log('📊 Model stats:', presenter.getModelStats('venus'));
+      })
+      .catch((error) => {
+        console.error('❌ Error loading scene:', error);
+      });
+
+  </script>
+</body>
+</html>

@@ -36,3 +36,7 @@ Note on vocabulary:
 - The vocabulary is structured in semantic thesauri (tree format) for the 'type of annotation' field
 - The vocabulary is managed at the system level by users with project manager privileges
 - The vocabulary is associated with
+
+
+Note on the Orientation of 3d models;
+we expect models that are properly oriented with the Y-axis pointing upwards and the Z-axis pointing towards the viewer.
