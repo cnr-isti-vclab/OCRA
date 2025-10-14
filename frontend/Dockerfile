@@ -4,9 +4,8 @@ WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json* frontend/pnpm-lock.yaml* frontend/yarn.lock* ./
 
-# Install dependencies (including bootstrap)
+# Install dependencies
 RUN npm ci || npm install
-RUN npm install bootstrap
 
 # Copy shared types (needed for scene-types and scene-migration)
 COPY shared/ ../shared/

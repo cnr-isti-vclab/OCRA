@@ -1,0 +1,38 @@
+{
+  "name": "three-presenter",
+  "version": "0.1.0",
+  "description": "Framework-agnostic 3D viewer library built on Three.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "docs": "typedoc"
+  },
+  "keywords": [
+    "three.js",
+    "3d-viewer",
+    "webgl",
+    "annotations",
+    "3d-models",
+    "glb",
+    "ply",
+    "obj",
+    "nexus"
+  ],
+  "author": "CNR-ISTI Visual Computing Lab",
+  "license": "MIT",
+  "peerDependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.9.2"
+  }
+}

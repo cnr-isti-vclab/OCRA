@@ -4,8 +4,12 @@
  * Independent, reusable modules for building 3D viewers with Three.js
  */
 
+// Export main ThreePresenter class
+export { ThreePresenter } from './ThreePresenter';
+export type { SceneDescription, ModelDefinition, PresenterState } from './types/SceneTypes';
+
 // Export annotation system
-export { AnnotationManager } from './AnnotationManager';
+export { AnnotationManager } from './managers/AnnotationManager';
 export type {
   Annotation,
   AnnotationType,
@@ -27,8 +31,6 @@ export {
   FunctionResolver
 } from './types/FileUrlResolver';
 
-export { OcraFileUrlResolver } from './OcraFileUrlResolver';
-
 // Export geometry utilities
 export type { GeometryStats } from './utils/GeometryUtils';
 
@@ -45,33 +47,33 @@ export {
 } from './utils/GeometryUtils';
 
 // Export UI controls builder
-export { UIControlsBuilder, createButton, createButtonPanel } from './UIControlsBuilder';
+export { UIControlsBuilder, createButton, createButtonPanel } from './ui/UIControlsBuilder';
 export type {
   ButtonConfig,
   ContainerConfig,
   UIControlsResult
-} from './UIControlsBuilder';
+} from './ui/UIControlsBuilder';
 
 // Export camera manager
-export { CameraManager, createCameraManager, calculateFrustumSize } from './CameraManager';
+export { CameraManager, createCameraManager, calculateFrustumSize } from './managers/CameraManager';
 export type {
   CameraConfig,
   CameraState,
   CameraInfo
-} from './CameraManager';
+} from './managers/CameraManager';
 
 // Export lighting manager
-export { LightingManager } from './LightingManager';
+export { LightingManager } from './managers/LightingManager';
 export type {
   LightingConfig,
   LightingState
-} from './LightingManager';
+} from './managers/LightingManager';
 
 // Export model loader
-export { ModelLoader, createModelLoader } from './ModelLoader';
+export { ModelLoader, createModelLoader } from './managers/ModelLoader';
 export type {
   LoaderConfig,
   MaterialProperties,
   ProgressCallback,
   LoadResult
-} from './ModelLoader';
+} from './managers/ModelLoader';

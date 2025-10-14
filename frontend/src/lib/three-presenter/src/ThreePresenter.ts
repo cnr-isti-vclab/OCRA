@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { AnnotationManager } from './three-presenter/AnnotationManager';
-import type { FileUrlResolver } from './three-presenter/types/FileUrlResolver';
-import { OcraFileUrlResolver } from './three-presenter/OcraFileUrlResolver';
-import { calculateObjectStats, type GeometryStats } from './three-presenter/utils/GeometryUtils';
-import { UIControlsBuilder, type ButtonConfig } from './three-presenter/UIControlsBuilder';
-import { CameraManager, type CameraConfig } from './three-presenter/CameraManager';
-import { LightingManager } from './three-presenter/LightingManager';
-import { ModelLoader } from './three-presenter/ModelLoader';
+import { AnnotationManager } from './managers/AnnotationManager';
+import type { FileUrlResolver } from './types/FileUrlResolver';
+import { DefaultFileUrlResolver } from './types/FileUrlResolver';
+import { calculateObjectStats, type GeometryStats } from './utils/GeometryUtils';
+import { UIControlsBuilder, type ButtonConfig } from './ui/UIControlsBuilder';
+import { CameraManager, type CameraConfig } from './managers/CameraManager';
+import { LightingManager } from './managers/LightingManager';
+import { ModelLoader } from './managers/ModelLoader';
 // Note: heavy three/examples and viewport gizmo are dynamically imported where needed
 import type { 
   SceneDescription, 
   ModelDefinition, 
   PresenterState,
   Annotation
-} from '../../../shared/scene-types';
+} from './types/SceneTypes';
 
 export type { SceneDescription, ModelDefinition, PresenterState };
 export { AnnotationManager };
@@ -89,8 +89,8 @@ export class ThreePresenter {
     const heightPx = mount.clientHeight;
     const aspect = widthPx / heightPx;
     
-    // Initialize file URL resolver (use OCRA resolver by default)
-    this.fileUrlResolver = fileUrlResolver || new OcraFileUrlResolver();
+    // Initialize file URL resolver (use default resolver if none provided)
+    this.fileUrlResolver = fileUrlResolver || new DefaultFileUrlResolver();
     
     // Create camera manager
     this.cameraManager = new CameraManager(aspect, {

@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { ThreePresenter, SceneDescription, AnnotationManager } from './ThreePresenter';
-import type { Annotation } from '../../../shared/scene-types';
+import { ThreePresenter, AnnotationManager } from '../../lib/three-presenter/src';
+import type { SceneDescription } from '../../lib/three-presenter/src/types/SceneTypes';
+import type { Annotation } from '../../../../shared/scene-types';
+import { OcraFileUrlResolver } from './OcraFileUrlResolver';
 
 export interface ThreeJSViewerRef {
   setMeshVisibility: (meshName: string, visible: boolean) => void;
@@ -77,8 +79,10 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
     useEffect(() => {
       if (!mountRef.current) return;
       
-      console.log('🎬 Initializing ThreePresenter');
-      presenterRef.current = new ThreePresenter(mountRef.current);
+      console.log('🎬 Initializing ThreePresenter with OcraFileUrlResolver');
+      // Create OCRA file URL resolver for loading models from OCRA API
+      const fileResolver = new OcraFileUrlResolver();
+      presenterRef.current = new ThreePresenter(mountRef.current, fileResolver);
       
       return () => {
         console.log('🛑 Disposing ThreePresenter');
