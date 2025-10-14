@@ -213,13 +213,14 @@ export class UIControlsBuilder {
     }
     
     // Base button classes - Bootstrap styling
+    // Note: We don't include 'd-flex' here because it uses !important and conflicts with display: none
+    // Instead, we'll set display via inline style
     const baseClasses = [
       'btn',
       'btn-light',
       'p-2',
       'shadow-sm',
       'rounded',
-      'd-flex',
       'align-items-center',
       'justify-content-center'
     ];
@@ -231,9 +232,11 @@ export class UIControlsBuilder {
     // Set tooltip
     button.title = config.title;
     
-    // Initial visibility
+    // Initial visibility - use inline style to override Bootstrap classes
     if (config.visible === false) {
       button.style.display = 'none';
+    } else {
+      button.style.display = 'flex';
     }
     
     // Add hover effects for scale animation

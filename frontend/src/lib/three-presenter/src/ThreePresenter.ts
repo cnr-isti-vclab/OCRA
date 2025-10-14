@@ -135,18 +135,21 @@ export class ThreePresenter {
     this.loadEnvironmentMap();
 
     // Create UI controls using UIControlsBuilder
+    // All buttons are hidden by default - use setButtonVisible() to show them
     const buttonConfigs: ButtonConfig[] = [
       {
         id: 'home',
         icon: 'bi-house',
         title: 'Reset camera view',
-        onClick: () => this.resetCamera()
+        onClick: () => this.resetCamera(),
+        visible: false
       },
       {
         id: 'light',
         icon: 'bi-lightbulb-fill',
         title: 'Toggle lighting',
-        onClick: () => this.toggleLight()
+        onClick: () => this.toggleLight(),
+        visible: false
       },
       {
         id: 'lightPosition',
@@ -158,32 +161,36 @@ export class ThreePresenter {
           </div>
         `,
         title: 'Position headlight',
-        onClick: () => {} // TODO: Add light positioning functionality
+        onClick: () => {}, // TODO: Add light positioning functionality
+        visible: false
       },
       {
         id: 'env',
         icon: 'bi-globe',
         title: 'Toggle environment lighting',
-        onClick: () => this.toggleEnvLighting()
+        onClick: () => this.toggleEnvLighting(),
+        visible: false
       },
       {
         id: 'screenshot',
         icon: 'bi-camera',
         title: 'Take screenshot',
-        onClick: () => this.takeScreenshot()
+        onClick: () => this.takeScreenshot(),
+        visible: false
       },
       {
         id: 'camera',
         icon: 'bi-box',
         title: 'Toggle orthographic/perspective',
-        onClick: () => this.toggleCameraMode()
+        onClick: () => this.toggleCameraMode(),
+        visible: false
       },
       {
         id: 'annotation',
         icon: 'bi-pencil',
         title: 'Add annotation',
         onClick: () => this.togglePickingMode(),
-        visible: false // Hidden by default
+        visible: false
       }
     ];
 
@@ -1031,6 +1038,51 @@ export class ThreePresenter {
   setAnnotationButtonVisible(visible: boolean) {
     this.annotationButton.style.display = visible ? 'flex' : 'none';
     // Exit picking mode when hiding the button
+    if (!visible && this.isPickingMode) {
+      this.exitPickingMode();
+    }
+  }
+
+  /**
+   * Show or hide a specific UI button
+   * @param buttonName - Name of the button: 'home', 'light', 'lightPosition', 'env', 'screenshot', 'camera', 'annotation'
+   * @param visible - true to show, false to hide
+   */
+  setButtonVisible(buttonName: string, visible: boolean) {
+    const buttonMap: { [key: string]: HTMLButtonElement } = {
+      home: this.homeButton,
+      light: this.lightButton,
+      lightPosition: this.lightPositionButton,
+      env: this.envButton,
+      screenshot: this.screenshotButton,
+      camera: this.cameraButton,
+      annotation: this.annotationButton
+    };
+
+    const button = buttonMap[buttonName];
+    if (button) {
+      button.style.display = visible ? 'flex' : 'none';
+      // Exit picking mode when hiding annotation button
+      if (buttonName === 'annotation' && !visible && this.isPickingMode) {
+        this.exitPickingMode();
+      }
+    } else {
+      console.warn(`Unknown button name: ${buttonName}. Valid options: ${Object.keys(buttonMap).join(', ')}`);
+    }
+  }
+
+  /**
+   * Show or hide all UI buttons at once
+   */
+  setAllButtonsVisible(visible: boolean) {
+    this.homeButton.style.display = visible ? 'flex' : 'none';
+    this.lightButton.style.display = visible ? 'flex' : 'none';
+    this.lightPositionButton.style.display = visible ? 'flex' : 'none';
+    this.envButton.style.display = visible ? 'flex' : 'none';
+    this.screenshotButton.style.display = visible ? 'flex' : 'none';
+    this.cameraButton.style.display = visible ? 'flex' : 'none';
+    this.annotationButton.style.display = visible ? 'flex' : 'none';
+    
     if (!visible && this.isPickingMode) {
       this.exitPickingMode();
     }

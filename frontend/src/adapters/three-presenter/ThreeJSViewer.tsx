@@ -116,9 +116,22 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
           console.log('🔄 Loading scene (model files changed)');
         }
         
-        presenterRef.current.loadScene(sceneDesc, false).catch(err => {
-          console.error('Failed to load scene:', err);
-        });
+        presenterRef.current.loadScene(sceneDesc, false)
+          .then(() => {
+            // Show UI buttons after scene is loaded (they're hidden by default)
+            if (presenterRef.current) {
+              presenterRef.current.setButtonVisible('home', true);
+              presenterRef.current.setButtonVisible('light', true);
+              presenterRef.current.setButtonVisible('lightPosition', true);
+              presenterRef.current.setButtonVisible('env', true);
+              presenterRef.current.setButtonVisible('screenshot', true);
+              presenterRef.current.setButtonVisible('camera', true);
+              // Note: 'annotation' button visibility is controlled separately via setAnnotationButtonVisible()
+            }
+          })
+          .catch(err => {
+            console.error('Failed to load scene:', err);
+          });
         
         isFirstLoadRef.current = false;
       } else {
