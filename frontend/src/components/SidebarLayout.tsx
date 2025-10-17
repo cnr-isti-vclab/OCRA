@@ -117,7 +117,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             <SidebarItem
               to="/projects"
               icon="📁"
-              label="Projects"
+              label="HDT Projects"
               isActive={isActive('/projects')}
               sidebarOpen={sidebarOpen}
             />

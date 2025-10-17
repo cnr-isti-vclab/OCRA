@@ -128,7 +128,7 @@ export default function VocabularyList() {
         <div>
           <Link to="/projects" className="btn btn-outline-secondary">
             <i className="bi bi-arrow-left me-2"></i>
-            Back to Projects
+            Back to HDT Projects
           </Link>
         </div>
       </div>

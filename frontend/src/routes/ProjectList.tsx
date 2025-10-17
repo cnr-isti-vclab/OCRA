@@ -195,11 +195,11 @@ export default function Projects() {
   return (
     <div className="container py-5">
       <h1 className="mb-4 text-dark">
-        📁 Projects
+        📁 HDT Projects
       </h1>
       <div className="mb-4 d-flex align-items-center justify-content-between">
         <p className="text-muted mb-0">
-          Manage and view all projects in the system.
+          Manage and view all HDT (Heritage Digital Twin) projects in the system.
         </p>
         <div>
           {(user?.sys_creator || user?.sys_admin) && (
@@ -210,9 +210,9 @@ export default function Projects() {
       {projects.length === 0 ? (
         <div className="alert alert-info text-center py-5">
           <div className="display-3 mb-2">📁</div>
-          <h3 className="mb-2">No Projects Found</h3>
+          <h3 className="mb-2">No HDT Projects Found</h3>
           <p className="mb-0">
-            No projects have been created yet. Contact an administrator to add projects.
+            No HDT projects have been created yet. Contact an administrator to add projects.
           </p>
         </div>
       ) : (

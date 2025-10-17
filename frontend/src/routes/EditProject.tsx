@@ -222,8 +222,8 @@ export default function EditProject() {
       <div className="container py-5">
         <div className="alert alert-danger mb-3">
           <h3 className="h5">Error</h3>
-          <p className="mb-3">{error}</p>
-          <Link to="/projects" className="btn btn-primary">Back to Projects</Link>
+            <p className="mb-3">{error}</p>
+            <Link to="/projects" className="btn btn-primary">Back to HDT Projects</Link>
         </div>
       </div>
     );
@@ -232,16 +232,16 @@ export default function EditProject() {
   if (!project) {
     return (
       <div className="container py-5">
-        <h1 className="mb-3">Project not found</h1>
-        <Link to="/projects" className="btn btn-secondary">Back to Projects</Link>
-      </div>
+          <h1 className="mb-3">HDT Project not found</h1>
+          <Link to="/projects" className="btn btn-secondary">Back to HDT Projects</Link>
+        </div>
     );
   }
 
   return (
     <div className="container py-5">
       <div className="mb-3">
-        <Link to="/projects" className="text-primary text-decoration-none small">← Back to Projects</Link>
+        <Link to="/projects" className="text-primary text-decoration-none small">← Back to HDT Projects</Link>
       </div>
       <h1 className="mb-4 text-dark">✏️ Edit Project</h1>
       <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
