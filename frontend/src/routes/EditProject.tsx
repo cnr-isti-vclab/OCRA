@@ -243,7 +243,7 @@ export default function EditProject() {
       <div className="mb-3">
         <Link to="/projects" className="text-primary text-decoration-none small">← Back to HDT Projects</Link>
       </div>
-      <h1 className="mb-4 text-dark">✏️ Edit Project</h1>
+  <h1 className="mb-4 text-dark">✏️ Edit Heritage Digital Twin Project</h1>
       <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
