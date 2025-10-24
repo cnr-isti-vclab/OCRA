@@ -11,16 +11,17 @@
     "build:watch": "tsc --watch",
     "seed": "tsx seed.ts",
     "prisma:push": "npx prisma db push",
-    "prisma:generate": "npx prisma generate"
-    ,
+    "prisma:generate": "npx prisma generate",
     "test:quick": "tsx ./scripts/test-log-audit.ts && tsx ./scripts/test-get-users-stats.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
-    "mongodb": "^5.9.0",
+    "@types/n3": "^1.26.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "mongodb": "^5.9.0",
     "multer": "^2.0.2",
+    "n3": "^1.26.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0"
   },
