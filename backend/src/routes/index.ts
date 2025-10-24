@@ -12,6 +12,7 @@ import usersRoutes from './users.routes.js';
 import projectsRoutes from './projects.routes.js';
 import adminRoutes from './admin.routes.js';
 import vocabulariesRoutes from './vocabularies.routes.js';
+import rdfExportRoutes from './rdf-export.routes.js';
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.use('/', authRoutes); // Auth routes include /users and /debug paths
 router.use('/health', healthRoutes);
 router.use('/users', usersRoutes);
 router.use('/projects', projectsRoutes);
+router.use('/projects', rdfExportRoutes); // RDF export: GET /api/projects/:id/export/rdf
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
 

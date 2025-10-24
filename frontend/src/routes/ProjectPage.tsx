@@ -43,8 +43,39 @@ export default function ProjectPage() {
   const [editedRotation, setEditedRotation] = useState<string>('');
   const [editedScale, setEditedScale] = useState<string>('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [downloadingRdf, setDownloadingRdf] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
+
+  // Download RDF export
+  const handleDownloadRdf = async () => {
+    if (!projectId) return;
+
+    setDownloadingRdf(true);
+    try {
+      // Create a temporary anchor element to trigger download
+      const url = `${getApiBase()}/api/projects/${projectId}/export/rdf`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hdt-${projectId}.ttl`;
+      a.style.display = 'none';
+
+      // Add to DOM and click
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 100);
+
+    } catch (err: any) {
+      console.error('Error downloading RDF:', err);
+      alert('Failed to download RDF export: ' + (err.message || 'Unknown error'));
+    } finally {
+      setDownloadingRdf(false);
+    }
+  };
 
   // Handle file selection and upload
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -488,8 +519,28 @@ export default function ProjectPage() {
             <h1 className="h3 mb-0 me-3">{project.name}</h1>
             {project.description && <p className="text-muted mb-0">{project.description}</p>}
           </div>
-          <div className="text-secondary">
-            Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
+          <div className="d-flex align-items-center gap-3">
+            <button
+              onClick={handleDownloadRdf}
+              disabled={downloadingRdf}
+              className="btn btn-outline-primary btn-sm"
+              title="Download Heritage Digital Twin metadata as RDF/Turtle"
+            >
+              {downloadingRdf ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-download me-2"></i>
+                  Download RDF
+                </>
+              )}
+            </button>
+            <div className="text-secondary">
+              Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
+            </div>
           </div>
         </div>
       </div>
