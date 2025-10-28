@@ -11,3 +11,4 @@ backend/Dockerfile
 **/*.log
 **/.DS_Store
 keycloak/realm-export/*.json
+media/LargeModels
