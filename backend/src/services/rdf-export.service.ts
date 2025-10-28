@@ -12,6 +12,7 @@
 
 import { Writer, DataFactory } from 'n3';
 import { getPrismaClient } from '../../db.js';
+import { getHDTMetadata } from './hdt-metadata.service.js';
 
 const { namedNode, literal } = DataFactory;
 
@@ -60,6 +61,9 @@ export async function exportProjectAsRDF(projectId: string): Promise<string> {
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
   }
+  
+  // Fetch HDT metadata from MongoDB (if it exists)
+  const hdtMetadata = await getHDTMetadata(projectId);
   
   // Build RDF graph
   return new Promise((resolve, reject) => {
@@ -171,6 +175,231 @@ export async function exportProjectAsRDF(projectId: string): Promise<string> {
       namedNode(`${prefixes.dcterms}accessRights`),
       literal(project.public ? 'public' : 'restricted')
     );
+    
+    // ==========================================
+    // HDT METADATA FROM MONGODB
+    // (Enhanced metadata if available)
+    // ==========================================
+    
+    if (hdtMetadata) {
+      const { dublinCore, cidocCrm, gettyAAT, license } = hdtMetadata;
+      
+      // Extended Dublin Core metadata
+      if (dublinCore) {
+        // Subject / Keywords (can be multiple)
+        if (dublinCore.subject && Array.isArray(dublinCore.subject)) {
+          dublinCore.subject.forEach(keyword => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dc}subject`),
+              literal(keyword)
+            );
+          });
+        }
+        
+        // Type (can be multiple)
+        if (dublinCore.type && Array.isArray(dublinCore.type)) {
+          dublinCore.type.forEach(type => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dc}type`),
+              literal(type)
+            );
+          });
+        }
+        
+        // Language (can be multiple)
+        if (dublinCore.language && Array.isArray(dublinCore.language)) {
+          dublinCore.language.forEach(lang => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dc}language`),
+              literal(lang)
+            );
+          });
+        }
+        
+        // Coverage (spatial or temporal)
+        if (dublinCore.coverage) {
+          writer.addQuad(
+            projectURI,
+            namedNode(`${prefixes.dc}coverage`),
+            literal(dublinCore.coverage)
+          );
+        }
+        
+        // Rights statement
+        if (dublinCore.rights) {
+          writer.addQuad(
+            projectURI,
+            namedNode(`${prefixes.dc}rights`),
+            literal(dublinCore.rights)
+          );
+        }
+        
+        // Source
+        if (dublinCore.source) {
+          writer.addQuad(
+            projectURI,
+            namedNode(`${prefixes.dc}source`),
+            literal(dublinCore.source)
+          );
+        }
+      }
+      
+      // CIDOC-CRM metadata
+      if (cidocCrm) {
+        // Temporal coverage
+        if (cidocCrm.temporalCoverage) {
+          const temporal = cidocCrm.temporalCoverage;
+          
+          if (temporal.timeSpanBegin) {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.crm}P82a_begin_of_the_begin`),
+              literal(temporal.timeSpanBegin, namedNode(`${prefixes.xsd}dateTime`))
+            );
+          }
+          
+          if (temporal.timeSpanEnd) {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.crm}P82b_end_of_the_end`),
+              literal(temporal.timeSpanEnd, namedNode(`${prefixes.xsd}dateTime`))
+            );
+          }
+          
+          if (temporal.period) {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dcterms}temporal`),
+              literal(temporal.period)
+            );
+          }
+        }
+        
+        // Spatial coverage
+        if (cidocCrm.spatialCoverage) {
+          const spatial = cidocCrm.spatialCoverage;
+          
+          if (spatial.placeName) {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dcterms}spatial`),
+              literal(spatial.placeName)
+            );
+          }
+          
+          if (spatial.coordinates) {
+            // WGS84 coordinates
+            writer.addQuad(
+              projectURI,
+              namedNode('http://www.w3.org/2003/01/geo/wgs84_pos#lat'),
+              literal(spatial.coordinates.latitude.toString(), namedNode(`${prefixes.xsd}decimal`))
+            );
+            
+            writer.addQuad(
+              projectURI,
+              namedNode('http://www.w3.org/2003/01/geo/wgs84_pos#long'),
+              literal(spatial.coordinates.longitude.toString(), namedNode(`${prefixes.xsd}decimal`))
+            );
+          }
+          
+          if (spatial.geonames) {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dcterms}spatial`),
+              namedNode(spatial.geonames)
+            );
+          }
+        }
+        
+        // Materials (with Getty AAT if available)
+        if (cidocCrm.material && Array.isArray(cidocCrm.material)) {
+          cidocCrm.material.forEach(material => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.crm}P45_consists_of`),
+              literal(material)
+            );
+          });
+        }
+        
+        // Techniques
+        if (cidocCrm.technique && Array.isArray(cidocCrm.technique)) {
+          cidocCrm.technique.forEach(technique => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.crm}P32_used_general_technique`),
+              literal(technique)
+            );
+          });
+        }
+      }
+      
+      // Getty AAT controlled vocabulary terms
+      if (gettyAAT) {
+        // Materials with AAT URIs
+        if (gettyAAT.materials && Array.isArray(gettyAAT.materials)) {
+          gettyAAT.materials.forEach(mat => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.crm}P45_consists_of`),
+              namedNode(mat.uri)
+            );
+          });
+        }
+        
+        // Techniques with AAT URIs
+        if (gettyAAT.techniques && Array.isArray(gettyAAT.techniques)) {
+          gettyAAT.techniques.forEach(tech => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.crm}P32_used_general_technique`),
+              namedNode(tech.uri)
+            );
+          });
+        }
+        
+        // Object types with AAT URIs
+        if (gettyAAT.objectTypes && Array.isArray(gettyAAT.objectTypes)) {
+          gettyAAT.objectTypes.forEach(objType => {
+            writer.addQuad(
+              projectURI,
+              namedNode(`${prefixes.dc}type`),
+              namedNode(objType.uri)
+            );
+          });
+        }
+      }
+      
+      // License information
+      if (license) {
+        if (license.licenseUrl) {
+          writer.addQuad(
+            projectURI,
+            namedNode(`${prefixes.dcterms}license`),
+            namedNode(license.licenseUrl)
+          );
+        }
+        
+        if (license.rightsStatement) {
+          writer.addQuad(
+            projectURI,
+            namedNode(`${prefixes.dcterms}rights`),
+            namedNode(license.rightsStatement)
+          );
+        }
+        
+        if (license.attribution) {
+          writer.addQuad(
+            projectURI,
+            namedNode('http://creativecommons.org/ns#attributionName'),
+            literal(license.attribution)
+          );
+        }
+      }
+    }
     
     // ==========================================
     // Publisher (OCRA Platform)
