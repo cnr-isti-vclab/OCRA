@@ -249,13 +249,22 @@ export default function Projects() {
                         <div><strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}</div>
                       </div>
                       {managerMap[project.id] && (
-                        <Link
-                          to={`/projects/${project.id}/edit`}
-                          className="btn btn-sm btn-primary ms-2 fw-bold d-flex align-items-center gap-1"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          ✏️ Edit
-                        </Link>
+                        <div className="d-flex gap-2">
+                          <Link
+                            to={`/projects/${project.id}/edit`}
+                            className="btn btn-sm btn-primary ms-2 fw-bold d-flex align-items-center gap-1"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            ✏️ Edit Properties
+                          </Link>
+                          <Link
+                            to={`/projects/${project.id}/hdt`}
+                            className="btn btn-sm btn-outline-secondary ms-2 fw-bold d-flex align-items-center gap-1"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            🏛️ HDT
+                          </Link>
+                        </div>
                       )}
                     </div>
                   </div>

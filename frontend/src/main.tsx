@@ -12,6 +12,7 @@ import ProjectPage from './routes/ProjectPage.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
 import RequireAdmin from './routes/RequireAdmin.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
+import HDTPage from './routes/HDTPage.tsx'
 
 /**
  * SINGLE PAGE APPLICATIONS (SPAs)
@@ -129,6 +130,17 @@ const router = createBrowserRouter([
 			   <RequireAuth>
 				   <SidebarLayout>
 					   <EditProject />
+				   </SidebarLayout>
+			   </RequireAuth>
+		   )
+	   },
+	   // Protected HDT management route: allows project managers to manage HDT metadata
+	   {
+		   path: '/projects/:projectId/hdt',
+		   element: (
+			   <RequireAuth>
+				   <SidebarLayout>
+					   <HDTPage />
 				   </SidebarLayout>
 			   </RequireAuth>
 		   )
