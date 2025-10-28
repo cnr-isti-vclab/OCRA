@@ -825,3 +825,63 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     });
   }
 }
+
+/**
+ * Delete a project (manager only)
+ * DELETE /api/projects/:projectId
+ */
+export async function deleteProject(req: Request, res: Response) {
+  const { projectId } = req.params;
+  
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
+  }
+
+  try {
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = getPrismaClient();
+    
+    // Check if user is manager of the project
+    const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
+    if (!isManager) {
+      return res.status(403).json({ error: 'Only project managers can delete the project' });
+    }
+
+    // Check if project exists
+    const project = await db.project.findUnique({
+      where: { id: projectId }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Delete project files from filesystem
+    const projectPath = path.join(uploadDir, projectId);
+    if (fs.existsSync(projectPath)) {
+      fs.rmSync(projectPath, { recursive: true, force: true });
+    }
+
+    // Delete project from database (cascade will delete related records)
+    await db.project.delete({
+      where: { id: projectId }
+    });
+
+    console.log(`✅ Project deleted: ${projectId} by user: ${currentUser.email}`);
+
+    res.json({
+      success: true,
+      message: 'Project deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete project',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}

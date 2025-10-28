@@ -7,7 +7,7 @@
 
 
 import express from 'express';
-import { getAllProjects, getProjectById, createProject, updateProject, listProjectFiles, uploadProjectFile, downloadProjectFile, upload, isManagerOfProject, getProjectScene, updateProjectScene } from '../controllers/projects.controller.js';
+import { getAllProjects, getProjectById, createProject, updateProject, deleteProject, listProjectFiles, uploadProjectFile, downloadProjectFile, upload, isManagerOfProject, getProjectScene, updateProjectScene } from '../controllers/projects.controller.js';
 import { listProjectMembers, addProjectMember, removeProjectMember } from '../controllers/project-members.controller.js';
 
 const router = express.Router();
@@ -570,5 +570,49 @@ router.post('/', createProject);
  *         description: Project not found
  */
 router.put('/:projectId', updateProject);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}:
+ *   delete:
+ *     summary: Delete a project
+ *     description: Deletes a project and all associated data (files, annotations, etc.). Only accessible by project managers.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionAuth: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The project ID to delete
+ *         example: 507f1f77bcf86cd799439012
+ *     responses:
+ *       200:
+ *         description: Project deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Project deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:projectId', deleteProject);
 
 export default router;

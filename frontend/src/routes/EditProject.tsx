@@ -49,6 +49,7 @@ export default function EditProject() {
   const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Form state
@@ -62,6 +63,9 @@ export default function EditProject() {
   const [showManagerConfirmation, setShowManagerConfirmation] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string>('');
   const [originalManagerId, setOriginalManagerId] = useState<string>('');
+  
+  // Delete confirmation state
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -161,6 +165,36 @@ export default function EditProject() {
   const cancelManagerChange = () => {
     setShowManagerConfirmation(false);
     setPendingManagerId('');
+  };
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      const sessionId = localStorage.getItem('oauth_session_id');
+
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete project');
+      }
+
+      // Success - navigate back to projects list
+      navigate('/projects');
+    } catch (e: any) {
+      console.error('Failed to delete project:', e);
+      setError(e?.message ?? String(e));
+      setShowDeleteConfirmation(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -319,7 +353,7 @@ export default function EditProject() {
             <div className="d-flex gap-2">
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || deleting}
                 className="btn btn-success fw-bold"
               >
                 {saving ? '💾 Saving...' : '💾 Save Changes'}
@@ -327,6 +361,14 @@ export default function EditProject() {
               <Link to="/projects" className="btn btn-secondary fw-bold">
                 Cancel
               </Link>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmation(true)}
+                disabled={saving || deleting}
+                className="btn btn-danger fw-bold ms-auto"
+              >
+                🗑️ Delete Project
+              </button>
             </div>
           </form>
         </div>
@@ -380,6 +422,51 @@ export default function EditProject() {
           </div>
         </div>
       )}
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title">🗑️ Delete Project</h5>
+              </div>
+              <div className="modal-body">
+                <div className="alert alert-warning mb-3">
+                  <strong>⚠️ Warning:</strong> This action cannot be undone!
+                </div>
+                <p>Are you sure you want to delete this project?</p>
+                <div className="bg-light p-3 rounded mb-2">
+                  <div><strong>Project Name:</strong> {project?.name}</div>
+                  {project?.description && (
+                    <div><strong>Description:</strong> {project.description}</div>
+                  )}
+                </div>
+                <p className="text-danger mb-0">
+                  <strong>All project data, including files, annotations, and scene configurations will be permanently deleted.</strong>
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  onClick={() => setShowDeleteConfirmation(false)} 
+                  className="btn btn-secondary"
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDelete} 
+                  className="btn btn-danger"
+                  disabled={deleting}
+                >
+                  {deleting ? 'Deleting...' : 'Delete Project'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="alert alert-info mt-4">
         <strong>📝 Note:</strong> Changes will be saved immediately. Make sure all information is correct before saving.
       </div>
