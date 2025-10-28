@@ -1,0 +1,170 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker: Build and Start (Production)",
+      "type": "shell",
+      "command": "docker compose up --build -d",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "rocket",
+        "color": "terminal.ansiGreen"
+      }
+    },
+    {
+      "label": "Docker: Build and Start (Development)",
+      "type": "shell",
+      "command": "if (Test-Path docker-compose.override.yml) { docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d } else { Write-Host 'Note: docker-compose.override.yml not found. Starting in production mode.' -ForegroundColor Yellow; docker compose up --build -d }",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "debug-alt",
+        "color": "terminal.ansiBlue"
+      }
+    },
+    {
+      "label": "Docker: Stop All Containers",
+      "type": "shell",
+      "command": "docker compose down",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "debug-stop",
+        "color": "terminal.ansiRed"
+      }
+    },
+    {
+      "label": "Docker: Stop and Remove Volumes",
+      "type": "shell",
+      "command": "docker compose down -v",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "trash",
+        "color": "terminal.ansiRed"
+      }
+    },
+    {
+      "label": "Docker: View Logs (All)",
+      "type": "shell",
+      "command": "docker compose logs -f",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "output",
+        "color": "terminal.ansiYellow"
+      }
+    },
+    {
+      "label": "Docker: View Logs (Backend)",
+      "type": "shell",
+      "command": "docker compose logs -f backend",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "server",
+        "color": "terminal.ansiYellow"
+      }
+    },
+    {
+      "label": "Docker: View Logs (Frontend)",
+      "type": "shell",
+      "command": "docker compose logs -f app",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "browser",
+        "color": "terminal.ansiYellow"
+      }
+    },
+    {
+      "label": "Docker: Restart All",
+      "type": "shell",
+      "command": "docker compose restart",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "refresh",
+        "color": "terminal.ansiCyan"
+      }
+    },
+    {
+      "label": "Docker: Check Status",
+      "type": "shell",
+      "command": "docker compose ps",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "icon": {
+        "id": "info",
+        "color": "terminal.ansiCyan"
+      }
+    }
+  ]
+}
