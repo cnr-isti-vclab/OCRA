@@ -1,5 +1,5 @@
 # OCRA
-OCRA is a small full-stack platform for collaborative annotation and management of 3D assets. FIXME
+OCRA is a small full-stack platform for collaborative annotation and management of 3D assets.
 
 ## Architecture (short)
 - Frontend: React + TypeScript (Vite), Bootstrap UI — dev server on `:3001`.
