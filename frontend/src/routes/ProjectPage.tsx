@@ -22,6 +22,12 @@ interface Project {
   } | null;
 }
 
+// Minimal type to read the 3D model defined in HDT metadata
+interface HDTModelMeta {
+  fileName: string;
+  fileUrl?: string;
+}
+
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -44,6 +50,7 @@ export default function ProjectPage() {
   const [editedScale, setEditedScale] = useState<string>('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingRdf, setDownloadingRdf] = useState(false);
+  const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
 
@@ -388,12 +395,14 @@ export default function ProjectPage() {
         const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
           credentials: 'include'
         });
+        let fetchedScene: SceneDescription | null = null;
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
           // Add projectId to scene if not present
           if (!scene.projectId) {
             scene.projectId = projectId;
           }
+          fetchedScene = scene;
           setSceneDesc(scene);
           // Load annotations from scene
           setAnnotations(scene.annotations || []);
@@ -408,6 +417,42 @@ export default function ProjectPage() {
         } else {
           setSceneDesc(null);
           setAnnotations([]);
+        }
+
+        // Fetch HDT metadata to see if a default 3D model is defined
+        try {
+          const hdtRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+            credentials: 'include'
+          });
+          if (hdtRes.ok) {
+            const meta = await hdtRes.json();
+            const model: HDTModelMeta | undefined = meta?.hdtModel;
+            if (model?.fileName) {
+              setHdtModel({ fileName: model.fileName, fileUrl: model.fileUrl });
+              // Ensure the HDT model is present in the scene; create a minimal scene if none exists
+              const ensureScene: SceneDescription = fetchedScene ?? { projectId, models: [] };
+              const alreadyInScene = (ensureScene.models || []).some(m => m.file === model.fileName);
+              if (!alreadyInScene) {
+                const idBase = model.fileName.replace(/\.[^/.]+$/, '');
+                let candidateId = idBase;
+                let suffix = 1;
+                const ids = new Set((ensureScene.models || []).map(m => m.id));
+                while (ids.has(candidateId)) {
+                  candidateId = `${idBase}-${suffix++}`;
+                }
+                ensureScene.models = [...(ensureScene.models || []), {
+                  id: candidateId,
+                  file: model.fileName,
+                  visible: true
+                }];
+                setSceneDesc(ensureScene);
+                // Also update visibility state
+                setMeshVisibility(prev => ({ ...prev, [candidateId]: true }));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Could not fetch HDT metadata:', e);
         }
       } catch (e: any) {
         setError(e?.message ?? String(e));
@@ -520,6 +565,14 @@ export default function ProjectPage() {
             {project.description && <p className="text-muted mb-0">{project.description}</p>}
           </div>
           <div className="d-flex align-items-center gap-3">
+            <Link
+              to={`/projects/${projectId}/hdt`}
+              className="btn btn-outline-secondary btn-sm"
+              title="Manage HDT metadata and default 3D model"
+            >
+              <i className="bi bi-sliders me-2"></i>
+              Manage HDT
+            </Link>
             <button
               onClick={handleDownloadRdf}
               disabled={downloadingRdf}
@@ -624,6 +677,29 @@ export default function ProjectPage() {
                     onChange={handleFileSelect}
                     accept=".ply,.obj,.stl,.gltf,.glb,.dae,.fbx,.3ds,.x3d,.nxs"
                   />
+
+                  {/* HDT Model Info or Prompt */}
+                  {hdtModel ? (
+                    <div className="alert alert-info small py-2 mb-2 d-flex align-items-center">
+                      <i className="bi bi-info-circle me-2"></i>
+                      <div className="flex-grow-1">
+                        Default HDT model: <strong>{hdtModel.fileName}</strong>
+                      </div>
+                      {isManager && (
+                        <Link to={`/projects/${projectId}/hdt`} className="btn btn-sm btn-outline-primary">
+                          Change
+                        </Link>
+                      )}
+                    </div>
+                  ) : isManager ? (
+                    <div className="alert alert-warning small py-2 mb-2">
+                      <i className="bi bi-exclamation-triangle me-2"></i>
+                      <strong>First step:</strong> Define a default 3D model for this Heritage Digital Twin.{' '}
+                      <Link to={`/projects/${projectId}/hdt`} className="alert-link">
+                        Go to HDT Metadata →
+                      </Link>
+                    </div>
+                  ) : null}
 
                   {uploadError && <div className="alert alert-danger small py-2">{uploadError}</div>}
 

@@ -114,6 +114,17 @@ export interface LicenseMetadata {
 }
 
 /**
+ * 3D model associated with the HDT
+ */
+export interface HDTModel {
+  fileName: string;           // Stored filename in project folder
+  fileUrl?: string;           // Accessible URL (e.g., /api/projects/:id/files/:name)
+  fileSize?: number;          // Bytes
+  mimeType?: string;          // e.g., model/gltf-binary
+  uploadedAt?: Date;          // When it was uploaded/selected
+}
+
+/**
  * Complete HDT metadata document stored in MongoDB
  */
 export interface HDTMetadata {
@@ -125,6 +136,9 @@ export interface HDTMetadata {
   cidocCrm: CidocCrmMetadata;
   gettyAAT: GettyAATTerms;
   license: LicenseMetadata;
+  
+  // Linked 3D model for visualization
+  hdtModel?: HDTModel;
   
   // Additional flexible fields
   customMetadata?: Record<string, any>;  // For future extensions
@@ -200,6 +214,7 @@ export async function createHDTMetadata(
     cidocCrm: metadata.cidocCrm || {},
     gettyAAT: metadata.gettyAAT || {},
     license: metadata.license || {},
+    hdtModel: metadata.hdtModel,
     customMetadata: metadata.customMetadata || {},
     createdAt: now,
     updatedAt: now,
@@ -249,6 +264,9 @@ export async function updateHDTMetadata(
   }
   if (metadata.license) {
     updateDoc.$set.license = metadata.license;
+  }
+  if (metadata.hdtModel) {
+    updateDoc.$set.hdtModel = metadata.hdtModel;
   }
   if (metadata.customMetadata) {
     updateDoc.$set.customMetadata = metadata.customMetadata;
@@ -323,6 +341,7 @@ export async function initializeHDTMetadata(
     license: {
       accessRights: isPublic ? 'public' : 'restricted',
     },
+    hdtModel: undefined,
     createdAt: now,
     updatedAt: now,
     createdBy: userId,
