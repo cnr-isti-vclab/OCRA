@@ -126,7 +126,7 @@ export default function HDTPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'model' | 'dublin-core' | 'cidoc-crm' | 'getty-aat' | 'license'>('model');
+  const [activeTab, setActiveTab] = useState<'dublin-core' | 'model' | 'cidoc-crm' | 'license'>('dublin-core');
 
   // 3D Model state
   const [projectFiles, setProjectFiles] = useState<Array<{ name: string; url: string; size: number }>>([]);
@@ -477,15 +477,6 @@ export default function HDTPage() {
           <ul className="nav nav-tabs card-header-tabs" role="tablist">
             <li className="nav-item" role="presentation">
               <button
-                className={`nav-link ${activeTab === 'model' ? 'active' : ''}`}
-                onClick={() => setActiveTab('model')}
-                type="button"
-              >
-                🧩 3D Model
-              </button>
-            </li>
-            <li className="nav-item" role="presentation">
-              <button
                 className={`nav-link ${activeTab === 'dublin-core' ? 'active' : ''}`}
                 onClick={() => setActiveTab('dublin-core')}
                 type="button"
@@ -495,20 +486,20 @@ export default function HDTPage() {
             </li>
             <li className="nav-item" role="presentation">
               <button
+                className={`nav-link ${activeTab === 'model' ? 'active' : ''}`}
+                onClick={() => setActiveTab('model')}
+                type="button"
+              >
+                🧩 3D Model
+              </button>
+            </li>
+            <li className="nav-item" role="presentation">
+              <button
                 className={`nav-link ${activeTab === 'cidoc-crm' ? 'active' : ''}`}
                 onClick={() => setActiveTab('cidoc-crm')}
                 type="button"
               >
                 🏛️ CIDOC-CRM
-              </button>
-            </li>
-            <li className="nav-item" role="presentation">
-              <button
-                className={`nav-link ${activeTab === 'getty-aat' ? 'active' : ''}`}
-                onClick={() => setActiveTab('getty-aat')}
-                type="button"
-              >
-                🎨 Getty AAT
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -524,127 +515,6 @@ export default function HDTPage() {
         </div>
 
         <div className="card-body">
-          {/* 3D Model Tab */}
-          {activeTab === 'model' && (
-            <div>
-              <h5 className="mb-3">3D Model for Viewer</h5>
-              <p className="text-muted small mb-4">
-                Upload or select a 3D model to represent this Heritage Digital Twin in the viewer. Recommended format: GLB/GLTF.
-              </p>
-
-              {/* Current selection */}
-              <div className="mb-4">
-                <h6 className="text-primary mb-2">Current selection</h6>
-                {selectedModel ? (
-                  <div className="d-flex align-items-center gap-3 p-3 border rounded">
-                    <div className="text-muted">📦</div>
-                    <div>
-                      <div><strong>{selectedModel.fileName}</strong></div>
-                      {selectedModel.fileSize && (
-                        <div className="text-muted small">{(selectedModel.fileSize / (1024*1024)).toFixed(2)} MB</div>
-                      )}
-                      {selectedModel.fileUrl && (
-                        <div>
-                          <a href={selectedModel.fileUrl} target="_blank" rel="noreferrer">Download</a>
-                        </div>
-                      )}
-                    </div>
-                    <button className="btn btn-sm btn-outline-danger ms-auto" onClick={() => setSelectedModel(null)}>
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-muted">No model selected yet.</div>
-                )}
-              </div>
-
-              {/* Upload new model */}
-              <div className="mb-4">
-                <h6 className="text-primary mb-2">Upload new model</h6>
-                <input
-                  type="file"
-                  className="form-control"
-                  accept=".glb,.gltf,.ply,.obj,.fbx"
-                  onChange={async (e) => {
-                    if (!projectId) return;
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    try {
-                      setUploading(true);
-                      // Upload file
-                      const formData = new FormData();
-                      formData.append('file', file);
-                      const uploadRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData,
-                      });
-                      if (!uploadRes.ok) {
-                        const err = await uploadRes.json().catch(() => ({}));
-                        throw new Error(err.error || 'Upload failed');
-                      }
-                      // Set as selected model
-                      const fileUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(file.name)}`;
-                      const model: HDTModel = {
-                        fileName: file.name,
-                        fileUrl,
-                        fileSize: file.size,
-                        mimeType: file.type || 'application/octet-stream',
-                        uploadedAt: new Date().toISOString(),
-                      };
-                      setSelectedModel(model);
-                      // Refresh project files list
-                      await fetchProjectAndMetadata();
-                      setSuccessMessage('Model uploaded. Remember to Save Metadata to apply.');
-                    } catch (err: any) {
-                      setError(err?.message || 'Failed to upload model');
-                    } finally {
-                      setUploading(false);
-                      // Clear input value to allow re-uploading same file if needed
-                      (e.target as HTMLInputElement).value = '';
-                    }
-                  }}
-                  disabled={uploading}
-                />
-                {uploading && (
-                  <div className="text-muted small mt-2">Uploading...</div>
-                )}
-              </div>
-
-              {/* Select existing file */}
-              <div>
-                <h6 className="text-primary mb-2">Select from existing files</h6>
-                {projectFiles.length === 0 ? (
-                  <div className="text-muted">No files found in this project.</div>
-                ) : (
-                  <div className="list-group">
-                    {projectFiles.map(f => (
-                      <div key={f.name} className="list-group-item d-flex align-items-center">
-                        <div className="me-3">📄</div>
-                        <div className="flex-grow-1">
-                          <div><strong>{f.name}</strong></div>
-                          <div className="text-muted small">{(f.size / (1024*1024)).toFixed(2)} MB</div>
-                        </div>
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => {
-                          const model: HDTModel = {
-                            fileName: f.name,
-                            fileUrl: f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`,
-                            fileSize: f.size,
-                            uploadedAt: new Date().toISOString(),
-                          };
-                          setSelectedModel(model);
-                          setSuccessMessage('Model selected. Remember to Save Metadata to apply.');
-                        }}>
-                          Use as HDT Model
-                        </button>
-                        <a className="btn btn-sm btn-outline-secondary ms-2" href={f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`} target="_blank" rel="noreferrer">Download</a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
           {/* Dublin Core Tab */}
           {activeTab === 'dublin-core' && (
             <div>
@@ -786,6 +656,128 @@ export default function HDTPage() {
                   placeholder="Copyright statement or rights information"
                 />
                 <small className="form-text text-muted">dc:rights</small>
+              </div>
+            </div>
+          )}
+
+          {/* 3D Model Tab */}
+          {activeTab === 'model' && (
+            <div>
+              <h5 className="mb-3">3D Model for Viewer</h5>
+              <p className="text-muted small mb-4">
+                Upload or select a 3D model to represent this Heritage Digital Twin in the viewer. Recommended format: GLB/GLTF.
+              </p>
+
+              {/* Current selection */}
+              <div className="mb-4">
+                <h6 className="text-primary mb-2">Current selection</h6>
+                {selectedModel ? (
+                  <div className="d-flex align-items-center gap-3 p-3 border rounded">
+                    <div className="text-muted">📦</div>
+                    <div>
+                      <div><strong>{selectedModel.fileName}</strong></div>
+                      {selectedModel.fileSize && (
+                        <div className="text-muted small">{(selectedModel.fileSize / (1024*1024)).toFixed(2)} MB</div>
+                      )}
+                      {selectedModel.fileUrl && (
+                        <div>
+                          <a href={selectedModel.fileUrl} target="_blank" rel="noreferrer">Download</a>
+                        </div>
+                      )}
+                    </div>
+                    <button className="btn btn-sm btn-outline-danger ms-auto" onClick={() => setSelectedModel(null)}>
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-muted">No model selected yet.</div>
+                )}
+              </div>
+
+              {/* Upload new model */}
+              <div className="mb-4">
+                <h6 className="text-primary mb-2">Upload new model</h6>
+                <input
+                  type="file"
+                  className="form-control"
+                  accept=".glb,.gltf,.ply,.obj,.fbx"
+                  onChange={async (e) => {
+                    if (!projectId) return;
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      setUploading(true);
+                      // Upload file
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      const uploadRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData,
+                      });
+                      if (!uploadRes.ok) {
+                        const err = await uploadRes.json().catch(() => ({}));
+                        throw new Error(err.error || 'Upload failed');
+                      }
+                      // Set as selected model
+                      const fileUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(file.name)}`;
+                      const model: HDTModel = {
+                        fileName: file.name,
+                        fileUrl,
+                        fileSize: file.size,
+                        mimeType: file.type || 'application/octet-stream',
+                        uploadedAt: new Date().toISOString(),
+                      };
+                      setSelectedModel(model);
+                      // Refresh project files list
+                      await fetchProjectAndMetadata();
+                      setSuccessMessage('Model uploaded. Remember to Save Metadata to apply.');
+                    } catch (err: any) {
+                      setError(err?.message || 'Failed to upload model');
+                    } finally {
+                      setUploading(false);
+                      // Clear input value to allow re-uploading same file if needed
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }}
+                  disabled={uploading}
+                />
+                {uploading && (
+                  <div className="text-muted small mt-2">Uploading...</div>
+                )}
+              </div>
+
+              {/* Select existing file */}
+              <div>
+                <h6 className="text-primary mb-2">Select from existing files</h6>
+                {projectFiles.length === 0 ? (
+                  <div className="text-muted">No files found in this project.</div>
+                ) : (
+                  <div className="list-group">
+                    {projectFiles.map(f => (
+                      <div key={f.name} className="list-group-item d-flex align-items-center">
+                        <div className="me-3">📄</div>
+                        <div className="flex-grow-1">
+                          <div><strong>{f.name}</strong></div>
+                          <div className="text-muted small">{(f.size / (1024*1024)).toFixed(2)} MB</div>
+                        </div>
+                        <button className="btn btn-sm btn-outline-primary" onClick={() => {
+                          const model: HDTModel = {
+                            fileName: f.name,
+                            fileUrl: f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`,
+                            fileSize: f.size,
+                            uploadedAt: new Date().toISOString(),
+                          };
+                          setSelectedModel(model);
+                          setSuccessMessage('Model selected. Remember to Save Metadata to apply.');
+                        }}>
+                          Use as HDT Model
+                        </button>
+                        <a className="btn btn-sm btn-outline-secondary ms-2" href={f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`} target="_blank" rel="noreferrer">Download</a>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -986,45 +978,6 @@ export default function HDTPage() {
                   />
                   <small className="form-text text-muted">Art historical style/period (comma-separated)</small>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Getty AAT Tab */}
-          {activeTab === 'getty-aat' && (
-            <div>
-              <h5 className="mb-3">Getty AAT Controlled Vocabularies</h5>
-              <p className="text-muted small mb-4">
-                Link to Getty Art & Architecture Thesaurus terms for standardized vocabulary.
-              </p>
-
-              <div className="alert alert-info">
-                <h6 className="alert-heading">🚧 Coming Soon</h6>
-                <p className="mb-0">
-                  Getty AAT integration will allow you to search and link controlled vocabulary terms
-                  with their official URIs. This ensures interoperability with other cultural heritage databases.
-                </p>
-                <hr />
-                <p className="mb-0 small">
-                  For now, use the Materials and Techniques fields in the CIDOC-CRM tab.
-                  We'll add Getty AAT lookup functionality in a future update.
-                </p>
-              </div>
-
-              <div className="text-center py-5">
-                <div className="display-1 mb-3">🎨</div>
-                <h5 className="text-muted">Getty AAT Browser</h5>
-                <p className="text-muted">
-                  Search and link controlled vocabulary terms
-                </p>
-                <a 
-                  href="https://www.getty.edu/research/tools/vocabularies/aat/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="btn btn-outline-primary"
-                >
-                  Browse Getty AAT →
-                </a>
               </div>
             </div>
           )}
