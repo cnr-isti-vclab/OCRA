@@ -24,8 +24,13 @@ export interface ThreeJSViewerRef {
 }
 
 // React wrapper for ThreePresenter
-const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; height?: string | number; sceneDesc?: SceneDescription }>(
-  ({ width = '100%', height = '100%', sceneDesc }, ref) => {
+const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { 
+  width?: string | number; 
+  height?: string | number; 
+  sceneDesc?: SceneDescription;
+  onReady?: () => void; // Callback fired when presenter is initialized and ready
+}>(
+  ({ width = '100%', height = '100%', sceneDesc, onReady }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
     const isFirstLoadRef = useRef<boolean>(true);
@@ -84,11 +89,16 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { width?: string | number; he
       const fileResolver = new OcraFileUrlResolver();
       presenterRef.current = new ThreePresenter(mountRef.current, fileResolver);
       
+      // Notify parent that presenter is ready
+      if (onReady) {
+        onReady();
+      }
+      
       return () => {
         console.log('🛑 Disposing ThreePresenter');
         presenterRef.current?.dispose();
       };
-    }, []);
+    }, [onReady]);
 
     // Load/reload scene when sceneDesc changes
     useEffect(() => {

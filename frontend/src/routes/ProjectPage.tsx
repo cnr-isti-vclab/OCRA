@@ -471,28 +471,56 @@ export default function ProjectPage() {
     }
   }, [activeTab]);
 
-  // Set up annotation point picking callback
-  useEffect(() => {
-    if (viewerRef.current) {
-      viewerRef.current.setOnPointPicked((point: [number, number, number]) => {
-        // Create a new annotation
-        const newAnnotation: Annotation = {
-          id: `annotation-${Date.now()}`,
-          label: `Point ${annotations.length + 1}`,
-          type: 'point',
-          geometry: point,
-          createdAt: new Date().toISOString()
-        };
-        
-        // Add to state
-        const updatedAnnotations = [...annotations, newAnnotation];
-        setAnnotations(updatedAnnotations);
+    // Set up annotation point picking callback when viewer is ready
+  const setupAnnotationCallback = () => {
+    if (!viewerRef.current || !projectId || !sceneDesc) {
+      return;
+    }
+
+    viewerRef.current.setOnPointPicked((point: [number, number, number]) => {
+      // Create a new annotation
+      const newAnnotation: Annotation = {
+        id: `annotation-${Date.now()}`,
+        label: `Point ${Date.now()}`,
+        type: 'point',
+        geometry: point,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Add to state - using functional update to get latest state
+      setAnnotations(prevAnnotations => {
+        const updatedAnnotations = [...prevAnnotations, newAnnotation];
         
         // Save to backend
-        saveAnnotationsToBackend(updatedAnnotations);
+        if (projectId && sceneDesc) {
+          const updatedScene = {
+            ...sceneDesc,
+            annotations: updatedAnnotations
+          };
+          
+          fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedScene)
+          }).then(response => {
+            if (!response.ok) {
+              console.error('Failed to save annotations');
+            }
+          }).catch(error => {
+            console.error('Error saving annotations:', error);
+          });
+        }
+        
+        return updatedAnnotations;
       });
-    }
-  }, [annotations]); // Re-create callback when annotations change to have latest count
+    });
+  };
+
+  // Set up callback when dependencies change (after viewer is ready)
+  useEffect(() => {
+    setupAnnotationCallback();
+  }, [projectId, sceneDesc]);
 
   // Render annotations in 3D viewer when they change
   useEffect(() => {
@@ -515,33 +543,6 @@ export default function ProjectPage() {
 
     return () => clearInterval(interval);
   }, [selectedAnnotationIds]);
-
-  // Function to save annotations to backend
-  const saveAnnotationsToBackend = async (updatedAnnotations: Annotation[]) => {
-    if (!projectId || !sceneDesc) return;
-    
-    try {
-      const updatedScene = {
-        ...sceneDesc,
-        annotations: updatedAnnotations
-      };
-      
-      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      });
-      
-      if (!response.ok) {
-        console.error('Failed to save annotations');
-      } else {
-        console.log('✅ Annotations saved successfully');
-      }
-    } catch (error) {
-      console.error('Error saving annotations:', error);
-    }
-  };
 
   // isManager now comes from backend API
 
@@ -607,6 +608,7 @@ export default function ProjectPage() {
               ref={viewerRef}
               height="100%"
               sceneDesc={sceneDesc}
+              onReady={setupAnnotationCallback}
             />
           )}
         </div>
