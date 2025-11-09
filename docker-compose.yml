@@ -1,3 +1,18 @@
+# OCRA Docker Compose Configuration
+#
+# DEVELOPMENT (default):
+#   docker compose up
+#
+# PRODUCTION:
+#   1. Search for "PRODUCTION:" comments and uncomment those sections
+#   2. Comment out the corresponding development settings (ports, etc.)
+#   3. Create .env.prod with production values (see SIMPLE_PRODUCTION.md)
+#   4. Deploy: docker compose --env-file .env.prod up -d --build
+#
+# TIP: Use git branches to keep dev/prod configs separate!
+#      - main branch: development config
+#      - production branch: all PRODUCTION sections uncommented
+
 services:
   # PostgreSQL Database
   postgres:
@@ -9,6 +24,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
+    # PRODUCTION: Comment out 'ports' above and uncomment 'networks' below
+    # networks:
+    #   - internal-net
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +34,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    # PRODUCTION: Uncomment to auto-restart
+    # restart: unless-stopped
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
@@ -23,18 +43,36 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # PRODUCTION: Uncomment these for production deployment
+      # KC_HOSTNAME: ${KC_HOSTNAME:-ocra.isti.cnr.it}
+      # KC_PROXY: edge
+      # KC_HTTP_ENABLED: "true"
+      # KC_DB: postgres
+      # KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-oauth_demo}
+      # KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      # KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "8081:8080"
+    # PRODUCTION: Comment out 'ports' and uncomment below
+    # expose:
+    #   - "8080"
+    # networks:
+    #   - host-proxy-net
+    #   - internal-net
     volumes:
       - ./keycloak/realm-export:/opt/keycloak/data/import
       - keycloak_config:/opt/keycloak/data
     command: start-dev --import-realm
+    # PRODUCTION: Replace command above with production mode
+    # command: start --import-realm
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 90s
+    # PRODUCTION: Uncomment to auto-restart
+    # restart: unless-stopped
 
   mongodb:
     image: mongo:8.0
@@ -43,6 +81,9 @@ services:
       MONGO_INITDB_DATABASE: ocra_audit
     ports:
       - "27017:27017"
+    # PRODUCTION: Comment out 'ports' above and uncomment 'networks' below
+    # networks:
+    #   - internal-net
     volumes:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
@@ -53,6 +94,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    # PRODUCTION: Uncomment to auto-restart
+    # restart: unless-stopped
 
   backend:
     build:
@@ -64,9 +107,17 @@ services:
       PORT: 3002
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}  # User with this email gets admin privileges on first login
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://localhost:5173,http://localhost:5174}
+      # PRODUCTION: Set NODE_ENV=production in .env file
+      NODE_ENV: ${NODE_ENV:-development}
     ports:
       - "3002:3002"
       - "5555:5555"  # Prisma Studio
+    # PRODUCTION: Comment out 'ports' and uncomment below (no Prisma Studio in production)
+    # expose:
+    #   - "3002"
+    # networks:
+    #   - host-proxy-net
+    #   - internal-net
     depends_on:
       - postgres
       - mongodb
@@ -74,6 +125,8 @@ services:
       - backend_node_modules:/app/backend/node_modules
       - ./prisma:/app/backend/prisma:ro
       - project_files:/app/project_files
+    # PRODUCTION: Uncomment to auto-restart
+    # restart: unless-stopped
 
   app:
     build:
@@ -92,6 +145,12 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo}
     ports:
       - "3001:80"
+    # PRODUCTION: Comment out 'ports' and uncomment below
+    # expose:
+    #   - "80"
+    # networks:
+    #   - host-proxy-net
+    #   - internal-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +160,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_started
+    # PRODUCTION: Uncomment to auto-restart
+    # restart: unless-stopped
 
 volumes:
   postgres_data:
@@ -109,3 +170,11 @@ volumes:
   mongo_data:
   mongo_configdb:
   keycloak_config:
+
+# PRODUCTION: Uncomment networks section below
+# networks:
+#   host-proxy-net:
+#     external: true
+#     name: host-proxy-net  # Must exist on production server
+#   internal-net:
+#     driver: bridge
