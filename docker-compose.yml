@@ -43,14 +43,8 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      # PRODUCTION: Uncomment these for production deployment
+      # PRODUCTION: Only uncomment KC_HOSTNAME if needed for your domain
       # KC_HOSTNAME: ${KC_HOSTNAME:-ocra.isti.cnr.it}
-      # KC_PROXY: edge
-      # KC_HTTP_ENABLED: "true"
-      # KC_DB: postgres
-      # KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-oauth_demo}
-      # KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
-      # KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "8081:8080"
     # PRODUCTION: Comment out 'ports' and uncomment below
@@ -63,16 +57,12 @@ services:
       - ./keycloak/realm-export:/opt/keycloak/data/import
       - keycloak_config:/opt/keycloak/data
     command: start-dev --import-realm
-    # PRODUCTION: Replace command above with production mode
-    # command: start --import-realm
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 90s
-    # PRODUCTION: Uncomment to auto-restart
-    # restart: unless-stopped
 
   mongodb:
     image: mongo:8.0
@@ -122,7 +112,8 @@ services:
       - postgres
       - mongodb
     volumes:
-      - backend_node_modules:/app/backend/node_modules
+      - backend_node_modules:/app/backend/node_modules  # Development: hot-reload support
+      # PRODUCTION: Comment out backend_node_modules line above (not needed in production)
       - ./prisma:/app/backend/prisma:ro
       - project_files:/app/project_files
     # PRODUCTION: Uncomment to auto-restart
