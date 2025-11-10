@@ -17,6 +17,7 @@ import {
   updateHDTMetadataHandler,
   deleteHDTMetadataHandler
 } from '../controllers/hdt-metadata.controller.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -85,7 +86,7 @@ router.get('/:projectId/hdt', getHDTMetadataHandler);
  *       500:
  *         description: Server error
  */
-router.post('/:projectId/hdt', createHDTMetadataHandler);
+router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
 
 /**
  * @swagger
@@ -128,7 +129,7 @@ router.post('/:projectId/hdt', createHDTMetadataHandler);
  *       500:
  *         description: Server error
  */
-router.put('/:projectId/hdt', updateHDTMetadataHandler);
+router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
 
 /**
  * @swagger
@@ -156,6 +157,6 @@ router.put('/:projectId/hdt', updateHDTMetadataHandler);
  *       500:
  *         description: Server error
  */
-router.delete('/:projectId/hdt', deleteHDTMetadataHandler);
+router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
 
 export default router;
