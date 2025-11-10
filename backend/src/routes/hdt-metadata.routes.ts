@@ -1,13 +1,27 @@
 /**
  * HDT Metadata Routes
  * 
- * API endpoints for managing Heritage Digital Twin metadata stored in MongoDB.
+ * API endpoints for managing Heritage Digital Twin documents stored in MongoDB.
+ * Includes metadata, digital assets, scenes, and scene-asset associations.
  * 
  * Routes:
- * - GET    /api/projects/:projectId/hdt - Get HDT metadata
- * - POST   /api/projects/:projectId/hdt - Create/initialize HDT metadata
+ * - GET    /api/projects/:projectId/hdt - Get HDT document
+ * - POST   /api/projects/:projectId/hdt - Create/initialize HDT document
  * - PUT    /api/projects/:projectId/hdt - Update HDT metadata
- * - DELETE /api/projects/:projectId/hdt - Delete HDT metadata
+ * - DELETE /api/projects/:projectId/hdt - Delete HDT document
+ * 
+ * - POST   /api/projects/:projectId/hdt/assets - Add digital asset
+ * - PUT    /api/projects/:projectId/hdt/assets/:assetId - Update asset
+ * - DELETE /api/projects/:projectId/hdt/assets/:assetId - Remove asset
+ * 
+ * - GET    /api/projects/:projectId/scenes - List scenes
+ * - POST   /api/projects/:projectId/hdt/scenes - Create scene
+ * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId - Update scene
+ * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId - Delete scene
+ * 
+ * - POST   /api/projects/:projectId/hdt/scenes/:sceneId/assets - Add asset to scene
+ * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId - Update asset in scene
+ * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId - Remove asset from scene
  */
 
 import { Router } from 'express';
@@ -15,7 +29,18 @@ import {
   getHDTMetadataHandler,
   createHDTMetadataHandler,
   updateHDTMetadataHandler,
-  deleteHDTMetadataHandler
+  deleteHDTMetadataHandler,
+  addAssetHandler,
+  updateAssetHandler,
+  removeAssetHandler,
+  listScenesHandler,
+  createSceneHandler,
+  updateSceneHandler,
+  deleteSceneHandler,
+  addAssetToSceneHandler,
+  updateAssetInSceneHandler,
+  removeAssetFromSceneHandler,
+  getSceneFileHandler
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -158,5 +183,83 @@ router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
  *         description: Server error
  */
 router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
+
+// ==========================================
+// DIGITAL ASSETS ROUTES
+// ==========================================
+
+/**
+ * POST /api/projects/:projectId/hdt/assets
+ * Add a digital asset to the pool
+ */
+router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
+
+/**
+ * PUT /api/projects/:projectId/hdt/assets/:assetId
+ * Update a digital asset
+ */
+router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
+
+/**
+ * DELETE /api/projects/:projectId/hdt/assets/:assetId
+ * Remove a digital asset
+ */
+router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler);
+
+// ==========================================
+// SCENE ROUTES
+// ==========================================
+
+/**
+ * GET /api/projects/:projectId/scenes
+ * List all available scenes (used by viewer)
+ */
+router.get('/:projectId/scenes', listScenesHandler);
+
+/**
+ * GET /api/projects/:projectId/scenes/:sceneId
+ * Get a specific scene JSON file (used by ThreePresenter)
+ */
+router.get('/:projectId/scenes/:sceneId', getSceneFileHandler);
+
+/**
+ * POST /api/projects/:projectId/hdt/scenes
+ * Create a new scene
+ */
+router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
+
+/**
+ * PUT /api/projects/:projectId/hdt/scenes/:sceneId
+ * Update a scene
+ */
+router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
+
+/**
+ * DELETE /api/projects/:projectId/hdt/scenes/:sceneId
+ * Delete a scene
+ */
+router.delete('/:projectId/hdt/scenes/:sceneId', requireAuth, deleteSceneHandler);
+
+// ==========================================
+// SCENE-ASSET ASSOCIATION ROUTES
+// ==========================================
+
+/**
+ * POST /api/projects/:projectId/hdt/scenes/:sceneId/assets
+ * Add an asset to a scene
+ */
+router.post('/:projectId/hdt/scenes/:sceneId/assets', requireAuth, addAssetToSceneHandler);
+
+/**
+ * PUT /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
+ * Update an asset reference in a scene
+ */
+router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updateAssetInSceneHandler);
+
+/**
+ * DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
+ * Remove an asset from a scene
+ */
+router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, removeAssetFromSceneHandler);
 
 export default router;

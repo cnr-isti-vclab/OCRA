@@ -137,3 +137,171 @@ export interface OAuthUserProfile {
   family_name?: string;
   middle_name?: string;
 }
+
+// ============================================================================
+// HDT (Heritage Digital Twin) Types
+// ============================================================================
+
+/**
+ * Dublin Core Metadata
+ * Ontology-based metadata following Dublin Core standard
+ */
+export interface DublinCoreMetadata {
+  title?: string;
+  creator?: string;
+  subject?: string;
+  description?: string;
+  publisher?: string;
+  contributor?: string;
+  date?: string;
+  type?: string;
+  format?: string;
+  identifier?: string;
+  source?: string;
+  language?: string;
+  relation?: string;
+  coverage?: string;
+  rights?: string;
+}
+
+/**
+ * CIDOC-CRM Metadata
+ * Ontology-based metadata following CIDOC-CRM standard for cultural heritage
+ */
+export interface CidocCrmMetadata {
+  objectType?: string;        // E22 Human-Made Object
+  timeSpan?: {                // E52 Time-Span
+    begin?: string;
+    end?: string;
+  };
+  period?: string;            // E4 Period
+  production?: {              // E12 Production
+    technique?: string;
+    place?: string;
+    actor?: string;
+  };
+  material?: string[];        // E57 Material
+  dimension?: {               // E54 Dimension
+    type?: string;
+    value?: number;
+    unit?: string;
+  }[];
+  currentLocation?: string;   // E53 Place
+  condition?: string;         // E3 Condition State
+}
+
+/**
+ * Digital Asset
+ * Represents any type of digital content in the asset pool
+ * Currently supports 3D models, extensible to RTI, images, videos, etc.
+ */
+export interface DigitalAsset {
+  id: string;
+  type: 'model3d' | 'rti' | 'image' | 'video' | 'other';
+  fileName: string;
+  fileUrl: string;
+  fileSize?: number;          // Size in bytes
+  title?: string;
+  description?: string;
+  uploadedAt?: Date | string;
+  uploadedBy?: string;        // User ID
+  
+  // Type-specific metadata (extensible)
+  metadata?: {
+    // For 3D models
+    triangles?: number;
+    vertices?: number;
+    format?: string;          // GLB, PLY, OBJ, etc.
+    
+    // For RTI (future)
+    rtiFormat?: string;       // PTM, HSH, etc.
+    lightPositions?: number;
+    
+    // For images (future)
+    width?: number;
+    height?: number;
+    resolution?: number;      // DPI
+    
+    // For videos (future)
+    duration?: number;        // seconds
+    codec?: string;
+    
+    // Extensible for other types
+    [key: string]: any;
+  };
+}
+
+/**
+ * Scene Asset Reference
+ * References a digital asset within a specific scene with transform properties
+ */
+export interface SceneAssetReference {
+  assetId: string;            // References DigitalAsset.id
+  visible?: boolean;          // Default: true
+  position?: [number, number, number];
+  rotation?: [number, number, number];  // Euler angles in radians
+  scale?: number | [number, number, number];
+  
+  // Future: RTI-specific properties
+  // lightDirection?: [number, number, number];
+  // renderMode?: 'diffuse' | 'specular' | 'normals';
+}
+
+/**
+ * HDT Scene
+ * Represents a specific view/configuration of digital assets
+ */
+export interface HDTScene {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;        // True for the default scene
+  
+  // Assets in this scene
+  assets: SceneAssetReference[];
+  
+  // Environment configuration
+  environment?: {
+    backgroundColor?: string;
+    showGround?: boolean;
+    groundColor?: string;
+    ambientLight?: number;
+    directionalLight?: {
+      intensity?: number;
+      position?: [number, number, number];
+    };
+  };
+  
+  // Scene metadata
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  createdBy?: string;         // User ID
+}
+
+/**
+ * HDT Document
+ * Complete Heritage Digital Twin document stored in MongoDB
+ * Links to a Project in PostgreSQL via projectId
+ */
+export interface HDTDocument {
+  _id?: string;               // MongoDB ObjectId (optional, auto-generated)
+  projectId: string;          // Link to PostgreSQL project
+  
+  // Ontology-based metadata (for future RDF/knowledge base integration)
+  metadata: {
+    dublinCore: DublinCoreMetadata;
+    cidocCrm: CidocCrmMetadata;
+  };
+  
+  // Digital assets pool (3D models, RTI, images, etc.)
+  digitalAssets: DigitalAsset[];
+  
+  // Scene configurations
+  scenes: HDTScene[];
+  
+  // Document timestamps
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  createdBy?: string;         // User ID who created
+  updatedBy?: string;         // User ID who last updated
+}

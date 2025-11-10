@@ -1,8 +1,11 @@
 /**
  * HDT Metadata Service
  * 
- * This service manages Heritage Digital Twin metadata stored in MongoDB.
- * Metadata is stored in a flexible schema that can be converted to RDF when needed.
+ * This service manages Heritage Digital Twin documents stored in MongoDB.
+ * Each HDT document contains:
+ * - Ontology-based metadata (Dublin Core, CIDOC-CRM)
+ * - Digital assets pool (3D models, RTI, images, etc.)
+ * - Scene configurations (multiple scenes per project)
  * 
  * Uses MongoDB for:
  * - Flexible schema evolution (no migrations needed)
@@ -13,158 +16,34 @@
 
 import { connect } from './audit.service.js';
 import { ObjectId } from 'mongodb';
-
-// ==========================================
-// TYPE DEFINITIONS
-// ==========================================
-
-/**
- * Dublin Core metadata fields
- */
-export interface DublinCoreMetadata {
-  title?: string;              // dc:title
-  creator?: string[];          // dc:creator (can have multiple)
-  subject?: string[];          // dc:subject (keywords/topics)
-  description?: string;        // dc:description
-  publisher?: string[];        // dc:publisher
-  contributor?: string[];      // dc:contributor
-  date?: string;               // dc:date (ISO 8601)
-  type?: string[];             // dc:type (e.g., "3D Model", "Dataset")
-  format?: string[];           // dc:format (e.g., "model/gltf-binary")
-  identifier?: string[];       // dc:identifier (DOI, URI, etc.)
-  source?: string;             // dc:source (original source)
-  language?: string[];         // dc:language (ISO 639)
-  relation?: string[];         // dc:relation (related resources)
-  coverage?: string;           // dc:coverage (spatial/temporal)
-  rights?: string;             // dc:rights (copyright statement)
-}
-
-/**
- * CIDOC-CRM specific properties for cultural heritage
- */
-export interface CidocCrmMetadata {
-  // E73 Information Object properties
-  objectType?: string;         // Type of cultural heritage object
-  
-  // Temporal properties
-  temporalCoverage?: {
-    timeSpanBegin?: string;    // ISO 8601 date/time
-    timeSpanEnd?: string;      // ISO 8601 date/time
-    period?: string;           // Named period (e.g., "Renaissance")
-    century?: string;          // Century reference
-  };
-  
-  // Spatial properties
-  spatialCoverage?: {
-    placeName?: string;        // Place name
-    coordinates?: {            // Geographic coordinates
-      latitude: number;
-      longitude: number;
-      elevation?: number;
-    };
-    geonames?: string;         // Geonames URI
-  };
-  
-  // Material and technique
-  material?: string[];         // Materials used (from Getty AAT)
-  technique?: string[];        // Techniques used (from Getty AAT)
-  
-  // Condition and conservation
-  condition?: string;          // Current condition state
-  conservationHistory?: string;
-  
-  // Cultural context
-  culturalContext?: string[];  // Cultural affiliations
-  styleOrPeriod?: string[];   // Art historical style/period
-}
-
-/**
- * Getty AAT (Art & Architecture Thesaurus) controlled vocabulary terms
- */
-export interface GettyAATTerms {
-  materials?: Array<{
-    term: string;              // Human-readable term
-    aatId: string;             // Getty AAT ID (e.g., "300010357")
-    uri: string;               // Full URI
-  }>;
-  
-  techniques?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-  
-  objectTypes?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-}
-
-/**
- * License and rights information
- */
-export interface LicenseMetadata {
-  licenseType?: string;        // e.g., "CC-BY-4.0", "CC0-1.0"
-  licenseUrl?: string;         // URL to license text
-  rightsStatement?: string;    // Rights statement URL (rightsstatements.org)
-  attribution?: string;        // Attribution text
-  accessRights?: 'public' | 'restricted' | 'private';
-  useRestrictions?: string;    // Usage restrictions
-}
-
-/**
- * 3D model associated with the HDT
- */
-export interface HDTModel {
-  fileName: string;           // Stored filename in project folder
-  fileUrl?: string;           // Accessible URL (e.g., /api/projects/:id/files/:name)
-  fileSize?: number;          // Bytes
-  mimeType?: string;          // e.g., model/gltf-binary
-  uploadedAt?: Date;          // When it was uploaded/selected
-}
-
-/**
- * Complete HDT metadata document stored in MongoDB
- */
-export interface HDTMetadata {
-  _id?: ObjectId;              // MongoDB ID
-  projectId: string;           // Link to PostgreSQL project
-  
-  // Metadata sections
-  dublinCore: DublinCoreMetadata;
-  cidocCrm: CidocCrmMetadata;
-  gettyAAT: GettyAATTerms;
-  license: LicenseMetadata;
-  
-  // Linked 3D model for visualization
-  hdtModel?: HDTModel;
-  
-  // Additional flexible fields
-  customMetadata?: Record<string, any>;  // For future extensions
-  
-  // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy?: string;          // User ID who created
-  updatedBy?: string;          // User ID who last updated
-}
+import type { 
+  HDTDocument, 
+  DigitalAsset, 
+  HDTScene, 
+  SceneAssetReference,
+  DublinCoreMetadata,
+  CidocCrmMetadata,
+  SceneDescription,
+  ModelDefinition
+} from '../types/index.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 // ==========================================
 // MONGODB COLLECTION ACCESS
 // ==========================================
 
-const COLLECTION_NAME = 'hdt_metadata';
+const COLLECTION_NAME = 'hdt_collection';
 
 /**
- * Get MongoDB collection for HDT metadata
+ * Get MongoDB collection for HDT documents
  */
 async function getCollection() {
   const { db } = await connect();
   if (!db) {
     throw new Error('MongoDB not connected');
   }
-  return db.collection<HDTMetadata>(COLLECTION_NAME);
+  return db.collection<HDTDocument>(COLLECTION_NAME);
 }
 
 // ==========================================
@@ -172,77 +51,94 @@ async function getCollection() {
 // ==========================================
 
 /**
- * Get HDT metadata for a project
+ * Get HDT document for a project
  * 
  * @param projectId - Project ID
- * @returns HDT metadata or null if not found
+ * @returns HDT document or null if not found
  */
-export async function getHDTMetadata(projectId: string): Promise<HDTMetadata | null> {
+export async function getHDTDocument(projectId: string): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
-  const metadata = await collection.findOne({ projectId });
-  
-  return metadata;
+  const doc = await collection.findOne({ projectId });
+  return doc;
 }
 
 /**
- * Create new HDT metadata for a project
+ * Create new HDT document for a project
  * 
  * @param projectId - Project ID
- * @param metadata - Initial metadata (partial)
- * @param userId - User ID creating the metadata
- * @returns Created metadata document
+ * @param userId - User ID creating the document
+ * @param initialData - Optional initial metadata
+ * @returns Created HDT document
  */
-export async function createHDTMetadata(
+export async function createHDTDocument(
   projectId: string,
-  metadata: Partial<Omit<HDTMetadata, '_id' | 'projectId' | 'createdAt' | 'updatedAt'>>,
-  userId?: string
-): Promise<HDTMetadata> {
+  userId?: string,
+  initialData?: {
+    dublinCore?: Partial<DublinCoreMetadata>;
+    cidocCrm?: Partial<CidocCrmMetadata>;
+  }
+): Promise<HDTDocument> {
   const collection = await getCollection();
   
-  // Check if metadata already exists
+  // Check if document already exists
   const existing = await collection.findOne({ projectId });
   if (existing) {
-    throw new Error(`HDT metadata already exists for project: ${projectId}`);
+    throw new Error(`HDT document already exists for project: ${projectId}`);
   }
   
   const now = new Date();
   
-  const newMetadata: Omit<HDTMetadata, '_id'> = {
+  const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,
-    dublinCore: metadata.dublinCore || {},
-    cidocCrm: metadata.cidocCrm || {},
-    gettyAAT: metadata.gettyAAT || {},
-    license: metadata.license || {},
-    hdtModel: metadata.hdtModel,
-    customMetadata: metadata.customMetadata || {},
+    metadata: {
+      dublinCore: initialData?.dublinCore || {},
+      cidocCrm: initialData?.cidocCrm || {}
+    },
+    digitalAssets: [],
+    scenes: [{
+      id: 'default',
+      name: 'Default Scene',
+      description: 'Default scene created automatically',
+      isDefault: true,
+      assets: [],
+      environment: {
+        backgroundColor: '#404040',
+        showGround: true,
+        ambientLight: 0.5
+      },
+      createdAt: now,
+      createdBy: userId
+    }],
     createdAt: now,
     updatedAt: now,
     createdBy: userId,
     updatedBy: userId
   };
   
-  const result = await collection.insertOne(newMetadata as any);
+  const result = await collection.insertOne(newDocument as any);
   
   return {
-    _id: result.insertedId,
-    ...newMetadata
+    _id: result.insertedId.toString(),
+    ...newDocument
   };
 }
 
 /**
- * Update HDT metadata for a project
+ * Update HDT metadata (Dublin Core or CIDOC-CRM)
  * 
  * @param projectId - Project ID
- * @param metadata - Metadata updates (partial)
+ * @param metadataUpdate - Metadata fields to update
  * @param userId - User ID making the update
- * @returns Updated metadata document
+ * @returns Updated document
  */
 export async function updateHDTMetadata(
   projectId: string,
-  metadata: Partial<Omit<HDTMetadata, '_id' | 'projectId' | 'createdAt' | 'updatedAt'>>,
+  metadataUpdate: {
+    dublinCore?: Partial<DublinCoreMetadata>;
+    cidocCrm?: Partial<CidocCrmMetadata>;
+  },
   userId?: string
-): Promise<HDTMetadata | null> {
+): Promise<HDTDocument | null> {
   const collection = await getCollection();
   
   const updateDoc: any = {
@@ -252,24 +148,11 @@ export async function updateHDTMetadata(
     }
   };
   
-  // Add each metadata section if provided
-  if (metadata.dublinCore) {
-    updateDoc.$set.dublinCore = metadata.dublinCore;
+  if (metadataUpdate.dublinCore) {
+    updateDoc.$set['metadata.dublinCore'] = metadataUpdate.dublinCore;
   }
-  if (metadata.cidocCrm) {
-    updateDoc.$set.cidocCrm = metadata.cidocCrm;
-  }
-  if (metadata.gettyAAT) {
-    updateDoc.$set.gettyAAT = metadata.gettyAAT;
-  }
-  if (metadata.license) {
-    updateDoc.$set.license = metadata.license;
-  }
-  if (metadata.hdtModel) {
-    updateDoc.$set.hdtModel = metadata.hdtModel;
-  }
-  if (metadata.customMetadata) {
-    updateDoc.$set.customMetadata = metadata.customMetadata;
+  if (metadataUpdate.cidocCrm) {
+    updateDoc.$set['metadata.cidocCrm'] = metadataUpdate.cidocCrm;
   }
   
   const result = await collection.findOneAndUpdate(
@@ -278,94 +161,589 @@ export async function updateHDTMetadata(
     { returnDocument: 'after' }
   );
   
-  // findOneAndUpdate returns the document directly with returnDocument: 'after'
-  return result as unknown as HDTMetadata | null;
+  return result as unknown as HDTDocument | null;
 }
 
 /**
- * Delete HDT metadata for a project
+ * Delete HDT document for a project
  * 
  * @param projectId - Project ID
  * @returns True if deleted, false if not found
  */
-export async function deleteHDTMetadata(projectId: string): Promise<boolean> {
+export async function deleteHDTDocument(projectId: string): Promise<boolean> {
   const collection = await getCollection();
-  
   const result = await collection.deleteOne({ projectId });
-  
   return result.deletedCount > 0;
 }
 
+// ==========================================
+// DIGITAL ASSETS MANAGEMENT
+// ==========================================
+
 /**
- * Initialize HDT metadata with defaults from project
- * 
- * This creates a basic HDT metadata document using project information
- * from PostgreSQL as a starting point.
+ * Add a digital asset to the pool
  * 
  * @param projectId - Project ID
- * @param projectName - Project name
- * @param projectDescription - Project description
- * @param isPublic - Whether project is public
- * @param userId - User ID creating the metadata
- * @returns Created metadata document
+ * @param asset - Asset to add (without id, will be auto-generated)
+ * @param userId - User ID adding the asset
+ * @returns Updated document
  */
-export async function initializeHDTMetadata(
+export async function addDigitalAsset(
   projectId: string,
-  projectName: string,
-  projectDescription?: string,
-  isPublic?: boolean,
+  asset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'>,
   userId?: string
-): Promise<HDTMetadata> {
+): Promise<HDTDocument | null> {
   const collection = await getCollection();
   
-  // Check if already exists
-  const existing = await collection.findOne({ projectId });
-  if (existing) {
-    return existing;
-  }
-  
-  const now = new Date();
-  
-  const metadata: Omit<HDTMetadata, '_id'> = {
-    projectId,
-    dublinCore: {
-      title: projectName,
-      description: projectDescription,
-      date: now.toISOString().split('T')[0], // YYYY-MM-DD
-      type: ['3D Model', 'Digital Heritage'],
-    },
-    cidocCrm: {
-      objectType: 'Digital Heritage Twin',
-    },
-    gettyAAT: {},
-    license: {
-      accessRights: isPublic ? 'public' : 'restricted',
-    },
-    hdtModel: undefined,
-    createdAt: now,
-    updatedAt: now,
-    createdBy: userId,
-    updatedBy: userId
+  const newAsset: DigitalAsset = {
+    ...asset,
+    id: `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    uploadedAt: new Date(),
+    uploadedBy: userId
   };
   
-  const result = await collection.insertOne(metadata as any);
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $push: { digitalAssets: newAsset },
+      $set: {
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
   
-  return {
-    _id: result.insertedId,
-    ...metadata
-  };
+  return result as unknown as HDTDocument | null;
 }
 
 /**
- * Get all projects with HDT metadata
+ * Update a digital asset in the pool
  * 
- * @returns Array of project IDs that have HDT metadata
+ * @param projectId - Project ID
+ * @param assetId - Asset ID to update
+ * @param updates - Fields to update
+ * @param userId - User ID making the update
+ * @returns Updated document
  */
-export async function getProjectsWithHDTMetadata(): Promise<string[]> {
+export async function updateDigitalAsset(
+  projectId: string,
+  assetId: string,
+  updates: Partial<Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'>>,
+  userId?: string
+): Promise<HDTDocument | null> {
   const collection = await getCollection();
   
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  const assetIndex = doc.digitalAssets.findIndex(a => a.id === assetId);
+  if (assetIndex === -1) {
+    throw new Error(`Asset not found: ${assetId}`);
+  }
+  
+  // Update the asset
+  const updatedAsset = {
+    ...doc.digitalAssets[assetIndex],
+    ...updates
+  };
+  
+  doc.digitalAssets[assetIndex] = updatedAsset;
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        digitalAssets: doc.digitalAssets,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+/**
+ * Remove a digital asset from the pool (and from all scenes)
+ * 
+ * @param projectId - Project ID
+ * @param assetId - Asset ID to remove
+ * @param userId - User ID making the change
+ * @returns Updated document
+ */
+export async function removeDigitalAsset(
+  projectId: string,
+  assetId: string,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  // Remove from asset pool
+  const updatedAssets = doc.digitalAssets.filter(a => a.id !== assetId);
+  
+  // Remove from all scenes
+  const updatedScenes = doc.scenes.map(scene => ({
+    ...scene,
+    assets: scene.assets.filter(ref => ref.assetId !== assetId)
+  }));
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        digitalAssets: updatedAssets,
+        scenes: updatedScenes,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+// ==========================================
+// SCENE MANAGEMENT
+// ==========================================
+
+/**
+ * Add a new scene
+ * 
+ * @param projectId - Project ID
+ * @param scene - Scene data (without id, will be auto-generated)
+ * @param userId - User ID creating the scene
+ * @returns Updated document
+ */
+export async function addScene(
+  projectId: string,
+  scene: Omit<HDTScene, 'id' | 'createdAt' | 'createdBy'>,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const newScene: HDTScene = {
+    ...scene,
+    id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    assets: scene.assets || [],
+    createdAt: new Date(),
+    createdBy: userId
+  };
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $push: { scenes: newScene },
+      $set: {
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+/**
+ * Update a scene
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID to update
+ * @param updates - Fields to update
+ * @param userId - User ID making the update
+ * @returns Updated document
+ */
+export async function updateScene(
+  projectId: string,
+  sceneId: string,
+  updates: Partial<Omit<HDTScene, 'id' | 'createdAt' | 'createdBy'>>,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
+  if (sceneIndex === -1) {
+    throw new Error(`Scene not found: ${sceneId}`);
+  }
+  
+  // If setting as default, unset other defaults
+  if (updates.isDefault === true) {
+    doc.scenes.forEach(s => { s.isDefault = false; });
+  }
+  
+  // Update the scene
+  doc.scenes[sceneIndex] = {
+    ...doc.scenes[sceneIndex],
+    ...updates,
+    updatedAt: new Date()
+  };
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        scenes: doc.scenes,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+/**
+ * Remove a scene (prevents deleting last scene)
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID to remove
+ * @param userId - User ID making the change
+ * @returns Updated document
+ */
+export async function removeScene(
+  projectId: string,
+  sceneId: string,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  // Prevent deleting the last scene
+  if (doc.scenes.length <= 1) {
+    throw new Error('Cannot delete the last scene');
+  }
+  
+  const updatedScenes = doc.scenes.filter(s => s.id !== sceneId);
+  
+  // If we deleted the default scene, make the first one default
+  const hadDefault = doc.scenes.find(s => s.id === sceneId)?.isDefault;
+  if (hadDefault && updatedScenes.length > 0) {
+    updatedScenes[0].isDefault = true;
+  }
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        scenes: updatedScenes,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+// ==========================================
+// SCENE-ASSET ASSOCIATION
+// ==========================================
+
+/**
+ * Add an asset to a scene
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID
+ * @param assetReference - Asset reference with transform
+ * @param userId - User ID making the change
+ * @returns Updated document
+ */
+export async function addAssetToScene(
+  projectId: string,
+  sceneId: string,
+  assetReference: SceneAssetReference,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
+  if (sceneIndex === -1) {
+    throw new Error(`Scene not found: ${sceneId}`);
+  }
+  
+  // Verify asset exists
+  const assetExists = doc.digitalAssets.some(a => a.id === assetReference.assetId);
+  if (!assetExists) {
+    throw new Error(`Asset not found: ${assetReference.assetId}`);
+  }
+  
+  // Check if asset already in scene
+  const alreadyInScene = doc.scenes[sceneIndex].assets.some(
+    ref => ref.assetId === assetReference.assetId
+  );
+  if (alreadyInScene) {
+    throw new Error(`Asset already in scene: ${assetReference.assetId}`);
+  }
+  
+  doc.scenes[sceneIndex].assets.push(assetReference);
+  doc.scenes[sceneIndex].updatedAt = new Date();
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        scenes: doc.scenes,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+/**
+ * Update an asset reference in a scene
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID
+ * @param assetId - Asset ID
+ * @param updates - Fields to update
+ * @param userId - User ID making the update
+ * @returns Updated document
+ */
+export async function updateAssetInScene(
+  projectId: string,
+  sceneId: string,
+  assetId: string,
+  updates: Partial<Omit<SceneAssetReference, 'assetId'>>,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
+  if (sceneIndex === -1) {
+    throw new Error(`Scene not found: ${sceneId}`);
+  }
+  
+  const assetIndex = doc.scenes[sceneIndex].assets.findIndex(
+    ref => ref.assetId === assetId
+  );
+  if (assetIndex === -1) {
+    throw new Error(`Asset not in scene: ${assetId}`);
+  }
+  
+  doc.scenes[sceneIndex].assets[assetIndex] = {
+    ...doc.scenes[sceneIndex].assets[assetIndex],
+    ...updates
+  };
+  doc.scenes[sceneIndex].updatedAt = new Date();
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        scenes: doc.scenes,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+/**
+ * Remove an asset from a scene
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID
+ * @param assetId - Asset ID to remove
+ * @param userId - User ID making the change
+ * @returns Updated document
+ */
+export async function removeAssetFromScene(
+  projectId: string,
+  sceneId: string,
+  assetId: string,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const collection = await getCollection();
+  
+  const doc = await collection.findOne({ projectId });
+  if (!doc) return null;
+  
+  const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
+  if (sceneIndex === -1) {
+    throw new Error(`Scene not found: ${sceneId}`);
+  }
+  
+  doc.scenes[sceneIndex].assets = doc.scenes[sceneIndex].assets.filter(
+    ref => ref.assetId !== assetId
+  );
+  doc.scenes[sceneIndex].updatedAt = new Date();
+  
+  const result = await collection.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        scenes: doc.scenes,
+        updatedAt: new Date(),
+        updatedBy: userId
+      }
+    },
+    { returnDocument: 'after' }
+  );
+  
+  return result as unknown as HDTDocument | null;
+}
+
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+
+/**
+ * Get all projects with HDT documents
+ * 
+ * @returns Array of project IDs that have HDT documents
+ */
+export async function getProjectsWithHDT(): Promise<string[]> {
+  const collection = await getCollection();
   const cursor = collection.find({}, { projection: { projectId: 1 } });
   const results = await cursor.toArray();
-  
   return results.map((doc: any) => doc.projectId as string);
+}
+
+// ==========================================
+// SCENE FILE GENERATION
+// ==========================================
+
+/**
+ * Generate SceneDescription JSON file from HDTScene
+ * Converts HDTScene data into the format expected by ThreePresenter
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID
+ * @returns Generated SceneDescription
+ */
+export async function generateSceneFile(
+  projectId: string,
+  sceneId: string
+): Promise<SceneDescription | null> {
+  const doc = await getHDTDocument(projectId);
+  if (!doc) return null;
+  
+  const scene = doc.scenes.find(s => s.id === sceneId);
+  if (!scene) {
+    throw new Error(`Scene not found: ${sceneId}`);
+  }
+  
+  // Convert scene assets to ModelDefinition format
+  const models: ModelDefinition[] = scene.assets
+    .map(assetRef => {
+      const asset = doc.digitalAssets.find(a => a.id === assetRef.assetId);
+      if (!asset) {
+        console.warn(`Asset not found for reference: ${assetRef.assetId}`);
+        return null;
+      }
+      
+      // Only include 3D models (skip RTI, images, etc. for now)
+      if (asset.type !== 'model3d') {
+        return null;
+      }
+      
+      const model: ModelDefinition = {
+        id: asset.id,
+        file: asset.fileName,
+        title: asset.title,
+        position: assetRef.position,
+        rotation: assetRef.rotation,
+        scale: assetRef.scale,
+        visible: assetRef.visible ?? true
+      };
+      
+      return model;
+    })
+    .filter((m): m is ModelDefinition => m !== null);
+  
+  // Build SceneDescription
+  const sceneDescription: SceneDescription = {
+    projectId,
+    models,
+    environment: scene.environment ? {
+      showGround: scene.environment.showGround,
+      background: scene.environment.backgroundColor,
+      // Note: headLightOffset not in HDTScene yet
+    } : undefined,
+    enableControls: true,
+    rotationUnits: 'rad'
+  };
+  
+  // Write to file system
+  const scenesDir = path.join(process.cwd(), 'project_files', projectId, 'scenes');
+  await fs.mkdir(scenesDir, { recursive: true });
+  
+  const sceneFilePath = path.join(scenesDir, `${sceneId}.json`);
+  await fs.writeFile(sceneFilePath, JSON.stringify(sceneDescription, null, 2), 'utf-8');
+  
+  console.log(`Generated scene file: ${sceneFilePath}`);
+  
+  return sceneDescription;
+}
+
+/**
+ * Generate scene files for all scenes in a project
+ * 
+ * @param projectId - Project ID
+ * @returns Array of generated SceneDescriptions
+ */
+export async function generateAllSceneFiles(projectId: string): Promise<SceneDescription[]> {
+  const doc = await getHDTDocument(projectId);
+  if (!doc) return [];
+  
+  const sceneDescriptions: SceneDescription[] = [];
+  
+  for (const scene of doc.scenes) {
+    const sceneDesc = await generateSceneFile(projectId, scene.id);
+    if (sceneDesc) {
+      sceneDescriptions.push(sceneDesc);
+    }
+  }
+  
+  return sceneDescriptions;
+}
+
+/**
+ * Get list of available scene files for a project
+ * Returns scene metadata for the scene selector
+ * 
+ * @param projectId - Project ID
+ * @returns Array of scene info
+ */
+export async function getAvailableScenes(projectId: string): Promise<Array<{
+  id: string;
+  name: string;
+  fileName: string;
+  isDefault?: boolean;
+}>> {
+  const doc = await getHDTDocument(projectId);
+  if (!doc) return [];
+  
+  return doc.scenes.map(scene => ({
+    id: scene.id,
+    name: scene.name,
+    fileName: `${scene.id}.json`,
+    isDefault: scene.isDefault
+  }));
 }
