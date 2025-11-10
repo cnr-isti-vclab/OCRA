@@ -86,15 +86,6 @@ interface GettyAATTerms {
   }>;
 }
 
-interface LicenseMetadata {
-  licenseType?: string;
-  licenseUrl?: string;
-  rightsStatement?: string;
-  attribution?: string;
-  accessRights?: 'public' | 'restricted' | 'private';
-  useRestrictions?: string;
-}
-
 interface HDTModel {
   fileName: string;
   fileUrl?: string;
@@ -109,7 +100,6 @@ interface HDTMetadata {
   dublinCore: DublinCoreMetadata;
   cidocCrm: CidocCrmMetadata;
   gettyAAT: GettyAATTerms;
-  license: LicenseMetadata;
   hdtModel?: HDTModel;
   customMetadata?: Record<string, any>;
   createdAt?: string;
@@ -125,8 +115,9 @@ export default function HDTPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dublin-core' | 'model' | 'cidoc-crm' | 'license'>('dublin-core');
+  const [activeTab, setActiveTab] = useState<'dublin-core' | 'model' | 'cidoc-crm'>('dublin-core');
 
   // 3D Model state
   const [projectFiles, setProjectFiles] = useState<Array<{ name: string; url: string; size: number }>>([]);
@@ -159,14 +150,6 @@ export default function HDTPage() {
   const [condition, setCondition] = useState('');
   const [culturalContext, setCulturalContext] = useState('');
   const [styleOrPeriod, setStyleOrPeriod] = useState('');
-
-  // Form state for License
-  const [licenseType, setLicenseType] = useState('');
-  const [licenseUrl, setLicenseUrl] = useState('');
-  const [rightsStatement, setRightsStatement] = useState('');
-  const [attribution, setAttribution] = useState('');
-  const [accessRights, setAccessRights] = useState<'public' | 'restricted' | 'private'>('public');
-  const [useRestrictions, setUseRestrictions] = useState('');
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -273,16 +256,6 @@ export default function HDTPage() {
       setCulturalContext((meta.cidocCrm.culturalContext || []).join(', '));
       setStyleOrPeriod((meta.cidocCrm.styleOrPeriod || []).join(', '));
     }
-
-    // License
-    if (meta.license) {
-      setLicenseType(meta.license.licenseType || '');
-      setLicenseUrl(meta.license.licenseUrl || '');
-      setRightsStatement(meta.license.rightsStatement || '');
-      setAttribution(meta.license.attribution || '');
-      setAccessRights(meta.license.accessRights || 'public');
-      setUseRestrictions(meta.license.useRestrictions || '');
-    }
   };
 
   const handleSave = async () => {
@@ -329,14 +302,6 @@ export default function HDTPage() {
           styleOrPeriod: styleOrPeriod ? styleOrPeriod.split(',').map(s => s.trim()).filter(Boolean) : undefined,
         },
         gettyAAT: {},
-        license: {
-          licenseType: licenseType || undefined,
-          licenseUrl: licenseUrl || undefined,
-          rightsStatement: rightsStatement || undefined,
-          attribution: attribution || undefined,
-          accessRights: accessRights,
-          useRestrictions: useRestrictions || undefined,
-        },
         hdtModel: selectedModel || undefined,
       };
 
@@ -500,15 +465,6 @@ export default function HDTPage() {
                 type="button"
               >
                 🏛️ CIDOC-CRM
-              </button>
-            </li>
-            <li className="nav-item" role="presentation">
-              <button
-                className={`nav-link ${activeTab === 'license' ? 'active' : ''}`}
-                onClick={() => setActiveTab('license')}
-                type="button"
-              >
-                ⚖️ License & Rights
               </button>
             </li>
           </ul>
@@ -978,132 +934,6 @@ export default function HDTPage() {
                   />
                   <small className="form-text text-muted">Art historical style/period (comma-separated)</small>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* License Tab */}
-          {activeTab === 'license' && (
-            <div>
-              <h5 className="mb-3">License & Rights Information</h5>
-              <p className="text-muted small mb-4">
-                Specify licensing, copyright, and access rights for this Heritage Digital Twin.
-              </p>
-
-              <div className="mb-3">
-                <label htmlFor="license-type" className="form-label">License Type</label>
-                <select
-                  className="form-select"
-                  id="license-type"
-                  value={licenseType}
-                  onChange={(e) => {
-                    setLicenseType(e.target.value);
-                    // Auto-fill license URL for common licenses
-                    const urlMap: Record<string, string> = {
-                      'CC0-1.0': 'https://creativecommons.org/publicdomain/zero/1.0/',
-                      'CC-BY-4.0': 'https://creativecommons.org/licenses/by/4.0/',
-                      'CC-BY-SA-4.0': 'https://creativecommons.org/licenses/by-sa/4.0/',
-                      'CC-BY-NC-4.0': 'https://creativecommons.org/licenses/by-nc/4.0/',
-                      'CC-BY-ND-4.0': 'https://creativecommons.org/licenses/by-nd/4.0/',
-                    };
-                    if (urlMap[e.target.value]) {
-                      setLicenseUrl(urlMap[e.target.value]);
-                    }
-                  }}
-                >
-                  <option value="">Select a license...</option>
-                  <option value="CC0-1.0">CC0 1.0 Universal (Public Domain)</option>
-                  <option value="CC-BY-4.0">CC BY 4.0 (Attribution)</option>
-                  <option value="CC-BY-SA-4.0">CC BY-SA 4.0 (Attribution-ShareAlike)</option>
-                  <option value="CC-BY-NC-4.0">CC BY-NC 4.0 (Attribution-NonCommercial)</option>
-                  <option value="CC-BY-ND-4.0">CC BY-ND 4.0 (Attribution-NoDerivatives)</option>
-                  <option value="Custom">Custom License</option>
-                </select>
-                <small className="form-text text-muted">dcterms:license</small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="license-url" className="form-label">License URL</label>
-                <input
-                  type="url"
-                  className="form-control"
-                  id="license-url"
-                  value={licenseUrl}
-                  onChange={(e) => setLicenseUrl(e.target.value)}
-                  placeholder="https://creativecommons.org/licenses/by/4.0/"
-                />
-                <small className="form-text text-muted">URL to license text</small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="rights-statement" className="form-label">Rights Statement</label>
-                <select
-                  className="form-select"
-                  id="rights-statement"
-                  value={rightsStatement}
-                  onChange={(e) => setRightsStatement(e.target.value)}
-                >
-                  <option value="">Select a rights statement...</option>
-                  <option value="https://rightsstatements.org/page/InC/1.0/">In Copyright</option>
-                  <option value="https://rightsstatements.org/page/InC-OW-EU/1.0/">In Copyright - EU Orphan Work</option>
-                  <option value="https://rightsstatements.org/page/InC-EDU/1.0/">In Copyright - Educational Use Permitted</option>
-                  <option value="https://rightsstatements.org/page/InC-NC/1.0/">In Copyright - Non-Commercial Use Permitted</option>
-                  <option value="https://rightsstatements.org/page/InC-RUU/1.0/">In Copyright - Rights-Holder(s) Unlocatable</option>
-                  <option value="https://rightsstatements.org/page/NoC-CR/1.0/">No Copyright - Contractual Restrictions</option>
-                  <option value="https://rightsstatements.org/page/NoC-NC/1.0/">No Copyright - Non-Commercial Use Only</option>
-                  <option value="https://rightsstatements.org/page/NoC-OKLR/1.0/">No Copyright - Other Known Legal Restrictions</option>
-                  <option value="https://rightsstatements.org/page/NoC-US/1.0/">No Copyright - United States</option>
-                  <option value="https://rightsstatements.org/page/CNE/1.0/">Copyright Not Evaluated</option>
-                  <option value="https://rightsstatements.org/page/UND/1.0/">Copyright Undetermined</option>
-                  <option value="https://rightsstatements.org/page/NKC/1.0/">No Known Copyright</option>
-                </select>
-                <small className="form-text text-muted">
-                  Standardized rights statements from{' '}
-                  <a href="https://rightsstatements.org/" target="_blank" rel="noopener noreferrer">
-                    RightsStatements.org
-                  </a>
-                </small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="attribution" className="form-label">Attribution</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="attribution"
-                  value={attribution}
-                  onChange={(e) => setAttribution(e.target.value)}
-                  placeholder="How to attribute this work (name, institution, etc.)"
-                />
-                <small className="form-text text-muted">Attribution text for reuse</small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="access-rights" className="form-label">Access Rights</label>
-                <select
-                  className="form-select"
-                  id="access-rights"
-                  value={accessRights}
-                  onChange={(e) => setAccessRights(e.target.value as 'public' | 'restricted' | 'private')}
-                >
-                  <option value="public">Public</option>
-                  <option value="restricted">Restricted</option>
-                  <option value="private">Private</option>
-                </select>
-                <small className="form-text text-muted">Who can access this HDT</small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="use-restrictions" className="form-label">Use Restrictions</label>
-                <textarea
-                  className="form-control"
-                  id="use-restrictions"
-                  rows={3}
-                  value={useRestrictions}
-                  onChange={(e) => setUseRestrictions(e.target.value)}
-                  placeholder="Any specific restrictions on how this work can be used..."
-                ></textarea>
-                <small className="form-text text-muted">Additional usage restrictions or conditions</small>
               </div>
             </div>
           )}
