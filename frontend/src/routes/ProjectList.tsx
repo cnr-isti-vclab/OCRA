@@ -219,57 +219,74 @@ export default function Projects() {
         <div className="row g-4">
           {projects.map((project) => (
             <div className="col-12 col-md-6 col-lg-4" key={project.id}>
-              <Link to={`/projects/${project.id}`} className="text-decoration-none text-dark">
-                <div className="card h-100 shadow-sm project-card">
-                  <div className="card-body">
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <h3 className="h6 mb-0 flex-grow-1">{project.name}</h3>
-                      {!project.public && (
-                        <span className="badge bg-danger ms-2">🔒 Private</span>
+              <div className="card h-100 shadow-sm">
+                <div className="card-body d-flex flex-column">
+                  {/* Top Section - Two Columns */}
+                  <div className="row mb-3 flex-grow-1">
+                    {/* Left Column - Project Name & Description */}
+                    <div className="col-8">
+                      <h5 className="mb-2 fw-bold">{project.name}</h5>
+                      {project.description && (
+                        <p 
+                          className="text-muted small mb-0" 
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            lineHeight: '1.4em',
+                            maxHeight: '4.2em'
+                          }}
+                        >
+                          {project.description}
+                        </p>
                       )}
                     </div>
-                    {project.description && (
-                      <p className="text-muted small mb-2">{project.description}</p>
-                    )}
-                    {project.manager ? (
-                      <div className="alert alert-secondary py-1 px-2 mb-2 d-flex align-items-center gap-2">
-                        <span>👨‍💼</span>
-                        <span className="fw-semibold">Manager:</span>
-                        <span className="ms-1 text-muted">{project.manager.displayName}</span>
-                      </div>
-                    ) : (
-                      <div className="alert alert-warning py-1 px-2 mb-2 d-flex align-items-center gap-2">
-                        <span>⚠️</span>
-                        <span className="fw-semibold">No manager assigned</span>
-                      </div>
-                    )}
-                    <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
-                      <div className="small text-muted">
-                        <div><strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}</div>
-                        <div><strong>Updated:</strong> {new Date(project.updatedAt).toLocaleDateString()}</div>
-                      </div>
-                      {managerMap[project.id] && (
-                        <div className="d-flex gap-2">
-                          <Link
-                            to={`/projects/${project.id}/edit`}
-                            className="btn btn-sm btn-primary ms-2 fw-bold d-flex align-items-center gap-1"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            ✏️ Edit Properties
-                          </Link>
-                          <Link
-                            to={`/projects/${project.id}/hdt`}
-                            className="btn btn-sm btn-outline-secondary ms-2 fw-bold d-flex align-items-center gap-1"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            🏛️ HDT
-                          </Link>
+                    
+                    {/* Right Column - Manager & Badge */}
+                    <div className="col-4 text-end">
+                      {project.manager ? (
+                        <div className="mb-2">
+                          <div className="small text-muted mb-1">👨‍💼 Manager:</div>
+                          <div className="small fw-semibold">{project.manager.displayName}</div>
                         </div>
+                      ) : (
+                        <div className="mb-2">
+                          <div className="small text-warning">⚠️ No manager</div>
+                        </div>
+                      )}
+                      {!project.public && (
+                        <span className="badge bg-danger">🔒 Private</span>
                       )}
                     </div>
                   </div>
+
+                  {/* Bottom Section - Action Buttons */}
+                  <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
+                    <Link
+                      to={`/projects/${project.id}`}
+                      className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                    >
+                      📦 3D
+                    </Link>
+                    <Link
+                      to={`/projects/${project.id}/hdt`}
+                      className="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                    >
+                      🏛️ HDT
+                    </Link>
+                    {managerMap[project.id] && (
+                      <Link
+                        to={`/projects/${project.id}/edit`}
+                        className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center"
+                        title="Settings"
+                      >
+                        ⚙️
+                      </Link>
+                    )}
+                  </div>
                 </div>
-              </Link>
+              </div>
             </div>
           ))}
         </div>
