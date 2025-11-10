@@ -25,6 +25,6 @@ Notes:
 - Audit logs (login/logout/file uploads) are stored in MongoDB; all authenticated users can view audit events (filtered by permissions).
 - If you change the Prisma schema, run `npx prisma generate` in `backend/` to regenerate the client.
 - For local development without Docker, use the `frontend` and `backend` package.json scripts directly.
- 
-- For more details on development vs production workflows and the compose override, see `devel.md`.
+- **For production deployment**, see `DEPLOYMENT_GUIDE.md`
+
 

@@ -13,6 +13,7 @@ docs/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.prod  # Production environment file (contains secrets)
 
 # Prisma
 src/generated/

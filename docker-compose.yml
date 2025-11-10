@@ -4,14 +4,15 @@
 #   docker compose up
 #
 # PRODUCTION:
-#   1. Search for "PRODUCTION:" comments and uncomment those sections
-#   2. Comment out the corresponding development settings (ports, etc.)
-#   3. Create .env.prod with production values (see SIMPLE_PRODUCTION.md)
-#   4. Deploy: docker compose --env-file .env.prod up -d --build
+#   See DEPLOYMENT_GUIDE.md for complete instructions
 #
-# TIP: Use git branches to keep dev/prod configs separate!
-#      - main branch: development config
-#      - production branch: all PRODUCTION sections uncommented
+# Quick production checklist:
+#   1. Comment out all 'ports:' sections
+#   2. Uncomment all 'expose:' and 'networks:' sections  
+#   3. Comment out backend_node_modules volume line
+#   4. Uncomment networks section at bottom
+#   5. Create .env.prod with production values
+#   6. Deploy: docker compose --env-file .env.prod up -d --build
 
 services:
   # PostgreSQL Database
