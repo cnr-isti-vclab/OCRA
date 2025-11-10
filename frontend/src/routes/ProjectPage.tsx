@@ -39,6 +39,8 @@ export default function ProjectPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
+  const [availableScenes, setAvailableScenes] = useState<Array<{ id: string; name: string; isDefault?: boolean }>>([]);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
@@ -391,8 +393,33 @@ export default function ProjectPage() {
         } else {
           setIsManager(false);
         }
-        // Fetch scene.json
-        const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+        
+        // Fetch available scenes (new multi-scene architecture)
+        try {
+          const scenesListRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes`, {
+            credentials: 'include'
+          });
+          if (scenesListRes.ok) {
+            const scenesList = await scenesListRes.json();
+            if (scenesList.scenes && Array.isArray(scenesList.scenes)) {
+              setAvailableScenes(scenesList.scenes);
+              // Auto-select default scene or first scene
+              const defaultScene = scenesList.scenes.find((s: any) => s.isDefault);
+              const initialSceneId = defaultScene?.id || scenesList.scenes[0]?.id;
+              if (initialSceneId && !selectedSceneId) {
+                setSelectedSceneId(initialSceneId);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch scenes list:', err);
+        }
+        
+        // Fetch scene.json (legacy single scene or selected scene)
+        const sceneEndpoint = selectedSceneId 
+          ? `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`
+          : `${getApiBase()}/api/projects/${projectId}/scene`;
+        const sceneRes = await fetch(sceneEndpoint, {
           credentials: 'include'
         });
         let fetchedScene: SceneDescription | null = null;
@@ -463,6 +490,42 @@ export default function ProjectPage() {
     if (projectId) fetchAll();
     // eslint-disable-next-line
   }, [projectId]);
+
+  // Reload scene when selected scene changes
+  useEffect(() => {
+    const loadSelectedScene = async () => {
+      if (!projectId || !selectedSceneId) return;
+      
+      try {
+        const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
+          credentials: 'include'
+        });
+        
+        if (sceneRes.ok) {
+          const scene = await sceneRes.json();
+          // Add projectId to scene if not present
+          if (!scene.projectId) {
+            scene.projectId = projectId;
+          }
+          setSceneDesc(scene);
+          // Load annotations from scene
+          setAnnotations(scene.annotations || []);
+          // Initialize visibility state for all models
+          const initialVisibility: Record<string, boolean> = {};
+          if (scene.models) {
+            scene.models.forEach((model: any) => {
+              initialVisibility[model.id] = model.visible !== false;
+            });
+          }
+          setMeshVisibility(initialVisibility);
+        }
+      } catch (err) {
+        console.error('Failed to load selected scene:', err);
+      }
+    };
+    
+    loadSelectedScene();
+  }, [projectId, selectedSceneId]);
 
   // Show/hide annotation button based on active tab
   useEffect(() => {
@@ -602,7 +665,48 @@ export default function ProjectPage() {
       {/* Main content */}
       <div className="flex-grow-1 d-flex overflow-hidden">
         {/* 3D Viewer */}
-        <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+        <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
+          {/* Scene Selector (if multiple scenes available) */}
+          {availableScenes.length > 0 && (
+            <div 
+              style={{ 
+                position: 'absolute', 
+                top: '10px', 
+                left: '10px', 
+                zIndex: 1000,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: '6px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                padding: '8px 12px',
+                minWidth: '250px',
+              }}
+            >
+              <div className="d-flex align-items-center gap-2">
+                <label htmlFor="scene-selector" className="mb-0 small fw-bold text-muted" style={{ whiteSpace: 'nowrap' }}>
+                  🎬 Scene:
+                </label>
+                <select
+                  id="scene-selector"
+                  className="form-select form-select-sm"
+                  value={selectedSceneId || ''}
+                  onChange={(e) => setSelectedSceneId(e.target.value)}
+                  style={{ fontSize: '14px' }}
+                >
+                  {availableScenes.map((scene) => (
+                    <option key={scene.id} value={scene.id}>
+                      {scene.name} {scene.isDefault ? '⭐' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {availableScenes.length > 1 && (
+                <div className="small text-muted mt-1" style={{ fontSize: '11px' }}>
+                  {availableScenes.length} scene{availableScenes.length !== 1 ? 's' : ''} available
+                </div>
+              )}
+            </div>
+          )}
+          
           {sceneDesc && (
             <ThreeJSViewer
               ref={viewerRef}

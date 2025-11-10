@@ -100,7 +100,9 @@ interface HDTMetadata {
   dublinCore: DublinCoreMetadata;
   cidocCrm: CidocCrmMetadata;
   gettyAAT: GettyAATTerms;
-  hdtModel?: HDTModel;
+  digitalAssets?: Array<any>;  // New: Digital Assets pool
+  scenes?: Array<any>;         // New: Scene configurations
+  hdtModel?: HDTModel;         // Legacy: Single model (for backward compatibility)
   customMetadata?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
@@ -117,11 +119,19 @@ export default function HDTPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dublin-core' | 'model' | 'cidoc-crm'>('dublin-core');
+  const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes' | 'cidoc-crm'>('dublin-core');
 
-  // 3D Model state
+  // Digital Assets state
+  const [digitalAssets, setDigitalAssets] = useState<Array<any>>([]);
   const [projectFiles, setProjectFiles] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [uploading, setUploading] = useState(false);
+
+  // Scenes state
+  const [scenes, setScenes] = useState<Array<any>>([]);
+  const [editingScene, setEditingScene] = useState<any | null>(null);
+  const [showSceneEditor, setShowSceneEditor] = useState(false);
+
+  // Legacy 3D Model state (for backward compatibility during migration)
   const [selectedModel, setSelectedModel] = useState<HDTModel | null>(null);
 
   // Form state for Dublin Core
@@ -204,8 +214,30 @@ export default function HDTPage() {
           const metadataData = await metadataResponse.json();
           setMetadata(metadataData);
           populateFormFromMetadata(metadataData);
-          if (metadataData?.hdtModel) {
-            setSelectedModel(metadataData.hdtModel);
+          
+          // Load digital assets (new architecture)
+          if (metadataData?.digitalAssets && Array.isArray(metadataData.digitalAssets)) {
+            setDigitalAssets(metadataData.digitalAssets);
+          }
+          
+          // Load scenes (new architecture)
+          if (metadataData?.scenes && Array.isArray(metadataData.scenes)) {
+            setScenes(metadataData.scenes);
+          }
+          
+          // Backward compatibility: if hdtModel exists but no digitalAssets, migrate it
+          if (metadataData?.hdtModel && (!metadataData.digitalAssets || metadataData.digitalAssets.length === 0)) {
+            const legacyAsset = {
+              id: `asset_legacy_${Date.now()}`,
+              type: 'model3d',
+              fileName: metadataData.hdtModel.fileName,
+              fileUrl: metadataData.hdtModel.fileUrl,
+              fileSize: metadataData.hdtModel.fileSize,
+              mimeType: metadataData.hdtModel.mimeType,
+              uploadedAt: metadataData.hdtModel.uploadedAt,
+            };
+            setDigitalAssets([legacyAsset]);
+            setSelectedModel(metadataData.hdtModel); // Keep for now
           }
         } else if (metadataResponse.status === 404) {
           // No metadata yet - that's okay, we'll initialize it
@@ -302,6 +334,11 @@ export default function HDTPage() {
           styleOrPeriod: styleOrPeriod ? styleOrPeriod.split(',').map(s => s.trim()).filter(Boolean) : undefined,
         },
         gettyAAT: {},
+        // New: Digital Assets
+        digitalAssets: digitalAssets.length > 0 ? digitalAssets : undefined,
+        // New: Scenes
+        scenes: scenes.length > 0 ? scenes : undefined,
+        // Legacy: Keep hdtModel for backward compatibility
         hdtModel: selectedModel || undefined,
       };
 
@@ -451,11 +488,20 @@ export default function HDTPage() {
             </li>
             <li className="nav-item" role="presentation">
               <button
-                className={`nav-link ${activeTab === 'model' ? 'active' : ''}`}
-                onClick={() => setActiveTab('model')}
+                className={`nav-link ${activeTab === 'assets' ? 'active' : ''}`}
+                onClick={() => setActiveTab('assets')}
                 type="button"
               >
-                🧩 3D Model
+                📦 Digital Assets
+              </button>
+            </li>
+            <li className="nav-item" role="presentation">
+              <button
+                className={`nav-link ${activeTab === 'scenes' ? 'active' : ''}`}
+                onClick={() => setActiveTab('scenes')}
+                type="button"
+              >
+                🎬 Scenes
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -616,47 +662,99 @@ export default function HDTPage() {
             </div>
           )}
 
-          {/* 3D Model Tab */}
-          {activeTab === 'model' && (
+          {/* Digital Assets Tab */}
+          {activeTab === 'assets' && (
             <div>
-              <h5 className="mb-3">3D Model for Viewer</h5>
+              <h5 className="mb-3">Digital Assets Pool</h5>
               <p className="text-muted small mb-4">
-                Upload or select a 3D model to represent this Heritage Digital Twin in the viewer. Recommended format: GLB/GLTF.
+                Manage all digital assets for this Heritage Digital Twin. Assets in the pool can be used across multiple scenes.
               </p>
 
-              {/* Current selection */}
+              {/* Asset Type Filter/Info */}
+              <div className="mb-4 p-3 bg-light rounded">
+                <h6 className="mb-2">Supported Asset Types</h6>
+                <div className="d-flex gap-2 flex-wrap">
+                  <span className="badge bg-primary">🧩 3D Models (GLB, GLTF, PLY, OBJ, NXS)</span>
+                  <span className="badge bg-secondary text-muted">🖼️ RTI (Coming Soon)</span>
+                  <span className="badge bg-secondary text-muted">📷 Images (Coming Soon)</span>
+                  <span className="badge bg-secondary text-muted">🎬 Videos (Coming Soon)</span>
+                </div>
+              </div>
+
+              {/* Current Assets List */}
               <div className="mb-4">
-                <h6 className="text-primary mb-2">Current selection</h6>
-                {selectedModel ? (
-                  <div className="d-flex align-items-center gap-3 p-3 border rounded">
-                    <div className="text-muted">📦</div>
-                    <div>
-                      <div><strong>{selectedModel.fileName}</strong></div>
-                      {selectedModel.fileSize && (
-                        <div className="text-muted small">{(selectedModel.fileSize / (1024*1024)).toFixed(2)} MB</div>
-                      )}
-                      {selectedModel.fileUrl && (
-                        <div>
-                          <a href={selectedModel.fileUrl} target="_blank" rel="noreferrer">Download</a>
-                        </div>
-                      )}
-                    </div>
-                    <button className="btn btn-sm btn-outline-danger ms-auto" onClick={() => setSelectedModel(null)}>
-                      Remove
-                    </button>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h6 className="mb-0">Asset Pool ({digitalAssets.length})</h6>
+                </div>
+                
+                {digitalAssets.length === 0 ? (
+                  <div className="alert alert-info">
+                    <strong>No assets yet.</strong> Upload or select files below to add them to your asset pool.
                   </div>
                 ) : (
-                  <div className="text-muted">No model selected yet.</div>
+                  <div className="table-responsive">
+                    <table className="table table-hover">
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>File Name</th>
+                          <th>Size</th>
+                          <th>Added</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {digitalAssets.map((asset, index) => (
+                          <tr key={asset.id || index}>
+                            <td>
+                              {asset.type === 'model3d' && '🧩 3D Model'}
+                              {asset.type === 'rti' && '🖼️ RTI'}
+                              {asset.type === 'image' && '📷 Image'}
+                              {asset.type === 'video' && '🎬 Video'}
+                              {asset.type === 'other' && '📄 Other'}
+                            </td>
+                            <td>
+                              <strong>{asset.fileName}</strong>
+                              {asset.fileUrl && (
+                                <div>
+                                  <a href={asset.fileUrl} target="_blank" rel="noreferrer" className="small text-decoration-none">
+                                    Download ↗
+                                  </a>
+                                </div>
+                              )}
+                            </td>
+                            <td className="text-muted small">
+                              {asset.fileSize ? `${(asset.fileSize / (1024*1024)).toFixed(2)} MB` : '-'}
+                            </td>
+                            <td className="text-muted small">
+                              {asset.uploadedAt ? new Date(asset.uploadedAt).toLocaleDateString() : '-'}
+                            </td>
+                            <td>
+                              <button 
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => {
+                                  setDigitalAssets(digitalAssets.filter((_, i) => i !== index));
+                                  setSuccessMessage('Asset removed. Remember to Save to apply changes.');
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
 
-              {/* Upload new model */}
+              {/* Upload New Asset */}
               <div className="mb-4">
-                <h6 className="text-primary mb-2">Upload new model</h6>
+                <h6 className="text-primary mb-2">📤 Upload New 3D Model</h6>
                 <input
                   type="file"
                   className="form-control"
-                  accept=".glb,.gltf,.ply,.obj,.fbx"
+                  accept=".glb,.gltf,.ply,.obj,.fbx,.nxs"
                   onChange={async (e) => {
                     if (!projectId) return;
                     const file = e.target.files?.[0];
@@ -675,66 +773,444 @@ export default function HDTPage() {
                         const err = await uploadRes.json().catch(() => ({}));
                         throw new Error(err.error || 'Upload failed');
                       }
-                      // Set as selected model
+                      // Add to digital assets
                       const fileUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(file.name)}`;
-                      const model: HDTModel = {
+                      const newAsset = {
+                        id: `asset_${Date.now()}`,
+                        type: 'model3d',
                         fileName: file.name,
                         fileUrl,
                         fileSize: file.size,
                         mimeType: file.type || 'application/octet-stream',
                         uploadedAt: new Date().toISOString(),
                       };
-                      setSelectedModel(model);
+                      setDigitalAssets([...digitalAssets, newAsset]);
                       // Refresh project files list
                       await fetchProjectAndMetadata();
-                      setSuccessMessage('Model uploaded. Remember to Save Metadata to apply.');
+                      setSuccessMessage('Asset uploaded and added to pool. Remember to Save to apply.');
                     } catch (err: any) {
-                      setError(err?.message || 'Failed to upload model');
+                      setError(err?.message || 'Failed to upload asset');
                     } finally {
                       setUploading(false);
-                      // Clear input value to allow re-uploading same file if needed
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
                   disabled={uploading}
                 />
                 {uploading && (
-                  <div className="text-muted small mt-2">Uploading...</div>
+                  <div className="text-muted small mt-2">⏳ Uploading...</div>
                 )}
+                <small className="form-text text-muted">
+                  Upload a new 3D model file. It will be added to your project files and asset pool.
+                </small>
               </div>
 
-              {/* Select existing file */}
+              {/* Select from Existing Files */}
               <div>
-                <h6 className="text-primary mb-2">Select from existing files</h6>
+                <h6 className="text-primary mb-2">📁 Add from Existing Project Files</h6>
                 {projectFiles.length === 0 ? (
                   <div className="text-muted">No files found in this project.</div>
                 ) : (
                   <div className="list-group">
-                    {projectFiles.map(f => (
-                      <div key={f.name} className="list-group-item d-flex align-items-center">
-                        <div className="me-3">📄</div>
-                        <div className="flex-grow-1">
-                          <div><strong>{f.name}</strong></div>
-                          <div className="text-muted small">{(f.size / (1024*1024)).toFixed(2)} MB</div>
+                    {projectFiles.map(f => {
+                      const alreadyAdded = digitalAssets.some(a => a.fileName === f.name);
+                      return (
+                        <div key={f.name} className="list-group-item d-flex align-items-center">
+                          <div className="me-3">📄</div>
+                          <div className="flex-grow-1">
+                            <div>
+                              <strong>{f.name}</strong>
+                              {alreadyAdded && <span className="badge bg-success ms-2">In Pool</span>}
+                            </div>
+                            <div className="text-muted small">{(f.size / (1024*1024)).toFixed(2)} MB</div>
+                          </div>
+                          {!alreadyAdded && (
+                            <button 
+                              className="btn btn-sm btn-outline-primary" 
+                              onClick={() => {
+                                const newAsset = {
+                                  id: `asset_${Date.now()}`,
+                                  type: 'model3d',
+                                  fileName: f.name,
+                                  fileUrl: f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`,
+                                  fileSize: f.size,
+                                  uploadedAt: new Date().toISOString(),
+                                };
+                                setDigitalAssets([...digitalAssets, newAsset]);
+                                setSuccessMessage('Asset added to pool. Remember to Save to apply.');
+                              }}
+                            >
+                              Add to Pool
+                            </button>
+                          )}
+                          <a 
+                            className="btn btn-sm btn-outline-secondary ms-2" 
+                            href={f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`} 
+                            target="_blank" 
+                            rel="noreferrer"
+                          >
+                            Download
+                          </a>
                         </div>
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => {
-                          const model: HDTModel = {
-                            fileName: f.name,
-                            fileUrl: f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`,
-                            fileSize: f.size,
-                            uploadedAt: new Date().toISOString(),
-                          };
-                          setSelectedModel(model);
-                          setSuccessMessage('Model selected. Remember to Save Metadata to apply.');
-                        }}>
-                          Use as HDT Model
-                        </button>
-                        <a className="btn btn-sm btn-outline-secondary ms-2" href={f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`} target="_blank" rel="noreferrer">Download</a>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Scenes Tab */}
+          {activeTab === 'scenes' && (
+            <div>
+              <h5 className="mb-3">Scene Configurations</h5>
+              <p className="text-muted small mb-4">
+                Create and manage different scene configurations. Each scene can contain multiple assets from your pool with different positions, rotations, and settings.
+              </p>
+
+              {/* Scene List */}
+              <div className="mb-4">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h6 className="mb-0">Scenes ({scenes.length})</h6>
+                  <button 
+                    className="btn btn-sm btn-primary"
+                    onClick={() => {
+                      const newScene = {
+                        id: `scene_${Date.now()}`,
+                        name: `Scene ${scenes.length + 1}`,
+                        description: '',
+                        isDefault: scenes.length === 0, // First scene is default
+                        assets: [],
+                        environment: {
+                          backgroundColor: '#f0f0f0',
+                          showGround: true,
+                          groundColor: '#808080',
+                        },
+                      };
+                      setEditingScene(newScene);
+                      setShowSceneEditor(true);
+                    }}
+                  >
+                    + Create New Scene
+                  </button>
+                </div>
+
+                {scenes.length === 0 ? (
+                  <div className="alert alert-info">
+                    <strong>No scenes yet.</strong> Create your first scene to start configuring your Heritage Digital Twin.
+                  </div>
+                ) : (
+                  <div className="row g-3">
+                    {scenes.map((scene, index) => (
+                      <div key={scene.id || index} className="col-md-6">
+                        <div className="card h-100">
+                          <div className="card-body">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <h6 className="card-title mb-0">
+                                {scene.name}
+                                {scene.isDefault && <span className="badge bg-success ms-2">Default</span>}
+                              </h6>
+                              <div className="btn-group btn-group-sm">
+                                <button 
+                                  className="btn btn-outline-primary"
+                                  onClick={() => {
+                                    setEditingScene(scene);
+                                    setShowSceneEditor(true);
+                                  }}
+                                  title="Edit Scene"
+                                >
+                                  ✏️
+                                </button>
+                                <button 
+                                  className="btn btn-outline-danger"
+                                  onClick={() => {
+                                    if (scenes.length === 1) {
+                                      alert('Cannot delete the last scene. Projects must have at least one scene.');
+                                      return;
+                                    }
+                                    if (confirm(`Delete scene "${scene.name}"?`)) {
+                                      const updatedScenes = scenes.filter((_, i) => i !== index);
+                                      // If deleting default scene, make first scene default
+                                      if (scene.isDefault && updatedScenes.length > 0) {
+                                        updatedScenes[0].isDefault = true;
+                                      }
+                                      setScenes(updatedScenes);
+                                      setSuccessMessage('Scene deleted. Remember to Save to apply changes.');
+                                    }
+                                  }}
+                                  title="Delete Scene"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                            {scene.description && (
+                              <p className="card-text text-muted small">{scene.description}</p>
+                            )}
+                            <div className="d-flex gap-3 text-muted small">
+                              <span>📦 {scene.assets?.length || 0} asset{(scene.assets?.length || 0) !== 1 ? 's' : ''}</span>
+                              {scene.environment?.backgroundColor && (
+                                <span>
+                                  🎨 <span 
+                                    style={{
+                                      display: 'inline-block',
+                                      width: '12px',
+                                      height: '12px',
+                                      backgroundColor: scene.environment.backgroundColor,
+                                      border: '1px solid #ccc',
+                                      borderRadius: '2px',
+                                      verticalAlign: 'middle',
+                                    }}
+                                  ></span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
+              {/* Scene Editor Modal/Panel */}
+              {showSceneEditor && editingScene && (
+                <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                  <div className="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div className="modal-content">
+                      <div className="modal-header">
+                        <h5 className="modal-title">
+                          {scenes.find(s => s.id === editingScene.id) ? 'Edit Scene' : 'Create New Scene'}
+                        </h5>
+                        <button 
+                          type="button" 
+                          className="btn-close" 
+                          onClick={() => {
+                            setShowSceneEditor(false);
+                            setEditingScene(null);
+                          }}
+                        ></button>
+                      </div>
+                      <div className="modal-body">
+                        {/* Scene Name */}
+                        <div className="mb-3">
+                          <label className="form-label">Scene Name *</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={editingScene.name}
+                            onChange={(e) => setEditingScene({ ...editingScene, name: e.target.value })}
+                            placeholder="e.g., Overview, Detail View, Restoration"
+                          />
+                        </div>
+
+                        {/* Scene Description */}
+                        <div className="mb-3">
+                          <label className="form-label">Description</label>
+                          <textarea
+                            className="form-control"
+                            rows={2}
+                            value={editingScene.description || ''}
+                            onChange={(e) => setEditingScene({ ...editingScene, description: e.target.value })}
+                            placeholder="Brief description of this scene configuration..."
+                          ></textarea>
+                        </div>
+
+                        {/* Default Scene Toggle */}
+                        <div className="mb-3 form-check">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id="default-scene-check"
+                            checked={editingScene.isDefault || false}
+                            onChange={(e) => setEditingScene({ ...editingScene, isDefault: e.target.checked })}
+                          />
+                          <label className="form-check-label" htmlFor="default-scene-check">
+                            Set as default scene (shown first to viewers)
+                          </label>
+                        </div>
+
+                        <hr />
+
+                        {/* Assets in Scene */}
+                        <h6 className="mb-3">Assets in Scene</h6>
+                        {digitalAssets.length === 0 ? (
+                          <div className="alert alert-warning">
+                            No digital assets available. Add assets in the <strong>Digital Assets</strong> tab first.
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-muted small">Select which assets to include in this scene:</p>
+                            <div className="list-group mb-3">
+                              {digitalAssets.map((asset) => {
+                                const isInScene = (editingScene.assets || []).some((a: any) => a.assetId === asset.id);
+                                return (
+                                  <div key={asset.id} className="list-group-item">
+                                    <div className="d-flex align-items-center">
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input me-3"
+                                        checked={isInScene}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            // Add asset to scene
+                                            const newAssetRef = {
+                                              assetId: asset.id,
+                                              visible: true,
+                                              position: [0, 0, 0],
+                                              rotation: [0, 0, 0],
+                                              scale: 1,
+                                            };
+                                            setEditingScene({
+                                              ...editingScene,
+                                              assets: [...(editingScene.assets || []), newAssetRef],
+                                            });
+                                          } else {
+                                            // Remove asset from scene
+                                            setEditingScene({
+                                              ...editingScene,
+                                              assets: (editingScene.assets || []).filter((a: any) => a.assetId !== asset.id),
+                                            });
+                                          }
+                                        }}
+                                      />
+                                      <div className="flex-grow-1">
+                                        <div>
+                                          <strong>{asset.fileName}</strong>
+                                          <span className="badge bg-secondary ms-2">{asset.type}</span>
+                                        </div>
+                                        {asset.fileSize && (
+                                          <small className="text-muted">
+                                            {(asset.fileSize / (1024*1024)).toFixed(2)} MB
+                                          </small>
+                                        )}
+                                      </div>
+                                      {isInScene && (
+                                        <button
+                                          className="btn btn-sm btn-outline-secondary"
+                                          onClick={() => {
+                                            // TODO: Show transform controls for this asset
+                                            alert('Transform controls coming soon! For now, assets use default position (0,0,0).');
+                                          }}
+                                        >
+                                          ⚙️ Transform
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+
+                        <hr />
+
+                        {/* Environment Settings */}
+                        <h6 className="mb-3">Environment Settings</h6>
+                        <div className="row">
+                          <div className="col-md-6 mb-3">
+                            <label className="form-label">Background Color</label>
+                            <input
+                              type="color"
+                              className="form-control form-control-color"
+                              value={editingScene.environment?.backgroundColor || '#f0f0f0'}
+                              onChange={(e) => setEditingScene({
+                                ...editingScene,
+                                environment: {
+                                  ...editingScene.environment,
+                                  backgroundColor: e.target.value,
+                                },
+                              })}
+                            />
+                          </div>
+                          <div className="col-md-6 mb-3">
+                            <label className="form-label">Ground Color</label>
+                            <input
+                              type="color"
+                              className="form-control form-control-color"
+                              value={editingScene.environment?.groundColor || '#808080'}
+                              onChange={(e) => setEditingScene({
+                                ...editingScene,
+                                environment: {
+                                  ...editingScene.environment,
+                                  groundColor: e.target.value,
+                                },
+                              })}
+                            />
+                          </div>
+                        </div>
+                        <div className="mb-3 form-check">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id="show-ground-check"
+                            checked={editingScene.environment?.showGround !== false}
+                            onChange={(e) => setEditingScene({
+                              ...editingScene,
+                              environment: {
+                                ...editingScene.environment,
+                                showGround: e.target.checked,
+                              },
+                            })}
+                          />
+                          <label className="form-check-label" htmlFor="show-ground-check">
+                            Show ground plane
+                          </label>
+                        </div>
+                      </div>
+                      <div className="modal-footer">
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            setShowSceneEditor(false);
+                            setEditingScene(null);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-primary"
+                          onClick={() => {
+                            if (!editingScene.name.trim()) {
+                              alert('Please enter a scene name');
+                              return;
+                            }
+                            
+                            const existingIndex = scenes.findIndex(s => s.id === editingScene.id);
+                            let updatedScenes;
+                            
+                            if (existingIndex >= 0) {
+                              // Update existing scene
+                              updatedScenes = [...scenes];
+                              updatedScenes[existingIndex] = editingScene;
+                            } else {
+                              // Add new scene
+                              updatedScenes = [...scenes, editingScene];
+                            }
+                            
+                            // If this scene is marked as default, unmark others
+                            if (editingScene.isDefault) {
+                              updatedScenes = updatedScenes.map(s => 
+                                s.id === editingScene.id ? s : { ...s, isDefault: false }
+                              );
+                            }
+                            
+                            setScenes(updatedScenes);
+                            setShowSceneEditor(false);
+                            setEditingScene(null);
+                            setSuccessMessage('Scene saved. Remember to Save Metadata to apply changes.');
+                          }}
+                        >
+                          {scenes.find(s => s.id === editingScene.id) ? 'Update Scene' : 'Create Scene'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
