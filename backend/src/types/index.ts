@@ -252,6 +252,7 @@ export interface HDTScene {
   // Environment configuration
   environment?: {
     backgroundColor?: string;
+    background?: string;        // Alias for backgroundColor (used by SceneDescription)
     showGround?: boolean;
     groundColor?: string;
     ambientLight?: number;
@@ -259,6 +260,7 @@ export interface HDTScene {
       intensity?: number;
       position?: [number, number, number];
     };
+    headLightOffset?: [number, number];  // Head light offset in degrees [horizontal, vertical]
   };
   
   // Scene metadata

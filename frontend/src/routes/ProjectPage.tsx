@@ -1,5 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
@@ -36,8 +36,6 @@ export default function ProjectPage() {
   const [files, setFiles] = useState<Array<{ name: string; url: string; size?: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
   const [availableScenes, setAvailableScenes] = useState<Array<{ id: string; name: string; isDefault?: boolean }>>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -50,6 +48,11 @@ export default function ProjectPage() {
   const [editedPosition, setEditedPosition] = useState<string>('');
   const [editedRotation, setEditedRotation] = useState<string>('');
   const [editedScale, setEditedScale] = useState<string>('');
+  
+  // Local state for environment settings (to avoid re-initializing viewer)
+  const [showGround, setShowGround] = useState<boolean>(false);
+  const [backgroundColor, setBackgroundColor] = useState<string>('#404040');
+  const [headlightOffset, setHeadlightOffset] = useState<[number, number]>([0, 0]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingRdf, setDownloadingRdf] = useState(false);
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
@@ -84,67 +87,6 @@ export default function ProjectPage() {
     } finally {
       setDownloadingRdf(false);
     }
-  };
-
-  // Handle file selection and upload
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const res = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Upload failed');
-      }
-      // Refresh file list
-      const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, { credentials: 'include' });
-      const filesData = await filesRes.json();
-      console.log('📁 Files received after upload:', filesData.files);
-      setFiles(filesData.files || []);
-      
-      // Refresh scene to include the newly uploaded file
-      const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
-        credentials: 'include'
-      });
-      if (sceneRes.ok) {
-        const scene = await sceneRes.json();
-        // Add projectId to scene if not present
-        if (!scene.projectId) {
-          scene.projectId = projectId;
-        }
-        setSceneDesc(scene);
-        // Update visibility state for all models
-        const updatedVisibility: Record<string, boolean> = {};
-        if (scene.models) {
-          scene.models.forEach((model: any) => {
-            updatedVisibility[model.id] = model.visible !== false;
-          });
-        }
-        setMeshVisibility(updatedVisibility);
-      }
-      
-      // Clear the input
-      e.target.value = '';
-    } catch (err: any) {
-      setUploadError(err?.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Trigger file input click
-  const triggerFileSelect = () => {
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    fileInput?.click();
   };
 
   // Toggle mesh visibility
@@ -325,8 +267,8 @@ export default function ProjectPage() {
         else delete model.scale;
       }
 
-      // Save to backend
-      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+      // Save to backend using HDT scenes endpoint
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -401,7 +343,7 @@ export default function ProjectPage() {
           });
           if (scenesListRes.ok) {
             const scenesList = await scenesListRes.json();
-            if (scenesList.scenes && Array.isArray(scenesList.scenes)) {
+            if (scenesList.scenes && Array.isArray(scenesList.scenes) && scenesList.scenes.length > 0) {
               setAvailableScenes(scenesList.scenes);
               // Auto-select default scene or first scene
               const defaultScene = scenesList.scenes.find((s: any) => s.isDefault);
@@ -409,10 +351,42 @@ export default function ProjectPage() {
               if (initialSceneId && !selectedSceneId) {
                 setSelectedSceneId(initialSceneId);
               }
+            } else {
+              // No scenes found - create a default empty scene entry
+              const defaultScene = {
+                id: 'default',
+                name: 'Default Scene',
+                isDefault: true
+              };
+              setAvailableScenes([defaultScene]);
+              if (!selectedSceneId) {
+                setSelectedSceneId('default');
+              }
+            }
+          } else {
+            // API error - fallback to default empty scene
+            const defaultScene = {
+              id: 'default',
+              name: 'Default Scene',
+              isDefault: true
+            };
+            setAvailableScenes([defaultScene]);
+            if (!selectedSceneId) {
+              setSelectedSceneId('default');
             }
           }
         } catch (err) {
           console.warn('Could not fetch scenes list:', err);
+          // Error - fallback to default empty scene
+          const defaultScene = {
+            id: 'default',
+            name: 'Default Scene',
+            isDefault: true
+          };
+          setAvailableScenes([defaultScene]);
+          if (!selectedSceneId) {
+            setSelectedSceneId('default');
+          }
         }
         
         // Fetch scene.json (legacy single scene or selected scene)
@@ -497,17 +471,25 @@ export default function ProjectPage() {
       if (!projectId || !selectedSceneId) return;
       
       try {
+        // Use endpoint that always regenerates from MongoDB (source of truth)
         const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
           credentials: 'include'
         });
         
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
+          console.log('📥 Scene loaded from backend:', scene.environment);
           // Add projectId to scene if not present
           if (!scene.projectId) {
             scene.projectId = projectId;
           }
           setSceneDesc(scene);
+          
+          // Initialize local environment settings from scene
+          setShowGround(scene.environment?.showGround ?? false);
+          setBackgroundColor(scene.environment?.background || '#404040');
+          setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
+          
           // Load annotations from scene
           setAnnotations(scene.annotations || []);
           // Initialize visibility state for all models
@@ -535,7 +517,7 @@ export default function ProjectPage() {
   }, [activeTab]);
 
     // Set up annotation point picking callback when viewer is ready
-  const setupAnnotationCallback = () => {
+  const setupAnnotationCallback = useCallback(() => {
     if (!viewerRef.current || !projectId || !sceneDesc) {
       return;
     }
@@ -561,7 +543,7 @@ export default function ProjectPage() {
             annotations: updatedAnnotations
           };
           
-          fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+          fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
             method: 'PUT',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -578,12 +560,12 @@ export default function ProjectPage() {
         return updatedAnnotations;
       });
     });
-  };
+  }, [projectId, sceneDesc, selectedSceneId]);
 
   // Set up callback when dependencies change (after viewer is ready)
   useEffect(() => {
     setupAnnotationCallback();
-  }, [projectId, sceneDesc]);
+  }, [projectId, sceneDesc, setupAnnotationCallback]);
 
   // Render annotations in 3D viewer when they change
   useEffect(() => {
@@ -666,46 +648,6 @@ export default function ProjectPage() {
       <div className="flex-grow-1 d-flex overflow-hidden">
         {/* 3D Viewer */}
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
-          {/* Scene Selector (if multiple scenes available) */}
-          {availableScenes.length > 0 && (
-            <div 
-              style={{ 
-                position: 'absolute', 
-                top: '10px', 
-                left: '10px', 
-                zIndex: 1000,
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '6px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                padding: '8px 12px',
-                minWidth: '250px',
-              }}
-            >
-              <div className="d-flex align-items-center gap-2">
-                <label htmlFor="scene-selector" className="mb-0 small fw-bold text-muted" style={{ whiteSpace: 'nowrap' }}>
-                  🎬 Scene:
-                </label>
-                <select
-                  id="scene-selector"
-                  className="form-select form-select-sm"
-                  value={selectedSceneId || ''}
-                  onChange={(e) => setSelectedSceneId(e.target.value)}
-                  style={{ fontSize: '14px' }}
-                >
-                  {availableScenes.map((scene) => (
-                    <option key={scene.id} value={scene.id}>
-                      {scene.name} {scene.isDefault ? '⭐' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {availableScenes.length > 1 && (
-                <div className="small text-muted mt-1" style={{ fontSize: '11px' }}>
-                  {availableScenes.length} scene{availableScenes.length !== 1 ? 's' : ''} available
-                </div>
-              )}
-            </div>
-          )}
           
           {sceneDesc && (
             <ThreeJSViewer
@@ -730,7 +672,7 @@ export default function ProjectPage() {
                   role="tab"
                   aria-selected={activeTab === 'scene'}
                 >
-                  Scene
+                  Scenes
                 </button>
               </li>
               <li className="nav-item" role="presentation">
@@ -762,27 +704,7 @@ export default function ProjectPage() {
               {/* Models Tab */}
               {activeTab === 'models' && (
                 <div className="p-3 h-100 d-flex flex-column">
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h3 className="h6 mb-0">3D Models</h3>
-                    {isManager && (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={triggerFileSelect}
-                        disabled={uploading}
-                      >
-                        {uploading ? 'Uploading...' : '➕ Add Model'}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Hidden file input */}
-                  <input
-                    id="file-input"
-                    type="file"
-                    style={{ display: 'none' }}
-                    onChange={handleFileSelect}
-                    accept=".ply,.obj,.stl,.gltf,.glb,.dae,.fbx,.3ds,.x3d,.nxs"
-                  />
+                  <h3 className="h6 mb-3">Models in Scene</h3>
 
                   {/* HDT Model Info or Prompt */}
                   {hdtModel ? (
@@ -806,8 +728,6 @@ export default function ProjectPage() {
                       </Link>
                     </div>
                   ) : null}
-
-                  {uploadError && <div className="alert alert-danger small py-2">{uploadError}</div>}
 
                   <div className="flex-grow-1 overflow-auto">
                     {files.length === 0 ? (
@@ -1033,7 +953,31 @@ export default function ProjectPage() {
               {/* Scene Tab */}
               {activeTab === 'scene' && (
                 <div className="p-3 h-100 d-flex flex-column">
-                  <h3 className="h6 mb-3">Scene Settings</h3>
+                  {/* Scene Selector */}
+                  {availableScenes.length > 0 && (
+                    <div className="mb-3">
+                      <select
+                        id="scene-selector-sidebar"
+                        className="form-select"
+                        value={selectedSceneId || ''}
+                        onChange={(e) => setSelectedSceneId(e.target.value)}
+                      >
+                        {availableScenes.map((scene) => (
+                          <option key={scene.id} value={scene.id}>
+                            {scene.name} {scene.isDefault ? '⭐' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <small className="text-muted">
+                        {availableScenes.length} scene{availableScenes.length !== 1 ? 's' : ''} available
+                      </small>
+                    </div>
+                  )}
+
+                  <hr className="my-3" />
+
+                  {/* Scene Settings */}
+                  <h6 className="mb-3">Scene Settings</h6>
                   {isManager ? (
                     <div className="flex-grow-1">
                       {/* Ground Grid Setting */}
@@ -1043,20 +987,28 @@ export default function ProjectPage() {
                             className="form-check-input"
                             type="checkbox"
                             id="showGroundCheckbox"
-                            checked={sceneDesc?.environment?.showGround ?? false}
+                            checked={showGround}
                             onChange={async (e) => {
-                              const showGround = e.target.checked;
+                              const newShowGround = e.target.checked;
+                              
+                              // Update local state immediately for UI
+                              setShowGround(newShowGround);
+                              
+                              // Update 3D scene directly
+                              viewerRef.current?.setGroundVisible(newShowGround);
+                              
+                              // Save to backend
                               const updatedScene = { 
                                 ...sceneDesc,
                                 environment: {
                                   ...sceneDesc?.environment,
-                                  showGround
+                                  showGround: newShowGround
                                 }
                               } as SceneDescription;
                               
                               try {
-                                // Save to backend
-                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                console.log('💾 Saving ground grid setting to backend:', updatedScene.environment);
+                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                   method: 'PUT',
                                   credentials: 'include',
                                   headers: { 'Content-Type': 'application/json' },
@@ -1064,55 +1016,57 @@ export default function ProjectPage() {
                                 });
 
                                 if (!response.ok) {
+                                  const errorText = await response.text();
+                                  console.error('❌ Backend response:', errorText);
                                   throw new Error('Failed to save scene settings');
                                 }
 
-                                // Update local state (for UI only, doesn't trigger scene reload)
-                                setSceneDesc(updatedScene);
-                                
-                                // Update 3D scene directly without reloading
-                                viewerRef.current?.setGroundVisible(showGround);
-                                
-                                console.log('✅ Ground grid setting saved:', showGround);
+                                // Do NOT update sceneDesc to avoid viewer re-initialization
+                                console.log('✅ Ground grid setting saved:', newShowGround);
                               } catch (err: any) {
                                 console.error('❌ Failed to save ground setting:', err);
                                 alert('Failed to save ground setting: ' + err.message);
                               }
                             }}
+                            title="Display a reference grid at the base of the scene"
                           />
-                          <label className="form-check-label" htmlFor="showGroundCheckbox">
+                          <label className="form-check-label" htmlFor="showGroundCheckbox" title="Display a reference grid at the base of the scene">
                             Show Ground Grid
                           </label>
                         </div>
-                        <small className="text-muted d-block mt-1">
-                          Display a reference grid at the base of the scene
-                        </small>
                       </div>
 
                       {/* Background Color Setting */}
                       <div className="mb-3">
-                        <label htmlFor="backgroundColorInput" className="form-label">
-                          Background Color
-                        </label>
                         <div className="d-flex gap-2 align-items-center">
+                          <label htmlFor="backgroundColorInput" className="form-label mb-0" style={{ whiteSpace: 'nowrap' }}>
+                            Background Color
+                          </label>
                           <input
                             type="color"
                             className="form-control form-control-color"
                             id="backgroundColorInput"
-                            value={sceneDesc?.environment?.background || '#404040'}
+                            value={backgroundColor}
                             onChange={async (e) => {
-                              const background = e.target.value;
+                              const newBackground = e.target.value;
+                              
+                              // Update local state immediately for UI
+                              setBackgroundColor(newBackground);
+                              
+                              // Update 3D scene directly
+                              viewerRef.current?.setBackgroundColor(newBackground);
+                              
+                              // Save to backend
                               const updatedScene = { 
                                 ...sceneDesc,
                                 environment: {
                                   ...sceneDesc?.environment,
-                                  background
+                                  background: newBackground
                                 }
                               } as SceneDescription;
                               
                               try {
-                                // Save to backend
-                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                   method: 'PUT',
                                   credentials: 'include',
                                   headers: { 'Content-Type': 'application/json' },
@@ -1123,41 +1077,42 @@ export default function ProjectPage() {
                                   throw new Error('Failed to save scene settings');
                                 }
 
-                                // Update local state (for UI only, doesn't trigger scene reload)
-                                setSceneDesc(updatedScene);
-                                
-                                // Update 3D scene directly without reloading
-                                viewerRef.current?.setBackgroundColor(background);
-                                
-                                console.log('✅ Background color saved:', background);
+                                // Do NOT update sceneDesc
+                                console.log('✅ Background color saved:', newBackground);
                               } catch (err: any) {
                                 console.error('❌ Failed to save background color:', err);
                                 alert('Failed to save background color: ' + err.message);
                               }
                             }}
-                            title="Choose background color"
+                            title="Set the background color of the 3D viewer"
                           />
                           <input
                             type="text"
                             className="form-control"
                             style={{ maxWidth: '100px' }}
-                            value={sceneDesc?.environment?.background || '#404040'}
+                            value={backgroundColor}
                             onChange={async (e) => {
-                              const background = e.target.value;
+                              const newBackground = e.target.value;
                               // Validate hex color format
-                              if (!/^#[0-9A-Fa-f]{6}$/.test(background)) return;
+                              if (!/^#[0-9A-Fa-f]{6}$/.test(newBackground)) return;
                               
+                              // Update local state immediately for UI
+                              setBackgroundColor(newBackground);
+                              
+                              // Update 3D scene directly
+                              viewerRef.current?.setBackgroundColor(newBackground);
+                              
+                              // Save to backend
                               const updatedScene = { 
                                 ...sceneDesc,
                                 environment: {
                                   ...sceneDesc?.environment,
-                                  background
+                                  background: newBackground
                                 }
                               } as SceneDescription;
                               
                               try {
-                                // Save to backend
-                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                   method: 'PUT',
                                   credentials: 'include',
                                   headers: { 'Content-Type': 'application/json' },
@@ -1168,19 +1123,16 @@ export default function ProjectPage() {
                                   throw new Error('Failed to save scene settings');
                                 }
 
-                                // Update local state
-                                setSceneDesc(updatedScene);
-                                console.log('✅ Background color saved:', background);
+                                // Do NOT update sceneDesc
+                                console.log('✅ Background color saved:', newBackground);
                               } catch (err: any) {
                                 console.error('❌ Failed to save background color:', err);
                               }
                             }}
                             placeholder="#404040"
+                            title="Set the background color of the 3D viewer"
                           />
                         </div>
-                        <small className="text-muted d-block mt-1">
-                          Set the background color of the 3D viewer
-                        </small>
                       </div>
 
                       {/* Headlight Offset Setting */}
@@ -1198,20 +1150,27 @@ export default function ProjectPage() {
                               id="headlightHorizontal"
                               className="form-control"
                               step="1"
-                              value={(sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[0] !== undefined) ? String(sceneDesc.environment.headLightOffset[0]) : '0'}
+                              value={String(headlightOffset[0])}
                               onChange={async (e) => {
-                                const thetaDeg = parseFloat(e.target.value || '0');
-                                const phiDeg = (sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[1] !== undefined) ? sceneDesc.environment.headLightOffset[1] : 0;
+                                const newThetaDeg = parseFloat(e.target.value || '0');
+                                const phiDeg = headlightOffset[1];
                                 const updatedScene = {
                                   ...sceneDesc,
                                   environment: {
                                     ...sceneDesc?.environment,
-                                    headLightOffset: [thetaDeg, phiDeg]
+                                    headLightOffset: [newThetaDeg, phiDeg]
                                   }
                                 } as SceneDescription;
 
                                 try {
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                  // Update local state first
+                                  setHeadlightOffset([newThetaDeg, phiDeg]);
+                                  
+                                  // Update 3D scene directly
+                                  viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
+                                  
+                                  // Save to backend
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                     method: 'PUT',
                                     credentials: 'include',
                                     headers: { 'Content-Type': 'application/json' },
@@ -1219,13 +1178,7 @@ export default function ProjectPage() {
                                   });
                                   if (!response.ok) throw new Error('Failed to save headlight offset');
                                   
-                                  // Update local state (for UI only, doesn't trigger scene reload)
-                                  setSceneDesc(updatedScene);
-                                  
-                                  // Update 3D scene directly without reloading
-                                  viewerRef.current?.setHeadLightOffset(thetaDeg, phiDeg);
-                                  
-                                  console.log('✅ Headlight horizontal offset saved:', thetaDeg);
+                                  console.log('✅ Headlight horizontal offset saved:', newThetaDeg);
                                 } catch (err: any) {
                                   console.error('❌ Failed to save headlight offset:', err);
                                   alert('Failed to save headlight offset: ' + err.message);
@@ -1243,20 +1196,27 @@ export default function ProjectPage() {
                               id="headlightVertical"
                               className="form-control"
                               step="1"
-                              value={(sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[1] !== undefined) ? String(sceneDesc.environment.headLightOffset[1]) : '0'}
+                              value={String(headlightOffset[1])}
                               onChange={async (e) => {
-                                const phiDeg = parseFloat(e.target.value || '0');
-                                const thetaDeg = (sceneDesc?.environment?.headLightOffset && sceneDesc.environment.headLightOffset[0] !== undefined) ? sceneDesc.environment.headLightOffset[0] : 0;
+                                const newPhiDeg = parseFloat(e.target.value || '0');
+                                const thetaDeg = headlightOffset[0];
                                 const updatedScene = {
                                   ...sceneDesc,
                                   environment: {
                                     ...sceneDesc?.environment,
-                                    headLightOffset: [thetaDeg, phiDeg]
+                                    headLightOffset: [thetaDeg, newPhiDeg]
                                   }
                                 } as SceneDescription;
 
                                 try {
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/scene`, {
+                                  // Update local state first
+                                  setHeadlightOffset([thetaDeg, newPhiDeg]);
+                                  
+                                  // Update 3D scene directly
+                                  viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
+                                  
+                                  // Save to backend
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                     method: 'PUT',
                                     credentials: 'include',
                                     headers: { 'Content-Type': 'application/json' },
@@ -1264,13 +1224,7 @@ export default function ProjectPage() {
                                   });
                                   if (!response.ok) throw new Error('Failed to save headlight offset');
                                   
-                                  // Update local state (for UI only, doesn't trigger scene reload)
-                                  setSceneDesc(updatedScene);
-                                  
-                                  // Update 3D scene directly without reloading
-                                  viewerRef.current?.setHeadLightOffset(thetaDeg, phiDeg);
-                                  
-                                  console.log('✅ Headlight vertical offset saved:', phiDeg);
+                                  console.log('✅ Headlight vertical offset saved:', newPhiDeg);
                                 } catch (err: any) {
                                   console.error('❌ Failed to save headlight offset:', err);
                                   alert('Failed to save headlight offset: ' + err.message);

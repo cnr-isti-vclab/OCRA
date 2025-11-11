@@ -636,24 +636,18 @@ export async function getSceneFileHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Project ID and Scene ID are required' });
     }
     
-    const scenePath = path.join(process.cwd(), 'project_files', projectId, 'scenes', `${sceneId}.json`);
-    
-    if (!fs.existsSync(scenePath)) {
-      // Try to generate the scene file if it doesn't exist
-      try {
-        const sceneDesc = await generateSceneFile(projectId, sceneId);
-        if (sceneDesc) {
-          return res.json(sceneDesc);
-        }
-      } catch (genError) {
-        console.error('Failed to generate scene file:', genError);
+    // Always regenerate scene file from MongoDB to ensure it's up to date
+    try {
+      const sceneDesc = await generateSceneFile(projectId, sceneId);
+      if (sceneDesc) {
+        return res.json(sceneDesc);
       }
-      
-      return res.status(404).json({ error: 'Scene file not found' });
+    } catch (genError) {
+      console.error('Failed to generate scene file:', genError);
+      return res.status(500).json({ error: 'Failed to generate scene file' });
     }
     
-    const sceneData = fs.readFileSync(scenePath, 'utf-8');
-    res.json(JSON.parse(sceneData));
+    return res.status(404).json({ error: 'Scene not found in database' });
   } catch (error: any) {
     console.error('Error serving scene file:', error);
     res.status(500).json({ 

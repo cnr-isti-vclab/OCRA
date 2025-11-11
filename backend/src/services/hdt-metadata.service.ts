@@ -649,6 +649,8 @@ export async function generateSceneFile(
     throw new Error(`Scene not found: ${sceneId}`);
   }
   
+  console.log(`📥 Generating scene file from MongoDB. Environment:`, JSON.stringify(scene.environment, null, 2));
+  
   // Convert scene assets to ModelDefinition format
   const models: ModelDefinition[] = scene.assets
     .map(assetRef => {
@@ -683,8 +685,8 @@ export async function generateSceneFile(
     models,
     environment: scene.environment ? {
       showGround: scene.environment.showGround,
-      background: scene.environment.backgroundColor,
-      // Note: headLightOffset not in HDTScene yet
+      background: scene.environment.background || scene.environment.backgroundColor,
+      headLightOffset: scene.environment.headLightOffset
     } : undefined,
     enableControls: true,
     rotationUnits: 'rad'

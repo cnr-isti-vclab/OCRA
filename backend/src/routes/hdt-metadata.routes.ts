@@ -43,6 +43,7 @@ import {
   getSceneFileHandler
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
+import { getHDTDocument } from '../services/hdt-metadata.service.js';
 
 const router = Router();
 
@@ -261,5 +262,42 @@ router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updat
  * Remove an asset from a scene
  */
 router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, removeAssetFromSceneHandler);
+
+/**
+ * GET /api/projects/:projectId/export/rdf
+ * Export HDT metadata as RDF/Turtle
+ */
+router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const hdtDoc = await getHDTDocument(projectId);
+
+    if (!hdtDoc) {
+      return res.status(404).json({ error: 'HDT metadata not found' });
+    }
+
+    // Generate basic RDF/Turtle export
+    const rdf = `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix hdt: <http://example.org/hdt#> .
+
+<urn:project:${projectId}> a hdt:HeritageDigitalTwin ;
+    dcterms:title "${hdtDoc.metadata?.dublinCore?.title || 'Untitled'}" ;
+    dcterms:description "${hdtDoc.metadata?.dublinCore?.description || ''}" ;
+    dcterms:creator "${hdtDoc.metadata?.dublinCore?.creator || ''}" ;
+    dcterms:date "${hdtDoc.metadata?.dublinCore?.date || ''}" ;
+    dcterms:created "${hdtDoc.createdAt || ''}" ;
+    dcterms:modified "${hdtDoc.updatedAt || ''}" .
+`;
+
+    res.setHeader('Content-Type', 'text/turtle');
+    res.setHeader('Content-Disposition', `attachment; filename="hdt-${projectId}.ttl"`);
+    res.send(rdf);
+  } catch (error: any) {
+    console.error('Error exporting RDF:', error);
+    res.status(500).json({ error: 'Failed to export RDF' });
+  }
+});
 
 export default router;
