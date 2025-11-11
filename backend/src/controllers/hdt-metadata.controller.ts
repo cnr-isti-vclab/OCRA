@@ -656,3 +656,35 @@ export async function getSceneFileHandler(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * GET /api/projects/:projectId/scenes/:sceneId/export
+ * Export scene JSON file to disk and download (for debugging)
+ */
+export async function exportSceneFileHandler(req: Request, res: Response) {
+  try {
+    const { projectId, sceneId } = req.params;
+    
+    if (!projectId || !sceneId) {
+      return res.status(400).json({ error: 'Project ID and Scene ID are required' });
+    }
+    
+    const { exportSceneFile } = await import('../services/hdt-metadata.service.js');
+    const sceneDesc = await exportSceneFile(projectId, sceneId);
+    
+    if (!sceneDesc) {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
+    
+    // Return the JSON for download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${projectId}-${sceneId}.json"`);
+    res.json(sceneDesc);
+  } catch (error: any) {
+    console.error('Error exporting scene:', error);
+    res.status(500).json({ 
+      error: 'Failed to export scene', 
+      message: error?.message || String(error)
+    });
+  }
+}

@@ -753,7 +753,8 @@ export default function HDTPage() {
                 <h6 className="text-primary mb-2">📤 Upload New 3D Model</h6>
                 <input
                   type="file"
-                  className="form-control"
+                  id="assetFileInput"
+                  className="d-none"
                   accept=".glb,.gltf,.ply,.obj,.fbx,.nxs"
                   onChange={async (e) => {
                     if (!projectId) return;
@@ -797,65 +798,16 @@ export default function HDTPage() {
                   }}
                   disabled={uploading}
                 />
-                {uploading && (
-                  <div className="text-muted small mt-2">⏳ Uploading...</div>
-                )}
-                <small className="form-text text-muted">
-                  Upload a new 3D model file. It will be added to your project files and asset pool.
+                <button
+                  className="btn btn-primary"
+                  onClick={() => document.getElementById('assetFileInput')?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? '⏳ Uploading...' : '📤 Choose File to Upload'}
+                </button>
+                <small className="form-text text-muted d-block mt-2">
+                  Click to browse and select a 3D model file. Upload will start automatically.
                 </small>
-              </div>
-
-              {/* Select from Existing Files */}
-              <div>
-                <h6 className="text-primary mb-2">📁 Add from Existing Project Files</h6>
-                {projectFiles.length === 0 ? (
-                  <div className="text-muted">No files found in this project.</div>
-                ) : (
-                  <div className="list-group">
-                    {projectFiles.map(f => {
-                      const alreadyAdded = digitalAssets.some(a => a.fileName === f.name);
-                      return (
-                        <div key={f.name} className="list-group-item d-flex align-items-center">
-                          <div className="me-3">📄</div>
-                          <div className="flex-grow-1">
-                            <div>
-                              <strong>{f.name}</strong>
-                              {alreadyAdded && <span className="badge bg-success ms-2">In Pool</span>}
-                            </div>
-                            <div className="text-muted small">{(f.size / (1024*1024)).toFixed(2)} MB</div>
-                          </div>
-                          {!alreadyAdded && (
-                            <button 
-                              className="btn btn-sm btn-outline-primary" 
-                              onClick={() => {
-                                const newAsset = {
-                                  id: `asset_${Date.now()}`,
-                                  type: 'model3d',
-                                  fileName: f.name,
-                                  fileUrl: f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`,
-                                  fileSize: f.size,
-                                  uploadedAt: new Date().toISOString(),
-                                };
-                                setDigitalAssets([...digitalAssets, newAsset]);
-                                setSuccessMessage('Asset added to pool. Remember to Save to apply.');
-                              }}
-                            >
-                              Add to Pool
-                            </button>
-                          )}
-                          <a 
-                            className="btn btn-sm btn-outline-secondary ms-2" 
-                            href={f.url.startsWith('http') ? f.url : `${getApiBase()}${f.url}`} 
-                            target="_blank" 
-                            rel="noreferrer"
-                          >
-                            Download
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </div>
           )}

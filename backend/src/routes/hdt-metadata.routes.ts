@@ -40,7 +40,8 @@ import {
   addAssetToSceneHandler,
   updateAssetInSceneHandler,
   removeAssetFromSceneHandler,
-  getSceneFileHandler
+  getSceneFileHandler,
+  exportSceneFileHandler
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
@@ -222,6 +223,12 @@ router.get('/:projectId/scenes', listScenesHandler);
  * Get a specific scene JSON file (used by ThreePresenter)
  */
 router.get('/:projectId/scenes/:sceneId', getSceneFileHandler);
+
+/**
+ * GET /api/projects/:projectId/scenes/:sceneId/export
+ * Export scene JSON file to disk (for debugging)
+ */
+router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHandler);
 
 /**
  * POST /api/projects/:projectId/hdt/scenes

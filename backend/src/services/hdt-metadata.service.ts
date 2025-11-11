@@ -692,14 +692,33 @@ export async function generateSceneFile(
     rotationUnits: 'rad'
   };
   
-  // Write to file system
+  console.log(`✅ Generated scene description from MongoDB for scene: ${sceneId}`);
+  
+  return sceneDescription;
+}
+
+/**
+ * Generate scene file and write to disk (for debugging/export)
+ * 
+ * @param projectId - Project ID
+ * @param sceneId - Scene ID
+ * @returns SceneDescription
+ */
+export async function exportSceneFile(
+  projectId: string,
+  sceneId: string
+): Promise<SceneDescription | null> {
+  const sceneDescription = await generateSceneFile(projectId, sceneId);
+  if (!sceneDescription) return null;
+  
+  // Write to file system for debugging
   const scenesDir = path.join(process.cwd(), 'project_files', projectId, 'scenes');
   await fs.mkdir(scenesDir, { recursive: true });
   
   const sceneFilePath = path.join(scenesDir, `${sceneId}.json`);
   await fs.writeFile(sceneFilePath, JSON.stringify(sceneDescription, null, 2), 'utf-8');
   
-  console.log(`Generated scene file: ${sceneFilePath}`);
+  console.log(`📁 Exported scene file: ${sceneFilePath}`);
   
   return sceneDescription;
 }

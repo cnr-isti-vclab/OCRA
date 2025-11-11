@@ -59,6 +59,49 @@ export default function ProjectPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
 
+  // Ensure HDT document and default scene exist before updating
+  const ensureHDTDocument = async (projectId: string): Promise<boolean> => {
+    try {
+      // Check if HDT document exists
+      const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+        credentials: 'include'
+      });
+      
+      if (checkRes.ok) {
+        return true; // Already exists
+      }
+      
+      if (checkRes.status === 404) {
+        // Create HDT document with default scene
+        console.log('📝 Creating HDT document for new project...');
+        const createRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            metadata: {
+              dublinCore: {},
+              cidocCrm: {}
+            }
+          })
+        });
+        
+        if (!createRes.ok) {
+          console.error('Failed to create HDT document');
+          return false;
+        }
+        
+        console.log('✅ HDT document created successfully');
+        return true;
+      }
+      
+      return false;
+    } catch (err) {
+      console.error('Error ensuring HDT document:', err);
+      return false;
+    }
+  };
+
   // Download RDF export
   const handleDownloadRdf = async () => {
     if (!projectId) return;
@@ -265,6 +308,11 @@ export default function ProjectPage() {
         
         if (scale !== undefined) model.scale = scale;
         else delete model.scale;
+      }
+
+      // Ensure HDT document exists before saving
+      if (!await ensureHDTDocument(projectId!)) {
+        throw new Error('Failed to ensure HDT document exists');
       }
 
       // Save to backend using HDT scenes endpoint
@@ -543,17 +591,25 @@ export default function ProjectPage() {
             annotations: updatedAnnotations
           };
           
-          fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-            method: 'PUT',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedScene)
-          }).then(response => {
-            if (!response.ok) {
-              console.error('Failed to save annotations');
+          // Ensure HDT document exists before saving
+          ensureHDTDocument(projectId).then(exists => {
+            if (!exists) {
+              console.error('Failed to ensure HDT document exists');
+              return;
             }
-          }).catch(error => {
-            console.error('Error saving annotations:', error);
+            
+            fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+              method: 'PUT',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedScene)
+            }).then(response => {
+              if (!response.ok) {
+                console.error('Failed to save annotations');
+              }
+            }).catch(error => {
+              console.error('Error saving annotations:', error);
+            });
           });
         }
         
@@ -636,6 +692,29 @@ export default function ProjectPage() {
                   Download RDF
                 </>
               )}
+            </button>
+            <button
+              onClick={async () => {
+                if (!projectId || !selectedSceneId) return;
+                try {
+                  const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${projectId}-${selectedSceneId}.json`;
+                  a.style.display = 'none';
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => document.body.removeChild(a), 100);
+                } catch (err: any) {
+                  console.error('Error exporting scene:', err);
+                  alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
+                }
+              }}
+              className="btn btn-outline-secondary btn-sm"
+              title="Export current scene as JSON file (for debugging)"
+            >
+              <i className="bi bi-file-earmark-code me-2"></i>
+              Export Scene JSON
             </button>
             <div className="text-secondary">
               Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
@@ -997,6 +1076,12 @@ export default function ProjectPage() {
                               // Update 3D scene directly
                               viewerRef.current?.setGroundVisible(newShowGround);
                               
+                              // Ensure HDT document exists before saving
+                              if (!await ensureHDTDocument(projectId!)) {
+                                console.error('Failed to ensure HDT document exists');
+                                return;
+                              }
+                              
                               // Save to backend
                               const updatedScene = { 
                                 ...sceneDesc,
@@ -1056,6 +1141,12 @@ export default function ProjectPage() {
                               // Update 3D scene directly
                               viewerRef.current?.setBackgroundColor(newBackground);
                               
+                              // Ensure HDT document exists before saving
+                              if (!await ensureHDTDocument(projectId!)) {
+                                console.error('Failed to ensure HDT document exists');
+                                return;
+                              }
+                              
                               // Save to backend
                               const updatedScene = { 
                                 ...sceneDesc,
@@ -1101,6 +1192,12 @@ export default function ProjectPage() {
                               
                               // Update 3D scene directly
                               viewerRef.current?.setBackgroundColor(newBackground);
+                              
+                              // Ensure HDT document exists before saving
+                              if (!await ensureHDTDocument(projectId!)) {
+                                console.error('Failed to ensure HDT document exists');
+                                return;
+                              }
                               
                               // Save to backend
                               const updatedScene = { 
@@ -1169,6 +1266,12 @@ export default function ProjectPage() {
                                   // Update 3D scene directly
                                   viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
                                   
+                                  // Ensure HDT document exists before saving
+                                  if (!await ensureHDTDocument(projectId!)) {
+                                    console.error('Failed to ensure HDT document exists');
+                                    return;
+                                  }
+                                  
                                   // Save to backend
                                   const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                     method: 'PUT',
@@ -1214,6 +1317,12 @@ export default function ProjectPage() {
                                   
                                   // Update 3D scene directly
                                   viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
+                                  
+                                  // Ensure HDT document exists before saving
+                                  if (!await ensureHDTDocument(projectId!)) {
+                                    console.error('Failed to ensure HDT document exists');
+                                    return;
+                                  }
                                   
                                   // Save to backend
                                   const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
