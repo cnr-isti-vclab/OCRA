@@ -50,6 +50,31 @@ networks:
   internal-net:
     driver: bridge
 ```
+### Step 2: Configure Keycloak Client
+
+**Why?** Keycloak needs to know which URLs are allowed to redirect and which domains can make API calls.
+
+1. Start Keycloak: `docker-compose up -d keycloak`
+2. Access admin console: `http://your-server:8081`
+3. Login with credentials from your `.env` file
+4. Select **demo** realm from dropdown (top-left)
+5. Go to **Clients** → **react-oauth**
+6. Configure these settings:
+
+   | Setting | Value | Notes |
+   |---------|-------|-------|
+   | **Valid redirect URIs** | `http://your-server:3001/*` | Must include `/*` wildcard |
+   | **Valid post logout redirect URIs** | `http://your-server:3001/*` | Must match redirect URIs |
+   | **Web origins** | `http://your-server:3001` | NO trailing slash or `/*` |
+   | **PKCE Code Challenge Method** | `plain` or blank | Required for HTTP deployments |
+
+7. Click **Save**
+
+**PKCE Method Explanation:**
+- HTTP sites cannot use `crypto.subtle` API (browser security)
+- `plain` method works on HTTP (less secure but functional)
+- `S256` method requires HTTPS (more secure)
+- Leave blank to accept both methods
 
 ### Step 2: Create .env.prod
 
