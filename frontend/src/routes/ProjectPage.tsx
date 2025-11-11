@@ -286,6 +286,9 @@ export default function ProjectPage() {
       const updatedScene = { ...sceneDesc } as SceneDescription;
       if (!updatedScene.models) updatedScene.models = [];
       
+      // Ensure rotation units are specified as degrees
+      updatedScene.rotationUnits = 'deg';
+      
       // Find or create the model entry
       let modelIndex = updatedScene.models.findIndex((m: any) => m.id === modelId || m.file === fileName);
       if (modelIndex === -1) {
@@ -566,7 +569,7 @@ export default function ProjectPage() {
 
     // Set up annotation point picking callback when viewer is ready
   const setupAnnotationCallback = useCallback(() => {
-    if (!viewerRef.current || !projectId || !sceneDesc) {
+    if (!viewerRef.current || !projectId) {
       return;
     }
 
@@ -584,44 +587,47 @@ export default function ProjectPage() {
       setAnnotations(prevAnnotations => {
         const updatedAnnotations = [...prevAnnotations, newAnnotation];
         
-        // Save to backend
-        if (projectId && sceneDesc) {
-          const updatedScene = {
-            ...sceneDesc,
-            annotations: updatedAnnotations
-          };
-          
-          // Ensure HDT document exists before saving
-          ensureHDTDocument(projectId).then(exists => {
-            if (!exists) {
-              console.error('Failed to ensure HDT document exists');
-              return;
-            }
+        // Save to backend - use functional update to get latest sceneDesc
+        setSceneDesc(currentSceneDesc => {
+          if (currentSceneDesc) {
+            const updatedScene = {
+              ...currentSceneDesc,
+              annotations: updatedAnnotations
+            };
             
-            fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-              method: 'PUT',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updatedScene)
-            }).then(response => {
-              if (!response.ok) {
-                console.error('Failed to save annotations');
+            // Ensure HDT document exists before saving
+            ensureHDTDocument(projectId).then(exists => {
+              if (!exists) {
+                console.error('Failed to ensure HDT document exists');
+                return;
               }
-            }).catch(error => {
-              console.error('Error saving annotations:', error);
+              
+              fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedScene)
+              }).then(response => {
+                if (!response.ok) {
+                  console.error('Failed to save annotations');
+                }
+              }).catch(error => {
+                console.error('Error saving annotations:', error);
+              });
             });
-          });
-        }
+          }
+          return currentSceneDesc; // Don't update sceneDesc here
+        });
         
         return updatedAnnotations;
       });
     });
-  }, [projectId, sceneDesc, selectedSceneId]);
+  }, [projectId, selectedSceneId]);
 
   // Set up callback when dependencies change (after viewer is ready)
   useEffect(() => {
     setupAnnotationCallback();
-  }, [projectId, sceneDesc, setupAnnotationCallback]);
+  }, [setupAnnotationCallback]);
 
   // Render annotations in 3D viewer when they change
   useEffect(() => {
@@ -813,16 +819,16 @@ export default function ProjectPage() {
                           const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
                           if (sceneModel && sceneModel.title) displayName = sceneModel.title;
 
-                          const meshName = fileBase; // legacy key used in visibility map
+                          // Use the actual model ID from the scene for visibility control
                           const modelId = sceneModel?.id || fileBase;
-                          const isVisible = meshVisibility[meshName] !== false;
+                          const isVisible = meshVisibility[modelId] !== false;
                           const isSelected = selectedModelId === modelId;
 
                           return (
                             <div key={f.name} className="list-group-item p-0">
                               <div className="d-flex align-items-center p-2">
                                 <button
-                                  onClick={() => toggleMeshVisibility(meshName)}
+                                  onClick={() => toggleMeshVisibility(modelId)}
                                   style={{
                                     border: 'none',
                                     background: 'none',

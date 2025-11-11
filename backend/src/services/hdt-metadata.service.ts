@@ -479,6 +479,22 @@ export async function updateScene(
     doc.scenes.forEach(s => { s.isDefault = false; });
   }
   
+  // Convert models array (from frontend) to assets array (for MongoDB)
+  // Frontend sends SceneDescription with "models", but MongoDB stores HDTScene with "assets"
+  if ((updates as any).models) {
+    const modelsArray = (updates as any).models;
+    updates.assets = modelsArray.map((model: any) => ({
+      assetId: model.id,  // model.id in SceneDescription is the asset ID
+      visible: model.visible,
+      position: model.position,
+      rotation: model.rotation,
+      scale: model.scale
+    }));
+    // Remove the models property as it shouldn't be stored in MongoDB
+    delete (updates as any).models;
+    delete (updates as any).rotationUnits; // This is also frontend-only
+  }
+  
   // Update the scene
   doc.scenes[sceneIndex] = {
     ...doc.scenes[sceneIndex],
@@ -788,7 +804,7 @@ export async function generateSceneFile(
       headLightOffset: scene.environment.headLightOffset
     } : undefined,
     enableControls: true,
-    rotationUnits: 'rad'
+    rotationUnits: 'deg'  // Rotation values in MongoDB are stored in degrees
   };
   
   console.log(`✅ Generated scene description from MongoDB for scene: ${sceneId}`);
