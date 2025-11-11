@@ -7,7 +7,7 @@
 
 
 import express from 'express';
-import { getAllProjects, getProjectById, createProject, updateProject, deleteProject, listProjectFiles, uploadProjectFile, downloadProjectFile, upload, isManagerOfProject, getProjectScene, updateProjectScene } from '../controllers/projects.controller.js';
+import { getAllProjects, getProjectById, createProject, updateProject, deleteProject, listProjectFiles, uploadProjectFile, downloadProjectFile, deleteProjectFile, upload, isManagerOfProject, getProjectScene, updateProjectScene } from '../controllers/projects.controller.js';
 import { listProjectMembers, addProjectMember, removeProjectMember } from '../controllers/project-members.controller.js';
 
 const router = express.Router();
@@ -418,6 +418,39 @@ router.post('/:projectId/files', upload.single('file'), uploadProjectFile);
  *         description: Project or file not found
  */
 router.get('/:projectId/files/:filename', downloadProjectFile);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/files/{filename}:
+ *   delete:
+ *     summary: Delete a project file
+ *     description: Delete a specific file from project storage. Only accessible by project managers.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: projectId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: filename
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: File deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized (only managers can delete files)
+ *       404:
+ *         description: Project or file not found
+ */
+router.delete('/:projectId/files/:filename', deleteProjectFile);
 
 /**
  * @openapi

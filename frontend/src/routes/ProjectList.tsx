@@ -51,6 +51,8 @@ export default function Projects() {
   const [error, setError] = useState<string | null>(null);
   // Map of projectId to isManager boolean
   const [managerMap, setManagerMap] = useState<Record<string, boolean>>({});
+  // Map of projectId to has3DAssets boolean
+  const [has3DAssetsMap, setHas3DAssetsMap] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -169,6 +171,34 @@ export default function Projects() {
     fetchManagerStatus();
   }, [projects, user]);
 
+  // Fetch HDT metadata to check for 3D assets
+  useEffect(() => {
+    if (projects.length === 0) return;
+    
+    const fetch3DAssetStatus = async () => {
+      const newMap: Record<string, boolean> = {};
+      await Promise.all(projects.map(async (project) => {
+        try {
+          const res = await fetch(`${getApiBase()}/api/projects/${project.id}/hdt`, {
+            credentials: 'include',
+          });
+          if (res.ok) {
+            const hdtData = await res.json();
+            // Check if there are digital assets of type 'model3d'
+            const has3DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'model3d') || false;
+            newMap[project.id] = has3DAssets;
+          } else {
+            newMap[project.id] = false;
+          }
+        } catch {
+          newMap[project.id] = false;
+        }
+      }));
+      setHas3DAssetsMap(newMap);
+    };
+    fetch3DAssetStatus();
+  }, [projects]);
+
   if (loading) {
     return (
       <div className="container py-5 text-center">
@@ -247,41 +277,51 @@ export default function Projects() {
                     <div className="col-4 text-end">
                       {project.manager ? (
                         <div className="mb-2">
-                          <div className="small text-muted mb-1">👨‍💼 Manager:</div>
+                          <div className="small text-muted mb-1">Manager:</div>
                           <div className="small fw-semibold">{project.manager.displayName}</div>
                         </div>
                       ) : (
                         <div className="mb-2">
-                          <div className="small text-warning">⚠️ No manager</div>
+                          <div className="small text-warning">No manager</div>
                         </div>
                       )}
                       {!project.public && (
-                        <span className="badge bg-danger">🔒 Private</span>
+                        <span className="badge bg-danger">Private</span>
                       )}
                     </div>
                   </div>
 
                   {/* Bottom Section - Action Buttons */}
                   <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
-                    <Link
-                      to={`/projects/${project.id}`}
-                      className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
-                    >
-                      📦 3D
-                    </Link>
+                    {has3DAssetsMap[project.id] ? (
+                      <Link
+                        to={`/projects/${project.id}`}
+                        className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                      >
+                        3D
+                      </Link>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                        disabled
+                        title="No 3D assets available"
+                      >
+                        3D
+                      </button>
+                    )}
                     <Link
                       to={`/projects/${project.id}/hdt`}
-                      className="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                      className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                     >
-                      🏛️ HDT
+                      HDT
                     </Link>
                     {managerMap[project.id] && (
                       <Link
                         to={`/projects/${project.id}/edit`}
-                        className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center"
+                        className="btn btn-primary btn-sm d-flex align-items-center justify-content-center"
                         title="Settings"
                       >
-                        ⚙️
+                        Settings
                       </Link>
                     )}
                   </div>

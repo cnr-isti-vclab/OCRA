@@ -202,17 +202,116 @@ export async function addDigitalAsset(
     uploadedBy: userId
   };
   
+  // First check if HDT document exists, if not create it
+  const existing = await collection.findOne({ projectId });
+  
+  if (!existing) {
+    // Create initial HDT document with the asset and a default scene
+    const now = new Date();
+    
+    // Create default scene with the first asset
+    const defaultScene: HDTScene = {
+      id: `scene_${Date.now()}`,
+      name: 'Default Scene',
+      description: 'Default scene created automatically',
+      isDefault: true,
+      assets: [
+        {
+          assetId: newAsset.id,
+          visible: true,
+          // Don't set position - let ThreePresenter auto-center
+        }
+      ],
+      environment: {
+        showGround: true,
+        backgroundColor: '#404040'
+      }
+    };
+    
+    const newDoc: Partial<HDTDocument> = {
+      projectId,
+      metadata: {
+        dublinCore: {},
+        cidocCrm: {}
+      },
+      digitalAssets: [newAsset],
+      scenes: [defaultScene],
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+      updatedBy: userId
+    };
+    
+    const insertResult = await collection.insertOne(newDoc as any);
+    const created = await collection.findOne({ _id: insertResult.insertedId });
+    console.log(`✅ Created new HDT document for project ${projectId} with first asset and default scene`);
+    console.log(`   - Asset ID: ${newAsset.id}`);
+    console.log(`   - Scene: ${defaultScene.name}, Assets in scene: ${defaultScene.assets.length}`);
+    console.log(`   - Scene asset refs:`, JSON.stringify(defaultScene.assets, null, 2));
+    return created as unknown as HDTDocument | null;
+  }
+  
+  // Document exists, add asset to it
+  const updateOps: any = {
+    $push: { digitalAssets: newAsset },
+    $set: {
+      updatedAt: new Date(),
+      updatedBy: userId
+    }
+  };
+  
+  // If there are no scenes, create a default scene with this asset
+  if (!existing.scenes || existing.scenes.length === 0) {
+    const defaultScene: HDTScene = {
+      id: `scene_${Date.now()}`,
+      name: 'Default Scene',
+      description: 'Default scene created automatically',
+      isDefault: true,
+      assets: [
+        {
+          assetId: newAsset.id,
+          visible: true,
+          // Don't set position - let ThreePresenter auto-center
+        }
+      ],
+      environment: {
+        showGround: true,
+        backgroundColor: '#404040'
+      }
+    };
+    updateOps.$push.scenes = defaultScene;
+    console.log(`✅ Creating default scene for project ${projectId} with asset ${newAsset.id}`);
+    console.log(`   - Scene: ${defaultScene.name}, Assets in scene: ${defaultScene.assets.length}`);
+    console.log(`   - Scene asset refs:`, JSON.stringify(defaultScene.assets, null, 2));
+  } else {
+    // Scene(s) exist - add the asset to the default scene
+    const defaultSceneIndex = existing.scenes.findIndex((s: any) => s.isDefault || s.id === 'default');
+    if (defaultSceneIndex >= 0) {
+      // Add asset reference to the default scene's assets array
+      const assetRef = {
+        assetId: newAsset.id,
+        visible: true,
+        // Don't set position - let ThreePresenter auto-center
+      };
+      updateOps.$push[`scenes.${defaultSceneIndex}.assets`] = assetRef;
+      console.log(`✅ Adding asset ${newAsset.id} to default scene (index ${defaultSceneIndex})`);
+      console.log(`   - Asset reference:`, JSON.stringify(assetRef, null, 2));
+    }
+  }
+  
   const result = await collection.findOneAndUpdate(
     { projectId },
-    {
-      $push: { digitalAssets: newAsset },
-      $set: {
-        updatedAt: new Date(),
-        updatedBy: userId
-      }
-    },
+    updateOps,
     { returnDocument: 'after' }
   );
+  
+  const doc = result as unknown as HDTDocument;
+  if (doc && doc.scenes) {
+    console.log(`📊 HDT document updated. Total scenes: ${doc.scenes.length}`);
+    doc.scenes.forEach((scene: any) => {
+      console.log(`   - Scene "${scene.name}": ${scene.assets?.length || 0} assets`);
+    });
+  }
   
   return result as unknown as HDTDocument | null;
 }

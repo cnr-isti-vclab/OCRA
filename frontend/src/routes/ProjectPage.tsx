@@ -798,14 +798,6 @@ export default function ProjectPage() {
                         </Link>
                       )}
                     </div>
-                  ) : isManager ? (
-                    <div className="alert alert-warning small py-2 mb-2">
-                      <i className="bi bi-exclamation-triangle me-2"></i>
-                      <strong>First step:</strong> Define a default 3D model for this Heritage Digital Twin.{' '}
-                      <Link to={`/projects/${projectId}/hdt`} className="alert-link">
-                        Go to HDT Metadata →
-                      </Link>
-                    </div>
                   ) : null}
 
                   <div className="flex-grow-1 overflow-auto">

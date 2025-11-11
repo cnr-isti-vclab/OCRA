@@ -283,6 +283,48 @@ export async function downloadProjectFile(req: Request, res: Response) {
   }
   res.download(filePath);
 }
+
+export async function deleteProjectFile(req: Request, res: Response) {
+  try {
+    const { projectId, filename } = req.params;
+    
+    if (!projectId || !filename) {
+      return res.status(400).json({ error: 'Project ID and filename are required' });
+    }
+    
+    // Check if user is authenticated and is a manager
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const db = getPrismaClient();
+    const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
+    if (!isManager) {
+      return res.status(403).json({ error: 'Only project managers can delete files' });
+    }
+    
+    const filePath = path.join(uploadDir, projectId, filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Delete the file
+    fs.unlinkSync(filePath);
+    
+    console.log(`🗑️ Deleted file: ${filePath}`);
+    
+    res.json({ message: 'File deleted successfully', filename });
+  } catch (error: any) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete file',
+      message: error?.message || String(error)
+    });
+  }
+}
+
 import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
 import { getValidSession } from '../../db.js';

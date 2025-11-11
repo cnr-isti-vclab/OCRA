@@ -1,5 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 
@@ -290,13 +290,13 @@ export default function HDTPage() {
     }
   };
 
-  const handleSave = async () => {
+  // Auto-save metadata function
+  const autoSaveMetadata = useCallback(async () => {
     if (!projectId) return;
 
     try {
       setSaving(true);
       setError(null);
-      setSuccessMessage(null);
 
       // Build metadata object from form
       const metadataPayload: Partial<HDTMetadata> = {
@@ -361,7 +361,6 @@ export default function HDTPage() {
 
         const newMetadata = await response.json();
         setMetadata(newMetadata);
-        setSuccessMessage('HDT metadata created successfully!');
       } else {
         // PUT to update
         const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
@@ -380,18 +379,45 @@ export default function HDTPage() {
 
         const updatedMetadata = await response.json();
         setMetadata(updatedMetadata);
-        setSuccessMessage('HDT metadata updated successfully!');
       }
-
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (e: any) {
       console.error('Failed to save metadata:', e);
       setError(e?.message ?? String(e));
     } finally {
       setSaving(false);
     }
-  };
+  }, [projectId, dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, 
+      dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century, 
+      placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
+      digitalAssets, scenes, selectedModel]);
+
+  // Debounced auto-save effect
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    // Don't auto-save on initial load (when metadata is being populated from server)
+    if (loading) return;
+    
+    // Clear previous timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (debounce for 1 second)
+    saveTimeoutRef.current = setTimeout(() => {
+      autoSaveMetadata();
+    }, 1000);
+
+    // Cleanup
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, 
+      dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century, 
+      placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
+      loading, autoSaveMetadata]);
 
   if (loading) {
     return (
@@ -492,7 +518,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('assets')}
                 type="button"
               >
-                📦 Digital Assets
+                Digital Assets
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -665,7 +691,6 @@ export default function HDTPage() {
           {/* Digital Assets Tab */}
           {activeTab === 'assets' && (
             <div>
-              <h5 className="mb-3">Digital Assets Pool</h5>
               <p className="text-muted small mb-4">
                 Manage all digital assets for this Heritage Digital Twin. Assets in the pool can be used across multiple scenes.
               </p>
@@ -674,10 +699,10 @@ export default function HDTPage() {
               <div className="mb-4 p-3 bg-light rounded">
                 <h6 className="mb-2">Supported Asset Types</h6>
                 <div className="d-flex gap-2 flex-wrap">
-                  <span className="badge bg-primary">🧩 3D Models (GLB, GLTF, PLY, OBJ, NXS)</span>
-                  <span className="badge bg-secondary text-muted">🖼️ RTI (Coming Soon)</span>
-                  <span className="badge bg-secondary text-muted">📷 Images (Coming Soon)</span>
-                  <span className="badge bg-secondary text-muted">🎬 Videos (Coming Soon)</span>
+                  <span className="badge bg-primary">3D Models (GLB, GLTF, PLY, OBJ, NXS)</span>
+                  <span className="badge bg-secondary text-muted">RTI (Coming Soon)</span>
+                  <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
+                  <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
                 </div>
               </div>
 
@@ -707,11 +732,11 @@ export default function HDTPage() {
                         {digitalAssets.map((asset, index) => (
                           <tr key={asset.id || index}>
                             <td>
-                              {asset.type === 'model3d' && '🧩 3D Model'}
-                              {asset.type === 'rti' && '🖼️ RTI'}
-                              {asset.type === 'image' && '📷 Image'}
-                              {asset.type === 'video' && '🎬 Video'}
-                              {asset.type === 'other' && '📄 Other'}
+                              {asset.type === 'model3d' && '3D Model'}
+                              {asset.type === 'rti' && 'RTI'}
+                              {asset.type === 'image' && 'Image'}
+                              {asset.type === 'video' && 'Video'}
+                              {asset.type === 'other' && 'Other'}
                             </td>
                             <td>
                               <strong>{asset.fileName}</strong>
@@ -732,12 +757,45 @@ export default function HDTPage() {
                             <td>
                               <button 
                                 className="btn btn-sm btn-outline-danger"
-                                onClick={() => {
-                                  setDigitalAssets(digitalAssets.filter((_, i) => i !== index));
-                                  setSuccessMessage('Asset removed. Remember to Save to apply changes.');
+                                onClick={async () => {
+                                  if (!confirm(`Delete "${asset.fileName}"? This will remove the file from storage and cannot be undone.`)) {
+                                    return;
+                                  }
+                                  
+                                  try {
+                                    // Delete from MongoDB
+                                    const deleteAssetRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${asset.id}`, {
+                                      method: 'DELETE',
+                                      credentials: 'include'
+                                    });
+                                    
+                                    if (!deleteAssetRes.ok) {
+                                      const err = await deleteAssetRes.json().catch(() => ({}));
+                                      throw new Error(err.error || 'Failed to delete asset from database');
+                                    }
+                                    
+                                    // Delete file from volume
+                                    const deleteFileRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(asset.fileName)}`, {
+                                      method: 'DELETE',
+                                      credentials: 'include'
+                                    });
+                                    
+                                    if (!deleteFileRes.ok) {
+                                      console.warn('Failed to delete file from volume, but asset removed from database');
+                                    }
+                                    
+                                    // Update local state
+                                    setDigitalAssets(digitalAssets.filter((_, i) => i !== index));
+                                    
+                                    // Refresh to sync with server
+                                    await fetchProjectAndMetadata();
+                                    setSuccessMessage(`✓ Asset "${asset.fileName}" deleted successfully!`);
+                                  } catch (err: any) {
+                                    setError(err?.message || 'Failed to delete asset');
+                                  }
                                 }}
                               >
-                                Remove
+                                Delete
                               </button>
                             </td>
                           </tr>
@@ -762,6 +820,9 @@ export default function HDTPage() {
                     if (!file) return;
                     try {
                       setUploading(true);
+                      setError(null);
+                      setSuccessMessage(null);
+                      
                       // Upload file
                       const formData = new FormData();
                       formData.append('file', file);
@@ -774,7 +835,8 @@ export default function HDTPage() {
                         const err = await uploadRes.json().catch(() => ({}));
                         throw new Error(err.error || 'Upload failed');
                       }
-                      // Add to digital assets
+                      
+                      // Create new asset object
                       const fileUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(file.name)}`;
                       const newAsset = {
                         id: `asset_${Date.now()}`,
@@ -785,10 +847,27 @@ export default function HDTPage() {
                         mimeType: file.type || 'application/octet-stream',
                         uploadedAt: new Date().toISOString(),
                       };
-                      setDigitalAssets([...digitalAssets, newAsset]);
-                      // Refresh project files list
+                      
+                      // Update local state
+                      const updatedAssets = [...digitalAssets, newAsset];
+                      setDigitalAssets(updatedAssets);
+                      
+                      // Immediately save to MongoDB
+                      const saveRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newAsset)
+                      });
+                      
+                      if (!saveRes.ok) {
+                        const err = await saveRes.json().catch(() => ({}));
+                        throw new Error(err.error || 'Failed to save asset to database');
+                      }
+                      
+                      // Refresh to get updated data from server
                       await fetchProjectAndMetadata();
-                      setSuccessMessage('Asset uploaded and added to pool. Remember to Save to apply.');
+                      setSuccessMessage(`✓ Asset "${file.name}" uploaded and saved successfully!`);
                     } catch (err: any) {
                       setError(err?.message || 'Failed to upload asset');
                     } finally {
@@ -887,7 +966,7 @@ export default function HDTPage() {
                                         updatedScenes[0].isDefault = true;
                                       }
                                       setScenes(updatedScenes);
-                                      setSuccessMessage('Scene deleted. Remember to Save to apply changes.');
+                                      setSuccessMessage('✓ Scene deleted');
                                     }
                                   }}
                                   title="Delete Scene"
@@ -1006,12 +1085,13 @@ export default function HDTPage() {
                                         onChange={(e) => {
                                           if (e.target.checked) {
                                             // Add asset to scene
+                                            // Don't set position - let auto-centering logic in ThreePresenter handle it
                                             const newAssetRef = {
                                               assetId: asset.id,
                                               visible: true,
-                                              position: [0, 0, 0],
-                                              rotation: [0, 0, 0],
-                                              scale: 1,
+                                              // position: undefined - let ThreePresenter auto-center
+                                              // rotation: undefined - defaults to [0,0,0]
+                                              // scale: undefined - defaults to 1
                                             };
                                             setEditingScene({
                                               ...editingScene,
@@ -1153,7 +1233,7 @@ export default function HDTPage() {
                             setScenes(updatedScenes);
                             setShowSceneEditor(false);
                             setEditingScene(null);
-                            setSuccessMessage('Scene saved. Remember to Save Metadata to apply changes.');
+                            setSuccessMessage('✓ Scene saved');
                           }}
                         >
                           {scenes.find(s => s.id === editingScene.id) ? 'Update Scene' : 'Create Scene'}
@@ -1367,7 +1447,7 @@ export default function HDTPage() {
           )}
         </div>
 
-        {/* Footer with Save Button */}
+        {/* Footer with Auto-Save Status */}
         <div className="card-footer d-flex justify-content-between align-items-center">
           <div className="text-muted small">
             {metadata ? (
@@ -1376,20 +1456,16 @@ export default function HDTPage() {
               <>No metadata saved yet</>
             )}
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
+          <div className="text-muted small">
             {saving ? (
               <>
                 <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                 Saving...
               </>
             ) : (
-              <>💾 Save Metadata</>
+              <>Changes auto-saved</>
             )}
-          </button>
+          </div>
         </div>
       </div>
     </div>
