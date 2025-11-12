@@ -38,19 +38,22 @@ export async function startAuthFlow(): Promise<void> {
 
 /**
  * Exchange OAuth authorization code for tokens
+ * Uses backend proxy to keep client_secret secure
  */
 export async function exchangeCodeForTokens(code: string, codeVerifier: string) {
-  const tokenResponse = await fetch(`${OAUTH_CONFIG.issuer}/protocol/openid-connect/token`, {
+  // Use backend proxy instead of directly calling OAuth provider
+  // This keeps the CLIENT_SECRET secure on the backend
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
+  
+  const tokenResponse = await fetch(`${API_BASE}/oauth/token`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/json'
     },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: OAUTH_CONFIG.clientId,
+    body: JSON.stringify({
       code: code,
-      redirect_uri: OAUTH_CONFIG.redirectUri,
-      code_verifier: codeVerifier
+      codeVerifier: codeVerifier,
+      redirectUri: OAUTH_CONFIG.redirectUri
     })
   });
   
@@ -59,7 +62,14 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string) 
     throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
   }
   
-  return await tokenResponse.json();
+  const data = await tokenResponse.json();
+  
+  // Backend returns { tokens, userProfile }
+  // Return in the format expected by the caller
+  return {
+    tokens: data.tokens,
+    userProfile: data.userProfile
+  };
 }
 
 /**

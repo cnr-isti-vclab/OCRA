@@ -7,6 +7,7 @@
 import express from 'express';
 import sessionRoutes from './session.routes.js';
 import authRoutes from './auth.routes.js';
+import oauthRoutes from './oauth.routes.js';
 import healthRoutes from './health.routes.js';
 import usersRoutes from './users.routes.js';
 import projectsRoutes from './projects.routes.js';
@@ -17,6 +18,7 @@ import hdtMetadataRoutes from './hdt-metadata.routes.js';
 const router = express.Router();
 
 // Mount route modules
+router.use('/oauth', oauthRoutes); // OAuth token exchange (must be public, no auth required)
 router.use('/sessions', sessionRoutes);
 router.use('/', authRoutes); // Auth routes include /users and /debug paths
 router.use('/health', healthRoutes);

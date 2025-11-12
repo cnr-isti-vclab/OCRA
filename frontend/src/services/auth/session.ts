@@ -33,11 +33,9 @@ export async function completeAuthCodeFlow(): Promise<void> {
   }
   
   try {
-    // Exchange authorization code for tokens
-    const tokens = await exchangeCodeForTokens(code, codeVerifier);
-    
-    // Get user profile from access token
-    const userProfile = await getUserProfile(tokens.access_token);
+    // Exchange authorization code for tokens using backend proxy
+    // Backend returns { tokens, userProfile } in a single call
+    const { tokens, userProfile } = await exchangeCodeForTokens(code, codeVerifier);
     
     // Create session in backend
     const sessionResponse = await fetch(`${API_BASE}/sessions`, {
