@@ -53,7 +53,10 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
   const db = getPrismaClient();
   
   // Calculate token expiration time
-  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+  // Use a longer session expiration (24 hours) instead of token expiration
+  // This matches the cookie maxAge and provides better UX
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  // Original: const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
   
   try {
     // Check if this email should be granted admin privileges
