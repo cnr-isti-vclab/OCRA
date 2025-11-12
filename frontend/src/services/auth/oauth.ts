@@ -5,7 +5,7 @@
  * as defined in RFC 7636
  */
 
-import { OAUTH_CONFIG } from '../../config/oauth';
+import { OAUTH_CONFIG, API_BASE } from '../../config/oauth';
 import { generateRandomString, sha256 } from '../../utils/pkce';
 
 /**
@@ -43,8 +43,7 @@ export async function startAuthFlow(): Promise<void> {
 export async function exchangeCodeForTokens(code: string, codeVerifier: string) {
   // Use backend proxy instead of directly calling OAuth provider
   // This keeps the CLIENT_SECRET secure on the backend
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
-  
+  // API_BASE is configured from VITE_API_BASE env var or window.__APP_CONFIG__
   const tokenResponse = await fetch(`${API_BASE}/oauth/token`, {
     method: 'POST',
     headers: {
