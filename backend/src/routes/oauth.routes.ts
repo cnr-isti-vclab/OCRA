@@ -9,6 +9,14 @@ import { exchangeCodeForTokens } from '../controllers/oauth.controller.js';
 
 const router = express.Router();
 
+// Add logging middleware for OAuth routes
+router.use((req, res, next) => {
+  console.log(`🔍 [OAuth Routes] ${req.method} ${req.path}`);
+  console.log('  Full URL:', req.originalUrl);
+  console.log('  Body:', req.body);
+  next();
+});
+
 /**
  * @swagger
  * /oauth/token:

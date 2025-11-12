@@ -17,9 +17,15 @@ import hdtMetadataRoutes from './hdt-metadata.routes.js';
 
 const router = express.Router();
 
+// Log route mounting
+console.log('📋 [Routes] Mounting API routes...');
+
 // Mount route modules
 router.use('/oauth', oauthRoutes); // OAuth token exchange (must be public, no auth required)
+console.log('✅ [Routes] Mounted: /oauth');
+
 router.use('/sessions', sessionRoutes);
+console.log('✅ [Routes] Mounted: /sessions');
 router.use('/', authRoutes); // Auth routes include /users and /debug paths
 router.use('/health', healthRoutes);
 router.use('/users', usersRoutes);

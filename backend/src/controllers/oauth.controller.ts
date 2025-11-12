@@ -12,10 +12,19 @@ import { Request, Response } from 'express';
  * This keeps the CLIENT_SECRET secure on the backend
  */
 export async function exchangeCodeForTokens(req: Request, res: Response): Promise<void> {
+  console.log('🚀 [OAuth] Token exchange endpoint called');
+  console.log('  Request body keys:', Object.keys(req.body));
+  console.log('  Request headers:', req.headers);
+  
   try {
     const { code, codeVerifier, redirectUri } = req.body;
 
     if (!code || !codeVerifier || !redirectUri) {
+      console.error('❌ [OAuth] Missing required parameters:', { 
+        hasCode: !!code, 
+        hasCodeVerifier: !!codeVerifier, 
+        hasRedirectUri: !!redirectUri 
+      });
       res.status(400).json({
         error: 'Missing required parameters',
         details: 'code, codeVerifier, and redirectUri are required'
