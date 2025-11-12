@@ -28,7 +28,10 @@ function getApiBase(): string {
   if (typeof window !== 'undefined' && window.__APP_CONFIG__?.apiBase) {
     return window.__APP_CONFIG__.apiBase;
   }
-
+  // Log warning if falling back
+  console.warn(
+    '[OcraFileUrlResolver] API base URL not configured; falling back to http://localhost:3002'
+  );
   // Fallback for development (OCRA backend default port)
   return 'http://localhost:3002';
 }
