@@ -284,7 +284,11 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
     }
 
     // Helper function to escape XML
-    const escapeXml = (unsafe: string) => {
+    const escapeXml = (unsafe: string | string[] | undefined): string => {
+      if (!unsafe) return '';
+      if (Array.isArray(unsafe)) {
+        return unsafe.map(s => escapeXml(s)).join(', ');
+      }
       return unsafe.replace(/[<>&'"]/g, (c) => {
         switch (c) {
           case '<': return '&lt;';
@@ -308,19 +312,19 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
 
   <rdf:Description rdf:about="urn:project:${projectId}">
     <rdf:type rdf:resource="http://example.org/hdt#HeritageDigitalTwin"/>
-    <dc:title>${escapeXml(hdtDoc.metadata?.dublinCore?.title || 'Untitled')}</dc:title>
-    <dc:description>${escapeXml(hdtDoc.metadata?.dublinCore?.description || '')}</dc:description>
-    <dc:creator>${escapeXml(hdtDoc.metadata?.dublinCore?.creator || '')}</dc:creator>
-    <dc:date>${escapeXml(hdtDoc.metadata?.dublinCore?.date || '')}</dc:date>
-    <dc:coverage>${escapeXml(hdtDoc.metadata?.dublinCore?.coverage || '')}</dc:coverage>
-    <dc:rights>${escapeXml(hdtDoc.metadata?.dublinCore?.rights || '')}</dc:rights>
-    <dc:identifier>${escapeXml(hdtDoc.metadata?.dublinCore?.identifier || '')}</dc:identifier>
-    <dc:subject>${escapeXml(hdtDoc.metadata?.dublinCore?.subject || '')}</dc:subject>
-    <dc:type>${escapeXml(hdtDoc.metadata?.dublinCore?.type || '')}</dc:type>
-    <dc:language>${escapeXml(hdtDoc.metadata?.dublinCore?.language || '')}</dc:language>
-    <dc:source>${escapeXml(hdtDoc.metadata?.dublinCore?.source || '')}</dc:source>
-    <dcterms:created>${escapeXml(hdtDoc.createdAt || '')}</dcterms:created>
-    <dcterms:modified>${escapeXml(hdtDoc.updatedAt || '')}</dcterms:modified>
+    <dc:title>${escapeXml(hdtDoc.metadata?.dublinCore?.title as any || 'Untitled')}</dc:title>
+    <dc:description>${escapeXml(hdtDoc.metadata?.dublinCore?.description as any || '')}</dc:description>
+    <dc:creator>${escapeXml(hdtDoc.metadata?.dublinCore?.creator as any || '')}</dc:creator>
+    <dc:date>${escapeXml(hdtDoc.metadata?.dublinCore?.date as any || '')}</dc:date>
+    <dc:coverage>${escapeXml(hdtDoc.metadata?.dublinCore?.coverage as any || '')}</dc:coverage>
+    <dc:rights>${escapeXml(hdtDoc.metadata?.dublinCore?.rights as any || '')}</dc:rights>
+    <dc:identifier>${escapeXml(hdtDoc.metadata?.dublinCore?.identifier as any || '')}</dc:identifier>
+    <dc:subject>${escapeXml(hdtDoc.metadata?.dublinCore?.subject as any || '')}</dc:subject>
+    <dc:type>${escapeXml(hdtDoc.metadata?.dublinCore?.type as any || '')}</dc:type>
+    <dc:language>${escapeXml(hdtDoc.metadata?.dublinCore?.language as any || '')}</dc:language>
+    <dc:source>${escapeXml(hdtDoc.metadata?.dublinCore?.source as any || '')}</dc:source>
+    <dcterms:created>${escapeXml(hdtDoc.createdAt as any || '')}</dcterms:created>
+    <dcterms:modified>${escapeXml(hdtDoc.updatedAt as any || '')}</dcterms:modified>
   </rdf:Description>
 </rdf:RDF>`;
 

@@ -68,7 +68,10 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     <div className="d-flex flex-column bg-light" style={{height: '100vh', overflow: 'hidden'}}>
       {/* Header Bar - Fixed at top */}
       <nav className="navbar navbar-expand navbar-light bg-white border-bottom shadow-sm px-3 flex-shrink-0" style={{zIndex: 1000}}>
-        <span className="navbar-brand fw-bold fs-4 me-4">OCRA Demo</span>
+        <div className="d-flex align-items-center gap-3">
+          <img src="/echoes-logo.png" alt="Echoes" style={{ height: '40px' }} />
+          <span className="navbar-brand fw-bold fs-4 mb-0">OCRA Demo</span>
+        </div>
         <div className="ms-auto d-flex align-items-center gap-3">
           {currentUser && (
             <>

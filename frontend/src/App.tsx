@@ -60,6 +60,9 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <Card>
+        <div className="text-center mb-4">
+          <img src="/echoes-logo.png" alt="Echoes" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+        </div>
         <h1 className="mb-3">OCRA a Collaborative 3D Annotation Platform</h1>
         <p className="text-muted mb-2">
           OCRA is an online platform for collaborative annotation and management of 3D assets, designed for conservation-restoration and heritage science workflows.
