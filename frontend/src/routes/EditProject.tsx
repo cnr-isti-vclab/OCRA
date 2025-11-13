@@ -529,32 +529,81 @@ export default function EditProject() {
                           alert('Could not parse file as JSON-LD. Please check the format.');
                           return;
                         }
-                        // Map RDF fields to HDT form fields
-                        const hdtFields = {
+                        // Map RDF fields to HDT Dublin Core metadata
+                        const dublinCore = {
                           title: data['dc:title'],
-                          creator: data['dc:creator']?.['foaf:name'] || data['dc:creator']?.['@id'],
+                          creator: data['dc:creator']?.['foaf:name'] || data['dc:creator']?.['@id'] || data['dc:creator'],
                           date: data['dc:date'],
                           description: data['dc:description'],
                           coverage: data['dc:coverage'],
                           rights: data['dc:rights'],
                           identifier: data['dc:identifier'],
+                          subject: data['dc:subject'],
+                          type: data['dc:type'],
+                          language: data['dc:language'],
+                          source: data['dc:source'],
                         };
-                        // Prefill form fields (set state)
-                        setName(hdtFields.title || '');
-                        setDescription(hdtFields.description || '');
-                        // Optionally set other fields if you add them to the form
-                        // ...
-                        alert('Imported RDF fields: ' + Object.entries(hdtFields).filter(([_,v])=>v).map(([k,v])=>`${k}: ${v}`).join(', '));
+
+                        // Create or update HDT metadata via backend
+                        const sessionId = localStorage.getItem('oauth_session_id');
+                        const hdtPayload = {
+                          dublinCore,
+                          cidocCrm: {},
+                          gettyAAT: {},
+                          digitalAssets: [],
+                          scenes: []
+                        };
+
+                        // Check if HDT exists
+                        const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+                          credentials: 'include',
+                          headers: { 'Content-Type': 'application/json' },
+                        });
+
+                        let response;
+                        if (checkRes.status === 404) {
+                          // Create new HDT
+                          response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {
+                              'Authorization': `Bearer ${sessionId}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(hdtPayload)
+                          });
+                        } else {
+                          // Update existing HDT
+                          response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+                            method: 'PUT',
+                            credentials: 'include',
+                            headers: {
+                              'Authorization': `Bearer ${sessionId}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(hdtPayload)
+                          });
+                        }
+
+                        if (!response.ok) {
+                          const errData = await response.json().catch(() => ({}));
+                          throw new Error(errData.error || 'Failed to save HDT metadata');
+                        }
+
+                        alert('✅ RDF imported successfully! HDT metadata has been created/updated.');
                         setShowImportModal(false);
-                      } catch (err) {
-                        alert('Error reading file: ' + err);
+                        setHasHdt(true); // Update state so button disappears
+                        // Optionally navigate to HDT page
+                        // navigate(`/projects/${projectId}/hdt`);
+                      } catch (err: any) {
+                        alert('Error importing RDF: ' + (err?.message || String(err)));
                       }
                     }}
                   />
                   <div className="form-text">Supported: JSON-LD RDF files. Only basic fields will be imported.</div>
                 </div>
                 <div className="alert alert-info">
-                  You can import an RDF file to prefill the HDT form. Only basic Dublin Core fields are supported for now.
+                  Upload an RDF (JSON-LD) file to import Dublin Core metadata. All fields (title, creator, date, description, coverage, rights, etc.) will be saved to the HDT metadata document.
                 </div>
               </div>
               <div className="modal-footer">
