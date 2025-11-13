@@ -51,6 +51,8 @@ export default function EditProject() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasHdt, setHasHdt] = useState<boolean | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -128,6 +130,23 @@ export default function EditProject() {
           setAllUsers(usersData);
         } else {
           console.warn('Failed to fetch users for manager dropdown');
+        }
+
+        // Check if HDT metadata exists for this project
+        try {
+          const hdtRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (hdtRes.status === 404) {
+            setHasHdt(false);
+          } else if (hdtRes.ok) {
+            setHasHdt(true);
+          } else {
+            setHasHdt(true); // default to true on unexpected error to avoid showing import incorrectly
+          }
+        } catch (e) {
+          setHasHdt(true);
         }
       } catch (e: any) {
         console.error('Failed to fetch data:', e);
@@ -280,6 +299,20 @@ export default function EditProject() {
   <h1 className="mb-4 text-dark">✏️ Edit Heritage Digital Twin Project</h1>
       <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
         <div className="card-body">
+          {hasHdt === false && (
+            <div className="alert alert-secondary d-flex justify-content-between align-items-center">
+              <div>
+                <strong>No HDT metadata yet.</strong> You can import an existing HDT definition to initialize it.
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowImportModal(true)}
+              >
+                ⬆️ Import HDT
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label htmlFor="projectName" className="form-label fw-bold text-dark">
@@ -461,6 +494,29 @@ export default function EditProject() {
                 >
                   {deleting ? 'Deleting...' : 'Delete Project'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Import HDT Modal (placeholder) */}
+      {showImportModal && (
+        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">⬆️ Import HDT</h5>
+                <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <div className="alert alert-info">
+                  This dialog will allow importing an existing HDT from a file or URL. Coming soon.
+                </div>
+                <p className="text-muted mb-0">You can also start by filling basic metadata and save.</p>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>Close</button>
               </div>
             </div>
           </div>

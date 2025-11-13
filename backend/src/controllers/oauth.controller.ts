@@ -35,13 +35,12 @@ export async function exchangeCodeForTokens(req: Request, res: Response): Promis
     // Get OAuth configuration from environment
     const issuer = process.env.ISSUER;
     const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
+    const clientSecret = process.env.CLIENT_SECRET; // Optional for public clients
 
-    if (!issuer || !clientId || !clientSecret) {
+    if (!issuer || !clientId) {
       console.error('❌ [OAuth] Configuration missing:', { 
         issuer: !!issuer, 
-        clientId: !!clientId, 
-        clientSecret: !!clientSecret 
+        clientId: !!clientId 
       });
       res.status(500).json({
         error: 'Server configuration error',
@@ -54,23 +53,28 @@ export async function exchangeCodeForTokens(req: Request, res: Response): Promis
     console.log('  Issuer:', issuer);
     console.log('  Client ID:', clientId);
     console.log('  Redirect URI:', redirectUri);
+    console.log('  Using client secret:', !!clientSecret);
 
     // Exchange code for tokens with OAuth provider (EGI)
     const tokenEndpoint = `${issuer}/protocol/openid-connect/token`;
     
+    const bodyParams = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      code: code,
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier
+    });
+    if (clientSecret) {
+      bodyParams.append('client_secret', clientSecret);
+    }
+
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        client_secret: clientSecret, // Secret stays on backend - never exposed to frontend!
-        code: code,
-        redirect_uri: redirectUri,
-        code_verifier: codeVerifier
-      })
+      body: bodyParams
     });
 
     if (!tokenResponse.ok) {
@@ -85,27 +89,64 @@ export async function exchangeCodeForTokens(req: Request, res: Response): Promis
 
     const tokens = await tokenResponse.json();
     console.log('✅ [OAuth] Token exchange successful');
+    try {
+      const tokenKeys = Object.keys(tokens || {});
+      console.log('  Token keys:', tokenKeys.join(', '));
+      if (tokens) {
+        console.log('  token_type:', tokens.token_type, 'scope:', tokens.scope, 'expires_in:', tokens.expires_in);
+      }
+    } catch {}
 
     // Get user profile from access token
     const userInfoEndpoint = `${issuer}/protocol/openid-connect/userinfo`;
-    const userInfoResponse = await fetch(userInfoEndpoint, {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`
-      }
-    });
+    let userProfile: any | null = null;
+    try {
+      const userInfoResponse = await fetch(userInfoEndpoint, {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`
+        }
+      });
 
-    if (!userInfoResponse.ok) {
-      const errorText = await userInfoResponse.text();
-      console.error('❌ [OAuth] Failed to get user info:', userInfoResponse.status, errorText);
-      res.status(userInfoResponse.status).json({
+      if (userInfoResponse.ok) {
+        userProfile = await userInfoResponse.json();
+        console.log('✅ [OAuth] User profile retrieved:', userProfile.email || userProfile.sub);
+      } else {
+        const errorText = await userInfoResponse.text();
+        console.warn('⚠️ [OAuth] Userinfo failed:', userInfoResponse.status, errorText);
+      }
+    } catch (e) {
+      console.warn('⚠️ [OAuth] Userinfo request error:', e);
+    }
+
+    // Fallback: decode ID token if userinfo failed
+    if (!userProfile && tokens?.id_token) {
+      try {
+        const parts = String(tokens.id_token).split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+          userProfile = {
+            sub: payload.sub,
+            email: payload.email,
+            name: payload.name || [payload.given_name, payload.family_name].filter(Boolean).join(' '),
+            given_name: payload.given_name,
+            family_name: payload.family_name,
+            preferred_username: payload.preferred_username,
+            source: 'id_token'
+          };
+          console.log('✅ [OAuth] User profile derived from id_token:', userProfile.email || userProfile.sub);
+        }
+      } catch (e) {
+        console.warn('⚠️ [OAuth] Failed to decode id_token for user profile:', e);
+      }
+    }
+
+    if (!userProfile) {
+      res.status(401).json({
         error: 'Failed to get user info',
-        details: errorText
+        details: 'User info endpoint denied access and id_token did not contain usable claims.'
       });
       return;
     }
-
-    const userProfile = await userInfoResponse.json();
-    console.log('✅ [OAuth] User profile retrieved:', userProfile.email || userProfile.sub);
 
     // Return both tokens and user profile
     res.json({

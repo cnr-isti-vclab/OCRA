@@ -465,13 +465,15 @@ export default function HDTPage() {
           <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
           <p className="text-muted mb-0">Heritage Digital Twin metadata for: <strong>{project.name}</strong></p>
         </div>
-        <Link 
-          to={`/api/projects/${projectId}/export/rdf`} 
-          className="btn btn-outline-primary"
-          target="_blank"
-        >
-          📥 Download RDF
-        </Link>
+        <div className="d-flex gap-2">
+          <Link 
+            to={`/api/projects/${projectId}/export/rdf`} 
+            className="btn btn-outline-primary"
+            target="_blank"
+          >
+            📥 Download RDF
+          </Link>
+        </div>
       </div>
 
       {/* Success/Error Messages */}
