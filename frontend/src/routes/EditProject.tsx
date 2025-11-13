@@ -500,7 +500,7 @@ export default function EditProject() {
         </div>
       )}
       
-      {/* Import HDT Modal (placeholder) */}
+      {/* Import HDT Modal with file upload */}
       {showImportModal && (
         <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -510,10 +510,52 @@ export default function EditProject() {
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">
-                <div className="alert alert-info">
-                  This dialog will allow importing an existing HDT from a file or URL. Coming soon.
+                <div className="mb-3">
+                  <label htmlFor="hdtRdfFile" className="form-label">Upload RDF (JSON-LD) file</label>
+                  <input
+                    type="file"
+                    id="hdtRdfFile"
+                    accept=".json,.jsonld,.rdf,.ttl,.txt,application/json,application/ld+json"
+                    className="form-control"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const text = await file.text();
+                        let data;
+                        try {
+                          data = JSON.parse(text);
+                        } catch (err) {
+                          alert('Could not parse file as JSON-LD. Please check the format.');
+                          return;
+                        }
+                        // Map RDF fields to HDT form fields
+                        const hdtFields = {
+                          title: data['dc:title'],
+                          creator: data['dc:creator']?.['foaf:name'] || data['dc:creator']?.['@id'],
+                          date: data['dc:date'],
+                          description: data['dc:description'],
+                          coverage: data['dc:coverage'],
+                          rights: data['dc:rights'],
+                          identifier: data['dc:identifier'],
+                        };
+                        // Prefill form fields (set state)
+                        setName(hdtFields.title || '');
+                        setDescription(hdtFields.description || '');
+                        // Optionally set other fields if you add them to the form
+                        // ...
+                        alert('Imported RDF fields: ' + Object.entries(hdtFields).filter(([_,v])=>v).map(([k,v])=>`${k}: ${v}`).join(', '));
+                        setShowImportModal(false);
+                      } catch (err) {
+                        alert('Error reading file: ' + err);
+                      }
+                    }}
+                  />
+                  <div className="form-text">Supported: JSON-LD RDF files. Only basic fields will be imported.</div>
                 </div>
-                <p className="text-muted mb-0">You can also start by filling basic metadata and save.</p>
+                <div className="alert alert-info">
+                  You can import an RDF file to prefill the HDT form. Only basic Dublin Core fields are supported for now.
+                </div>
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>Close</button>
