@@ -272,7 +272,7 @@ router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, re
 
 /**
  * GET /api/projects/:projectId/export/rdf
- * Export HDT metadata as RDF/Turtle
+ * Export HDT metadata as RDF/XML
  */
 router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   try {
@@ -283,23 +283,49 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'HDT metadata not found' });
     }
 
-    // Generate basic RDF/Turtle export
-    const rdf = `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix hdt: <http://example.org/hdt#> .
+    // Helper function to escape XML
+    const escapeXml = (unsafe: string) => {
+      return unsafe.replace(/[<>&'"]/g, (c) => {
+        switch (c) {
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '&': return '&amp;';
+          case "'": return '&apos;';
+          case '"': return '&quot;';
+          default: return c;
+        }
+      });
+    };
 
-<urn:project:${projectId}> a hdt:HeritageDigitalTwin ;
-    dcterms:title "${hdtDoc.metadata?.dublinCore?.title || 'Untitled'}" ;
-    dcterms:description "${hdtDoc.metadata?.dublinCore?.description || ''}" ;
-    dcterms:creator "${hdtDoc.metadata?.dublinCore?.creator || ''}" ;
-    dcterms:date "${hdtDoc.metadata?.dublinCore?.date || ''}" ;
-    dcterms:created "${hdtDoc.createdAt || ''}" ;
-    dcterms:modified "${hdtDoc.updatedAt || ''}" .
-`;
+    // Generate RDF/XML export
+    const rdf = `<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:dcterms="http://purl.org/dc/terms/"
+  xmlns:hdt="http://example.org/hdt#">
 
-    res.setHeader('Content-Type', 'text/turtle');
-    res.setHeader('Content-Disposition', `attachment; filename="hdt-${projectId}.ttl"`);
+  <rdf:Description rdf:about="urn:project:${projectId}">
+    <rdf:type rdf:resource="http://example.org/hdt#HeritageDigitalTwin"/>
+    <dc:title>${escapeXml(hdtDoc.metadata?.dublinCore?.title || 'Untitled')}</dc:title>
+    <dc:description>${escapeXml(hdtDoc.metadata?.dublinCore?.description || '')}</dc:description>
+    <dc:creator>${escapeXml(hdtDoc.metadata?.dublinCore?.creator || '')}</dc:creator>
+    <dc:date>${escapeXml(hdtDoc.metadata?.dublinCore?.date || '')}</dc:date>
+    <dc:coverage>${escapeXml(hdtDoc.metadata?.dublinCore?.coverage || '')}</dc:coverage>
+    <dc:rights>${escapeXml(hdtDoc.metadata?.dublinCore?.rights || '')}</dc:rights>
+    <dc:identifier>${escapeXml(hdtDoc.metadata?.dublinCore?.identifier || '')}</dc:identifier>
+    <dc:subject>${escapeXml(hdtDoc.metadata?.dublinCore?.subject || '')}</dc:subject>
+    <dc:type>${escapeXml(hdtDoc.metadata?.dublinCore?.type || '')}</dc:type>
+    <dc:language>${escapeXml(hdtDoc.metadata?.dublinCore?.language || '')}</dc:language>
+    <dc:source>${escapeXml(hdtDoc.metadata?.dublinCore?.source || '')}</dc:source>
+    <dcterms:created>${escapeXml(hdtDoc.createdAt || '')}</dcterms:created>
+    <dcterms:modified>${escapeXml(hdtDoc.updatedAt || '')}</dcterms:modified>
+  </rdf:Description>
+</rdf:RDF>`;
+
+    res.setHeader('Content-Type', 'application/rdf+xml');
+    res.setHeader('Content-Disposition', `attachment; filename="hdt-${projectId}.rdf"`);
     res.send(rdf);
   } catch (error: any) {
     console.error('Error exporting RDF:', error);

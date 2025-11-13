@@ -115,7 +115,7 @@ export default function ProjectPage() {
       const url = `${getApiBase()}/api/projects/${projectId}/export/rdf`;
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hdt-${projectId}.ttl`;
+      a.download = `hdt-${projectId}.rdf`;
       a.style.display = 'none';
 
       // Add to DOM and click
