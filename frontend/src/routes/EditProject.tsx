@@ -529,6 +529,9 @@ export default function EditProject() {
                           alert('Could not parse file as JSON-LD. Please check the format.');
                           return;
                         }
+                        
+                        console.log('📥 Parsed RDF data:', data);
+                        
                         // Map RDF fields to HDT Dublin Core metadata
                         const dublinCore = {
                           title: data['dc:title'],
@@ -544,6 +547,8 @@ export default function EditProject() {
                           source: data['dc:source'],
                         };
 
+                        console.log('📝 Mapped Dublin Core:', dublinCore);
+
                         // Create or update HDT metadata via backend
                         const sessionId = localStorage.getItem('oauth_session_id');
                         const hdtPayload = {
@@ -554,15 +559,20 @@ export default function EditProject() {
                           scenes: []
                         };
 
+                        console.log('🚀 Sending HDT payload:', hdtPayload);
+
                         // Check if HDT exists
                         const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
                           credentials: 'include',
                           headers: { 'Content-Type': 'application/json' },
                         });
 
+                        console.log('🔍 Check HDT status:', checkRes.status);
+
                         let response;
                         if (checkRes.status === 404) {
                           // Create new HDT
+                          console.log('📝 Creating new HDT metadata...');
                           response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
                             method: 'POST',
                             credentials: 'include',
@@ -574,6 +584,7 @@ export default function EditProject() {
                           });
                         } else {
                           // Update existing HDT
+                          console.log('📝 Updating existing HDT metadata...');
                           response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
                             method: 'PUT',
                             credentials: 'include',
@@ -585,17 +596,32 @@ export default function EditProject() {
                           });
                         }
 
+                        console.log('📤 Response status:', response.status);
+
                         if (!response.ok) {
-                          const errData = await response.json().catch(() => ({}));
-                          throw new Error(errData.error || 'Failed to save HDT metadata');
+                          const errText = await response.text();
+                          console.error('❌ Error response:', errText);
+                          let errData;
+                          try {
+                            errData = JSON.parse(errText);
+                          } catch {
+                            errData = { error: errText };
+                          }
+                          throw new Error(errData.error || `HTTP ${response.status}: ${errText}`);
                         }
 
-                        alert('✅ RDF imported successfully! HDT metadata has been created/updated.');
+                        const result = await response.json();
+                        console.log('✅ Success response:', result);
+
                         setShowImportModal(false);
                         setHasHdt(true); // Update state so button disappears
-                        // Optionally navigate to HDT page
-                        // navigate(`/projects/${projectId}/hdt`);
+                        
+                        // Show success and navigate to HDT page
+                        if (window.confirm('✅ RDF imported successfully!\n\nThe Dublin Core metadata has been saved to MongoDB.\n\nClick OK to go to the HDT page to view the imported data, or Cancel to stay here.')) {
+                          navigate(`/projects/${projectId}/hdt`);
+                        }
                       } catch (err: any) {
+                        console.error('❌ Import error:', err);
                         alert('Error importing RDF: ' + (err?.message || String(err)));
                       }
                     }}

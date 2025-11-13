@@ -137,20 +137,26 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       return res.status(404).json({ error: 'Project not found' });
     }
     
-    // Create HDT document with initial metadata
+    // Use provided metadata from request body, or fallback to project defaults
+    const initialMetadata = req.body?.dublinCore ? {
+      dublinCore: req.body.dublinCore,
+      cidocCrm: req.body.cidocCrm || {}
+    } : {
+      dublinCore: {
+        title: project.name,
+        description: project.description || undefined,
+        date: new Date().toISOString().split('T')[0]
+      },
+      cidocCrm: {
+        objectType: 'Digital Heritage Twin'
+      }
+    };
+    
+    // Create HDT document with metadata
     const document = await createHDTDocument(
       projectId,
       currentUser.sub,
-      {
-        dublinCore: {
-          title: project.name,
-          description: project.description || undefined,
-          date: new Date().toISOString().split('T')[0]
-        },
-        cidocCrm: {
-          objectType: 'Digital Heritage Twin'
-        }
-      }
+      initialMetadata
     );
     
     res.status(201).json(document);
