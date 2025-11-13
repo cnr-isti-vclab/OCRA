@@ -214,7 +214,6 @@ export default function HDTPage() {
 
         if (metadataResponse.ok) {
           const metadataData = await metadataResponse.json();
-          console.log('📥 Loaded HDT metadata from server:', metadataData);
           setMetadata(metadataData);
           populateFormFromMetadata(metadataData);
           
@@ -266,16 +265,12 @@ export default function HDTPage() {
   };
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
-    console.log('📝 Populating form from metadata:', meta);
-    
     // Handle both direct and nested metadata structures
     const dublinCore = meta.metadata?.dublinCore || meta.dublinCore;
     const cidocCrm = meta.metadata?.cidocCrm || meta.cidocCrm;
     
     // Dublin Core
     if (dublinCore) {
-      console.log('Dublin Core data:', dublinCore);
-      console.log('Date field value:', dublinCore.date, 'Type:', typeof dublinCore.date);
       setDcTitle(dublinCore.title || '');
       setDcDescription(dublinCore.description || '');
       // Handle creator as either string or array
@@ -295,7 +290,6 @@ export default function HDTPage() {
         setDcSubject('');
       }
       setDcDate(dublinCore.date || '');
-      console.log('Set dcDate to:', dublinCore.date || '');
       // Handle type as either string or array
       if (Array.isArray(dublinCore.type)) {
         setDcType(dublinCore.type.join(', '));
@@ -511,12 +505,8 @@ export default function HDTPage() {
     <div className="container py-4">
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
-        <Link to={`/projects/${projectId}`} className="btn btn-outline-secondary me-3">
-          ← Back to Project
-        </Link>
         <div className="flex-grow-1">
           <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
-          <p className="text-muted mb-0">Heritage Digital Twin metadata for: <strong>{project.name}</strong></p>
         </div>
         <div className="d-flex gap-2">
           <Link 
@@ -1526,16 +1516,6 @@ export default function HDTPage() {
               <>Last updated: {new Date(metadata.updatedAt!).toLocaleString()}</>
             ) : (
               <>No metadata saved yet</>
-            )}
-          </div>
-          <div className="text-muted small">
-            {saving ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Saving...
-              </>
-            ) : (
-              <>Changes auto-saved</>
             )}
           </div>
         </div>
