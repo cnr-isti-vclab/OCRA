@@ -125,6 +125,7 @@ export default function HDTPage() {
   const [digitalAssets, setDigitalAssets] = useState<Array<any>>([]);
   const [projectFiles, setProjectFiles] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Scenes state
   const [scenes, setScenes] = useState<Array<any>>([]);
@@ -882,17 +883,47 @@ export default function HDTPage() {
                     if (!file) return;
                     try {
                       setUploading(true);
+                      setUploadProgress(0);
                       setError(null);
                       setSuccessMessage(null);
                       
-                      // Upload file
+                      // Upload file with progress tracking
                       const formData = new FormData();
                       formData.append('file', file);
-                      const uploadRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData,
+                      
+                      const uploadRes = await new Promise<Response>((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        
+                        // Track upload progress
+                        xhr.upload.addEventListener('progress', (e) => {
+                          if (e.lengthComputable) {
+                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                            setUploadProgress(percentComplete);
+                          }
+                        });
+                        
+                        xhr.addEventListener('load', () => {
+                          if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(new Response(xhr.responseText, {
+                              status: xhr.status,
+                              statusText: xhr.statusText,
+                              headers: new Headers({
+                                'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
+                              })
+                            }));
+                          } else {
+                            reject(new Error(`Upload failed with status ${xhr.status}`));
+                          }
+                        });
+                        
+                        xhr.addEventListener('error', () => reject(new Error('Network error')));
+                        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+                        
+                        xhr.open('POST', `${getApiBase()}/api/projects/${projectId}/files`);
+                        xhr.withCredentials = true;
+                        xhr.send(formData);
                       });
+                      
                       if (!uploadRes.ok) {
                         const err = await uploadRes.json().catch(() => ({}));
                         throw new Error(err.error || 'Upload failed');
@@ -934,6 +965,7 @@ export default function HDTPage() {
                       setError(err?.message || 'Failed to upload asset');
                     } finally {
                       setUploading(false);
+                      setUploadProgress(0);
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
@@ -944,8 +976,22 @@ export default function HDTPage() {
                   onClick={() => document.getElementById('assetFileInput')?.click()}
                   disabled={uploading}
                 >
-                  {uploading ? '⏳ Uploading...' : '📤 Choose File to Upload'}
+                  {uploading ? `⏳ Uploading... ${uploadProgress}%` : '📤 Choose File to Upload'}
                 </button>
+                {uploading && uploadProgress > 0 && (
+                  <div className="progress mt-2" style={{ height: '20px' }}>
+                    <div
+                      className="progress-bar progress-bar-striped progress-bar-animated"
+                      role="progressbar"
+                      style={{ width: `${uploadProgress}%` }}
+                      aria-valuenow={uploadProgress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      {uploadProgress}%
+                    </div>
+                  </div>
+                )}
                 <small className="form-text text-muted d-block mt-2">
                   Click to browse and select a 3D model file. Upload will start automatically.
                 </small>
