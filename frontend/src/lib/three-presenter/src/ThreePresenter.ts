@@ -19,6 +19,18 @@ export type { SceneDescription, ModelDefinition, PresenterState };
 export { AnnotationManager };
 
 /**
+ * Progress information for model loading
+ */
+export interface LoadingProgress {
+  modelId: string;
+  fileName: string;
+  loaded: number;
+  total: number;
+  percentage: number;
+  status: 'loading' | 'parsing' | 'complete' | 'error';
+}
+
+/**
  * ThreePresenter - Main 3D Scene Presenter Component
  * 
  * Manages the complete 3D viewing experience including model loading, rendering,
@@ -74,6 +86,11 @@ export class ThreePresenter {
   
   // File URL resolver for loading models
   private fileUrlResolver: FileUrlResolver;
+  
+  // Loading progress callbacks
+  onLoadProgress?: (progress: LoadingProgress) => void;
+  onLoadComplete?: (modelId: string) => void;
+  onLoadError?: (modelId: string, error: Error) => void;
   
   // Managers
   private annotationManager: AnnotationManager;
@@ -702,6 +719,16 @@ export class ThreePresenter {
     console.log(`Loading model ${modelDef.id} from ${fullUrl}`);
     
     try {
+      // Notify loading started
+      this.onLoadProgress?.({
+        modelId: modelDef.id,
+        fileName: modelDef.file,
+        loaded: 0,
+        total: 0,
+        percentage: 0,
+        status: 'loading'
+      });
+      
       const model = await this.loadModelFile(fullUrl, modelDef);
       
       // Apply transforms (position, rotation, scale)
@@ -719,8 +746,31 @@ export class ThreePresenter {
       this.scene.add(model);
       
       console.log(`✅ Loaded model ${modelDef.id}`);
+      
+      // Notify completion
+      this.onLoadProgress?.({
+        modelId: modelDef.id,
+        fileName: modelDef.file,
+        loaded: 0,
+        total: 0,
+        percentage: 100,
+        status: 'complete'
+      });
+      this.onLoadComplete?.(modelDef.id);
     } catch (error) {
       console.error(`❌ Failed to load model ${modelDef.id}:`, error);
+      
+      // Notify error
+      this.onLoadProgress?.({
+        modelId: modelDef.id,
+        fileName: modelDef.file,
+        loaded: 0,
+        total: 0,
+        percentage: 0,
+        status: 'error'
+      });
+      this.onLoadError?.(modelDef.id, error as Error);
+      
       throw error;
     }
   }
@@ -737,7 +787,19 @@ export class ThreePresenter {
       roughness: modelDef.material.roughness
     } : undefined;
 
-    const result = await this.modelLoader.loadFromUrl(url, materialOverrides);
+    // Create progress callback
+    const onProgress = (loaded: number, total: number, percentage: number) => {
+      this.onLoadProgress?.({
+        modelId: modelDef.id,
+        fileName: modelDef.file,
+        loaded,
+        total,
+        percentage,
+        status: 'loading'
+      });
+    };
+
+    const result = await this.modelLoader.loadFromUrl(url, materialOverrides, onProgress);
     console.log(`📦 Loaded ${result.format.toUpperCase()} model (${(result.byteSize / 1024).toFixed(2)} KB)`);
     
     return result.object;

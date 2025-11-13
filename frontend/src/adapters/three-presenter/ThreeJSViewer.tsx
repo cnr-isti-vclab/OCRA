@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { ThreePresenter, AnnotationManager } from '../../lib/three-presenter/src';
+import { ThreePresenter, AnnotationManager, LoadingProgress } from '../../lib/three-presenter/src';
 import type { SceneDescription } from '../../lib/three-presenter/src/types/SceneTypes';
 import type { Annotation } from '../../../../shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
@@ -29,8 +29,11 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
   height?: string | number; 
   sceneDesc?: SceneDescription;
   onReady?: () => void; // Callback fired when presenter is initialized and ready
+  onLoadProgress?: (progress: LoadingProgress) => void; // Model loading progress
+  onLoadComplete?: (modelId: string) => void; // Model loading complete
+  onLoadError?: (modelId: string, error: Error) => void; // Model loading error
 }>(
-  ({ width = '100%', height = '100%', sceneDesc, onReady }, ref) => {
+  ({ width = '100%', height = '100%', sceneDesc, onReady, onLoadProgress, onLoadComplete, onLoadError }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
     const isFirstLoadRef = useRef<boolean>(true);
@@ -99,6 +102,15 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         presenterRef.current?.dispose();
       };
     }, [onReady]);
+    
+    // Update callbacks when they change (without recreating presenter)
+    useEffect(() => {
+      if (presenterRef.current) {
+        presenterRef.current.onLoadProgress = onLoadProgress;
+        presenterRef.current.onLoadComplete = onLoadComplete;
+        presenterRef.current.onLoadError = onLoadError;
+      }
+    }, [onLoadProgress, onLoadComplete, onLoadError]);
 
     // Load/reload scene when sceneDesc changes
     useEffect(() => {

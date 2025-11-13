@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
+import { LoadingProgress } from '../lib/three-presenter/src';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription, Annotation } from '../../../shared/scene-types';
 
@@ -56,6 +57,8 @@ export default function ProjectPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingRdf, setDownloadingRdf] = useState(false);
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
+  const [loadingModels, setLoadingModels] = useState<boolean>(false);
+  const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
 
@@ -735,12 +738,89 @@ export default function ProjectPage() {
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
           
           {sceneDesc && (
-            <ThreeJSViewer
-              ref={viewerRef}
-              height="100%"
-              sceneDesc={sceneDesc}
-              onReady={setupAnnotationCallback}
-            />
+            <>
+              <ThreeJSViewer
+                ref={viewerRef}
+                height="100%"
+                sceneDesc={sceneDesc}
+                onReady={setupAnnotationCallback}
+                onLoadProgress={(progress: LoadingProgress) => {
+                  setLoadingModels(true);
+                  setModelLoadProgress(prev => ({
+                    ...prev,
+                    [progress.modelId]: progress.percentage
+                  }));
+                }}
+                onLoadComplete={(modelId: string) => {
+                  setModelLoadProgress(prev => {
+                    const updated = { ...prev };
+                    delete updated[modelId];
+                    // Check if all models are done after this deletion
+                    if (Object.keys(updated).length === 0) {
+                      setLoadingModels(false);
+                    }
+                    return updated;
+                  });
+                }}
+                onLoadError={(modelId: string, error: Error) => {
+                  console.error(`Failed to load model ${modelId}:`, error);
+                  setModelLoadProgress(prev => {
+                    const updated = { ...prev };
+                    delete updated[modelId];
+                    return updated;
+                  });
+                }}
+              />
+              {/* Loading overlay */}
+              {loadingModels && Object.keys(modelLoadProgress).length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0, 0, 0, 0.6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontFamily: 'sans-serif',
+                  zIndex: 1000,
+                  pointerEvents: 'none'
+                }}>
+                  <div style={{ textAlign: 'center', maxWidth: '400px', width: '90%' }}>
+                    <div style={{ fontSize: '18px', marginBottom: '15px', fontWeight: 500 }}>
+                      Loading 3D Models...
+                    </div>
+                    {Object.entries(modelLoadProgress).map(([modelId, percentage]) => (
+                      <div key={modelId} style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '14px', marginBottom: '6px', opacity: 0.9 }}>
+                          {modelId}
+                        </div>
+                        <div style={{
+                          width: '100%',
+                          height: '6px',
+                          background: 'rgba(255, 255, 255, 0.2)',
+                          borderRadius: '3px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${percentage}%`,
+                            height: '100%',
+                            background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
+                            borderRadius: '3px',
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </div>
+                        <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+                          {Math.round(percentage)}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 

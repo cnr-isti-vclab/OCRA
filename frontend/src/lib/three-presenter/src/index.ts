@@ -6,7 +6,7 @@
 
 // Export main ThreePresenter class
 export { ThreePresenter } from './ThreePresenter';
-export type { SceneDescription, ModelDefinition, PresenterState } from './types/SceneTypes';
+export type { SceneDescription, ModelDefinition, PresenterState, LoadingProgress } from './ThreePresenter';
 
 // Export annotation system
 export { AnnotationManager } from './managers/AnnotationManager';
