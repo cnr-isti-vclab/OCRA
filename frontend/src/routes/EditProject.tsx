@@ -616,10 +616,13 @@ export default function EditProject() {
                         setShowImportModal(false);
                         setHasHdt(true); // Update state so button disappears
                         
-                        // Show success and navigate to HDT page
-                        if (window.confirm('✅ RDF imported successfully!\n\nThe Dublin Core metadata has been saved to MongoDB.\n\nClick OK to go to the HDT page to view the imported data, or Cancel to stay here.')) {
-                          navigate(`/projects/${projectId}/hdt`);
+                        // Update project name with dc:title from RDF
+                        if (dublinCore.title) {
+                          setName(dublinCore.title);
                         }
+                        
+                        // Show success message
+                        alert('✅ RDF imported successfully!\n\nThe Dublin Core metadata has been saved.\nThe project title field has been updated with the dc:title from the RDF file.\n\nYou can now save the project settings or navigate to the HDT page to view all imported metadata.');
                       } catch (err: any) {
                         console.error('❌ Import error:', err);
                         alert('Error importing RDF: ' + (err?.message || String(err)));

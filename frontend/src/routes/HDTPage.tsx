@@ -160,6 +160,8 @@ export default function HDTPage() {
   const [condition, setCondition] = useState('');
   const [culturalContext, setCulturalContext] = useState('');
   const [styleOrPeriod, setStyleOrPeriod] = useState('');
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const initialLoadRef = useRef(true); // Track if this is the first load
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -212,6 +214,7 @@ export default function HDTPage() {
 
         if (metadataResponse.ok) {
           const metadataData = await metadataResponse.json();
+          console.log('📥 Loaded HDT metadata from server:', metadataData);
           setMetadata(metadataData);
           populateFormFromMetadata(metadataData);
           
@@ -254,40 +257,90 @@ export default function HDTPage() {
       setError(e?.message ?? String(e));
     } finally {
       setLoading(false);
+      // Delay enabling auto-save to ensure all state updates have completed
+      setTimeout(() => {
+        setDataLoaded(true);
+        initialLoadRef.current = false;
+      }, 100);
     }
   };
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
+    console.log('📝 Populating form from metadata:', meta);
+    
+    // Handle both direct and nested metadata structures
+    const dublinCore = meta.metadata?.dublinCore || meta.dublinCore;
+    const cidocCrm = meta.metadata?.cidocCrm || meta.cidocCrm;
+    
     // Dublin Core
-    if (meta.dublinCore) {
-      setDcTitle(meta.dublinCore.title || '');
-      setDcDescription(meta.dublinCore.description || '');
-      setDcCreator((meta.dublinCore.creator || []).join(', '));
-      setDcSubject((meta.dublinCore.subject || []).join(', '));
-      setDcDate(meta.dublinCore.date || '');
-      setDcType((meta.dublinCore.type || []).join(', '));
-      setDcLanguage((meta.dublinCore.language || []).join(', '));
-      setDcCoverage(meta.dublinCore.coverage || '');
-      setDcRights(meta.dublinCore.rights || '');
-      setDcSource(meta.dublinCore.source || '');
+    if (dublinCore) {
+      console.log('Dublin Core data:', dublinCore);
+      console.log('Date field value:', dublinCore.date, 'Type:', typeof dublinCore.date);
+      setDcTitle(dublinCore.title || '');
+      setDcDescription(dublinCore.description || '');
+      // Handle creator as either string or array
+      if (Array.isArray(dublinCore.creator)) {
+        setDcCreator(dublinCore.creator.join(', '));
+      } else if (typeof dublinCore.creator === 'string') {
+        setDcCreator(dublinCore.creator);
+      } else {
+        setDcCreator('');
+      }
+      // Handle subject as either string or array
+      if (Array.isArray(dublinCore.subject)) {
+        setDcSubject(dublinCore.subject.join(', '));
+      } else if (typeof dublinCore.subject === 'string') {
+        setDcSubject(dublinCore.subject);
+      } else {
+        setDcSubject('');
+      }
+      setDcDate(dublinCore.date || '');
+      console.log('Set dcDate to:', dublinCore.date || '');
+      // Handle type as either string or array
+      if (Array.isArray(dublinCore.type)) {
+        setDcType(dublinCore.type.join(', '));
+      } else if (typeof dublinCore.type === 'string') {
+        setDcType(dublinCore.type);
+      } else {
+        setDcType('');
+      }
+      // Handle language as either string or array
+      if (Array.isArray(dublinCore.language)) {
+        setDcLanguage(dublinCore.language.join(', '));
+      } else if (typeof dublinCore.language === 'string') {
+        setDcLanguage(dublinCore.language);
+      } else {
+        setDcLanguage('');
+      }
+      setDcCoverage(dublinCore.coverage || '');
+      setDcRights(dublinCore.rights || '');
+      setDcSource(dublinCore.source || '');
     }
 
     // CIDOC-CRM
-    if (meta.cidocCrm) {
-      setObjectType(meta.cidocCrm.objectType || '');
-      setTimeSpanBegin(meta.cidocCrm.temporalCoverage?.timeSpanBegin || '');
-      setTimeSpanEnd(meta.cidocCrm.temporalCoverage?.timeSpanEnd || '');
-      setPeriod(meta.cidocCrm.temporalCoverage?.period || '');
-      setCentury(meta.cidocCrm.temporalCoverage?.century || '');
-      setPlaceName(meta.cidocCrm.spatialCoverage?.placeName || '');
-      setLatitude(meta.cidocCrm.spatialCoverage?.coordinates?.latitude?.toString() || '');
-      setLongitude(meta.cidocCrm.spatialCoverage?.coordinates?.longitude?.toString() || '');
-      setMaterial((meta.cidocCrm.material || []).join(', '));
-      setTechnique((meta.cidocCrm.technique || []).join(', '));
-      setCondition(meta.cidocCrm.condition || '');
-      setCulturalContext((meta.cidocCrm.culturalContext || []).join(', '));
-      setStyleOrPeriod((meta.cidocCrm.styleOrPeriod || []).join(', '));
+    if (cidocCrm) {
+      setObjectType(cidocCrm.objectType || '');
+      setTimeSpanBegin(cidocCrm.temporalCoverage?.timeSpanBegin || '');
+      setTimeSpanEnd(cidocCrm.temporalCoverage?.timeSpanEnd || '');
+      setPeriod(cidocCrm.temporalCoverage?.period || '');
+      setCentury(cidocCrm.temporalCoverage?.century || '');
+      setPlaceName(cidocCrm.spatialCoverage?.placeName || '');
+      setLatitude(cidocCrm.spatialCoverage?.coordinates?.latitude?.toString() || '');
+      setLongitude(cidocCrm.spatialCoverage?.coordinates?.longitude?.toString() || '');
+      setMaterial((cidocCrm.material || []).join(', '));
+      setTechnique((cidocCrm.technique || []).join(', '));
+      setCondition(cidocCrm.condition || '');
+      setCulturalContext((cidocCrm.culturalContext || []).join(', '));
+      setStyleOrPeriod((cidocCrm.styleOrPeriod || []).join(', '));
     }
+  };
+
+  // Manual save function (called by Save button)
+  const handleManualSave = async () => {
+    await autoSaveMetadata();
+    // Show success message
+    setSuccessMessage('✅ Metadata saved successfully!');
+    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   // Auto-save metadata function
@@ -391,33 +444,33 @@ export default function HDTPage() {
       placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
       digitalAssets, scenes, selectedModel]);
 
-  // Debounced auto-save effect
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  useEffect(() => {
-    // Don't auto-save on initial load (when metadata is being populated from server)
-    if (loading) return;
-    
-    // Clear previous timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Set new timeout for auto-save (debounce for 1 second)
-    saveTimeoutRef.current = setTimeout(() => {
-      autoSaveMetadata();
-    }, 1000);
-
-    // Cleanup
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, 
-      dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century, 
-      placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
-      loading, autoSaveMetadata]);
+  // Auto-save disabled - users must manually save their changes
+  // const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // 
+  // useEffect(() => {
+  //   // Don't auto-save on initial load (when metadata is being populated from server)
+  //   if (loading || !dataLoaded || initialLoadRef.current) return;
+  //   
+  //   // Clear previous timeout
+  //   if (saveTimeoutRef.current) {
+  //     clearTimeout(saveTimeoutRef.current);
+  //   }
+  //
+  //   // Set new timeout for auto-save (debounce for 1 second)
+  //   saveTimeoutRef.current = setTimeout(() => {
+  //     autoSaveMetadata();
+  //   }, 1000);
+  //
+  //   // Cleanup
+  //   return () => {
+  //     if (saveTimeoutRef.current) {
+  //       clearTimeout(saveTimeoutRef.current);
+  //     }
+  //   };
+  // }, [dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, 
+  //     dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century, 
+  //     placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
+  //     loading, dataLoaded, autoSaveMetadata]);
 
   if (loading) {
     return (
@@ -596,13 +649,14 @@ export default function HDTPage() {
                 <div className="col-md-6 mb-3">
                   <label htmlFor="dc-date" className="form-label">Date</label>
                   <input
-                    type="date"
+                    type="text"
                     className="form-control"
                     id="dc-date"
                     value={dcDate}
                     onChange={(e) => setDcDate(e.target.value)}
+                    placeholder="e.g., 1924, 1924-05, 1924-05-15"
                   />
-                  <small className="form-text text-muted">dc:date (ISO 8601)</small>
+                  <small className="form-text text-muted">dc:date (flexible format: year, year-month, or ISO 8601 date)</small>
                 </div>
               </div>
 
@@ -686,6 +740,22 @@ export default function HDTPage() {
                   placeholder="Copyright statement or rights information"
                 />
                 <small className="form-text text-muted">dc:rights</small>
+              </div>
+
+              {/* Save Button for Dublin Core */}
+              <div className="d-flex gap-2 mt-4">
+                <button
+                  onClick={handleManualSave}
+                  disabled={saving}
+                  className="btn btn-success"
+                >
+                  {saving ? '💾 Saving...' : '💾 Save Dublin Core Metadata'}
+                </button>
+                {successMessage && (
+                  <div className="alert alert-success mb-0 py-2 px-3" role="alert">
+                    {successMessage}
+                  </div>
+                )}
               </div>
             </div>
           )}

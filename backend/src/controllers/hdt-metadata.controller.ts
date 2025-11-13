@@ -138,6 +138,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     }
     
     // Use provided metadata from request body, or fallback to project defaults
+    console.log('HDT CREATE: req.body:', JSON.stringify(req.body, null, 2));
     const initialMetadata = req.body?.dublinCore ? {
       dublinCore: req.body.dublinCore,
       cidocCrm: req.body.cidocCrm || {}
@@ -151,6 +152,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
         objectType: 'Digital Heritage Twin'
       }
     };
+    console.log('HDT CREATE: initialMetadata:', JSON.stringify(initialMetadata, null, 2));
     
     // Create HDT document with metadata
     const document = await createHDTDocument(
@@ -158,6 +160,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       currentUser.sub,
       initialMetadata
     );
+    console.log('HDT CREATE: created document:', JSON.stringify(document, null, 2));
     
     res.status(201).json(document);
   } catch (error: any) {
@@ -178,6 +181,9 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
     const { projectId } = req.params;
     const currentUser = getCurrentUser(req);
     const metadataUpdates = req.body;
+    
+    console.log('HDT UPDATE: req.body:', JSON.stringify(req.body, null, 2));
+    console.log('HDT UPDATE: metadataUpdates:', JSON.stringify(metadataUpdates, null, 2));
     
     if (!currentUser) {
       return res.status(401).json({ error: 'Authentication required' });

@@ -88,6 +88,8 @@ export async function createHDTDocument(
   
   const now = new Date();
   
+  console.log('HDT SERVICE: createHDTDocument initialData:', JSON.stringify(initialData, null, 2));
+  
   const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,
     metadata: {
@@ -141,6 +143,8 @@ export async function updateHDTMetadata(
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
   
+  console.log('HDT SERVICE: updateHDTMetadata metadataUpdate:', JSON.stringify(metadataUpdate, null, 2));
+  
   const updateDoc: any = {
     $set: {
       updatedAt: new Date(),
@@ -155,11 +159,15 @@ export async function updateHDTMetadata(
     updateDoc.$set['metadata.cidocCrm'] = metadataUpdate.cidocCrm;
   }
   
+  console.log('HDT SERVICE: updateDoc to MongoDB:', JSON.stringify(updateDoc, null, 2));
+  
   const result = await collection.findOneAndUpdate(
     { projectId },
     updateDoc,
     { returnDocument: 'after' }
   );
+  
+  console.log('HDT SERVICE: MongoDB result:', result ? 'Document updated' : 'No document found');
   
   return result as unknown as HDTDocument | null;
 }
