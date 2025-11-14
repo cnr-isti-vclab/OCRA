@@ -2,6 +2,216 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
+import * as N3 from 'n3';
+
+// Default values for Echoes KB Manager API
+const DEFAULT_ECHOES_ENDPOINT = 'https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query';
+const DEFAULT_ECHOES_QUERY = `{
+  "query": "PREFIX htdo: <http://heritage-digital-twin-ontology/> PREFIX void: <http://rdfs.org/ns/void#> SELECT distinct ?s ?p ?o { graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>} ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }",
+  "tripleStoreIds": [
+    "69088495d17ed4f51ab8f6a8",
+    "69088509d17ed4f51ab8f6a9",
+    "690885c3d17ed4f51ab8f6aa"
+  ],
+  "executorTripleStoreId": "68fa3ad9f20fe43d497686b3"
+}`;
+
+/**
+ * Convert SPARQL JSON results to N3 Quads
+ * @param sparqlJson SPARQL JSON results object
+ * @returns Array of N3 Quads
+ */
+function sparqlJsonToQuads(sparqlJson: any): N3.Quad[] {
+  const { DataFactory } = N3;
+  const quads: N3.Quad[] = [];
+  
+  if (!sparqlJson?.results?.bindings) {
+    throw new Error('Invalid SPARQL JSON format');
+  }
+  
+  for (const binding of sparqlJson.results.bindings) {
+    // Extract subject, predicate, object from binding
+    const s = binding.s || binding.subject;
+    const p = binding.p || binding.predicate;
+    const o = binding.o || binding.object;
+    
+    if (!s || !p || !o) continue;
+    
+    // Create subject term
+    let subject: N3.Quad_Subject;
+    if (s.type === 'uri' || s.type === 'iri') {
+      subject = DataFactory.namedNode(s.value);
+    } else if (s.type === 'bnode') {
+      subject = DataFactory.blankNode(s.value);
+    } else {
+      continue; // Skip invalid subjects
+    }
+    
+    // Create predicate term (must be URI)
+    if (p.type !== 'uri' && p.type !== 'iri') continue;
+    const predicate = DataFactory.namedNode(p.value);
+    
+    // Create object term
+    let object: N3.Quad_Object;
+    if (o.type === 'uri' || o.type === 'iri') {
+      object = DataFactory.namedNode(o.value);
+    } else if (o.type === 'bnode') {
+      object = DataFactory.blankNode(o.value);
+    } else if (o.type === 'literal' || o.type === 'typed-literal') {
+      if (o.datatype) {
+        object = DataFactory.literal(o.value, DataFactory.namedNode(o.datatype));
+      } else if (o['xml:lang'] || o.lang) {
+        object = DataFactory.literal(o.value, o['xml:lang'] || o.lang);
+      } else {
+        object = DataFactory.literal(o.value);
+      }
+    } else {
+      continue; // Skip invalid objects
+    }
+    
+    quads.push(DataFactory.quad(subject, predicate, object));
+  }
+  
+  return quads;
+}
+
+/**
+ * Extract Dublin Core metadata from RDF quads
+ * @param quads Array of N3 Quads
+ * @returns Dublin Core metadata object
+ */
+function extractDublinCoreFromQuads(quads: N3.Quad[]): any {
+  const getValue = (term: N3.Term | null): string => {
+    if (!term) return '';
+    return term.value;
+  };
+  
+  const dcNamespace = 'http://purl.org/dc/elements/1.1/';
+  const foafNamespace = 'http://xmlns.com/foaf/0.1/';
+  const dublinCore: any = {};
+  const creatorNodes = new Set<string>();
+  
+  // First pass: extract Dublin Core properties
+  for (const quad of quads) {
+    const p = quad.predicate.value;
+    if (p === dcNamespace + 'title') {
+      dublinCore.title = getValue(quad.object);
+    } else if (p === dcNamespace + 'creator') {
+      if (quad.object.termType === 'NamedNode' || quad.object.termType === 'BlankNode') {
+        creatorNodes.add(quad.object.value);
+      } else {
+        dublinCore.creator = getValue(quad.object);
+      }
+    } else if (p === dcNamespace + 'date') {
+      dublinCore.date = getValue(quad.object);
+    } else if (p === dcNamespace + 'description') {
+      dublinCore.description = getValue(quad.object);
+    } else if (p === dcNamespace + 'coverage') {
+      dublinCore.coverage = getValue(quad.object);
+    } else if (p === dcNamespace + 'rights') {
+      dublinCore.rights = getValue(quad.object);
+    } else if (p === dcNamespace + 'identifier') {
+      dublinCore.identifier = getValue(quad.object);
+    } else if (p === dcNamespace + 'subject') {
+      dublinCore.subject = getValue(quad.object);
+    } else if (p === dcNamespace + 'type') {
+      dublinCore.type = getValue(quad.object);
+    } else if (p === dcNamespace + 'language') {
+      dublinCore.language = getValue(quad.object);
+    } else if (p === dcNamespace + 'source') {
+      dublinCore.source = getValue(quad.object);
+    }
+  }
+  
+  // Second pass: resolve creator names from foaf:name
+  if (creatorNodes.size > 0 && !dublinCore.creator) {
+    for (const quad of quads) {
+      if (creatorNodes.has(quad.subject.value) && quad.predicate.value === foafNamespace + 'name') {
+        dublinCore.creator = getValue(quad.object);
+        break;
+      }
+    }
+  }
+  
+  return dublinCore;
+}
+
+/**
+ * EXPERIMENTAL: Import HDT metadata from Echoes KB Manager API
+ * 
+ * This function handles the complete workflow of querying the Echoes KB Manager API
+ * and extracting Dublin Core metadata from the results.
+ * 
+ * API Format:
+ * - Endpoint: https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query
+ * - Method: POST
+ * - Content-Type: application/json
+ * - Body: { query: string, tripleStoreIds: string[], executorTripleStoreId: string }
+ * 
+ * @param endpointUrl The API endpoint URL (e.g., Echoes KB Manager query endpoint)
+ * @param queryPayloadJson JSON string containing query, tripleStoreIds, and executorTripleStoreId
+ * @returns Promise with Dublin Core metadata and quad count
+ */
+async function importFromSparqlEndpoint(
+  endpointUrl: string,
+  queryPayloadJson: string
+): Promise<{ dublinCore: any; quadCount: number }> {
+  // Parse the JSON payload
+  let queryPayload;
+  try {
+    queryPayload = JSON.parse(queryPayloadJson);
+  } catch (e) {
+    throw new Error('Query payload must be valid JSON with query, tripleStoreIds, and executorTripleStoreId fields');
+  }
+  
+  // Validate required fields
+  if (!queryPayload.query || !queryPayload.tripleStoreIds || !queryPayload.executorTripleStoreId) {
+    throw new Error('Query payload must include query, tripleStoreIds, and executorTripleStoreId');
+  }
+  
+  // Use backend proxy to avoid CORS issues
+  const sessionId = localStorage.getItem('oauth_session_id');
+  const response = await fetch(`${getApiBase()}/api/sparql-proxy`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Authorization': `Bearer ${sessionId}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify({
+      endpoint: endpointUrl,
+      payload: queryPayload
+    })
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `API request failed: ${response.status} ${response.statusText}`);
+  }
+  
+  let sparqlJson = await response.json();
+  
+  // Handle wrapped responses (e.g., {"succeed": true, "results": {...}})
+  if (sparqlJson.succeed && sparqlJson.results) {
+    sparqlJson = sparqlJson.results;
+  }
+  
+  // Convert SPARQL JSON to RDF quads
+  const quads = sparqlJsonToQuads(sparqlJson);
+  
+  if (quads.length === 0) {
+    throw new Error('No RDF triples found in SPARQL results');
+  }
+  
+  // Extract Dublin Core metadata from quads
+  const dublinCore = extractDublinCoreFromQuads(quads);
+  
+  return {
+    dublinCore,
+    quadCount: quads.length
+  };
+}
 
 /**
  * EDIT PROJECT COMPONENT
@@ -53,6 +263,10 @@ export default function EditProject() {
   const [error, setError] = useState<string | null>(null);
   const [hasHdt, setHasHdt] = useState<boolean | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importMode, setImportMode] = useState<'file' | 'sparql'>('file');
+  const [sparqlEndpoint, setSparqlEndpoint] = useState('');
+  const [sparqlQuery, setSparqlQuery] = useState('');
+  const [sparqlLoading, setSparqlLoading] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -510,40 +724,130 @@ export default function EditProject() {
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">
-                <div className="mb-3">
-                  <label htmlFor="hdtRdfFile" className="form-label">Upload RDF (JSON-LD) file</label>
-                  <input
-                    type="file"
-                    id="hdtRdfFile"
-                    accept=".json,.jsonld,.rdf,.ttl,.txt,application/json,application/ld+json"
-                    className="form-control"
+                {/* Tab Navigation */}
+                <ul className="nav nav-tabs mb-3" role="tablist">
+                  <li className="nav-item" role="presentation">
+                    <button
+                      className={`nav-link ${importMode === 'file' ? 'active' : ''}`}
+                      onClick={() => setImportMode('file')}
+                      type="button"
+                    >
+                      📁 Upload File
+                    </button>
+                  </li>
+                  <li className="nav-item" role="presentation">
+                    <button
+                      className={`nav-link ${importMode === 'sparql' ? 'active' : ''}`}
+                      onClick={() => setImportMode('sparql')}
+                      type="button"
+                    >
+                      🔍 SPARQL Endpoint
+                    </button>
+                  </li>
+                </ul>
+
+                {/* File Upload Tab */}
+                {importMode === 'file' && (
+                  <div>
+                    <div className="mb-3">
+                      <label htmlFor="hdtRdfFile" className="form-label">Upload RDF file</label>
+                      <input
+                        type="file"
+                        id="hdtRdfFile"
+                        accept=".json,.jsonld,.rdf,.ttl,.txt,application/json,application/ld+json"
+                        className="form-control"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       try {
                         const text = await file.text();
-                        let data;
-                        try {
-                          data = JSON.parse(text);
-                        } catch (err) {
-                          alert('Could not parse file as JSON-LD. Please check the format.');
+                        
+                        // Parse RDF using N3 (supports JSON-LD, Turtle, RDF/XML, N-Triples)
+                        const parser = new N3.Parser();
+                        const quads: N3.Quad[] = [];
+                        
+                        await new Promise<void>((resolve, reject) => {
+                          parser.parse(text, (error, quad, prefixes) => {
+                            if (error) {
+                              reject(error);
+                              return;
+                            }
+                            if (quad) {
+                              quads.push(quad);
+                            } else {
+                              // Parsing complete
+                              resolve();
+                            }
+                          });
+                        });
+                        
+                        if (quads.length === 0) {
+                          alert('No RDF data found in file. Please check the format.');
                           return;
                         }
                         
-                        // Map RDF fields to HDT Dublin Core metadata
-                        const dublinCore = {
-                          title: data['dc:title'],
-                          creator: data['dc:creator']?.['foaf:name'] || data['dc:creator']?.['@id'] || data['dc:creator'],
-                          date: data['dc:date'],
-                          description: data['dc:description'],
-                          coverage: data['dc:coverage'],
-                          rights: data['dc:rights'],
-                          identifier: data['dc:identifier'],
-                          subject: data['dc:subject'],
-                          type: data['dc:type'],
-                          language: data['dc:language'],
-                          source: data['dc:source'],
+                        // Helper to get literal value or URI
+                        const getValue = (term: N3.Term | null): string => {
+                          if (!term) return '';
+                          if (term.termType === 'Literal') {
+                            return term.value;
+                          }
+                          if (term.termType === 'NamedNode') {
+                            return term.value;
+                          }
+                          return term.value;
                         };
+                        
+                        // Extract Dublin Core metadata from RDF triples
+                        const dcNamespace = 'http://purl.org/dc/elements/1.1/';
+                        const foafNamespace = 'http://xmlns.com/foaf/0.1/';
+                        
+                        const dublinCore: any = {};
+                        const creatorNodes = new Set<string>();
+                        
+                        // First pass: collect all predicates
+                        for (const quad of quads) {
+                          const predicate = quad.predicate.value;
+                          
+                          if (predicate === dcNamespace + 'title') {
+                            dublinCore.title = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'creator') {
+                            // Creator might be a URI reference to another node
+                            if (quad.object.termType === 'NamedNode' || quad.object.termType === 'BlankNode') {
+                              creatorNodes.add(quad.object.value);
+                            } else {
+                              dublinCore.creator = getValue(quad.object);
+                            }
+                          } else if (predicate === dcNamespace + 'date') {
+                            dublinCore.date = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'description') {
+                            dublinCore.description = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'coverage') {
+                            dublinCore.coverage = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'rights') {
+                            dublinCore.rights = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'identifier') {
+                            dublinCore.identifier = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'subject') {
+                            dublinCore.subject = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'type') {
+                            dublinCore.type = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'language') {
+                            dublinCore.language = getValue(quad.object);
+                          } else if (predicate === dcNamespace + 'source') {
+                            dublinCore.source = getValue(quad.object);
+                          }
+                        }
+                        
+                        // Second pass: resolve creator names from foaf:name
+                        if (creatorNodes.size > 0 && !dublinCore.creator) {
+                          for (const quad of quads) {
+                            if (creatorNodes.has(quad.subject.value) && quad.predicate.value === foafNamespace + 'name') {
+                              dublinCore.creator = getValue(quad.object);
+                              break;
+                            }
+                          }
+                        }
 
                         // Create or update HDT metadata via backend
                         const sessionId = localStorage.getItem('oauth_session_id');
@@ -615,12 +919,115 @@ export default function EditProject() {
                       }
                     }}
                   />
-                  <div className="form-text">Supported: JSON-LD RDF files. Only basic fields will be imported.</div>
+                  <div className="form-text">Supported: JSON-LD, Turtle, RDF/XML, N-Triples</div>
                 </div>
                 <div className="alert alert-info">
-                  Upload an RDF (JSON-LD) file to import Dublin Core metadata. All fields (title, creator, date, description, coverage, rights, etc.) will be saved to the HDT metadata document.
+                  Upload an RDF file to import Dublin Core metadata. All fields will be saved to the HDT metadata document.
                 </div>
               </div>
+            )}
+
+            {/* SPARQL Endpoint Tab */}
+            {importMode === 'sparql' && (
+              <div>
+                <div className="mb-3">
+                  <label htmlFor="sparqlEndpoint" className="form-label">API Endpoint URL</label>
+                  <input
+                    type="url"
+                    id="sparqlEndpoint"
+                    className="form-control"
+                    placeholder="https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query"
+                    value={sparqlEndpoint}
+                    onChange={(e) => setSparqlEndpoint(e.target.value)}
+                  />
+                  <div className="form-text">
+                    Default: https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="sparqlQuery" className="form-label">Query Payload (JSON)</label>
+                  <textarea
+                    id="sparqlQuery"
+                    className="form-control font-monospace"
+                    rows={12}
+                    placeholder={`{\n  "query": "PREFIX htdo: <http://heritage-digital-twin-ontology/> PREFIX void: <http://rdfs.org/ns/void#> SELECT distinct ?s ?p ?o { graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>} ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }",\n  "tripleStoreIds": [\n    "69088495d17ed4f51ab8f6a8",\n    "69088509d17ed4f51ab8f6a9",\n    "690885c3d17ed4f51ab8f6aa"\n  ],\n  "executorTripleStoreId": "68fa3ad9f20fe43d497686b3"\n}`}
+                    value={sparqlQuery}
+                    onChange={(e) => setSparqlQuery(e.target.value)}
+                  />
+                  <div className="form-text">
+                    JSON object with query, tripleStoreIds, and executorTripleStoreId fields
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    try {
+                      setSparqlLoading(true);
+                      
+                      // Use default values if fields are empty
+                      const endpoint = sparqlEndpoint.trim() || DEFAULT_ECHOES_ENDPOINT;
+                      const payload = sparqlQuery.trim() || DEFAULT_ECHOES_QUERY;
+                      
+                      // EXPERIMENTAL: Use isolated SPARQL import function
+                      const { dublinCore, quadCount } = await importFromSparqlEndpoint(
+                        endpoint,
+                        payload
+                      );
+
+                      // Save to backend
+                      const sessionId = localStorage.getItem('oauth_session_id');
+                      const hdtPayload = { 
+                        dublinCore, 
+                        cidocCrm: {}, 
+                        gettyAAT: {}, 
+                        digitalAssets: [], 
+                        scenes: [] 
+                      };
+                      
+                      const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, { 
+                        credentials: 'include' 
+                      });
+                      
+                      const method = checkRes.status === 404 ? 'POST' : 'PUT';
+                      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+                        method,
+                        credentials: 'include',
+                        headers: { 
+                          'Authorization': `Bearer ${sessionId}`, 
+                          'Content-Type': 'application/json' 
+                        },
+                        body: JSON.stringify(hdtPayload)
+                      });
+
+                      if (!response.ok) {
+                        throw new Error(`Failed to save: HTTP ${response.status}`);
+                      }
+
+                      setShowImportModal(false);
+                      setHasHdt(true);
+                      
+                      if (dublinCore.title) {
+                        setName(dublinCore.title);
+                      }
+                      
+                      alert(`✅ Successfully imported ${quadCount} RDF triples from SPARQL endpoint!\n\nDublin Core metadata has been saved.`);
+                    } catch (err: any) {
+                      console.error('SPARQL import error:', err);
+                      alert('Error importing from SPARQL: ' + (err?.message || String(err)));
+                    } finally {
+                      setSparqlLoading(false);
+                    }
+                  }}
+                  disabled={sparqlLoading}
+                >
+                  {sparqlLoading ? '⏳ Loading...' : '🔍 Query & Import'}
+                </button>
+                <div className="alert alert-info mt-3 small">
+                  <strong>Echoes KB Manager API:</strong> Provide the query endpoint URL and a JSON payload with your SPARQL query, tripleStoreIds, and executorTripleStoreId. Results must be SPARQL JSON format.
+                </div>
+              </div>
+            )}
+          </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>Close</button>
               </div>

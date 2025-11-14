@@ -31,6 +31,7 @@ router.use('/health', healthRoutes);
 router.use('/users', usersRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/projects', hdtMetadataRoutes); // HDT metadata: /api/projects/:id/hdt
+router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
 

@@ -337,4 +337,37 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   }
 });
 
+// CORS proxy for SPARQL endpoints (to avoid CORS issues when querying external APIs)
+router.post('/sparql-proxy', requireAuth, async (req, res) => {
+  try {
+    const { endpoint, payload } = req.body;
+    
+    if (!endpoint || !payload) {
+      return res.status(400).json({ error: 'Missing endpoint or payload' });
+    }
+    
+    // Forward the request to the SPARQL endpoint
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      return res.status(response.status).json({ 
+        error: `SPARQL endpoint returned ${response.status}: ${response.statusText}` 
+      });
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error: any) {
+    console.error('SPARQL proxy error:', error);
+    res.status(500).json({ error: error.message || 'Failed to query SPARQL endpoint' });
+  }
+});
+
 export default router;
