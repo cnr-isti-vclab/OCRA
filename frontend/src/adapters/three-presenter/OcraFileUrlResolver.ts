@@ -16,7 +16,8 @@ import type { FileUrlResolver, FileResolverContext } from './types/FileUrlResolv
  * Checks multiple sources in order:
  * 1. Vite environment variable (development)
  * 2. Runtime window.__APP_CONFIG__ (production/Docker)
- * 3. Fallback to localhost:3002 (OCRA backend default port)
+ * 3. Relative URL for reverse proxy deployments
+ * 4. Fallback to localhost:3002 (OCRA backend default port)
  */
 function getApiBase(): string {
   // Development: Use Vite environment variable
@@ -28,6 +29,13 @@ function getApiBase(): string {
   if (typeof window !== 'undefined' && window.__APP_CONFIG__?.apiBase) {
     return window.__APP_CONFIG__.apiBase;
   }
+
+  // Production with reverse proxy: Use relative URL (same origin)
+  // This works when backend is served at /api path on the same domain
+  if (typeof window !== 'undefined' && window.location.origin !== 'http://localhost:5173') {
+    return window.location.origin;
+  }
+
   // Log warning if falling back
   console.warn(
     '[OcraFileUrlResolver] API base URL not configured; falling back to http://localhost:3002'

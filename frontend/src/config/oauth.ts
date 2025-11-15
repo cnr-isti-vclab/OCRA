@@ -52,6 +52,12 @@ export function getApiBase(): string {
     return window.__APP_CONFIG__.apiBase;
   }
 
+  // Production with reverse proxy: Use relative URL (same origin)
+  // This works when backend is served at /api path on the same domain
+  if (typeof window !== 'undefined' && window.location.origin !== 'http://localhost:5173') {
+    return window.location.origin;
+  }
+
   // Fallback for local development
   return 'http://localhost:3002';
 }

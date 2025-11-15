@@ -104,7 +104,9 @@ ISSUER=https://ocra.isti.cnr.it/auth/realms/demo
 CLIENT_ID=react-oauth
 REDIRECT_URI=https://ocra.isti.cnr.it
 SCOPE=openid profile email
-VITE_API_BASE=https://ocra.isti.cnr.it/api
+# NOTE: VITE_API_BASE can be omitted when using reverse proxy
+# The frontend will automatically use the same origin (https://ocra.isti.cnr.it)
+# VITE_API_BASE=https://ocra.isti.cnr.it
 ```
 
 ### Step 3: Deploy
