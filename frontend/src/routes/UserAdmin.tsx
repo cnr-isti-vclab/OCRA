@@ -289,9 +289,6 @@ export default function UserAdmin() {
                       <td className="text-center">
                         <span className={`badge ${user.managedProjectsCount ? 'bg-info text-dark' : 'bg-secondary'}`}>{user.managedProjectsCount || 0}</span>
                       </td>
-                    <td className="text-center">
-                      <span className={`badge ${user.managedProjectsCount ? 'bg-info text-dark' : 'bg-secondary'}`}>{user.managedProjectsCount || 0}</span>
-                    </td>
                     <td className={user.lastLoginAt ? '' : 'text-danger'}>{formatLastLogin(user.lastLoginAt)}</td>
                     <td>{formatDate(user.createdAt)}</td>
                   </tr>
