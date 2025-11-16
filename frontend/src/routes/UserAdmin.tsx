@@ -10,7 +10,7 @@ import { getApiBase } from '../config/oauth';
  */
 
 interface User {
-  id: number;
+  id: string;  // Changed from number to string (cuid)
   sub: string;
   email: string;
   name?: string;
@@ -28,14 +28,44 @@ interface User {
 
 export default function UserAdmin() {
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [filterCreator, setFilterCreator] = useState<'all' | 'creators' | 'non-creators'>('all');
   const [sortCreatorAsc, setSortCreatorAsc] = useState<boolean | null>(null); // null = no sort, true = asc, false = desc
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchUsers();
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      console.log('Fetching current user...');
+      const url = `${getApiBase()}/api/sessions/current`;
+      console.log('URL:', url);
+      
+      const response = await fetch(url, {
+        credentials: 'include',
+      });
+      
+      console.log('Current user response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Current user response data:', data);
+        // The API returns { success: true, user: { ... } }
+        const userData = data.user || data;
+        console.log('Extracted user data:', userData);
+        setCurrentUser(userData);
+      } else {
+        console.error('Failed to fetch current user:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -95,6 +125,80 @@ export default function UserAdmin() {
       return [user.given_name, user.middle_name, user.family_name].filter(Boolean).join(' ');
     }
     return user.username || user.email || 'Unknown';
+  };
+
+  const toggleCreatorPrivilege = async (user: User) => {
+    console.log('toggleCreatorPrivilege called for user:', user.id, user.email);
+    console.log('currentUser:', currentUser);
+    console.log('currentUser?.sys_admin:', currentUser?.sys_admin);
+    
+    if (!currentUser?.sys_admin) {
+      console.log('User is not admin, showing alert');
+      alert('Only administrators can change user privileges');
+      return;
+    }
+
+    if (updatingUserId === user.id) {
+      console.log('Already updating this user, ignoring click');
+      return; // Already updating this user
+    }
+
+    const newCreatorStatus = !user.sys_creator;
+    const confirmMessage = newCreatorStatus
+      ? `Grant creator privilege to ${getDisplayName(user)}?`
+      : `Revoke creator privilege from ${getDisplayName(user)}?`;
+
+    console.log('Showing confirmation dialog:', confirmMessage);
+    if (!confirm(confirmMessage)) {
+      console.log('User cancelled the confirmation');
+      return;
+    }
+
+    console.log('Setting updatingUserId to:', user.id);
+    setUpdatingUserId(user.id);
+
+    try {
+      const url = `${getApiBase()}/api/admin/users/${user.id}/privileges`;
+      console.log('Calling API:', url);
+      console.log('Request body:', { sys_creator: newCreatorStatus });
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sys_creator: newCreatorStatus,
+        }),
+      });
+
+      console.log('API response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API error response:', errorData);
+        throw new Error(errorData.error || `Failed to update privilege: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('API success response:', result);
+
+      // Update the user in the local state
+      setUsers(prevUsers =>
+        prevUsers.map(u =>
+          u.id === user.id ? { ...u, sys_creator: result.user.sys_creator } : u
+        )
+      );
+
+      console.log('Creator privilege updated successfully');
+    } catch (error: any) {
+      console.error('Error updating creator privilege:', error);
+      alert(`Failed to update privilege: ${error.message}`);
+    } finally {
+      console.log('Clearing updatingUserId');
+      setUpdatingUserId(null);
+    }
   };
 
   if (loading) {
@@ -165,7 +269,22 @@ export default function UserAdmin() {
                         <span className={`badge ${user.sys_admin ? 'bg-success' : 'bg-secondary'}`}>{user.sys_admin ? 'Yes' : 'No'}</span>
                       </td>
                       <td className="text-center">
-                        <span className={`badge ${user.sys_creator ? 'bg-primary' : 'bg-secondary'}`}>{user.sys_creator ? 'Yes' : 'No'}</span>
+                        <span 
+                          className={`badge ${user.sys_creator ? 'bg-primary' : 'bg-secondary'} ${currentUser?.sys_admin ? 'cursor-pointer' : ''}`}
+                          style={currentUser?.sys_admin ? { cursor: 'pointer', userSelect: 'none' } : {}}
+                          onClick={(e) => {
+                            console.log('Badge clicked!', { userId: user.id, isAdmin: currentUser?.sys_admin });
+                            e.stopPropagation();
+                            if (currentUser?.sys_admin) {
+                              toggleCreatorPrivilege(user);
+                            } else {
+                              console.log('Not admin, click ignored');
+                            }
+                          }}
+                          title={currentUser?.sys_admin ? 'Click to toggle creator privilege' : ''}
+                        >
+                          {updatingUserId === user.id ? '...' : (user.sys_creator ? 'Yes' : 'No')}
+                        </span>
                       </td>
                       <td className="text-center">
                         <span className={`badge ${user.managedProjectsCount ? 'bg-info text-dark' : 'bg-secondary'}`}>{user.managedProjectsCount || 0}</span>
