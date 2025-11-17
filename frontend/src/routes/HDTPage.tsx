@@ -871,7 +871,7 @@ export default function HDTPage() {
 
               {/* Upload New Asset */}
               <div className="mb-4">
-                <h6 className="text-primary mb-2">📤 Upload New 3D Model</h6>
+                <h6 className="text-primary mb-2">Add a new 3D model</h6>
                 <input
                   type="file"
                   id="assetFileInput"
@@ -971,13 +971,26 @@ export default function HDTPage() {
                   }}
                   disabled={uploading}
                 />
-                <button
-                  className="btn btn-primary"
-                  onClick={() => document.getElementById('assetFileInput')?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? `⏳ Uploading... ${uploadProgress}%` : '📤 Choose File to Upload'}
-                </button>
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => document.getElementById('assetFileInput')?.click()}
+                    disabled={uploading}
+                    title="Click to browse and select a 3D model file. Upload will start automatically."
+                  >
+                    {uploading ? `Uploading... ${uploadProgress}%` : 'Import from a local file'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => {
+                      alert('3D IIIF Manifest import feature coming soon!');
+                    }}
+                    disabled={uploading}
+                  >
+                    Import from 3D IIIF Manifest
+                  </button>
+                </div>
                 {uploading && uploadProgress > 0 && (
                   <div className="progress mt-2" style={{ height: '20px' }}>
                     <div
@@ -992,9 +1005,6 @@ export default function HDTPage() {
                     </div>
                   </div>
                 )}
-                <small className="form-text text-muted d-block mt-2">
-                  Click to browse and select a 3D model file. Upload will start automatically.
-                </small>
               </div>
             </div>
           )}
