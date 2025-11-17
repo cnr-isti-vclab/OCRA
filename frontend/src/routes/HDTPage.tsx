@@ -267,8 +267,8 @@ export default function HDTPage() {
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
     // Handle both direct and nested metadata structures
-    const dublinCore = meta.metadata?.dublinCore || meta.dublinCore;
-    const cidocCrm = meta.metadata?.cidocCrm || meta.cidocCrm;
+    const dublinCore = (meta as any).metadata?.dublinCore || meta.dublinCore;
+    const cidocCrm = (meta as any).metadata?.cidocCrm || meta.cidocCrm;
     
     // Dublin Core
     if (dublinCore) {

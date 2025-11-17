@@ -308,10 +308,12 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
   xmlns:dc="http://purl.org/dc/elements/1.1/"
   xmlns:dcterms="http://purl.org/dc/terms/"
-  xmlns:hdt="http://example.org/hdt#">
+  xmlns:hdt="http://echoes-eccch.eu/hdt#"
+  xmlns:prov="http://www.w3.org/ns/prov#"
+  xmlns:foaf="http://xmlns.com/foaf/0.1/">
 
   <rdf:Description rdf:about="urn:project:${projectId}">
-    <rdf:type rdf:resource="http://example.org/hdt#HeritageDigitalTwin"/>
+    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>
     <dc:title>${escapeXml(hdtDoc.metadata?.dublinCore?.title as any || 'Untitled')}</dc:title>
     <dc:description>${escapeXml(hdtDoc.metadata?.dublinCore?.description as any || '')}</dc:description>
     <dc:creator>${escapeXml(hdtDoc.metadata?.dublinCore?.creator as any || '')}</dc:creator>
@@ -325,7 +327,33 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
     <dc:source>${escapeXml(hdtDoc.metadata?.dublinCore?.source as any || '')}</dc:source>
     <dcterms:created>${hdtDoc.createdAt ? new Date(hdtDoc.createdAt).toISOString() : ''}</dcterms:created>
     <dcterms:modified>${hdtDoc.updatedAt ? new Date(hdtDoc.updatedAt).toISOString() : ''}</dcterms:modified>
+    <hdt:HP1 rdf:resource="urn:project:${projectId}:hdt"/>
   </rdf:Description>
+
+  <rdf:Description rdf:about="urn:project:${projectId}:hdt">
+    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC2"/>
+${(hdtDoc.digitalAssets || []).filter((asset: any) => asset.type === 'model3d').map((asset: any) => 
+    `    <hdt:HP3 rdf:resource="urn:asset:${asset.id}"/>`
+).join('\n')}
+  </rdf:Description>
+${(hdtDoc.digitalAssets || []).filter((asset: any) => asset.type === 'model3d').map((asset: any) => `
+  <rdf:Description rdf:about="urn:asset:${asset.id}">
+    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>
+    <dc:format>${escapeXml(asset.metadata?.format || 'model/gltf+json')}</dc:format>
+    <dc:date>${asset.uploadedAt ? new Date(asset.uploadedAt).toISOString().split('T')[0] : ''}</dc:date>
+    <dc:source>${escapeXml(asset.fileUrl || '')}</dc:source>
+    <dc:title>${escapeXml(asset.title || asset.fileName || '')}</dc:title>
+    <dc:description>${escapeXml(asset.description || '')}</dc:description>
+    <hdt:HP21 rdf:resource="urn:project:${projectId}"/>
+    <prov:wasGeneratedBy rdf:resource="urn:activity:${asset.id}"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="urn:activity:${asset.id}">
+    <rdf:type rdf:resource="http://www.w3.org/ns/prov#Activity"/>
+    <prov:wasAttributedTo rdf:resource="urn:user:${asset.uploadedBy || 'unknown'}"/>
+    <prov:endedAtTime>${asset.uploadedAt ? new Date(asset.uploadedAt).toISOString() : ''}</prov:endedAtTime>
+  </rdf:Description>
+`).join('')}
 </rdf:RDF>`;
 
     res.setHeader('Content-Type', 'application/rdf+xml');
