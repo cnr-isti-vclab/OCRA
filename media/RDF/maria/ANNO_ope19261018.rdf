@@ -1,0 +1,228 @@
+<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:crm="http://www.cidoc-crm.org/cidoc-crm/"
+    xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+    xmlns:hdto="http://heritage-digital-twin-ontology/"
+    xmlns:crmdig="http://www.cidoc-crm.org/extensions/crmdig/"
+    xmlns:pref="https://demo/"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:j.0="http://iflastandards.info/ns/lrm/lrmoo/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+  <hdto:HC3_Tangible_Heritage_Entity rdf:about="https://demo/HeritageEntity/ONB/1241A62B">
+    <crm:P67_refers_to>
+      <crm:E89_Propositional_Object rdf:about="http://d-nb.info/gnd/4114333-4">
+        <j.0:R67i_forms_part_of>
+          <crm:E32_Authority_Document rdf:about="https://demo/Thesurus/GND">
+            <skos:prefLabel xml:lang="de">GND</skos:prefLabel>
+          </crm:E32_Authority_Document>
+        </j.0:R67i_forms_part_of>
+        <skos:prefLabel xml:lang="de">Kunst</skos:prefLabel>
+      </crm:E89_Propositional_Object>
+    </crm:P67_refers_to>
+    <crm:P104_is_subject_to>
+      <crm:E30_Right rdf:about="https://rightsstatements.org/vocab/CNE/1.0/">
+        <crm:P75i_is_possessed_by>
+          <crm:E41_Appellation rdf:about="https://anno.onb.ac.at">
+            <crm:P138i_has_representation>
+              <crm:E36_Visual_Item rdf:about="urn:uuid:bf8a7be3-02f6-4ee6-8d69-c1f74fdfe4c1">
+                <rdfs:label>https://api.onb.ac.at/logo.png</rdfs:label>
+                <crm:P43_has_dimension>
+                  <crm:E54_Dimension rdf:about="urn:uuid:b81ea43f-0d48-4af6-bed0-5217724497df">
+                    <crm:P90_has_value>200</crm:P90_has_value>
+                    <crm:P91_has_unit>
+                      <crm:E58_Measurement_Unit rdf:about="https://demo/Units/Pixels">
+                        <skos:prefLabel xml:lang="en">pixels</skos:prefLabel>
+                      </crm:E58_Measurement_Unit>
+                    </crm:P91_has_unit>
+                    <crm:P2_has_type>
+                      <crm:E55_Type rdf:about="https://demo/Dimensions/Height">
+                        <skos:prefLabel xml:lang="en">height</skos:prefLabel>
+                      </crm:E55_Type>
+                    </crm:P2_has_type>
+                    <rdfs:label xml:lang="en">Height</rdfs:label>
+                  </crm:E54_Dimension>
+                </crm:P43_has_dimension>
+                <crm:P43_has_dimension>
+                  <crm:E54_Dimension rdf:about="urn:uuid:9b419a2a-53c4-458c-8432-b5205956476a">
+                    <crm:P90_has_value>200</crm:P90_has_value>
+                    <crm:P91_has_unit rdf:resource="https://demo/Units/Pixels"/>
+                    <crm:P2_has_type>
+                      <crm:E55_Type rdf:about="https://demo/Dimensions/Width">
+                        <skos:prefLabel xml:lang="en">width</skos:prefLabel>
+                      </crm:E55_Type>
+                    </crm:P2_has_type>
+                    <rdfs:label xml:lang="en">Width</rdfs:label>
+                  </crm:E54_Dimension>
+                </crm:P43_has_dimension>
+                <crm:P2_has_type>
+                  <crm:E55_Type rdf:about="https://demo/Format/image/png">
+                    <crm:P2_has_type>
+                      <crm:E55_Type rdf:about="https://demo/Format/format">
+                        <skos:prefLabel xml:lang="en">format</skos:prefLabel>
+                      </crm:E55_Type>
+                    </crm:P2_has_type>
+                    <skos:prefLabel xml:lang="en">image/png</skos:prefLabel>
+                  </crm:E55_Type>
+                </crm:P2_has_type>
+                <crm:P2_has_type>
+                  <crm:E55_Type rdf:about="https://demo/Concept/Image">
+                    <skos:prefLabel xml:lang="en">Image</skos:prefLabel>
+                  </crm:E55_Type>
+                </crm:P2_has_type>
+                <rdf:type rdf:resource="http://heritage-digital-twin-ontology/HC5_Digital_Representation"/>
+              </crm:E36_Visual_Item>
+            </crm:P138i_has_representation>
+            <crm:P76_has_contact_point rdf:resource="https://anno.onb.ac.at"/>
+            <rdfs:label xml:lang="en">AustriaN Newspaper Online</rdfs:label>
+            <rdfs:label xml:lang="de">AustriaN Newspaper Online</rdfs:label>
+            <rdf:type rdf:resource="http://www.cidoc-crm.org/cidoc-crm/E39_Actor"/>
+          </crm:E41_Appellation>
+        </crm:P75i_is_possessed_by>
+        <crm:P3_has_note xml:lang="en">Attribution Austrian National Library</crm:P3_has_note>
+        <crm:P3_has_note xml:lang="de">Bereitgestellt von Österreichische Nationalbibliothek</crm:P3_has_note>
+        <rdfs:label>https://rightsstatements.org/vocab/CNE/1.0/</rdfs:label>
+      </crm:E30_Right>
+    </crm:P104_is_subject_to>
+    <crm:P67_refers_to>
+      <crm:E89_Propositional_Object rdf:about="http://d-nb.info/gnd/4059702-7">
+        <j.0:R67i_forms_part_of rdf:resource="https://demo/Thesurus/GND"/>
+        <skos:prefLabel xml:lang="de">Theater</skos:prefLabel>
+      </crm:E89_Propositional_Object>
+    </crm:P67_refers_to>
+    <crm:P1_is_identified_by>
+      <crm:E41_Appellation rdf:about="https://data.onb.ac.at/rep/1241A62B">
+        <crm:P2_has_type>
+          <crm:E55_Type rdf:about="https://demo/Concept/Homepage">
+            <skos:prefLabel xml:lang="de">homepage</skos:prefLabel>
+          </crm:E55_Type>
+        </crm:P2_has_type>
+        <rdfs:label xml:lang="en">https://data.onb.ac.at/rep/1241A62B</rdfs:label>
+      </crm:E41_Appellation>
+    </crm:P1_is_identified_by>
+    <crmdig:L1i_was_digitized_by>
+      <hdto:D2_Digitization_Process rdf:about="https://demo/Digitization/2020-11-13T19%3A46%3A45/OeNB/Tesseract%20Open%20Source%20OCR%20Engine/3.04.00BC130471-39E4-4EEF-B62C-5002BE54ABA1">
+        <hdto:L23_used_software_or_firmware>
+          <hdto:D14_Software rdf:about="https://demo/Software/Tesseract%20Open%20Source%20OCR%20Engine3.04.00">
+            <crm:P3_has_note xml:lang="en">OeNB/dOCR based on tess4j and tesseract.</crm:P3_has_note>
+            <crm:P1_is_identified_by>
+              <crm:E42_Identifier rdf:about="https://demo/SoftwareVersion/3.04.00">
+                <crm:P2_has_type>
+                  <crm:E55_Type rdf:about="https://demo/Concept/Version">
+                    <skos:prefLabel xml:lang="en">version</skos:prefLabel>
+                  </crm:E55_Type>
+                </crm:P2_has_type>
+                <rdfs:label xml:lang="en">3.04.00</rdfs:label>
+              </crm:E42_Identifier>
+            </crm:P1_is_identified_by>
+            <crm:P102_has_title>
+              <crm:E35_Title rdf:about="https://demo/Title/Tesseract%20Open%20Source%20OCR%20Engine">
+                <rdfs:label xml:lang="en">Tesseract Open Source OCR Engine</rdfs:label>
+              </crm:E35_Title>
+            </crm:P102_has_title>
+            <hdto:L33_has_maker>
+              <crm:E39_Actor rdf:about="https://github.com/tesseract-ocr">
+                <rdfs:label xml:lang="en">https://github.com/tesseract-ocr</rdfs:label>
+              </crm:E39_Actor>
+            </hdto:L33_has_maker>
+            <rdfs:label xml:lang="en">Tesseract Open Source OCR Engine 3.04.00</rdfs:label>
+          </hdto:D14_Software>
+        </hdto:L23_used_software_or_firmware>
+        <hdto:L29_has_responsible_organization>
+          <crm:E39_Actor rdf:about="urn:uuid:d9ee2aa8-7007-48c0-9459-41beaa9efc81">
+            <rdfs:label xml:lang="en">OeNB</rdfs:label>
+          </crm:E39_Actor>
+        </hdto:L29_has_responsible_organization>
+        <crm:P4_has_time-span>
+          <crm:E52_Time-Span rdf:about="urn:uuid:4961c94b-7c4c-4f9c-9410-5d1ae68e676c">
+            <crm:P81_ongoing_throughout xml:lang="en">2020-11-13T19:46:45</crm:P81_ongoing_throughout>
+            <rdfs:label xml:lang="en">Timespan</rdfs:label>
+          </crm:E52_Time-Span>
+        </crm:P4_has_time-span>
+        <hdto:L11_had_output>
+          <hdto:HC6_Digital_Document rdf:about="https://anno.onb.ac.at/cgi-content/annoshow?text=ope%7C19261018%7Cx"/>
+        </hdto:L11_had_output>
+        <rdfs:label xml:lang="en">2020-11-13T19:46:45</rdfs:label>
+        <rdf:type rdf:resource="http://www.cidoc-crm.org/extensions/crmdig/D2_Digitization_Process"/>
+      </hdto:D2_Digitization_Process>
+    </crmdig:L1i_was_digitized_by>
+    <crm:P12i_was_present_at>
+      <j.0:F31_Performance rdf:about="urn:uuid:27300c83-1bb8-4b28-9e96-f3ec50142079">
+        <crm:P160_has_temporal_projection>
+          <crm:E52_Time-Span rdf:about="urn:uuid:1dcef971-d0b9-4c79-a50a-20ec2638ab70">
+            <crm:P81_ongoing_throughout xml:lang="de">18.10.1926</crm:P81_ongoing_throughout>
+            <rdfs:label xml:lang="de">Time span of performance  Theaterzettel des Hof-Operntheaters / Staatsoper (tit. fict.), 18.10.1926</rdfs:label>
+          </crm:E52_Time-Span>
+        </crm:P160_has_temporal_projection>
+        <crm:P7_took_place_at>
+          <crm:E53_Place rdf:about="http://d-nb.info/gnd/4066009-6">
+            <crm:P2_has_type>
+              <crm:E55_Type rdf:about="https://demo/Thesaurus/GND">
+                <skos:prefLabel xml:lang="de">GND</skos:prefLabel>
+              </crm:E55_Type>
+            </crm:P2_has_type>
+            <rdfs:label xml:lang="de">Wien</rdfs:label>
+          </crm:E53_Place>
+        </crm:P7_took_place_at>
+        <rdfs:label xml:lang="de">Performance Theaterzettel des Hof-Operntheaters / Staatsoper (tit. fict.), 18.10.1926</rdfs:label>
+      </j.0:F31_Performance>
+    </crm:P12i_was_present_at>
+    <crm:P46i_forms_part_of>
+      <crm:E22_Human-Made_Object rdf:about="urn:uuid:978d1dbd-4126-42a8-a7e5-09f30a733792">
+        <crm:P2_has_type>
+          <crm:E55_Type rdf:about="https://demo/MediaType/Newspaper">
+            <skos:prefLabel xml:lang="en">Newspaper</skos:prefLabel>
+          </crm:E55_Type>
+        </crm:P2_has_type>
+        <rdfs:label xml:lang="en">Media type</rdfs:label>
+      </crm:E22_Human-Made_Object>
+    </crm:P46i_forms_part_of>
+    <rdfs:label xml:lang="de">Theaterzettel des Hof-Operntheaters / Staatsoper (tit. fict.), 1926-10-18</rdfs:label>
+    <crm:P1_is_identified_by>
+      <crm:E35_Title rdf:about="https://demo/Title/manifest/1241A62B">
+        <rdfs:label xml:lang="en">Theaterzettel des Hof-Operntheaters / Staatsoper (tit. fict.), 1926-10-18</rdfs:label>
+        <rdfs:label xml:lang="de">Theaterzettel des Hof-Operntheaters / Staatsoper (tit. fict.), 18.10.1926</rdfs:label>
+      </crm:E35_Title>
+    </crm:P1_is_identified_by>
+    <hdto:HP9i_has_visual_representation>
+      <hdto:HC5_Digital_Representation rdf:about="https://api.onb.ac.at/iiif/image/v3/1241A62B/uk4nGb4kQHe3msbC/full/max/0/default.jpg">
+        <crm:P43_has_dimension>
+          <crm:E54_Dimension rdf:about="urn:uuid:3605885b-320d-4ad0-ba67-9fde1afdb9ea">
+            <crm:P90_has_value>3888</crm:P90_has_value>
+            <crm:P91_has_unit rdf:resource="https://demo/Units/Pixels"/>
+            <crm:P2_has_type rdf:resource="https://demo/Dimensions/Height"/>
+            <rdfs:label xml:lang="en">Height</rdfs:label>
+          </crm:E54_Dimension>
+        </crm:P43_has_dimension>
+        <crm:P43_has_dimension>
+          <crm:E54_Dimension rdf:about="urn:uuid:ade736bd-7474-48fd-957f-1e28ab77d788">
+            <crm:P90_has_value>3040</crm:P90_has_value>
+            <crm:P91_has_unit rdf:resource="https://demo/Units/Pixels"/>
+            <crm:P2_has_type rdf:resource="https://demo/Dimensions/Width"/>
+            <rdfs:label xml:lang="en">Width</rdfs:label>
+          </crm:E54_Dimension>
+        </crm:P43_has_dimension>
+        <crm:P2_has_type>
+          <crm:E55_Type rdf:about="https://demo/Format/image/jpeg">
+            <crm:P2_has_type rdf:resource="https://demo/Format/format"/>
+            <skos:prefLabel xml:lang="en">image/jpeg</skos:prefLabel>
+          </crm:E55_Type>
+        </crm:P2_has_type>
+        <crm:P2_has_type rdf:resource="https://demo/Concept/Image"/>
+        <rdfs:label>https://api.onb.ac.at/iiif/image/v3/1241A62B/uk4nGb4kQHe3msbC/full/max/0/default.jpg</rdfs:label>
+      </hdto:HC5_Digital_Representation>
+    </hdto:HP9i_has_visual_representation>
+    <hdto:HP1_has_digital_twin>
+      <hdto:HC2_Heritage_Digital_Twin rdf:about="https://demo/HeritageDigitalTwin/ONB/1241A62B">
+        <rdfs:label xml:lang="en">Digital twin of  1241A62B</rdfs:label>
+      </hdto:HC2_Heritage_Digital_Twin>
+    </hdto:HP1_has_digital_twin>
+    <crm:P72_has_language>
+      <crm:E56_Language rdf:about="https://demo/Lang/German">
+        <rdfs:label xml:lang="de">Deutsch</rdfs:label>
+        <rdfs:label xml:lang="en">German</rdfs:label>
+      </crm:E56_Language>
+    </crm:P72_has_language>
+    <rdf:type rdf:resource="http://www.cidoc-crm.org/cidoc-crm/E33_E41_Linguistic_Appellation"/>
+  </hdto:HC3_Tangible_Heritage_Entity>
+</rdf:RDF>

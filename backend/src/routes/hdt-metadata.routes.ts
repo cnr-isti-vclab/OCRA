@@ -24,7 +24,7 @@
  * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId - Remove asset from scene
  */
 
-import { Router } from 'express';
+import e, { Router } from 'express';
 import {
   getHDTMetadataHandler,
   createHDTMetadataHandler,
@@ -323,8 +323,8 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
     <dc:type>${escapeXml(hdtDoc.metadata?.dublinCore?.type as any || '')}</dc:type>
     <dc:language>${escapeXml(hdtDoc.metadata?.dublinCore?.language as any || '')}</dc:language>
     <dc:source>${escapeXml(hdtDoc.metadata?.dublinCore?.source as any || '')}</dc:source>
-    <dcterms:created>${escapeXml(hdtDoc.createdAt as any || '')}</dcterms:created>
-    <dcterms:modified>${escapeXml(hdtDoc.updatedAt as any || '')}</dcterms:modified>
+    <dcterms:created>${hdtDoc.createdAt ? new Date(hdtDoc.createdAt).toISOString() : ''}</dcterms:created>
+    <dcterms:modified>${hdtDoc.updatedAt ? new Date(hdtDoc.updatedAt).toISOString() : ''}</dcterms:modified>
   </rdf:Description>
 </rdf:RDF>`;
 
@@ -333,7 +333,7 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
     res.send(rdf);
   } catch (error: any) {
     console.error('Error exporting RDF:', error);
-    res.status(500).json({ error: 'Failed to export RDF' });
+    res.status(500).json({ error: 'Failed to export RDF'+ error });
   }
 });
 

@@ -510,13 +510,14 @@ export default function HDTPage() {
           <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
-          <Link 
-            to={`/api/projects/${projectId}/export/rdf`} 
+          <a 
+            href={`${getApiBase()}/api/projects/${projectId}/export/rdf`} 
             className="btn btn-outline-primary"
             target="_blank"
+            rel="noopener noreferrer"
           >
             📥 Download RDF
-          </Link>
+          </a>
         </div>
       </div>
 
