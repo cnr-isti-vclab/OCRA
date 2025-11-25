@@ -1,0 +1,24 @@
+{
+  "@context": {
+    "hdt": "http://echoes-eccch.eu/hdt#",
+    "dc": "http://purl.org/dc/elements/1.1/",
+    "prov": "http://www.w3.org/ns/prov#",
+    "foaf": "http://xmlns.com/foaf/0.1/",
+    "ex": "https://ocra.echoes.eu/resource/"
+  },
+  "@id": "ex:AllegoriaDellaDisperazione_3DModel_2025",
+  "@type": "hdt:HC8",
+  "dc:format": "model/gltf+json",
+  "dc:date": "2025",
+  "dc:source": "https://repository.example.org/models/allegoria_2025.glb",
+  "dc:creator": {
+    "@id": "ex:User_PaoloCignoni",
+    "foaf:name": "Paolo Cignoni"
+  },
+  "dc:rights": "CC BY-SA 4.0",
+  "prov:wasGeneratedBy": {
+    "@id": "ex:ScanActivity_2025",
+    "@type": "prov:Activity",
+    "prov:endedAtTime": "2025-10-13T12:50:00+02:00"
+  }
+}

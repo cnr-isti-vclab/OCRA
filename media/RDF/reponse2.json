@@ -1,0 +1,301 @@
+{
+  "succeed": true,
+  "message": "The federated SPARQL query was executed successfuly.",
+  "results": {
+    "head": {
+      "link": [],
+      "vars": [
+        "s",
+        "p",
+        "o",
+        "service"
+      ]
+    },
+    "results": {
+      "ordered": true,
+      "bindings": [
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+          },
+          "s": {
+            "type": "uri",
+            "value": "http://echoes-eccch.eu/kb/graph/john_doe/1763048180978/2025-11-13"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "type": "uri",
+            "value": "http://rdfs.org/ns/void#Dataset"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "type": "uri",
+            "value": "http://rdfs.org/ns/void#Dataset"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "type": "uri",
+            "value": "http://echoes-eccch.eu/hdt#HC1"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/terms/created"
+          },
+          "s": {
+            "type": "uri",
+            "value": "http://echoes-eccch.eu/kb/graph/john_doe/1763048180978/2025-11-13"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "type": "typed-literal",
+            "value": "2025-11-13T15:36:20.978Z"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/terms/modified"
+          },
+          "s": {
+            "type": "uri",
+            "value": "http://echoes-eccch.eu/kb/graph/john_doe/1763048180978/2025-11-13"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "type": "typed-literal",
+            "value": "2025-11-13T15:36:20.978Z"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://rdfs.org/ns/void#subset"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "type": "uri",
+            "value": "http://echoes-eccch.eu/kb/graph/john_doe/1763048180978/2025-11-13"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/terms/creator"
+          },
+          "s": {
+            "type": "uri",
+            "value": "http://echoes-eccch.eu/kb/graph/john_doe/1763048180978/2025-11-13"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "type": "uri",
+            "value": "file:///app/john_doe"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/coverage"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "Pisa, Toscana, Italia"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/creator"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://w3id.org/arco/resource/Agent/9ae478e40ddf84c7d44b0213"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/date"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "1924"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/description"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "Monumento ai caduti della prima guerra mondiale, a cippo, con statua in bronzo raffigurante una donna inginocchiata in segno di disperazione."
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/identifier"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/rights"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "Ente pubblico territoriale"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://purl.org/dc/elements/1.1/title"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://ocra.echoes.eu/resource/AllegoriaDellaDisperazione"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "Allegoria della disperazione"
+          }
+        },
+        {
+          "p": {
+            "type": "uri",
+            "value": "http://xmlns.com/foaf/0.1/name"
+          },
+          "s": {
+            "type": "uri",
+            "value": "https://w3id.org/arco/resource/Agent/9ae478e40ddf84c7d44b0213"
+          },
+          "service": {
+            "type": "uri",
+            "value": "http://139.91.183.40:8899/sparql/"
+          },
+          "o": {
+            "datatype": "http://www.w3.org/2001/XMLSchema#string",
+            "type": "typed-literal",
+            "value": "Galassi Elio (attribuito)"
+          }
+        }
+      ],
+      "distinct": false
+    }
+  },
+  "federatedSparqlQuery": "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#> PREFIX owl: <http://www.w3.org/2002/07/owl#> PREFIX skos: <http://www.w3.org/2004/02/skos/core#> PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/> PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX dc: <http://purl.org/dc/elements/1.1/> PREFIX dcterms: <http://purl.org/dc/terms/> PREFIX gn: <http://www.geonames.org/ontology#> PREFIX schema: <http://schema.org/> PREFIX dbo: <http://dbpedia.org/ontology/> PREFIX dbp: <http://dbpedia.org/property/> PREFIX prov: <http://www.w3.org/ns/prov#> PREFIX bds: <http://www.bigdata.com/rdf/search#> PREFIX sd: <http://www.w3.org/ns/sparql-service-description#> PREFIX void: <http://rdfs.org/ns/void#> PREFIX htdo: <http://heritage-digital-twin-ontology/>\nSELECT distinct ?s ?p ?o ?service\nWHERE {\n{{ graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>}  ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }BIND (\"base\" AS ?service)}\n UNION { SERVICE SILENT <http://139.91.183.40:8897/sparql/>{{ graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>}  ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }}\n BIND (<http://139.91.183.40:8897/sparql/> AS ?service) } \n UNION { SERVICE SILENT <http://139.91.183.97:8898/sparql/>{{ graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>}  ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }}\n BIND (<http://139.91.183.97:8898/sparql/> AS ?service) } \n UNION { SERVICE SILENT <https://virtuoso-endpoint-echoes-graphs-production.apps.dcw1.paas.psnc.pl/sparql/>{{ graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>}  ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }}\n BIND (<https://virtuoso-endpoint-echoes-graphs-production.apps.dcw1.paas.psnc.pl/sparql/> AS ?service) } \n}"
+}
