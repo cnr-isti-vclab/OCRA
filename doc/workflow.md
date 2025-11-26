@@ -11,21 +11,27 @@ System level properties/previleges of users: (not per project)
 - Creator: can create new projects
 
 Per Project User Roles 
-- Project Manager: Edit projects properties, manage roles for users, can access and edit all project data
+- Project Manager: Edit projects properties and metadata, manage roles for users, can access and edit all project data. He is the only one that can publish a project and that can modify the project metadata and the digital assets and scene setup. They are the only one that can also publish enriched HDT to a knowledge base. 
+
 - Editor: Create and edit annotations
-- Viewer: Read-only access, export capabilities
+- Viewer: Read-only access, they can view all the metadata and the scenes and they can export assets and metadata to files. 
 
-Unauthenticated users cannot log on the system and can access only the landing page and the 'published' projects.
+Unauthenticated users cannot log on the system and can access only the landing page and the 'published' projects (currently unimplemented).
 
-### Project workflow
-In the following we describe a typical lifecycle of a Conservation-restoration Project on the OCRA system:
+### Project workflow 1)
+In the following we describe a typical lifecycle of a Conservation-restoration Project on the OCRA system.
+- A user (b) with admin previleges create a vocabulary (V) for annotations
+- A user (b) with admin previleges assign user (a) creator previleges
 - An user (a) with creator previleges log in the system and create a project (P), (a) by default is the manager of the project (P)
-- A user (b) with admin previleges log in the system and create a vocabulary (V) for the project (P)
 - The project manager (a) assign users (c) and (d) to the project (P) with editor and viewer roles respectively
 - The project manager (a) upload a 3d Models and prepare its reference space 
 - The editor (c) create annotations on the 3d model using the vocabulary (V)
 - The viewer (d) can view the annotations and export them for reporting or further analysis
 - The project manager (a) can publish a project that will exported in a readonly version with more permissive access rules (e.g. visibile also to unauthenticated users)
+
+### Project Workflow 2)
+
+
 
 users recap
 
