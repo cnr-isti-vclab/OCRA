@@ -275,6 +275,12 @@ export default function EditProject() {
   const [selectedManagerId, setSelectedManagerId] = useState<string>('');
   const [nameError, setNameError] = useState<string | null>(null);
   
+  // Members state
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
+  const [selectedEditorId, setSelectedEditorId] = useState<string>('');
+  const [selectedViewerId, setSelectedViewerId] = useState<string>('');
+  const [addingMember, setAddingMember] = useState(false);
+  
   // Manager change confirmation state
   const [showManagerConfirmation, setShowManagerConfirmation] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string>('');
@@ -346,6 +352,9 @@ export default function EditProject() {
           console.warn('Failed to fetch users for manager dropdown');
         }
 
+        // Fetch project members
+        await fetchProjectMembers();
+
         // Check if HDT metadata exists for this project
         try {
           const hdtRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
@@ -377,6 +386,120 @@ export default function EditProject() {
   // Helper function to get display name for users
   const getUserDisplayName = (user: SimpleUser): string => {
     return user.name || user.username || user.email;
+  };
+
+  // Fetch project members
+  const fetchProjectMembers = async () => {
+    try {
+      const sessionId = localStorage.getItem('oauth_session_id');
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/members`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProjectMembers(data.members || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch project members:', e);
+    }
+  };
+
+  // Add editor to project
+  const handleAddEditor = async () => {
+    if (!selectedEditorId) return;
+    
+    try {
+      setAddingMember(true);
+      const sessionId = localStorage.getItem('oauth_session_id');
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/members`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedEditorId,
+          role: 'editor'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add editor');
+      }
+
+      await fetchProjectMembers();
+      setSelectedEditorId('');
+    } catch (e: any) {
+      console.error('Failed to add editor:', e);
+      alert(e?.message || 'Failed to add editor');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  // Add viewer to project
+  const handleAddViewer = async () => {
+    if (!selectedViewerId) return;
+    
+    try {
+      setAddingMember(true);
+      const sessionId = localStorage.getItem('oauth_session_id');
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/members`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedViewerId,
+          role: 'viewer'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add viewer');
+      }
+
+      await fetchProjectMembers();
+      setSelectedViewerId('');
+    } catch (e: any) {
+      console.error('Failed to add viewer:', e);
+      alert(e?.message || 'Failed to add viewer');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  // Remove member from project
+  const handleRemoveMember = async (userId: string, role: string) => {
+    if (!confirm(`Are you sure you want to remove this ${role}?`)) return;
+    
+    try {
+      const sessionId = localStorage.getItem('oauth_session_id');
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/members/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to remove ${role}`);
+      }
+
+      await fetchProjectMembers();
+    } catch (e: any) {
+      console.error(`Failed to remove ${role}:`, e);
+      alert(e?.message || `Failed to remove ${role}`);
+    }
   };
 
   // Handle manager change with confirmation
@@ -620,6 +743,130 @@ export default function EditProject() {
           </form>
         </div>
       </div>
+
+      {/* Project Members Management */}
+      <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
+        <div className="card-body">
+          <h3 className="h5 mb-3 text-dark">👥 Project Members</h3>
+          
+          {/* Editors Section */}
+          <div className="mb-4">
+            <h4 className="h6 mb-2 text-dark">✏️ Editors</h4>
+            <div className="form-text mb-2">
+              Editors can create and edit annotations
+            </div>
+            
+            {projectMembers.filter(m => m.role === 'editor').length > 0 ? (
+              <ul className="list-group mb-3">
+                {projectMembers.filter(m => m.role === 'editor').map(member => (
+                  <li key={member.userId} className="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>{member.name || member.username || member.email}</strong>
+                      <br />
+                      <small className="text-muted">{member.email}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => handleRemoveMember(member.userId, 'editor')}
+                      disabled={addingMember}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted small mb-3">No editors assigned</p>
+            )}
+
+            <div className="input-group">
+              <select
+                className="form-select"
+                value={selectedEditorId}
+                onChange={(e) => setSelectedEditorId(e.target.value)}
+                disabled={addingMember}
+              >
+                <option value="">-- Select User --</option>
+                {allUsers
+                  .filter(user => !projectMembers.find(m => m.userId === user.id))
+                  .map(user => (
+                    <option key={user.id} value={user.id}>
+                      {getUserDisplayName(user)} ({user.email})
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleAddEditor}
+                disabled={!selectedEditorId || addingMember}
+              >
+                {addingMember ? 'Adding...' : 'Add Editor'}
+              </button>
+            </div>
+          </div>
+
+          {/* Viewers Section */}
+          <div>
+            <h4 className="h6 mb-2 text-dark">👁️ Viewers</h4>
+            <div className="form-text mb-2">
+              Viewers have read-only access and can export data
+            </div>
+            
+            {projectMembers.filter(m => m.role === 'viewer').length > 0 ? (
+              <ul className="list-group mb-3">
+                {projectMembers.filter(m => m.role === 'viewer').map(member => (
+                  <li key={member.userId} className="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>{member.name || member.username || member.email}</strong>
+                      <br />
+                      <small className="text-muted">{member.email}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => handleRemoveMember(member.userId, 'viewer')}
+                      disabled={addingMember}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted small mb-3">No viewers assigned</p>
+            )}
+
+            <div className="input-group">
+              <select
+                className="form-select"
+                value={selectedViewerId}
+                onChange={(e) => setSelectedViewerId(e.target.value)}
+                disabled={addingMember}
+              >
+                <option value="">-- Select User --</option>
+                {allUsers
+                  .filter(user => !projectMembers.find(m => m.userId === user.id))
+                  .map(user => (
+                    <option key={user.id} value={user.id}>
+                      {getUserDisplayName(user)} ({user.email})
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleAddViewer}
+                disabled={!selectedViewerId || addingMember}
+              >
+                {addingMember ? 'Adding...' : 'Add Viewer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Manager Change Confirmation Modal */}
       {showManagerConfirmation && (
         <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

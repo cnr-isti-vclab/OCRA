@@ -29,16 +29,14 @@ In the following we describe a typical lifecycle of a Conservation-restoration P
 - The viewer (d) can view the annotations and export them for reporting or further analysis
 - The project manager (a) can publish a project that will exported in a readonly version with more permissive access rules (e.g. visibile also to unauthenticated users)
 
-### Project Workflow 2)
-
 
 
 users recap
 
-- a alice, has creator previleges and is  manager of project p
-- b bob admin previleges 
-- c carol editor of project p
-- d david viewer
+- a alice   has creator previleges and is  manager of project p
+- b bob     has admin previleges 
+- c carol   is editor of project p
+- d david   is viewer of project p
 
 
 

@@ -211,7 +211,6 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     }
     
     // Create or update project role
-    const roleEnum = role.toUpperCase() as RoleEnum;
     const projectRole = await db.projectRole.upsert({
       where: {
         userId_projectId: {
@@ -220,13 +219,13 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
         }
       },
       update: {
-        role: roleEnum,
+        role: role as RoleEnum,
         updatedAt: new Date()
       },
       create: {
         userId: targetUser.id,
         projectId,
-        role: roleEnum
+        role: role as RoleEnum
       },
       include: {
         user: {
@@ -254,7 +253,7 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
           targetUserId: targetUser.id, 
           targetEmail: targetUser.email,
           targetUsername: targetUser.username,
-          role: roleEnum 
+          role: role 
         }
       });
     } catch (auditErr) {
