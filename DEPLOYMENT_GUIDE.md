@@ -2,6 +2,8 @@
 
 ## Development (Local)
 
+Docker Compose automatically uses `docker-compose.yml` and `docker-compose.override.yml`.
+
 ```bash
 docker compose up
 ```
@@ -14,40 +16,31 @@ Access: http://localhost:3001
 - Reverse proxy (Nginx/Traefik) configured
 - External network exists: `docker network create host-proxy-net`
 
-### Step 1: Prepare docker-compose.yml
+### Deployment
 
-Edit `docker-compose.yml` and modify these sections:
+We use a separate production configuration file that extends the base configuration.
 
-**All services (postgres, mongodb, backend, app, keycloak):**
-```yaml
-# Comment out:
-ports:
-  - "3001:80"
+1. **Create/Update `.env` file** with production secrets.
 
-# Uncomment:
-expose:
-  - "80"
-networks:
-  - host-proxy-net
-  - internal-net
+2. **Deploy using the production override:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-**Backend only:**
-```yaml
-volumes:
-  # - backend_node_modules:/app/backend/node_modules  # Comment out
-  - ./prisma:/app/backend/prisma:ro
-  - project_files:/app/project_files
-```
+### Configuration Files Structure
 
-**At bottom:**
-```yaml
-# Uncomment:
-networks:
-  host-proxy-net:
-    external: true
-    name: host-proxy-net
-  internal-net:
+- `docker-compose.yml`: Base configuration (Core services, no ports exposed).
+- `docker-compose.override.yml`: Development overrides (Local Keycloak, ports exposed, hot-reload).
+- `docker-compose.prod.yml`: Production overrides (Restart policies, networks, no Keycloak).
+
+### Customizing for EGI / External Auth
+
+If you are using an external Identity Provider (like EGI) instead of the local Keycloak:
+1. The `keycloak` service is NOT included in `docker-compose.yml` or `docker-compose.prod.yml`, so it won't start.
+2. Configure `backend` and `app` in `.env` to point to the external provider:
+   - `ISSUER=https://aai.egi.eu/auth/realms/egi`
+   - `PROVIDER_URL=...`
     driver: bridge
 ```
 ### Step 2: Configure Keycloak Client

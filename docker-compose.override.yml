@@ -1,0 +1,48 @@
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: ocra-keycloak
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak/realm-export:/opt/keycloak/data/import
+      - keycloak_config:/opt/keycloak/data
+    command: start-dev --import-realm
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  mongodb:
+    ports:
+      - "27017:27017"
+
+  backend:
+    ports:
+      - "3002:3002"
+      - "5555:5555"
+    environment:
+      # In Docker, backend must reach Keycloak via internal service name
+      ISSUER: http://keycloak:8080/realms/demo
+    volumes:
+      - backend_node_modules:/app/backend/node_modules
+      - ./prisma:/app/backend/prisma:ro
+
+  app:
+    ports:
+      - "3001:80"
+    depends_on:
+      - keycloak
+
+volumes:
+  keycloak_config:
+  backend_node_modules:

@@ -1,0 +1,33 @@
+services:
+  postgres:
+    restart: unless-stopped
+    networks:
+      - internal-net
+
+  mongodb:
+    restart: unless-stopped
+    networks:
+      - internal-net
+
+  backend:
+    restart: unless-stopped
+    expose:
+      - "3002"
+    networks:
+      - internal-net
+      - host-proxy-net
+
+  app:
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - internal-net
+      - host-proxy-net
+
+networks:
+  host-proxy-net:
+    external: true
+    name: host-proxy-net
+  internal-net:
+    driver: bridge
