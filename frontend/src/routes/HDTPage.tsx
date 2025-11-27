@@ -556,7 +556,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('dublin-core')}
                 type="button"
               >
-                📚 Dublin Core
+                HC1 Heritage Entity
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -565,7 +565,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('assets')}
                 type="button"
               >
-                Digital Assets
+                Digital Asset - HC2 Heritage Digital Twin
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -593,9 +593,9 @@ export default function HDTPage() {
           {/* Dublin Core Tab */}
           {activeTab === 'dublin-core' && (
             <div>
-              <h5 className="mb-3">Dublin Core Metadata</h5>
+              <h5 className="mb-3">HC1 Heritage Entity</h5>
               <p className="text-muted small mb-4">
-                Basic descriptive metadata using Dublin Core standard (ISO 15836).
+                Basic descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836).
               </p>
 
               <div className="mb-3">
@@ -741,7 +741,7 @@ export default function HDTPage() {
                   disabled={saving}
                   className="btn btn-success"
                 >
-                  {saving ? '💾 Saving...' : '💾 Save Dublin Core Metadata'}
+                  {saving ? '💾 Saving...' : '💾 Save Heritage Entity Metadata'}
                 </button>
                 {successMessage && (
                   <div className="alert alert-success mb-0 py-2 px-3" role="alert">
@@ -756,7 +756,7 @@ export default function HDTPage() {
           {activeTab === 'assets' && (
             <div>
               <p className="text-muted small mb-4">
-                Manage all digital assets for this Heritage Digital Twin. Assets in the pool can be used across multiple scenes.
+                Manage all digital assets for this HC2 Heritage Digital Twin. Assets in the pool can be used across multiple scenes.
               </p>
 
               {/* Asset Type Filter/Info */}
