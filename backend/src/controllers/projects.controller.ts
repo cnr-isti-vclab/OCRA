@@ -716,6 +716,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     } catch (err) {
       console.warn('Failed to assign project manager role:', err instanceof Error ? err.message : err);
     }
+    
     // Attach manager info to the returned project for immediate UI use
     const projectWithManager = {
       ...project,
@@ -727,21 +728,24 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         displayName: currentUser.name || `${currentUser.given_name || ''} ${currentUser.family_name || ''}`.trim() || currentUser.username || 'Unknown User'
       }
     };
-    // Audit log the project creation
+    
+    // Log project creation to audit
     try {
-      const { logAuditEvent } = await import('../../db.js');
       await logAuditEvent({
         userSub: currentUser.sub,
-        userId: currentUser.id,
-        action: 'project.create',
-        resource: { type: 'project', id: project.id },
+        eventType: 'project.create',
         success: true,
-        ip: req.ip || null,
-        userAgent: req.headers['user-agent'] as string,
-        payload: projectWithManager
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+        payload: {
+          projectId: project.id,
+          projectName: project.name,
+          description: project.description,
+          public: project.public
+        }
       });
-    } catch (err) {
-      console.warn('Audit logging failed for project creation:', err instanceof Error ? err.message : err);
+    } catch (auditErr) {
+      console.warn('Failed to log project creation audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
     }
     
     res.status(201).json({
