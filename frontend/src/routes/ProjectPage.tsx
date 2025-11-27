@@ -142,6 +142,36 @@ export default function ProjectPage() {
     viewerRef.current?.setMeshVisibility(meshName, newVisibility);
   };
 
+  // Cycle through models, showing one at a time
+  const cycleModels = () => {
+    if (!sceneDesc?.models || sceneDesc.models.length === 0) return;
+
+    const modelIds = sceneDesc.models.map((m: any) => m.id);
+    
+    // Find the first visible model
+    let currentVisibleIndex = modelIds.findIndex((id: string) => meshVisibility[id] !== false);
+    
+    // If no model is visible, start from -1 to show the first model
+    if (currentVisibleIndex === -1) {
+      currentVisibleIndex = -1;
+    }
+    
+    // Calculate next index (wrap around to 0 if at the end)
+    const nextIndex = (currentVisibleIndex + 1) % modelIds.length;
+    
+    // Create new visibility state: hide all except the next one
+    const newVisibility: Record<string, boolean> = {};
+    modelIds.forEach((id: string, index: number) => {
+      newVisibility[id] = index === nextIndex;
+    });
+    
+    // Update state and viewer
+    setMeshVisibility(newVisibility);
+    modelIds.forEach((id: string, index: number) => {
+      viewerRef.current?.setMeshVisibility(id, index === nextIndex);
+    });
+  };
+
   // Toggle model info display
   const toggleModelInfo = (modelId: string) => {
     setSelectedModelId(prev => prev === modelId ? null : modelId);
@@ -869,7 +899,17 @@ export default function ProjectPage() {
               {/* Models Tab */}
               {activeTab === 'models' && (
                 <div className="p-3 h-100 d-flex flex-column">
-                  <h3 className="h6 mb-3">Models in Scene</h3>
+                  <div className="d-flex align-items-center justify-content-between mb-3">
+                    <h3 className="h6 mb-0">Models in Scene</h3>
+                    <button
+                      onClick={cycleModels}
+                      className="btn btn-sm btn-outline-secondary"
+                      title="Cycle through models (show one at a time)"
+                      disabled={!sceneDesc?.models || sceneDesc.models.length === 0}
+                    >
+                      <i className="bi bi-arrow-repeat"></i>
+                    </button>
+                  </div>
 
                   {/* HDT Model Info or Prompt */}
                   {hdtModel ? (
