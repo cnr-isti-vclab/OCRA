@@ -601,7 +601,6 @@ export default function EditProject() {
   if (loading) {
     return (
       <div className="container py-5 text-center">
-        <div className="display-4 mb-3">⚙️</div>
         <p className="text-muted">Loading project details...</p>
       </div>
     );
@@ -633,7 +632,7 @@ export default function EditProject() {
       <div className="mb-3">
         <Link to="/projects" className="text-primary text-decoration-none small">← Back to HDT Projects</Link>
       </div>
-  <h1 className="mb-4 text-dark">✏️ Edit Heritage Digital Twin Project</h1>
+  <h1 className="mb-4 text-dark">Edit Heritage Digital Twin Project</h1>
       <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
         <div className="card-body">
           {hasHdt === false && (
@@ -646,7 +645,7 @@ export default function EditProject() {
                 className="btn btn-primary"
                 onClick={() => setShowImportModal(true)}
               >
-                ⬆️ Import HDT
+                Import HDT
               </button>
             </div>
           )}
@@ -726,7 +725,7 @@ export default function EditProject() {
                 disabled={saving || deleting}
                 className="btn btn-success fw-bold"
               >
-                {saving ? '💾 Saving...' : '💾 Save Changes'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
               <Link to="/projects" className="btn btn-secondary fw-bold">
                 Cancel
@@ -737,7 +736,7 @@ export default function EditProject() {
                 disabled={saving || deleting}
                 className="btn btn-danger fw-bold ms-auto"
               >
-                🗑️ Delete Project
+                Delete Project
               </button>
             </div>
           </form>
@@ -747,11 +746,11 @@ export default function EditProject() {
       {/* Project Members Management */}
       <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
         <div className="card-body">
-          <h3 className="h5 mb-3 text-dark">👥 Project Members</h3>
+          <h3 className="h5 mb-3 text-dark">Project Members</h3>
           
           {/* Editors Section */}
           <div className="mb-4">
-            <h4 className="h6 mb-2 text-dark">✏️ Editors</h4>
+            <h4 className="h6 mb-2 text-dark">Editors</h4>
             <div className="form-text mb-2">
               Editors can create and edit annotations
             </div>
@@ -762,8 +761,8 @@ export default function EditProject() {
                   <li key={member.userId} className="list-group-item d-flex justify-content-between align-items-center">
                     <div>
                       <strong>{member.name || member.username || member.email}</strong>
-                      <br />
-                      <small className="text-muted">{member.email}</small>
+                      {' '}
+                      <small className="text-muted">({member.email})</small>
                     </div>
                     <button
                       type="button"
@@ -809,7 +808,7 @@ export default function EditProject() {
 
           {/* Viewers Section */}
           <div>
-            <h4 className="h6 mb-2 text-dark">👁️ Viewers</h4>
+            <h4 className="h6 mb-2 text-dark">Viewers</h4>
             <div className="form-text mb-2">
               Viewers have read-only access and can export data
             </div>
@@ -820,8 +819,8 @@ export default function EditProject() {
                   <li key={member.userId} className="list-group-item d-flex justify-content-between align-items-center">
                     <div>
                       <strong>{member.name || member.username || member.email}</strong>
-                      <br />
-                      <small className="text-muted">{member.email}</small>
+                      {' '}
+                      <small className="text-muted">({member.email})</small>
                     </div>
                     <button
                       type="button"
@@ -873,7 +872,7 @@ export default function EditProject() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">🔄 Confirm Manager Change</h5>
+                <h5 className="modal-title">Confirm Manager Change</h5>
               </div>
               <div className="modal-body">
                 <p>Are you sure you want to change the project manager?</p>
@@ -923,11 +922,11 @@ export default function EditProject() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header bg-danger text-white">
-                <h5 className="modal-title">🗑️ Delete Project</h5>
+                <h5 className="modal-title">Delete Project</h5>
               </div>
               <div className="modal-body">
                 <div className="alert alert-warning mb-3">
-                  <strong>⚠️ Warning:</strong> This action cannot be undone!
+                  <strong>Warning:</strong> This action cannot be undone!
                 </div>
                 <p>Are you sure you want to delete this project?</p>
                 <div className="bg-light p-3 rounded mb-2">
@@ -967,7 +966,7 @@ export default function EditProject() {
           <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">⬆️ Import HDT</h5>
+                <h5 className="modal-title">Import HDT</h5>
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">
@@ -979,7 +978,7 @@ export default function EditProject() {
                       onClick={() => setImportMode('file')}
                       type="button"
                     >
-                      📁 Upload File
+                      Upload File
                     </button>
                   </li>
                   <li className="nav-item" role="presentation">
@@ -988,7 +987,7 @@ export default function EditProject() {
                       onClick={() => setImportMode('sparql')}
                       type="button"
                     >
-                      🔍 SPARQL Endpoint
+                      SPARQL Endpoint
                     </button>
                   </li>
                 </ul>
