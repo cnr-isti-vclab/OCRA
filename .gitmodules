@@ -1,0 +1,3 @@
+[submodule "frontend/src/lib/ThreePresenter"]
+	path = frontend/src/lib/ThreePresenter
+	url = ../ThreePresenter.git
