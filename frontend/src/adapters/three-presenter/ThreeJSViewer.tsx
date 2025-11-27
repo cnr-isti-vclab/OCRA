@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { ThreePresenter, AnnotationManager, LoadingProgress } from '../../lib/three-presenter/src';
-import type { SceneDescription } from '../../lib/three-presenter/src/types/SceneTypes';
+import { ThreePresenter, AnnotationManager, LoadingProgress } from '../../lib/ThreePresenter/src';
+import type { SceneDescription } from '../../lib/ThreePresenter/src/types/SceneTypes';
 import type { Annotation } from '../../../../shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
 

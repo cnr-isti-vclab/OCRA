@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, Link } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
-import { LoadingProgress } from '../lib/three-presenter/src';
+import { LoadingProgress } from '../lib/ThreePresenter/src';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription, Annotation } from '../../../shared/scene-types';
 

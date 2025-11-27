@@ -8,7 +8,7 @@
  * @module OcraFileUrlResolver
  */
 
-import type { FileUrlResolver, FileResolverContext } from '../../lib/three-presenter/src/types/FileUrlResolver';
+import type { FileUrlResolver, FileResolverContext } from '../../lib/ThreePresenter/src/types/FileUrlResolver';
 
 /**
  * Get API base URL from configuration
