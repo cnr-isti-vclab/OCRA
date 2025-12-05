@@ -18,7 +18,9 @@
     "db:migrate": "cd backend && npx prisma migrate dev",
     "db:generate": "cd backend && npx prisma generate",
     "db:studio": "cd backend && npx prisma studio",
-    "db:reset": "cd backend && npx prisma migrate reset --force"
+    "db:reset": "cd backend && npx prisma migrate reset --force",
+    "services:start": "bash scripts/start-services.sh",
+    "services:stop": "bash scripts/stop-services.sh"
   },
   "workspaces": [
     "frontend",

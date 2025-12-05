@@ -4,6 +4,7 @@
  * Main server startup with the restructured application
  */
 
+import 'dotenv/config';
 import { createApp } from './src/app.js';
 
 const PORT = process.env.PORT || 3002;
