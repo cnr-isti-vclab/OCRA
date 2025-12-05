@@ -6,6 +6,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
@@ -90,6 +91,11 @@ export function createApp(): Express {
   
   // Health check available at both /health and /api/health
   app.use('/health', healthRoutes);
+
+  // Serve RTI assets as static files
+  const rtiAssetsRoot =
+  process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets');
+  app.use('/rti-assets', express.static(rtiAssetsRoot));
 
   // use mounted health router for /health paths
 

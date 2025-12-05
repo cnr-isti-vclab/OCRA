@@ -191,6 +191,12 @@ export interface CidocCrmMetadata {
 }
 
 /**
+ * RTI Types
+ */
+type RTIFormat = 'ptm' | 'lptm' | 'hsh' | 'yrbf';  // 'rsc' 
+type RTILayout = 'image' | 'deepzoom' | 'deepzoom1px'| 'google' | 'zoomify' | 'iiif' | 'iip' | 'tarzoom' | 'itarzoom';
+
+/**
  * Digital Asset
  * Represents any type of digital content in the asset pool
  * Currently supports 3D models, extensible to RTI, images, videos, etc.
@@ -205,27 +211,29 @@ export interface DigitalAsset {
   description?: string;
   uploadedAt?: Date | string;
   uploadedBy?: string;        // User ID
-  
+
   // Type-specific metadata (extensible)
   metadata?: {
     // For 3D models
     triangles?: number;
     vertices?: number;
     format?: string;          // GLB, PLY, OBJ, etc.
-    
-    // For RTI (future)
-    rtiFormat?: string;       // PTM, HSH, etc.
+
+    // For RTI
+    rtiFormat?: RTIFormat;
+    rtiLayout?: RTILayout;
+    rtiHasNormals?: boolean;
     lightPositions?: number;
-    
+
     // For images (future)
     width?: number;
     height?: number;
     resolution?: number;      // DPI
-    
+
     // For videos (future)
     duration?: number;        // seconds
     codec?: string;
-    
+
     // Extensible for other types
     [key: string]: any;
   };
@@ -241,7 +249,7 @@ export interface SceneAssetReference {
   position?: [number, number, number];
   rotation?: [number, number, number];  // Euler angles in radians
   scale?: number | [number, number, number];
-  
+
   // Future: RTI-specific properties
   // lightDirection?: [number, number, number];
   // renderMode?: 'diffuse' | 'specular' | 'normals';
@@ -256,10 +264,10 @@ export interface HDTScene {
   name: string;
   description?: string;
   isDefault?: boolean;        // True for the default scene
-  
+
   // Assets in this scene
   assets: SceneAssetReference[];
-  
+
   // Environment configuration
   environment?: {
     backgroundColor?: string;
@@ -271,7 +279,7 @@ export interface HDTScene {
       position?: [number, number, number];
     };
   };
-  
+
   // Scene metadata
   createdAt?: Date | string;
   updatedAt?: Date | string;
@@ -286,19 +294,19 @@ export interface HDTScene {
 export interface HDTDocument {
   _id?: string;               // MongoDB ObjectId (optional, auto-generated)
   projectId: string;          // Link to PostgreSQL project
-  
+
   // Ontology-based metadata (for future RDF/knowledge base integration)
   metadata: {
     dublinCore: DublinCoreMetadata;
     cidocCrm: CidocCrmMetadata;
   };
-  
+
   // Digital assets pool (3D models, RTI, images, etc.)
   digitalAssets: DigitalAsset[];
-  
+
   // Scene configurations
   scenes: HDTScene[];
-  
+
   // Document timestamps
   createdAt?: Date | string;
   updatedAt?: Date | string;

@@ -25,6 +25,7 @@
     "backend"
   ],
   "dependencies": {
+    "root": "^3.2.0",
     "three": "^0.180.0"
   },
   "devDependencies": {

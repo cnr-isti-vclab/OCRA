@@ -45,7 +45,8 @@ import {
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
-
+import { rtiUploadMiddleware } from '../middleware/rti-upload.middleware.js';
+import { uploadRtiAssetHandler } from '../controllers/rti-asset.controller.js';
 const router = Router();
 
 /**
@@ -195,6 +196,18 @@ router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
  * Add a digital asset to the pool
  */
 router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
+
+/**
+ * POST /api/projects/:projectId/hdt/assets/rti/upload
+ * Upload an RTI asset as a ZIP package (info.json + rti files)
+ * and add it to the project's digital assets pool.
+ */
+router.post(
+  '/:projectId/hdt/assets/rti/upload',
+  requireAuth,
+  rtiUploadMiddleware,
+  uploadRtiAssetHandler
+);
 
 /**
  * PUT /api/projects/:projectId/hdt/assets/:assetId

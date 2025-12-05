@@ -42,5 +42,8 @@
   },
   "overrides": {
     "three": "^0.180.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.50.1"
   }
 }
