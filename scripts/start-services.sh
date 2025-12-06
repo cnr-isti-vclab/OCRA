@@ -19,6 +19,7 @@ else
     -e POSTGRES_PASSWORD=ocra_pass \
     -e POSTGRES_DB=ocra \
     -p 5432:5432 \
+    -v ocra-postgres-data:/var/lib/postgresql/data \
     postgres:16
 fi
 
@@ -35,6 +36,7 @@ else
   docker run -d \
     --name ocra-mongo \
     -p 27017:27017 \
+    -v ocra-mongo-data:/data/db \
     mongo:7
 fi
 
@@ -53,6 +55,7 @@ else
     -p 8081:8080 \
     -e KEYCLOAK_ADMIN=Administrator \
     -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \
+    -v keycloak-data:/opt/keycloak/data \
     quay.io/keycloak/keycloak:latest \
     start-dev
 fi

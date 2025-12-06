@@ -85,6 +85,7 @@ docker run -d \
   -e POSTGRES_USER=ocra_user \
   -e POSTGRES_PASSWORD=ocra_pass \
   -e POSTGRES_DB=ocra \
+  -v ocra-postgres-data:/var/lib/postgresql/data \
   -p 5432:5432 \
   postgres:16
 ```
@@ -104,6 +105,7 @@ After migrations (see §4) you should see tables `users`, `sessions`, `projects`
 docker run -d \
   --name ocra-mongo \
   -p 27017:27017 \
+  -v ocra-mongo-data:/data/db \
   mongo:7
 ```
 
@@ -121,6 +123,7 @@ docker run -d \
   -p 8081:8080 \
   -e KEYCLOAK_ADMIN=Administrator \
   -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \
+  -v keycloak-data:/opt/keycloak/data \
   quay.io/keycloak/keycloak:latest \
   start-dev
 ```
