@@ -39,7 +39,7 @@ An **RTI Asset** in OCRA has the following conceptual structure:
 | **Planes** | One or more coefficient images for the RTI model. Each plane is stored using a layout supported by OpenLIME (single image, DeepZoom, Google, other pyramids, etc.). |
 | **Tile directories (optional)** | Only present when the chosen layout is multi-resolution (e.g. DeepZoom). They hold tiled images referenced by layout-specific descriptors (`*.dzi`, Google metadata, etc.). |
 | **Asset Slug** | Filesystem-safe identifier derived from the uploaded ZIP filename. Used to build the final storage path. |
-| **Public URL Root** | `/rti-assets/:projectId/<assetSlug>/` — base HTTP path under which all extracted RTI files are exposed. |
+| **Public URL Root** | `/assets/rti/:projectId/<assetSlug>/` — base HTTP path under which all extracted RTI files are exposed. |
 | **infoJsonUrl** | URL to `info.json`, used by OpenLIME as the entry point for the RTI layer. |
 
 ## 2.1. Planes and Layouts
@@ -62,7 +62,7 @@ The architecture is therefore **generic** with respect to the plane layout: the 
 
 Within the HDT (Heritage Digital Twin) metadata document, an RTI asset is represented as a **DigitalAsset** of type `rti`. This asset references:
 
-- the **public URL** of `info.json` (`fileUrl`), served under `/rti-assets/...`
+- the **public URL** of `info.json` (`fileUrl`), served under `/assets/rti/...`
 - the **RTI format** (`rtiFormat`), typically mirroring `info.json.type` (e.g. `hsh`, `ptm`, `rsc`)
 - standard DigitalAsset properties (identifier, label, optional description, etc.)
 
@@ -156,7 +156,7 @@ It performs the following steps:
    Constructs the **public URL** of `info.json`, which will be served by Express:
 
    ```text
-   /rti-assets/:projectId/<assetSlug>/info.json
+   /assets/rti/:projectId/<assetSlug>/info.json
    ```
 
 10. **Response payload**  
@@ -175,7 +175,7 @@ Example (simplified):
   "success": true,
   "projectId": "1234",
   "assetSlug": "coin_hsh",
-  "infoJsonUrl": "/rti-assets/1234/coin_hsh/info.json",
+  "infoJsonUrl": "/assets/rti/1234/coin_hsh/info.json",
   "infoSummary": {
     "rtiType": "hsh",
     "width": 1024,
@@ -233,16 +233,16 @@ This is achieved by registering a static route in `app.ts`:
 const rtiAssetsRoot =
   process.env.RTI_ASSETS_PATH || path.join(process.cwd(), "rti_assets");
 
-app.use("/rti-assets", express.static(rtiAssetsRoot));
+app.use("/assets/rti", express.static(rtiAssetsRoot));
 ```
 
 The effect is:
 
-- Any file under `rti_assets/...` is reachable at a URL under `/rti-assets/...`.
+- Any file under `rti_assets/...` is reachable at a URL under `/assets/rti/...`.
 - For a given project and asset slug:
 
   - Filesystem: `rti_assets/:projectId/<assetSlug>/info.json`  
-  - HTTP: `/rti-assets/:projectId/<assetSlug>/info.json`
+  - HTTP: `/assets/rti/:projectId/<assetSlug>/info.json`
 
 This applies generically to **all** files of the RTI package:
 
@@ -290,13 +290,13 @@ Below is a conceptual diagram of the entire process.
                               ▼
          ┌──────────────────────────────────────────────┐
          │ Express serves directory statically via:     │
-         │   /rti-assets/<project>/<slug>/              │
+         │   /assets/rti/<project>/<slug>/              │
          └───────────────────┬──────────────────────────┘
                               │
                               ▼
          ┌──────────────────────────────────────────────┐
          │ Frontend/OpenLIME receives:                  │
-         │   infoJsonUrl = "/rti-assets/<p>/<slug>/..." │
+         │   infoJsonUrl = "/assets/rti/<p>/<slug>/..." │
          │ Builds a DigitalAsset of type "rti"          │
          │   (fileUrl = infoJsonUrl, rtiFormat, …)      │
          │ and uses it to instantiate an OpenLIME layer │
@@ -311,7 +311,7 @@ The OCRA backend supports hybrid RTI assets with **generic plane layouts**, not 
 
 - **Multer middleware** (`rti-upload.middleware.ts`) safely accepts RTI ZIP archives.
 - **RTI asset controller** (`rti-asset.controller.ts`) extracts, validates, and parses `info.json`.
-- **Static server configuration** (`app.ts`) exposes the extracted asset under `/rti-assets/...`.
+- **Static server configuration** (`app.ts`) exposes the extracted asset under `/assets/rti/...`.
 - **HDT metadata router** (`hdt-metadata.routes.ts`) provides:
   - an upload endpoint to prepare RTI assets, and
   - HDT APIs to persist RTI DigitalAssets.

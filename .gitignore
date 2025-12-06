@@ -21,3 +21,10 @@ src/generated/
 # internal development doc
 internaldoc/
 media/LargeModels/
+
+
+#Directory for local dev
+backend/rti_assets/
+backend/rti_uploads_tmp/
+prisma
+

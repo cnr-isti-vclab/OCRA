@@ -95,7 +95,7 @@ export function createApp(): Express {
   // Serve RTI assets as static files
   const rtiAssetsRoot =
   process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets');
-  app.use('/rti-assets', express.static(rtiAssetsRoot));
+  app.use('/assets/rti', express.static(rtiAssetsRoot));
 
   // use mounted health router for /health paths
 
