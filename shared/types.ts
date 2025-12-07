@@ -194,7 +194,7 @@ export interface CidocCrmMetadata {
  * RTI Types
  */
 type RTIFormat = 'ptm' | 'lptm' | 'hsh' | 'yrbf';  // 'rsc' 
-type RTILayout = 'image' | 'deepzoom' | 'deepzoom1px'| 'google' | 'zoomify' | 'iiif' | 'iip' | 'tarzoom' | 'itarzoom';
+type RTILayout = 'image' | 'deepzoom' | 'deepzoom1px' | 'google' | 'zoomify' | 'iiif' | 'iip' | 'tarzoom' | 'itarzoom';
 
 /**
  * Digital Asset
@@ -217,18 +217,21 @@ export interface DigitalAsset {
     // For 3D models
     triangles?: number;
     vertices?: number;
-    format?: string;          // GLB, PLY, OBJ, etc.
+    format?: string;          // GLB, PLY, OBJ, etc. | Pixel format for RTI planes (e.g. "jpg", "png")
 
-    // For RTI
-    rtiFormat?: RTIFormat;
-    rtiLayout?: RTILayout;
-    rtiHasNormals?: boolean;
-    lightPositions?: number;
+    // For RTI assets (relightable images)
+    // Summary metadata extracted from info.json in the RTI asset directory.
+    rtiType?: RTIFormat;      // PTM, L-PTM, HSH, Y-RBF, etc.
+    rtiLayout?: RTILayout;    // Deep zoom / tiling layout ("image", "deepzoom", etc.)
+    rtiHasNormals?: boolean;  // Whether normals are available in the RTI asset
+    nplanes?: number;         // Number of coefficient planes / source images
+    colorspace?: string;      // Color space used by the RTI data (e.g. "rgb", "srgb")
+    totalSize?: number;       // Total asset size in bytes (original ZIP or approximated)
 
-    // For images (future)
-    width?: number;
-    height?: number;
-    resolution?: number;      // DPI
+    // For images and RTI preview rendering
+    width?: number;           // Pixel width
+    height?: number;          // Pixel height
+    resolution?: number;      // DPI (optional, for print-oriented content)
 
     // For videos (future)
     duration?: number;        // seconds
