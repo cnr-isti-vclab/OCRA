@@ -104,6 +104,34 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
       });
     }
 
+    // Optional: compute asset size in bytes.
+    // We DO NOT fail if this cannot be computed.
+    let assetSizeBytes: number = 0;
+
+    // Prefer the uploaded ZIP size if available
+    if (file && typeof file.size === 'number') {
+      assetSizeBytes = file.size;
+    } else {
+      // Fallback: try to use info.json size (or any representative file)
+      try {
+        const infoStat = await fsp.stat(infoPath);
+        assetSizeBytes = infoStat.size;
+      } catch (sizeErr) {
+        console.warn('Could not compute RTI asset size', {
+          projectId,
+          assetSlug,
+          infoPath,
+          error: sizeErr
+        });
+        // Leave assetSizeBytes as null, do not throw
+      }
+    }
+
+    console.log(
+      `RTI asset ${assetSlug}: ${(assetSizeBytes / (1024 * 1024 * 1024)).toFixed(3)} GB`
+    );
+
+
     // Parse info.json
     let info: any;
     try {
@@ -156,7 +184,8 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
         height,
         nplanes,
         format,
-        colorspace
+        colorspace,
+        totalSize: Number(assetSizeBytes)
       }
     });
   } catch (error: any) {
