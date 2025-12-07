@@ -127,6 +127,71 @@ export default function HDTPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  //Helper
+  const copyAssetUrlToClipboard = async (url: string) => {
+    try {
+      // 1. Preferred: modern async clipboard API (supported in all modern browsers)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        setSuccessMessage('✓ Link copied to clipboard');
+        setError(null);
+        return;
+      }
+
+      // 2. Fallback: use a temporary textarea WITHOUT execCommand.
+      //    Instead of copying directly to clipboard (not possible without execCommand),
+      //    we use the Clipboard API *even in non-secure contexts* via a "copy event" trick.
+      await new Promise<void>((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+
+        // Hide the textarea
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        textarea.style.zIndex = '-1';
+
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        // Try using the Clipboard API inside a "copy" event
+        const onCopy = async (e: ClipboardEvent) => {
+          try {
+            e.preventDefault();
+            if (e.clipboardData) {
+              e.clipboardData.setData('text/plain', url);
+              resolve();
+            } else {
+              reject(new Error('No clipboardData available'));
+            }
+          } catch (err) {
+            reject(err);
+          } finally {
+            document.removeEventListener('copy', onCopy);
+            document.body.removeChild(textarea);
+          }
+        };
+
+        document.addEventListener('copy', onCopy);
+
+        // Manually dispatch a copy event
+        const successful = document.dispatchEvent(
+          new ClipboardEvent('copy', { bubbles: true, cancelable: true })
+        );
+
+        if (!successful) {
+          reject(new Error('Copy event was not handled'));
+        }
+      });
+
+      setSuccessMessage('✓ Link copied to clipboard');
+      setError(null);
+    } catch (err) {
+      console.error('Failed to copy asset URL:', err);
+      setError('Failed to copy link to clipboard');
+    }
+  };
+
   // Scenes state
   const [scenes, setScenes] = useState<Array<any>>([]);
   const [editingScene, setEditingScene] = useState<any | null>(null);
@@ -217,17 +282,17 @@ export default function HDTPage() {
           const metadataData = await metadataResponse.json();
           setMetadata(metadataData);
           populateFormFromMetadata(metadataData);
-          
+
           // Load digital assets (new architecture)
           if (metadataData?.digitalAssets && Array.isArray(metadataData.digitalAssets)) {
             setDigitalAssets(metadataData.digitalAssets);
           }
-          
+
           // Load scenes (new architecture)
           if (metadataData?.scenes && Array.isArray(metadataData.scenes)) {
             setScenes(metadataData.scenes);
           }
-          
+
           // Backward compatibility: if hdtModel exists but no digitalAssets, migrate it
           if (metadataData?.hdtModel && (!metadataData.digitalAssets || metadataData.digitalAssets.length === 0)) {
             const legacyAsset = {
@@ -269,7 +334,7 @@ export default function HDTPage() {
     // Handle both direct and nested metadata structures
     const dublinCore = (meta as any).metadata?.dublinCore || meta.dublinCore;
     const cidocCrm = (meta as any).metadata?.cidocCrm || meta.cidocCrm;
-    
+
     // Dublin Core
     if (dublinCore) {
       setDcTitle(dublinCore.title || '');
@@ -434,10 +499,10 @@ export default function HDTPage() {
     } finally {
       setSaving(false);
     }
-  }, [projectId, dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, 
-      dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century, 
-      placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
-      digitalAssets, scenes, selectedModel]);
+  }, [projectId, dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage,
+    dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century,
+    placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
+    digitalAssets, scenes, selectedModel]);
 
   // Auto-save disabled - users must manually save their changes
   // const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -510,8 +575,8 @@ export default function HDTPage() {
           <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
-          <a 
-            href={`${getApiBase()}/api/projects/${projectId}/export/rdf`} 
+          <a
+            href={`${getApiBase()}/api/projects/${projectId}/export/rdf`}
             className="btn btn-outline-primary"
             target="_blank"
             rel="noopener noreferrer"
@@ -525,9 +590,9 @@ export default function HDTPage() {
       {successMessage && (
         <div className="alert alert-success alert-dismissible fade show" role="alert">
           <strong>✓</strong> {successMessage}
-          <button 
-            type="button" 
-            className="btn-close" 
+          <button
+            type="button"
+            className="btn-close"
             onClick={() => setSuccessMessage(null)}
             aria-label="Close"
           ></button>
@@ -537,9 +602,9 @@ export default function HDTPage() {
       {error && (
         <div className="alert alert-danger alert-dismissible fade show" role="alert">
           <strong>Error:</strong> {error}
-          <button 
-            type="button" 
-            className="btn-close" 
+          <button
+            type="button"
+            className="btn-close"
             onClick={() => setError(null)}
             aria-label="Close"
           ></button>
@@ -764,7 +829,7 @@ export default function HDTPage() {
                 <h6 className="mb-2">Supported Asset Types</h6>
                 <div className="d-flex gap-2 flex-wrap">
                   <span className="badge bg-primary">3D Models (GLB, GLTF, PLY, OBJ, NXS)</span>
-                  <span className="badge bg-secondary text-muted">RTI (Coming Soon)</span>
+                  <span className="badge bg-primary">RTI</span>
                   <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
                 </div>
@@ -775,7 +840,7 @@ export default function HDTPage() {
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h6 className="mb-0">Asset Pool ({digitalAssets.length})</h6>
                 </div>
-                
+
                 {digitalAssets.length === 0 ? (
                   <div className="alert alert-info">
                     <strong>No assets yet.</strong> Upload or select files below to add them to your asset pool.
@@ -806,51 +871,67 @@ export default function HDTPage() {
                               <strong>{asset.fileName}</strong>
                               {asset.fileUrl && (
                                 <div>
-                                  <a href={asset.fileUrl} target="_blank" rel="noreferrer" className="small text-decoration-none">
-                                    Download ↗
-                                  </a>
+                                  {asset.type === 'rti' ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-link btn-sm p-0 align-baseline small text-decoration-none"
+                                      onClick={() => copyAssetUrlToClipboard(asset.fileUrl!)}
+                                      title="Copy RTI info.json URL to clipboard"
+                                    >
+                                      Copy <i className="bi bi-clipboard me-1"></i>
+                                    </button>
+                                  ) : (
+                                    <a
+                                      href={asset.fileUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="small text-decoration-none"
+                                    >
+                                      Download ↗
+                                    </a>
+                                  )}
                                 </div>
                               )}
                             </td>
                             <td className="text-muted small">
-                              {asset.fileSize ? `${(asset.fileSize / (1024*1024)).toFixed(2)} MB` : '-'}
+                              {asset.fileSize ? `${(asset.fileSize / (1024 * 1024)).toFixed(2)} MB` : '-'}
                             </td>
                             <td className="text-muted small">
                               {asset.uploadedAt ? new Date(asset.uploadedAt).toLocaleDateString() : '-'}
                             </td>
                             <td>
-                              <button 
+                              <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={async () => {
                                   if (!confirm(`Delete "${asset.fileName}"? This will remove the file from storage and cannot be undone.`)) {
                                     return;
                                   }
-                                  
+
                                   try {
                                     // Delete from MongoDB
                                     const deleteAssetRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${asset.id}`, {
                                       method: 'DELETE',
                                       credentials: 'include'
                                     });
-                                    
+
                                     if (!deleteAssetRes.ok) {
                                       const err = await deleteAssetRes.json().catch(() => ({}));
                                       throw new Error(err.error || 'Failed to delete asset from database');
                                     }
-                                    
+
                                     // Delete file from volume
                                     const deleteFileRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(asset.fileName)}`, {
                                       method: 'DELETE',
                                       credentials: 'include'
                                     });
-                                    
+
                                     if (!deleteFileRes.ok) {
                                       console.warn('Failed to delete file from volume, but asset removed from database');
                                     }
-                                    
+
                                     // Update local state
                                     setDigitalAssets(digitalAssets.filter((_, i) => i !== index));
-                                    
+
                                     // Refresh to sync with server
                                     await fetchProjectAndMetadata();
                                     setSuccessMessage(`✓ Asset "${asset.fileName}" deleted successfully!`);
@@ -887,14 +968,14 @@ export default function HDTPage() {
                       setUploadProgress(0);
                       setError(null);
                       setSuccessMessage(null);
-                      
+
                       // Upload file with progress tracking
                       const formData = new FormData();
                       formData.append('file', file);
-                      
+
                       const uploadRes = await new Promise<Response>((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
-                        
+
                         // Track upload progress
                         xhr.upload.addEventListener('progress', (e) => {
                           if (e.lengthComputable) {
@@ -902,7 +983,7 @@ export default function HDTPage() {
                             setUploadProgress(percentComplete);
                           }
                         });
-                        
+
                         xhr.addEventListener('load', () => {
                           if (xhr.status >= 200 && xhr.status < 300) {
                             resolve(new Response(xhr.responseText, {
@@ -916,20 +997,20 @@ export default function HDTPage() {
                             reject(new Error(`Upload failed with status ${xhr.status}`));
                           }
                         });
-                        
+
                         xhr.addEventListener('error', () => reject(new Error('Network error')));
                         xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
-                        
+
                         xhr.open('POST', `${getApiBase()}/api/projects/${projectId}/files`);
                         xhr.withCredentials = true;
                         xhr.send(formData);
                       });
-                      
+
                       if (!uploadRes.ok) {
                         const err = await uploadRes.json().catch(() => ({}));
                         throw new Error(err.error || 'Upload failed');
                       }
-                      
+
                       // Create new asset object
                       const fileUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(file.name)}`;
                       const newAsset = {
@@ -941,11 +1022,11 @@ export default function HDTPage() {
                         mimeType: file.type || 'application/octet-stream',
                         uploadedAt: new Date().toISOString(),
                       };
-                      
+
                       // Update local state
                       const updatedAssets = [...digitalAssets, newAsset];
                       setDigitalAssets(updatedAssets);
-                      
+
                       // Immediately save to MongoDB
                       const saveRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
                         method: 'POST',
@@ -953,12 +1034,12 @@ export default function HDTPage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newAsset)
                       });
-                      
+
                       if (!saveRes.ok) {
                         const err = await saveRes.json().catch(() => ({}));
                         throw new Error(err.error || 'Failed to save asset to database');
                       }
-                      
+
                       // Refresh to get updated data from server
                       await fetchProjectAndMetadata();
                       setSuccessMessage(`✓ Asset "${file.name}" uploaded and saved successfully!`);
@@ -1007,6 +1088,137 @@ export default function HDTPage() {
                   </div>
                 )}
               </div>
+              {/* Add New RTI ZIP Asset */}
+              <div className="mb-4">
+                <h6 className="text-primary mb-2">Add a new RTI zip file</h6>
+                <p className="text-muted small">
+                  Upload an RTI package as a ZIP file. The ZIP must contain an <code>info.json</code> file and the RTI image data (e.g. tiled JPG / DeepZoom).
+                </p>
+
+                {/* Hidden file input for RTI ZIP */}
+                <input
+                  id="rtiZipInput"
+                  type="file"
+                  className="d-none"
+                  accept=".zip"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !projectId) {
+                      return;
+                    }
+
+                    try {
+                      setError(null);
+                      setSuccessMessage(null);
+                      setUploading(true);
+                      setUploadProgress(0);
+
+                      // Use XHR to track upload progress, same pattern as 3D model upload
+                      const uploadResponse = await new Promise<Response>((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        const url = `${getApiBase()}/api/projects/${projectId}/hdt/assets/rti/upload`;
+
+                        xhr.open('POST', url, true);
+                        xhr.withCredentials = true;
+
+                        xhr.upload.onprogress = (event) => {
+                          if (event.lengthComputable) {
+                            const percent = Math.round((event.loaded / event.total) * 100);
+                            setUploadProgress(percent);
+                          }
+                        };
+
+                        xhr.onload = () => {
+                          if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(
+                              new Response(xhr.responseText, {
+                                status: xhr.status,
+                                statusText: xhr.statusText,
+                                headers: new Headers({ 'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json' }),
+                              })
+                            );
+                          } else {
+                            reject(new Error(`RTI ZIP upload failed: ${xhr.status} ${xhr.statusText}`));
+                          }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Network error during RTI ZIP upload'));
+
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        xhr.send(formData);
+                      });
+
+                      if (!uploadResponse.ok) {
+                        const err = await uploadResponse.json().catch(() => ({}));
+                        throw new Error(err.error || 'Failed to upload RTI ZIP');
+                      }
+
+                      const uploadJson: any = await uploadResponse.json();
+
+                      if (!uploadJson.infoJsonUrl) {
+                        throw new Error('Server did not return infoJsonUrl for RTI asset');
+                      }
+
+                      // Build full URL to info.json (served by Express static handler)
+                      const infoJsonUrl: string = `${getApiBase()}${uploadJson.infoJsonUrl}`;
+
+                      // Build asset payload to store in MongoDB
+                      const newRtiAsset = {
+                        id: `asset_${Date.now()}`,
+                        type: 'rti' as const,
+                        fileName: file.name,
+                        fileUrl: infoJsonUrl,
+                        mimeType: 'application/json',
+                        metadata: uploadJson.infoSummary || {},
+                        fileSize: uploadJson.infoSummary?.totalSize || null,
+                        uploadedAt: new Date().toISOString(),
+                      };
+
+                      // Save asset in HDT digital assets pool
+                      const saveRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newRtiAsset),
+                      });
+
+                      if (!saveRes.ok) {
+                        const err = await saveRes.json().catch(() => ({}));
+                        throw new Error(err.error || 'Failed to save RTI asset to database');
+                      }
+
+                      // Update local state
+                      setDigitalAssets((prev) => [...prev, newRtiAsset]);
+
+                      // Refresh from server to stay in sync
+                      await fetchProjectAndMetadata();
+
+                      setSuccessMessage(`✓ RTI asset "${file.name}" uploaded and saved successfully!`);
+                    } catch (err: any) {
+                      console.error(err);
+                      setError(err?.message || 'Failed to upload RTI asset');
+                    } finally {
+                      setUploading(false);
+                      setUploadProgress(0);
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }}
+                  disabled={uploading}
+                />
+
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => document.getElementById('rtiZipInput')?.click()}
+                    disabled={uploading}
+                    title="Click to browse and select an RTI ZIP package. Upload will start automatically."
+                  >
+                    {uploading ? `Uploading... ${uploadProgress}%` : 'Import RTI ZIP from local file'}
+                  </button>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -1022,7 +1234,7 @@ export default function HDTPage() {
               <div className="mb-4">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h6 className="mb-0">Scenes ({scenes.length})</h6>
-                  <button 
+                  <button
                     className="btn btn-sm btn-primary"
                     onClick={() => {
                       const newScene = {
@@ -1061,7 +1273,7 @@ export default function HDTPage() {
                                 {scene.isDefault && <span className="badge bg-success ms-2">Default</span>}
                               </h6>
                               <div className="btn-group btn-group-sm">
-                                <button 
+                                <button
                                   className="btn btn-outline-primary"
                                   onClick={() => {
                                     setEditingScene(scene);
@@ -1071,7 +1283,7 @@ export default function HDTPage() {
                                 >
                                   ✏️
                                 </button>
-                                <button 
+                                <button
                                   className="btn btn-outline-danger"
                                   onClick={() => {
                                     if (scenes.length === 1) {
@@ -1101,7 +1313,7 @@ export default function HDTPage() {
                               <span>📦 {scene.assets?.length || 0} asset{(scene.assets?.length || 0) !== 1 ? 's' : ''}</span>
                               {scene.environment?.backgroundColor && (
                                 <span>
-                                  🎨 <span 
+                                  🎨 <span
                                     style={{
                                       display: 'inline-block',
                                       width: '12px',
@@ -1132,9 +1344,9 @@ export default function HDTPage() {
                         <h5 className="modal-title">
                           {scenes.find(s => s.id === editingScene.id) ? 'Edit Scene' : 'Create New Scene'}
                         </h5>
-                        <button 
-                          type="button" 
-                          className="btn-close" 
+                        <button
+                          type="button"
+                          className="btn-close"
                           onClick={() => {
                             setShowSceneEditor(false);
                             setEditingScene(null);
@@ -1232,7 +1444,10 @@ export default function HDTPage() {
                                         </div>
                                         {asset.fileSize && (
                                           <small className="text-muted">
-                                            {(asset.fileSize / (1024*1024)).toFixed(2)} MB
+                                            {asset.fileSize
+                                              ? `${(asset.fileSize / 1024 / 1024).toFixed(2)} MB`
+                                              : '-'
+                                            }
                                           </small>
                                         )}
                                       </div>
@@ -1311,8 +1526,8 @@ export default function HDTPage() {
                         </div>
                       </div>
                       <div className="modal-footer">
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className="btn btn-secondary"
                           onClick={() => {
                             setShowSceneEditor(false);
@@ -1321,18 +1536,18 @@ export default function HDTPage() {
                         >
                           Cancel
                         </button>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className="btn btn-primary"
                           onClick={() => {
                             if (!editingScene.name.trim()) {
                               alert('Please enter a scene name');
                               return;
                             }
-                            
+
                             const existingIndex = scenes.findIndex(s => s.id === editingScene.id);
                             let updatedScenes;
-                            
+
                             if (existingIndex >= 0) {
                               // Update existing scene
                               updatedScenes = [...scenes];
@@ -1341,14 +1556,14 @@ export default function HDTPage() {
                               // Add new scene
                               updatedScenes = [...scenes, editingScene];
                             }
-                            
+
                             // If this scene is marked as default, unmark others
                             if (editingScene.isDefault) {
-                              updatedScenes = updatedScenes.map(s => 
+                              updatedScenes = updatedScenes.map(s =>
                                 s.id === editingScene.id ? s : { ...s, isDefault: false }
                               );
                             }
-                            
+
                             setScenes(updatedScenes);
                             setShowSceneEditor(false);
                             setEditingScene(null);
