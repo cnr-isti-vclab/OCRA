@@ -67,8 +67,9 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
 /**
  * Base folder for all RTI assets (must match rti-asset.controller.ts).
  */
-const rtiAssetsRoot =
-  process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets');
+const rtiAssetsRoot = path.resolve(
+  process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
+);
 
 /**
  * Given an RTI asset fileUrl, return the directory on disk that stores the asset.

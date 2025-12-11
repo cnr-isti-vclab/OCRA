@@ -39,10 +39,10 @@ export function createApp(): Express {
 
   // CORS configuration - allow credentials for cookie-based auth
   // Get allowed origins from environment or use defaults
-  const allowedOrigins = process.env.CORS_ORIGINS 
+  const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
     : ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'];
-  
+
   app.use(cors({
     origin: allowedOrigins,
     credentials: true,
@@ -54,7 +54,7 @@ export function createApp(): Express {
   app.use(express.json());
 
   // (mongo debug route removed)
-  
+
   // Simple cookie parser middleware
   app.use((req: Request, res: Response, next: NextFunction) => {
     req.cookies = {};
@@ -69,7 +69,7 @@ export function createApp(): Express {
     }
     next();
   });
-  
+
   // Request logging
   app.use(requestLogger);
 
@@ -79,7 +79,7 @@ export function createApp(): Express {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'OCRA API Documentation',
   }));
-  
+
   // Swagger JSON spec
   app.get('/api-docs.json', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
@@ -88,13 +88,14 @@ export function createApp(): Express {
 
   // API routes
   app.use('/api', routes);
-  
+
   // Health check available at both /health and /api/health
   app.use('/health', healthRoutes);
 
   // Serve RTI assets as static files
-  const rtiAssetsRoot =
-  process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets');
+  const rtiAssetsRoot = path.resolve(
+    process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
+  );
   app.use('/assets/rti', express.static(rtiAssetsRoot));
 
   // use mounted health router for /health paths

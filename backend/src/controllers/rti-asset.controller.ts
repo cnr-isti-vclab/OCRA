@@ -72,9 +72,10 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     const baseName = path.basename(originalName, ext);
 
     // Base folder for all RTI assets
-    const rtiAssetsRoot =
-      process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets');
-
+    const rtiAssetsRoot = path.resolve(
+      process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
+    );
+    
     // Safe unique slug used as the final asset folder name
     const baseSlug = baseName.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
     const assetSlug = makeUniqueSlug(rtiAssetsRoot, projectId, baseSlug);
