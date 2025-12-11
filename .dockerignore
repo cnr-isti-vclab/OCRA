@@ -1,7 +1,8 @@
 node_modules
 backend/node_modules
-backend/.env*
-.env*
+.env
+.env.local
+.env.development
 dist
 .vite
 .git
