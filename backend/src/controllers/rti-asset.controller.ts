@@ -3,6 +3,7 @@
 import type { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import fse from 'fs-extra';
 import fsp from 'fs/promises';
 import extract from 'extract-zip';
 
@@ -75,7 +76,15 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     const rtiAssetsRoot = path.resolve(
       process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
     );
-    
+
+    /**
+     * Temporary directory for uploaded RTI ZIP archives.
+     * Files are moved from here to their final destination after validation.
+     */
+    const rtiUploadTempDir =
+      process.env.RTI_UPLOAD_TMP_PATH || path.join(process.cwd(), 'rti_uploads_tmp');
+
+
     // Safe unique slug used as the final asset folder name
     const baseSlug = baseName.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
     const assetSlug = makeUniqueSlug(rtiAssetsRoot, projectId, baseSlug);
@@ -90,7 +99,8 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
 
     // Cleanup temporary ZIP file
     try {
-      await fsp.unlink(zipPath);
+      await fse.remove(zipPath);
+      await fse.emptyDir(rtiUploadTempDir);
     } catch (cleanupErr) {
       console.warn('Failed to remove temporary RTI ZIP:', cleanupErr);
     }

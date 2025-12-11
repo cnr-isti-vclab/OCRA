@@ -27,6 +27,7 @@
     "backend"
   ],
   "dependencies": {
+    "fs-extra": "^11.3.2",
     "root": "^3.2.0",
     "three": "^0.180.0"
   },
