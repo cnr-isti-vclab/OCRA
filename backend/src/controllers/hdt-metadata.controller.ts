@@ -437,15 +437,21 @@ export async function removeAssetHandler(req: Request, res: Response) {
 
     // 2) If the asset is an RTI, compute the directory to delete
     let rtiDirToDelete: string | null = null;
-    if (asset.type === 'rti' && typeof asset.fileUrl === 'string') {
-      rtiDirToDelete = resolveRtiAssetDirectory(asset.fileUrl);
+
+    if (asset.type === 'rti') {
+      // Robust: we know the new storage layout by projectId + assetId
+      rtiDirToDelete = projectRtiAssetDir(projectId, assetId);
       console.log('RTI asset delete requested:', {
         projectId,
         assetId,
         fileUrl: asset.fileUrl,
-        rtiDirToDelete
+        rtiDirToDelete,
       });
+    } else if (asset.type === 'rti' && typeof asset.fileUrl === 'string') {
+      // Optional fallback (keep only if you still support legacy layouts)
+      rtiDirToDelete = resolveRtiAssetDirectory(asset.fileUrl) || null;
     }
+
 
     // 3) Remove asset from HDT document (DB + scenes)
     const updatedDoc = await removeDigitalAsset(projectId, assetId, currentUser.sub);
