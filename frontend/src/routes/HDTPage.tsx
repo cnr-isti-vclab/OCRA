@@ -233,6 +233,87 @@ export default function HDTPage() {
     fetchProjectAndMetadata();
   }, [projectId]);
 
+  /**
+   * Create a new asset entry in HDT "digitalAssets" and return the generated assetId.
+   * Backend: POST /api/projects/:projectId/hdt/assets
+   */
+  const createHdtAsset = async (type: 'model3d' | 'rti', label: string, title: string): Promise<string> => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+
+    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, label, title }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to create ${type} asset in HDT`);
+    }
+
+    // Backend returns Mongo findOneAndUpdate-style response:
+    // { value: { digitalAssets: [ ... { id: "asset_..." } ] } }
+    const json: any = await res.json();
+    const assets: any[] = json?.value?.digitalAssets;
+    const assetId: string | undefined = Array.isArray(assets) && assets.length > 0 ? assets[assets.length - 1]?.id : undefined;
+
+    if (!assetId) {
+      throw new Error('Backend did not return a valid assetId');
+    }
+
+    return assetId;
+  };
+
+  /**
+   * Update existing asset metadata in HDT.
+   * Backend: PUT /api/projects/:projectId/hdt/assets/:assetId
+   */
+  const updateHdtAsset = async (assetId: string, patch: Record<string, any>): Promise<void> => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update asset metadata');
+    }
+  };
+
+  /**
+   * Delete an asset from HDT.
+   * Backend: DELETE /api/projects/:projectId/hdt/assets/:assetId
+   *
+   * IMPORTANT:
+   * We assume the backend also deletes the corresponding storage folder:
+   * - model3d: project_files/<projectId>/model3d/<assetId>/
+   * - rti:     project_files/<projectId>/rti/<assetId>/
+   *
+   * If backend does not delete files, fix it there (do not re-introduce legacy /files/:filename deletes).
+   */
+  const deleteHdtAsset = async (assetId: string): Promise<void> => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete asset');
+    }
+  };
+
   const fetchProjectAndMetadata = async () => {
     if (!projectId) return;
 
@@ -253,9 +334,12 @@ export default function HDTPage() {
       }
 
       const projectData = await projectResponse.json();
-      setProject(projectData);
+      // Some endpoints return {success:true, project: {...}}
+      const proj: Project = (projectData?.project ?? projectData) as Project;
+      setProject(proj);
 
       // Fetch project files for 3D model selection
+      // NOTE: This endpoint may become less relevant in the new per-asset directory model.
       try {
         const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
           credentials: 'include',
@@ -503,34 +587,6 @@ export default function HDTPage() {
     dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century,
     placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
     digitalAssets, scenes, selectedModel]);
-
-  // Auto-save disabled - users must manually save their changes
-  // const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // 
-  // useEffect(() => {
-  //   // Don't auto-save on initial load (when metadata is being populated from server)
-  //   if (loading || !dataLoaded || initialLoadRef.current) return;
-  //   
-  //   // Clear previous timeout
-  //   if (saveTimeoutRef.current) {
-  //     clearTimeout(saveTimeoutRef.current);
-  //   }
-  //
-  //   // Set new timeout for auto-save (debounce for 1 second)
-  //   saveTimeoutRef.current = setTimeout(() => {
-  //     autoSaveMetadata();
-  //   }, 1000);
-  //
-  //   // Cleanup
-  //   return () => {
-  //     if (saveTimeoutRef.current) {
-  //       clearTimeout(saveTimeoutRef.current);
-  //     }
-  //   };
-  // }, [dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, 
-  //     dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century, 
-  //     placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
-  //     loading, dataLoaded, autoSaveMetadata]);
 
   if (loading) {
     return (
@@ -868,7 +924,9 @@ export default function HDTPage() {
                               {asset.type === 'other' && 'Other'}
                             </td>
                             <td>
-                              <strong>{asset.fileName}</strong>
+                              <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
+
+                              {/* Links / copy */}
                               {asset.fileUrl && (
                                 <div>
                                   {asset.type === 'rti' ? (
@@ -903,38 +961,25 @@ export default function HDTPage() {
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={async () => {
-                                  if (!confirm(`Delete "${asset.fileName}"? This will remove the file from storage and cannot be undone.`)) {
+                                  const displayName = asset.fileName || asset.title || asset.label || asset.id;
+                                  if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
                                     return;
                                   }
 
                                   try {
-                                    // Delete from MongoDB
-                                    const deleteAssetRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${asset.id}`, {
-                                      method: 'DELETE',
-                                      credentials: 'include'
-                                    });
+                                    setError(null);
+                                    setSuccessMessage(null);
 
-                                    if (!deleteAssetRes.ok) {
-                                      const err = await deleteAssetRes.json().catch(() => ({}));
-                                      throw new Error(err.error || 'Failed to delete asset from database');
-                                    }
+                                    // New architecture: delete only via HDT endpoint.
+                                    // Backend must also delete the corresponding folder on disk.
+                                    await deleteHdtAsset(asset.id);
 
-                                    // Delete file from volume
-                                    const deleteFileRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(asset.fileName)}`, {
-                                      method: 'DELETE',
-                                      credentials: 'include'
-                                    });
-
-                                    if (!deleteFileRes.ok) {
-                                      console.warn('Failed to delete file from volume, but asset removed from database');
-                                    }
-
-                                    // Update local state
-                                    setDigitalAssets(digitalAssets.filter((_, i) => i !== index));
+                                    // Update local state optimistically
+                                    setDigitalAssets((prev) => prev.filter((a) => a.id !== asset.id));
 
                                     // Refresh to sync with server
                                     await fetchProjectAndMetadata();
-                                    setSuccessMessage(`✓ Asset "${asset.fileName}" deleted successfully!`);
+                                    setSuccessMessage(`✓ Asset "${displayName}" deleted successfully!`);
                                   } catch (err: any) {
                                     setError(err?.message || 'Failed to delete asset');
                                   }
@@ -951,7 +996,7 @@ export default function HDTPage() {
                 )}
               </div>
 
-              {/* Upload New Asset */}
+              {/* Upload New Asset (3D) */}
               <div className="mb-4">
                 <h6 className="text-primary mb-2">Add a new 3D model</h6>
                 <input
@@ -963,23 +1008,25 @@ export default function HDTPage() {
                     if (!projectId) return;
                     const file = e.target.files?.[0];
                     if (!file) return;
+
                     try {
                       setUploading(true);
                       setUploadProgress(0);
                       setError(null);
                       setSuccessMessage(null);
 
-                      // Upload file with progress tracking
-                      const formData = new FormData();
-                      formData.append('file', file);
+                      // 1) Create HDT asset first to get a stable assetId (stored in Mongo)
+                      const assetId = await createHdtAsset('model3d', file.name, file.name);
 
+                      // 2) Upload file to storage using assetId (multipart)
+                      //    Backend should store under: project_files/<projectId>/model3d/<assetId>/<filename>
                       const uploadRes = await new Promise<Response>((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
 
                         // Track upload progress
-                        xhr.upload.addEventListener('progress', (e) => {
-                          if (e.lengthComputable) {
-                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        xhr.upload.addEventListener('progress', (ev) => {
+                          if (ev.lengthComputable) {
+                            const percentComplete = Math.round((ev.loaded / ev.total) * 100);
                             setUploadProgress(percentComplete);
                           }
                         });
@@ -1001,8 +1048,14 @@ export default function HDTPage() {
                         xhr.addEventListener('error', () => reject(new Error('Network error')));
                         xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
+                        // NOTE: new upload uses assetId as part of the route for storage
+                        // Route: POST /api/projects/:projectId/files  (with form field assetId)
                         xhr.open('POST', `${getApiBase()}/api/projects/${projectId}/files`);
                         xhr.withCredentials = true;
+
+                        const formData = new FormData();
+                        formData.append('assetId', assetId);
+                        formData.append('file', file);
                         xhr.send(formData);
                       });
 
@@ -1011,34 +1064,22 @@ export default function HDTPage() {
                         throw new Error(err.error || 'Upload failed');
                       }
 
-                      // Create new asset object
-                      const fileUrl = `${getApiBase()}/api/projects/${projectId}/files/${encodeURIComponent(file.name)}`;
-                      const newAsset = {
-                        id: `asset_${Date.now()}`,
-                        type: 'model3d',
+                      const uploadJson: any = await uploadRes.json().catch(() => ({}));
+
+                      // 3) Build public URL (static) for the uploaded file:
+                      // /assets/projects/<projectId>/model3d/<assetId>/<filename>
+                      const fileUrl = `${getApiBase()}/assets/projects/${encodeURIComponent(projectId)}/model3d/${encodeURIComponent(assetId)}/${encodeURIComponent(file.name)}`;
+
+                      // 4) Update the asset metadata with storage info
+                      await updateHdtAsset(assetId, {
                         fileName: file.name,
                         fileUrl,
                         fileSize: file.size,
                         mimeType: file.type || 'application/octet-stream',
                         uploadedAt: new Date().toISOString(),
-                      };
-
-                      // Update local state
-                      const updatedAssets = [...digitalAssets, newAsset];
-                      setDigitalAssets(updatedAssets);
-
-                      // Immediately save to MongoDB
-                      const saveRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newAsset)
+                        // optional: keep backend response if useful
+                        uploadResponse: uploadJson || null,
                       });
-
-                      if (!saveRes.ok) {
-                        const err = await saveRes.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to save asset to database');
-                      }
 
                       // Refresh to get updated data from server
                       await fetchProjectAndMetadata();
@@ -1088,6 +1129,7 @@ export default function HDTPage() {
                   </div>
                 )}
               </div>
+
               {/* Add New RTI ZIP Asset */}
               <div className="mb-4">
                 <h6 className="text-primary mb-2">Add a new RTI zip file</h6>
@@ -1100,7 +1142,7 @@ export default function HDTPage() {
                   id="rtiZipInput"
                   type="file"
                   className="d-none"
-                  accept=".zip"
+                  accept=".zip,application/zip"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file || !projectId) {
@@ -1113,7 +1155,10 @@ export default function HDTPage() {
                       setUploading(true);
                       setUploadProgress(0);
 
-                      // Use XHR to track upload progress, same pattern as 3D model upload
+                      // 1) Create asset in HDT first
+                      const assetId = await createHdtAsset('rti', file.name, file.name);
+
+                      // 2) Upload RTI ZIP to backend with assetId (multipart)
                       const uploadResponse = await new Promise<Response>((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
                         const url = `${getApiBase()}/api/projects/${projectId}/hdt/assets/rti/upload`;
@@ -1145,6 +1190,7 @@ export default function HDTPage() {
                         xhr.onerror = () => reject(new Error('Network error during RTI ZIP upload'));
 
                         const formData = new FormData();
+                        formData.append('assetId', assetId);
                         formData.append('file', file);
                         xhr.send(formData);
                       });
@@ -1160,36 +1206,22 @@ export default function HDTPage() {
                         throw new Error('Server did not return infoJsonUrl for RTI asset');
                       }
 
-                      // Build full URL to info.json (served by Express static handler)
+                      // infoJsonUrl is returned as a PUBLIC path (already under /assets/projects/..)
+                      // Example: /assets/projects/<projectId>/rti/<assetId>/info.json
                       const infoJsonUrl: string = `${getApiBase()}${uploadJson.infoJsonUrl}`;
 
-                      // Build asset payload to store in MongoDB
-                      const newRtiAsset = {
-                        id: `asset_${Date.now()}`,
-                        type: 'rti' as const,
+                      // 3) Update RTI asset metadata in HDT
+                      await updateHdtAsset(assetId, {
                         fileName: file.name,
+                        // For RTI, "fileUrl" is the public URL to info.json
                         fileUrl: infoJsonUrl,
                         mimeType: 'application/json',
-                        metadata: uploadJson.infoSummary || {},
                         fileSize: uploadJson.infoSummary?.totalSize || null,
                         uploadedAt: new Date().toISOString(),
-                      };
-
-                      // Save asset in HDT digital assets pool
-                      const saveRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newRtiAsset),
+                        // Keep both flattened summary and raw summary for convenience
+                        ...(uploadJson.infoSummary || {}),
+                        infoSummary: uploadJson.infoSummary || null,
                       });
-
-                      if (!saveRes.ok) {
-                        const err = await saveRes.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to save RTI asset to database');
-                      }
-
-                      // Update local state
-                      setDigitalAssets((prev) => [...prev, newRtiAsset]);
 
                       // Refresh from server to stay in sync
                       await fetchProjectAndMetadata();
@@ -1217,6 +1249,21 @@ export default function HDTPage() {
                     {uploading ? `Uploading... ${uploadProgress}%` : 'Import RTI ZIP from local file'}
                   </button>
                 </div>
+
+                {uploading && uploadProgress > 0 && (
+                  <div className="progress mt-2" style={{ height: '20px' }}>
+                    <div
+                      className="progress-bar progress-bar-striped progress-bar-animated"
+                      role="progressbar"
+                      style={{ width: `${uploadProgress}%` }}
+                      aria-valuenow={uploadProgress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      {uploadProgress}%
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1439,7 +1486,7 @@ export default function HDTPage() {
                                       />
                                       <div className="flex-grow-1">
                                         <div>
-                                          <strong>{asset.fileName}</strong>
+                                          <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
                                           <span className="badge bg-secondary ms-2">{asset.type}</span>
                                         </div>
                                         {asset.fileSize && (

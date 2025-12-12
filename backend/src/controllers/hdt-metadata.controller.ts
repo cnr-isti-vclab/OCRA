@@ -5,6 +5,7 @@
  * Includes metadata, digital assets, scenes, and scene-asset associations.
  */
 
+import { projectRtiAssetDir } from '../utils/project-paths.js';
 import { Request, Response } from 'express';
 import {
   getHDTDocument,
@@ -64,57 +65,60 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
 
 // RTI Helpers
 
-/**
- * Base folder for all RTI assets (must match rti-asset.controller.ts).
- */
-const rtiAssetsRoot = path.resolve(
-  process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
-);
 
 /**
- * Given an RTI asset fileUrl, return the directory on disk that stores the asset.
+ * Given an RTI asset file URL, return the directory on disk
+ * where the asset is stored.
  *
- * Expected URL format:
- *   /assets/rti/<projectId>/<slug>/info.json
- * or absolute variants like:
- *   http://host:port/assets/rti/<projectId>/<slug>/info.json
+ * Expected URL format (public static path):
+ *   /assets/projects/<projectId>/rti/<assetId>/info.json
  *
- * This function extracts <projectId> and <slug> and returns:
- *   rti_assets/<projectId>/<slug>
+ * Absolute URLs are also supported, for example:
+ *   http://host:port/assets/projects/<projectId>/rti/<assetId>/info.json
  *
- * Returns null if the URL does not match the expected RTI structure.
+ * This function:
+ * - extracts <projectId> and <assetId> from the URL
+ * - verifies that the asset type is "rti"
+ * - resolves and returns the absolute filesystem path:
+ *
+ *   project_files/<projectId>/rti/<assetId>
+ *
+ * Returns null if:
+ * - the URL is null or undefined
+ * - the URL does not match the expected /assets/projects/... structure
+ * - the asset type is not "rti"
  */
 function resolveRtiAssetDirectory(fileUrl?: string | null): string | null {
   if (!fileUrl) return null;
 
   let urlPath = fileUrl;
 
-  // If absolute URL, extract only the pathname
+  // If absolute URL, extract only pathname
   try {
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      const url = new URL(fileUrl);
-      urlPath = url.pathname;
+      urlPath = new URL(fileUrl).pathname;
     }
   } catch {
-    // If parsing fails, keep the original string
     urlPath = fileUrl;
   }
 
-  const prefix = '/assets/rti/';
+  // NEW prefix
+  const prefix = '/assets/projects/';
   const idx = urlPath.indexOf(prefix);
   if (idx === -1) return null;
 
-  // Strip "/assets/rti/" prefix -> "projectId/slug/info.json"
+  // Expected: /assets/projects/<projectId>/rti/<assetId>/info.json
   const relative = urlPath.slice(idx + prefix.length);
   const segments = relative.split('/').filter(Boolean);
 
-  // Expect at least: projectId, slug
-  if (segments.length < 2) return null;
+  if (segments.length < 4) return null;
 
-  const projectId = segments[0];
-  const slug = segments[1];
+  const [projectId, kind, assetId] = segments;
+  if (kind !== 'rti') return null;
 
-  return path.join(rtiAssetsRoot, projectId, slug);
+  // Return absolute directory on disk:
+  // project_files/<projectId>/rti/<assetId>
+  return projectRtiAssetDir(projectId, assetId);
 }
 
 

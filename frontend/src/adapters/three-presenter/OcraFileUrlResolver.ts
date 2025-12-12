@@ -1,86 +1,83 @@
 /**
  * OCRA-specific File URL Resolver
- * 
- * Resolves file paths using OCRA's backend API.
- * This is the default resolver for OCRA but is separate from ThreePresenter,
- * making ThreePresenter independent and reusable.
- * 
- * @module OcraFileUrlResolver
+ *
+ * Resolves model file paths to the *static assets* endpoints exposed by the backend.
+ *
+ * New expected file path format (stored in scene.json):
+ *   <assetId>/<filename>
+ *
+ * New public URL format:
+ *   /assets/projects/<projectId>/model3d/<assetId>/<filename>
+ *
+ * Notes:
+ * - If `filePath` is already an absolute URL (http/https), it is returned as-is.
+ * - For relative paths we require `context.projectId`.
  */
 
-import type { FileUrlResolver, FileResolverContext } from '../../lib/ThreePresenter/src/types/FileUrlResolver';
+import type {
+  FileUrlResolver,
+  FileResolverContext,
+} from "../../lib/ThreePresenter/src/types/FileUrlResolver";
 
 /**
  * Get API base URL from configuration
- * 
+ *
  * Checks multiple sources in order:
- * 1. Vite environment variable (development)
- * 2. Runtime window.__APP_CONFIG__ (production/Docker)
- * 3. Relative URL for reverse proxy deployments
- * 4. Fallback to localhost:3002 (OCRA backend default port)
+ * 1) Vite environment variable (development)
+ * 2) Runtime window.__APP_CONFIG__ (production/Docker)
+ * 3) Same-origin (reverse proxy deployments)
+ * 4) Fallback to localhost:3002 (OCRA backend default port)
  */
 function getApiBase(): string {
-  // Development: Use Vite environment variable
   if (import.meta.env.VITE_API_BASE) {
     return import.meta.env.VITE_API_BASE;
   }
 
-  // Docker/Production: Use runtime config from window.__APP_CONFIG__
-  if (typeof window !== 'undefined' && window.__APP_CONFIG__?.apiBase) {
+  if (typeof window !== "undefined" && window.__APP_CONFIG__?.apiBase) {
     return window.__APP_CONFIG__.apiBase;
   }
 
-  // Production with reverse proxy: Use relative URL (same origin)
-  // This works when backend is served at /api path on the same domain
-  if (typeof window !== 'undefined' && window.location.origin !== 'http://localhost:5173') {
+  // Reverse-proxy deployments: same origin
+  if (
+    typeof window !== "undefined" &&
+    window.location.origin !== "http://localhost:5173"
+  ) {
     return window.location.origin;
   }
 
-  // Log warning if falling back
   console.warn(
-    '[OcraFileUrlResolver] API base URL not configured; falling back to http://localhost:3002'
+    "[OcraFileUrlResolver] API base URL not configured; falling back to http://localhost:3002"
   );
-  // Fallback for development (OCRA backend default port)
-  return 'http://localhost:3002';
+  return "http://localhost:3002";
 }
 
 /**
- * OCRA File URL Resolver
- * 
- * Resolves files using OCRA's backend API endpoint:
- * `/api/projects/{projectId}/files/{filename}`
- * 
- * Requires projectId in context for relative paths.
- * 
- * @example
- * ```typescript
- * const resolver = new OcraFileUrlResolver();
- * 
- * // Relative path - uses OCRA API
- * const url = resolver.resolve('model.glb', { projectId: '123' });
- * // => 'http://localhost:3000/api/projects/123/files/model.glb'
- * 
- * // Absolute path - returned unchanged
- * const url = resolver.resolve('http://cdn.example.com/model.glb', {});
- * // => 'http://cdn.example.com/model.glb'
- * ```
+ * Encode a "path" while preserving slashes.
+ * `encodeURIComponent("a/b")` => "a%2Fb" (WRONG for URLs)
+ * We must encode each segment instead.
  */
+function encodePathPreservingSlashes(p: string): string {
+  return p
+    .split("/")
+    .filter((s) => s.length > 0)
+    .map((s) => encodeURIComponent(s))
+    .join("/");
+}
+
 export class OcraFileUrlResolver implements FileUrlResolver {
   /**
-   * Resolve a file path to OCRA API URL
-   * 
+   * Resolve a file path to a public static URL
+   *
    * @param filePath - File path (relative or absolute)
    * @param context - Must contain projectId for relative paths
-   * @returns Full URL to file
-   * @throws Error if relative path used without projectId
+   * @returns Full URL to the file under /assets/projects/...
    */
   resolve(filePath: string, context: FileResolverContext): string {
-    // If already absolute URL (http/https), return as-is
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    // Absolute URL: pass through
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
       return filePath;
     }
 
-    // Relative path - construct OCRA API URL
     if (!context.projectId) {
       throw new Error(
         `Cannot resolve file "${filePath}": projectId required in context for relative paths`
@@ -88,8 +85,11 @@ export class OcraFileUrlResolver implements FileUrlResolver {
     }
 
     const apiBase = getApiBase();
-    const encodedPath = encodeURIComponent(filePath);
-    
-    return `${apiBase}/api/projects/${context.projectId}/files/${encodedPath}`;
+    const encodedPath = encodePathPreservingSlashes(filePath);
+
+    // New static assets path for 3D models
+    return `${apiBase}/assets/projects/${encodeURIComponent(
+      context.projectId
+    )}/model3d/${encodedPath}`;
   }
 }

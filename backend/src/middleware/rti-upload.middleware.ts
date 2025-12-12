@@ -4,29 +4,37 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import type { Request } from 'express';
+import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-paths.js';
 
 /**
- * Temporary directory for uploaded RTI ZIP archives.
- * Files are moved from here to their final destination after validation.
- */
-export const rtiUploadTempDir =
-  process.env.RTI_UPLOAD_TMP_PATH || path.join(process.cwd(), 'rti_uploads_tmp');
-
-// Ensure the temp directory exists
-fs.mkdirSync(rtiUploadTempDir, { recursive: true });
-
-/**
- * Multer storage configuration:
- * - saves the uploaded ZIP inside the temporary directory
- * - generates a safe and unique filename
+ * Multer storage configuration for RTI ZIP uploads.
+ *
+ * Files are stored in a per-project temporary directory:
+ *   project_files/<projectId>/tmp
+ *
+ * The controller will later:
+ * - validate the ZIP contents
+ * - extract it into: project_files/<projectId>/rti/<assetId>/
  */
 const storage = multer.diskStorage({
   destination: function (
-    _req: Request,
+    req: Request,
     _file: Express.Multer.File,
     cb: (error: Error | null, destination: string) => void
   ) {
-    cb(null, rtiUploadTempDir);
+    const { projectId } = req.params as { projectId?: string };
+
+    if (!projectId) {
+      return cb(new Error('Missing projectId in route parameters'), '');
+    }
+
+    // Ensure project skeleton exists (model3d/, rti/, tmp/)
+    ensureProjectSkeleton(projectId);
+
+    const tmpDir = projectTmpDir(projectId);
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    cb(null, tmpDir);
   },
 
   filename: function (
@@ -37,19 +45,27 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname);
     const base = path.basename(file.originalname, ext);
 
-    // Normalize the base name (lowercase, safe chars only)
+    // Normalize base name (lowercase, safe chars only)
     const safeBase = base.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
 
-    // Add timestamp and random component to avoid collisions
+    // Add timestamp + random component to avoid collisions
     const unique = `${Date.now()}_${Math.round(Math.random() * 1e4)}`;
 
-    cb(null, `${safeBase}_${unique}${ext}`);
+    // Keep .zip extension if present, otherwise force it to .zip
+    const safeExt = ext ? ext.toLowerCase() : '.zip';
+
+    cb(null, `${safeBase}_${unique}${safeExt}`);
   }
 });
 
 /**
- * File filter:
- * Accept only ZIP files. Reject everything else.
+ * File filter (lightweight check):
+ * Accept only files that look like ZIP based on extension and MIME type.
+ *
+ * IMPORTANT:
+ * This is NOT a cryptographic/strong validation.
+ * The controller must verify the uploaded file is really a ZIP by checking
+ * its signature (magic bytes) before extracting it.
  */
 const fileFilter = function (
   _req: Request,
@@ -57,15 +73,15 @@ const fileFilter = function (
   cb: (error: Error | null, acceptFile: boolean) => void
 ) {
   const ext = path.extname(file.originalname).toLowerCase();
-  const mime = file.mimetype.toLowerCase();
+  const mime = (file.mimetype || '').toLowerCase();
 
-  const isZip =
-    ext === '.zip' ||
+  const isZipByExt = ext === '.zip';
+  const isZipByMime =
     mime === 'application/zip' ||
     mime === 'application/x-zip-compressed' ||
-    mime === 'application/octet-stream'; // fallback used by some browsers
+    mime === 'application/octet-stream'; // some clients send generic octet-stream
 
-  if (!isZip) {
+  if (!isZipByExt && !isZipByMime) {
     return cb(new Error('Only ZIP files are allowed for RTI assets.'), false);
   }
 
@@ -73,13 +89,13 @@ const fileFilter = function (
 };
 
 /**
- * Final Multer middleware:
- * Accepts a single file with field name "file".
+ * Multer middleware for a single uploaded file in field name "file".
  */
 export const rtiUploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 1024 * 1024 * 1024 // (optional) max 1GB per ZIP
+    // Adjust if needed. Keep generous for RTI datasets.
+    fileSize: 1024 * 1024 * 1024 // 1 GiB  //FIXME
   }
 }).single('file');

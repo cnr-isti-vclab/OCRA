@@ -1,24 +1,128 @@
 /**
+ * PROJECTS CONTROLLER (TypeScript)
+ *
+ * Updated for unified project filesystem layout:
+ *
+ * project_files/
+ * └── PROJECT_ID
+ *     ├── model3d
+ *     │   ├── scene.json
+ *     │   └── ASSET_ID
+ *     │       └── <file>
+ *     ├── rti
+ *     └── tmp
+ *
+ * Step 5: 3D upload now goes to tmp/ first, then moved into model3d/ASSET_ID/
+ */
+
+import type { Request, Response } from 'express';
+import path from 'path';
+import fs from 'fs';
+import fse from 'fs-extra';
+import multer from 'multer';
+
+import type { PrismaClient } from '@prisma/client';
+import { RoleEnum } from '@prisma/client';
+
+import { getPrismaClient } from '../../db.js';
+import { getValidSession } from '../../db.js';
+import { logAuditEvent } from '../../db.js';
+
+import type { User } from '../types/index.js';
+
+import {
+  ensureProjectSkeleton,
+  projectRoot,
+  projectModel3dDir,
+  projectModel3dAssetDir,
+  projectTmpDir,
+} from '../utils/project-paths.js';
+
+/**
  * Helper: Check if a user is manager of a project (or sysadmin)
  * Returns true if user is manager or sysadmin, false otherwise
  */
-import type { PrismaClient } from '@prisma/client';
-import { RoleEnum } from '@prisma/client';
-// (import type { User } from '../types/index.js';) Already imported at the top
 async function checkIsManagerOfProject(db: PrismaClient, user: User, projectId: string): Promise<boolean> {
   if (!user || !projectId) return false;
   if (user.sys_admin) return true;
+
   // user.id may not be present in User type, so fetch by sub
   const dbUser = await db.user.findUnique({ where: { sub: user.sub } });
   if (!dbUser) return false;
+
   const isManager = await db.projectRole.findFirst({
     where: {
       projectId,
       userId: dbUser.id,
-      role: RoleEnum.manager
-    }
+      role: RoleEnum.manager,
+    },
   });
   return !!isManager;
+}
+
+/**
+ * Get current user from session (if authenticated)
+ */
+async function getCurrentUser(req: Request): Promise<User | null> {
+  console.log('🔐 [getCurrentUser] Starting authentication check...');
+
+  try {
+    // Get session ID from cookie first, then fall back to header or URL param
+    let sessionId = (req as any).cookies?.session_id;
+    console.log('🍪 [getCurrentUser] Cookie session_id:', sessionId ? 'Present' : 'Missing');
+
+    // Fallback: check Authorization header
+    if (!sessionId && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        sessionId = authHeader.substring(7);
+        console.log('🔑 [getCurrentUser] Using Bearer token from Authorization header');
+      }
+    }
+
+    // Fallback: check for session_id in query params
+    if (!sessionId && (req as any).query?.session_id) {
+      sessionId = (req as any).query.session_id as string;
+      console.log('🔗 [getCurrentUser] Using session_id from query params');
+    }
+
+    if (!sessionId) {
+      console.log('❌ [getCurrentUser] No session ID found in cookies, headers, or query params');
+      return null;
+    }
+
+    console.log('🔍 [getCurrentUser] Validating session ID...');
+    const session = await getValidSession(sessionId);
+
+    if (session?.user) {
+      // Fetch internal user id from DB using sub
+      const db = getPrismaClient();
+      const dbUser = await db.user.findUnique({ where: { sub: session.user.sub } });
+      if (!dbUser) {
+        console.log('❌ [getCurrentUser] No DB user found for sub:', session.user.sub);
+        return null;
+      }
+
+      // Merge DB id into session user object
+      const userWithId: User = { ...session.user, id: dbUser.id };
+
+      console.log('✅ [getCurrentUser] Valid session found for user:', {
+        sub: session.user.sub,
+        email: session.user.email,
+        username: session.user.username,
+        sys_admin: session.user.sys_admin,
+        id: dbUser.id,
+      });
+
+      return userWithId;
+    }
+
+    console.log('❌ [getCurrentUser] Invalid or expired session');
+    return null;
+  } catch (error) {
+    console.error('❌ [getCurrentUser] Error during authentication:', error);
+    return null;
+  }
 }
 
 /**
@@ -39,208 +143,288 @@ export async function isManagerOfProject(req: Request, res: Response) {
   const result = await checkIsManagerOfProject(db, currentUser, projectId);
   res.json({ isManager: result });
 }
-import path from 'path';
-import fs from 'fs';
-import multer from 'multer';
 
-// Multer setup for file uploads
-const uploadDir = process.env.PROJECT_FILES_PATH || '/app/project_files';
+/**
+ * Multer setup for 3D file uploads.
+ *
+ * IMPORTANT:
+ * We store uploaded files in project tmp folder first:
+ *   project_files/PROJECT_ID/tmp/<file>
+ * then we move them in the controller to:
+ *   project_files/PROJECT_ID/model3d/ASSET_ID/<file>
+ *
+ * This avoids needing req.body fields (assetId) to decide destination.
+ */
 const storage = multer.diskStorage({
-  destination: (req: Request, file: any, cb: (error: Error | null, destination: string) => void) => {
-    const { projectId } = req.params;
-    const projectPath = path.join(uploadDir, projectId);
-    fs.mkdirSync(projectPath, { recursive: true });
-    cb(null, projectPath);
+  destination: (
+    req: Request,
+    _file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void
+  ) => {
+    const { projectId } = req.params as { projectId?: string };
+
+    if (!projectId) {
+      return cb(new Error('Missing projectId in route parameters'), '');
+    }
+
+    ensureProjectSkeleton(projectId);
+    cb(null, projectTmpDir(projectId));
   },
-  filename: (req: Request, file: any, cb: (error: Error | null, filename: string) => void) => {
+
+  filename: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     cb(null, file.originalname);
-  }
+  },
 });
+
 export const upload = multer({ storage });
 
 /**
  * Get scene.json for a project
  * GET /api/projects/:projectId/scene
+ *
+ * Reads from: project_files/PROJECT_ID/model3d/scene.json
  */
 export async function getProjectScene(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
-  const scenePath = path.join(uploadDir, projectId, 'scene.json');
+
+  const scenePath = path.join(projectModel3dDir(projectId), 'scene.json');
+
   try {
     if (!fs.existsSync(scenePath)) {
       // Return empty scene if file doesn't exist
       return res.json({
         meshes: {},
         modelInstances: {},
-        trackball: { type: "TurntableTrackball" },
-        showGround: true
+        trackball: { type: 'TurntableTrackball' },
+        showGround: true,
       });
     }
+
     const sceneData = fs.readFileSync(scenePath, 'utf-8');
     res.json(JSON.parse(sceneData));
   } catch (error) {
-    res.status(500).json({ error: 'Failed to read scene', message: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json({
+      error: 'Failed to read scene',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }
 
 /**
  * Update scene.json for a project (manager only)
  * PUT /api/projects/:projectId/scene
+ *
+ * Writes to: project_files/PROJECT_ID/model3d/scene.json
  */
 export async function updateProjectScene(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
+
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
     return res.status(401).json({ error: 'Authentication required' });
   }
+
   const db = getPrismaClient();
   const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
   if (!isManager) {
     return res.status(403).json({ error: 'Only project managers can update the scene' });
   }
-  const projectPath = path.join(uploadDir, projectId);
-  const scenePath = path.join(projectPath, 'scene.json');
+
   try {
-    // Ensure project directory exists
-    fs.mkdirSync(projectPath, { recursive: true });
-    // Validate and write scene data
+    ensureProjectSkeleton(projectId);
+
+    const scenePath = path.join(projectModel3dDir(projectId), 'scene.json');
+
     const sceneData = req.body;
     fs.writeFileSync(scenePath, JSON.stringify(sceneData, null, 2), 'utf-8');
+
     res.json({ success: true, scene: sceneData });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update scene', message: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json({
+      error: 'Failed to update scene',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }
 
 /**
- * List files for a project
+ * List 3D files for a project
  * GET /api/projects/:projectId/files
+ *
+ * New layout: model3d/ASSET_ID/<file>.
+ * We return a flat list { assetId, name, url, size } by scanning model3d subfolders.
  */
 export async function listProjectFiles(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
-  const dir = path.join(uploadDir, projectId);
+
+  const model3dDir = projectModel3dDir(projectId);
+
   try {
-    if (!fs.existsSync(dir)) {
+    if (!fs.existsSync(model3dDir)) {
       return res.json({ files: [] });
     }
-    const files = fs.readdirSync(dir)
-      .filter(filename => filename !== 'scene.json') // Exclude scene.json from file list
-      .map(filename => {
-        const filePath = path.join(dir, filename);
+
+    const files: Array<{ assetId: string; name: string; url: string; size: number }> = [];
+
+    const entries = fs.readdirSync(model3dDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const assetId = entry.name;
+      const assetDir = path.join(model3dDir, assetId);
+
+      const assetFiles = fs.readdirSync(assetDir, { withFileTypes: true });
+      for (const af of assetFiles) {
+        if (!af.isFile()) continue;
+
+        const filename = af.name;
+        const filePath = path.join(assetDir, filename);
         const stats = fs.statSync(filePath);
-        return {
+
+        files.push({
+          assetId,
           name: filename,
-          url: `/api/projects/${projectId}/files/${encodeURIComponent(filename)}`,
-          size: stats.size
-        };
-      });
+          url: `/api/projects/${projectId}/files/${encodeURIComponent(assetId)}/${encodeURIComponent(filename)}`,
+          size: stats.size,
+        });
+      }
+    }
+
     res.json({ files });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to list files', message: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json({
+      error: 'Failed to list files',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }
 
 /**
- * Upload a file to a project (manager only)
+ * Upload a 3D file to a project (manager only)
  * POST /api/projects/:projectId/files
+ *
+ * Expects multipart/form-data:
+ * - file: the 3D file
+ * - assetId: the unique ID assigned by /api/projects/:projectId/hdt (required)
  */
 export async function uploadProjectFile(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
+
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
     return res.status(401).json({ error: 'Authentication required' });
   }
+
   const db = getPrismaClient();
   const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
   if (!isManager) {
-    // Log unauthorized upload attempt
+    // Audit unauthorized attempt (keep your existing pattern)
     try {
       await logAuditEvent({
         userSub: currentUser.sub,
         eventType: 'file.upload',
         success: false,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
-        payload: { projectId, error: 'Unauthorized: not project manager' }
+        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
+        payload: { projectId, error: 'Unauthorized: not project manager' },
       });
     } catch (auditErr) {
       console.warn('Failed to log unauthorized file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
     }
+
     return res.status(403).json({ error: 'Only the project manager can upload files' });
   }
-  // File is already saved by multer
-  const file = (req as any).file;
+
+  const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) {
-    // Log failed upload
     try {
       await logAuditEvent({
         userSub: currentUser.sub,
         eventType: 'file.upload',
         success: false,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
-        payload: { projectId, error: 'No file uploaded' }
+        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
+        payload: { projectId, error: 'No file uploaded' },
       });
     } catch (auditErr) {
       console.warn('Failed to log failed file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
     }
+
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  // Log the file upload event
+
+  const assetIdRaw = (req as any).body?.assetId;
+  const assetId = typeof assetIdRaw === 'string' ? assetIdRaw.trim() : '';
+  if (!assetId) {
+    // Remove tmp file to avoid clutter
+    try { await fse.remove(file.path); } catch {}
+    return res.status(400).json({ error: 'assetId is required' });
+  }
+
+  // Audit success (best-effort)
   try {
     await logAuditEvent({
       userSub: currentUser.sub,
       eventType: 'file.upload',
       success: true,
       userAgent: req.headers['user-agent'] || null,
-      ipAddress: req.ip || req.connection.remoteAddress || null,
+      ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
       payload: {
         projectId,
+        assetId,
         filename: file.filename,
         originalName: file.originalname,
         size: file.size,
-        mimetype: file.mimetype
-      }
+        mimetype: file.mimetype,
+      },
     });
   } catch (auditErr) {
     console.warn('Failed to log file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
-    // Don't fail the upload if audit logging fails
   }
-  
-  // Update scene.json to include the new file
+
+  // Finalize upload: move into model3d/ASSET_ID and update scene.json
   try {
-    const scenePath = path.join(uploadDir, projectId, 'scene.json');
+    ensureProjectSkeleton(projectId);
+
+    const targetDir = projectModel3dAssetDir(projectId, assetId);
+    await fse.ensureDir(targetDir);
+
+    const finalPath = path.join(targetDir, file.originalname);
+    await fse.move(file.path, finalPath, { overwrite: true });
+
+    const scenePath = path.join(projectModel3dDir(projectId), 'scene.json');
+
     let scene: any = {
       models: [],
       environment: {
         showGround: true,
-        background: '#404040'
+        background: '#404040',
       },
-      enableControls: true
+      enableControls: true,
     };
-    
-    // Read existing scene if it exists
+
     if (fs.existsSync(scenePath)) {
-      const sceneData = fs.readFileSync(scenePath, 'utf-8');
-      scene = JSON.parse(sceneData);
-      // Ensure models array exists
-      if (!scene.models) {
-        scene.models = [];
+      try {
+        scene = JSON.parse(fs.readFileSync(scenePath, 'utf-8'));
+        if (!scene.models) scene.models = [];
+      } catch {
+        // keep default if corrupted
       }
     }
-    
-    // Generate a unique model ID based on filename (without extension)
+
+    // Create unique model ID based on filename
     const fileBaseName = file.originalname.replace(/\.[^/.]+$/, '');
     let modelId = fileBaseName;
     let counter = 1;
@@ -248,156 +432,153 @@ export async function uploadProjectFile(req: Request, res: Response) {
       modelId = `${fileBaseName}_${counter}`;
       counter++;
     }
-    
-    // Add the model to the scene (include a human-friendly title initialized from filename base)
+
+    // Store file path relative to model3d root: ASSET_ID/filename
+    const relFile = `${assetId}/${file.originalname}`;
+
     scene.models.push({
       id: modelId,
-      file: file.originalname,
+      file: relFile,
       title: fileBaseName,
-      visible: true
+      visible: true,
     });
-    
-    // Write updated scene
+
     fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2), 'utf-8');
-    console.log(`✅ Added model ${modelId} to scene.json for project ${projectId}`);
-  } catch (sceneErr) {
-    console.warn('Failed to update scene.json after file upload:', sceneErr instanceof Error ? sceneErr.message : sceneErr);
-    // Don't fail the upload if scene update fails
+    console.log(`✅ Added model ${modelId} (${relFile}) to scene.json for project ${projectId}`);
+
+    res.json({ success: true, projectId, assetId, file: file.originalname });
+  } catch (sceneErr: any) {
+    console.warn('Failed to finalize upload or update scene.json:', sceneErr?.message ?? String(sceneErr));
+    res.status(500).json({
+      error: 'Failed to finalize upload',
+      message: sceneErr?.message ?? String(sceneErr),
+    });
   }
-  
-  res.json({ success: true, file: file.filename });
 }
 
 /**
  * Download a file for a project
- * GET /api/projects/:projectId/files/:filename
+ *
+ * Preferred new route:
+ *   GET /api/projects/:projectId/files/:assetId/:filename
+ *
+ * Backward-compatible fallback route (old):
+ *   GET /api/projects/:projectId/files/:filename
+ * In that case, we search the file under model3d filename and return the first match.
  */
 export async function downloadProjectFile(req: Request, res: Response) {
-  const { projectId, filename } = req.params;
-  if (!projectId || !filename) {
-    return res.status(400).json({ error: 'Project ID and filename are required' });
+  const { projectId } = req.params as { projectId?: string };
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required' });
   }
-  const filePath = path.join(uploadDir, projectId, filename);
-  if (!fs.existsSync(filePath)) {
+
+  const paramsAny = req.params as any;
+  const assetId: string | undefined = paramsAny.assetId;
+  const filename: string | undefined = paramsAny.filename;
+
+  // Case A: new route with assetId + filename
+  if (assetId && filename) {
+    const filePath = path.join(projectModel3dAssetDir(projectId, assetId), filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    return res.download(filePath);
+  }
+
+  // Case B: old route only provides "filename" (Express will map it to req.params.filename)
+  const oldFilename = paramsAny.filename || paramsAny[0];
+  if (!oldFilename) {
+    return res.status(400).json({ error: 'Filename is required' });
+  }
+
+  // Search in model3d/*/oldFilename
+  const model3dDir = projectModel3dDir(projectId);
+  if (!fs.existsSync(model3dDir)) {
     return res.status(404).json({ error: 'File not found' });
   }
-  res.download(filePath);
+
+  const entries = fs.readdirSync(model3dDir, { withFileTypes: true }).filter(d => d.isDirectory());
+  for (const entry of entries) {
+    const candidate = path.join(model3dDir, entry.name, oldFilename);
+    if (fs.existsSync(candidate)) {
+      return res.download(candidate);
+    }
+  }
+
+  return res.status(404).json({ error: 'File not found' });
 }
 
+/**
+ * Delete a file for a project (manager only)
+ *
+ * Preferred new route:
+ *   DELETE /api/projects/:projectId/files/:assetId/:filename
+ *
+ * Backward-compatible fallback route (old):
+ *   DELETE /api/projects/:projectId/files/:filename
+ * In that case, we search and delete the first match under model3d filename.
+ */
 export async function deleteProjectFile(req: Request, res: Response) {
   try {
-    const { projectId, filename } = req.params;
-    
-    if (!projectId || !filename) {
-      return res.status(400).json({ error: 'Project ID and filename are required' });
+    const { projectId } = req.params as { projectId?: string };
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
     }
-    
-    // Check if user is authenticated and is a manager
+
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    
+
     const db = getPrismaClient();
     const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
     if (!isManager) {
       return res.status(403).json({ error: 'Only project managers can delete files' });
     }
-    
-    const filePath = path.join(uploadDir, projectId, filename);
-    
-    if (!fs.existsSync(filePath)) {
+
+    const paramsAny = req.params as any;
+    const assetId: string | undefined = paramsAny.assetId;
+    const filename: string | undefined = paramsAny.filename;
+
+    // Case A: new route
+    if (assetId && filename) {
+      const filePath = path.join(projectModel3dAssetDir(projectId, assetId), filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ Deleted file: ${filePath}`);
+      return res.json({ message: 'File deleted successfully', assetId, filename });
+    }
+
+    // Case B: old route (filename only)
+    const oldFilename = paramsAny.filename || paramsAny[0];
+    if (!oldFilename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    const model3dDir = projectModel3dDir(projectId);
+    if (!fs.existsSync(model3dDir)) {
       return res.status(404).json({ error: 'File not found' });
     }
-    
-    // Delete the file
-    fs.unlinkSync(filePath);
-    
-    console.log(`🗑️ Deleted file: ${filePath}`);
-    
-    res.json({ message: 'File deleted successfully', filename });
+
+    const entries = fs.readdirSync(model3dDir, { withFileTypes: true }).filter(d => d.isDirectory());
+    for (const entry of entries) {
+      const candidate = path.join(model3dDir, entry.name, oldFilename);
+      if (fs.existsSync(candidate)) {
+        fs.unlinkSync(candidate);
+        console.log(`🗑️ Deleted file (fallback): ${candidate}`);
+        return res.json({ message: 'File deleted successfully', assetId: entry.name, filename: oldFilename });
+      }
+    }
+
+    return res.status(404).json({ error: 'File not found' });
   } catch (error: any) {
     console.error('Error deleting file:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to delete file',
-      message: error?.message || String(error)
+      message: error?.message || String(error),
     });
-  }
-}
-
-import { Request, Response } from 'express';
-import { getPrismaClient } from '../../db.js';
-import { getValidSession } from '../../db.js';
-import { logAuditEvent } from '../../db.js';
-
-/**
- * PROJECTS CONTROLLER (TypeScript)
- * 
- * Handles project-related API endpoints including listing projects,
- * creating new projects, and managing project data.
- */
-
-/**
- * Get current user from session (if authenticated)
- */
-import type { User } from '../types/index.js';
-async function getCurrentUser(req: Request): Promise<User | null> {
-  console.log('🔐 [getCurrentUser] Starting authentication check...');
-  
-  try {
-    // Get session ID from cookie first, then fall back to header or URL param
-    let sessionId = req.cookies?.session_id;
-    console.log('🍪 [getCurrentUser] Cookie session_id:', sessionId ? 'Present' : 'Missing');
-    
-    // Fallback: check Authorization header
-    if (!sessionId && req.headers.authorization) {
-      const authHeader = req.headers.authorization;
-      if (authHeader.startsWith('Bearer ')) {
-        sessionId = authHeader.substring(7);
-        console.log('🔑 [getCurrentUser] Using Bearer token from Authorization header');
-      }
-    }
-    
-    // Fallback: check for session_id in query params
-    if (!sessionId && req.query.session_id) {
-      sessionId = req.query.session_id as string;
-      console.log('🔗 [getCurrentUser] Using session_id from query params');
-    }
-    
-    if (!sessionId) {
-      console.log('❌ [getCurrentUser] No session ID found in cookies, headers, or query params');
-      return null;
-    }
-
-    console.log('🔍 [getCurrentUser] Validating session ID...');
-    // Validate session
-    const session = await getValidSession(sessionId);
-    
-    if (session?.user) {
-      // Fetch internal user id from DB using sub
-      const db = getPrismaClient();
-      const dbUser = await db.user.findUnique({ where: { sub: session.user.sub } });
-      if (!dbUser) {
-        console.log('❌ [getCurrentUser] No DB user found for sub:', session.user.sub);
-        return null;
-      }
-      // Merge DB id into session user object
-      const userWithId: User = { ...session.user, id: dbUser.id };
-      console.log('✅ [getCurrentUser] Valid session found for user:', {
-        sub: session.user.sub,
-        email: session.user.email,
-        username: session.user.username,
-        sys_admin: session.user.sys_admin,
-        id: dbUser.id
-      });
-      return userWithId;
-    } else {
-      console.log('❌ [getCurrentUser] Invalid or expired session');
-      return null;
-    }
-  } catch (error) {
-    console.error('❌ [getCurrentUser] Error during authentication:', error);
-    return null;
   }
 }
 
@@ -410,67 +591,45 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
   console.log('🚀 [getAllProjects] Request received');
   console.log('📋 [getAllProjects] Headers:', {
     authorization: req.headers.authorization ? 'Present' : 'None',
-    cookie: req.headers.cookie ? 'Present' : 'None',
-    userAgent: req.headers['user-agent']
+    cookie: (req.headers as any).cookie ? 'Present' : 'None',
+    userAgent: req.headers['user-agent'],
   });
-  
+
   try {
     const db = getPrismaClient();
     console.log('✅ [getAllProjects] Database client obtained');
-    
-    // Check if user is authenticated
-    console.log('🔍 [getAllProjects] Checking user authentication...');
+
     const currentUser = await getCurrentUser(req);
-    
+
+    let whereClause: any;
     if (currentUser) {
-      console.log('👤 [getAllProjects] User authenticated:', {
-        id: currentUser.id,
-        email: currentUser.email,
-        username: currentUser.username,
-        sys_admin: currentUser.sys_admin
-      });
-    } else {
-      console.log('🚫 [getAllProjects] No authenticated user found');
-    }
-    
-    // Build filter based on authentication status and user privileges
-    let whereClause;
-    if (currentUser) {
-      // Check if user is sysadmin using the sys_admin field
       if (currentUser.sys_admin) {
         console.log('🔑 [getAllProjects] Sysadmin detected - showing ALL projects');
-        // For sysadmin: show ALL projects (no filtering)
         whereClause = {};
       } else {
         console.log('👥 [getAllProjects] Regular user - showing public + visible projects (manager/editor/viewer)');
-        // For regular authenticated users: show public projects OR projects they have any role in (manager/editor/viewer)
-        const db = getPrismaClient();
-        // Fetch DB user to get the correct id (should already be set by getCurrentUser)
         const dbUser = await db.user.findUnique({ where: { sub: currentUser.sub } });
-        const userId = dbUser ? dbUser.id : currentUser.id;
+        const userId = dbUser ? dbUser.id : (currentUser as any).id;
+
         whereClause = {
           OR: [
             { public: true },
-            { 
+            {
               projectRoles: {
                 some: {
-                  userId: userId,
-                  role: { in: [RoleEnum.manager, RoleEnum.editor, RoleEnum.viewer] }
-                }
-              }
-            }
-          ]
+                  userId,
+                  role: { in: [RoleEnum.manager, RoleEnum.editor, RoleEnum.viewer] },
+                },
+              },
+            },
+          ],
         };
       }
     } else {
       console.log('🌍 [getAllProjects] Unauthenticated user - showing only public projects');
-      // For unauthenticated users: show only public projects
       whereClause = { public: true };
     }
-    
-    console.log('🔍 [getAllProjects] Database query filter:', JSON.stringify(whereClause, null, 2));
-    
-    // Get projects with manager information
+
     const projects = await db.project.findMany({
       where: whereClause,
       select: {
@@ -481,9 +640,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         createdAt: true,
         updatedAt: true,
         projectRoles: {
-          where: {
-            role: RoleEnum.manager
-          },
+          where: { role: RoleEnum.manager },
           select: {
             user: {
               select: {
@@ -492,87 +649,66 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
                 email: true,
                 username: true,
                 given_name: true,
-                family_name: true
-              }
-            }
-          }
-        }
+                family_name: true,
+              },
+            },
+          },
+        },
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { createdAt: 'desc' },
     });
 
-    console.log(`📊 [getAllProjects] Found ${projects.length} projects from database`);
-
-  projects.forEach((project: any, index: number) => {
-      console.log(`  ${index + 1}. ${project.name} (public: ${project.public}, manager: ${project.projectRoles[0]?.user?.username || 'none'})`);
-    });
-
-    // Transform the data to include manager information more clearly
-    console.log('🔄 [getAllProjects] Transforming project data...');
-  const projectsWithManagers = projects.map((project: any) => ({
+    const projectsWithManagers = projects.map((project: any) => ({
       id: project.id,
       name: project.name,
       description: project.description,
       public: project.public,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      manager: project.projectRoles.length > 0 ? {
-        id: project.projectRoles[0].user.id,
-        name: project.projectRoles[0].user.name,
-        email: project.projectRoles[0].user.email,
-        username: project.projectRoles[0].user.username,
-        displayName: project.projectRoles[0].user.name || 
-                     `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
-                     project.projectRoles[0].user.username ||
-                     'Unknown User'
-      } : null
+      manager: project.projectRoles.length > 0
+        ? {
+            id: project.projectRoles[0].user.id,
+            name: project.projectRoles[0].user.name,
+            email: project.projectRoles[0].user.email,
+            username: project.projectRoles[0].user.username,
+            displayName:
+              project.projectRoles[0].user.name ||
+              `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
+              project.projectRoles[0].user.username ||
+              'Unknown User',
+          }
+        : null,
     }));
 
-    console.log(`✅ [getAllProjects] Sending response with ${projectsWithManagers.length} projects`);
-    res.json({
-      success: true,
-      projects: projectsWithManagers
-    });
+    res.json({ success: true, projects: projectsWithManagers });
   } catch (error) {
     console.error('❌ [getAllProjects] Error occurred:', error);
-    console.error('❌ [getAllProjects] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch projects',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
 
 /**
  * Get a specific project by ID
- * For authenticated users: can access any project
- * For unauthenticated users: can only access public projects
  */
 export async function getProjectById(req: Request, res: Response): Promise<void> {
   try {
     const { projectId } = req.params;
-    
+
     if (!projectId) {
-      res.status(400).json({
-        error: 'Project ID is required'
-      });
+      res.status(400).json({ error: 'Project ID is required' });
       return;
     }
-    
+
     const db = getPrismaClient();
-    
-    // Check if user is authenticated
     const currentUser = await getCurrentUser(req);
-    
-    // Build filter based on authentication status
-    const whereClause = currentUser 
-      ? { id: projectId } 
-      : { id: projectId, public: true };
-    
+
+    const whereClause = currentUser ? { id: projectId } : { id: projectId, public: true };
+
     const project = await db.project.findUnique({
-      where: whereClause,
+      where: whereClause as any,
       select: {
         id: true,
         name: true,
@@ -581,9 +717,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         createdAt: true,
         updatedAt: true,
         projectRoles: {
-          where: {
-            role: RoleEnum.manager
-          },
+          where: { role: RoleEnum.manager },
           select: {
             user: {
               select: {
@@ -593,44 +727,41 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
                 username: true,
                 given_name: true,
                 family_name: true,
-              }
-            }
-          }
-        }
-      }
+              },
+            },
+          },
+        },
+      },
     });
-    
+
     if (!project) {
-      res.status(404).json({
-        error: 'Project not found'
-      });
+      res.status(404).json({ error: 'Project not found' });
       return;
     }
 
-    // Transform the project data to include manager information
     const projectWithManager = {
       ...project,
-      manager: project.projectRoles.length > 0 ? {
-        id: project.projectRoles[0].user.id,
-        email: project.projectRoles[0].user.email,
-        name: project.projectRoles[0].user.name,
-        username: project.projectRoles[0].user.username,
-        displayName: project.projectRoles[0].user.name || 
-                     project.projectRoles[0].user.username || 
-                     project.projectRoles[0].user.email
-      } : null,
-      projectRoles: undefined // Remove from response
+      manager: project.projectRoles.length > 0
+        ? {
+            id: project.projectRoles[0].user.id,
+            email: project.projectRoles[0].user.email,
+            name: project.projectRoles[0].user.name,
+            username: project.projectRoles[0].user.username,
+            displayName:
+              project.projectRoles[0].user.name ||
+              project.projectRoles[0].user.username ||
+              project.projectRoles[0].user.email,
+          }
+        : null,
+      projectRoles: undefined,
     };
 
-    res.json({
-      success: true,
-      project: projectWithManager
-    });
+    res.json({ success: true, project: projectWithManager });
   } catch (error) {
     console.error('Error fetching project:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch project',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -641,43 +772,38 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
 export async function createProject(req: Request, res: Response): Promise<void> {
   try {
     const { name, description, public: isPublic } = req.body;
-    
+
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      res.status(400).json({
-        error: 'Project name is required and must be a non-empty string'
-      });
+      res.status(400).json({ error: 'Project name is required and must be a non-empty string' });
       return;
     }
-    
+
     const db = getPrismaClient();
-    // Permission check: only sys_admin or sys_creator can create projects
+
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
     if (!currentUser.sys_admin && !currentUser.sys_creator) {
-      console.log(`🚫 [createProject] User ${currentUser.email || currentUser.sub} is not allowed to create projects`);
       res.status(403).json({ error: 'Insufficient permissions to create projects' });
       return;
     }
-    
-    // Check if a project with this name already exists
-    const existingProject = await db.project.findFirst({
-      where: { name: name.trim() }
-    });
-    
+
+    const trimmedName = name.trim();
+    const existingProject = await db.project.findFirst({ where: { name: trimmedName } });
     if (existingProject) {
-      res.status(409).json({
-        error: 'A project with this name already exists'
-      });
+      res.status(409).json({ error: 'A project with this name already exists' });
       return;
     }
-    
+
+    // IMPORTANT: description must be a string if Prisma schema is String (non-nullable)
+    const safeDescription = typeof description === 'string' ? description.trim() : '';
+
     const project = await db.project.create({
       data: {
-        name: name.trim(),
-        description: description?.trim() || null,
+        name: trimmedName,
+        description: safeDescription,
         public: Boolean(isPublic) || false,
       },
       select: {
@@ -687,76 +813,78 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         public: true,
         createdAt: true,
         updatedAt: true,
-      }
+      },
     });
-    
-    // Create project directory and empty scene.json
-    const projectPath = path.join(uploadDir, project.id);
-    fs.mkdirSync(projectPath, { recursive: true });
+
+    // Create unified project directory structure
+    ensureProjectSkeleton(project.id);
+
+    // Create empty scene.json under model3d/
     const emptyScene = {
-      meshes: {},
-      modelInstances: {},
-      trackball: { type: "TurntableTrackball" },
-      showGround: true
+      models: [],
+      environment: { showGround: true, background: '#404040' },
+      enableControls: true,
     };
+
     fs.writeFileSync(
-      path.join(projectPath, 'scene.json'),
+      path.join(projectModel3dDir(project.id), 'scene.json'),
       JSON.stringify(emptyScene, null, 2),
       'utf-8'
     );
-    // Assign the creating user as project manager
+
+    // Assign manager role (best-effort)
     try {
       await db.projectRole.create({
         data: {
-          userId: currentUser.id,
+          userId: (currentUser as any).id,
           projectId: project.id,
-          role: RoleEnum.manager
-        }
+          role: RoleEnum.manager,
+        },
       });
     } catch (err) {
       console.warn('Failed to assign project manager role:', err instanceof Error ? err.message : err);
     }
-    
-    // Attach manager info to the returned project for immediate UI use
+
     const projectWithManager = {
       ...project,
       manager: {
-        id: currentUser.id,
+        id: (currentUser as any).id,
         name: currentUser.name,
         email: currentUser.email,
         username: currentUser.username,
-        displayName: currentUser.name || `${currentUser.given_name || ''} ${currentUser.family_name || ''}`.trim() || currentUser.username || 'Unknown User'
-      }
+        displayName:
+          currentUser.name ||
+          `${currentUser.given_name || ''} ${currentUser.family_name || ''}`.trim() ||
+          currentUser.username ||
+          'Unknown User',
+      },
     };
-    
-    // Log project creation to audit
+
+    // Audit (best-effort)
     try {
       await logAuditEvent({
         userSub: currentUser.sub,
         eventType: 'project.create',
         success: true,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
+        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
         payload: {
           projectId: project.id,
           projectName: project.name,
           description: project.description,
-          public: project.public
-        }
+          public: project.public,
+        },
       });
     } catch (auditErr) {
       console.warn('Failed to log project creation audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
     }
-    
-    res.status(201).json({
-      success: true,
-      project: projectWithManager
-    });
+
+    res.status(201).json({ success: true, project: projectWithManager });
   } catch (error) {
     console.error('Error creating project:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to create project',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -768,64 +896,50 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
   try {
     const { projectId } = req.params;
     const { name, description, public: isPublic, managerId } = req.body;
-    
+
+    if (!projectId) {
+      res.status(400).json({ error: 'Project ID is required' });
+      return;
+    }
+
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      res.status(400).json({
-        error: 'Project name is required and must be a non-empty string'
-      });
+      res.status(400).json({ error: 'Project name is required and must be a non-empty string' });
       return;
     }
 
     const db = getPrismaClient();
-    
-    // Check if project exists
-    const existingProject = await db.project.findUnique({
-      where: { id: projectId }
-    });
-    
+
+    const existingProject = await db.project.findUnique({ where: { id: projectId } });
     if (!existingProject) {
-      res.status(404).json({
-        error: 'Project not found'
-      });
-      return;
-    }
-    
-    // Check if another project with this name already exists (excluding current project)
-    const nameConflict = await db.project.findFirst({
-      where: { 
-        name: name.trim(),
-        NOT: { id: projectId }
-      }
-    });
-    
-    if (nameConflict) {
-      res.status(409).json({
-        error: 'A project with this name already exists'
-      });
+      res.status(404).json({ error: 'Project not found' });
       return;
     }
 
-    // If managerId is provided, verify the user exists
+    const nameConflict = await db.project.findFirst({
+      where: { name: name.trim(), NOT: { id: projectId } },
+    });
+    if (nameConflict) {
+      res.status(409).json({ error: 'A project with this name already exists' });
+      return;
+    }
+
     if (managerId) {
-      const managerUser = await db.user.findUnique({
-        where: { id: managerId }
-      });
+      const managerUser = await db.user.findUnique({ where: { id: managerId } });
       if (!managerUser) {
-        res.status(400).json({
-          error: 'Selected manager user not found'
-        });
+        res.status(400).json({ error: 'Selected manager user not found' });
         return;
       }
     }
 
-    // Update the project
+    const safeDescription = typeof description === 'string' ? description.trim() : '';
+
     const updatedProject = await db.project.update({
       where: { id: projectId },
       data: {
         name: name.trim(),
-        description: description?.trim() || null,
+        description: safeDescription,
         public: isPublic !== undefined ? Boolean(isPublic) : undefined,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       select: {
         id: true,
@@ -834,40 +948,27 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         public: true,
         createdAt: true,
         updatedAt: true,
-      }
+      },
     });
 
-    // Handle manager role assignment if managerId is provided
     if (managerId !== undefined) {
-      // Remove existing manager role (if any)
       await db.projectRole.deleteMany({
-        where: {
-          projectId: projectId,
-          role: RoleEnum.manager
-        }
+        where: { projectId, role: RoleEnum.manager },
       });
 
-      // If managerId is provided (not null), assign new manager
       if (managerId) {
         await db.projectRole.create({
-          data: {
-            userId: managerId,
-            projectId: projectId,
-            role: RoleEnum.manager
-          }
+          data: { userId: managerId, projectId, role: RoleEnum.manager },
         });
       }
     }
 
-    res.json({
-      success: true,
-      project: updatedProject
-    });
+    res.json({ success: true, project: updatedProject });
   } catch (error) {
     console.error('Error updating project:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to update project',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -875,10 +976,12 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 /**
  * Delete a project (manager only)
  * DELETE /api/projects/:projectId
+ *
+ * Must delete filesystem: project_files/PROJECT_ID (entire project root)
  */
 export async function deleteProject(req: Request, res: Response) {
   const { projectId } = req.params;
-  
+
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
@@ -890,44 +993,33 @@ export async function deleteProject(req: Request, res: Response) {
     }
 
     const db = getPrismaClient();
-    
-    // Check if user is manager of the project
+
     const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
     if (!isManager) {
       return res.status(403).json({ error: 'Only project managers can delete the project' });
     }
 
-    // Check if project exists
-    const project = await db.project.findUnique({
-      where: { id: projectId }
-    });
-
+    const project = await db.project.findUnique({ where: { id: projectId } });
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Delete project files from filesystem
-    const projectPath = path.join(uploadDir, projectId);
+    // Delete project files from filesystem (new unified root)
+    const projectPath = projectRoot(projectId);
     if (fs.existsSync(projectPath)) {
       fs.rmSync(projectPath, { recursive: true, force: true });
     }
 
-    // Delete project from database (cascade will delete related records)
-    await db.project.delete({
-      where: { id: projectId }
-    });
+    await db.project.delete({ where: { id: projectId } });
 
     console.log(`✅ Project deleted: ${projectId} by user: ${currentUser.email}`);
 
-    res.json({
-      success: true,
-      message: 'Project deleted successfully'
-    });
+    res.json({ success: true, message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Error deleting project:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to delete project',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }

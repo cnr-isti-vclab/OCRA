@@ -1,39 +1,12 @@
 // src/controllers/rti-asset.controller.ts
 
+import { ensureProjectSkeleton, projectRtiAssetDir } from '../utils/project-paths.js';
 import type { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import fse from 'fs-extra';
 import fsp from 'fs/promises';
 import extract from 'extract-zip';
-
-/**
- * Ensures that the generated slug is unique within the project directory.
- * If a folder with the base slug already exists, the function appends an
- * incremental numeric suffix (e.g., "slug-1", "slug-2", ...) until an
- * available directory name is found.
- *
- * @param root - Root path where all RTI assets are stored.
- * @param projectId - ID of the project the asset belongs to.
- * @param baseSlug - The initial slug derived from the uploaded file name.
- * @returns A unique slug that does not collide with existing asset folders.
- */
-function makeUniqueSlug(
-  root: string,
-  projectId: string,
-  baseSlug: string,
-
-): string {
-  let slug = baseSlug;
-  let counter = 1;
-
-  while (fs.existsSync(path.join(root, projectId, slug))) {
-    slug = `${baseSlug}-${counter}`;
-    counter++;
-  }
-
-  return slug;
-}
 
 
 /**
@@ -43,14 +16,15 @@ function makeUniqueSlug(
  *
  * Responsibilities:
  * - Handles the uploaded RTI ZIP file (provided by rtiUploadMiddleware)
- * - Extracts the ZIP into a per-project / per-asset directory
+ * - Extracts the ZIP into: project_files/PROJECT_ID/rti/ASSET_ID/
  * - Validates the presence of info.json
  * - Parses info.json and extracts minimal metadata
  * - Returns a public URL for info.json and a metadata summary
  *
  * Note:
  * This does NOT add the asset to the HDT metadata document.
- * The frontend must call POST /:projectId/hdt/assets afterwards.
+ * The frontend must call POST /:projectId/hdt/assets afterwards (or before,
+ * depending on your workflow), but it MUST provide assetId to this endpoint.
  */
 export async function uploadRtiAssetHandler(req: Request, res: Response) {
   try {
@@ -60,6 +34,14 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Project ID is required.' });
     }
 
+    // The frontend must provide the unique asset id (assigned by /hdt)
+    // in the multipart/form-data fields.
+    const assetIdRaw = (req as any).body?.assetId;
+    const assetId = typeof assetIdRaw === 'string' ? assetIdRaw.trim() : '';
+    if (!assetId) {
+      return res.status(400).json({ error: 'assetId is required.' });
+    }
+
     // Uploaded ZIP file (via rtiUploadMiddleware)
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) {
@@ -67,81 +49,59 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     }
 
     const zipPath = file.path;
-    const originalName = file.originalname;
 
-    const ext = path.extname(originalName);
-    const baseName = path.basename(originalName, ext);
+    // Ensure project directory skeleton exists:
+    // project_files/PROJECT_ID/{model3d,rti,tmp}
+    ensureProjectSkeleton(projectId);
 
-    // Base folder for all RTI assets
-    const rtiAssetsRoot = path.resolve(
-      process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
-    );
-
-    /**
-     * Temporary directory for uploaded RTI ZIP archives.
-     * Files are moved from here to their final destination after validation.
-     */
-    const rtiUploadTempDir =
-      process.env.RTI_UPLOAD_TMP_PATH || path.join(process.cwd(), 'rti_uploads_tmp');
-
-
-    // Safe unique slug used as the final asset folder name
-    const baseSlug = baseName.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
-    const assetSlug = makeUniqueSlug(rtiAssetsRoot, projectId, baseSlug);
-
-    // Final destination directory for this asset
-    const targetDir = path.join(rtiAssetsRoot, projectId, assetSlug);
-
+    // Final destination directory for this asset:
+    // project_files/PROJECT_ID/rti/ASSET_ID/
+    const targetDir = projectRtiAssetDir(projectId, assetId);
     await fsp.mkdir(targetDir, { recursive: true });
 
-    // Extract ZIP content
+    // Extract ZIP content into the final directory
     await extract(zipPath, { dir: targetDir });
 
-    // Cleanup temporary ZIP file
+    // Cleanup ONLY the uploaded ZIP file.
+    // Do NOT empty a shared tmp directory (race condition with concurrent uploads).
     try {
       await fse.remove(zipPath);
-      await fse.emptyDir(rtiUploadTempDir);
     } catch (cleanupErr) {
       console.warn('Failed to remove temporary RTI ZIP:', cleanupErr);
     }
 
-    // Check for info.json
+    // Validate presence of info.json
     const infoPath = path.join(targetDir, 'info.json');
     try {
       await fsp.access(infoPath);
     } catch {
       return res.status(400).json({
-        error: 'Invalid RTI asset: info.json not found in archive.'
+        error: 'Invalid RTI asset: info.json not found in archive.',
       });
     }
 
     // Optional: compute asset size in bytes.
-    // We DO NOT fail if this cannot be computed.
-    let assetSizeBytes: number = 0;
-
-    // Prefer the uploaded ZIP size if available
-    if (file && typeof file.size === 'number') {
+    // Note: file.size is the ZIP size, not the extracted folder size.
+    let assetSizeBytes = 0;
+    if (typeof file.size === 'number') {
       assetSizeBytes = file.size;
     } else {
-      // Fallback: try to use info.json size (or any representative file)
       try {
         const infoStat = await fsp.stat(infoPath);
         assetSizeBytes = infoStat.size;
       } catch (sizeErr) {
         console.warn('Could not compute RTI asset size', {
           projectId,
-          assetSlug,
+          assetId,
           infoPath,
-          error: sizeErr
+          error: sizeErr,
         });
-        // Leave assetSizeBytes as null, do not throw
       }
     }
 
     console.log(
-      `RTI asset ${assetSlug}: ${(assetSizeBytes / (1024 * 1024 * 1024)).toFixed(3)} GB`
+      `RTI asset ${assetId}: ${(assetSizeBytes / (1024 * 1024 * 1024)).toFixed(3)} GB (zip size)`
     );
-
 
     // Parse info.json
     let info: any;
@@ -151,7 +111,7 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     } catch (err) {
       console.error('Failed to parse info.json:', err);
       return res.status(400).json({
-        error: 'Invalid RTI asset: info.json is not valid JSON.'
+        error: 'Invalid RTI asset: info.json is not valid JSON.',
       });
     }
 
@@ -174,18 +134,18 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
           : null;
 
     const format = typeof info.format === 'string' ? info.format : null;
-    const colorspace =
-      typeof info.colorspace === 'string' ? info.colorspace : null;
+    const colorspace = typeof info.colorspace === 'string' ? info.colorspace : null;
 
-    // Public URL served via Express static handler
-    const infoJsonUrl = `/assets/rti/${encodeURIComponent(
-      projectId
-    )}/${encodeURIComponent(assetSlug)}/info.json`;
+    // Public URL served via Express static handler.
+    // With: app.use('/assets/projects', express.static(PROJECT_FILES_ROOT))
+    // the file becomes:
+    // /assets/projects/PROJECT_ID/rti/ASSET_ID/info.json
+    const infoJsonUrl = `/assets/projects/${encodeURIComponent(projectId)}/rti/${encodeURIComponent(assetId)}/info.json`;
 
     return res.status(201).json({
       success: true,
       projectId,
-      assetSlug,
+      assetId,
       storageDir: targetDir,
       infoJsonPath: infoPath,
       infoJsonUrl,
@@ -196,14 +156,14 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
         nplanes,
         format,
         colorspace,
-        totalSize: Number(assetSizeBytes)
-      }
+        totalSize: Number(assetSizeBytes),
+      },
     });
   } catch (error: any) {
     console.error('Error while uploading RTI asset:', error);
     return res.status(500).json({
       error: 'Failed to upload RTI asset.',
-      message: error?.message ?? String(error)
+      message: error?.message ?? String(error),
     });
   }
 }

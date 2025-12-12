@@ -92,11 +92,14 @@ export function createApp(): Express {
   // Health check available at both /health and /api/health
   app.use('/health', healthRoutes);
 
-  // Serve RTI assets as static files
-  const rtiAssetsRoot = path.resolve(
-    process.env.RTI_ASSETS_PATH || path.join(process.cwd(), 'rti_assets')
+  // NEW: serve all project files from a single mount point
+  const projectFilesRoot = path.resolve(
+    process.env.PROJECT_FILES_PATH || '/app/project_files'
   );
-  app.use('/assets/rti', express.static(rtiAssetsRoot));
+
+  // URL base (public) for everything stored on disk:
+  // /assets/projects/<projectId>/{model3d|rti|tmp}/...
+  app.use('/assets/projects', express.static(projectFilesRoot));
 
   // use mounted health router for /health paths
 
