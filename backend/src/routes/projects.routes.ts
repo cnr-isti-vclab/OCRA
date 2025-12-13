@@ -1,10 +1,11 @@
 /**
  * Projects Routes (TypeScript)
- * 
+ *
  * Route definitions for project management endpoints
  */
 
 import express from 'express';
+
 import {
   getAllProjects,
   getProjectById,
@@ -29,35 +30,85 @@ import {
 
 const router = express.Router();
 
+/* ============================================================================
+ * PROJECT PERMISSIONS
+ * ============================================================================
+ */
+
 /**
  * @openapi
  * /api/projects/{projectId}/is-manager:
  *   get:
  *     summary: Check if current user is project manager
- *     description: Returns whether the authenticated user has manager privileges for the specified project
+ *     description: Returns whether the authenticated user has manager privileges for the specified project.
  *     tags:
  *       - Projects
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
  *         required: true
  *         schema:
  *           type: string
- *         description: The project ID
+ *     responses:
+ *       200:
+ *         description: Manager status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 isManager:
+ *                   type: boolean
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Project not found
  */
 router.get('/:projectId/is-manager', isManagerOfProject);
+
+/* ============================================================================
+ * PROJECT MEMBERS
+ * ============================================================================
+ */
 
 /**
  * @openapi
  * /api/projects/{projectId}/members:
  *   get:
  *     summary: List project members
- *     description: Returns a list of all members for the specified project with their roles
+ *     description: Returns all members of a project with their roles.
  *     tags:
  *       - Project Members
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Members list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   userId:
+ *                     type: string
+ *                   role:
+ *                     type: string
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Project not found
  */
 router.get('/:projectId/members', listProjectMembers);
 
@@ -66,9 +117,42 @@ router.get('/:projectId/members', listProjectMembers);
  * /api/projects/{projectId}/members:
  *   post:
  *     summary: Add project member
- *     description: Adds a new member to the project with the specified role (manager only)
+ *     description: Adds a new member to the project (manager only).
  *     tags:
  *       - Project Members
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - role
+ *             properties:
+ *               userId:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Member added
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: Project or user not found
  */
 router.post('/:projectId/members', addProjectMember);
 
@@ -77,20 +161,68 @@ router.post('/:projectId/members', addProjectMember);
  * /api/projects/{projectId}/members/{userId}:
  *   delete:
  *     summary: Remove project member
- *     description: Removes a member from the project (manager only)
+ *     description: Removes a member from the project (manager only).
  *     tags:
  *       - Project Members
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Member removed
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Project or member not found
  */
 router.delete('/:projectId/members/:userId', removeProjectMember);
+
+/* ============================================================================
+ * LEGACY / DEBUG SCENE FILE
+ * ============================================================================
+ */
 
 /**
  * @openapi
  * /api/projects/{projectId}/scene:
  *   get:
- *     summary: Get project scene
- *     description: Retrieves the scene.json file for the specified project
+ *     summary: Get legacy scene file
+ *     description: |
+ *       Returns the legacy/debug scene.json file.
+ *       NOTE: Production scenes are stored in MongoDB (HDT).
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Scene JSON
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Scene not found
  */
 router.get('/:projectId/scene', getProjectScene);
 
@@ -98,21 +230,70 @@ router.get('/:projectId/scene', getProjectScene);
  * @openapi
  * /api/projects/{projectId}/scene:
  *   put:
- *     summary: Update project scene
- *     description: Updates the scene.json file for the specified project (manager only)
+ *     summary: Update legacy scene file
+ *     description: Updates the legacy/debug scene.json (manager only).
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Scene updated
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Project not found
  */
 router.put('/:projectId/scene', updateProjectScene);
+
+/* ============================================================================
+ * PROJECT FILES (3D ASSETS)
+ * ============================================================================
+ */
 
 /**
  * @openapi
  * /api/projects/{projectId}/files:
  *   get:
  *     summary: List project files
- *     description: Returns a list of all 3D files grouped by asset
+ *     description: Lists files associated with project assets.
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Files list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Project not found
  */
 router.get('/:projectId/files', listProjectFiles);
 
@@ -123,29 +304,18 @@ router.get('/:projectId/files', listProjectFiles);
  *     summary: Upload 3D file for an existing asset
  *     description: |
  *       Uploads a 3D model file and associates it with an existing asset.
- *       
- *       The asset **must already exist** and its `assetId` is typically obtained
- *       by calling:
- *       
- *         POST /api/projects/{projectId}/hdt
- *       
- *       The uploaded file will be stored under:
- *       
+ *       Files are stored under:
  *         project_files/{projectId}/model3d/{assetId}/{filename}
- *       
- *       and the project `scene.json` will be updated accordingly.
  *     tags:
  *       - Projects
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
  *         required: true
  *         schema:
  *           type: string
- *         description: The project ID
  *     requestBody:
  *       required: true
  *       content:
@@ -158,57 +328,33 @@ router.get('/:projectId/files', listProjectFiles);
  *             properties:
  *               assetId:
  *                 type: string
- *                 description: |
- *                   The unique asset identifier.
- *                   This ID is assigned by the HDT service when the asset
- *                   metadata is created.
- *                 example: 6f3a9c12-1c2b-4f99-9fcb-8a2e9e4c1234
  *               file:
  *                 type: string
  *                 format: binary
- *                 description: |
- *                   The 3D model file to upload (e.g. GLB, GLTF, PLY, OBJ).
  *     responses:
  *       200:
- *         description: File uploaded successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 projectId:
- *                   type: string
- *                 assetId:
- *                   type: string
- *                 file:
- *                   type: string
- *                   example: model.glb
+ *         description: File uploaded
  *       400:
- *         description: Invalid request (missing assetId or file)
+ *         description: Invalid request
  *       401:
- *         description: Not authenticated
+ *         description: Authentication required
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized
  *       404:
- *         description: Project not found
+ *         description: Project or asset not found
  */
 router.post('/:projectId/files', upload.single('file'), uploadProjectFile);
-
 
 /**
  * @openapi
  * /api/projects/{projectId}/files/{assetId}/{filename}:
  *   get:
- *     summary: Download project file (by asset)
- *     description: |
- *       Downloads a specific file belonging to a specific 3D asset.
- *       Files are stored under:
- *       project_files/{projectId}/model3d/{assetId}/{filename}
+ *     summary: Download project file
+ *     description: Downloads a specific file belonging to an asset.
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -220,12 +366,18 @@ router.post('/:projectId/files', upload.single('file'), uploadProjectFile);
  *         required: true
  *         schema:
  *           type: string
- *         description: The HDT asset ID
  *       - in: path
  *         name: filename
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: File stream
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: File not found
  */
 router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
 
@@ -233,12 +385,12 @@ router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
  * @openapi
  * /api/projects/{projectId}/files/{assetId}/{filename}:
  *   delete:
- *     summary: Delete project file (by asset)
- *     description: |
- *       Deletes a specific file belonging to a specific 3D asset.
- *       Only accessible by project managers.
+ *     summary: Delete project file
+ *     description: Deletes a file belonging to an asset (manager only).
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -255,25 +407,42 @@ router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: File deleted
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: File not found
  */
 router.delete('/:projectId/files/:assetId/:filename', deleteProjectFile);
 
-/**
- * LEGACY ROUTES (optional)
- * Keep only if backward compatibility is required.
- * IMPORTANT: must stay AFTER the assetId routes.
+/* ============================================================================
+ * PROJECT CRUD
+ * ============================================================================
  */
-// router.get('/:projectId/files/:filename', downloadProjectFile);
-// router.delete('/:projectId/files/:filename', deleteProjectFile);
 
 /**
  * @openapi
  * /api/projects:
  *   get:
  *     summary: Get all projects
- *     description: Returns a list of all projects visible to the authenticated user
+ *     description: Returns all projects visible to the authenticated user.
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     responses:
+ *       200:
+ *         description: Projects list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *       401:
+ *         description: Authentication required
  */
 router.get('/', getAllProjects);
 
@@ -282,9 +451,23 @@ router.get('/', getAllProjects);
  * /api/projects/{projectId}:
  *   get:
  *     summary: Get project by ID
- *     description: Retrieves details for a specific project
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Project details
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Project not found
  */
 router.get('/:projectId', getProjectById);
 
@@ -293,9 +476,30 @@ router.get('/:projectId', getProjectById);
  * /api/projects:
  *   post:
  *     summary: Create new project
- *     description: Creates a new project
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               public:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Project created
+ *       401:
+ *         description: Authentication required
  */
 router.post('/', createProject);
 
@@ -304,9 +508,31 @@ router.post('/', createProject);
  * /api/projects/{projectId}:
  *   put:
  *     summary: Update project
- *     description: Updates project details (manager only)
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Project updated
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Project not found
  */
 router.put('/:projectId', updateProject);
 
@@ -314,10 +540,26 @@ router.put('/:projectId', updateProject);
  * @openapi
  * /api/projects/{projectId}:
  *   delete:
- *     summary: Delete a project
- *     description: Deletes a project and all associated data (manager only)
+ *     summary: Delete project
  *     tags:
  *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Project deleted
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Project not found
  */
 router.delete('/:projectId', deleteProject);
 

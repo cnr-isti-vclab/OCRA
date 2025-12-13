@@ -1,30 +1,40 @@
 /**
  * HDT Metadata Routes
- * 
- * API endpoints for managing Heritage Digital Twin documents stored in MongoDB.
+ *
+ * API endpoints for managing Heritage Digital Twin (HDT) documents stored in MongoDB.
  * Includes metadata, digital assets, scenes, and scene-asset associations.
- * 
- * Routes:
- * - GET    /api/projects/:projectId/hdt - Get HDT document
- * - POST   /api/projects/:projectId/hdt - Create/initialize HDT document
- * - PUT    /api/projects/:projectId/hdt - Update HDT metadata
- * - DELETE /api/projects/:projectId/hdt - Delete HDT document
- * 
- * - POST   /api/projects/:projectId/hdt/assets - Add digital asset
- * - PUT    /api/projects/:projectId/hdt/assets/:assetId - Update asset
- * - DELETE /api/projects/:projectId/hdt/assets/:assetId - Remove asset
- * 
- * - GET    /api/projects/:projectId/scenes - List scenes
- * - POST   /api/projects/:projectId/hdt/scenes - Create scene
- * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId - Update scene
- * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId - Delete scene
- * 
- * - POST   /api/projects/:projectId/hdt/scenes/:sceneId/assets - Add asset to scene
- * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId - Update asset in scene
- * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId - Remove asset from scene
+ *
+ * Base path (mounted by app): /api/projects
+ *
+ * Main routes:
+ * - GET    /api/projects/:projectId/hdt
+ * - POST   /api/projects/:projectId/hdt
+ * - PUT    /api/projects/:projectId/hdt
+ * - DELETE /api/projects/:projectId/hdt
+ *
+ * - POST   /api/projects/:projectId/hdt/assets
+ * - POST   /api/projects/:projectId/hdt/assets/rti/upload
+ * - PUT    /api/projects/:projectId/hdt/assets/:assetId
+ * - DELETE /api/projects/:projectId/hdt/assets/:assetId
+ *
+ * - GET    /api/projects/:projectId/scenes
+ * - GET    /api/projects/:projectId/scenes/:sceneId
+ * - GET    /api/projects/:projectId/scenes/:sceneId/export
+ *
+ * - POST   /api/projects/:projectId/hdt/scenes
+ * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId
+ * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId
+ *
+ * - POST   /api/projects/:projectId/hdt/scenes/:sceneId/assets
+ * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
+ * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
+ *
+ * - GET    /api/projects/:projectId/export/rdf
+ *
+ * - POST   /api/projects/sparql-proxy
  */
 
-import e, { Router } from 'express';
+import { Router } from 'express';
 import {
   getHDTMetadataHandler,
   createHDTMetadataHandler,
@@ -47,89 +57,112 @@ import { requireAuth } from '../middleware/auth.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
 import { rtiUploadMiddleware } from '../middleware/rti-upload.middleware.js';
 import { uploadRtiAssetHandler } from '../controllers/rti-asset.controller.js';
+
 const router = Router();
 
+/* ============================================================================
+ * HDT DOCUMENT (MongoDB)
+ * ============================================================================
+ */
+
 /**
- * @swagger
+ * @openapi
  * /api/projects/{projectId}/hdt:
  *   get:
- *     summary: Get HDT metadata for a project
- *     description: Retrieve Heritage Digital Twin metadata from MongoDB
- *     tags: [HDT Metadata]
+ *     summary: Get HDT document
+ *     description: Retrieves the full HDT document for a project from MongoDB.
+ *     tags:
+ *       - HDT
+ *     security:
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
  *         required: true
  *         schema:
  *           type: string
- *         description: Project ID
+ *         description: Project ID.
  *     responses:
  *       200:
- *         description: HDT metadata
+ *         description: HDT document
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 projectId:
- *                   type: string
- *                 dublinCore:
- *                   type: object
- *                 cidocCrm:
- *                   type: object
- *                 gettyAAT:
- *                   type: object
- *                 license:
- *                   type: object
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
  *       404:
- *         description: HDT metadata not found
+ *         description: HDT document not found
  *       500:
  *         description: Server error
  */
-router.get('/:projectId/hdt', getHDTMetadataHandler);
+router.get('/:projectId/hdt', requireAuth, getHDTMetadataHandler);
 
 /**
- * @swagger
+ * @openapi
  * /api/projects/{projectId}/hdt:
  *   post:
- *     summary: Create HDT metadata for a project
- *     description: Initialize Heritage Digital Twin metadata with defaults from project
- *     tags: [HDT Metadata]
+ *     summary: Create HDT document
+ *     description: Creates/initializes the HDT document for a project (manager only).
+ *     tags:
+ *       - HDT
+ *     security:
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
  *         required: true
  *         schema:
  *           type: string
- *         description: Project ID
+ *         description: Project ID.
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dublinCore:
+ *                 type: object
+ *               cidocCrm:
+ *                 type: object
  *     responses:
  *       201:
- *         description: HDT metadata created
+ *         description: HDT document created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
  *       403:
- *         description: Only project managers can create metadata
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: Project not found
  *       409:
- *         description: Metadata already exists
+ *         description: HDT document already exists
  *       500:
  *         description: Server error
  */
 router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
 
 /**
- * @swagger
+ * @openapi
  * /api/projects/{projectId}/hdt:
  *   put:
- *     summary: Update HDT metadata for a project
- *     description: Update Heritage Digital Twin metadata fields
- *     tags: [HDT Metadata]
+ *     summary: Update HDT metadata
+ *     description: Updates HDT metadata fields for a project (manager only).
+ *     tags:
+ *       - HDT
+ *     security:
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
  *         required: true
  *         schema:
  *           type: string
- *         description: Project ID
+ *         description: Project ID.
  *     requestBody:
  *       required: true
  *       content:
@@ -141,66 +174,158 @@ router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
  *                 type: object
  *               cidocCrm:
  *                 type: object
- *               gettyAAT:
- *                 type: object
- *               license:
- *                 type: object
  *     responses:
  *       200:
- *         description: HDT metadata updated
+ *         description: HDT document updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
  *       403:
- *         description: Only project managers can update metadata
+ *         description: Not authorized (manager only)
  *       404:
- *         description: Metadata not found
+ *         description: HDT document not found
  *       500:
  *         description: Server error
  */
 router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
 
 /**
- * @swagger
+ * @openapi
  * /api/projects/{projectId}/hdt:
  *   delete:
- *     summary: Delete HDT metadata for a project
- *     description: Remove Heritage Digital Twin metadata
- *     tags: [HDT Metadata]
+ *     summary: Delete HDT document
+ *     description: Deletes the HDT document for a project (manager only).
+ *     tags:
+ *       - HDT
+ *     security:
+ *       - sessionCookie: []
  *     parameters:
  *       - in: path
  *         name: projectId
  *         required: true
  *         schema:
  *           type: string
- *         description: Project ID
+ *         description: Project ID.
  *     responses:
  *       200:
- *         description: HDT metadata deleted
+ *         description: HDT document deleted
  *       401:
  *         description: Authentication required
  *       403:
- *         description: Only project managers can delete metadata
+ *         description: Not authorized (manager only)
  *       404:
- *         description: Metadata not found
+ *         description: HDT document not found
  *       500:
  *         description: Server error
  */
 router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
 
-// ==========================================
-// DIGITAL ASSETS ROUTES
-// ==========================================
+/* ============================================================================
+ * DIGITAL ASSETS (in HDT document) + RTI upload
+ * ============================================================================
+ */
 
 /**
- * POST /api/projects/:projectId/hdt/assets
- * Add a digital asset to the pool
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets:
+ *   post:
+ *     summary: Add a digital asset
+ *     description: Adds a digital asset to the project's HDT document (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DigitalAssetCreate'
+ *     responses:
+ *       201:
+ *         description: HDT document updated (asset added)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
 
 /**
- * POST /api/projects/:projectId/hdt/assets/rti/upload
- * Upload an RTI asset as a ZIP package (info.json + rti files)
- * and add it to the project's digital assets pool.
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets/rti/upload:
+ *   post:
+ *     summary: Upload an RTI asset (ZIP)
+ *     description: |
+ *       Uploads an RTI asset as a ZIP package (info.json + related files),
+ *       stores it on disk, and registers it into the project's HDT digital assets pool (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: ZIP file containing RTI content (must include info.json).
+ *               title:
+ *                 type: string
+ *                 description: Optional asset title.
+ *     responses:
+ *       200:
+ *         description: RTI asset uploaded and registered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 projectId:
+ *                   type: string
+ *                 assetId:
+ *                   type: string
+ *       400:
+ *         description: Invalid request / missing ZIP or invalid content
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       500:
+ *         description: Server error
  */
 router.post(
   '/:projectId/hdt/assets/rti/upload',
@@ -210,82 +335,534 @@ router.post(
 );
 
 /**
- * PUT /api/projects/:projectId/hdt/assets/:assetId
- * Update a digital asset
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets/{assetId}:
+ *   put:
+ *     summary: Update a digital asset
+ *     description: Updates a digital asset in the HDT document (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Asset ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DigitalAssetUpdate'
+ *     responses:
+ *       200:
+ *         description: HDT document updated (asset updated)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or asset not found
+ *       500:
+ *         description: Server error
  */
 router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
 
 /**
- * DELETE /api/projects/:projectId/hdt/assets/:assetId
- * Remove a digital asset
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets/{assetId}:
+ *   delete:
+ *     summary: Remove a digital asset
+ *     description: Removes a digital asset from the HDT document (and all scenes). For RTI assets, also removes files on disk (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Asset ID.
+ *     responses:
+ *       200:
+ *         description: HDT document updated (asset removed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or asset not found
+ *       500:
+ *         description: Server error
  */
 router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler);
 
-// ==========================================
-// SCENE ROUTES
-// ==========================================
-
-/**
- * GET /api/projects/:projectId/scenes
- * List all available scenes (used by viewer)
+/* ============================================================================
+ * SCENES (stored in MongoDB, served as JSON for ThreePresenter)
+ * ============================================================================
  */
-router.get('/:projectId/scenes', listScenesHandler);
 
 /**
- * GET /api/projects/:projectId/scenes/:sceneId
- * Get a specific scene JSON file (used by ThreePresenter)
+ * @openapi
+ * /api/projects/{projectId}/scenes:
+ *   get:
+ *     summary: List scenes
+ *     description: Lists available scenes for a project (viewer helper endpoint).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     responses:
+ *       200:
+ *         description: Scene list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   fileName:
+ *                     type: string
+ *                   isDefault:
+ *                     type: boolean
+ *       401:
+ *         description: Authentication required
+ *       500:
+ *         description: Server error
  */
-router.get('/:projectId/scenes/:sceneId', getSceneFileHandler);
+router.get('/:projectId/scenes', requireAuth, listScenesHandler);
 
 /**
- * GET /api/projects/:projectId/scenes/:sceneId/export
- * Export scene JSON file to disk (for debugging)
+ * @openapi
+ * /api/projects/{projectId}/scenes/{sceneId}:
+ *   get:
+ *     summary: Get scene description JSON
+ *     description: Returns a SceneDescription JSON generated from MongoDB (used by ThreePresenter).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID (e.g. "default").
+ *     responses:
+ *       200:
+ *         description: SceneDescription JSON
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SceneDescription'
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Scene not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:projectId/scenes/:sceneId', requireAuth, getSceneFileHandler);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/scenes/{sceneId}/export:
+ *   get:
+ *     summary: Export scene description JSON to disk
+ *     description: Generates the SceneDescription JSON from MongoDB and returns it. This is intended for debugging (auth required).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID.
+ *     responses:
+ *       200:
+ *         description: SceneDescription JSON
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SceneDescription'
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Scene not found
+ *       500:
+ *         description: Server error
  */
 router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHandler);
 
 /**
- * POST /api/projects/:projectId/hdt/scenes
- * Create a new scene
+ * @openapi
+ * /api/projects/{projectId}/hdt/scenes:
+ *   post:
+ *     summary: Create a scene
+ *     description: Creates a new scene in the project's HDT document (manager only).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/HDTSceneCreate'
+ *     responses:
+ *       201:
+ *         description: HDT document updated (scene created)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
 
 /**
- * PUT /api/projects/:projectId/hdt/scenes/:sceneId
- * Update a scene
+ * @openapi
+ * /api/projects/{projectId}/hdt/scenes/{sceneId}:
+ *   put:
+ *     summary: Update a scene
+ *     description: Updates a scene in the project's HDT document (manager only).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/HDTSceneUpdate'
+ *     responses:
+ *       200:
+ *         description: HDT document updated (scene updated)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or scene not found
+ *       500:
+ *         description: Server error
  */
 router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
 
 /**
- * DELETE /api/projects/:projectId/hdt/scenes/:sceneId
- * Delete a scene
+ * @openapi
+ * /api/projects/{projectId}/hdt/scenes/{sceneId}:
+ *   delete:
+ *     summary: Delete a scene
+ *     description: Deletes a scene from the project's HDT document (manager only).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID.
+ *     responses:
+ *       200:
+ *         description: HDT document updated (scene removed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or scene not found
+ *       500:
+ *         description: Server error
  */
 router.delete('/:projectId/hdt/scenes/:sceneId', requireAuth, deleteSceneHandler);
 
-// ==========================================
-// SCENE-ASSET ASSOCIATION ROUTES
-// ==========================================
+/* ============================================================================
+ * SCENE-ASSET ASSOCIATIONS
+ * ============================================================================
+ */
 
 /**
- * POST /api/projects/:projectId/hdt/scenes/:sceneId/assets
- * Add an asset to a scene
+ * @openapi
+ * /api/projects/{projectId}/hdt/scenes/{sceneId}/assets:
+ *   post:
+ *     summary: Add asset to scene
+ *     description: Adds an existing asset reference to a scene (manager only).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SceneAssetReference'
+ *     responses:
+ *       201:
+ *         description: HDT document updated (asset added to scene)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or scene not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:projectId/hdt/scenes/:sceneId/assets', requireAuth, addAssetToSceneHandler);
 
 /**
- * PUT /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * Update an asset reference in a scene
+ * @openapi
+ * /api/projects/{projectId}/hdt/scenes/{sceneId}/assets/{assetId}:
+ *   put:
+ *     summary: Update asset reference in scene
+ *     description: Updates an asset reference (transform/visibility) inside a scene (manager only).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID.
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Asset ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SceneAssetReferenceUpdate'
+ *     responses:
+ *       200:
+ *         description: HDT document updated (asset reference updated)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document, scene or asset reference not found
+ *       500:
+ *         description: Server error
  */
 router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updateAssetInSceneHandler);
 
 /**
- * DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * Remove an asset from a scene
+ * @openapi
+ * /api/projects/{projectId}/hdt/scenes/{sceneId}/assets/{assetId}:
+ *   delete:
+ *     summary: Remove asset from scene
+ *     description: Removes an asset reference from a scene (manager only).
+ *     tags:
+ *       - Scenes
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: sceneId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Scene ID.
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Asset ID.
+ *     responses:
+ *       200:
+ *         description: HDT document updated (asset removed from scene)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or scene not found
+ *       500:
+ *         description: Server error
  */
 router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, removeAssetFromSceneHandler);
 
+/* ============================================================================
+ * EXPORTS
+ * ============================================================================
+ */
+
 /**
- * GET /api/projects/:projectId/export/rdf
- * Export HDT metadata as RDF/XML
+ * @openapi
+ * /api/projects/{projectId}/export/rdf:
+ *   get:
+ *     summary: Export HDT metadata as RDF/XML
+ *     description: Exports the project's HDT document metadata and model3d assets as RDF/XML (auth required).
+ *     tags:
+ *       - Exports
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     responses:
+ *       200:
+ *         description: RDF/XML export
+ *         content:
+ *           application/rdf+xml:
+ *             schema:
+ *               type: string
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: HDT document not found
+ *       500:
+ *         description: Server error
  */
 router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   try {
@@ -296,12 +873,9 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'HDT metadata not found' });
     }
 
-    // Helper function to escape XML
     const escapeXml = (unsafe: string | string[] | undefined): string => {
       if (!unsafe) return '';
-      if (Array.isArray(unsafe)) {
-        return unsafe.map(s => escapeXml(s)).join(', ');
-      }
+      if (Array.isArray(unsafe)) return unsafe.map(s => escapeXml(s)).join(', ');
       return unsafe.replace(/[<>&'"]/g, (c) => {
         switch (c) {
           case '<': return '&lt;';
@@ -314,7 +888,6 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
       });
     };
 
-    // Generate RDF/XML export
     const rdf = `<?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF
   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -327,17 +900,17 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
 
   <rdf:Description rdf:about="urn:project:${projectId}">
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>
-    <dc:title>${escapeXml(hdtDoc.metadata?.dublinCore?.title as any || 'Untitled')}</dc:title>
-    <dc:description>${escapeXml(hdtDoc.metadata?.dublinCore?.description as any || '')}</dc:description>
-    <dc:creator>${escapeXml(hdtDoc.metadata?.dublinCore?.creator as any || '')}</dc:creator>
-    <dc:date>${escapeXml(hdtDoc.metadata?.dublinCore?.date as any || '')}</dc:date>
-    <dc:coverage>${escapeXml(hdtDoc.metadata?.dublinCore?.coverage as any || '')}</dc:coverage>
-    <dc:rights>${escapeXml(hdtDoc.metadata?.dublinCore?.rights as any || '')}</dc:rights>
-    <dc:identifier>${escapeXml(hdtDoc.metadata?.dublinCore?.identifier as any || '')}</dc:identifier>
-    <dc:subject>${escapeXml(hdtDoc.metadata?.dublinCore?.subject as any || '')}</dc:subject>
-    <dc:type>${escapeXml(hdtDoc.metadata?.dublinCore?.type as any || '')}</dc:type>
-    <dc:language>${escapeXml(hdtDoc.metadata?.dublinCore?.language as any || '')}</dc:language>
-    <dc:source>${escapeXml(hdtDoc.metadata?.dublinCore?.source as any || '')}</dc:source>
+    <dc:title>${escapeXml((hdtDoc.metadata?.dublinCore?.title as any) || 'Untitled')}</dc:title>
+    <dc:description>${escapeXml((hdtDoc.metadata?.dublinCore?.description as any) || '')}</dc:description>
+    <dc:creator>${escapeXml((hdtDoc.metadata?.dublinCore?.creator as any) || '')}</dc:creator>
+    <dc:date>${escapeXml((hdtDoc.metadata?.dublinCore?.date as any) || '')}</dc:date>
+    <dc:coverage>${escapeXml((hdtDoc.metadata?.dublinCore?.coverage as any) || '')}</dc:coverage>
+    <dc:rights>${escapeXml((hdtDoc.metadata?.dublinCore?.rights as any) || '')}</dc:rights>
+    <dc:identifier>${escapeXml((hdtDoc.metadata?.dublinCore?.identifier as any) || '')}</dc:identifier>
+    <dc:subject>${escapeXml((hdtDoc.metadata?.dublinCore?.subject as any) || '')}</dc:subject>
+    <dc:type>${escapeXml((hdtDoc.metadata?.dublinCore?.type as any) || '')}</dc:type>
+    <dc:language>${escapeXml((hdtDoc.metadata?.dublinCore?.language as any) || '')}</dc:language>
+    <dc:source>${escapeXml((hdtDoc.metadata?.dublinCore?.source as any) || '')}</dc:source>
     <dcterms:created>${hdtDoc.createdAt ? new Date(hdtDoc.createdAt).toISOString() : ''}</dcterms:created>
     <dcterms:modified>${hdtDoc.updatedAt ? new Date(hdtDoc.updatedAt).toISOString() : ''}</dcterms:modified>
     <hdt:HP1 rdf:resource="urn:project:${projectId}:hdt"/>
@@ -345,11 +918,14 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
 
   <rdf:Description rdf:about="urn:project:${projectId}:hdt">
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC2"/>
-${(hdtDoc.digitalAssets || []).filter((asset: any) => asset.type === 'model3d').map((asset: any) => 
-    `    <hdt:HP3 rdf:resource="urn:asset:${asset.id}"/>`
-).join('\n')}
+${(hdtDoc.digitalAssets || [])
+  .filter((asset: any) => asset.type === 'model3d')
+  .map((asset: any) => `    <hdt:HP3 rdf:resource="urn:asset:${asset.id}"/>`)
+  .join('\n')}
   </rdf:Description>
-${(hdtDoc.digitalAssets || []).filter((asset: any) => asset.type === 'model3d').map((asset: any) => `
+${(hdtDoc.digitalAssets || [])
+  .filter((asset: any) => asset.type === 'model3d')
+  .map((asset: any) => `
   <rdf:Description rdf:about="urn:asset:${asset.id}">
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>
     <dc:format>${escapeXml(asset.metadata?.format || 'model/gltf+json')}</dc:format>
@@ -366,48 +942,87 @@ ${(hdtDoc.digitalAssets || []).filter((asset: any) => asset.type === 'model3d').
     <prov:wasAttributedTo rdf:resource="urn:user:${asset.uploadedBy || 'unknown'}"/>
     <prov:endedAtTime>${asset.uploadedAt ? new Date(asset.uploadedAt).toISOString() : ''}</prov:endedAtTime>
   </rdf:Description>
-`).join('')}
+`)
+  .join('')}
 </rdf:RDF>`;
 
     res.setHeader('Content-Type', 'application/rdf+xml');
     res.setHeader('Content-Disposition', `attachment; filename="hdt-${projectId}.rdf"`);
-    res.send(rdf);
+    return res.send(rdf);
   } catch (error: any) {
     console.error('Error exporting RDF:', error);
-    res.status(500).json({ error: 'Failed to export RDF'+ error });
+    return res.status(500).json({ error: error?.message || 'Failed to export RDF' });
   }
 });
 
-// CORS proxy for SPARQL endpoints (to avoid CORS issues when querying external APIs)
+/**
+ * @openapi
+ * /api/projects/sparql-proxy:
+ *   post:
+ *     summary: SPARQL proxy
+ *     description: Proxies POST requests to external SPARQL endpoints to avoid browser CORS issues (auth required).
+ *     tags:
+ *       - Exports
+ *     security:
+ *       - sessionCookie: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - endpoint
+ *               - payload
+ *             properties:
+ *               endpoint:
+ *                 type: string
+ *                 example: https://example.org/sparql
+ *               payload:
+ *                 type: object
+ *                 description: SPARQL request payload (implementation-specific).
+ *     responses:
+ *       200:
+ *         description: Proxied SPARQL response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       400:
+ *         description: Missing endpoint or payload
+ *       401:
+ *         description: Authentication required
+ *       500:
+ *         description: Proxy error
+ */
 router.post('/sparql-proxy', requireAuth, async (req, res) => {
   try {
-    const { endpoint, payload } = req.body;
-    
+    const { endpoint, payload } = req.body as { endpoint?: string; payload?: any };
+
     if (!endpoint || !payload) {
       return res.status(400).json({ error: 'Missing endpoint or payload' });
     }
-    
-    // Forward the request to the SPARQL endpoint
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        Accept: 'application/json'
       },
       body: JSON.stringify(payload)
     });
-    
+
     if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: `SPARQL endpoint returned ${response.status}: ${response.statusText}` 
+      return res.status(response.status).json({
+        error: `SPARQL endpoint returned ${response.status}: ${response.statusText}`
       });
     }
-    
+
     const data = await response.json();
-    res.json(data);
+    return res.json(data);
   } catch (error: any) {
     console.error('SPARQL proxy error:', error);
-    res.status(500).json({ error: error.message || 'Failed to query SPARQL endpoint' });
+    return res.status(500).json({ error: error?.message || 'Failed to query SPARQL endpoint' });
   }
 });
 
