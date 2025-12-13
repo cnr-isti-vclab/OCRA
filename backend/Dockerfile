@@ -1,32 +1,31 @@
-## Backend service Dockerfile
+# syntax=docker/dockerfile:1
 FROM node:22-alpine
 
-# Work in the backend package folder
+WORKDIR /app
+
+# 1) Copy workspace manifests (better layer caching)
+COPY package.json package-lock.json ./
+COPY backend/package.json backend/package.json
+COPY frontend/package.json frontend/package.json
+
+# 2) Install dependencies from the workspace root
+RUN npm ci
+
+# 3) Copy sources
+COPY backend ./backend
+COPY media ./media
+COPY prisma ./prisma
+
+# 4) Build backend + generate Prisma client using the ROOT schema
 WORKDIR /app/backend
 
-# Copy Prisma schema into backend package path (needed before package install for dependencies)
-COPY prisma /app/backend/prisma
+# Use absolute path to avoid accidentally picking a workspace-local prisma folder
+RUN npx prisma generate --schema=/app/prisma/schema.prisma
 
-# Copy the backend source code (includes package.json, package-lock.json, and all source files)
-COPY backend/ .
-
-# Copy media files for seeding projects
-COPY media /app/media
-
-# Install dependencies (include devDeps to run Prisma CLI during build)
-RUN npm ci || npm install
-
-# Generate Prisma Client for the container platform using backend's schema
-RUN npx prisma generate --schema=./prisma/schema.prisma
-
-# Build TypeScript to JavaScript
+# Compile TypeScript (produces /app/backend/dist/* including dist/server.js and dist/seed.js)
 RUN npm run build
 
-# Make the startup script executable
+# 5) Runtime
 RUN chmod +x start.sh
-
-# Expose port
 EXPOSE 3002
-
-# Start with the startup script that runs migrations first
 CMD ["sh", "./start.sh"]

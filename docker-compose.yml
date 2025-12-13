@@ -1,5 +1,7 @@
 services:
-  # PostgreSQL Database
+  # -------------------------
+  # PostgreSQL
+  # -------------------------
   postgres:
     image: postgres:15-alpine
     container_name: ocra-postgres
@@ -10,71 +12,103 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-oauth_demo}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks: [ocra_net]
 
+  # -------------------------
+  # MongoDB (audit)
+  # -------------------------
   mongodb:
     image: mongo:8.0
     container_name: ocra-mongodb
-    environment:
-      MONGO_INITDB_DATABASE: ocra_audit
     volumes:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
-    healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    networks: [ocra_net]
 
+  # -------------------------
+  # Keycloak (OAuth Provider)
+  # -------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    container_name: ocra-keycloak
+    command: start-dev --http-port=8080 --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak/realm-export:/opt/keycloak/data/import
+    networks: [ocra_net]
+
+  # -------------------------
+  # Backend API
+  # -------------------------
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: ocra-backend
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo}
+      # OAuth (INTERNAL docker DNS)
+      ISSUER: http://keycloak:8080/realms/demo
+      CLIENT_ID: react-oauth
+      CLIENT_SECRET:
+
+      # Backend
       PORT: 3002
-      SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://localhost:5173,http://localhost:5174}
-      NODE_ENV: ${NODE_ENV:-development}
-      # OAuth Configuration
-      ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
-      CLIENT_ID: ${CLIENT_ID:-react-oauth}
-      CLIENT_SECRET: ${CLIENT_SECRET}
+      NODE_ENV: production
+      CORS_ORIGINS: http://localhost:3001
+      SYS_ADMIN_EMAIL: admin@ocra.it
+
+      # DB
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public
+
+      # Mongo audit
+      MONGO_URL: mongodb://mongodb:27017
+      MONGO_DB: ocra_audit
+      MONGO_COLLECTION: audit
+
+      # Assets
+      PROJECT_FILES_PATH: /app/project_files
+
     depends_on:
-      - postgres
-      - mongodb
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      keycloak:
+        condition: service_started
+
     volumes:
       - project_files:/app/project_files
+    ports:
+      - "3002:3002"
+    networks: [ocra_net]
 
+  # -------------------------
+  # Frontend (nginx)
+  # -------------------------
   app:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: ocra-frontend
-    environment:
-      PROVIDER_URL: ${PROVIDER_URL:-http://localhost:8081}
-      REALM: ${REALM:-demo}
-      ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
-      CLIENT_ID: ${CLIENT_ID:-react-oauth}
-      REDIRECT_URI: ${REDIRECT_URI:-http://localhost:3001}
-      SCOPE: ${SCOPE:-openid profile email}
-      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:3002}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
-      backend:
-        condition: service_started
+    ports:
+      - "3001:80"
+    networks: [ocra_net]
 
 volumes:
   postgres_data:
-  project_files:
   mongo_data:
   mongo_configdb:
+  project_files:
+
+networks:
+  ocra_net:
+    driver: bridge

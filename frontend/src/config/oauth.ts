@@ -29,9 +29,7 @@ export const OAUTH_CONFIG = new Proxy({} as any, {
       clientId: typeof window !== 'undefined' && window.__APP_CONFIG__?.clientId 
         ? window.__APP_CONFIG__.clientId 
         : 'react-oauth',
-      redirectUri: typeof window !== 'undefined' && window.__APP_CONFIG__?.redirectUri 
-        ? window.__APP_CONFIG__.redirectUri 
-        : 'http://localhost:5173', // Fallback for development
+      redirectUri: getRedirectUri(), // Use dynamic redirect URI logic
       scope: typeof window !== 'undefined' && window.__APP_CONFIG__?.scope 
         ? window.__APP_CONFIG__.scope 
         : 'openid profile email'
@@ -39,6 +37,26 @@ export const OAUTH_CONFIG = new Proxy({} as any, {
     return config[prop as keyof typeof config];
   }
 });
+
+// Get redirect URI - checks runtime config first, then dynamic origin, then fallback
+export function getRedirectUri(): string {
+  // Docker/Production: Use runtime config from window.__APP_CONFIG__
+  // BUT ignore if it's the development fallback value
+  if (typeof window !== 'undefined' && 
+      window.__APP_CONFIG__?.redirectUri && 
+      window.__APP_CONFIG__.redirectUri !== 'http://localhost:5173') {
+    return window.__APP_CONFIG__.redirectUri;
+  }
+
+  // Production/Docker: Use current origin (works for nginx reverse proxy)
+  // This automatically adapts to whatever domain/port the app is served from
+  if (typeof window !== 'undefined' && window.location.origin !== 'http://localhost:5173') {
+    return window.location.origin;
+  }
+
+  // Fallback for local development with Vite
+  return 'http://localhost:5173';
+}
 
 // Get API base URL - checks Vite env var first, then runtime config, then fallback
 export function getApiBase(): string {

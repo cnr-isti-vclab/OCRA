@@ -788,9 +788,10 @@ export async function generateSceneFile(
         return null;
       }
       
+      const filename = (asset as any).fileName ?? asset.title; 
       const model: ModelDefinition = {
         id: asset.id,
-        file: asset.fileName,
+        file: `${asset.id}/${filename}`,  
         title: asset.title,
         position: assetRef.position,
         rotation: assetRef.rotation,
