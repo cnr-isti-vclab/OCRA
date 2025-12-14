@@ -1,11 +1,31 @@
 /**
  * HDT Metadata Controller
- * 
- * Handles HTTP requests for managing Heritage Digital Twin documents.
- * Includes metadata, digital assets, scenes, and scene-asset associations.
+ *
+ * Handles HTTP requests for managing Heritage Digital Twin (HDT) documents.
+ * The HDT document lives in MongoDB and contains:
+ * - metadata (Dublin Core + CIDOC CRM, etc.)
+ * - a pool of digitalAssets (model3d, rti, ...)
+ * - scenes and scene-asset associations (scene composition)
+ *
+ * Storage layout (project_files):
+ * - 3D assets are stored under:
+ *     project_files/<projectId>/model3d/<assetId>/<filename>
+ *   and are served publicly as:
+ *     /assets/projects/<projectId>/model3d/<assetId>/<filename>
+ *
+ * - RTI assets are stored under:
+ *     project_files/<projectId>/rti/<assetId>/(info.json + tiles/images/...)
+ *   and are served publicly as:
+ *     /assets/projects/<projectId>/rti/<assetId>/info.json
+ *     (and other RTI files under the same folder)
+ *
+ * Scenes:
+ * - scenes are persisted in MongoDB inside the HDT document.
+ * - exporting scene JSON to disk is optional and used only for debugging
+ *   (see exportSceneFileHandler).
  */
 
-import { projectRtiAssetDir } from '../utils/project-paths.js';
+import { projectRtiAssetDir } from '../utils/project-static-paths.js';
 import { Request, Response } from 'express';
 import {
   getHDTDocument,
@@ -32,14 +52,16 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Get current user from request
+ * Get current user from request (populated by auth middleware).
  */
 function getCurrentUser(req: Request): User | null {
   return req.user || null;
 }
 
 /**
- * Check if user is manager of project
+ * Check whether the authenticated user is manager of a given project.
+ * - sys_admin users are always allowed
+ * - otherwise user must have RoleEnum.manager for the project
  */
 async function checkIsManagerOfProject(userSub: string, projectId: string): Promise<boolean> {
   const prisma = getPrismaClient();
@@ -63,30 +85,32 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
   return !!isManager;
 }
 
+// ============================================================================
 // RTI Helpers
-
+// ============================================================================
 
 /**
- * Given an RTI asset file URL, return the directory on disk
- * where the asset is stored.
+ * Resolve the on-disk directory of an RTI asset starting from a public file URL.
  *
- * Expected URL format (public static path):
+ * Supported public URL format:
  *   /assets/projects/<projectId>/rti/<assetId>/info.json
  *
  * Absolute URLs are also supported, for example:
  *   http://host:port/assets/projects/<projectId>/rti/<assetId>/info.json
  *
- * This function:
- * - extracts <projectId> and <assetId> from the URL
- * - verifies that the asset type is "rti"
- * - resolves and returns the absolute filesystem path:
- *
+ * Returns:
  *   project_files/<projectId>/rti/<assetId>
  *
  * Returns null if:
- * - the URL is null or undefined
- * - the URL does not match the expected /assets/projects/... structure
- * - the asset type is not "rti"
+ * - URL is missing or invalid
+ * - URL does not match /assets/projects/... pattern
+ * - URL does not point to an RTI asset
+ *
+ * NOTE:
+ * In the current storage model we already know <projectId> and <assetId> from
+ * the HDT asset record, so in most cases you can compute the directory with:
+ *   projectRtiAssetDir(projectId, assetId)
+ * This helper is mainly for optional legacy/fallback support.
  */
 function resolveRtiAssetDirectory(fileUrl?: string | null): string | null {
   if (!fileUrl) return null;
@@ -102,7 +126,6 @@ function resolveRtiAssetDirectory(fileUrl?: string | null): string | null {
     urlPath = fileUrl;
   }
 
-  // NEW prefix
   const prefix = '/assets/projects/';
   const idx = urlPath.indexOf(prefix);
   if (idx === -1) return null;
@@ -116,15 +139,16 @@ function resolveRtiAssetDirectory(fileUrl?: string | null): string | null {
   const [projectId, kind, assetId] = segments;
   if (kind !== 'rti') return null;
 
-  // Return absolute directory on disk:
-  // project_files/<projectId>/rti/<assetId>
   return projectRtiAssetDir(projectId, assetId);
 }
 
+// ============================================================================
+// HDT DOCUMENT ENDPOINTS
+// ============================================================================
 
 /**
  * GET /api/projects/:projectId/hdt
- * Get HDT document for a project
+ * Retrieve the HDT document for a project from MongoDB.
  */
 export async function getHDTMetadataHandler(req: Request, res: Response) {
   try {
@@ -152,7 +176,7 @@ export async function getHDTMetadataHandler(req: Request, res: Response) {
 
 /**
  * POST /api/projects/:projectId/hdt
- * Create or initialize HDT document for a project
+ * Create/initialize the HDT document for a project (manager only).
  */
 export async function createHDTMetadataHandler(req: Request, res: Response) {
   try {
@@ -199,27 +223,25 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
 
     // Use provided metadata from request body, or fallback to project defaults
     console.log('HDT CREATE: req.body:', JSON.stringify(req.body, null, 2));
-    const initialMetadata = req.body?.dublinCore ? {
-      dublinCore: req.body.dublinCore,
-      cidocCrm: req.body.cidocCrm || {}
-    } : {
-      dublinCore: {
-        title: project.name,
-        description: project.description || undefined,
-        date: new Date().toISOString().split('T')[0]
-      },
-      cidocCrm: {
-        objectType: 'Digital Heritage Twin'
-      }
-    };
+    const initialMetadata = req.body?.dublinCore
+      ? {
+          dublinCore: req.body.dublinCore,
+          cidocCrm: req.body.cidocCrm || {}
+        }
+      : {
+          dublinCore: {
+            title: project.name,
+            description: project.description || undefined,
+            date: new Date().toISOString().split('T')[0]
+          },
+          cidocCrm: {
+            objectType: 'Digital Heritage Twin'
+          }
+        };
     console.log('HDT CREATE: initialMetadata:', JSON.stringify(initialMetadata, null, 2));
 
     // Create HDT document with metadata
-    const document = await createHDTDocument(
-      projectId,
-      currentUser.sub,
-      initialMetadata
-    );
+    const document = await createHDTDocument(projectId, currentUser.sub, initialMetadata);
     console.log('HDT CREATE: created document:', JSON.stringify(document, null, 2));
 
     res.status(201).json(document);
@@ -234,7 +256,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
 
 /**
  * PUT /api/projects/:projectId/hdt
- * Update HDT metadata for a project
+ * Update HDT metadata (manager only).
  */
 export async function updateHDTMetadataHandler(req: Request, res: Response) {
   try {
@@ -253,18 +275,12 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    // Check if user is manager of the project
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       return res.status(403).json({ error: 'Only project managers can update HDT metadata' });
     }
 
-    // Update metadata
-    const updatedMetadata = await updateHDTMetadata(
-      projectId,
-      metadataUpdates,
-      currentUser.sub
-    );
+    const updatedMetadata = await updateHDTMetadata(projectId, metadataUpdates, currentUser.sub);
 
     if (!updatedMetadata) {
       return res.status(404).json({ error: 'HDT metadata not found for this project' });
@@ -282,7 +298,7 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
 
 /**
  * DELETE /api/projects/:projectId/hdt
- * Delete HDT document for a project
+ * Delete HDT document (manager only).
  */
 export async function deleteHDTMetadataHandler(req: Request, res: Response) {
   try {
@@ -297,7 +313,6 @@ export async function deleteHDTMetadataHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    // Check if user is manager of the project
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       return res.status(403).json({ error: 'Only project managers can delete HDT document' });
@@ -319,13 +334,20 @@ export async function deleteHDTMetadataHandler(req: Request, res: Response) {
   }
 }
 
-// ==========================================
+// ============================================================================
 // DIGITAL ASSETS ENDPOINTS
-// ==========================================
+// ============================================================================
 
 /**
  * POST /api/projects/:projectId/hdt/assets
- * Add a digital asset to the pool
+ * Add a digital asset record to the HDT pool (metadata only).
+ *
+ * NOTE:
+ * - For model3d, the binary file is uploaded via the "project files" endpoints
+ *   and stored under:
+ *     project_files/<projectId>/model3d/<assetId>/<filename>
+ * - For rti, the RTI upload route stores a full folder under:
+ *     project_files/<projectId>/rti/<assetId>/(info.json + data...)
  */
 export async function addAssetHandler(req: Request, res: Response) {
   try {
@@ -348,7 +370,7 @@ export async function addAssetHandler(req: Request, res: Response) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
 
-    // Regenerate scene files if asset is used in any scenes
+    // Keep derived scene descriptions in sync (used by the viewer).
     await generateAllSceneFiles(projectId);
 
     res.status(201).json(updatedDoc);
@@ -363,7 +385,7 @@ export async function addAssetHandler(req: Request, res: Response) {
 
 /**
  * PUT /api/projects/:projectId/hdt/assets/:assetId
- * Update a digital asset
+ * Update a digital asset record (manager only).
  */
 export async function updateAssetHandler(req: Request, res: Response) {
   try {
@@ -386,7 +408,6 @@ export async function updateAssetHandler(req: Request, res: Response) {
       return res.status(404).json({ error: 'HDT document or asset not found' });
     }
 
-    // Regenerate scene files
     await generateAllSceneFiles(projectId);
 
     res.json(updatedDoc);
@@ -401,10 +422,15 @@ export async function updateAssetHandler(req: Request, res: Response) {
 
 /**
  * DELETE /api/projects/:projectId/hdt/assets/:assetId
- * Removes a digital asset from the HDT document (and from all scenes).
+ * Remove a digital asset from the HDT document (and from all scenes).
  *
- * If the asset is of type "rti", the corresponding RTI directory
- * on disk is also removed (rti_assets/<projectId>/<slug>).
+ * Filesystem cleanup:
+ * - If the asset is type "rti", remove the RTI folder:
+ *     project_files/<projectId>/rti/<assetId>
+ *
+ * NOTE:
+ * - model3d file cleanup is typically handled by the project files endpoints
+ *   (or by a dedicated cleanup strategy if desired).
  */
 export async function removeAssetHandler(req: Request, res: Response) {
   try {
@@ -422,7 +448,6 @@ export async function removeAssetHandler(req: Request, res: Response) {
 
     // 1) Retrieve current HDT document to inspect the asset before removal
     const hdtDoc = await getHDTDocument(projectId);
-
     if (!hdtDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
@@ -439,23 +464,21 @@ export async function removeAssetHandler(req: Request, res: Response) {
     let rtiDirToDelete: string | null = null;
 
     if (asset.type === 'rti') {
-      // Robust: we know the new storage layout by projectId + assetId
+      // Current storage layout: project_files/<projectId>/rti/<assetId>
       rtiDirToDelete = projectRtiAssetDir(projectId, assetId);
       console.log('RTI asset delete requested:', {
         projectId,
         assetId,
         fileUrl: asset.fileUrl,
-        rtiDirToDelete,
+        rtiDirToDelete
       });
     } else if (asset.type === 'rti' && typeof asset.fileUrl === 'string') {
-      // Optional fallback (keep only if you still support legacy layouts)
+      // Optional legacy/fallback support (kept only if needed).
       rtiDirToDelete = resolveRtiAssetDirectory(asset.fileUrl) || null;
     }
 
-
     // 3) Remove asset from HDT document (DB + scenes)
     const updatedDoc = await removeDigitalAsset(projectId, assetId, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found after removal' });
     }
@@ -476,11 +499,11 @@ export async function removeAssetHandler(req: Request, res: Response) {
           rtiDirToDelete,
           error: fsErr
         });
-        // Do not block DELETE request if filesystem cleanup fails
+        // Do not block DELETE if filesystem cleanup fails.
       }
     }
 
-    // 5) Regenerate all scene files consuming the updated HDT
+    // 5) Regenerate derived scene descriptions used by the viewer
     await generateAllSceneFiles(projectId);
 
     return res.json(updatedDoc);
@@ -493,14 +516,13 @@ export async function removeAssetHandler(req: Request, res: Response) {
   }
 }
 
-
-// ==========================================
+// ============================================================================
 // SCENE MANAGEMENT ENDPOINTS
-// ==========================================
+// ============================================================================
 
 /**
  * GET /api/projects/:projectId/scenes
- * List all available scenes for a project
+ * List all available scene IDs (source of truth is MongoDB).
  */
 export async function listScenesHandler(req: Request, res: Response) {
   try {
@@ -520,7 +542,8 @@ export async function listScenesHandler(req: Request, res: Response) {
 
 /**
  * POST /api/projects/:projectId/hdt/scenes
- * Create a new scene
+ * Create a new scene (manager only).
+ * Scene data is stored in MongoDB inside the HDT document.
  */
 export async function createSceneHandler(req: Request, res: Response) {
   try {
@@ -538,15 +561,13 @@ export async function createSceneHandler(req: Request, res: Response) {
     }
 
     const updatedDoc = await addScene(projectId, sceneData, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
 
-    // Find the newly created scene
     const newScene = updatedDoc.scenes[updatedDoc.scenes.length - 1];
 
-    // Generate scene file
+    // Keep derived scene description in sync (viewer reads /api/projects/:projectId/scenes/:sceneId).
     await generateSceneFile(projectId, newScene.id);
 
     res.status(201).json(updatedDoc);
@@ -561,7 +582,8 @@ export async function createSceneHandler(req: Request, res: Response) {
 
 /**
  * PUT /api/projects/:projectId/hdt/scenes/:sceneId
- * Update a scene
+ * Update a scene (manager only).
+ * Scene data is stored in MongoDB inside the HDT document.
  */
 export async function updateSceneHandler(req: Request, res: Response) {
   try {
@@ -579,12 +601,10 @@ export async function updateSceneHandler(req: Request, res: Response) {
     }
 
     const updatedDoc = await updateScene(projectId, sceneId, updates, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document or scene not found' });
     }
 
-    // Regenerate scene file
     await generateSceneFile(projectId, sceneId);
 
     res.json(updatedDoc);
@@ -599,7 +619,11 @@ export async function updateSceneHandler(req: Request, res: Response) {
 
 /**
  * DELETE /api/projects/:projectId/hdt/scenes/:sceneId
- * Delete a scene
+ * Delete a scene (manager only).
+ * Scene data is removed from MongoDB (HDT document).
+ *
+ * NOTE:
+ * If you also persist debug exports on disk, you may optionally remove them here.
  */
 export async function deleteSceneHandler(req: Request, res: Response) {
   try {
@@ -616,12 +640,9 @@ export async function deleteSceneHandler(req: Request, res: Response) {
     }
 
     const updatedDoc = await removeScene(projectId, sceneId, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
-
-    // TODO: Delete scene file from filesystem
 
     res.json(updatedDoc);
   } catch (error: any) {
@@ -633,13 +654,14 @@ export async function deleteSceneHandler(req: Request, res: Response) {
   }
 }
 
-// ==========================================
+// ============================================================================
 // SCENE-ASSET ASSOCIATION ENDPOINTS
-// ==========================================
+// ============================================================================
 
 /**
  * POST /api/projects/:projectId/hdt/scenes/:sceneId/assets
- * Add an asset to a scene
+ * Add an asset reference to a scene (manager only).
+ * This updates MongoDB and then refreshes the derived scene description.
  */
 export async function addAssetToSceneHandler(req: Request, res: Response) {
   try {
@@ -657,12 +679,10 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
     }
 
     const updatedDoc = await addAssetToScene(projectId, sceneId, assetReference, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
 
-    // Regenerate scene file
     await generateSceneFile(projectId, sceneId);
 
     res.status(201).json(updatedDoc);
@@ -677,7 +697,7 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
 
 /**
  * PUT /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * Update an asset reference in a scene
+ * Update a scene-asset reference (manager only), then refresh derived scene description.
  */
 export async function updateAssetInSceneHandler(req: Request, res: Response) {
   try {
@@ -695,12 +715,10 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
     }
 
     const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updates, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
 
-    // Regenerate scene file
     await generateSceneFile(projectId, sceneId);
 
     res.json(updatedDoc);
@@ -715,7 +733,7 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
 
 /**
  * DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * Remove an asset from a scene
+ * Remove an asset reference from a scene (manager only), then refresh derived scene description.
  */
 export async function removeAssetFromSceneHandler(req: Request, res: Response) {
   try {
@@ -732,12 +750,10 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
     }
 
     const updatedDoc = await removeAssetFromScene(projectId, sceneId, assetId, currentUser.sub);
-
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
     }
 
-    // Regenerate scene file
     await generateSceneFile(projectId, sceneId);
 
     res.json(updatedDoc);
@@ -750,13 +766,24 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
   }
 }
 
-// ==========================================
-// SCENE FILE SERVING
-// ==========================================
+// ============================================================================
+// SCENE JSON (VIEWER + DEBUG EXPORT)
+// ============================================================================
 
 /**
  * GET /api/projects/:projectId/scenes/:sceneId
- * Get a specific scene JSON file (for ThreePresenter)
+ * Returns a viewer-friendly scene description JSON.
+ *
+ * Source of truth:
+ * - Scene definitions are stored in MongoDB (HDT document).
+ *
+ * This handler generates (or regenerates) a derived scene description from MongoDB
+ * and returns it to the client. The returned JSON includes resolved asset URLs
+ * (e.g. /assets/projects/<projectId>/model3d/<assetId>/<filename>).
+ *
+ * NOTE:
+ * Even if you also export scene JSON to disk for debugging, the viewer should
+ * rely on this endpoint.
  */
 export async function getSceneFileHandler(req: Request, res: Response) {
   try {
@@ -766,7 +793,6 @@ export async function getSceneFileHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Project ID and Scene ID are required' });
     }
 
-    // Always regenerate scene file from MongoDB to ensure it's up to date
     try {
       const sceneDesc = await generateSceneFile(projectId, sceneId);
       if (sceneDesc) {
@@ -789,7 +815,12 @@ export async function getSceneFileHandler(req: Request, res: Response) {
 
 /**
  * GET /api/projects/:projectId/scenes/:sceneId/export
- * Export scene JSON file to disk and download (for debugging)
+ * Export a scene JSON description to disk and download it (debugging only).
+ *
+ * If you keep exported files on disk and want multiple scenes, a clean layout is:
+ *   project_files/<projectId>/scenes/<sceneId>.json
+ *
+ * But this export is optional: scenes are already stored in MongoDB.
  */
 export async function exportSceneFileHandler(req: Request, res: Response) {
   try {
@@ -806,7 +837,6 @@ export async function exportSceneFileHandler(req: Request, res: Response) {
       return res.status(404).json({ error: 'Scene not found' });
     }
 
-    // Return the JSON for download
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${projectId}-${sceneId}.json"`);
     res.json(sceneDesc);

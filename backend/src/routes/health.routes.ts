@@ -30,9 +30,9 @@ const router: Router = express.Router();
  *                 status:
  *                   type: string
  *                   example: ok
- *                 timestamp:
+ *                 service:
  *                   type: string
- *                   format: date-time
+ *                   example: backend
  */
 router.get('/', healthCheck);
 
@@ -52,15 +52,24 @@ router.get('/', healthCheck);
  *             schema:
  *               type: object
  *               properties:
- *                 status:
- *                   type: string
- *                   example: ok
- *                 database:
- *                   type: string
- *                   example: connected
- *                 collections:
- *                   type: number
- *                   example: 5
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 mongo:
+ *                   type: object
+ *                   properties:
+ *                     connected:
+ *                       type: boolean
+ *                       example: true
+ *                     pingResult:
+ *                       type: object
+ *                       properties:
+ *                         ok:
+ *                           type: number
+ *                           example: 1
+ *                     lastPingMs:
+ *                       type: number
+ *                       example: 2
  *       500:
  *         description: MongoDB connection error
  *         content:

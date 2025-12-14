@@ -219,6 +219,25 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  *           application/json:
  *             schema:
  *               type: object
+ *               properties:
+ *                 models:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: bunny
+ *                       file:
+ *                         type: string
+ *                         description: Relative path to the model file
+ *                         example: asset_1765697505792_3bp7qg8hf/bunny.ply
+ *                       title:
+ *                         type: string
+ *                         example: bunny
+ *                       visible:
+ *                         type: boolean
+ *                         example: true
  *       401:
  *         description: Authentication required
  *       404:
@@ -264,7 +283,7 @@ router.put('/:projectId/scene', updateProjectScene);
  * PROJECT FILES (3D ASSETS)
  * ============================================================================
  */
-
+/* <FIXME> URL SBAGLIATO */
 /**
  * @openapi
  * /api/projects/{projectId}/files:
@@ -440,7 +459,15 @@ router.delete('/:projectId/files/:assetId/:filename', deleteProjectFile);
  *         content:
  *           application/json:
  *             schema:
- *               type: array
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 projects:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Project'
  *       401:
  *         description: Authentication required
  */
@@ -464,6 +491,16 @@ router.get('/', getAllProjects);
  *     responses:
  *       200:
  *         description: Project details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 project:
+ *                   $ref: '#/components/schemas/Project'
  *       401:
  *         description: Authentication required
  *       404:

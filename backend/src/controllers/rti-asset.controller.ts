@@ -1,6 +1,6 @@
 // src/controllers/rti-asset.controller.ts
 
-import { ensureProjectSkeleton, projectRtiAssetDir } from '../utils/project-paths.js';
+import { ensureProjectSkeleton, projectRtiAssetDir } from '../utils/project-static-paths.js';
 import type { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';

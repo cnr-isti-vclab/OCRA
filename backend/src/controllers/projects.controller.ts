@@ -36,7 +36,7 @@ import {
   projectModel3dDir,
   projectModel3dAssetDir,
   projectTmpDir,
-} from '../utils/project-paths.js';
+} from '../utils/project-static-paths.js';
 
 /**
  * Helper: Check if a user is manager of a project (or sysadmin)

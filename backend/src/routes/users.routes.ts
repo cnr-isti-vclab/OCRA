@@ -64,10 +64,24 @@ router.get('/', requireAuth, requireAdmin, getAllUsers);
  *                 properties:
  *                   id:
  *                     type: string
- *                   username:
- *                     type: string
+ *                     example: cmitzelrh0000uejvvncbe969
  *                   email:
  *                     type: string
+ *                     format: email
+ *                     example: director@example.com
+ *                   name:
+ *                     type: string
+ *                     description: Full display name
+ *                     example: Roberto Neri
+ *                   username:
+ *                     type: string
+ *                     example: museum-director
+ *                   given_name:
+ *                     type: string
+ *                     example: Roberto
+ *                   family_name:
+ *                     type: string
+ *                     example: Neri
  *       401:
  *         description: Not authenticated
  */
@@ -92,16 +106,7 @@ router.get('/list', requireAuth, getUsersForDropdown);
  *             schema:
  *               type: array
  *               items:
- *                 allOf:
- *                   - $ref: '#/components/schemas/User'
- *                   - type: object
- *                     properties:
- *                       projectCount:
- *                         type: number
- *                         example: 5
- *                       memberCount:
- *                         type: number
- *                         example: 3
+ *                 $ref: '#/components/schemas/UserWithStats'
  *       401:
  *         description: Not authenticated
  *       403:
@@ -127,7 +132,7 @@ router.get('/stats', requireAuth, requireAdmin, getAllUsersWithStats);
  *         schema:
  *           type: string
  *         description: The user ID
- *         example: 507f1f77bcf86cd799439011
+ *         example: cmitzelrh0000uejvvncbe969
  *     responses:
  *       200:
  *         description: User details
@@ -215,12 +220,66 @@ router.put('/:userId/admin', requireAuth, requireAdmin, updateUserAdminStatus);
  *           application/json:
  *             schema:
  *               type: object
- *               additionalProperties: true
+ *               properties:
+ *                 totalManagerRoles:
+ *                   type: integer
+ *                   example: 1
+ *                 roles:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: cmj465jvf0006ueycughkxlg6
+ *                       userId:
+ *                         type: string
+ *                         example: cmitzelrh0000uejvvncbe969
+ *                       projectId:
+ *                         type: string
+ *                         example: cmj465eyp0002ueycc7m1ucxm
+ *                       role:
+ *                         type: string
+ *                         example: manager
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-12-13T10:44:35.931Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-12-13T10:44:35.931Z"
+ *                       user:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: cmitzelrh0000uejvvncbe969
+ *                           email:
+ *                             type: string
+ *                             format: email
+ *                             example: director@example.com
+ *                           name:
+ *                             type: string
+ *                             example: Roberto Neri
+ *                           username:
+ *                             type: string
+ *                             example: museum-director
+ *                       project:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: cmj465eyp0002ueycc7m1ucxm
+ *                           name:
+ *                             type: string
+ *                             example: TEST
  *       401:
  *         description: Not authenticated
  *       403:
  *         description: Not authorized (admin only)
  */
+
 router.get('/debug/roles', requireAuth, requireAdmin, debugProjectRoles);
 
 export default router;

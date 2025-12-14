@@ -77,7 +77,47 @@ router.post('/', createUserSession);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/User'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: cmitzelrh0000uejvvncbe969
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: director@example.com
+ *                     name:
+ *                       type: string
+ *                       example: Roberto Neri
+ *                     username:
+ *                       type: string
+ *                       example: museum-director
+ *                     displayName:
+ *                       type: string
+ *                       example: Roberto Neri
+ *                     sys_admin:
+ *                       type: boolean
+ *                       example: false
+ *                     sys_creator:
+ *                       type: boolean
+ *                       example: true
+ *                     managedProjects:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: cmj465eyp0002ueycc7m1ucxm
+ *                           name:
+ *                             type: string
+ *                             example: TEST
  *       401:
  *         description: Not authenticated
  *         content:
@@ -85,6 +125,7 @@ router.post('/', createUserSession);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+
 router.get('/current', getCurrentUser);
 
 /**
@@ -114,13 +155,38 @@ router.get('/current', getCurrentUser);
  *             schema:
  *               type: object
  *               properties:
- *                 sessionId:
- *                   type: string
  *                 user:
- *                   $ref: '#/components/schemas/User'
- *                 createdAt:
- *                   type: string
- *                   format: date-time
+ *                   type: object
+ *                   properties:
+ *                     sub:
+ *                       type: string
+ *                       example: 2c3becb0-d244-41dc-b776-6a2dee80193b
+ *                     name:
+ *                       type: string
+ *                       example: Roberto Neri
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: director@example.com
+ *                     username:
+ *                       type: string
+ *                       example: museum-director
+ *                     given_name:
+ *                       type: string
+ *                       example: Roberto
+ *                     family_name:
+ *                       type: string
+ *                       example: Neri
+ *                     middle_name:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *                     sys_admin:
+ *                       type: boolean
+ *                       example: false
+ *                     sys_creator:
+ *                       type: boolean
+ *                       example: true
  *       401:
  *         description: Not authenticated
  *       404:

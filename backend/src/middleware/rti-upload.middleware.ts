@@ -4,7 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import type { Request } from 'express';
-import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-paths.js';
+import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-static-paths.js';
 
 /**
  * Multer storage configuration for RTI ZIP uploads.

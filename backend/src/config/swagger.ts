@@ -71,24 +71,120 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         User: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-            username: { type: 'string', example: 'johndoe' },
-            email: { type: 'string', format: 'email', example: 'john@example.com' },
-            isAdmin: { type: 'boolean', example: false },
-            canCreateProjects: { type: 'boolean', example: true },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
+            id: {
+              type: 'string',
+              example: 'cmitzezdl0003uejviisow6zg',
+            },
+            sub: {
+              type: 'string',
+              description: 'External identity provider subject identifier',
+              example: 'b4b55cc9-fc63-4d8f-9993-4fac36cedcaa',
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              example: 'admin@ocra.it',
+            },
+            name: {
+              type: 'string',
+              description: 'Full display name',
+              example: 'System Administrator',
+            },
+            username: {
+              type: 'string',
+              example: 'administrator',
+            },
+            given_name: {
+              type: 'string',
+              example: 'System',
+            },
+            family_name: {
+              type: 'string',
+              example: 'Administrator',
+            },
+            middle_name: {
+              type: 'string',
+              nullable: true,
+              example: null,
+            },
+            sys_admin: {
+              type: 'boolean',
+              example: true,
+            },
+            sys_creator: {
+              type: 'boolean',
+              example: false,
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-12-06T07:38:16.857Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-12-14T07:55:31.402Z',
+            },
+          },
+        },
+        UserWithStats: {
+          allOf: [
+            { $ref: '#/components/schemas/User' },
+            {
+              type: 'object',
+              properties: {
+                managedProjectsCount: {
+                  type: 'integer',
+                  description: 'Number of projects where the user is a manager',
+                  example: 1,
+                },
+                lastLoginAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  description: 'Timestamp of the last login, if available',
+                  example: '2025-12-14T07:55:31.415Z',
+                },
+              },
+            },
+          ],
+        },
+        ProjectManager: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'cmitzelrh0000uejvvncbe969' },
+            email: {
+              type: 'string',
+              format: 'email',
+              example: 'director@example.com',
+            },
+            name: { type: 'string', example: 'Roberto Neri' },
+            username: { type: 'string', example: 'museum-director' },
+            displayName: { type: 'string', example: 'Roberto Neri' },
           },
         },
         Project: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '507f1f77bcf86cd799439012' },
-            name: { type: 'string', example: 'My Research Project' },
-            description: { type: 'string', example: 'A collaborative 3D modeling project' },
-            ownerId: { type: 'string', example: '507f1f77bcf86cd799439011' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
+            id: { type: 'string', example: 'cmj465eyp0002ueycc7m1ucxm' },
+            name: { type: 'string', example: 'TEST' },
+            description: {
+              type: 'string',
+              example: 'Draft project created from UI',
+            },
+            public: { type: 'boolean', example: false },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-12-13T10:44:29.570Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-12-13T10:44:35.924Z',
+            },
+            manager: {
+              $ref: '#/components/schemas/ProjectManager',
+            },
           },
         },
         ProjectMember: {
