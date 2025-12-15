@@ -3,13 +3,13 @@ set -e
 
 echo "▶ Stopping local services (Postgres, Mongo, Keycloak)..."
 
-for NAME in keycloak ocra-postgres ocra-mongo; do
+for NAME in "bare-ocra-postgres" "bare-ocra-mongo" "bare-keycloak"; do
   if docker ps --format '{{.Names}}' | grep -q "^${NAME}$"; then
     echo "  - Stopping ${NAME}..."
-    docker stop "${NAME}" >/dev/null
+    docker stop ${NAME} >/dev/null
   else
     echo "  - ${NAME} is not running"
   fi
 done
 
-echo "✅ Services stopped."
+echo "✅ All services stopped."

@@ -3,18 +3,19 @@ set -e
 
 echo "▶ Starting local services (Postgres, Mongo, Keycloak)..."
 
-# PostgreSQL
-if docker ps -a --format '{{.Names}}' | grep -q '^ocra-postgres$'; then
-  if ! docker ps --format '{{.Names}}' | grep -q '^ocra-postgres$'; then
-    echo "  - Starting existing ocra-postgres..."
-    docker start ocra-postgres >/dev/null
+# PostgreSQL (bare metal)
+POSTGRES_NAME="bare-ocra-postgres"
+if docker ps -a --format '{{.Names}}' | grep -q "^${POSTGRES_NAME}$"; then
+  if ! docker ps --format '{{.Names}}' | grep -q "^${POSTGRES_NAME}$"; then
+    echo "  - Starting existing ${POSTGRES_NAME}..."
+    docker start ${POSTGRES_NAME} >/dev/null
   else
-    echo "  - ocra-postgres already running"
+    echo "  - ${POSTGRES_NAME} already running"
   fi
 else
-  echo "  - Creating ocra-postgres..."
+  echo "  - Creating ${POSTGRES_NAME}..."
   docker run -d \
-    --name ocra-postgres \
+    --name ${POSTGRES_NAME} \
     -e POSTGRES_USER=ocra_user \
     -e POSTGRES_PASSWORD=ocra_pass \
     -e POSTGRES_DB=ocra \
@@ -23,35 +24,37 @@ else
     postgres:16
 fi
 
-# MongoDB
-if docker ps -a --format '{{.Names}}' | grep -q '^ocra-mongo$'; then
-  if ! docker ps --format '{{.Names}}' | grep -q '^ocra-mongo$'; then
-    echo "  - Starting existing ocra-mongo..."
-    docker start ocra-mongo >/dev/null
+# MongoDB (bare metal)
+MONGO_NAME="bare-ocra-mongo"
+if docker ps -a --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
+  if ! docker ps --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
+    echo "  - Starting existing ${MONGO_NAME}..."
+    docker start ${MONGO_NAME} >/dev/null
   else
-    echo "  - ocra-mongo already running"
+    echo "  - ${MONGO_NAME} already running"
   fi
 else
-  echo "  - Creating ocra-mongo..."
+  echo "  - Creating ${MONGO_NAME}..."
   docker run -d \
-    --name ocra-mongo \
+    --name ${MONGO_NAME} \
     -p 27017:27017 \
     -v ocra-mongo-data:/data/db \
     mongo:7
 fi
 
-# Keycloak
-if docker ps -a --format '{{.Names}}' | grep -q '^keycloak$'; then
-  if ! docker ps --format '{{.Names}}' | grep -q '^keycloak$'; then
-    echo "  - Starting existing keycloak..."
-    docker start keycloak >/dev/null
+# Keycloak (bare metal) 
+KEYCLOAK_NAME="bare-keycloak"
+if docker ps -a --format '{{.Names}}' | grep -q "^${KEYCLOAK_NAME}$"; then
+  if ! docker ps --format '{{.Names}}' | grep -q "^${KEYCLOAK_NAME}$"; then
+    echo "  - Starting existing ${KEYCLOAK_NAME}..."
+    docker start ${KEYCLOAK_NAME} >/dev/null
   else
-    echo "  - keycloak already running"
+    echo "  - ${KEYCLOAK_NAME} already running"
   fi
 else
-  echo "  - Creating keycloak..."
+  echo "  - Creating ${KEYCLOAK_NAME}..."
   docker run -d \
-    --name keycloak \
+    --name ${KEYCLOAK_NAME} \
     -p 8081:8080 \
     -e KEYCLOAK_ADMIN=Administrator \
     -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \

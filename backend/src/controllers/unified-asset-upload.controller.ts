@@ -48,56 +48,53 @@ function getPublicBaseUrl(req: any): string {
  * - ZIP archives containing 3D models
  */
 export async function unifiedAssetUploadHandler(req: express.Request, res: express.Response) {
-  // Type assertion - sappiamo che il middleware ha aggiunto assetProcessing
   const assetReq = req as AssetProcessingRequest;
   let cleanupPaths: string[] = [];
 
   try {
     const { projectId } = req.params;
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required.' });
-    }
+    if (!projectId) return res.status(400).json({ error: 'Project ID is required.' });
 
-    // Get assetId from request body
     const assetIdRaw = req.body?.assetId;
     const assetId = typeof assetIdRaw === 'string' ? assetIdRaw.trim() : '';
-    if (!assetId) {
-      return res.status(400).json({ error: 'assetId is required.' });
-    }
+    if (!assetId) return res.status(400).json({ error: 'assetId is required.' });
 
     const { assetProcessing } = assetReq;
     const { type, originalFile, extractedPath, detectedFiles } = assetProcessing;
 
-    console.log(`🚀 [UnifiedUpload] Processing ${type} upload for project ${projectId}, asset ${assetId}`);
-
-    // Ensure project directory skeleton exists
     ensureProjectSkeleton(projectId);
 
-    // Add original file to cleanup list
+    // tmp cleanup targets
     cleanupPaths.push(originalFile.path);
-    if (extractedPath) {
-      cleanupPaths.push(extractedPath);
-    }
+    if (extractedPath) cleanupPaths.push(extractedPath);
 
-    // Process based on detected type
+    let response: Response;
 
     switch (type) {
       case '3d-direct':
-        return await handle3DDirectUpload(req, projectId, assetId, originalFile, res, cleanupPaths);
+        response = await handle3DDirectUpload(req, projectId, assetId, originalFile, res, cleanupPaths);
+        break;
 
       case '3d':
-        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, res, cleanupPaths);
+        response = await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, res, cleanupPaths);
+        break;
 
       case 'rti':
-        return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, res, cleanupPaths);
+        response = await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, res, cleanupPaths);
+        break;
+
+      default:
+        throw new Error(`Unsupported asset processing type: ${(type as any)}`);
     }
+
+    // ✅ cleanup anche su successo
+    await cleanupFiles(cleanupPaths);
+
+    return response;
 
   } catch (error: any) {
     console.error('[UnifiedUpload] Error processing upload:', error);
-
-    // Cleanup on error
     await cleanupFiles(cleanupPaths);
-
     return res.status(500).json({
       error: 'Failed to process upload.',
       message: error?.message ?? String(error),
