@@ -16,10 +16,10 @@
 
 import { connect } from './audit.service.js';
 import { ObjectId } from 'mongodb';
-import type { 
-  HDTDocument, 
-  DigitalAsset, 
-  HDTScene, 
+import type {
+  HDTDocument,
+  DigitalAsset,
+  HDTScene,
   SceneAssetReference,
   DublinCoreMetadata,
   CidocCrmMetadata,
@@ -79,17 +79,17 @@ export async function createHDTDocument(
   }
 ): Promise<HDTDocument> {
   const collection = await getCollection();
-  
+
   // Check if document already exists
   const existing = await collection.findOne({ projectId });
   if (existing) {
     throw new Error(`HDT document already exists for project: ${projectId}`);
   }
-  
+
   const now = new Date();
-  
+
   console.log('HDT SERVICE: createHDTDocument initialData:', JSON.stringify(initialData, null, 2));
-  
+
   const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,
     metadata: {
@@ -116,9 +116,9 @@ export async function createHDTDocument(
     createdBy: userId,
     updatedBy: userId
   };
-  
+
   const result = await collection.insertOne(newDocument as any);
-  
+
   return {
     _id: result.insertedId.toString(),
     ...newDocument
@@ -142,33 +142,33 @@ export async function updateHDTMetadata(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   console.log('HDT SERVICE: updateHDTMetadata metadataUpdate:', JSON.stringify(metadataUpdate, null, 2));
-  
+
   const updateDoc: any = {
     $set: {
       updatedAt: new Date(),
       updatedBy: userId
     }
   };
-  
+
   if (metadataUpdate.dublinCore) {
     updateDoc.$set['metadata.dublinCore'] = metadataUpdate.dublinCore;
   }
   if (metadataUpdate.cidocCrm) {
     updateDoc.$set['metadata.cidocCrm'] = metadataUpdate.cidocCrm;
   }
-  
+
   console.log('HDT SERVICE: updateDoc to MongoDB:', JSON.stringify(updateDoc, null, 2));
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     updateDoc,
     { returnDocument: 'after' }
   );
-  
+
   console.log('HDT SERVICE: MongoDB result:', result ? 'Document updated' : 'No document found');
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -202,21 +202,21 @@ export async function addDigitalAsset(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const newAsset: DigitalAsset = {
     ...asset,
     id: `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     uploadedAt: new Date(),
     uploadedBy: userId
   };
-  
+
   // First check if HDT document exists, if not create it
   const existing = await collection.findOne({ projectId });
-  
+
   if (!existing) {
     // Create initial HDT document with the asset and a default scene
     const now = new Date();
-    
+
     // Create default scene with the first asset
     const defaultScene: HDTScene = {
       id: `scene_${Date.now()}`,
@@ -235,7 +235,7 @@ export async function addDigitalAsset(
         backgroundColor: '#404040'
       }
     };
-    
+
     const newDoc: Partial<HDTDocument> = {
       projectId,
       metadata: {
@@ -249,7 +249,7 @@ export async function addDigitalAsset(
       createdBy: userId,
       updatedBy: userId
     };
-    
+
     const insertResult = await collection.insertOne(newDoc as any);
     const created = await collection.findOne({ _id: insertResult.insertedId });
     console.log(`✅ Created new HDT document for project ${projectId} with first asset and default scene`);
@@ -258,7 +258,7 @@ export async function addDigitalAsset(
     console.log(`   - Scene asset refs:`, JSON.stringify(defaultScene.assets, null, 2));
     return created as unknown as HDTDocument | null;
   }
-  
+
   // Document exists, add asset to it
   const updateOps: any = {
     $push: { digitalAssets: newAsset },
@@ -267,7 +267,7 @@ export async function addDigitalAsset(
       updatedBy: userId
     }
   };
-  
+
   // If there are no scenes, create a default scene with this asset
   if (!existing.scenes || existing.scenes.length === 0) {
     const defaultScene: HDTScene = {
@@ -294,25 +294,45 @@ export async function addDigitalAsset(
   } else {
     // Scene(s) exist - add the asset to the default scene
     const defaultSceneIndex = existing.scenes.findIndex((s: any) => s.isDefault || s.id === 'default');
+
+    // ✅ MIGLIORARE: Assicurare che ci sia sempre una scena default
     if (defaultSceneIndex >= 0) {
-      // Add asset reference to the default scene's assets array
+      // Add asset reference to the existing default scene
       const assetRef = {
         assetId: newAsset.id,
         visible: true,
-        // Don't set position - let ThreePresenter auto-center
       };
       updateOps.$push[`scenes.${defaultSceneIndex}.assets`] = assetRef;
-      console.log(`✅ Adding asset ${newAsset.id} to default scene (index ${defaultSceneIndex})`);
-      console.log(`   - Asset reference:`, JSON.stringify(assetRef, null, 2));
+      console.log(`✅ Adding asset ${newAsset.id} to existing default scene`);
+    } else {
+      // No default scene exists - create one
+      const defaultScene: HDTScene = {
+        id: `scene_${Date.now()}`, // ✅ ID unico
+        name: 'Default Scene',
+        description: 'Default scene created automatically',
+        isDefault: true, // ✅ Flag corretto
+        assets: [
+          {
+            assetId: newAsset.id,
+            visible: true,
+          }
+        ],
+        environment: {
+          showGround: true,
+          backgroundColor: '#404040'
+        }
+      };
+      updateOps.$push.scenes = defaultScene;
+      console.log(`✅ Creating new default scene for existing project`);
     }
   }
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     updateOps,
     { returnDocument: 'after' }
   );
-  
+
   const doc = result as unknown as HDTDocument;
   if (doc && doc.scenes) {
     console.log(`📊 HDT document updated. Total scenes: ${doc.scenes.length}`);
@@ -320,7 +340,7 @@ export async function addDigitalAsset(
       console.log(`   - Scene "${scene.name}": ${scene.assets?.length || 0} assets`);
     });
   }
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -340,23 +360,23 @@ export async function updateDigitalAsset(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   const assetIndex = doc.digitalAssets.findIndex(a => a.id === assetId);
   if (assetIndex === -1) {
     throw new Error(`Asset not found: ${assetId}`);
   }
-  
+
   // Update the asset
   const updatedAsset = {
     ...doc.digitalAssets[assetIndex],
     ...updates
   };
-  
+
   doc.digitalAssets[assetIndex] = updatedAsset;
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -368,7 +388,7 @@ export async function updateDigitalAsset(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -386,19 +406,19 @@ export async function removeDigitalAsset(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   // Remove from asset pool
   const updatedAssets = doc.digitalAssets.filter(a => a.id !== assetId);
-  
+
   // Remove from all scenes
   const updatedScenes = doc.scenes.map(scene => ({
     ...scene,
     assets: scene.assets.filter(ref => ref.assetId !== assetId)
   }));
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -411,7 +431,7 @@ export async function removeDigitalAsset(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -433,7 +453,7 @@ export async function addScene(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const newScene: HDTScene = {
     ...scene,
     id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -441,7 +461,7 @@ export async function addScene(
     createdAt: new Date(),
     createdBy: userId
   };
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -453,7 +473,7 @@ export async function addScene(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -473,20 +493,20 @@ export async function updateScene(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
   if (sceneIndex === -1) {
     throw new Error(`Scene not found: ${sceneId}`);
   }
-  
+
   // If setting as default, unset other defaults
   if (updates.isDefault === true) {
     doc.scenes.forEach(s => { s.isDefault = false; });
   }
-  
+
   // Convert models array (from frontend) to assets array (for MongoDB)
   // Frontend sends SceneDescription with "models", but MongoDB stores HDTScene with "assets"
   if ((updates as any).models) {
@@ -502,14 +522,14 @@ export async function updateScene(
     delete (updates as any).models;
     delete (updates as any).rotationUnits; // This is also frontend-only
   }
-  
+
   // Update the scene
   doc.scenes[sceneIndex] = {
     ...doc.scenes[sceneIndex],
     ...updates,
     updatedAt: new Date()
   };
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -521,7 +541,7 @@ export async function updateScene(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -539,23 +559,23 @@ export async function removeScene(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   // Prevent deleting the last scene
   if (doc.scenes.length <= 1) {
     throw new Error('Cannot delete the last scene');
   }
-  
+
   const updatedScenes = doc.scenes.filter(s => s.id !== sceneId);
-  
+
   // If we deleted the default scene, make the first one default
   const hadDefault = doc.scenes.find(s => s.id === sceneId)?.isDefault;
   if (hadDefault && updatedScenes.length > 0) {
     updatedScenes[0].isDefault = true;
   }
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -567,7 +587,7 @@ export async function removeScene(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -591,21 +611,21 @@ export async function addAssetToScene(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
   if (sceneIndex === -1) {
     throw new Error(`Scene not found: ${sceneId}`);
   }
-  
+
   // Verify asset exists
   const assetExists = doc.digitalAssets.some(a => a.id === assetReference.assetId);
   if (!assetExists) {
     throw new Error(`Asset not found: ${assetReference.assetId}`);
   }
-  
+
   // Check if asset already in scene
   const alreadyInScene = doc.scenes[sceneIndex].assets.some(
     ref => ref.assetId === assetReference.assetId
@@ -613,10 +633,10 @@ export async function addAssetToScene(
   if (alreadyInScene) {
     throw new Error(`Asset already in scene: ${assetReference.assetId}`);
   }
-  
+
   doc.scenes[sceneIndex].assets.push(assetReference);
   doc.scenes[sceneIndex].updatedAt = new Date();
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -628,7 +648,7 @@ export async function addAssetToScene(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -650,28 +670,28 @@ export async function updateAssetInScene(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
   if (sceneIndex === -1) {
     throw new Error(`Scene not found: ${sceneId}`);
   }
-  
+
   const assetIndex = doc.scenes[sceneIndex].assets.findIndex(
     ref => ref.assetId === assetId
   );
   if (assetIndex === -1) {
     throw new Error(`Asset not in scene: ${assetId}`);
   }
-  
+
   doc.scenes[sceneIndex].assets[assetIndex] = {
     ...doc.scenes[sceneIndex].assets[assetIndex],
     ...updates
   };
   doc.scenes[sceneIndex].updatedAt = new Date();
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -683,7 +703,7 @@ export async function updateAssetInScene(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -703,20 +723,20 @@ export async function removeAssetFromScene(
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
-  
+
   const doc = await collection.findOne({ projectId });
   if (!doc) return null;
-  
+
   const sceneIndex = doc.scenes.findIndex(s => s.id === sceneId);
   if (sceneIndex === -1) {
     throw new Error(`Scene not found: ${sceneId}`);
   }
-  
+
   doc.scenes[sceneIndex].assets = doc.scenes[sceneIndex].assets.filter(
     ref => ref.assetId !== assetId
   );
   doc.scenes[sceneIndex].updatedAt = new Date();
-  
+
   const result = await collection.findOneAndUpdate(
     { projectId },
     {
@@ -728,7 +748,7 @@ export async function removeAssetFromScene(
     },
     { returnDocument: 'after' }
   );
-  
+
   return result as unknown as HDTDocument | null;
 }
 
@@ -766,14 +786,14 @@ export async function generateSceneFile(
 ): Promise<SceneDescription | null> {
   const doc = await getHDTDocument(projectId);
   if (!doc) return null;
-  
+
   const scene = doc.scenes.find(s => s.id === sceneId);
   if (!scene) {
     throw new Error(`Scene not found: ${sceneId}`);
   }
-  
+
   console.log(`📥 Generating scene file from MongoDB. Environment:`, JSON.stringify(scene.environment, null, 2));
-  
+
   // Convert scene assets to ModelDefinition format
   const models: ModelDefinition[] = scene.assets
     .map(assetRef => {
@@ -782,27 +802,27 @@ export async function generateSceneFile(
         console.warn(`Asset not found for reference: ${assetRef.assetId}`);
         return null;
       }
-      
+
       // Only include 3D models (skip RTI, images, etc. for now)
       if (asset.type !== 'model3d') {
         return null;
       }
-      
-      const filename = (asset as any).fileName ?? asset.title; 
+
+      const filename = (asset as any).fileName ?? asset.title;
       const model: ModelDefinition = {
         id: asset.id,
-        file: `${asset.id}/${filename}`,  
+        file: `${asset.id}/${filename}`,
         title: asset.title,
         position: assetRef.position,
         rotation: assetRef.rotation,
         scale: assetRef.scale,
         visible: assetRef.visible ?? true
       };
-      
+
       return model;
     })
     .filter((m): m is ModelDefinition => m !== null);
-  
+
   // Build SceneDescription
   const sceneDescription: SceneDescription = {
     projectId,
@@ -815,9 +835,9 @@ export async function generateSceneFile(
     enableControls: true,
     rotationUnits: 'deg'  // Rotation values in MongoDB are stored in degrees
   };
-  
+
   console.log(`✅ Generated scene description from MongoDB for scene: ${sceneId}`);
-  
+
   return sceneDescription;
 }
 
@@ -834,16 +854,16 @@ export async function exportSceneFile(
 ): Promise<SceneDescription | null> {
   const sceneDescription = await generateSceneFile(projectId, sceneId);
   if (!sceneDescription) return null;
-  
+
   // Write to file system for debugging
   const scenesDir = path.join(process.cwd(), 'project_files', projectId, 'scenes');
   await fs.mkdir(scenesDir, { recursive: true });
-  
+
   const sceneFilePath = path.join(scenesDir, `${sceneId}.json`);
   await fs.writeFile(sceneFilePath, JSON.stringify(sceneDescription, null, 2), 'utf-8');
-  
+
   console.log(`📁 Exported scene file: ${sceneFilePath}`);
-  
+
   return sceneDescription;
 }
 
@@ -856,16 +876,16 @@ export async function exportSceneFile(
 export async function generateAllSceneFiles(projectId: string): Promise<SceneDescription[]> {
   const doc = await getHDTDocument(projectId);
   if (!doc) return [];
-  
+
   const sceneDescriptions: SceneDescription[] = [];
-  
+
   for (const scene of doc.scenes) {
     const sceneDesc = await generateSceneFile(projectId, scene.id);
     if (sceneDesc) {
       sceneDescriptions.push(sceneDesc);
     }
   }
-  
+
   return sceneDescriptions;
 }
 
@@ -884,7 +904,7 @@ export async function getAvailableScenes(projectId: string): Promise<Array<{
 }>> {
   const doc = await getHDTDocument(projectId);
   if (!doc) return [];
-  
+
   return doc.scenes.map(scene => ({
     id: scene.id,
     name: scene.name,

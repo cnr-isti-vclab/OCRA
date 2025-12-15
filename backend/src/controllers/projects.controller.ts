@@ -404,7 +404,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
     const finalPath = path.join(targetDir, file.originalname);
     await fse.move(file.path, finalPath, { overwrite: true });
 
-    const scenePath = path.join(projectModel3dDir(projectId), 'scene.json');
+    const scenePath = path.join(projectModel3dDir(projectId), 'scene.json'); // FIXME
 
     let scene: any = {
       models: [],

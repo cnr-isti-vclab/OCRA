@@ -25,7 +25,6 @@
  *   (see exportSceneFileHandler).
  */
 
-import { projectRtiAssetDir } from '../utils/project-static-paths.js';
 import { Request, Response } from 'express';
 import {
   getHDTDocument,
@@ -48,8 +47,8 @@ import {
 import { getPrismaClient } from '../../db.js';
 import { User } from '../types/index.js';
 import { RoleEnum } from '@prisma/client';
-import fs from 'fs';
-import path from 'path';
+import { projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
+import fs from 'fs/promises';
 
 /**
  * Get current user from request (populated by auth middleware).
@@ -225,19 +224,19 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     console.log('HDT CREATE: req.body:', JSON.stringify(req.body, null, 2));
     const initialMetadata = req.body?.dublinCore
       ? {
-          dublinCore: req.body.dublinCore,
-          cidocCrm: req.body.cidocCrm || {}
-        }
+        dublinCore: req.body.dublinCore,
+        cidocCrm: req.body.cidocCrm || {}
+      }
       : {
-          dublinCore: {
-            title: project.name,
-            description: project.description || undefined,
-            date: new Date().toISOString().split('T')[0]
-          },
-          cidocCrm: {
-            objectType: 'Digital Heritage Twin'
-          }
-        };
+        dublinCore: {
+          title: project.name,
+          description: project.description || undefined,
+          date: new Date().toISOString().split('T')[0]
+        },
+        cidocCrm: {
+          objectType: 'Digital Heritage Twin'
+        }
+      };
     console.log('HDT CREATE: initialMetadata:', JSON.stringify(initialMetadata, null, 2));
 
     // Create HDT document with metadata
@@ -373,7 +372,10 @@ export async function addAssetHandler(req: Request, res: Response) {
     // Keep derived scene descriptions in sync (used by the viewer).
     await generateAllSceneFiles(projectId);
 
-    res.status(201).json(updatedDoc);
+    res.status(201).json({
+      success: true,
+      value: updatedDoc  // Frontend looks for json.value.digitalAssets
+    });
   } catch (error: any) {
     console.error('Error adding asset:', error);
     res.status(500).json({
@@ -432,6 +434,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
  * - model3d file cleanup is typically handled by the project files endpoints
  *   (or by a dedicated cleanup strategy if desired).
  */
+
 export async function removeAssetHandler(req: Request, res: Response) {
   try {
     const { projectId, assetId } = req.params;
@@ -460,55 +463,103 @@ export async function removeAssetHandler(req: Request, res: Response) {
       return res.status(404).json({ error: 'Asset not found in HDT document' });
     }
 
-    // 2) If the asset is an RTI, compute the directory to delete
-    let rtiDirToDelete: string | null = null;
+    console.log('🗑️ [removeAssetHandler] Deleting asset:', {
+      projectId,
+      assetId,
+      type: asset.type,
+      fileName: asset.fileName,
+      fileUrl: asset.fileUrl
+    });
 
-    if (asset.type === 'rti') {
-      // Current storage layout: project_files/<projectId>/rti/<assetId>
-      rtiDirToDelete = projectRtiAssetDir(projectId, assetId);
-      console.log('RTI asset delete requested:', {
-        projectId,
-        assetId,
-        fileUrl: asset.fileUrl,
-        rtiDirToDelete
-      });
-    } else if (asset.type === 'rti' && typeof asset.fileUrl === 'string') {
-      // Optional legacy/fallback support (kept only if needed).
-      rtiDirToDelete = resolveRtiAssetDirectory(asset.fileUrl) || null;
+    // 2) Determine directory to delete based on asset type
+    let assetDirToDelete: string | null = null;
+
+    if (asset.type === 'model3d') {
+      // 3D Model: project_files/<projectId>/model3d/<assetId>/
+      assetDirToDelete = projectModel3dAssetDir(projectId, assetId);
+      console.log('📁 [removeAssetHandler] 3D asset directory to delete:', assetDirToDelete);
+
+    } else if (asset.type === 'rti') {
+      // RTI: project_files/<projectId>/rti/<assetId>/
+      assetDirToDelete = projectRtiAssetDir(projectId, assetId);
+      console.log('📁 [removeAssetHandler] RTI asset directory to delete:', assetDirToDelete);
+
+      // Fallback: try to resolve from fileUrl if standard path doesn't work
+      if (!assetDirToDelete && typeof asset.fileUrl === 'string') {
+        assetDirToDelete = resolveRtiAssetDirectory(asset.fileUrl) || null;
+        console.log('📁 [removeAssetHandler] RTI fallback directory:', assetDirToDelete);
+      }
     }
 
     // 3) Remove asset from HDT document (DB + scenes)
+    console.log('📝 [removeAssetHandler] Removing from HDT document...');
     const updatedDoc = await removeDigitalAsset(projectId, assetId, currentUser.sub);
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found after removal' });
     }
 
-    // 4) If RTI directory was identified, remove it from filesystem
-    if (rtiDirToDelete) {
+    // 4) Remove asset directory from filesystem if it exists
+    if (assetDirToDelete) {
       try {
-        await fs.promises.rm(rtiDirToDelete, { recursive: true, force: true });
-        console.log('RTI asset directory removed successfully', {
+        // Check if directory exists first
+        await fs.access(assetDirToDelete);
+
+        // Remove directory and all contents
+        await fs.rm(assetDirToDelete, { recursive: true, force: true });
+
+        console.log('✅ [removeAssetHandler] Asset directory removed successfully:', {
           projectId,
           assetId,
-          rtiDirToDelete
+          type: asset.type,
+          directory: assetDirToDelete
         });
-      } catch (fsErr) {
-        console.warn('Failed to remove RTI asset directory', {
+      } catch (fsErr: any) {
+        console.warn('⚠️ [removeAssetHandler] Failed to remove asset directory:', {
           projectId,
           assetId,
-          rtiDirToDelete,
-          error: fsErr
+          type: asset.type,
+          directory: assetDirToDelete,
+          error: fsErr.message || String(fsErr)
         });
-        // Do not block DELETE if filesystem cleanup fails.
+
+        // Continue with response - don't block deletion if filesystem cleanup fails
+        // This allows recovery from partial deletions
       }
+    } else {
+      console.warn('⚠️ [removeAssetHandler] No directory identified for deletion:', {
+        projectId,
+        assetId,
+        type: asset.type
+      });
     }
 
     // 5) Regenerate derived scene descriptions used by the viewer
-    await generateAllSceneFiles(projectId);
+    console.log('🔄 [removeAssetHandler] Regenerating scene files...');
+    try {
+      await generateAllSceneFiles(projectId);
+    } catch (sceneErr: any) {
+      console.warn('⚠️ [removeAssetHandler] Failed to regenerate scene files:', sceneErr.message);
+      // Continue - scene regeneration failure shouldn't block deletion
+    }
 
-    return res.json(updatedDoc);
+    console.log('✅ [removeAssetHandler] Asset deletion completed:', {
+      projectId,
+      assetId,
+      type: asset.type
+    });
+
+    return res.json({
+      success: true,
+      message: `Asset "${asset.fileName || assetId}" deleted successfully`,
+      updatedDoc
+    });
+
   } catch (error: any) {
-    console.error('Error removing asset:', error);
+    console.error('❌ [removeAssetHandler] Error removing asset:', {
+      error: error.message || String(error),
+      stack: error.stack
+    });
+
     return res.status(500).json({
       error: 'Failed to remove asset',
       message: error?.message || String(error)
@@ -788,21 +839,31 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
 export async function getSceneFileHandler(req: Request, res: Response) {
   try {
     const { projectId, sceneId } = req.params;
-
-    if (!projectId || !sceneId) {
-      return res.status(400).json({ error: 'Project ID and Scene ID are required' });
-    }
-
-    try {
-      const sceneDesc = await generateSceneFile(projectId, sceneId);
-      if (sceneDesc) {
-        return res.json(sceneDesc);
+    
+    // ✅ SOLUZIONE: Se richiesta "default", trova scena con isDefault=true
+    let targetSceneId = sceneId;
+    
+    if (sceneId === 'default') {
+      // Trova la scena default reale
+      const doc = await getHDTDocument(projectId);
+      if (!doc) {
+        return res.status(404).json({ error: 'Project not found' });
       }
-    } catch (genError) {
-      console.error('Failed to generate scene file:', genError);
-      return res.status(500).json({ error: 'Failed to generate scene file' });
+      
+      const defaultScene = doc.scenes?.find((s: any) => s.isDefault === true);
+      if (!defaultScene) {
+        return res.status(404).json({ error: 'No default scene found' });
+      }
+      
+      targetSceneId = defaultScene.id;
+      console.log(`🎯 [SceneFile] Mapping 'default' to scene ID: ${targetSceneId}`);
     }
-
+    
+    const sceneDesc = await generateSceneFile(projectId, targetSceneId);
+    if (sceneDesc) {
+      return res.json(sceneDesc);
+    }
+    
     return res.status(404).json({ error: 'Scene not found in database' });
   } catch (error: any) {
     console.error('Error serving scene file:', error);

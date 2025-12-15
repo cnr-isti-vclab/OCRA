@@ -237,16 +237,19 @@ export default function HDTPage() {
    * Create a new asset entry in HDT "digitalAssets" and return the generated assetId.
    * Backend: POST /api/projects/:projectId/hdt/assets
    */
-  const createHdtAsset = async (type: 'model3d' | 'rti', label: string, title: string): Promise<string> => {
+  const createHdtAsset = async (type: 'model3d' | 'rti' | 'auto', label: string, title: string): Promise<string> => {
+
     if (!projectId) {
       throw new Error('Missing projectId');
     }
+
+    const actualType = type === 'auto' ? 'model3d' : type;
 
     const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, label, title }),
+      body: JSON.stringify({ type: actualType, label, title }),
     });
 
     if (!res.ok) {
@@ -622,6 +625,171 @@ export default function HDTPage() {
       </div>
     );
   }
+
+  /**
+   * Determine asset type from file extension and name
+   */
+  const determineAssetType = (file: File): 'model3d' | 'rti' => {
+    const fileName = file.name.toLowerCase();
+    const ext = fileName.split('.').pop() || '';
+
+    // Check if it's a ZIP file (potential RTI)
+    if (ext === 'zip') {
+      // For ZIP files, we assume RTI if filename contains RTI-related keywords
+      // This is a heuristic since we can't inspect ZIP contents in the browser
+      const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
+      const hasRtiKeyword = rtiKeywords.some(keyword => fileName.includes(keyword));
+
+      if (hasRtiKeyword) {
+        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${file.name}`);
+        return 'rti';
+      }
+
+      // Default ZIP files to model3d (could be 3D model archive)
+      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${file.name}`);
+      return 'model3d';
+    }
+
+    // Check if it's a direct 3D model file
+    const model3dExtensions = [
+      'ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d',
+      'stl', '3ds', 'blend', 'ase', 'ifc'
+    ];
+
+    if (model3dExtensions.includes(ext)) {
+      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
+      return 'model3d';
+    }
+
+    // Default fallback
+    console.log(`❓ [TypeDetection] Unknown file type, defaulting to model3d: ${file.name}`);
+    return 'model3d';
+  };
+
+  /**
+   * Unified asset upload handler
+   * Supports: Direct 3D files, ZIP with 3D models, ZIP with RTI data
+   */
+  const handleUnifiedAssetUpload = async (file: File, assetLabel: string, assetTitle: string) => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      setUploading(true);
+      setUploadProgress(0);
+
+      // 1) Create asset entry in HDT first - determine type from file
+      const assetType = determineAssetType(file);
+      console.log(`🔍 [UnifiedUpload] Detected asset type: ${assetType} for file: ${file.name}`);
+      const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+
+      // 2) Upload file to unified endpoint with progress tracking
+      const uploadResponse = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percent);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(new Response(xhr.responseText, {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              headers: new Headers({
+                'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
+              })
+            }));
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        };
+
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+
+        // Use unified endpoint
+        xhr.open('POST', `${getApiBase()}/api/projects/${projectId}/files`);
+        xhr.withCredentials = true;
+
+        const formData = new FormData();
+        formData.append('assetId', assetId);
+        formData.append('file', file);
+        xhr.send(formData);
+      });
+
+      if (!uploadResponse.ok) {
+        const err = await uploadResponse.json().catch(() => ({}));
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const uploadJson: any = await uploadResponse.json();
+      console.log('🔄 [UnifiedUpload] Backend response:', uploadJson);
+
+      // ✅ UNIFIED processing - estrai sempre da .value
+      const responseData = uploadJson.value || uploadJson; // Fallback compatibility
+
+      // 3) Handle response based on detected type
+      let updatePayload: Record<string, any> = {
+        fileName: responseData.fileName || file.name,
+        fileSize: responseData.fileSize || file.size,
+        uploadedAt: new Date().toISOString(),
+        uploadResponse: responseData
+      };
+
+      switch (responseData.type) {
+        case 'rti':
+          updatePayload = {
+            ...updatePayload,
+            type: 'rti',
+            fileUrl: responseData.infoJsonUrl || responseData.fileUrl,
+            filePath: responseData.filePath || `${responseData.assetId}/info.json`,
+            mimeType: responseData.mimeType || file.type,
+            additionalFiles: null
+          };
+          break;
+
+        case '3d-model':
+        case '3d-model-archive':
+          updatePayload = {
+            ...updatePayload,
+            type: 'model3d',
+            fileUrl: responseData.fileUrl,
+            filePath: responseData.filePath,
+            mimeType: responseData.mimeType || file.type,
+            additionalFiles: responseData.additionalFiles || null
+          };
+          break;
+
+        default:
+          throw new Error(`Unsupported upload response type: ${responseData.type}`);
+      }
+
+      // 4) Update asset metadata with type-specific info
+      await updateHdtAsset(assetId, updatePayload);
+
+      // 5) Refresh data and show success
+      await fetchProjectAndMetadata();
+
+      const typeLabel = uploadJson.type === 'rti' ? 'RTI' : '3D model';
+      setSuccessMessage(`✓ ${typeLabel} asset "${file.name}" uploaded and saved successfully!`);
+
+    } catch (err: any) {
+      console.error('[UnifiedUpload] Error:', err);
+      setError(err?.message || 'Failed to upload asset');
+
+      // TODO: Consider cleanup of partial asset creation on error
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
 
   return (
     <div className="container py-4">
@@ -1000,239 +1168,35 @@ export default function HDTPage() {
               <div className="mb-4">
                 <h6 className="text-primary mb-2">Add a new 3D model</h6>
                 <input
+                  id="unifiedAssetInput"
                   type="file"
-                  id="assetFileInput"
                   className="d-none"
-                  accept=".glb,.gltf,.ply,.obj,.fbx,.nxs"
+                  accept=".ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip"
                   onChange={async (e) => {
-                    if (!projectId) return;
                     const file = e.target.files?.[0];
                     if (!file) return;
 
-                    try {
-                      setUploading(true);
-                      setUploadProgress(0);
-                      setError(null);
-                      setSuccessMessage(null);
+                    const isZip = file.name.toLowerCase().endsWith('.zip');
+                    const is3DFile = ['.ply', '.obj', '.gltf', '.glb', '.fbx', '.dae', '.x3d', '.stl', '.3ds']
+                      .some(ext => file.name.toLowerCase().endsWith(ext));
 
-                      // 1) Create HDT asset first to get a stable assetId (stored in Mongo)
-                      const assetId = await createHdtAsset('model3d', file.name, file.name);
-
-                      // 2) Upload file to storage using assetId (multipart)
-                      //    Backend should store under: project_files/<projectId>/model3d/<assetId>/<filename>
-                      const uploadRes = await new Promise<Response>((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
-
-                        // Track upload progress
-                        xhr.upload.addEventListener('progress', (ev) => {
-                          if (ev.lengthComputable) {
-                            const percentComplete = Math.round((ev.loaded / ev.total) * 100);
-                            setUploadProgress(percentComplete);
-                          }
-                        });
-
-                        xhr.addEventListener('load', () => {
-                          if (xhr.status >= 200 && xhr.status < 300) {
-                            resolve(new Response(xhr.responseText, {
-                              status: xhr.status,
-                              statusText: xhr.statusText,
-                              headers: new Headers({
-                                'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
-                              })
-                            }));
-                          } else {
-                            reject(new Error(`Upload failed with status ${xhr.status}`));
-                          }
-                        });
-
-                        xhr.addEventListener('error', () => reject(new Error('Network error')));
-                        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
-
-                        // NOTE: new upload uses assetId as part of the route for storage
-                        // Route: POST /api/projects/:projectId/files  (with form field assetId)
-                        xhr.open('POST', `${getApiBase()}/api/projects/${projectId}/files`);
-                        xhr.withCredentials = true;
-
-                        const formData = new FormData();
-                        formData.append('assetId', assetId);
-                        formData.append('file', file);
-                        xhr.send(formData);
-                      });
-
-                      if (!uploadRes.ok) {
-                        const err = await uploadRes.json().catch(() => ({}));
-                        throw new Error(err.error || 'Upload failed');
-                      }
-
-                      const uploadJson: any = await uploadRes.json().catch(() => ({}));
-
-                      // 3) Build public URL (static) for the uploaded file:
-                      // /assets/projects/<projectId>/model3d/<assetId>/<filename>
-                      const fileUrl = `${getApiBase()}/assets/projects/${encodeURIComponent(projectId)}/model3d/${encodeURIComponent(assetId)}/${encodeURIComponent(file.name)}`;
-
-                      // 4) Update the asset metadata with storage info
-                      await updateHdtAsset(assetId, {
-                        fileName: file.name,
-                        fileUrl,
-                        fileSize: file.size,
-                        mimeType: file.type || 'application/octet-stream',
-                        uploadedAt: new Date().toISOString(),
-                        // optional: keep backend response if useful
-                        uploadResponse: uploadJson || null,
-                      });
-
-                      // Refresh to get updated data from server
-                      await fetchProjectAndMetadata();
-                      setSuccessMessage(`✓ Asset "${file.name}" uploaded and saved successfully!`);
-                    } catch (err: any) {
-                      setError(err?.message || 'Failed to upload asset');
-                    } finally {
-                      setUploading(false);
-                      setUploadProgress(0);
+                    if (!isZip && !is3DFile) {
+                      setError('Please select a 3D model file or ZIP archive.');
                       (e.target as HTMLInputElement).value = '';
-                    }
-                  }}
-                  disabled={uploading}
-                />
-                <div className="d-flex gap-2">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => document.getElementById('assetFileInput')?.click()}
-                    disabled={uploading}
-                    title="Click to browse and select a 3D model file. Upload will start automatically."
-                  >
-                    {uploading ? `Uploading... ${uploadProgress}%` : 'Import from a local file'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={() => {
-                      alert('3D IIIF Manifest import feature coming soon!');
-                    }}
-                    disabled={uploading}
-                  >
-                    Import from 3D IIIF Manifest
-                  </button>
-                </div>
-                {uploading && uploadProgress > 0 && (
-                  <div className="progress mt-2" style={{ height: '20px' }}>
-                    <div
-                      className="progress-bar progress-bar-striped progress-bar-animated"
-                      role="progressbar"
-                      style={{ width: `${uploadProgress}%` }}
-                      aria-valuenow={uploadProgress}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    >
-                      {uploadProgress}%
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Add New RTI ZIP Asset */}
-              <div className="mb-4">
-                <h6 className="text-primary mb-2">Add a new RTI zip file</h6>
-                <p className="text-muted small">
-                  Upload an RTI package as a ZIP file. The ZIP must contain an <code>info.json</code> file and the RTI image data (e.g. tiled JPG / DeepZoom).
-                </p>
-
-                {/* Hidden file input for RTI ZIP */}
-                <input
-                  id="rtiZipInput"
-                  type="file"
-                  className="d-none"
-                  accept=".zip,application/zip"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file || !projectId) {
                       return;
                     }
 
+                    const assetLabel = prompt('Enter asset label (short identifier):');
+                    if (!assetLabel) {
+                      (e.target as HTMLInputElement).value = '';
+                      return;
+                    }
+
+                    const assetTitle = prompt('Enter asset title (display name):') || assetLabel;
+
                     try {
-                      setError(null);
-                      setSuccessMessage(null);
-                      setUploading(true);
-                      setUploadProgress(0);
-
-                      // 1) Create asset in HDT first
-                      const assetId = await createHdtAsset('rti', file.name, file.name);
-
-                      // 2) Upload RTI ZIP to backend with assetId (multipart)
-                      const uploadResponse = await new Promise<Response>((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
-                        const url = `${getApiBase()}/api/projects/${projectId}/hdt/assets/rti/upload`;
-
-                        xhr.open('POST', url, true);
-                        xhr.withCredentials = true;
-
-                        xhr.upload.onprogress = (event) => {
-                          if (event.lengthComputable) {
-                            const percent = Math.round((event.loaded / event.total) * 100);
-                            setUploadProgress(percent);
-                          }
-                        };
-
-                        xhr.onload = () => {
-                          if (xhr.status >= 200 && xhr.status < 300) {
-                            resolve(
-                              new Response(xhr.responseText, {
-                                status: xhr.status,
-                                statusText: xhr.statusText,
-                                headers: new Headers({ 'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json' }),
-                              })
-                            );
-                          } else {
-                            reject(new Error(`RTI ZIP upload failed: ${xhr.status} ${xhr.statusText}`));
-                          }
-                        };
-
-                        xhr.onerror = () => reject(new Error('Network error during RTI ZIP upload'));
-
-                        const formData = new FormData();
-                        formData.append('assetId', assetId);
-                        formData.append('file', file);
-                        xhr.send(formData);
-                      });
-
-                      if (!uploadResponse.ok) {
-                        const err = await uploadResponse.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to upload RTI ZIP');
-                      }
-
-                      const uploadJson: any = await uploadResponse.json();
-
-                      if (!uploadJson.infoJsonUrl) {
-                        throw new Error('Server did not return infoJsonUrl for RTI asset');
-                      }
-
-                      // infoJsonUrl is returned as a PUBLIC path (already under /assets/projects/..)
-                      // Example: /assets/projects/<projectId>/rti/<assetId>/info.json
-                      const infoJsonUrl: string = `${getApiBase()}${uploadJson.infoJsonUrl}`;
-
-                      // 3) Update RTI asset metadata in HDT
-                      await updateHdtAsset(assetId, {
-                        fileName: file.name,
-                        // For RTI, "fileUrl" is the public URL to info.json
-                        fileUrl: infoJsonUrl,
-                        mimeType: 'application/json',
-                        fileSize: uploadJson.infoSummary?.totalSize || null,
-                        uploadedAt: new Date().toISOString(),
-                        // Keep both flattened summary and raw summary for convenience
-                        ...(uploadJson.infoSummary || {}),
-                        infoSummary: uploadJson.infoSummary || null,
-                      });
-
-                      // Refresh from server to stay in sync
-                      await fetchProjectAndMetadata();
-
-                      setSuccessMessage(`✓ RTI asset "${file.name}" uploaded and saved successfully!`);
-                    } catch (err: any) {
-                      console.error(err);
-                      setError(err?.message || 'Failed to upload RTI asset');
+                      await handleUnifiedAssetUpload(file, assetLabel.trim(), assetTitle.trim());
                     } finally {
-                      setUploading(false);
-                      setUploadProgress(0);
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
@@ -1242,28 +1206,19 @@ export default function HDTPage() {
                 <div className="d-flex gap-2">
                   <button
                     className="btn btn-primary"
-                    onClick={() => document.getElementById('rtiZipInput')?.click()}
+                    onClick={() => document.getElementById('unifiedAssetInput')?.click()}
                     disabled={uploading}
-                    title="Click to browse and select an RTI ZIP package. Upload will start automatically."
                   >
-                    {uploading ? `Uploading... ${uploadProgress}%` : 'Import RTI ZIP from local file'}
+                    {uploading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Uploading... {uploadProgress}%
+                      </>
+                    ) : (
+                      <>📁 Upload Asset (3D or RTI)</>
+                    )}
                   </button>
                 </div>
-
-                {uploading && uploadProgress > 0 && (
-                  <div className="progress mt-2" style={{ height: '20px' }}>
-                    <div
-                      className="progress-bar progress-bar-striped progress-bar-animated"
-                      role="progressbar"
-                      style={{ width: `${uploadProgress}%` }}
-                      aria-valuenow={uploadProgress}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    >
-                      {uploadProgress}%
-                    </div>
-                  </div>
-                )}
               </div>
 
             </div>

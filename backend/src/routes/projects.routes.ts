@@ -16,11 +16,14 @@ import {
   uploadProjectFile,
   downloadProjectFile,
   deleteProjectFile,
-  upload,
   isManagerOfProject,
   getProjectScene,
   updateProjectScene
 } from '../controllers/projects.controller.js';
+
+import { requireAuth } from '../middleware/auth.js';
+import { unifiedAssetUploadMiddleware } from '../middleware/unified-asset-upload-middleware.js';
+import { unifiedAssetUploadHandler } from '../controllers/unified-asset-upload.controller.js';
 
 import {
   listProjectMembers,
@@ -362,7 +365,12 @@ router.get('/:projectId/files', listProjectFiles);
  *       404:
  *         description: Project or asset not found
  */
-router.post('/:projectId/files', upload.single('file'), uploadProjectFile);
+router.post(
+  '/:projectId/files', 
+  requireAuth,                    // Auth middleware
+  unifiedAssetUploadMiddleware,   // File processing middleware  
+  unifiedAssetUploadHandler       // Upload controller
+);
 
 /**
  * @openapi

@@ -55,8 +55,6 @@ import {
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
-import { rtiUploadMiddleware } from '../middleware/rti-upload.middleware.js';
-import { uploadRtiAssetHandler } from '../controllers/rti-asset.controller.js';
 
 const router = Router();
 
@@ -268,71 +266,6 @@ router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
  *         description: Server error
  */
 router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
-
-/**
- * @openapi
- * /api/projects/{projectId}/hdt/assets/rti/upload:
- *   post:
- *     summary: Upload an RTI asset (ZIP)
- *     description: |
- *       Uploads an RTI asset as a ZIP package (info.json + related files),
- *       stores it on disk, and registers it into the project's HDT digital assets pool (manager only).
- *     tags:
- *       - HDT Assets
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: Project ID.
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required:
- *               - file
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *                 description: ZIP file containing RTI content (must include info.json).
- *               title:
- *                 type: string
- *                 description: Optional asset title.
- *     responses:
- *       200:
- *         description: RTI asset uploaded and registered
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 projectId:
- *                   type: string
- *                 assetId:
- *                   type: string
- *       400:
- *         description: Invalid request / missing ZIP or invalid content
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Not authorized (manager only)
- *       500:
- *         description: Server error
- */
-router.post(
-  '/:projectId/hdt/assets/rti/upload',
-  requireAuth,
-  rtiUploadMiddleware,
-  uploadRtiAssetHandler
-);
 
 /**
  * @openapi
