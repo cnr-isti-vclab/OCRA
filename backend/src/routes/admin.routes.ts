@@ -7,61 +7,6 @@ const router = express.Router();
 
 /**
  * @openapi
- * components:
- *   schemas:
- *     AuditLog:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *           description: Unique identifier of the audit event
- *           example: "aevt_01JF8QW8R4X2M4H9F7C4ZK9G3A"
- *         timestamp:
- *           type: string
- *           format: date-time
- *           description: When the event was recorded
- *           example: "2025-12-14T08:55:12.345Z"
- *         actorId:
- *           type: string
- *           description: ID of the user who performed the action
- *           example: "cmitzelrh0000uejvvncbe969"
- *         actorName:
- *           type: string
- *           description: Display name of the user who performed the action
- *           example: "Roberto Neri"
- *         action:
- *           type: string
- *           description: Type of action performed
- *           example: "PROJECT_UPDATED"
- *         entityType:
- *           type: string
- *           description: Type of entity affected by the action
- *           example: "Project"
- *         entityId:
- *           type: string
- *           description: Identifier of the affected entity
- *           example: "cmj465eyp0002ueycc7m1ucxm"
- *         entityName:
- *           type: string
- *           description: Human-readable name of the affected entity
- *           example: "TEST"
- *         details:
- *           type: object
- *           description: Optional structured details about the change
- *           additionalProperties: true
- *           example:
- *             field: "name"
- *             oldValue: "Old title"
- *             newValue: "New title"
- *         ipAddress:
- *           type: string
- *           description: IP address from which the action was performed
- *           example: "192.168.1.42"
- */
-
-
-/**
- * @openapi
  * /admin/audit:
  *   get:
  *     summary: Get recent audit events
@@ -85,13 +30,11 @@ const router = express.Router();
  *         description: Filter by entity type (e.g., User, Project)
  *     responses:
  *       200:
- *         description: List of audit events
+ *         description: Admin audit log response
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/AuditLog'
+ *               $ref: '#/components/schemas/AdminAuditLogResponse'
  *       401:
  *         description: Not authenticated
  *       403:

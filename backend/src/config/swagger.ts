@@ -198,17 +198,81 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             addedBy: { type: 'string', example: '507f1f77bcf86cd799439010' },
           },
         },
-        AuditLog: {
+        UserAuditLogResponse: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '507f1f77bcf86cd799439014' },
-            action: { type: 'string', example: 'USER_CREATED' },
-            entityType: { type: 'string', example: 'User' },
-            entityId: { type: 'string', example: '507f1f77bcf86cd799439011' },
-            userId: { type: 'string', example: '507f1f77bcf86cd799439010' },
-            details: { type: 'object', additionalProperties: true },
-            timestamp: { type: 'string', format: 'date-time' },
+            success: { type: 'boolean', example: true },
+            userSub: { type: 'string', example: 'b4b55cc9-fc63-4d8f-9993-4fac36cedcaa' },
+            auditLog: {
+              type: 'array',
+              items: {
+                $ref: '#/components/schemas/AuditLogEntry'
+              }
+            }
           },
+          required: ['success', 'userSub', 'auditLog']
+        },
+        AdminAuditLogResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            totalEvents: { type: 'integer', example: 100 },
+            auditLog: {
+              type: 'array',
+              items: {
+                $ref: '#/components/schemas/AuditLogEntry'
+              }
+            }
+          },
+          required: ['success', 'totalEvents', 'auditLog']
+        },
+        AuditLogEntry: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '8538f4e3-e1a9-4d40-9d17-34a93c9eb0db' },
+            eventType: { type: 'string', example: 'auth.login' },
+            success: { type: 'boolean', example: true },
+            userAgent: { type: 'string', example: 'Mozilla/5.0 (X11; Linux x86_64)...' },
+            createdAt: { type: 'string', format: 'date-time', example: '2025-12-15T11:01:32.641Z' },
+            errorMessage: { type: ['string', 'null'], example: null },
+            userSub: { type: 'string', example: 'b4b55cc9-fc63-4d8f-9993-4fac36cedcaa' },
+            user: {
+              type: 'object',
+              properties: {
+                sub: { type: 'string' },
+                name: { type: 'string' },
+                email: { type: 'string' },
+                username: { type: 'string' },
+                displayName: { type: 'string' }
+              }
+            },
+            resource: { type: ['object', 'null'], example: null },
+            payload: { type: 'object', additionalProperties: true }
+          },
+          required: ['id', 'eventType', 'success', 'createdAt', 'userSub']
+        },
+        CreateSessionRequest: {
+          type: 'object',
+          required: ['userProfile', 'tokens'],
+          properties: {
+            userProfile: {
+              type: 'object',
+              properties: {
+                sub: { type: 'string', example: 'b4b55cc9-fc63-4d8f-9993-4fac36cedcaa' },
+                name: { type: 'string', example: 'System Administrator' },
+                email: { type: 'string', example: 'admin@ocra.it' },
+                preferred_username: { type: 'string', example: 'administrator' }
+              }
+            },
+            tokens: {
+              type: 'object',
+              properties: {
+                access_token: { type: 'string' },
+                id_token: { type: 'string' },
+                refresh_token: { type: 'string' }
+              }
+            }
+          }
         },
         Error: {
           type: 'object',

@@ -198,7 +198,7 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  */
 
 /**
- * @openapi
+ * openapi
  * /api/projects/{projectId}/scene:
  *   get:
  *     summary: Get legacy scene file
@@ -246,10 +246,10 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  *       404:
  *         description: Scene not found
  */
-router.get('/:projectId/scene', getProjectScene);
+//router.get('/:projectId/scene', getProjectScene);
 
 /**
- * @openapi
+ * openapi
  * /api/projects/{projectId}/scene:
  *   put:
  *     summary: Update legacy scene file
@@ -280,19 +280,19 @@ router.get('/:projectId/scene', getProjectScene);
  *       404:
  *         description: Project not found
  */
-router.put('/:projectId/scene', updateProjectScene);
+//router.put('/:projectId/scene', updateProjectScene);
 
 /* ============================================================================
- * PROJECT FILES (3D ASSETS)
+ * PROJECT FILES (ASSETS)
  * ============================================================================
  */
-/* <FIXME> URL SBAGLIATO */
+
 /**
  * @openapi
  * /api/projects/{projectId}/files:
  *   get:
- *     summary: List project files
- *     description: Lists files associated with project assets.
+ *     summary: List project assets (short format)
+ *     description: Lists project digital assets from HDT with type and file URLs.
  *     tags:
  *       - Projects
  *     security:
@@ -303,29 +303,59 @@ router.put('/:projectId/scene', updateProjectScene);
  *         required: true
  *         schema:
  *           type: string
+ *           example: "cmj76xfa90000uenufgogf4qr"
  *     responses:
  *       200:
- *         description: Files list
+ *         description: Project assets list
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
+ *               type: object
+ *               properties:
+ *                 files:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     required:
+ *                       - assetId
+ *                       - type
+ *                       - fileUrl
+ *                     properties:
+ *                       assetId:
+ *                         type: string
+ *                         example: "asset_1765805401900_55k9zdycd"
+ *                         description: Unique asset identifier
+ *                       type:
+ *                         type: string
+ *                         enum: ["model3d", "rti", "image", "video", "other"]
+ *                         example: "model3d"
+ *                         description: Asset type from HDT schema
+ *                       fileUrl:
+ *                         type: string
+ *                         format: uri
+ *                         example: "http://localhost:3002/assets/projects/.../bunny.ply"
+ *                         description: Authoritative file/manifest URL
+ *                 totalAssets:
+ *                   type: number
+ *                   example: 2
+ *                   description: Total number of assets
+ *       400:
+ *         description: Project ID is required
  *       401:
  *         description: Authentication required
- *       404:
- *         description: Project not found
+ *       500:
+ *         description: Failed to list project assets
  */
 router.get('/:projectId/files', listProjectFiles);
 
+// FIXME da sistemare il commento e' il punto di upload dei file di un asset
 /**
  * @openapi
  * /api/projects/{projectId}/files:
  *   post:
- *     summary: Upload 3D file for an existing asset
+ *     summary: Upload file for an existing asset
  *     description: |
- *       Uploads a 3D model file and associates it with an existing asset.
+ *       Uploads a file and associates it with an existing asset.
  *       Files are stored under:
  *         project_files/{projectId}/model3d/{assetId}/{filename}
  *     tags:
@@ -372,8 +402,9 @@ router.post(
   unifiedAssetUploadHandler       // Upload controller
 );
 
+// FIXME Ha senso? e' usato
 /**
- * @openapi
+ * openapi
  * /api/projects/{projectId}/files/{assetId}/{filename}:
  *   get:
  *     summary: Download project file
@@ -406,10 +437,10 @@ router.post(
  *       404:
  *         description: File not found
  */
-router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
+//router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
 
 /**
- * @openapi
+ * openapi
  * /api/projects/{projectId}/files/{assetId}/{filename}:
  *   delete:
  *     summary: Delete project file
@@ -444,7 +475,7 @@ router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
  *       404:
  *         description: File not found
  */
-router.delete('/:projectId/files/:assetId/:filename', deleteProjectFile);
+//router.delete('/:projectId/files/:assetId/:filename', deleteProjectFile);
 
 /* ============================================================================
  * PROJECT CRUD

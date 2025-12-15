@@ -144,6 +144,7 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
         req.headers['user-agent'] as string,
         req.ip || null
       );
+      
       // Audit log for logout
       try {
         await logAuditEvent({
@@ -161,44 +162,19 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
       }
     }
 
-    // Clear the session cookie
-    // Cookie settings must match how it was set (no domain = current domain)
-    res.clearCookie('session_id', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      path: '/'
-      // domain: omitted - browser will use current domain automatically
-    });
-
-    res.json({ message: 'Session deleted successfully' });
+    res.status(200).json({ success: true, message: 'Session deleted successfully' });
+    
   } catch (error) {
     console.error('Failed to delete session:', error);
     
-    // Log failed logout
-    const session = await getSession(req.params.sessionId).catch(() => null);
-    if (session?.user) {
+    // Log failed logout if we have session info
+    if (req.params.sessionId) {
       await logLogout(
-        session.user.sub,
+        req.params.sessionId,
         req.params.sessionId,
         req.headers['user-agent'] as string,
         req.ip || null
       );
-      // Audit log for failed logout
-      try {
-        await logAuditEvent({
-          userSub: session.user.sub,
-          userId: (session.user as any).id || session.user.sub || null,
-          action: 'auth.logout',
-          resource: null,
-          success: false,
-          ip: req.ip || null,
-          userAgent: req.headers['user-agent'] as string,
-          payload: { sessionId: req.params.sessionId }
-        });
-      } catch (err) {
-        console.warn('Audit logging failed for failed logout attempt:', err instanceof Error ? err.message : err);
-      }
     }
     
     res.status(500).json({ 

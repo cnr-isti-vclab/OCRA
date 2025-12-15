@@ -206,13 +206,19 @@ export async function updateUserAdminStatus(req: Request, res: Response): Promis
         sys_admin,
         updatedAt: new Date()
       },
+      // Restituisce tutti i campi della schema User completa
       select: {
         id: true,
         sub: true,
         email: true,
         name: true,
         username: true,
+        given_name: true,
+        family_name: true,
+        middle_name: true,
         sys_admin: true,
+        sys_creator: true,
+        createdAt: true,
         updatedAt: true,
       }
     });

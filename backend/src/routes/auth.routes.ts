@@ -28,16 +28,14 @@ const router = express.Router();
  *         schema:
  *           type: string
  *         description: The user subject ID
- *         example: 507f1f77bcf86cd799439011
+ *         example: b4b55cc9-fc63-4d8f-9993-4fac36cedcaa
  *     responses:
  *       200:
- *         description: User audit log
+ *         description: User audit log response
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/AuditLog'
+ *               $ref: '#/components/schemas/UserAuditLogResponse'
  *       401:
  *         description: Not authenticated
  *       403:
@@ -49,44 +47,10 @@ router.get('/users/:userSub/audit', requireAuth, getAuditLog);
 
 /**
  * @openapi
- * /api/admin/audit:
- *   get:
- *     summary: Get full audit log
- *     description: Retrieves the complete audit log for all users (admin only)
- *     tags:
- *       - Authentication
- *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 100
- *         description: Maximum number of entries to return
- *     responses:
- *       200:
- *         description: Full audit log
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/AuditLog'
- *       401:
- *         description: Not authenticated
- *       403:
- *         description: Not authorized (admin only)
- */
-router.get('/admin/audit', requireAuth, requireAdmin, getFullAuditLogController);
-
-/**
- * @openapi
  * /api/debug/userinfo/{accessToken}:
  *   get:
  *     summary: Debug user info (Development only)
- *     description: Debug endpoint to test userinfo retrieval from Keycloak
+ *     description: Debug endpoint to test userinfo retrieval from Keycloak. Returns simulated response for development.
  *     tags:
  *       - Authentication
  *     parameters:
@@ -95,18 +59,44 @@ router.get('/admin/audit', requireAuth, requireAdmin, getFullAuditLogController)
  *         required: true
  *         schema:
  *           type: string
- *         description: The access token to debug
+ *         description: |
+ *           The access token to debug. **Development token example**:
+ *           
+ *           ```
+ *           curl -X POST http://localhost:8081/realms/demo/protocol/openid-connect/token \
+ *             -H "Content-Type: application/x-www-form-urlencoded" \
+ *             -d "client_id=admin-cli&grant_type=password&username=Administrator&password=admin@ocra.it" | jq -r .access_token
+ *           ```
+ *         example: "eyJhbGciOiJSUzI1NiIs..."
  *     responses:
  *       200:
- *         description: User info from Keycloak
+ *         description: Simulated user info response (development only)
  *         content:
  *           application/json:
  *             schema:
  *               type: object
- *               additionalProperties: true
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 userInfo:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "This is a debug endpoint"
+ *                     accessToken:
+ *                       type: string
+ *                       example: "eyJhbGciOiJSUzI1NiIs..."
+ *                     note:
+ *                       type: string
+ *                       example: "In a real implementation, this would validate the token with Keycloak"
  *       500:
  *         description: Error retrieving user info
  */
+router.get('/admin/audit', requireAuth, requireAdmin, getFullAuditLogController);
+
+
 router.get('/debug/userinfo/:accessToken', debugUserInfo);
 
 export default router;

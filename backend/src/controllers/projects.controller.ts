@@ -38,6 +38,8 @@ import {
   projectTmpDir,
 } from '../utils/project-static-paths.js';
 
+import { getHDTDocument } from '../services/hdt-metadata.service.js'
+
 /**
  * Helper: Check if a user is manager of a project (or sysadmin)
  * Returns true if user is manager or sysadmin, false otherwise
@@ -254,11 +256,8 @@ export async function updateProjectScene(req: Request, res: Response) {
 }
 
 /**
- * List 3D files for a project
+ * Short list of assets in a project
  * GET /api/projects/:projectId/files
- *
- * New layout: model3d/ASSET_ID/<file>.
- * We return a flat list { assetId, name, url, size } by scanning model3d subfolders.
  */
 export async function listProjectFiles(req: Request, res: Response) {
   const { projectId } = req.params;
@@ -266,43 +265,24 @@ export async function listProjectFiles(req: Request, res: Response) {
     return res.status(400).json({ error: 'Project ID is required' });
   }
 
-  const model3dDir = projectModel3dDir(projectId);
-
   try {
-    if (!fs.existsSync(model3dDir)) {
-      return res.json({ files: [] });
-    }
+    const hdtDoc = await getHDTDocument(projectId);
+    const assets = hdtDoc?.digitalAssets || [];
 
-    const files: Array<{ assetId: string; name: string; url: string; size: number }> = [];
+    const files = assets.map(asset => ({
+      assetId: asset.id,
+      type: asset.type,  // "model3d" | "rti" | "image" | "video" | "other"[file:2]
+      fileUrl: asset.fileUrl  // URL HDT
+    }));
 
-    const entries = fs.readdirSync(model3dDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-
-      const assetId = entry.name;
-      const assetDir = path.join(model3dDir, assetId);
-
-      const assetFiles = fs.readdirSync(assetDir, { withFileTypes: true });
-      for (const af of assetFiles) {
-        if (!af.isFile()) continue;
-
-        const filename = af.name;
-        const filePath = path.join(assetDir, filename);
-        const stats = fs.statSync(filePath);
-
-        files.push({
-          assetId,
-          name: filename,
-          url: `/api/projects/${projectId}/files/${encodeURIComponent(assetId)}/${encodeURIComponent(filename)}`,
-          size: stats.size,
-        });
-      }
-    }
-
-    res.json({ files });
+    res.json({ 
+      files,
+      totalAssets: files.length 
+    });
   } catch (error) {
+    console.error('Error listing project files:', error);
     res.status(500).json({
-      error: 'Failed to list files',
+      error: 'Failed to list project assets',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -369,7 +349,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
   const assetId = typeof assetIdRaw === 'string' ? assetIdRaw.trim() : '';
   if (!assetId) {
     // Remove tmp file to avoid clutter
-    try { await fse.remove(file.path); } catch {}
+    try { await fse.remove(file.path); } catch { }
     return res.status(400).json({ error: 'assetId is required' });
   }
 
@@ -667,16 +647,16 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
       updatedAt: project.updatedAt,
       manager: project.projectRoles.length > 0
         ? {
-            id: project.projectRoles[0].user.id,
-            name: project.projectRoles[0].user.name,
-            email: project.projectRoles[0].user.email,
-            username: project.projectRoles[0].user.username,
-            displayName:
-              project.projectRoles[0].user.name ||
-              `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
-              project.projectRoles[0].user.username ||
-              'Unknown User',
-          }
+          id: project.projectRoles[0].user.id,
+          name: project.projectRoles[0].user.name,
+          email: project.projectRoles[0].user.email,
+          username: project.projectRoles[0].user.username,
+          displayName:
+            project.projectRoles[0].user.name ||
+            `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
+            project.projectRoles[0].user.username ||
+            'Unknown User',
+        }
         : null,
     }));
 
@@ -743,15 +723,15 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
       ...project,
       manager: project.projectRoles.length > 0
         ? {
-            id: project.projectRoles[0].user.id,
-            email: project.projectRoles[0].user.email,
-            name: project.projectRoles[0].user.name,
-            username: project.projectRoles[0].user.username,
-            displayName:
-              project.projectRoles[0].user.name ||
-              project.projectRoles[0].user.username ||
-              project.projectRoles[0].user.email,
-          }
+          id: project.projectRoles[0].user.id,
+          email: project.projectRoles[0].user.email,
+          name: project.projectRoles[0].user.name,
+          username: project.projectRoles[0].user.username,
+          displayName:
+            project.projectRoles[0].user.name ||
+            project.projectRoles[0].user.username ||
+            project.projectRoles[0].user.email,
+        }
         : null,
       projectRoles: undefined,
     };

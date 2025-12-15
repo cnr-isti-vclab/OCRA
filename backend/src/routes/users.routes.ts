@@ -156,7 +156,7 @@ router.get('/:userId', requireAuth, getUserById);
  * /api/users/{userId}/admin:
  *   put:
  *     summary: Update user admin status
- *     description: Updates the admin privileges for a user (admin only)
+ *     description: Updates the sys_admin privileges for a user (admin only)
  *     tags:
  *       - Users
  *     security:
@@ -169,7 +169,7 @@ router.get('/:userId', requireAuth, getUserById);
  *         schema:
  *           type: string
  *         description: The user ID
- *         example: 507f1f77bcf86cd799439011
+ *         example: "507f1f77bcf86cd799439011"
  *     requestBody:
  *       required: true
  *       content:
@@ -177,24 +177,43 @@ router.get('/:userId', requireAuth, getUserById);
  *           schema:
  *             type: object
  *             required:
- *               - isAdmin
+ *               - sys_admin
  *             properties:
- *               isAdmin:
+ *               sys_admin:
  *                 type: boolean
+ *                 description: System admin status (true/false)
  *                 example: true
  *     responses:
  *       200:
- *         description: User admin status updated
+ *         description: User admin status updated successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/User'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Bad request (missing userId or invalid sys_admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: Not authenticated
  *       403:
- *         description: Not authorized (admin only)
+ *         description: Not authorized (requires admin privileges)
  *       404:
  *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  *         content:
  *           application/json:
  *             schema:

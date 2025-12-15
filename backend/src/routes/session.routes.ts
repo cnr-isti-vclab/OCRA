@@ -18,8 +18,8 @@ const router = express.Router();
  * @openapi
  * /api/sessions:
  *   post:
- *     summary: Create a new user session
- *     description: Creates a new session for a user with the provided credentials
+ *     summary: Create OAuth user session
+ *     description: Creates a new session from OAuth provider response (Keycloak). Sets HTTP-only session cookie.
  *     tags:
  *       - Session
  *     requestBody:
@@ -27,17 +27,7 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - username
- *             properties:
- *               username:
- *                 type: string
- *                 example: johndoe
- *               email:
- *                 type: string
- *                 format: email
- *                 example: john@example.com
+ *             $ref: '#/components/schemas/CreateSessionRequest'
  *     responses:
  *       200:
  *         description: Session created successfully
@@ -48,15 +38,23 @@ const router = express.Router();
  *               properties:
  *                 sessionId:
  *                   type: string
- *                   example: 507f1f77bcf86cd799439011
- *                 user:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: Invalid request
+ *                   example: "cmj71n1p50001uej9dykw6j77"
+ *               headers:
+ *                 Set-Cookie:
+ *                   type: string
+ *                   example: "session_id=cmj71n1p50001uej9dykw6j77; HttpOnly; Max-Age=86400000"
+ *       500:
+ *         description: Failed to create session
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Failed to create session"
+ *                 message:
+ *                   type: string
  */
 router.post('/', createUserSession);
 
@@ -202,8 +200,8 @@ router.get('/:sessionId', getUserSession);
  * @openapi
  * /api/sessions/{sessionId}:
  *   delete:
- *     summary: Delete a session
- *     description: Logs out the user by deleting their session
+ *     summary: Delete user session (logout)
+ *     description: Invalidates a session, logs logout event with audit trail, and returns success confirmation.
  *     tags:
  *       - Session
  *     security:
@@ -215,8 +213,8 @@ router.get('/:sessionId', getUserSession);
  *         required: true
  *         schema:
  *           type: string
- *         description: The session ID to delete
- *         example: 507f1f77bcf86cd799439011
+ *         description: Session ID to delete
+ *         example: "cmj71n1p50001uej9dykw6j77"
  *     responses:
  *       200:
  *         description: Session deleted successfully
@@ -225,17 +223,34 @@ router.get('/:sessionId', getUserSession);
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
- *                   example: Session deleted successfully
- *       401:
- *         description: Not authenticated
+ *                   example: "Session deleted successfully"
+ *       400:
+ *         description: Session ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Session ID required"
  *       404:
  *         description: Session not found
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Session not found"
+ *       401:
+ *         description: Not authenticated
  */
 router.delete('/:sessionId', deleteUserSession);
 
