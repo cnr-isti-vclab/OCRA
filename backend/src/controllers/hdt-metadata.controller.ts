@@ -839,31 +839,31 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
 export async function getSceneFileHandler(req: Request, res: Response) {
   try {
     const { projectId, sceneId } = req.params;
-    
+
     // ✅ SOLUZIONE: Se richiesta "default", trova scena con isDefault=true
     let targetSceneId = sceneId;
-    
+
     if (sceneId === 'default') {
       // Trova la scena default reale
       const doc = await getHDTDocument(projectId);
       if (!doc) {
         return res.status(404).json({ error: 'Project not found' });
       }
-      
+
       const defaultScene = doc.scenes?.find((s: any) => s.isDefault === true);
       if (!defaultScene) {
         return res.status(404).json({ error: 'No default scene found' });
       }
-      
+
       targetSceneId = defaultScene.id;
       console.log(`🎯 [SceneFile] Mapping 'default' to scene ID: ${targetSceneId}`);
     }
-    
+
     const sceneDesc = await generateSceneFile(projectId, targetSceneId);
     if (sceneDesc) {
       return res.json(sceneDesc);
     }
-    
+
     return res.status(404).json({ error: 'Scene not found in database' });
   } catch (error: any) {
     console.error('Error serving scene file:', error);
@@ -891,9 +891,7 @@ export async function exportSceneFileHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Project ID and Scene ID are required' });
     }
 
-    const { exportSceneFile } = await import('../services/hdt-metadata.service.js');
-    const sceneDesc = await exportSceneFile(projectId, sceneId);
-
+    const sceneDesc = await generateSceneFile(projectId, sceneId);
     if (!sceneDesc) {
       return res.status(404).json({ error: 'Scene not found' });
     }

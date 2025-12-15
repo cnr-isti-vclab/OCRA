@@ -19,18 +19,23 @@ import { updateDigitalAsset } from '../services/hdt-metadata.service.js';
  * Handles Docker/nginx reverse proxy correctly
  */
 function getPublicBaseUrl(req: any): string {
-  // Check if we're behind a reverse proxy (Docker/nginx)
+  // 0) Explicit override (best for Docker)
+  const explicit = process.env.PUBLIC_BASE_URL;
+  if (explicit) return explicit.replace(/\/+$/, '');
+
   const forwardedHost = req.get('X-Forwarded-Host');
   const forwardedProto = req.get('X-Forwarded-Proto') || 'http';
+  const forwardedPort = req.get('X-Forwarded-Port');
 
   if (forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}`;
+    // If forwardedHost already includes a port, keep it; otherwise append forwardedPort if present
+    const hasPort = forwardedHost.includes(':');
+    const host = hasPort ? forwardedHost : (forwardedPort ? `${forwardedHost}:${forwardedPort}` : forwardedHost);
+    return `${forwardedProto}://${host}`;
   }
 
-  // Fallback: use request host header
   const protocol = req.secure ? 'https' : 'http';
   const host = req.get('Host') || 'localhost:3002';
-
   return `${protocol}://${host}`;
 }
 

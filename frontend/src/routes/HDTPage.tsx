@@ -238,36 +238,66 @@ export default function HDTPage() {
    * Backend: POST /api/projects/:projectId/hdt/assets
    */
   const createHdtAsset = async (type: 'model3d' | 'rti' | 'auto', label: string, title: string): Promise<string> => {
-
     if (!projectId) {
       throw new Error('Missing projectId');
     }
 
     const actualType = type === 'auto' ? 'model3d' : type;
 
-    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: actualType, label, title }),
-    });
+    console.log(`🔧 [CreateHDTAsset] Creating ${actualType} asset: ${label}`);
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Failed to create ${type} asset in HDT`);
+    try {
+      const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: actualType, label, title }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error(`❌ [CreateHDTAsset] HTTP ${res.status}:`, err);
+        throw new Error(err.error || `Failed to create ${actualType} asset in HDT`);
+      }
+
+      const json: any = await res.json();
+      console.log(`📥 [CreateHDTAsset] Backend response:`, json);
+      console.log(`📊 [CreateHDTAsset] Response structure:`, JSON.stringify(json, null, 2)); // ← AGGIUNGERE QUESTA RIGA
+      // Handle multiple possible response formats for robustness
+      let assetId: string | undefined;
+
+      // Format 1: Standard HDT response {value: {digitalAssets: [...]}}
+      if (json?.value?.digitalAssets && Array.isArray(json.value.digitalAssets)) {
+        const assets = json.value.digitalAssets;
+        assetId = assets.length > 0 ? assets[assets.length - 1]?.id : undefined;
+        console.log(`📋 [CreateHDTAsset] Found ${assets.length} assets, using last: ${assetId}`);
+      }
+
+      // ✅ Format for MongoDB findOneAndUpdate response
+      else if (json?.value?.value?.digitalAssets && Array.isArray(json.value.value.digitalAssets)) {
+        const assets = json.value.value.digitalAssets;
+        assetId = assets.length > 0 ? assets[assets.length - 1]?.id : undefined;
+        console.log(`📋 [CreateHDTAsset] Found ${assets.length} assets (nested), using last: ${assetId}`);
+      }
+
+      // Format 3: Asset object directly in response
+      else if (json?.id) {
+        assetId = json.id;
+        console.log(`📋 [CreateHDTAsset] Asset ID in root: ${assetId}`);
+      }
+
+      if (!assetId) {
+        console.error(`❌ [CreateHDTAsset] No valid assetId found in response:`, json);
+        throw new Error('Backend did not return a valid assetId');
+      }
+
+      console.log(`✅ [CreateHDTAsset] Successfully created asset: ${assetId}`);
+      return assetId;
+
+    } catch (error: any) {
+      console.error(`💥 [CreateHDTAsset] Error creating ${actualType} asset:`, error);
+      throw new Error(`Failed to create ${actualType} asset: ${error.message}`);
     }
-
-    // Backend returns Mongo findOneAndUpdate-style response:
-    // { value: { digitalAssets: [ ... { id: "asset_..." } ] } }
-    const json: any = await res.json();
-    const assets: any[] = json?.value?.digitalAssets;
-    const assetId: string | undefined = Array.isArray(assets) && assets.length > 0 ? assets[assets.length - 1]?.id : undefined;
-
-    if (!assetId) {
-      throw new Error('Backend did not return a valid assetId');
-    }
-
-    return assetId;
   };
 
   /**
@@ -729,10 +759,11 @@ export default function HDTPage() {
         throw new Error(err.error || 'Upload failed');
       }
 
+      // ✅ UNIFIED processing - estrai sempre da .value
       const uploadJson: any = await uploadResponse.json();
       console.log('🔄 [UnifiedUpload] Backend response:', uploadJson);
 
-      // ✅ UNIFIED processing - estrai sempre da .value
+      // ✅ STANDARDIZZARE - sempre estrai da value{}
       const responseData = uploadJson.value || uploadJson; // Fallback compatibility
 
       // 3) Handle response based on detected type
@@ -740,7 +771,7 @@ export default function HDTPage() {
         fileName: responseData.fileName || file.name,
         fileSize: responseData.fileSize || file.size,
         uploadedAt: new Date().toISOString(),
-        uploadResponse: responseData
+        uploadResponse: responseData // Use clean responseData
       };
 
       switch (responseData.type) {
@@ -749,7 +780,7 @@ export default function HDTPage() {
             ...updatePayload,
             type: 'rti',
             fileUrl: responseData.infoJsonUrl || responseData.fileUrl,
-            filePath: responseData.filePath || `${responseData.assetId}/info.json`,
+            filePath: responseData.filePath,
             mimeType: responseData.mimeType || file.type,
             additionalFiles: null
           };

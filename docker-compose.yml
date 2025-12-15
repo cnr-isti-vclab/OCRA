@@ -54,6 +54,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: ocra-backend
     environment:
+      PUBLIC_BASE_URL: "http://localhost:3001"
       # OAuth (INTERNAL docker DNS)
       ISSUER: http://keycloak:8080/realms/demo
       CLIENT_ID: react-oauth
