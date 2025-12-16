@@ -8,6 +8,7 @@ COPY frontend/package.json frontend/package-lock.json* frontend/pnpm-lock.yaml* 
 RUN npm ci || npm install
 
 # Copy shared types (needed for scene-types and scene-migration)
+# Note: In Docker, we must manually copy 'shared' because it's outside the build context of 'frontend' directory
 COPY shared/ ../shared/
 
 # Copy frontend source and build

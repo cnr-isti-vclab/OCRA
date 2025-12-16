@@ -4,8 +4,7 @@ FROM node:22-alpine
 # Work in the backend package folder
 WORKDIR /app/backend
 
-# Copy Prisma schema into backend package path (needed before package install for dependencies)
-COPY prisma /app/backend/prisma
+
 
 # Copy the backend source code (includes package.json, package-lock.json, and all source files)
 COPY backend/ .
