@@ -151,8 +151,8 @@ server {
 ### Step 5: Initialize Database
 
 ```bash
-docker compose exec backend npm run db:migrate
-docker compose exec backend npm run db:seed  # Optional
+docker compose exec backend npx prisma db push
+docker compose exec backend npm run seed  # Optional
 ```
 
 ## Key Differences
@@ -183,6 +183,13 @@ docker compose exec backend ping postgres
 
 **CORS errors:**
 - Check `CORS_ORIGINS` in .env.prod matches your domain
+
+**"npm error code EUSAGE" or "npm ci" failed during build:**
+- This means `package-lock.json` is out of sync with `package.json`.
+- **Fix**:
+  1. Run `npm install` in `frontend/` and `backend/` locally.
+  2. Commit the updated lockfiles.
+  3. Push to the server and pull before rebuilding.
 
 ## Maintenance
 
