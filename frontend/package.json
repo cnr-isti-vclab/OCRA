@@ -10,21 +10,14 @@
     "serve:examples": "python3 -m http.server 8000",
     "docs": "typedoc",
     "docs:serve": "typedoc --watch",
-    "preview": "vite preview --port 3000",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force"
+    "preview": "vite preview --port 3000"
   },
   "dependencies": {
-    "@prisma/client": "^6.15.0",
     "@types/n3": "^1.26.1",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.13.1",
     "n3": "^1.26.0",
     "nexus3d": "^1.0.10",
-    "prisma": "^6.15.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.2",
