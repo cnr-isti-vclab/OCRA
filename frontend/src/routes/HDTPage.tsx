@@ -1167,7 +1167,7 @@ export default function HDTPage() {
                       <thead>
                         <tr>
                           <th>Type</th>
-                          <th>File Name</th>
+                          <th>Asset</th>
                           <th>Size</th>
                           <th>Added</th>
                           <th>Actions</th>
@@ -1184,7 +1184,7 @@ export default function HDTPage() {
                               {asset.type === 'other' && 'Other'}
                             </td>
                             <td>
-                              <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
+                              <strong>{asset.label || asset.title || '(unnamed)'}</strong>
                             </td>
                             <td className="text-muted small">
                               {asset.fileSize ? `${(asset.fileSize / (1024 * 1024)).toFixed(2)} MB` : '-'}
