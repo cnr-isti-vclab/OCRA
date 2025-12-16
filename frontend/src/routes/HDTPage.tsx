@@ -127,7 +127,80 @@ export default function HDTPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  //Helper
+
+  // HELPERS
+
+  /**
+   * Normalize asset type across backend migrations.
+   * Backend currently uses '3d-model'/'rti'. Some legacy frontend code used 'model3d'.
+   */
+  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'other' => {
+    const s = String(t || '').toLowerCase();
+    if (s === '3d-model' || s === 'model3d' || s === '3d' || s.includes('3d')) return '3d-model';
+    if (s === 'rti' || s.includes('rti')) return 'rti';
+    return 'other';
+  };
+
+  /**
+   * Return the best "entry point" URL for an asset (viewer/download).
+   * Prefer entryPointUrl (new schema). Fallback to fileUrl and uploadResponse when needed.
+   */
+  const getAssetEntryPointUrl = (asset: any): string | null => {
+    if (!asset) return null;
+
+    // New schema (recommended)
+    if (typeof asset.entryPointUrl === 'string' && asset.entryPointUrl.length > 0) {
+      return asset.entryPointUrl;
+    }
+
+    // Common fallback
+    if (typeof asset.fileUrl === 'string' && asset.fileUrl.length > 0) {
+      return asset.fileUrl;
+    }
+
+    // Upload response fallback (unified uploader)
+    const u = asset.uploadResponse;
+    if (u && typeof u === 'object') {
+      if (typeof u.infoJsonUrl === 'string' && u.infoJsonUrl.length > 0) return u.infoJsonUrl;
+      if (typeof u.fileUrl === 'string' && u.fileUrl.length > 0) return u.fileUrl;
+    }
+
+    return null;
+  };
+
+  /**
+   * Return a nice filename for UI/actions.
+   * Prefer entryPoint (new schema). Fallback to fileName and uploadResponse.
+   */
+  const getAssetEntryPointName = (asset: any): string => {
+    if (!asset) return '(unnamed)';
+
+    if (typeof asset.entryPoint === 'string' && asset.entryPoint.length > 0) return asset.entryPoint;
+    if (typeof asset.fileName === 'string' && asset.fileName.length > 0) return asset.fileName;
+
+    const u = asset.uploadResponse;
+    if (u && typeof u === 'object') {
+      if (typeof u.fileName === 'string' && u.fileName.length > 0) return u.fileName;
+    }
+
+    // Last resort: title/label/id
+    return asset.title || asset.label || asset.id || '(unnamed)';
+  };
+
+
+  const unwrapHdtDoc = (json: any) => {
+    // Preferred: { success: true, value: <HDTDocument> }
+    if (json?.value && typeof json.value === 'object' && json.value.projectId) return json.value;
+
+    // If backend returns the HDTDocument directly
+    if (json?.projectId) return json;
+
+    // Legacy nested wrapper (old bug/format)
+    if (json?.value?.value && json.value.value.projectId) return json.value.value;
+
+    return json;
+  };
+
   const copyAssetUrlToClipboard = async (url: string) => {
     try {
       // 1. Preferred: modern async clipboard API (supported in all modern browsers)
@@ -237,22 +310,29 @@ export default function HDTPage() {
    * Create a new asset entry in HDT "digitalAssets" and return the generated assetId.
    * Backend: POST /api/projects/:projectId/hdt/assets
    */
-  const createHdtAsset = async (type: 'model3d' | 'rti' | 'auto', label: string, title: string): Promise<string> => {
+  const createHdtAsset = async (
+    type: '3d-model' | 'rti' | 'auto',
+    label: string,
+    title: string
+  ): Promise<string> => {
     if (!projectId) {
       throw new Error('Missing projectId');
     }
 
-    const actualType = type === 'auto' ? 'model3d' : type;
+    const actualType = type === 'auto' ? '3d-model' : type;
 
     console.log(`🔧 [CreateHDTAsset] Creating ${actualType} asset: ${label}`);
 
     try {
-      const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: actualType, label, title }),
-      });
+      const res = await fetch(
+        `${getApiBase()}/api/projects/${projectId}/hdt/assets`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: actualType, label, title }),
+        }
+      );
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -262,32 +342,20 @@ export default function HDTPage() {
 
       const json: any = await res.json();
       console.log(`📥 [CreateHDTAsset] Backend response:`, json);
-      console.log(`📊 [CreateHDTAsset] Response structure:`, JSON.stringify(json, null, 2)); // ← AGGIUNGERE QUESTA RIGA
-      // Handle multiple possible response formats for robustness
-      let assetId: string | undefined;
 
-      // Format 1: Standard HDT response {value: {digitalAssets: [...]}}
-      if (json?.value?.digitalAssets && Array.isArray(json.value.digitalAssets)) {
-        const assets = json.value.digitalAssets;
-        assetId = assets.length > 0 ? assets[assets.length - 1]?.id : undefined;
-        console.log(`📋 [CreateHDTAsset] Found ${assets.length} assets, using last: ${assetId}`);
+      // ✅ Normalize response to a single HDTDocument shape
+      const hdtDoc = unwrapHdtDoc(json);
+
+      if (!hdtDoc?.digitalAssets || !Array.isArray(hdtDoc.digitalAssets)) {
+        console.error(`❌ [CreateHDTAsset] Invalid HDT document:`, hdtDoc);
+        throw new Error('Backend did not return a valid HDT document');
       }
 
-      // ✅ Format for MongoDB findOneAndUpdate response
-      else if (json?.value?.value?.digitalAssets && Array.isArray(json.value.value.digitalAssets)) {
-        const assets = json.value.value.digitalAssets;
-        assetId = assets.length > 0 ? assets[assets.length - 1]?.id : undefined;
-        console.log(`📋 [CreateHDTAsset] Found ${assets.length} assets (nested), using last: ${assetId}`);
-      }
-
-      // Format 3: Asset object directly in response
-      else if (json?.id) {
-        assetId = json.id;
-        console.log(`📋 [CreateHDTAsset] Asset ID in root: ${assetId}`);
-      }
+      const assets = hdtDoc.digitalAssets;
+      const assetId = assets.length > 0 ? assets[assets.length - 1].id : undefined;
 
       if (!assetId) {
-        console.error(`❌ [CreateHDTAsset] No valid assetId found in response:`, json);
+        console.error(`❌ [CreateHDTAsset] No assetId found in HDT document:`, hdtDoc);
         throw new Error('Backend did not return a valid assetId');
       }
 
@@ -308,6 +376,9 @@ export default function HDTPage() {
     if (!projectId) {
       throw new Error('Missing projectId');
     }
+
+    console.log(`🔧 [UpdateHDTAsset] Updating asset ${assetId} with:`, patch);
+
     const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`, {
       method: 'PUT',
       credentials: 'include',
@@ -317,17 +388,19 @@ export default function HDTPage() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      console.error(`❌ [UpdateHDTAsset] Failed to update asset:`, err);
       throw new Error(err.error || 'Failed to update asset metadata');
     }
-  };
 
+    console.log(`✅ [UpdateHDTAsset] Successfully updated asset ${assetId}`);
+  };
   /**
    * Delete an asset from HDT.
    * Backend: DELETE /api/projects/:projectId/hdt/assets/:assetId
    *
    * IMPORTANT:
    * We assume the backend also deletes the corresponding storage folder:
-   * - model3d: project_files/<projectId>/model3d/<assetId>/
+   * - 3d-model: project_files/<projectId>/3d-model/<assetId>/
    * - rti:     project_files/<projectId>/rti/<assetId>/
    *
    * If backend does not delete files, fix it there (do not re-introduce legacy /files/:filename deletes).
@@ -414,7 +487,7 @@ export default function HDTPage() {
           if (metadataData?.hdtModel && (!metadataData.digitalAssets || metadataData.digitalAssets.length === 0)) {
             const legacyAsset = {
               id: `asset_legacy_${Date.now()}`,
-              type: 'model3d',
+              type: '3d-model',
               fileName: metadataData.hdtModel.fileName,
               fileUrl: metadataData.hdtModel.fileUrl,
               fileSize: metadataData.hdtModel.fileSize,
@@ -659,7 +732,7 @@ export default function HDTPage() {
   /**
    * Determine asset type from file extension and name
    */
-  const determineAssetType = (file: File): 'model3d' | 'rti' => {
+  const determineAssetType = (file: File): '3d-model' | 'rti' => {
     const fileName = file.name.toLowerCase();
     const ext = fileName.split('.').pop() || '';
 
@@ -675,9 +748,9 @@ export default function HDTPage() {
         return 'rti';
       }
 
-      // Default ZIP files to model3d (could be 3D model archive)
+      // Default ZIP files to 3d-model (could be 3D model archive)
       console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${file.name}`);
-      return 'model3d';
+      return '3d-model';
     }
 
     // Check if it's a direct 3D model file
@@ -688,12 +761,12 @@ export default function HDTPage() {
 
     if (model3dExtensions.includes(ext)) {
       console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
-      return 'model3d';
+      return '3d-model';
     }
 
     // Default fallback
-    console.log(`❓ [TypeDetection] Unknown file type, defaulting to model3d: ${file.name}`);
-    return 'model3d';
+    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${file.name}`);
+    return '3d-model';
   };
 
   /**
@@ -759,56 +832,45 @@ export default function HDTPage() {
         throw new Error(err.error || 'Upload failed');
       }
 
-      // ✅ UNIFIED processing - estrai sempre da .value
+      // 3) Extract upload response data
       const uploadJson: any = await uploadResponse.json();
       console.log('🔄 [UnifiedUpload] Backend response:', uploadJson);
 
-      // ✅ STANDARDIZZARE - sempre estrai da value{}
       const responseData = uploadJson.value || uploadJson; // Fallback compatibility
 
-      // 3) Handle response based on detected type
-      let updatePayload: Record<string, any> = {
+      // 4) Update asset with complete data (no more uploadResponse field)
+      const updatePayload: Record<string, any> = {
         fileName: responseData.fileName || file.name,
         fileSize: responseData.fileSize || file.size,
+        entryPointUrl: responseData.entryPointUrl,
+        entryPoint: responseData.entryPoint,
+        mimeType: responseData.mimeType || file.type,
         uploadedAt: new Date().toISOString(),
-        uploadResponse: responseData // Use clean responseData
+        metadata: responseData.metadata || {}
       };
 
+      // Type-specific handling (mostly for future extensibility)
       switch (responseData.type) {
         case 'rti':
-          updatePayload = {
-            ...updatePayload,
-            type: 'rti',
-            fileUrl: responseData.infoJsonUrl || responseData.fileUrl,
-            filePath: responseData.filePath,
-            mimeType: responseData.mimeType || file.type,
-            additionalFiles: null
-          };
+          updatePayload.type = 'rti';
           break;
 
         case '3d-model':
         case '3d-model-archive':
-          updatePayload = {
-            ...updatePayload,
-            type: 'model3d',
-            fileUrl: responseData.fileUrl,
-            filePath: responseData.filePath,
-            mimeType: responseData.mimeType || file.type,
-            additionalFiles: responseData.additionalFiles || null
-          };
+          updatePayload.type = '3d-model';
           break;
 
         default:
           throw new Error(`Unsupported upload response type: ${responseData.type}`);
       }
 
-      // 4) Update asset metadata with type-specific info
+      // 5) Update asset metadata with complete data
       await updateHdtAsset(assetId, updatePayload);
 
-      // 5) Refresh data and show success
+      // 6) Refresh data and show success
       await fetchProjectAndMetadata();
 
-      const typeLabel = uploadJson.type === 'rti' ? 'RTI' : '3D model';
+      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset "${file.name}" uploaded and saved successfully!`);
 
     } catch (err: any) {
@@ -821,7 +883,6 @@ export default function HDTPage() {
       setUploadProgress(0);
     }
   };
-
   return (
     <div className="container py-4">
       {/* Header */}
@@ -1116,7 +1177,7 @@ export default function HDTPage() {
                         {digitalAssets.map((asset, index) => (
                           <tr key={asset.id || index}>
                             <td>
-                              {asset.type === 'model3d' && '3D Model'}
+                              {asset.type === '3d-model' && '3D Model'}
                               {asset.type === 'rti' && 'RTI'}
                               {asset.type === 'image' && 'Image'}
                               {asset.type === 'video' && 'Video'}
@@ -1157,36 +1218,98 @@ export default function HDTPage() {
                               {asset.uploadedAt ? new Date(asset.uploadedAt).toLocaleDateString() : '-'}
                             </td>
                             <td>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={async () => {
-                                  const displayName = asset.fileName || asset.title || asset.label || asset.id;
-                                  if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
-                                    return;
-                                  }
+                              {(() => {
+                                const kind = normalizeAssetType(asset.type);
+                                const url = getAssetEntryPointUrl(asset);
+                                const name = getAssetEntryPointName(asset);
 
-                                  try {
-                                    setError(null);
-                                    setSuccessMessage(null);
+                                return (
+                                  <div className="d-flex gap-2 flex-wrap">
+                                    {/* 3D: Download + Copy URL */}
+                                    {kind === '3d-model' && url && (
+                                      <>
+                                        <a
+                                          className="btn btn-sm btn-outline-primary"
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title="Download/open the 3D model entry file"
+                                        >
+                                          Download
+                                        </a>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => copyAssetUrlToClipboard(url)}
+                                          title="Copy 3D model URL to clipboard"
+                                        >
+                                          Copy URL
+                                        </button>
+                                      </>
+                                    )}
 
-                                    // New architecture: delete only via HDT endpoint.
-                                    // Backend must also delete the corresponding folder on disk.
-                                    await deleteHdtAsset(asset.id);
+                                    {/* RTI: Open info.json + Copy URL */}
+                                    {kind === 'rti' && url && (
+                                      <>
+                                        <a
+                                          className="btn btn-sm btn-outline-primary"
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title="Open RTI info.json"
+                                        >
+                                          Open info.json
+                                        </a>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => copyAssetUrlToClipboard(url)}
+                                          title="Copy RTI info.json URL to clipboard"
+                                        >
+                                          Copy URL
+                                        </button>
+                                      </>
+                                    )}
 
-                                    // Update local state optimistically
-                                    setDigitalAssets((prev) => prev.filter((a) => a.id !== asset.id));
+                                    {/* If no URL yet */}
+                                    {!url && (
+                                      <span className="text-muted small">
+                                        No URL available yet
+                                      </span>
+                                    )}
 
-                                    // Refresh to sync with server
-                                    await fetchProjectAndMetadata();
-                                    setSuccessMessage(`✓ Asset "${displayName}" deleted successfully!`);
-                                  } catch (err: any) {
-                                    setError(err?.message || 'Failed to delete asset');
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
+                                    {/* Delete */}
+                                    <button
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={async () => {
+                                        const displayName = name;
+                                        if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
+                                          return;
+                                        }
+
+                                        try {
+                                          setError(null);
+                                          setSuccessMessage(null);
+
+                                          await deleteHdtAsset(asset.id);
+
+                                          setDigitalAssets((prev) => prev.filter((a) => a.id !== asset.id));
+
+                                          await fetchProjectAndMetadata();
+                                          setSuccessMessage(`✓ Asset "${displayName}" deleted successfully!`);
+                                        } catch (err: any) {
+                                          setError(err?.message || 'Failed to delete asset');
+                                        }
+                                      }}
+                                      title={`Delete "${name}"`}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </td>
+
                           </tr>
                         ))}
                       </tbody>

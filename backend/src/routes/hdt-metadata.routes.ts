@@ -771,7 +771,7 @@ router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, re
  * /api/projects/{projectId}/export/rdf:
  *   get:
  *     summary: Export HDT metadata as RDF/XML
- *     description: Exports the project's HDT document metadata and model3d assets as RDF/XML (auth required).
+ *     description: Exports the project's HDT document metadata and 3d-model assets as RDF/XML (auth required).
  *     tags:
  *       - Exports
  *     security:
@@ -852,12 +852,12 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   <rdf:Description rdf:about="urn:project:${projectId}:hdt">
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC2"/>
 ${(hdtDoc.digitalAssets || [])
-  .filter((asset: any) => asset.type === 'model3d')
+  .filter((asset: any) => asset.type === '3d-model')
   .map((asset: any) => `    <hdt:HP3 rdf:resource="urn:asset:${asset.id}"/>`)
   .join('\n')}
   </rdf:Description>
 ${(hdtDoc.digitalAssets || [])
-  .filter((asset: any) => asset.type === 'model3d')
+  .filter((asset: any) => asset.type === '3d-model')
   .map((asset: any) => `
   <rdf:Description rdf:about="urn:asset:${asset.id}">
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>

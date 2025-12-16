@@ -51,7 +51,7 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     const zipPath = file.path;
 
     // Ensure project directory skeleton exists:
-    // project_files/PROJECT_ID/{model3d,rti,tmp}
+    // project_files/PROJECT_ID/{3d-model,rti,tmp}
     ensureProjectSkeleton(projectId);
 
     // Final destination directory for this asset:

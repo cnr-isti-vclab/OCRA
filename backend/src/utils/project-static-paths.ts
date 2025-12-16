@@ -14,7 +14,7 @@ export function projectTmpDir(projectId: string) {
 }
 
 export function projectModel3dDir(projectId: string) {
-  return path.join(projectRoot(projectId), 'model3d');
+  return path.join(projectRoot(projectId), '3d-model');
 }
 
 export function projectModel3dAssetDir(projectId: string, assetId: string) {

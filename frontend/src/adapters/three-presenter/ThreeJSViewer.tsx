@@ -24,9 +24,9 @@ export interface ThreeJSViewerRef {
 }
 
 // React wrapper for ThreePresenter
-const ThreeJSViewer = forwardRef<ThreeJSViewerRef, { 
-  width?: string | number; 
-  height?: string | number; 
+const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
+  width?: string | number;
+  height?: string | number;
   sceneDesc?: SceneDescription;
   onReady?: () => void; // Callback fired when presenter is initialized and ready
   onLoadProgress?: (progress: LoadingProgress) => void; // Model loading progress
@@ -86,23 +86,23 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     // Initialize presenter on mount
     useEffect(() => {
       if (!mountRef.current) return;
-      
+
       console.log('🎬 Initializing ThreePresenter with OcraFileUrlResolver');
       // Create OCRA file URL resolver for loading models from OCRA API
       const fileResolver = new OcraFileUrlResolver();
       presenterRef.current = new ThreePresenter(mountRef.current, fileResolver);
-      
+
       // Notify parent that presenter is ready
       if (onReady) {
         onReady();
       }
-      
+
       return () => {
         console.log('🛑 Disposing ThreePresenter');
         presenterRef.current?.dispose();
       };
     }, [onReady]);
-    
+
     // Update callbacks when they change (without recreating presenter)
     useEffect(() => {
       if (presenterRef.current) {
@@ -115,29 +115,32 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     // Load/reload scene when sceneDesc changes
     useEffect(() => {
       if (!sceneDesc || !presenterRef.current) return;
-      
+
+      // 🔍 DEBUG: Logga la scene description ricevuta
+      console.log('🎭 [ThreeJSViewer] Scene description received:', JSON.stringify(sceneDesc, null, 2));
+
       const prevScene = prevSceneRef.current;
-      
+
       // Determine if we need a full reload
       let needsReload = isFirstLoadRef.current;
-      
+
       if (!isFirstLoadRef.current && prevScene) {
         // Check if model file paths changed (which requires reloading the models)
         const currentFiles = (sceneDesc.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
         const previousFiles = (prevScene.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
         const filesChanged = currentFiles !== previousFiles;
-        
+
         // Only reload if file paths changed
         needsReload = filesChanged;
       }
-      
+
       if (needsReload) {
         if (isFirstLoadRef.current) {
           console.log('🔄 Loading scene (initial load)');
         } else {
           console.log('🔄 Loading scene (model files changed)');
         }
-        
+
         presenterRef.current.loadScene(sceneDesc, false)
           .then(() => {
             // Show UI buttons after scene is loaded (they're hidden by default)
@@ -154,12 +157,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
           .catch(err => {
             console.error('Failed to load scene:', err);
           });
-        
+
         isFirstLoadRef.current = false;
       } else {
         console.log('⚡ Skipping scene reload (no file changes - use direct setters for other changes)');
       }
-      
+
       // Store current scene for next comparison
       prevSceneRef.current = sceneDesc;
     }, [sceneDesc]);

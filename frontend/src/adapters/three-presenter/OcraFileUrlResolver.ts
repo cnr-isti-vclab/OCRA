@@ -7,7 +7,7 @@
  *   <assetId>/<filename>
  *
  * New public URL format:
- *   /assets/projects/<projectId>/model3d/<assetId>/<filename>
+ *   /assets/projects/<projectId>/3d-model/<assetId>/<filename>
  *
  * Notes:
  * - If `filePath` is already an absolute URL (http/https), it is returned as-is.
@@ -90,6 +90,6 @@ export class OcraFileUrlResolver implements FileUrlResolver {
     // New static assets path for 3D models
     return `${apiBase}/assets/projects/${encodeURIComponent(
       context.projectId
-    )}/model3d/${encodedPath}`;
+    )}/3d-model/${encodedPath}`;
   }
 }

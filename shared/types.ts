@@ -203,7 +203,7 @@ type RTILayout = 'image' | 'deepzoom' | 'deepzoom1px' | 'google' | 'zoomify' | '
  */
 export interface DigitalAsset {
   id: string;
-  type: 'model3d' | 'rti' | 'image' | 'video' | 'other';
+  type: '3d-model' | 'rti' | 'image' | 'video' | 'other';
   fileName: string;
   fileUrl: string;
   fileSize?: number;          // Size in bytes

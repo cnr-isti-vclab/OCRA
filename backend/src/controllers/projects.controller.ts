@@ -5,14 +5,14 @@
  *
  * project_files/
  * └── PROJECT_ID
- *     ├── model3d
+ *     ├── 3d-model
  *     │   ├── scene.json
  *     │   └── ASSET_ID
  *     │       └── <file>
  *     ├── rti
  *     └── tmp
  *
- * Step 5: 3D upload now goes to tmp/ first, then moved into model3d/ASSET_ID/
+ * Step 5: 3D upload now goes to tmp/ first, then moved into 3d-model/ASSET_ID/
  */
 
 import type { Request, Response } from 'express';
@@ -153,7 +153,7 @@ export async function isManagerOfProject(req: Request, res: Response) {
  * We store uploaded files in project tmp folder first:
  *   project_files/PROJECT_ID/tmp/<file>
  * then we move them in the controller to:
- *   project_files/PROJECT_ID/model3d/ASSET_ID/<file>
+ *   project_files/PROJECT_ID/3d-model/ASSET_ID/<file>
  *
  * This avoids needing req.body fields (assetId) to decide destination.
  */
@@ -184,7 +184,7 @@ export const upload = multer({ storage });
  * Get scene.json for a project
  * GET /api/projects/:projectId/scene
  *
- * Reads from: project_files/PROJECT_ID/model3d/scene.json
+ * Reads from: project_files/PROJECT_ID/3d-model/scene.json
  */
 export async function getProjectScene(req: Request, res: Response) {
   const { projectId } = req.params;
@@ -219,7 +219,7 @@ export async function getProjectScene(req: Request, res: Response) {
  * Update scene.json for a project (manager only)
  * PUT /api/projects/:projectId/scene
  *
- * Writes to: project_files/PROJECT_ID/model3d/scene.json
+ * Writes to: project_files/PROJECT_ID/3d-model/scene.json
  */
 export async function updateProjectScene(req: Request, res: Response) {
   const { projectId } = req.params;
@@ -271,7 +271,7 @@ export async function listProjectFiles(req: Request, res: Response) {
 
     const files = assets.map(asset => ({
       assetId: asset.id,
-      type: asset.type,  // "model3d" | "rti" | "image" | "video" | "other"[file:2]
+      type: asset.type,  // "3d-model" | "rti" | "image" | "video" | "other"[file:2]
       fileUrl: asset.fileUrl  // URL HDT
     }));
 
@@ -374,7 +374,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
     console.warn('Failed to log file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
   }
 
-  // Finalize upload: move into model3d/ASSET_ID and update scene.json
+  // Finalize upload: move into 3d-model/ASSET_ID and update scene.json
   try {
     ensureProjectSkeleton(projectId);
 
@@ -413,7 +413,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
       counter++;
     }
 
-    // Store file path relative to model3d root: ASSET_ID/filename
+    // Store file path relative to 3d-model root: ASSET_ID/filename
     const relFile = `${assetId}/${file.originalname}`;
 
     scene.models.push({
@@ -444,7 +444,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
  *
  * Backward-compatible fallback route (old):
  *   GET /api/projects/:projectId/files/:filename
- * In that case, we search the file under model3d filename and return the first match.
+ * In that case, we search the file under 3d-model filename and return the first match.
  */
 export async function downloadProjectFile(req: Request, res: Response) {
   const { projectId } = req.params as { projectId?: string };
@@ -471,7 +471,7 @@ export async function downloadProjectFile(req: Request, res: Response) {
     return res.status(400).json({ error: 'Filename is required' });
   }
 
-  // Search in model3d/*/oldFilename
+  // Search in 3d-model/*/oldFilename
   const model3dDir = projectModel3dDir(projectId);
   if (!fs.existsSync(model3dDir)) {
     return res.status(404).json({ error: 'File not found' });
@@ -496,7 +496,7 @@ export async function downloadProjectFile(req: Request, res: Response) {
  *
  * Backward-compatible fallback route (old):
  *   DELETE /api/projects/:projectId/files/:filename
- * In that case, we search and delete the first match under model3d filename.
+ * In that case, we search and delete the first match under 3d-model filename.
  */
 export async function deleteProjectFile(req: Request, res: Response) {
   try {
@@ -799,7 +799,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     // Create unified project directory structure
     ensureProjectSkeleton(project.id);
 
-    // Create empty scene.json under model3d/
+    // Create empty scene.json under 3d-model/
     const emptyScene = {
       models: [],
       environment: { showGround: true, background: '#404040' },

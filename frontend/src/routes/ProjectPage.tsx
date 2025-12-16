@@ -49,7 +49,7 @@ export default function ProjectPage() {
   const [editedPosition, setEditedPosition] = useState<string>('');
   const [editedRotation, setEditedRotation] = useState<string>('');
   const [editedScale, setEditedScale] = useState<string>('');
-  
+
   // Local state for environment settings (to avoid re-initializing viewer)
   const [showGround, setShowGround] = useState<boolean>(false);
   const [backgroundColor, setBackgroundColor] = useState<string>('#404040');
@@ -69,11 +69,11 @@ export default function ProjectPage() {
       const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
         credentials: 'include'
       });
-      
+
       if (checkRes.ok) {
         return true; // Already exists
       }
-      
+
       if (checkRes.status === 404) {
         // Create HDT document with default scene
         console.log('📝 Creating HDT document for new project...');
@@ -88,16 +88,16 @@ export default function ProjectPage() {
             }
           })
         });
-        
+
         if (!createRes.ok) {
           console.error('Failed to create HDT document');
           return false;
         }
-        
+
         console.log('✅ HDT document created successfully');
         return true;
       }
-      
+
       return false;
     } catch (err) {
       console.error('Error ensuring HDT document:', err);
@@ -147,24 +147,24 @@ export default function ProjectPage() {
     if (!sceneDesc?.models || sceneDesc.models.length === 0) return;
 
     const modelIds = sceneDesc.models.map((m: any) => m.id);
-    
+
     // Find the first visible model
     let currentVisibleIndex = modelIds.findIndex((id: string) => meshVisibility[id] !== false);
-    
+
     // If no model is visible, start from -1 to show the first model
     if (currentVisibleIndex === -1) {
       currentVisibleIndex = -1;
     }
-    
+
     // Calculate next index (wrap around to 0 if at the end)
     const nextIndex = (currentVisibleIndex + 1) % modelIds.length;
-    
+
     // Create new visibility state: hide all except the next one
     const newVisibility: Record<string, boolean> = {};
     modelIds.forEach((id: string, index: number) => {
       newVisibility[id] = index === nextIndex;
     });
-    
+
     // Update state and viewer
     setMeshVisibility(newVisibility);
     modelIds.forEach((id: string, index: number) => {
@@ -227,7 +227,7 @@ export default function ProjectPage() {
             sceneModel.rotation[2] * Math.PI / 180
           ];
         }
-        
+
         viewerRef.current.applyModelTransform(
           editingModelId,
           sceneModel.position || null,
@@ -236,7 +236,7 @@ export default function ProjectPage() {
         );
       }
     }
-    
+
     setEditingModelId(null);
     setSaveError(null);
     setEditedPosition('');
@@ -258,7 +258,7 @@ export default function ProjectPage() {
       };
 
       const position = parseArray(posStr);
-      
+
       // Parse rotation and convert degrees to radians for Three.js
       const rotationDeg = parseArray(rotStr);
       const rotation = rotationDeg ? [
@@ -266,7 +266,7 @@ export default function ProjectPage() {
         rotationDeg[1] * Math.PI / 180,
         rotationDeg[2] * Math.PI / 180
       ] as [number, number, number] : null;
-      
+
       let scale: number | [number, number, number] | null = null;
       const trimmedScale = scaleStr.trim();
       if (trimmedScale) {
@@ -302,7 +302,7 @@ export default function ProjectPage() {
       const position = parseArray(editedPosition);
       const rotation = parseArray(editedRotation);
       let scale: number | [number, number, number] | undefined = undefined;
-      
+
       const scaleStr = editedScale.trim();
       if (scaleStr) {
         if (scaleStr.includes(',')) {
@@ -318,14 +318,24 @@ export default function ProjectPage() {
       // Update the scene description
       const updatedScene = { ...sceneDesc } as SceneDescription;
       if (!updatedScene.models) updatedScene.models = [];
-      
+
       // Ensure rotation units are specified as degrees
       updatedScene.rotationUnits = 'deg';
-      
-      // Find or create the model entry
-      let modelIndex = updatedScene.models.findIndex((m: any) => m.id === modelId || m.file === fileName);
+
+      // Find or create the model entry - improved HDT-compatible matching
+      let modelIndex = updatedScene.models.findIndex((m: any) => {
+        // Direct ID match
+        if (m.id === modelId) return true;
+        // Legacy direct file match
+        if (m.file === fileName) return true;
+        // HDT URL matching: check if URL ends with filename
+        if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
+        return false;
+      });
       if (modelIndex === -1) {
-        // Create new model entry
+        // Only create new model if no existing model found
+        // This should NOT happen with HDT scenes, but keep as fallback
+        console.warn(`⚠️ Creating new model entry for ${modelId}/${fileName} - this may indicate a matching issue`);
         updatedScene.models.push({
           id: modelId,
           file: fileName,
@@ -338,10 +348,10 @@ export default function ProjectPage() {
         const model = updatedScene.models[modelIndex] as any;
         if (position) model.position = position;
         else delete model.position;
-        
+
         if (rotation) model.rotation = rotation;
         else delete model.rotation;
-        
+
         if (scale !== undefined) model.scale = scale;
         else delete model.scale;
       }
@@ -366,10 +376,10 @@ export default function ProjectPage() {
 
       // Update local state
       setSceneDesc(updatedScene);
-      
+
       // Exit edit mode
       setEditingModelId(null);
-      
+
       // Reload the scene in the viewer without resetting camera
       if (viewerRef.current) {
         // The viewer will reload with the updated scene description
@@ -419,33 +429,34 @@ export default function ProjectPage() {
         } else {
           setIsManager(false);
         }
-        
+
         // Fetch available scenes (new multi-scene architecture)
         try {
           const scenesListRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes`, {
             credentials: 'include'
           });
           if (scenesListRes.ok) {
-            const scenesList = await scenesListRes.json();
-            if (scenesList.scenes && Array.isArray(scenesList.scenes) && scenesList.scenes.length > 0) {
-              setAvailableScenes(scenesList.scenes);
-              // Auto-select default scene or first scene
-              const defaultScene = scenesList.scenes.find((s: any) => s.isDefault);
-              const initialSceneId = defaultScene?.id || scenesList.scenes[0]?.id;
+            const scenesListJson: any = await scenesListRes.json();
+
+            // Backend may return either an array (new API) or { scenes: [...] } (legacy wrapper)
+            const scenesArray: any[] = Array.isArray(scenesListJson)
+              ? scenesListJson
+              : (Array.isArray(scenesListJson?.scenes) ? scenesListJson.scenes : []);
+
+            if (scenesArray.length > 0) {
+              setAvailableScenes(scenesArray);
+
+              const defaultScene = scenesArray.find((s: any) => s.isDefault);
+              const initialSceneId = defaultScene?.id || scenesArray[0]?.id;
+
               if (initialSceneId && !selectedSceneId) {
                 setSelectedSceneId(initialSceneId);
               }
             } else {
-              // No scenes found - create a default empty scene entry
-              const defaultScene = {
-                id: 'default',
-                name: 'Default Scene',
-                isDefault: true
-              };
+              // No scenes found - fallback to a virtual default scene
+              const defaultScene = { id: 'default', name: 'Default Scene', isDefault: true };
               setAvailableScenes([defaultScene]);
-              if (!selectedSceneId) {
-                setSelectedSceneId('default');
-              }
+              if (!selectedSceneId) setSelectedSceneId('default');
             }
           } else {
             // API error - fallback to default empty scene
@@ -472,11 +483,11 @@ export default function ProjectPage() {
             setSelectedSceneId('default');
           }
         }
-        
+
         // Fetch scene.json (legacy single scene or selected scene)
-        const sceneEndpoint = selectedSceneId 
+        const sceneEndpoint = selectedSceneId
           ? `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`
-          : `${getApiBase()}/api/projects/${projectId}/scene`;
+          : `${getApiBase()}/api/projects/${projectId}/scenes/default`;
         const sceneRes = await fetch(sceneEndpoint, {
           credentials: 'include'
         });
@@ -504,36 +515,30 @@ export default function ProjectPage() {
           setAnnotations([]);
         }
 
-        // Fetch HDT metadata to see if a default 3D model is defined
+        // Fetch HDT metadata (read-only): keep a reference for UI, do NOT inject models into the scene.
+        // The scene models must come only from /api/projects/:projectId/scenes/:sceneId (MongoDB source of truth).
         try {
           const hdtRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-            credentials: 'include'
+            credentials: 'include',
           });
+
           if (hdtRes.ok) {
-            const meta = await hdtRes.json();
-            const model: HDTModelMeta | undefined = meta?.hdtModel;
-            if (model?.fileName) {
-              setHdtModel({ fileName: model.fileName, fileUrl: model.fileUrl });
-              // Ensure the HDT model is present in the scene; create a minimal scene if none exists
-              const ensureScene: SceneDescription = fetchedScene ?? { projectId, models: [] };
-              const alreadyInScene = (ensureScene.models || []).some(m => m.file === model.fileName);
-              if (!alreadyInScene) {
-                const idBase = model.fileName.replace(/\.[^/.]+$/, '');
-                let candidateId = idBase;
-                let suffix = 1;
-                const ids = new Set((ensureScene.models || []).map(m => m.id));
-                while (ids.has(candidateId)) {
-                  candidateId = `${idBase}-${suffix++}`;
-                }
-                ensureScene.models = [...(ensureScene.models || []), {
-                  id: candidateId,
-                  file: model.fileName,
-                  visible: true
-                }];
-                setSceneDesc(ensureScene);
-                // Also update visibility state
-                setMeshVisibility(prev => ({ ...prev, [candidateId]: true }));
-              }
+            const doc: any = await hdtRes.json();
+
+            // Pick a 3D asset from digitalAssets (new architecture)
+            const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
+            const modelAsset =
+              assets.find((a: any) => a?.type === '3d-model') ||
+              assets.find((a: any) => typeof a?.type === 'string' && a.type.includes('3d'));
+
+            // Keep a minimal reference for UI purposes only (no scene mutation here).
+            if (modelAsset?.entryPoint) {
+              setHdtModel({
+                fileName: modelAsset.entryPoint,
+                fileUrl: modelAsset.entryPointUrl,
+              });
+            } else {
+              setHdtModel(null);
             }
           }
         } catch (e) {
@@ -553,13 +558,13 @@ export default function ProjectPage() {
   useEffect(() => {
     const loadSelectedScene = async () => {
       if (!projectId || !selectedSceneId) return;
-      
+
       try {
         // Use endpoint that always regenerates from MongoDB (source of truth)
         const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
           credentials: 'include'
         });
-        
+
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
           console.log('📥 Scene loaded from backend:', scene.environment);
@@ -568,12 +573,12 @@ export default function ProjectPage() {
             scene.projectId = projectId;
           }
           setSceneDesc(scene);
-          
+
           // Initialize local environment settings from scene
           setShowGround(scene.environment?.showGround ?? false);
           setBackgroundColor(scene.environment?.background || '#404040');
           setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
-          
+
           // Load annotations from scene
           setAnnotations(scene.annotations || []);
           // Initialize visibility state for all models
@@ -589,7 +594,7 @@ export default function ProjectPage() {
         console.error('Failed to load selected scene:', err);
       }
     };
-    
+
     loadSelectedScene();
   }, [projectId, selectedSceneId]);
 
@@ -600,7 +605,7 @@ export default function ProjectPage() {
     }
   }, [activeTab]);
 
-    // Set up annotation point picking callback when viewer is ready
+  // Set up annotation point picking callback when viewer is ready
   const setupAnnotationCallback = useCallback(() => {
     if (!viewerRef.current || !projectId) {
       return;
@@ -615,11 +620,11 @@ export default function ProjectPage() {
         geometry: point,
         createdAt: new Date().toISOString()
       };
-      
+
       // Add to state - using functional update to get latest state
       setAnnotations(prevAnnotations => {
         const updatedAnnotations = [...prevAnnotations, newAnnotation];
-        
+
         // Save to backend - use functional update to get latest sceneDesc
         setSceneDesc(currentSceneDesc => {
           if (currentSceneDesc) {
@@ -627,14 +632,14 @@ export default function ProjectPage() {
               ...currentSceneDesc,
               annotations: updatedAnnotations
             };
-            
+
             // Ensure HDT document exists before saving
             ensureHDTDocument(projectId).then(exists => {
               if (!exists) {
                 console.error('Failed to ensure HDT document exists');
                 return;
               }
-              
+
               fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                 method: 'PUT',
                 credentials: 'include',
@@ -651,7 +656,7 @@ export default function ProjectPage() {
           }
           return currentSceneDesc; // Don't update sceneDesc here
         });
-        
+
         return updatedAnnotations;
       });
     });
@@ -766,7 +771,7 @@ export default function ProjectPage() {
       <div className="flex-grow-1 d-flex overflow-hidden">
         {/* 3D Viewer */}
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
-          
+
           {sceneDesc && (
             <>
               <ThreeJSViewer
@@ -935,8 +940,14 @@ export default function ProjectPage() {
                           // Determine display name: prefer model.title from scene, otherwise filename without extension
                           const fileBase = f.name.replace(/\.[^/.]+$/, '');
                           let displayName = fileBase;
-                          // Find corresponding model in sceneDesc by matching file name
-                          const sceneModel = sceneDesc?.models?.find((m: any) => m.file === f.name);
+                          // Find corresponding model in sceneDesc by matching file name (handle HDT URLs)
+                          const sceneModel = sceneDesc?.models?.find((m: any) => {
+                            // Direct match for legacy scenes
+                            if (m.file === f.name) return true;
+                            // HDT URL matching: check if URL ends with filename
+                            if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + f.name)) return true;
+                            return false;
+                          });
                           if (sceneModel && sceneModel.title) displayName = sceneModel.title;
 
                           // Use the actual model ID from the scene for visibility control
@@ -1023,7 +1034,7 @@ export default function ProjectPage() {
                                       }
                                       return null;
                                     })()}
-                                    
+
                                     {/* Transformation Controls - Always Visible */}
                                     <div className="mt-2" style={{ lineHeight: '1.2' }}>
                                       <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
@@ -1074,13 +1085,13 @@ export default function ProjectPage() {
                                           type="text"
                                           className="form-control form-control-sm"
                                           placeholder="1 or x, y, z"
-                                          value={editingModelId === modelId 
-                                            ? editedScale 
+                                          value={editingModelId === modelId
+                                            ? editedScale
                                             : (sceneModel?.scale !== undefined
-                                                ? (Array.isArray(sceneModel.scale)
-                                                    ? sceneModel.scale.join(', ')
-                                                    : String(sceneModel.scale))
-                                                : '1')}
+                                              ? (Array.isArray(sceneModel.scale)
+                                                ? sceneModel.scale.join(', ')
+                                                : String(sceneModel.scale))
+                                              : '1')}
                                           disabled={editingModelId !== modelId}
                                           onChange={(e) => {
                                             const newValue = e.target.value;
@@ -1095,13 +1106,13 @@ export default function ProjectPage() {
                                           }}
                                         />
                                       </div>
-                                      
+
                                       {saveError && editingModelId === modelId && (
                                         <div className="alert alert-danger alert-sm py-1 px-2" style={{ fontSize: '0.85em', marginBottom: '0.4rem' }}>
                                           {saveError}
                                         </div>
                                       )}
-                                      
+
                                       {isManager && (
                                         <div className="d-flex gap-2 align-items-center">
                                           {editingModelId === modelId ? (
@@ -1187,28 +1198,28 @@ export default function ProjectPage() {
                             checked={showGround}
                             onChange={async (e) => {
                               const newShowGround = e.target.checked;
-                              
+
                               // Update local state immediately for UI
                               setShowGround(newShowGround);
-                              
+
                               // Update 3D scene directly
                               viewerRef.current?.setGroundVisible(newShowGround);
-                              
+
                               // Ensure HDT document exists before saving
                               if (!await ensureHDTDocument(projectId!)) {
                                 console.error('Failed to ensure HDT document exists');
                                 return;
                               }
-                              
+
                               // Save to backend
-                              const updatedScene = { 
+                              const updatedScene = {
                                 ...sceneDesc,
                                 environment: {
                                   ...sceneDesc?.environment,
                                   showGround: newShowGround
                                 }
                               } as SceneDescription;
-                              
+
                               try {
                                 console.log('💾 Saving ground grid setting to backend:', updatedScene.environment);
                                 const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
@@ -1252,28 +1263,28 @@ export default function ProjectPage() {
                             value={backgroundColor}
                             onChange={async (e) => {
                               const newBackground = e.target.value;
-                              
+
                               // Update local state immediately for UI
                               setBackgroundColor(newBackground);
-                              
+
                               // Update 3D scene directly
                               viewerRef.current?.setBackgroundColor(newBackground);
-                              
+
                               // Ensure HDT document exists before saving
                               if (!await ensureHDTDocument(projectId!)) {
                                 console.error('Failed to ensure HDT document exists');
                                 return;
                               }
-                              
+
                               // Save to backend
-                              const updatedScene = { 
+                              const updatedScene = {
                                 ...sceneDesc,
                                 environment: {
                                   ...sceneDesc?.environment,
                                   background: newBackground
                                 }
                               } as SceneDescription;
-                              
+
                               try {
                                 const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                   method: 'PUT',
@@ -1304,28 +1315,28 @@ export default function ProjectPage() {
                               const newBackground = e.target.value;
                               // Validate hex color format
                               if (!/^#[0-9A-Fa-f]{6}$/.test(newBackground)) return;
-                              
+
                               // Update local state immediately for UI
                               setBackgroundColor(newBackground);
-                              
+
                               // Update 3D scene directly
                               viewerRef.current?.setBackgroundColor(newBackground);
-                              
+
                               // Ensure HDT document exists before saving
                               if (!await ensureHDTDocument(projectId!)) {
                                 console.error('Failed to ensure HDT document exists');
                                 return;
                               }
-                              
+
                               // Save to backend
-                              const updatedScene = { 
+                              const updatedScene = {
                                 ...sceneDesc,
                                 environment: {
                                   ...sceneDesc?.environment,
                                   background: newBackground
                                 }
                               } as SceneDescription;
-                              
+
                               try {
                                 const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                   method: 'PUT',
@@ -1380,16 +1391,16 @@ export default function ProjectPage() {
                                 try {
                                   // Update local state first
                                   setHeadlightOffset([newThetaDeg, phiDeg]);
-                                  
+
                                   // Update 3D scene directly
                                   viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
-                                  
+
                                   // Ensure HDT document exists before saving
                                   if (!await ensureHDTDocument(projectId!)) {
                                     console.error('Failed to ensure HDT document exists');
                                     return;
                                   }
-                                  
+
                                   // Save to backend
                                   const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                     method: 'PUT',
@@ -1398,7 +1409,7 @@ export default function ProjectPage() {
                                     body: JSON.stringify(updatedScene)
                                   });
                                   if (!response.ok) throw new Error('Failed to save headlight offset');
-                                  
+
                                   console.log('✅ Headlight horizontal offset saved:', newThetaDeg);
                                 } catch (err: any) {
                                   console.error('❌ Failed to save headlight offset:', err);
@@ -1432,16 +1443,16 @@ export default function ProjectPage() {
                                 try {
                                   // Update local state first
                                   setHeadlightOffset([thetaDeg, newPhiDeg]);
-                                  
+
                                   // Update 3D scene directly
                                   viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
-                                  
+
                                   // Ensure HDT document exists before saving
                                   if (!await ensureHDTDocument(projectId!)) {
                                     console.error('Failed to ensure HDT document exists');
                                     return;
                                   }
-                                  
+
                                   // Save to backend
                                   const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
                                     method: 'PUT',
@@ -1450,7 +1461,7 @@ export default function ProjectPage() {
                                     body: JSON.stringify(updatedScene)
                                   });
                                   if (!response.ok) throw new Error('Failed to save headlight offset');
-                                  
+
                                   console.log('✅ Headlight vertical offset saved:', newPhiDeg);
                                 } catch (err: any) {
                                   console.error('❌ Failed to save headlight offset:', err);
@@ -1478,7 +1489,7 @@ export default function ProjectPage() {
               {activeTab === 'annotations' && (
                 <div className="p-3 h-100 d-flex flex-column">
                   <h3 className="h6 mb-3">Annotations</h3>
-                  
+
                   {annotations.length === 0 ? (
                     <div className="flex-grow-1 d-flex align-items-center justify-content-center">
                       <p className="text-muted fst-italic">
@@ -1491,8 +1502,8 @@ export default function ProjectPage() {
                         {annotations.map((annotation) => {
                           const isSelected = selectedAnnotationIds.includes(annotation.id);
                           return (
-                            <div 
-                              key={annotation.id} 
+                            <div
+                              key={annotation.id}
                               className={`list-group-item list-group-item-action ${isSelected ? 'active' : ''}`}
                               style={{ cursor: 'pointer' }}
                               onClick={(e) => {
@@ -1518,11 +1529,10 @@ export default function ProjectPage() {
                             >
                               <div className="d-flex w-100 justify-content-between align-items-start">
                                 <h5 className="mb-1">{annotation.label}</h5>
-                                <span className={`badge ${
-                                  annotation.type === 'point' ? 'bg-primary' :
+                                <span className={`badge ${annotation.type === 'point' ? 'bg-primary' :
                                   annotation.type === 'line' ? 'bg-success' :
-                                  'bg-warning'
-                                }`}>
+                                    'bg-warning'
+                                  }`}>
                                   {annotation.type}
                                 </span>
                               </div>

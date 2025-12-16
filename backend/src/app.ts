@@ -98,7 +98,7 @@ export function createApp(): Express {
   );
 
   // URL base (public) for everything stored on disk:
-  // /assets/projects/<projectId>/{model3d|rti|tmp}/...
+  // /assets/projects/<projectId>/{3d-model|rti|tmp}/...
   app.use('/assets/projects', express.static(projectFilesRoot));
 
   // use mounted health router for /health paths

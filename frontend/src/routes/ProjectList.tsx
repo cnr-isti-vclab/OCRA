@@ -184,8 +184,8 @@ export default function Projects() {
           });
           if (res.ok) {
             const hdtData = await res.json();
-            // Check if there are digital assets of type 'model3d'
-            const has3DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'model3d') || false;
+            // Check if there are digital assets of type '3d-model'
+            const has3DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === '3d-model') || false;
             newMap[project.id] = has3DAssets;
           } else {
             newMap[project.id] = false;

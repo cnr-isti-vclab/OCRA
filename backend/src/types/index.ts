@@ -184,20 +184,43 @@ export interface CidocCrmMetadata {
 }
 
 /**
+ * Digital Asset Creation Request
+ * Used when frontend creates a new asset - backend will fill in missing fields after upload
+ */
+export interface DigitalAssetCreateRequest {
+  type: '3d-model' | 'rti' | 'image' | 'video' | 'other';
+  label: string;
+  title?: string;
+  description?: string;
+  // The following fields are calculated by backend after file upload:
+  entryPointUrl?: string;
+  entryPoint?: string;
+  mimeType?: string;
+  fileSize?: number;
+  metadata?: {
+    // Type-specific metadata (extensible)
+    [key: string]: any;
+  };
+}
+
+/**
  * Digital Asset
  * Represents any type of digital content in the asset pool
  * Currently supports 3D models, extensible to RTI, images, videos, etc.
  */
 export interface DigitalAsset {
   id: string;
-  type: 'model3d' | 'rti' | 'image' | 'video' | 'other';
-  fileName: string;
-  fileUrl: string;
-  fileSize?: number;          // Size in bytes
+  projectId: string;
+  type: '3d-model' | 'rti' | 'image' | 'video' | 'other';
   title?: string;
+  label: string;
+  entryPointUrl?: string;
+  entryPoint?: string;
+  mimeType?: string;
+  fileSize?: number;          // Size in bytes
   description?: string;
-  uploadedAt?: Date | string;
-  uploadedBy?: string;        // User ID
+  uploadedAt: Date | string;
+  uploadedBy: string;        // User ID
   
   // Type-specific metadata (extensible)
   metadata?: {
@@ -207,9 +230,10 @@ export interface DigitalAsset {
     format?: string;          // GLB, PLY, OBJ, etc.
     
     // For RTI (future)
-    rtiFormat?: string;       // PTM, HSH, etc.
+    rtiType?: string;       // PTM, HSH, etc.
     lightPositions?: number;
-    
+    zipName?: string;
+
     // For images (future)
     width?: number;
     height?: number;

@@ -283,7 +283,7 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
 //router.put('/:projectId/scene', updateProjectScene);
 
 /* ============================================================================
- * PROJECT FILES (ASSETS)
+ * PROJECT FILES
  * ============================================================================
  */
 
@@ -327,8 +327,8 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  *                         description: Unique asset identifier
  *                       type:
  *                         type: string
- *                         enum: ["model3d", "rti", "image", "video", "other"]
- *                         example: "model3d"
+ *                         enum: ["3d-model", "rti", "image", "video", "other"]
+ *                         example: "3d-model"
  *                         description: Asset type from HDT schema
  *                       fileUrl:
  *                         type: string
@@ -357,7 +357,7 @@ router.get('/:projectId/files', listProjectFiles);
  *     description: |
  *       Uploads a file and associates it with an existing asset.
  *       Files are stored under:
- *         project_files/{projectId}/model3d/{assetId}/{filename}
+ *         project_files/{projectId}/3d-model/{assetId}/{filename}
  *     tags:
  *       - Projects
  *     security:

@@ -213,15 +213,24 @@ export async function addDigitalAsset(
   projectId: string,
   asset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'>,
   userId: string
-): Promise<{ value: HDTDocument } | null> {
+): Promise<HDTDocument | null> {
   const collection = await getCollection();
 
   const assetId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date();
 
   const newAsset: DigitalAsset = {
-    ...asset,
     id: assetId,
+    projectId: projectId,
+    type: asset.type,
+    label: asset.label,
+    title: asset.title,
+    description: asset.description,
+    entryPointUrl: asset.entryPointUrl,
+    entryPoint: asset.entryPoint,
+    mimeType: asset.mimeType,
+    fileSize: asset.fileSize,
+    metadata: asset.metadata,
     uploadedAt: now,
     uploadedBy: userId
   };
@@ -271,7 +280,7 @@ export async function addDigitalAsset(
     console.log(`   - Scene asset refs:`, JSON.stringify(defaultScene.assets, null, 2));
 
     // ✅ STANDARDIZED: Return consistent format
-    return created ? createSuccessResponse(created as HDTDocument) : null;
+    return created ? (created as HDTDocument) : null;
   }
 
   // Document exists, add asset to it
@@ -284,7 +293,7 @@ export async function addDigitalAsset(
   };
 
   // Add to default scene if exists
-  const defaultSceneIndex = existing.scenes?.findIndex((s: any) => s.isDefault || s.id === 'default') ?? -1;
+  const defaultSceneIndex = existing.scenes?.findIndex((s: any) => s.isDefault) ?? -1;
 
   if (defaultSceneIndex >= 0) {
     // Add asset reference to the existing default scene
@@ -322,7 +331,7 @@ export async function addDigitalAsset(
     { returnDocument: 'after' }
   );
 
-  // ✅ STANDARDIZED: Extract document and wrap in consistent format
+  // ✅ STANDARDIZED: Extract updated document from MongoDB response
   const doc = standardizeResponse(result);
   if (doc && doc.scenes) {
     console.log(`📊 HDT document updated. Total scenes: ${doc.scenes.length}`);
@@ -331,7 +340,7 @@ export async function addDigitalAsset(
     });
   }
 
-  return doc ? createSuccessResponse(doc) : null;
+  return doc ?? null;
 }
 
 /**
@@ -783,19 +792,19 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
         continue;
       }
 
-      if (asset.type !== 'model3d') {
+      if (asset.type !== '3d-model') {
         console.log(`⏭️  Skipping non-3D asset ${asset.id} (type: ${asset.type})`);
         continue;
       }
 
-      if (!asset.fileUrl) {
+      if (!asset.entryPointUrl) {
         console.warn(`⚠️  Asset ${asset.id} has no fileUrl`);
         continue;
       }
 
       const modelDef: ModelDefinition = {
         id: asset.id,
-        file: asset.fileUrl,
+        file: asset.entryPointUrl,
         position: assetRef.position || [0, 0, 0],
         rotation: assetRef.rotation || [0, 0, 0],
         scale: assetRef.scale || [1, 1, 1],
@@ -803,7 +812,7 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
       };
 
       modelDefs.push(modelDef);
-      console.log(`📦 Added model ${asset.id}: ${asset.fileName || 'Unknown'}`);
+      console.log(`📦 Added model ${asset.id}: ${asset.entryPoint || 'Unknown'}`);
     }
   }
 

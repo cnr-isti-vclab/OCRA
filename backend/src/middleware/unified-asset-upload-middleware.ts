@@ -119,7 +119,7 @@ const storage = multer.diskStorage({
       return cb(new Error('Missing projectId in route parameters'), '');
     }
 
-    // Ensure project skeleton exists (model3d/, rti/, tmp/)
+    // Ensure project skeleton exists (3d-model/, rti/, tmp/)
     ensureProjectSkeleton(projectId);
 
     const tmpDir = projectTmpDir(projectId);

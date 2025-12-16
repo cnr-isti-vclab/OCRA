@@ -4,14 +4,14 @@
  * Handles HTTP requests for managing Heritage Digital Twin (HDT) documents.
  * The HDT document lives in MongoDB and contains:
  * - metadata (Dublin Core + CIDOC CRM, etc.)
- * - a pool of digitalAssets (model3d, rti, ...)
+ * - a pool of digitalAssets (3d-model, rti, ...)
  * - scenes and scene-asset associations (scene composition)
  *
  * Storage layout (project_files):
  * - 3D assets are stored under:
- *     project_files/<projectId>/model3d/<assetId>/<filename>
+ *     project_files/<projectId>/3d-model/<assetId>/<filename>
  *   and are served publicly as:
- *     /assets/projects/<projectId>/model3d/<assetId>/<filename>
+ *     /assets/projects/<projectId>/3d-model/<assetId>/<filename>
  *
  * - RTI assets are stored under:
  *     project_files/<projectId>/rti/<assetId>/(info.json + tiles/images/...)
@@ -45,7 +45,7 @@ import {
   getAvailableScenes
 } from '../services/hdt-metadata.service.js';
 import { getPrismaClient } from '../../db.js';
-import { User } from '../types/index.js';
+import { User, DigitalAssetCreateRequest } from '../types/index.js';
 import { RoleEnum } from '@prisma/client';
 import { projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
 import fs from 'fs/promises';
@@ -89,7 +89,7 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
 // ============================================================================
 
 /**
- * Resolve the on-disk directory of an RTI asset starting from a public file URL.
+ * Resolve the on-disk directory of an RTI asset starting from a public file entryPoint.
  *
  * Supported public URL format:
  *   /assets/projects/<projectId>/rti/<assetId>/info.json
@@ -111,18 +111,18 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
  *   projectRtiAssetDir(projectId, assetId)
  * This helper is mainly for optional legacy/fallback support.
  */
-function resolveRtiAssetDirectory(fileUrl?: string | null): string | null {
-  if (!fileUrl) return null;
+function resolveRtiAssetDirectory(entryPointUrl?: string | null): string | null {
+  if (!entryPointUrl) return null;
 
-  let urlPath = fileUrl;
+  let urlPath = entryPointUrl;
 
   // If absolute URL, extract only pathname
   try {
-    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      urlPath = new URL(fileUrl).pathname;
+    if (entryPointUrl.startsWith('http://') || entryPointUrl.startsWith('https://')) {
+      urlPath = new URL(entryPointUrl).pathname;
     }
   } catch {
-    urlPath = fileUrl;
+    urlPath = entryPointUrl;
   }
 
   const prefix = '/assets/projects/';
@@ -341,10 +341,16 @@ export async function deleteHDTMetadataHandler(req: Request, res: Response) {
  * POST /api/projects/:projectId/hdt/assets
  * Add a digital asset record to the HDT pool (metadata only).
  *
+ * Frontend provides minimal data, backend calculates:
+ * - entryPointUrl (after upload)
+ * - entryPoint (from filename)
+ * - mimeType (from file)
+ * - fileSize (from file)
+ *
  * NOTE:
- * - For model3d, the binary file is uploaded via the "project files" endpoints
+ * - For 3d-model, the binary file is uploaded via the "project files" endpoints
  *   and stored under:
- *     project_files/<projectId>/model3d/<assetId>/<filename>
+ *     project_files/<projectId>/3d-model/<assetId>/<filename>
  * - For rti, the RTI upload route stores a full folder under:
  *     project_files/<projectId>/rti/<assetId>/(info.json + data...)
  */
@@ -352,7 +358,40 @@ export async function addAssetHandler(req: Request, res: Response) {
   try {
     const { projectId } = req.params;
     const currentUser = getCurrentUser(req);
-    const assetData = req.body;
+    const body = req.body ?? {};
+
+    // Accept the new DigitalAssetCreateRequest shape
+    const normalizedAsset: DigitalAssetCreateRequest & { projectId: string } = {
+      projectId,
+      type: body.type,
+      label: body.label,
+      title: body.title,
+      description: body.description,
+      entryPointUrl: body.entryPointUrl, // Optional - backend can fill later
+      entryPoint: body.entryPoint,       // Optional - backend can fill later
+      mimeType: body.mimeType,           // Optional - backend can fill later
+      fileSize: body.fileSize,           // Optional - backend can fill later
+      metadata: body.metadata ?? {}
+    };
+
+    // Validate only the required fields that frontend must provide
+    if (!normalizedAsset.type || typeof normalizedAsset.type !== 'string') {
+      return res.status(400).json({ error: 'Asset "type" is required' });
+    }
+    if (!normalizedAsset.label || typeof normalizedAsset.label !== 'string') {
+      return res.status(400).json({ error: 'Asset "label" is required' });
+    }
+
+    // Optional validation: if provided, these should be valid
+    if (normalizedAsset.entryPointUrl !== undefined && typeof normalizedAsset.entryPointUrl !== 'string') {
+      return res.status(400).json({ error: 'Asset "entryPointUrl" must be a string if provided' });
+    }
+    if (normalizedAsset.entryPoint !== undefined && typeof normalizedAsset.entryPoint !== 'string') {
+      return res.status(400).json({ error: 'Asset "entryPoint" must be a string if provided' });
+    }
+    if (normalizedAsset.mimeType !== undefined && typeof normalizedAsset.mimeType !== 'string') {
+      return res.status(400).json({ error: 'Asset "mimeType" must be a string if provided' });
+    }
 
     if (!currentUser) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -363,7 +402,7 @@ export async function addAssetHandler(req: Request, res: Response) {
       return res.status(403).json({ error: 'Only project managers can add assets' });
     }
 
-    const updatedDoc = await addDigitalAsset(projectId, assetData, currentUser.sub);
+    const updatedDoc = await addDigitalAsset(projectId, normalizedAsset, currentUser.sub);
 
     if (!updatedDoc) {
       return res.status(404).json({ error: 'HDT document not found' });
@@ -374,7 +413,7 @@ export async function addAssetHandler(req: Request, res: Response) {
 
     res.status(201).json({
       success: true,
-      value: updatedDoc  // Frontend looks for json.value.digitalAssets
+      value: updatedDoc  // Frontend will use json.value.digitalAssets
     });
   } catch (error: any) {
     console.error('Error adding asset:', error);
@@ -431,7 +470,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
  *     project_files/<projectId>/rti/<assetId>
  *
  * NOTE:
- * - model3d file cleanup is typically handled by the project files endpoints
+ * - 3d-model file cleanup is typically handled by the project files endpoints
  *   (or by a dedicated cleanup strategy if desired).
  */
 
@@ -474,8 +513,8 @@ export async function removeAssetHandler(req: Request, res: Response) {
     // 2) Determine directory to delete based on asset type
     let assetDirToDelete: string | null = null;
 
-    if (asset.type === 'model3d') {
-      // 3D Model: project_files/<projectId>/model3d/<assetId>/
+    if (asset.type === '3d-model') {
+      // 3D Model: project_files/<projectId>/3d-model/<assetId>/
       assetDirToDelete = projectModel3dAssetDir(projectId, assetId);
       console.log('📁 [removeAssetHandler] 3D asset directory to delete:', assetDirToDelete);
 
@@ -830,7 +869,7 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
  *
  * This handler generates (or regenerates) a derived scene description from MongoDB
  * and returns it to the client. The returned JSON includes resolved asset URLs
- * (e.g. /assets/projects/<projectId>/model3d/<assetId>/<filename>).
+ * (e.g. /assets/projects/<projectId>/3d-model/<assetId>/<filename>).
  *
  * NOTE:
  * Even if you also export scene JSON to disk for debugging, the viewer should
