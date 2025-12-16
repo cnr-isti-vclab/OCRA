@@ -360,36 +360,25 @@ export async function updateDigitalAsset(
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
 
-  const doc = await collection.findOne({ projectId });
-  if (!doc) {
-    return null;
-  }
-
-  const assetIndex = doc.digitalAssets.findIndex((asset: any) => asset.id === assetId);
-  if (assetIndex === -1) {
-    return null;
-  }
-
-  const updatedAsset = {
-    ...doc.digitalAssets[assetIndex],
-    ...updates
+  const setOps: Record<string, any> = {
+    updatedAt: new Date(),
+    updatedBy: userId,
   };
 
-  doc.digitalAssets[assetIndex] = updatedAsset;
+  for (const [k, v] of Object.entries(updates)) {
+    if (v !== undefined) {
+      setOps[`digitalAssets.$.${k}`] = v;
+    }
+  }
+console.log("[updateDigitalAsset] projectId", projectId, "assetId", assetId, "updates", updates);
 
   const result = await collection.findOneAndUpdate(
-    { projectId },
-    {
-      $set: {
-        digitalAssets: doc.digitalAssets,
-        updatedAt: new Date(),
-        updatedBy: userId
-      }
-    },
-    { returnDocument: 'after' }
+    { projectId, "digitalAssets.id": assetId },
+    { $set: setOps },
+    { returnDocument: "after" }
   );
+console.log("[updateDigitalAsset] returned doc?", !!result?.value);
 
-  // ✅ STANDARDIZED: Extract document from MongoDB response
   return standardizeResponse(result);
 }
 

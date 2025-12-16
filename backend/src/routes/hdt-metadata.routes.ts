@@ -1,37 +1,18 @@
 /**
  * HDT Metadata Routes
  *
- * API endpoints for managing Heritage Digital Twin (HDT) documents stored in MongoDB.
- * Includes metadata, digital assets, scenes, and scene-asset associations.
+ * API endpoints for managing Heritage Digital Twin (HDT) documents in MongoDB.
+ * Handles metadata (Dublin Core, CIDOC-CRM), digital assets, scenes, and scene-asset associations.
  *
- * Base path (mounted by app): /api/projects
+ * Base path: `/api/projects`
  *
- * Main routes:
- * - GET    /api/projects/:projectId/hdt
- * - POST   /api/projects/:projectId/hdt
- * - PUT    /api/projects/:projectId/hdt
- * - DELETE /api/projects/:projectId/hdt
- *
- * - POST   /api/projects/:projectId/hdt/assets
- * - POST   /api/projects/:projectId/hdt/assets/rti/upload
- * - PUT    /api/projects/:projectId/hdt/assets/:assetId
- * - DELETE /api/projects/:projectId/hdt/assets/:assetId
- *
- * - GET    /api/projects/:projectId/scenes
- * - GET    /api/projects/:projectId/scenes/:sceneId
- * - GET    /api/projects/:projectId/scenes/:sceneId/export
- *
- * - POST   /api/projects/:projectId/hdt/scenes
- * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId
- * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId
- *
- * - POST   /api/projects/:projectId/hdt/scenes/:sceneId/assets
- * - PUT    /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * - DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- *
- * - GET    /api/projects/:projectId/export/rdf
- *
- * - POST   /api/projects/sparql-proxy
+ * Key routes:
+ * - HDT: GET/POST/PUT/DELETE `/projects/:projectId/hdt`
+ * - Assets: POST `/projects/:projectId/hdt/assets`, PUT/DELETE `/projects/:projectId/hdt/assets/:assetId`
+ * - Scenes: GET `/projects/:projectId/scenes`, GET `/projects/:projectId/scenes/:sceneId`
+ * - Scene management: POST/PUT/DELETE `/projects/:projectId/hdt/scenes[/:sceneId]`
+ * - Scene assets: POST/PUT/DELETE `/projects/:projectId/hdt/scenes/:sceneId/assets[/:assetId]`
+ * - Exports: GET `/projects/:projectId/export/rdf`, POST `/sparql-proxy`
  */
 
 import { Router } from 'express';

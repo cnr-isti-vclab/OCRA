@@ -846,7 +846,7 @@ export default function HDTPage() {
         entryPoint: responseData.entryPoint,
         mimeType: responseData.mimeType || file.type,
         uploadedAt: new Date().toISOString(),
-        metadata: responseData.metadata || {}
+        ...(responseData.metadata !== undefined ? { metadata: responseData.metadata } : {})
       };
 
       // Type-specific handling (mostly for future extensibility)

@@ -204,11 +204,15 @@ type RTILayout = 'image' | 'deepzoom' | 'deepzoom1px' | 'google' | 'zoomify' | '
 export interface DigitalAsset {
   id: string;
   type: '3d-model' | 'rti' | 'image' | 'video' | 'other';
-  fileName: string;
-  fileUrl: string;
-  fileSize?: number;          // Size in bytes
+  projectId: string;
+  label: string;
   title?: string;
   description?: string;
+  fileName: string;
+  entryPointUrl: string;
+  entryPoint: string;
+  mimeType: string;
+  fileSize?: number;          // Size in bytes
   uploadedAt?: Date | string;
   uploadedBy?: string;        // User ID
 
@@ -223,10 +227,7 @@ export interface DigitalAsset {
     // Summary metadata extracted from info.json in the RTI asset directory.
     rtiType?: RTIFormat;      // PTM, L-PTM, HSH, Y-RBF, etc.
     rtiLayout?: RTILayout;    // Deep zoom / tiling layout ("image", "deepzoom", etc.)
-    rtiHasNormals?: boolean;  // Whether normals are available in the RTI asset
-    nplanes?: number;         // Number of coefficient planes / source images
-    colorspace?: string;      // Color space used by the RTI data (e.g. "rgb", "srgb")
-    totalSize?: number;       // Total asset size in bytes (original ZIP or approximated)
+    zipName?: string;         // zip file name
 
     // For images and RTI preview rendering
     width?: number;           // Pixel width

@@ -94,6 +94,9 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
       return res.status(400).json({ error: 'assetId is required.' });
     }
 
+    // Extract userId from authenticated request (consistent with other controllers)
+    const userId = (req as any).user?.sub || 'system';
+
     const { assetProcessing } = assetReq;
     const { type, originalFile, extractedPath, detectedFiles } = assetProcessing;
 
@@ -107,13 +110,13 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
 
     switch (type) {
       case '3d-direct':
-        return await handle3DDirectUpload(req, projectId, assetId, originalFile, res, cleanupPaths);
+        return await handle3DDirectUpload(req, projectId, assetId, originalFile, userId, res, cleanupPaths);
 
       case '3d':
-        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, res, cleanupPaths);
+        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, userId, res, cleanupPaths);
 
       case 'rti':
-        return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, res, cleanupPaths);
+        return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, userId, res, cleanupPaths);
 
       default:
         return res.status(400).json({ error: `Unsupported upload type: ${type}` });
@@ -141,6 +144,7 @@ async function handle3DDirectUpload(
   projectId: string,
   assetId: string,
   file: Express.Multer.File,
+  userId: string,
   res: Response,
   cleanupPaths: string[]
 ): Promise<Response> {
@@ -165,13 +169,11 @@ async function handle3DDirectUpload(
   // Update HDT digital asset metadata (entryPointUrl is the new contract)
   await updateDigitalAsset(projectId, assetId, {
     type: '3d-model',
-    fileName: file.originalname,
     mimeType: file.mimetype,
     fileSize: st.size,
     entryPointUrl,
-    entryPoint,
-    storageDir: targetDir,
-  });
+    entryPoint
+  }, userId);
 
   return res.status(201).json({
     success: true,
@@ -202,6 +204,7 @@ async function handle3DFromZipUpload(
   assetId: string,
   extractedPath: string,
   detectedFiles: Array<{ name: string; path: string; type: string }>,
+  userId: string,
   res: Response,
   cleanupPaths: string[]
 ): Promise<Response> {
@@ -227,13 +230,10 @@ async function handle3DFromZipUpload(
 
   await updateDigitalAsset(projectId, assetId, {
     type: '3d-model',
-    fileName: mainModelFile.name,
     fileSize: totalSize,
     entryPointUrl,
-    entryPoint,
-    storageDir: targetDir,
-    additionalFiles: detectedFiles.map(f => ({ name: f.name, type: f.type })),
-  });
+    entryPoint
+  }, userId);
 
   return res.status(201).json({
     success: true,
@@ -264,6 +264,7 @@ async function handleRTIUpload(
   assetId: string,
   extractedPath: string,
   originalFile: Express.Multer.File,
+  userId: string,
   res: Response,
   cleanupPaths: string[]
 ): Promise<Response> {
@@ -289,14 +290,12 @@ async function handleRTIUpload(
   console.log(`✅ [UnifiedUpload] RTI ZIP processed, entry: ${entryPointUrl}`);
 
   await updateDigitalAsset(projectId, assetId, {
-    type: 'rti',
-    fileName: originalFile.originalname,
-    mimeType: originalFile.mimetype,
-    fileSize: totalSize,
-    entryPointUrl,
-    entryPoint,
-    storageDir: targetDir,
-  });
+    metadata: {
+      rtiType: 'hsh',
+      rtiLayout: 'deepzoom',
+      zipName: originalFile.originalname
+    }
+  }, userId);
 
   return res.status(201).json({
     success: true,

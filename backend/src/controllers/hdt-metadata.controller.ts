@@ -506,8 +506,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
       projectId,
       assetId,
       type: asset.type,
-      fileName: asset.fileName,
-      fileUrl: asset.entryPointUrl
+      entryPointUrl: asset.entryPointUrl
     });
 
     // 2) Determine directory to delete based on asset type
@@ -589,7 +588,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
 
     return res.json({
       success: true,
-      message: `Asset "${asset.fileName || assetId}" deleted successfully`,
+      message: `Asset "${asset.label || assetId}" deleted successfully`,
       updatedDoc
     });
 
