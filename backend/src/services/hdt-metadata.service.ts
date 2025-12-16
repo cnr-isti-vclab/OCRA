@@ -798,7 +798,7 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
       }
 
       if (!asset.entryPointUrl) {
-        console.warn(`⚠️  Asset ${asset.id} has no fileUrl`);
+        console.warn(`⚠️  Asset ${asset.id} has no entryPointUrl`);
         continue;
       }
 

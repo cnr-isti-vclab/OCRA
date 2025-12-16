@@ -863,7 +863,7 @@ ${(hdtDoc.digitalAssets || [])
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>
     <dc:format>${escapeXml(asset.metadata?.format || 'model/gltf+json')}</dc:format>
     <dc:date>${asset.uploadedAt ? new Date(asset.uploadedAt).toISOString().split('T')[0] : ''}</dc:date>
-    <dc:source>${escapeXml(asset.fileUrl || '')}</dc:source>
+    <dc:source>${escapeXml(asset.entryPointUrl || '')}</dc:source>
     <dc:title>${escapeXml(asset.title || asset.fileName || '')}</dc:title>
     <dc:description>${escapeXml(asset.description || '')}</dc:description>
     <hdt:HP21 rdf:resource="urn:project:${projectId}"/>

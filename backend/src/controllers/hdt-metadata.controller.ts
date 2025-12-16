@@ -507,7 +507,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
       assetId,
       type: asset.type,
       fileName: asset.fileName,
-      fileUrl: asset.fileUrl
+      fileUrl: asset.entryPointUrl
     });
 
     // 2) Determine directory to delete based on asset type
@@ -524,8 +524,8 @@ export async function removeAssetHandler(req: Request, res: Response) {
       console.log('📁 [removeAssetHandler] RTI asset directory to delete:', assetDirToDelete);
 
       // Fallback: try to resolve from fileUrl if standard path doesn't work
-      if (!assetDirToDelete && typeof asset.fileUrl === 'string') {
-        assetDirToDelete = resolveRtiAssetDirectory(asset.fileUrl) || null;
+      if (!assetDirToDelete && typeof asset.entryPointUrl === 'string') {
+        assetDirToDelete = resolveRtiAssetDirectory(asset.entryPointUrl) || null;
         console.log('📁 [removeAssetHandler] RTI fallback directory:', assetDirToDelete);
       }
     }

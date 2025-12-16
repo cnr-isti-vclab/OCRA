@@ -154,15 +154,15 @@ export default function HDTPage() {
     }
 
     // Common fallback
-    if (typeof asset.fileUrl === 'string' && asset.fileUrl.length > 0) {
-      return asset.fileUrl;
+    if (typeof asset.entryPointUrl === 'string' && asset.entryPointUrl.length > 0) {
+      return asset.entryPointUrl;
     }
 
     // Upload response fallback (unified uploader)
     const u = asset.uploadResponse;
     if (u && typeof u === 'object') {
       if (typeof u.infoJsonUrl === 'string' && u.infoJsonUrl.length > 0) return u.infoJsonUrl;
-      if (typeof u.fileUrl === 'string' && u.fileUrl.length > 0) return u.fileUrl;
+      if (typeof u.entryPointUrl === 'string' && u.entryPointUrl.length > 0) return u.entryPointUrl;
     }
 
     return null;
@@ -1185,31 +1185,6 @@ export default function HDTPage() {
                             </td>
                             <td>
                               <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
-
-                              {/* Links / copy */}
-                              {asset.fileUrl && (
-                                <div>
-                                  {asset.type === 'rti' ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-link btn-sm p-0 align-baseline small text-decoration-none"
-                                      onClick={() => copyAssetUrlToClipboard(asset.fileUrl!)}
-                                      title="Copy RTI info.json URL to clipboard"
-                                    >
-                                      Copy <i className="bi bi-clipboard me-1"></i>
-                                    </button>
-                                  ) : (
-                                    <a
-                                      href={asset.fileUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="small text-decoration-none"
-                                    >
-                                      Download ↗
-                                    </a>
-                                  )}
-                                </div>
-                              )}
                             </td>
                             <td className="text-muted small">
                               {asset.fileSize ? `${(asset.fileSize / (1024 * 1024)).toFixed(2)} MB` : '-'}

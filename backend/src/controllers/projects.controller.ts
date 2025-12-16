@@ -272,7 +272,7 @@ export async function listProjectFiles(req: Request, res: Response) {
     const files = assets.map(asset => ({
       assetId: asset.id,
       type: asset.type,  // "3d-model" | "rti" | "image" | "video" | "other"[file:2]
-      fileUrl: asset.fileUrl  // URL HDT
+      entryPointUrl: asset.entryPointUrl  // URL HDT
     }));
 
     res.json({ 
