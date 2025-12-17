@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { ThreePresenter, AnnotationManager, LoadingProgress } from '../../lib/ThreePresenter/src';
+import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from '../../lib/ThreePresenter/src';
 import type { SceneDescription } from '../../lib/ThreePresenter/src/types/SceneTypes';
 import type { Annotation } from '../../../../shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
@@ -36,6 +36,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
   ({ width = '100%', height = '100%', sceneDesc, onReady, onLoadProgress, onLoadComplete, onLoadError }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
+    const uiRef = useRef<DefaultUI | null>(null);
     const isFirstLoadRef = useRef<boolean>(true);
     const prevSceneRef = useRef<SceneDescription | null>(null);
 
@@ -59,7 +60,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         presenterRef.current?.applyModelTransform(modelId, position, rotation, scale);
       },
       setAnnotationButtonVisible: (visible: boolean) => {
-        presenterRef.current?.setAnnotationButtonVisible(visible);
+        uiRef.current?.setButtonVisible('annotation', visible);
       },
       setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => {
         if (presenterRef.current) {
@@ -90,7 +91,17 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       console.log('🎬 Initializing ThreePresenter with OcraFileUrlResolver');
       // Create OCRA file URL resolver for loading models from OCRA API
       const fileResolver = new OcraFileUrlResolver();
-      presenterRef.current = new ThreePresenter(mountRef.current, fileResolver);
+      presenterRef.current = new ThreePresenter({
+        mount: mountRef.current,
+        fileUrlResolver: fileResolver
+      });
+
+      // Initialize default UI overlay
+      uiRef.current = new DefaultUI(presenterRef.current/*, {
+        container: {
+          position: 'top-left'
+        }
+      }*/);
 
       // Notify parent that presenter is ready
       if (onReady) {
@@ -99,6 +110,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
 
       return () => {
         console.log('🛑 Disposing ThreePresenter');
+        uiRef.current?.dispose();
         presenterRef.current?.dispose();
       };
     }, [onReady]);
@@ -144,13 +156,13 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         presenterRef.current.loadScene(sceneDesc, false)
           .then(() => {
             // Show UI buttons after scene is loaded (they're hidden by default)
-            if (presenterRef.current) {
-              presenterRef.current.setButtonVisible('home', true);
-              presenterRef.current.setButtonVisible('light', true);
-              presenterRef.current.setButtonVisible('lightPosition', true);
-              presenterRef.current.setButtonVisible('env', true);
-              presenterRef.current.setButtonVisible('screenshot', true);
-              presenterRef.current.setButtonVisible('camera', true);
+            if (presenterRef.current && uiRef.current) {
+              uiRef.current.setButtonVisible('home', true);
+              uiRef.current.setButtonVisible('light', true);
+              uiRef.current.setButtonVisible('lightPosition', true);
+              uiRef.current.setButtonVisible('env', true);
+              uiRef.current.setButtonVisible('screenshot', true);
+              uiRef.current.setButtonVisible('camera', true);
               // Note: 'annotation' button visibility is controlled separately via setAnnotationButtonVisible()
             }
           })

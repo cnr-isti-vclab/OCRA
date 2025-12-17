@@ -916,20 +916,6 @@ export default function ProjectPage() {
                     </button>
                   </div>
 
-                  {/* HDT Model Info or Prompt */}
-                  {hdtModel ? (
-                    <div className="alert alert-info small py-2 mb-2 d-flex align-items-center">
-                      <i className="bi bi-info-circle me-2"></i>
-                      <div className="flex-grow-1">
-                        Default HDT model: <strong>{hdtModel.fileName}</strong>
-                      </div>
-                      {isManager && (
-                        <Link to={`/projects/${projectId}/hdt`} className="btn btn-sm btn-outline-primary">
-                          Change
-                        </Link>
-                      )}
-                    </div>
-                  ) : null}
 
                   <div className="flex-grow-1 overflow-auto">
                     {files.length === 0 ? (
@@ -937,15 +923,29 @@ export default function ProjectPage() {
                     ) : (
                       <div className="list-group list-group-flush">
                         {files.map(f => {
-                          // Determine display name: prefer model.title from scene, otherwise filename without extension
-                          const fileBase = f.name.replace(/\.[^/.]+$/, '');
+                          // Handle diverse response formats (legacy name vs new assetId/entryPointUrl)
+                          const entryUrl = (f as any).entryPointUrl || (f as any).fileUrl || f.name || '';
+                          const safeAssetId = (f as any).assetId || f.name || 'unknown';
+
+                          // Derive filename from URL if possible
+                          let fileName = f.name;
+                          if (!fileName && entryUrl) {
+                            fileName = entryUrl.split('/').pop() || safeAssetId;
+                          }
+                          if (!fileName) fileName = safeAssetId;
+
+                          // Determine display name: prefer model.title from scene
+                          const fileBase = fileName.replace(/\.[^/.]+$/, '');
                           let displayName = fileBase;
-                          // Find corresponding model in sceneDesc by matching file name (handle HDT URLs)
+
+                          // Find corresponding model in sceneDesc
                           const sceneModel = sceneDesc?.models?.find((m: any) => {
                             // Direct match for legacy scenes
-                            if (m.file === f.name) return true;
+                            if (m.file === fileName) return true;
                             // HDT URL matching: check if URL ends with filename
-                            if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + f.name)) return true;
+                            if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
+                            // Match by ID if possible
+                            if (m.id === safeAssetId) return true;
                             return false;
                           });
                           if (sceneModel && sceneModel.title) displayName = sceneModel.title;
@@ -956,7 +956,7 @@ export default function ProjectPage() {
                           const isSelected = selectedModelId === modelId;
 
                           return (
-                            <div key={f.name} className="list-group-item p-0">
+                            <div key={(f as any).assetId || f.name || Math.random()} className="list-group-item p-0">
                               <div className="d-flex align-items-center p-2">
                                 <button
                                   onClick={() => toggleMeshVisibility(modelId)}
