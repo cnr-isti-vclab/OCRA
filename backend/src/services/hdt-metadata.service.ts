@@ -229,7 +229,7 @@ export async function addDigitalAsset(
     entryPointUrl: asset.entryPointUrl,
     entryPoint: asset.entryPoint,
     mimeType: asset.mimeType,
-    fileSize: asset.fileSize,
+    entrySize: asset.entrySize,
     metadata: asset.metadata,
     uploadedAt: now,
     uploadedBy: userId

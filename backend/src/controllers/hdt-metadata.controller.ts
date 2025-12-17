@@ -346,7 +346,7 @@ export async function deleteHDTMetadataHandler(req: Request, res: Response) {
  * - entryPointUrl (after upload)
  * - entryPoint (from filename)
  * - mimeType (from file)
- * - fileSize (from file)
+ * - entrySize
  *
  * NOTE:
  * - For 3d-model, the binary file is uploaded via the "project files" endpoints
@@ -388,7 +388,7 @@ export async function addAssetHandler(req: Request, res: Response) {
       entryPointUrl: body.entryPointUrl, // Optional - backend can fill later
       entryPoint: body.entryPoint,       // Optional - backend can fill later
       mimeType: body.mimeType,           // Optional - backend can fill later
-      fileSize: body.fileSize,           // Optional - backend can fill later
+      entrySize: body.entrySize,           // Optional - backend can fill later
       metadata: body.metadata ?? {}
     };
 
@@ -461,7 +461,7 @@ export async function addAssetHandler(req: Request, res: Response) {
       entryPointUrl: normalizedAsset.entryPointUrl ?? null,
       entryPoint: normalizedAsset.entryPoint ?? null,
       mimeType: normalizedAsset.mimeType ?? null,
-      fileSize: normalizedAsset.fileSize ?? null
+      entrySize: normalizedAsset.entrySize ?? null
     });
 
     // Keep derived scene descriptions in sync (used by the viewer).

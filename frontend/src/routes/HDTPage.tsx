@@ -86,12 +86,33 @@ interface GettyAATTerms {
   }>;
 }
 
-interface HDTModel {
-  fileName: string;
-  fileUrl?: string;
-  fileSize?: number;
+type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
+
+interface DigitalAsset {
+  id: string;
+  type: AssetType;
+  label?: string;
+  title?: string;
+
+  entryPoint?: string;
+  entryPointUrl?: string;
+
+  fileName?: string;
+  entrySize?: number;
+
   mimeType?: string;
   uploadedAt?: string;
+
+  metadata?: any;
+}
+
+interface SceneConfig {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  assets?: Array<any>;
+  environment?: Record<string, any>;
 }
 
 interface HDTMetadata {
@@ -100,9 +121,10 @@ interface HDTMetadata {
   dublinCore: DublinCoreMetadata;
   cidocCrm: CidocCrmMetadata;
   gettyAAT: GettyAATTerms;
-  digitalAssets?: Array<any>;  // New: Digital Assets pool
-  scenes?: Array<any>;         // New: Scene configurations
-  hdtModel?: HDTModel;         // Legacy: Single model (for backward compatibility)
+
+  digitalAssets?: DigitalAsset[];
+  scenes?: SceneConfig[];
+
   customMetadata?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
@@ -117,161 +139,21 @@ export default function HDTPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes' | 'cidoc-crm'>('dublin-core');
 
   // Digital Assets state
-  const [digitalAssets, setDigitalAssets] = useState<Array<any>>([]);
-  const [projectFiles, setProjectFiles] = useState<Array<{ name: string; url: string; size: number }>>([]);
+  const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-
-  // HELPERS
-
-  /**
-   * Normalize asset type across backend migrations.
-   * Backend currently uses '3d-model'/'rti'. Some legacy frontend code used 'model3d'.
-   */
-  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'other' => {
-    const s = String(t || '').toLowerCase();
-    if (s === '3d-model' || s === 'model3d' || s === '3d' || s.includes('3d')) return '3d-model';
-    if (s === 'rti' || s.includes('rti')) return 'rti';
-    return 'other';
-  };
-
-  /**
-   * Return the best "entry point" URL for an asset (viewer/download).
-   * Prefer entryPointUrl (new schema). Fallback to fileUrl and uploadResponse when needed.
-   */
-  const getAssetEntryPointUrl = (asset: any): string | null => {
-    if (!asset) return null;
-
-    // New schema (recommended)
-    if (typeof asset.entryPointUrl === 'string' && asset.entryPointUrl.length > 0) {
-      return asset.entryPointUrl;
-    }
-
-    // Common fallback
-    if (typeof asset.entryPointUrl === 'string' && asset.entryPointUrl.length > 0) {
-      return asset.entryPointUrl;
-    }
-
-    // Upload response fallback (unified uploader)
-    const u = asset.uploadResponse;
-    if (u && typeof u === 'object') {
-      if (typeof u.infoJsonUrl === 'string' && u.infoJsonUrl.length > 0) return u.infoJsonUrl;
-      if (typeof u.entryPointUrl === 'string' && u.entryPointUrl.length > 0) return u.entryPointUrl;
-    }
-
-    return null;
-  };
-
-  /**
-   * Return a nice filename for UI/actions.
-   * Prefer entryPoint (new schema). Fallback to fileName and uploadResponse.
-   */
-  const getAssetEntryPointName = (asset: any): string => {
-    if (!asset) return '(unnamed)';
-
-    if (typeof asset.entryPoint === 'string' && asset.entryPoint.length > 0) return asset.entryPoint;
-    if (typeof asset.fileName === 'string' && asset.fileName.length > 0) return asset.fileName;
-
-    const u = asset.uploadResponse;
-    if (u && typeof u === 'object') {
-      if (typeof u.fileName === 'string' && u.fileName.length > 0) return u.fileName;
-    }
-
-    // Last resort: title/label/id
-    return asset.title || asset.label || asset.id || '(unnamed)';
-  };
-
-
-  const unwrapHdtDoc = (json: any) => {
-    // Preferred: { success: true, value: <HDTDocument> }
-    if (json?.value && typeof json.value === 'object' && json.value.projectId) return json.value;
-
-    // If backend returns the HDTDocument directly
-    if (json?.projectId) return json;
-
-    // Legacy nested wrapper (old bug/format)
-    if (json?.value?.value && json.value.value.projectId) return json.value.value;
-
-    return json;
-  };
-
-  const copyAssetUrlToClipboard = async (url: string) => {
-    try {
-      // 1. Preferred: modern async clipboard API (supported in all modern browsers)
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(url);
-        setSuccessMessage('✓ Link copied to clipboard');
-        setError(null);
-        return;
-      }
-
-      // 2. Fallback: use a temporary textarea WITHOUT execCommand.
-      //    Instead of copying directly to clipboard (not possible without execCommand),
-      //    we use the Clipboard API *even in non-secure contexts* via a "copy event" trick.
-      await new Promise<void>((resolve, reject) => {
-        const textarea = document.createElement('textarea');
-        textarea.value = url;
-
-        // Hide the textarea
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        textarea.style.pointerEvents = 'none';
-        textarea.style.zIndex = '-1';
-
-        document.body.appendChild(textarea);
-        textarea.select();
-
-        // Try using the Clipboard API inside a "copy" event
-        const onCopy = async (e: ClipboardEvent) => {
-          try {
-            e.preventDefault();
-            if (e.clipboardData) {
-              e.clipboardData.setData('text/plain', url);
-              resolve();
-            } else {
-              reject(new Error('No clipboardData available'));
-            }
-          } catch (err) {
-            reject(err);
-          } finally {
-            document.removeEventListener('copy', onCopy);
-            document.body.removeChild(textarea);
-          }
-        };
-
-        document.addEventListener('copy', onCopy);
-
-        // Manually dispatch a copy event
-        const successful = document.dispatchEvent(
-          new ClipboardEvent('copy', { bubbles: true, cancelable: true })
-        );
-
-        if (!successful) {
-          reject(new Error('Copy event was not handled'));
-        }
-      });
-
-      setSuccessMessage('✓ Link copied to clipboard');
-      setError(null);
-    } catch (err) {
-      console.error('Failed to copy asset URL:', err);
-      setError('Failed to copy link to clipboard');
-    }
-  };
-
   // Scenes state
-  const [scenes, setScenes] = useState<Array<any>>([]);
+  const [scenes, setScenes] = useState<SceneConfig[]>([]);
   const [editingScene, setEditingScene] = useState<any | null>(null);
   const [showSceneEditor, setShowSceneEditor] = useState(false);
 
-  // Legacy 3D Model state (for backward compatibility during migration)
-  const [selectedModel, setSelectedModel] = useState<HDTModel | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const initialLoadRef = useRef(true);
 
   // Form state for Dublin Core
   const [dcTitle, setDcTitle] = useState('');
@@ -299,12 +181,114 @@ export default function HDTPage() {
   const [condition, setCondition] = useState('');
   const [culturalContext, setCulturalContext] = useState('');
   const [styleOrPeriod, setStyleOrPeriod] = useState('');
-  const [dataLoaded, setDataLoaded] = useState(false);
-  const initialLoadRef = useRef(true); // Track if this is the first load
 
   useEffect(() => {
     fetchProjectAndMetadata();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  // HELPERS
+
+  /**
+   * Normalize asset type across backend migrations.
+   * Backend uses '3d-model'/'rti'. We keep a tolerant mapper anyway.
+   */
+  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'other' => {
+    const s = String(t || '').toLowerCase();
+    if (s === '3d-model' || s === 'model3d' || s === '3d' || s.includes('3d')) return '3d-model';
+    if (s === 'rti' || s.includes('rti')) return 'rti';
+    return 'other';
+  };
+
+  /**
+   * Return the best "entry point" URL for an asset (viewer/download).
+   * Prefer entryPointUrl (current schema).
+   */
+  const getAssetEntryPointUrl = (asset: any): string | null => {
+    if (!asset) return null;
+    if (typeof asset.entryPointUrl === 'string' && asset.entryPointUrl.length > 0) {
+      return asset.entryPointUrl;
+    }
+    return null;
+  };
+
+  /**
+   * Return a nice filename for UI/actions.
+   * Prefer entryPoint (current schema). Fallback to fileName.
+   */
+  const getAssetEntryPointName = (asset: any): string => {
+    if (!asset) return '(unnamed)';
+    if (typeof asset.entryPoint === 'string' && asset.entryPoint.length > 0) return asset.entryPoint;
+    if (typeof asset.fileName === 'string' && asset.fileName.length > 0) return asset.fileName;
+    return asset.title || asset.label || asset.id || '(unnamed)';
+  };
+
+  const unwrapHdtDoc = (json: any) => {
+    // Preferred: { success: true, value: <HDTDocument> }
+    if (json?.value && typeof json.value === 'object' && json.value.projectId) return json.value;
+    // If backend returns the HDTDocument directly
+    if (json?.projectId) return json;
+    // Legacy nested wrapper (old bug/format)
+    if (json?.value?.value && json.value.value.projectId) return json.value.value;
+    return json;
+  };
+
+  const copyAssetUrlToClipboard = async (url: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        setSuccessMessage('✓ Link copied to clipboard');
+        setError(null);
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        textarea.style.zIndex = '-1';
+
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        const onCopy = async (e: ClipboardEvent) => {
+          try {
+            e.preventDefault();
+            if (e.clipboardData) {
+              e.clipboardData.setData('text/plain', url);
+              resolve();
+            } else {
+              reject(new Error('No clipboardData available'));
+            }
+          } catch (err) {
+            reject(err);
+          } finally {
+            document.removeEventListener('copy', onCopy);
+            document.body.removeChild(textarea);
+          }
+        };
+
+        document.addEventListener('copy', onCopy);
+
+        const successful = document.dispatchEvent(
+          new ClipboardEvent('copy', { bubbles: true, cancelable: true })
+        );
+
+        if (!successful) {
+          reject(new Error('Copy event was not handled'));
+        }
+      });
+
+      setSuccessMessage('✓ Link copied to clipboard');
+      setError(null);
+    } catch (err) {
+      console.error('Failed to copy asset URL:', err);
+      setError('Failed to copy link to clipboard');
+    }
+  };
 
   /**
    * Create a new asset entry in HDT "digitalAssets" and return the generated assetId.
@@ -315,57 +299,44 @@ export default function HDTPage() {
     label: string,
     title: string
   ): Promise<string> => {
-    if (!projectId) {
-      throw new Error('Missing projectId');
-    }
+    if (!projectId) throw new Error('Missing projectId');
 
     const actualType = type === 'auto' ? '3d-model' : type;
-
     console.log(`🔧 [CreateHDTAsset] Creating ${actualType} asset: ${label}`);
 
-    try {
-      const res = await fetch(
-        `${getApiBase()}/api/projects/${projectId}/hdt/assets`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: actualType, label, title }),
-        }
-      );
+    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: actualType, label, title }),
+    });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error(`❌ [CreateHDTAsset] HTTP ${res.status}:`, err);
-        throw new Error(err.error || `Failed to create ${actualType} asset in HDT`);
-      }
-
-      const json: any = await res.json();
-      console.log(`📥 [CreateHDTAsset] Backend response:`, json);
-
-      // ✅ Normalize response to a single HDTDocument shape
-      const hdtDoc = unwrapHdtDoc(json);
-
-      if (!hdtDoc?.digitalAssets || !Array.isArray(hdtDoc.digitalAssets)) {
-        console.error(`❌ [CreateHDTAsset] Invalid HDT document:`, hdtDoc);
-        throw new Error('Backend did not return a valid HDT document');
-      }
-
-      const assets = hdtDoc.digitalAssets;
-      const assetId = assets.length > 0 ? assets[assets.length - 1].id : undefined;
-
-      if (!assetId) {
-        console.error(`❌ [CreateHDTAsset] No assetId found in HDT document:`, hdtDoc);
-        throw new Error('Backend did not return a valid assetId');
-      }
-
-      console.log(`✅ [CreateHDTAsset] Successfully created asset: ${assetId}`);
-      return assetId;
-
-    } catch (error: any) {
-      console.error(`💥 [CreateHDTAsset] Error creating ${actualType} asset:`, error);
-      throw new Error(`Failed to create ${actualType} asset: ${error.message}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error(`❌ [CreateHDTAsset] HTTP ${res.status}:`, err);
+      throw new Error(err.error || `Failed to create ${actualType} asset in HDT`);
     }
+
+    const json: any = await res.json();
+    console.log(`📥 [CreateHDTAsset] Backend response:`, json);
+
+    const hdtDoc = unwrapHdtDoc(json);
+
+    if (!hdtDoc?.digitalAssets || !Array.isArray(hdtDoc.digitalAssets)) {
+      console.error(`❌ [CreateHDTAsset] Invalid HDT document:`, hdtDoc);
+      throw new Error('Backend did not return a valid HDT document');
+    }
+
+    const assets = hdtDoc.digitalAssets;
+    const assetId = assets.length > 0 ? assets[assets.length - 1].id : undefined;
+
+    if (!assetId) {
+      console.error(`❌ [CreateHDTAsset] No assetId found in HDT document:`, hdtDoc);
+      throw new Error('Backend did not return a valid assetId');
+    }
+
+    console.log(`✅ [CreateHDTAsset] Successfully created asset: ${assetId}`);
+    return assetId;
   };
 
   /**
@@ -373,18 +344,19 @@ export default function HDTPage() {
    * Backend: PUT /api/projects/:projectId/hdt/assets/:assetId
    */
   const updateHdtAsset = async (assetId: string, patch: Record<string, any>): Promise<void> => {
-    if (!projectId) {
-      throw new Error('Missing projectId');
-    }
+    if (!projectId) throw new Error('Missing projectId');
 
     console.log(`🔧 [UpdateHDTAsset] Updating asset ${assetId} with:`, patch);
 
-    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`, {
-      method: 'PUT',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    });
+    const res = await fetch(
+      `${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`,
+      {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }
+    );
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -394,25 +366,18 @@ export default function HDTPage() {
 
     console.log(`✅ [UpdateHDTAsset] Successfully updated asset ${assetId}`);
   };
+
   /**
    * Delete an asset from HDT.
    * Backend: DELETE /api/projects/:projectId/hdt/assets/:assetId
-   *
-   * IMPORTANT:
-   * We assume the backend also deletes the corresponding storage folder:
-   * - 3d-model: project_files/<projectId>/3d-model/<assetId>/
-   * - rti:     project_files/<projectId>/rti/<assetId>/
-   *
-   * If backend does not delete files, fix it there (do not re-introduce legacy /files/:filename deletes).
    */
   const deleteHdtAsset = async (assetId: string): Promise<void> => {
-    if (!projectId) {
-      throw new Error('Missing projectId');
-    }
-    const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
+    if (!projectId) throw new Error('Missing projectId');
+
+    const res = await fetch(
+      `${getApiBase()}/api/projects/${projectId}/hdt/assets/${encodeURIComponent(assetId)}`,
+      { method: 'DELETE', credentials: 'include' }
+    );
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -430,9 +395,7 @@ export default function HDTPage() {
       // Fetch project details
       const projectResponse = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!projectResponse.ok) {
@@ -440,79 +403,35 @@ export default function HDTPage() {
       }
 
       const projectData = await projectResponse.json();
-      // Some endpoints return {success:true, project: {...}}
       const proj: Project = (projectData?.project ?? projectData) as Project;
       setProject(proj);
 
-      // Fetch project files for 3D model selection
-      // NOTE: This endpoint may become less relevant in the new per-asset directory model.
-      try {
-        const filesRes = await fetch(`${getApiBase()}/api/projects/${projectId}/files`, {
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (filesRes.ok) {
-          const filesJson = await filesRes.json();
-          setProjectFiles(filesJson.files || []);
-        }
-      } catch (e) {
-        console.warn('Could not fetch project files:', e);
-      }
-
       // Fetch HDT metadata (might not exist yet)
-      try {
-        const metadataResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      const metadataResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-        if (metadataResponse.ok) {
-          const metadataData = await metadataResponse.json();
-          setMetadata(metadataData);
-          populateFormFromMetadata(metadataData);
+      if (metadataResponse.ok) {
+        const metadataData: HDTMetadata = await metadataResponse.json();
+        setMetadata(metadataData);
+        populateFormFromMetadata(metadataData);
 
-          // Load digital assets (new architecture)
-          if (metadataData?.digitalAssets && Array.isArray(metadataData.digitalAssets)) {
-            setDigitalAssets(metadataData.digitalAssets);
-          }
-
-          // Load scenes (new architecture)
-          if (metadataData?.scenes && Array.isArray(metadataData.scenes)) {
-            setScenes(metadataData.scenes);
-          }
-
-          // Backward compatibility: if hdtModel exists but no digitalAssets, migrate it
-          if (metadataData?.hdtModel && (!metadataData.digitalAssets || metadataData.digitalAssets.length === 0)) {
-            const legacyAsset = {
-              id: `asset_legacy_${Date.now()}`,
-              type: '3d-model',
-              fileName: metadataData.hdtModel.fileName,
-              fileUrl: metadataData.hdtModel.fileUrl,
-              fileSize: metadataData.hdtModel.fileSize,
-              mimeType: metadataData.hdtModel.mimeType,
-              uploadedAt: metadataData.hdtModel.uploadedAt,
-            };
-            setDigitalAssets([legacyAsset]);
-            setSelectedModel(metadataData.hdtModel); // Keep for now
-          }
-        } else if (metadataResponse.status === 404) {
-          // No metadata yet - that's okay, we'll initialize it
-          console.log('No HDT metadata found, will create on first save');
-        } else {
-          throw new Error(`Failed to fetch metadata: ${metadataResponse.status}`);
-        }
-      } catch (metaError: any) {
-        console.warn('Could not fetch metadata:', metaError);
-        // Not a critical error, user can create new metadata
+        setDigitalAssets(Array.isArray(metadataData.digitalAssets) ? metadataData.digitalAssets : []);
+        setScenes(Array.isArray(metadataData.scenes) ? metadataData.scenes : []);
+      } else if (metadataResponse.status === 404) {
+        console.log('No HDT metadata found, will create on first save');
+        setMetadata(null);
+        setDigitalAssets([]);
+        setScenes([]);
+      } else {
+        throw new Error(`Failed to fetch metadata: ${metadataResponse.status}`);
       }
     } catch (e: any) {
-      console.error('Failed to fetch project:', e);
+      console.error('Failed to fetch project/metadata:', e);
       setError(e?.message ?? String(e));
     } finally {
       setLoading(false);
-      // Delay enabling auto-save to ensure all state updates have completed
       setTimeout(() => {
         setDataLoaded(true);
         initialLoadRef.current = false;
@@ -521,47 +440,18 @@ export default function HDTPage() {
   };
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
-    // Handle both direct and nested metadata structures
-    const dublinCore = (meta as any).metadata?.dublinCore || meta.dublinCore;
-    const cidocCrm = (meta as any).metadata?.cidocCrm || meta.cidocCrm;
+    const dublinCore = meta.dublinCore;
+    const cidocCrm = meta.cidocCrm;
 
     // Dublin Core
     if (dublinCore) {
       setDcTitle(dublinCore.title || '');
       setDcDescription(dublinCore.description || '');
-      // Handle creator as either string or array
-      if (Array.isArray(dublinCore.creator)) {
-        setDcCreator(dublinCore.creator.join(', '));
-      } else if (typeof dublinCore.creator === 'string') {
-        setDcCreator(dublinCore.creator);
-      } else {
-        setDcCreator('');
-      }
-      // Handle subject as either string or array
-      if (Array.isArray(dublinCore.subject)) {
-        setDcSubject(dublinCore.subject.join(', '));
-      } else if (typeof dublinCore.subject === 'string') {
-        setDcSubject(dublinCore.subject);
-      } else {
-        setDcSubject('');
-      }
+      setDcCreator(Array.isArray(dublinCore.creator) ? dublinCore.creator.join(', ') : '');
+      setDcSubject(Array.isArray(dublinCore.subject) ? dublinCore.subject.join(', ') : '');
       setDcDate(dublinCore.date || '');
-      // Handle type as either string or array
-      if (Array.isArray(dublinCore.type)) {
-        setDcType(dublinCore.type.join(', '));
-      } else if (typeof dublinCore.type === 'string') {
-        setDcType(dublinCore.type);
-      } else {
-        setDcType('');
-      }
-      // Handle language as either string or array
-      if (Array.isArray(dublinCore.language)) {
-        setDcLanguage(dublinCore.language.join(', '));
-      } else if (typeof dublinCore.language === 'string') {
-        setDcLanguage(dublinCore.language);
-      } else {
-        setDcLanguage('');
-      }
+      setDcType(Array.isArray(dublinCore.type) ? dublinCore.type.join(', ') : '');
+      setDcLanguage(Array.isArray(dublinCore.language) ? dublinCore.language.join(', ') : '');
       setDcCoverage(dublinCore.coverage || '');
       setDcRights(dublinCore.rights || '');
       setDcSource(dublinCore.source || '');
@@ -588,7 +478,6 @@ export default function HDTPage() {
   // Manual save function (called by Save button)
   const handleManualSave = async () => {
     await autoSaveMetadata();
-    // Show success message
     setSuccessMessage('✅ Metadata saved successfully!');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
@@ -601,7 +490,6 @@ export default function HDTPage() {
       setSaving(true);
       setError(null);
 
-      // Build metadata object from form
       const metadataPayload: Partial<HDTMetadata> = {
         dublinCore: {
           title: dcTitle || undefined,
@@ -625,10 +513,9 @@ export default function HDTPage() {
           },
           spatialCoverage: {
             placeName: placeName || undefined,
-            coordinates: (latitude && longitude) ? {
-              latitude: parseFloat(latitude),
-              longitude: parseFloat(longitude),
-            } : undefined,
+            coordinates: (latitude && longitude)
+              ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) }
+              : undefined,
           },
           material: material ? material.split(',').map(s => s.trim()).filter(Boolean) : undefined,
           technique: technique ? technique.split(',').map(s => s.trim()).filter(Boolean) : undefined,
@@ -637,46 +524,35 @@ export default function HDTPage() {
           styleOrPeriod: styleOrPeriod ? styleOrPeriod.split(',').map(s => s.trim()).filter(Boolean) : undefined,
         },
         gettyAAT: {},
-        // New: Digital Assets
         digitalAssets: digitalAssets.length > 0 ? digitalAssets : undefined,
-        // New: Scenes
         scenes: scenes.length > 0 ? scenes : undefined,
-        // Legacy: Keep hdtModel for backward compatibility
-        hdtModel: selectedModel || undefined,
       };
 
-      // Check if metadata exists - if not, create it
       if (!metadata) {
-        // POST to create
         const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
           method: 'POST',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(metadataPayload),
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || 'Failed to create metadata');
         }
 
         const newMetadata = await response.json();
         setMetadata(newMetadata);
       } else {
-        // PUT to update
         const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
           method: 'PUT',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(metadataPayload),
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || 'Failed to update metadata');
         }
 
@@ -689,10 +565,14 @@ export default function HDTPage() {
     } finally {
       setSaving(false);
     }
-  }, [projectId, dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage,
-    dcCoverage, dcRights, dcSource, objectType, timeSpanBegin, timeSpanEnd, period, century,
-    placeName, latitude, longitude, material, technique, condition, culturalContext, styleOrPeriod,
-    digitalAssets, scenes, selectedModel]);
+  }, [
+    projectId,
+    dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, dcCoverage, dcRights, dcSource,
+    objectType, timeSpanBegin, timeSpanEnd, period, century, placeName, latitude, longitude,
+    material, technique, condition, culturalContext, styleOrPeriod,
+    digitalAssets, scenes,
+    metadata,
+  ]);
 
   if (loading) {
     return (
@@ -736,47 +616,32 @@ export default function HDTPage() {
     const fileName = file.name.toLowerCase();
     const ext = fileName.split('.').pop() || '';
 
-    // Check if it's a ZIP file (potential RTI)
     if (ext === 'zip') {
-      // For ZIP files, we assume RTI if filename contains RTI-related keywords
-      // This is a heuristic since we can't inspect ZIP contents in the browser
       const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
       const hasRtiKeyword = rtiKeywords.some(keyword => fileName.includes(keyword));
-
       if (hasRtiKeyword) {
         console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${file.name}`);
         return 'rti';
       }
-
-      // Default ZIP files to 3d-model (could be 3D model archive)
       console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${file.name}`);
       return '3d-model';
     }
 
-    // Check if it's a direct 3D model file
-    const model3dExtensions = [
-      'ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d',
-      'stl', '3ds', 'blend', 'ase', 'ifc'
-    ];
-
+    const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'blend', 'ase', 'ifc'];
     if (model3dExtensions.includes(ext)) {
       console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
       return '3d-model';
     }
 
-    // Default fallback
     console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${file.name}`);
     return '3d-model';
   };
 
   /**
-   * Unified asset upload handler
-   * Supports: Direct 3D files, ZIP with 3D models, ZIP with RTI data
+   * Unified asset upload handler (2-step flow preserved)
    */
   const handleUnifiedAssetUpload = async (file: File, assetLabel: string, assetTitle: string) => {
-    if (!projectId) {
-      throw new Error('Missing projectId');
-    }
+    if (!projectId) throw new Error('Missing projectId');
 
     try {
       setError(null);
@@ -784,7 +649,7 @@ export default function HDTPage() {
       setUploading(true);
       setUploadProgress(0);
 
-      // 1) Create asset entry in HDT first - determine type from file
+      // 1) Create asset entry in HDT first
       const assetType = determineAssetType(file);
       console.log(`🔍 [UnifiedUpload] Detected asset type: ${assetType} for file: ${file.name}`);
       const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
@@ -817,7 +682,6 @@ export default function HDTPage() {
         xhr.addEventListener('error', () => reject(new Error('Network error')));
         xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
-        // Use unified endpoint
         xhr.open('POST', `${getApiBase()}/api/projects/${projectId}/files`);
         xhr.withCredentials = true;
 
@@ -836,12 +700,12 @@ export default function HDTPage() {
       const uploadJson: any = await uploadResponse.json();
       console.log('🔄 [UnifiedUpload] Backend response:', uploadJson);
 
-      const responseData = uploadJson.value || uploadJson; // Fallback compatibility
+      const responseData = uploadJson.value || uploadJson;
 
-      // 4) Update asset with complete data (no more uploadResponse field)
+      // 4) Update asset with complete data (entrySize, entryPointUrl, etc.)
       const updatePayload: Record<string, any> = {
         fileName: responseData.fileName || file.name,
-        fileSize: responseData.fileSize || file.size,
+        entrySize: responseData.entrySize ?? file.size,
         entryPointUrl: responseData.entryPointUrl,
         entryPoint: responseData.entryPoint,
         mimeType: responseData.mimeType || file.type,
@@ -849,17 +713,14 @@ export default function HDTPage() {
         ...(responseData.metadata !== undefined ? { metadata: responseData.metadata } : {})
       };
 
-      // Type-specific handling (mostly for future extensibility)
       switch (responseData.type) {
         case 'rti':
           updatePayload.type = 'rti';
           break;
-
         case '3d-model':
         case '3d-model-archive':
           updatePayload.type = '3d-model';
           break;
-
         default:
           throw new Error(`Unsupported upload response type: ${responseData.type}`);
       }
@@ -872,17 +733,15 @@ export default function HDTPage() {
 
       const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset "${file.name}" uploaded and saved successfully!`);
-
     } catch (err: any) {
       console.error('[UnifiedUpload] Error:', err);
       setError(err?.message || 'Failed to upload asset');
-
-      // TODO: Consider cleanup of partial asset creation on error
     } finally {
       setUploading(false);
       setUploadProgress(0);
     }
   };
+
   return (
     <div className="container py-4">
       {/* Header */}
@@ -1140,7 +999,6 @@ export default function HDTPage() {
                 Manage all digital assets for this HC2 Heritage Digital Twin. Assets in the pool can be used across multiple scenes.
               </p>
 
-              {/* Asset Type Filter/Info */}
               <div className="mb-4 p-3 bg-light rounded">
                 <h6 className="mb-2">Supported Asset Types</h6>
                 <div className="d-flex gap-2 flex-wrap">
@@ -1159,7 +1017,7 @@ export default function HDTPage() {
 
                 {digitalAssets.length === 0 ? (
                   <div className="alert alert-info">
-                    <strong>No assets yet.</strong> Upload or select files below to add them to your asset pool.
+                    <strong>No assets yet.</strong> Upload files below to add them to your asset pool.
                   </div>
                 ) : (
                   <div className="table-responsive">
@@ -1187,7 +1045,7 @@ export default function HDTPage() {
                               <strong>{asset.label || asset.title || '(unnamed)'}</strong>
                             </td>
                             <td className="text-muted small">
-                              {asset.fileSize ? `${(asset.fileSize / (1024 * 1024)).toFixed(2)} MB` : '-'}
+                              {asset.entrySize ? `${(asset.entrySize / (1024 * 1024)).toFixed(2)} MB` : '-'}
                             </td>
                             <td className="text-muted small">
                               {asset.uploadedAt ? new Date(asset.uploadedAt).toLocaleDateString() : '-'}
@@ -1200,7 +1058,6 @@ export default function HDTPage() {
 
                                 return (
                                   <div className="d-flex gap-2 flex-wrap">
-                                    {/* 3D: Download + Copy URL */}
                                     {kind === '3d-model' && url && (
                                       <>
                                         <a
@@ -1223,7 +1080,6 @@ export default function HDTPage() {
                                       </>
                                     )}
 
-                                    {/* RTI: Open info.json + Copy URL */}
                                     {kind === 'rti' && url && (
                                       <>
                                         <a
@@ -1246,14 +1102,12 @@ export default function HDTPage() {
                                       </>
                                     )}
 
-                                    {/* If no URL yet */}
                                     {!url && (
                                       <span className="text-muted small">
                                         No URL available yet
                                       </span>
                                     )}
 
-                                    {/* Delete */}
                                     <button
                                       className="btn btn-sm btn-outline-danger"
                                       onClick={async () => {
@@ -1267,7 +1121,6 @@ export default function HDTPage() {
                                           setSuccessMessage(null);
 
                                           await deleteHdtAsset(asset.id);
-
                                           setDigitalAssets((prev) => prev.filter((a) => a.id !== asset.id));
 
                                           await fetchProjectAndMetadata();
@@ -1284,7 +1137,6 @@ export default function HDTPage() {
                                 );
                               })()}
                             </td>
-
                           </tr>
                         ))}
                       </tbody>
@@ -1293,9 +1145,9 @@ export default function HDTPage() {
                 )}
               </div>
 
-              {/* Upload New Asset (3D) */}
+              {/* Upload New Asset */}
               <div className="mb-4">
-                <h6 className="text-primary mb-2">Add a new 3D model</h6>
+                <h6 className="text-primary mb-2">Add a new asset</h6>
                 <input
                   id="unifiedAssetInput"
                   type="file"
@@ -1349,7 +1201,6 @@ export default function HDTPage() {
                   </button>
                 </div>
               </div>
-
             </div>
           )}
 
@@ -1368,11 +1219,11 @@ export default function HDTPage() {
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() => {
-                      const newScene = {
+                      const newScene: SceneConfig = {
                         id: `scene_${Date.now()}`,
                         name: `Scene ${scenes.length + 1}`,
                         description: '',
-                        isDefault: scenes.length === 0, // First scene is default
+                        isDefault: scenes.length === 0,
                         assets: [],
                         environment: {
                           backgroundColor: '#f0f0f0',
@@ -1423,7 +1274,6 @@ export default function HDTPage() {
                                     }
                                     if (confirm(`Delete scene "${scene.name}"?`)) {
                                       const updatedScenes = scenes.filter((_, i) => i !== index);
-                                      // If deleting default scene, make first scene default
                                       if (scene.isDefault && updatedScenes.length > 0) {
                                         updatedScenes[0].isDefault = true;
                                       }
@@ -1485,7 +1335,6 @@ export default function HDTPage() {
                         ></button>
                       </div>
                       <div className="modal-body">
-                        {/* Scene Name */}
                         <div className="mb-3">
                           <label className="form-label">Scene Name *</label>
                           <input
@@ -1497,7 +1346,6 @@ export default function HDTPage() {
                           />
                         </div>
 
-                        {/* Scene Description */}
                         <div className="mb-3">
                           <label className="form-label">Description</label>
                           <textarea
@@ -1509,7 +1357,6 @@ export default function HDTPage() {
                           ></textarea>
                         </div>
 
-                        {/* Default Scene Toggle */}
                         <div className="mb-3 form-check">
                           <input
                             type="checkbox"
@@ -1525,7 +1372,6 @@ export default function HDTPage() {
 
                         <hr />
 
-                        {/* Assets in Scene */}
                         <h6 className="mb-3">Assets in Scene</h6>
                         {digitalAssets.length === 0 ? (
                           <div className="alert alert-warning">
@@ -1546,21 +1392,15 @@ export default function HDTPage() {
                                         checked={isInScene}
                                         onChange={(e) => {
                                           if (e.target.checked) {
-                                            // Add asset to scene
-                                            // Don't set position - let auto-centering logic in ThreePresenter handle it
                                             const newAssetRef = {
                                               assetId: asset.id,
                                               visible: true,
-                                              // position: undefined - let ThreePresenter auto-center
-                                              // rotation: undefined - defaults to [0,0,0]
-                                              // scale: undefined - defaults to 1
                                             };
                                             setEditingScene({
                                               ...editingScene,
                                               assets: [...(editingScene.assets || []), newAssetRef],
                                             });
                                           } else {
-                                            // Remove asset from scene
                                             setEditingScene({
                                               ...editingScene,
                                               assets: (editingScene.assets || []).filter((a: any) => a.assetId !== asset.id),
@@ -1573,10 +1413,10 @@ export default function HDTPage() {
                                           <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
                                           <span className="badge bg-secondary ms-2">{asset.type}</span>
                                         </div>
-                                        {asset.fileSize && (
+                                        {asset.entrySize !== undefined && (
                                           <small className="text-muted">
-                                            {asset.fileSize
-                                              ? `${(asset.fileSize / 1024 / 1024).toFixed(2)} MB`
+                                            {asset.entrySize
+                                              ? `${(asset.entrySize / 1024 / 1024).toFixed(2)} MB`
                                               : '-'
                                             }
                                           </small>
@@ -1586,7 +1426,6 @@ export default function HDTPage() {
                                         <button
                                           className="btn btn-sm btn-outline-secondary"
                                           onClick={() => {
-                                            // TODO: Show transform controls for this asset
                                             alert('Transform controls coming soon! For now, assets use default position (0,0,0).');
                                           }}
                                         >
@@ -1603,7 +1442,6 @@ export default function HDTPage() {
 
                         <hr />
 
-                        {/* Environment Settings */}
                         <h6 className="mb-3">Environment Settings</h6>
                         <div className="row">
                           <div className="col-md-6 mb-3">
@@ -1677,18 +1515,15 @@ export default function HDTPage() {
                             }
 
                             const existingIndex = scenes.findIndex(s => s.id === editingScene.id);
-                            let updatedScenes;
+                            let updatedScenes: any[];
 
                             if (existingIndex >= 0) {
-                              // Update existing scene
                               updatedScenes = [...scenes];
                               updatedScenes[existingIndex] = editingScene;
                             } else {
-                              // Add new scene
                               updatedScenes = [...scenes, editingScene];
                             }
 
-                            // If this scene is marked as default, unmark others
                             if (editingScene.isDefault) {
                               updatedScenes = updatedScenes.map(s =>
                                 s.id === editingScene.id ? s : { ...s, isDefault: false }
@@ -1912,11 +1747,11 @@ export default function HDTPage() {
           )}
         </div>
 
-        {/* Footer with Auto-Save Status */}
+        {/* Footer */}
         <div className="card-footer d-flex justify-content-between align-items-center">
           <div className="text-muted small">
-            {metadata ? (
-              <>Last updated: {new Date(metadata.updatedAt!).toLocaleString()}</>
+            {metadata?.updatedAt ? (
+              <>Last updated: {new Date(metadata.updatedAt).toLocaleString()}</>
             ) : (
               <>No metadata saved yet</>
             )}

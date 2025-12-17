@@ -196,7 +196,7 @@ export interface DigitalAssetCreateRequest {
   entryPointUrl?: string;
   entryPoint?: string;
   mimeType?: string;
-  fileSize?: number;
+  entrySize?: number;
   metadata?: {
     // Type-specific metadata (extensible)
     [key: string]: any;
@@ -217,7 +217,7 @@ export interface DigitalAsset {
   entryPointUrl?: string;
   entryPoint?: string;
   mimeType?: string;
-  fileSize?: number;          // Size in bytes
+  entrySize?: number;          // Size in bytes
   description?: string;
   uploadedAt: Date | string;
   uploadedBy: string;        // User ID

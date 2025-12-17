@@ -170,7 +170,7 @@ async function handle3DDirectUpload(
   await updateDigitalAsset(projectId, assetId, {
     type: '3d-model',
     mimeType: file.mimetype,
-    fileSize: st.size,
+    entrySize: st.size,
     entryPointUrl,
     entryPoint
   }, userId);
@@ -183,7 +183,7 @@ async function handle3DDirectUpload(
       type: '3d-model',
       fileName: file.originalname,
       mimeType: file.mimetype,
-      fileSize: st.size,
+      entrySize: st.size,
       entryPointUrl,
       entryPoint,
       storageDir: targetDir,
@@ -230,7 +230,7 @@ async function handle3DFromZipUpload(
 
   await updateDigitalAsset(projectId, assetId, {
     type: '3d-model',
-    fileSize: totalSize,
+    entrySize: totalSize,
     entryPointUrl,
     entryPoint
   }, userId);
@@ -242,7 +242,7 @@ async function handle3DFromZipUpload(
       assetId,
       type: '3d-model',
       fileName: mainModelFile.name,
-      fileSize: totalSize,
+      entrySize: totalSize,
       entryPointUrl,
       entryPoint,
       storageDir: targetDir,
@@ -280,7 +280,7 @@ async function handleRTIUpload(
     throw new Error('RTI archive missing required info.json at dataset root');
   }
 
-  // Compute total dataset size AFTER extraction (this fixes fileSize=0)
+  // Compute total dataset size AFTER extraction
   const totalSize = await getDirectorySizeBytes(targetDir);
 
   const baseUrl = getPublicBaseUrl(req);
@@ -305,7 +305,7 @@ async function handleRTIUpload(
       type: 'rti',
       fileName: originalFile.originalname,
       mimeType: originalFile.mimetype,
-      fileSize: totalSize,
+      entrySize: totalSize,
       entryPointUrl,
       entryPoint,
       storageDir: targetDir,

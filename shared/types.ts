@@ -212,7 +212,7 @@ export interface DigitalAsset {
   entryPointUrl: string;
   entryPoint: string;
   mimeType: string;
-  fileSize?: number;          // Size in bytes
+  entrySize?: number;          // Size in bytes
   uploadedAt?: Date | string;
   uploadedBy?: string;        // User ID
 
