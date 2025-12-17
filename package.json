@@ -35,6 +35,8 @@
     "@types/three": "^0.180.0"
   },
   "overrides": {
-    "three": "^0.180.0"
+    "three": "^0.180.0",
+     "prisma": "5.18.0",
+     "@prisma/client": "5.18.0"
   }
 }

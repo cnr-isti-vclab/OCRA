@@ -15,9 +15,10 @@
     "test:quick": "tsx ./scripts/test-log-audit.ts && tsx ./scripts/test-get-users-stats.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.15.0",
+    "@prisma/client": "^5.18.0",
     "@types/n3": "^1.26.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "extract-zip": "^2.0.1",
     "mongodb": "^5.9.0",
@@ -34,7 +35,7 @@
     "@types/node": "^22.0.0",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
-    "prisma": "^6.15.0",
+    "prisma": "^5.18.0",
     "tsx": "^4.7.0",
     "typescript": "^5.9.2"
   },

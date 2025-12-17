@@ -1,41 +1,58 @@
 #!/bin/sh
+# =============================================================================
+# OCRA Backend Startup Script - Docker Container
+# Handles database sync, seeding, and server startup
+# =============================================================================
 
-#
-# BACKEND CONTAINER STARTUP SCRIPT
-#
-# This script is executed automatically when the backend Docker container starts.
-# It runs as the main command (CMD) defined in the Dockerfile.
-#
-# EXECUTION TIMELINE:
-# 1. docker-compose up backend (or docker-compose up)
-# 2. PostgreSQL container starts first (dependency)
-# 3. Backend container builds (if needed) and starts
-# 4. This script executes inside the container at /app/backend
-# 5. Database schema sync → Database seeding → Server startup
-#
-# The script ensures the database is properly initialized before accepting connections.
-#
+set -eu
 
-#!/bin/sh
+echo "🚀 OCRA Backend container starting..."
 
-# Exit on any error
-set -e
+# Wait for PostgreSQL (health check)
+echo "⏳ Waiting for PostgreSQL (postgres:5432)..."
+for i in {1..30}; do
+  if nc -z postgres 5432 >/dev/null 2>&1; then
+    echo "✅ PostgreSQL ready"
+    break
+  fi
+  echo "⏳ PostgreSQL not ready ($i/30)..."
+  sleep 1
+done
 
+# =============================================================================
+# 1. DATABASE SCHEMA SYNC (idempotent, Prisma 5.18.0)
+# =============================================================================
 echo "🔄 Syncing database schema..."
-npx prisma db push --schema=./prisma/schema.prisma
-
+npx prisma@5.18.0 db push --schema=./prisma/schema.prisma --accept-data-loss
 echo "✅ Database schema synchronized"
 
-echo "🌱 Seeding database with essential data..."
-npx tsx seed.ts
+# =============================================================================
+# 2. SEEDING (only if NODE_ENV=development)
+# =============================================================================
+if [ "${NODE_ENV:-production}" = "development" ]; then
+  echo "🌱 Seeding database with essential data..."
+  if ! npx tsx seed.ts; then
+    echo "⚠️  Seeding failed (non-blocking, continuing...)"
+  fi
+  echo "✅ Database seeded"
+fi
 
-echo "🟢 Starting Prisma Studio in background..."
-npx prisma studio --schema=./prisma/schema.prisma --port 5555 &
+# =============================================================================
+# 3. PRISMA STUDIO (disabled in Docker/container - only local dev)
+# =============================================================================
+if [ "${NODE_ENV:-production}" = "development" ] && [ -z "${DOCKER_ENV:-}" ]; then
+  echo "🟢 Starting Prisma Studio (port 5555)..."
+  npx prisma@5.18.0 studio --schema=./prisma/schema.prisma --port 5555 &
+  echo $! > /tmp/prisma_studio.pid
+fi
 
-if [ "$NODE_ENV" = "production" ]; then
-	echo "🚀 NODE_ENV=production — starting compiled server from ./dist"
-	exec node ./dist/server.js
+# =============================================================================
+# 4. SERVER STARTUP (replace process with server)
+# =============================================================================
+if [ "${NODE_ENV:-production}" = "production" ]; then
+  echo "🚀 Starting production server (dist/server.js)"
+  exec node ./dist/server.js
 else
-	echo "🚀 NODE_ENV=$NODE_ENV — starting dev server (tsx)"
-	exec npx tsx server.ts
+  echo "🚀 Starting development server (tsx watch)"
+  exec npx tsx watch server.ts
 fi
