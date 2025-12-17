@@ -26,7 +26,7 @@ import { RoleEnum } from '@prisma/client';
 
 import { getPrismaClient } from '../../db.js';
 import { getValidSession } from '../../db.js';
-import { logAuditEvent } from '../../db.js';
+import { auditBestEffort } from '../utils/audit.js';
 
 import type { User } from '../types/index.js';
 
@@ -275,9 +275,9 @@ export async function listProjectFiles(req: Request, res: Response) {
       entryPointUrl: asset.entryPointUrl  // URL HDT
     }));
 
-    res.json({ 
+    res.json({
       files,
-      totalAssets: files.length 
+      totalAssets: files.length
     });
   } catch (error) {
     console.error('Error listing project files:', error);
@@ -311,37 +311,25 @@ export async function uploadProjectFile(req: Request, res: Response) {
   const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
   if (!isManager) {
     // Audit unauthorized attempt (keep your existing pattern)
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'file.upload',
-        success: false,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
-        payload: { projectId, error: 'Unauthorized: not project manager' },
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log unauthorized file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
-    }
-
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'file.upload',
+      success: false,
+      payload: { projectId, error: 'Unauthorized: not project manager' },
+    });
     return res.status(403).json({ error: 'Only the project manager can upload files' });
   }
 
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) {
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'file.upload',
-        success: false,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
-        payload: { projectId, error: 'No file uploaded' },
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log failed file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
-    }
-
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'file.upload',
+      success: false,
+      payload: { projectId, error: 'No file uploaded' },
+    });
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
@@ -354,25 +342,20 @@ export async function uploadProjectFile(req: Request, res: Response) {
   }
 
   // Audit success (best-effort)
-  try {
-    await logAuditEvent({
-      userSub: currentUser.sub,
-      eventType: 'file.upload',
-      success: true,
-      userAgent: req.headers['user-agent'] || null,
-      ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
-      payload: {
-        projectId,
-        assetId,
-        filename: file.filename,
-        originalName: file.originalname,
-        size: file.size,
-        mimetype: file.mimetype,
-      },
-    });
-  } catch (auditErr) {
-    console.warn('Failed to log file upload audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
-  }
+  await auditBestEffort({
+    req,
+    userSub: currentUser.sub,
+    action: 'file.upload',
+    success: true,
+    payload: {
+      projectId,
+      assetId,
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
+    },
+  });
 
   // Finalize upload: move into 3d-model/ASSET_ID and update scene.json
   try {
@@ -841,23 +824,18 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     };
 
     // Audit (best-effort)
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'project.create',
-        success: true,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
-        payload: {
-          projectId: project.id,
-          projectName: project.name,
-          description: project.description,
-          public: project.public,
-        },
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log project creation audit event:', auditErr instanceof Error ? auditErr.message : auditErr);
-    }
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'project.create',
+      success: true,
+      payload: {
+        projectId: project.id,
+        projectName: project.name,
+        description: project.description,
+        public: project.public,
+      },
+    });
 
     res.status(201).json({ success: true, project: projectWithManager });
   } catch (error) {
@@ -870,57 +848,134 @@ export async function createProject(req: Request, res: Response): Promise<void> 
 }
 
 /**
- * Update a project (only allowed for project managers)
+ * Update a project (manager only)
+ *
+ * PUT /api/projects/:projectId
+ *
+ * Semantics:
+ * - projectId is taken ONLY from the URL path
+ * - request body supports partial updates (PATCH-like semantics)
+ * - forbidden fields in body: id, createdAt, updatedAt
+ * - updatedAt is managed automatically by the database
+ *
+ * Audit:
+ * - action: "project.update"
+ * - success: true  -> payload contains ONLY the patch
+ * - success: false -> payload contains patch + error
  */
 export async function updateProject(req: Request, res: Response): Promise<void> {
+  const db = getPrismaClient();
+
   try {
     const { projectId } = req.params;
-    const { name, description, public: isPublic, managerId } = req.body;
-
     if (!projectId) {
       res.status(400).json({ error: 'Project ID is required' });
       return;
     }
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      res.status(400).json({ error: 'Project name is required and must be a non-empty string' });
+    // Authentication
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser) {
+      res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    const db = getPrismaClient();
+    // Explicitly forbid immutable/system fields
+    const forbiddenFields = ['id', 'createdAt', 'updatedAt'] as const;
+    const forbiddenInBody = forbiddenFields.filter((k) =>
+      Object.prototype.hasOwnProperty.call(req.body ?? {}, k)
+    );
 
-    const existingProject = await db.project.findUnique({ where: { id: projectId } });
+    if (forbiddenInBody.length > 0) {
+      res.status(400).json({
+        error: `Forbidden field(s) in request body: ${forbiddenInBody.join(', ')}`,
+      });
+      return;
+    }
+
+    // Build audit patch: ONLY fields actually provided by the client
+    const auditPatch: Record<string, any> = {};
+    for (const [key, value] of Object.entries(req.body ?? {})) {
+      if (value === undefined) continue;
+      auditPatch[key] = value;
+    }
+
+    if (Object.keys(auditPatch).length === 0) {
+      res.status(400).json({ error: 'Empty update: provide at least one updatable field' });
+      return;
+    }
+
+    // Authorization: manager only
+    const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
+    if (!isManager) {
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'project.update',
+        success: false,
+        resource: { type: 'project', id: projectId },
+        payload: {
+          projectId,
+          patch: auditPatch,
+          error: 'Unauthorized: not project manager',
+        },
+      });
+
+      res.status(403).json({ error: 'Only project managers can update the project' });
+      return;
+    }
+
+    // Load existing project
+    const existingProject = await db.project.findUnique({
+      where: { id: projectId },
+    });
+
     if (!existingProject) {
       res.status(404).json({ error: 'Project not found' });
       return;
     }
 
-    const nameConflict = await db.project.findFirst({
-      where: { name: name.trim(), NOT: { id: projectId } },
-    });
-    if (nameConflict) {
-      res.status(409).json({ error: 'A project with this name already exists' });
-      return;
-    }
+    // Build Prisma update payload (only allowed fields)
+    const data: Record<string, any> = {};
 
-    if (managerId) {
-      const managerUser = await db.user.findUnique({ where: { id: managerId } });
-      if (!managerUser) {
-        res.status(400).json({ error: 'Selected manager user not found' });
+    if (auditPatch.name !== undefined) {
+      if (typeof auditPatch.name !== 'string' || auditPatch.name.trim().length === 0) {
+        res.status(400).json({ error: 'If provided, name must be a non-empty string' });
         return;
       }
+
+      // Optional uniqueness check
+      const conflict = await db.project.findFirst({
+        where: {
+          name: auditPatch.name.trim(),
+          NOT: { id: projectId },
+        },
+      });
+
+      if (conflict) {
+        res.status(409).json({ error: 'A project with this name already exists' });
+        return;
+      }
+
+      data.name = auditPatch.name.trim();
     }
 
-    const safeDescription = typeof description === 'string' ? description.trim() : '';
+    if (auditPatch.description !== undefined) {
+      if (auditPatch.description !== null && typeof auditPatch.description !== 'string') {
+        res.status(400).json({ error: 'If provided, description must be a string or null' });
+        return;
+      }
+      data.description = auditPatch.description ?? '';
+    }
 
+    if (auditPatch.public !== undefined) {
+      data.public = Boolean(auditPatch.public);
+    }
+
+    // Apply update
     const updatedProject = await db.project.update({
       where: { id: projectId },
-      data: {
-        name: name.trim(),
-        description: safeDescription,
-        public: isPublic !== undefined ? Boolean(isPublic) : undefined,
-        updatedAt: new Date(),
-      },
+      data,
       select: {
         id: true,
         name: true,
@@ -931,17 +986,49 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       },
     });
 
-    if (managerId !== undefined) {
+    // Optional manager reassignment
+    if (auditPatch.managerId !== undefined) {
+      if (auditPatch.managerId !== null && typeof auditPatch.managerId !== 'string') {
+        res.status(400).json({ error: 'If provided, managerId must be a string or null' });
+        return;
+      }
+
       await db.projectRole.deleteMany({
         where: { projectId, role: RoleEnum.manager },
       });
 
-      if (managerId) {
+      if (typeof auditPatch.managerId === 'string' && auditPatch.managerId.trim().length > 0) {
+        const managerUser = await db.user.findUnique({
+          where: { id: auditPatch.managerId },
+        });
+
+        if (!managerUser) {
+          res.status(400).json({ error: 'Selected manager user not found' });
+          return;
+        }
+
         await db.projectRole.create({
-          data: { userId: managerId, projectId, role: RoleEnum.manager },
+          data: {
+            userId: auditPatch.managerId,
+            projectId,
+            role: RoleEnum.manager,
+          },
         });
       }
     }
+
+    // Success audit (patch only)
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'project.update',
+      success: true,
+      resource: { type: 'project', id: projectId },
+      payload: {
+        projectId,
+        patch: auditPatch,
+      },
+    });
 
     res.json({ success: true, project: updatedProject });
   } catch (error) {
@@ -953,48 +1040,87 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
   }
 }
 
+
 /**
  * Delete a project (manager only)
+ *
  * DELETE /api/projects/:projectId
  *
- * Must delete filesystem: project_files/PROJECT_ID (entire project root)
+ * Semantics:
+ * - projectId is taken ONLY from the URL path
+ * - deletion is irreversible
+ *
+ * Audit:
+ * - eventType: project.delete
+ * - payload: snapshot "before" + success flag
  */
-export async function deleteProject(req: Request, res: Response) {
-  const { projectId } = req.params;
-
-  if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
-  }
+export async function deleteProject(req: Request, res: Response): Promise<void> {
+  const db = getPrismaClient();
 
   try {
+    const { projectId } = req.params;
+    if (!projectId) {
+      res.status(400).json({ error: 'Project ID is required' });
+      return;
+    }
+
+    // Authentication
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
 
-    const db = getPrismaClient();
-
+    // Authorization: manager only
     const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can delete the project' });
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'project.delete',
+        success: false,
+        payload: { projectId, error: 'Unauthorized: not project manager' },
+      });
+      res.status(403).json({ error: 'Only project managers can delete the project' });
+      return;
     }
 
-    const project = await db.project.findUnique({ where: { id: projectId } });
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+    // Load project snapshot BEFORE deletion
+    const projectBefore = await db.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        public: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!projectBefore) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
     }
 
-    // Delete project files from filesystem (new unified root)
-    const projectPath = projectRoot(projectId);
-    if (fs.existsSync(projectPath)) {
-      fs.rmSync(projectPath, { recursive: true, force: true });
-    }
+    // Delete project
+    await db.project.delete({
+      where: { id: projectId },
+    });
 
-    await db.project.delete({ where: { id: projectId } });
-
-    console.log(`✅ Project deleted: ${projectId} by user: ${currentUser.email}`);
-
-    res.json({ success: true, message: 'Project deleted successfully' });
+    // Best-effort audit log (snapshot before)
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'project.delete',
+      success: true,
+      payload: {
+        projectId,
+        project: projectBefore,
+        success: true,
+      }
+    });
+    res.json({ success: true });
   } catch (error) {
     console.error('Error deleting project:', error);
     res.status(500).json({

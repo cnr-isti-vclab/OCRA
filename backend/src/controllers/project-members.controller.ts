@@ -186,7 +186,7 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
           eventType: 'project.member.add',
           success: false,
           userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.connection.remoteAddress || null,
+          ipAddress: req.ip || req.socket?.remoteAddress || null,
           payload: { projectId, targetUserId: userId, targetEmail: email, role, error: 'Unauthorized' }
         });
       } catch (auditErr) {
@@ -246,7 +246,7 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
         eventType: 'project.member.add',
         success: true,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
         payload: { 
           projectId, 
           projectName: project.name,
@@ -319,7 +319,7 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
           eventType: 'project.member.remove',
           success: false,
           userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.connection.remoteAddress || null,
+          ipAddress: req.ip || req.socket?.remoteAddress || null,
           payload: { projectId, targetUserId: userId, error: 'Unauthorized' }
         });
       } catch (auditErr) {
@@ -365,7 +365,7 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
         eventType: 'project.member.remove',
         success: true,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
         payload: { 
           projectId,
           projectName: project.name,

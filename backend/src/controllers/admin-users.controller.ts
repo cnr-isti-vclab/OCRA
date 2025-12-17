@@ -67,7 +67,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
           eventType: 'user.create',
           success: false,
           userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.connection.remoteAddress || null,
+          ipAddress: req.ip || req.socket?.remoteAddress || null,
           payload: { targetEmail: email, error: 'Unauthorized - not admin' }
         });
       } catch (auditErr) {
@@ -116,7 +116,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
         eventType: 'user.create',
         success: true,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
         payload: {
           createdUserId: newUser.id,
           createdEmail: newUser.email,
@@ -188,7 +188,7 @@ export async function updateUserPrivileges(req: Request, res: Response): Promise
           eventType: 'user.privileges.update',
           success: false,
           userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.connection.remoteAddress || null,
+          ipAddress: req.ip || req.socket?.remoteAddress || null,
           payload: { targetUserId: userId, error: 'Unauthorized - not admin' }
         });
       } catch (auditErr) {
@@ -226,7 +226,7 @@ export async function updateUserPrivileges(req: Request, res: Response): Promise
         eventType: 'user.privileges.update',
         success: true,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
         payload: {
           targetUserId: userId,
           targetEmail: updatedUser.email,
@@ -355,7 +355,7 @@ export async function batchCreateUsers(req: Request, res: Response): Promise<voi
         eventType: 'user.batch.create',
         success: true,
         userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.connection.remoteAddress || null,
+        ipAddress: req.ip || req.socket?.remoteAddress || null,
         payload: {
           totalRequested: users.length,
           created: results.created.length,

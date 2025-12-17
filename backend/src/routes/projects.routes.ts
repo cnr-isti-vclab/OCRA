@@ -486,8 +486,12 @@ router.post(
  * @openapi
  * /api/projects:
  *   get:
- *     summary: Get all projects
- *     description: Returns all projects visible to the authenticated user.
+ *     summary: List projects visible to the authenticated user
+ *     description: |
+ *       Returns the list of projects the current authenticated user can see.
+ *       This typically includes:
+ *       - projects where the user has a role (e.g., manager/member)
+ *       - optionally, public projects (depending on backend rules)
  *     tags:
  *       - Projects
  *     security:
@@ -516,7 +520,10 @@ router.get('/', getAllProjects);
  * @openapi
  * /api/projects/{projectId}:
  *   get:
- *     summary: Get project by ID
+ *     summary: Get a project by ID
+ *     description: |
+ *       Returns project details for the given `projectId`, if the authenticated user
+ *       is allowed to access it.
  *     tags:
  *       - Projects
  *     security:
@@ -527,6 +534,7 @@ router.get('/', getAllProjects);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Project identifier
  *     responses:
  *       200:
  *         description: Project details
@@ -542,16 +550,22 @@ router.get('/', getAllProjects);
  *                   $ref: '#/components/schemas/Project'
  *       401:
  *         description: Authentication required
+ *       403:
+ *         description: Not authorized to access this project
  *       404:
  *         description: Project not found
  */
 router.get('/:projectId', getProjectById);
 
+
 /**
  * @openapi
  * /api/projects:
  *   post:
- *     summary: Create new project
+ *     summary: Create a new project
+ *     description: |
+ *       Creates a new project and assigns the current user as project manager.
+ *       An audit event `project.create` is generated with a snapshot of the created project.
  *     tags:
  *       - Projects
  *     security:
@@ -567,13 +581,27 @@ router.get('/:projectId', getProjectById);
  *             properties:
  *               name:
  *                 type: string
+ *                 description: Human-readable project name
  *               description:
  *                 type: string
+ *                 description: Optional project description
  *               public:
  *                 type: boolean
+ *                 description: Whether the project is publicly visible
+ *                 default: false
  *     responses:
  *       201:
- *         description: Project created
+ *         description: Project created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 project:
+ *                   $ref: '#/components/schemas/Project'
  *       401:
  *         description: Authentication required
  */
@@ -583,7 +611,18 @@ router.post('/', createProject);
  * @openapi
  * /api/projects/{projectId}:
  *   put:
- *     summary: Update project
+ *     summary: Update an existing project
+ *     description: |
+ *       Updates one or more mutable fields of an existing project.
+ *
+ *       **Important notes:**
+ *       - The project is identified **only** by `projectId` in the URL.
+ *       - The request body supports **partial updates** (PATCH-like semantics).
+ *       - The following fields are **forbidden** in the request body:
+ *         `id`, `createdAt`, `updatedAt`.
+ *       - `updatedAt` is managed automatically by the backend.
+ *
+ *       An audit event `project.update` is generated with the applied patch only.
  *     tags:
  *       - Projects
  *     security:
@@ -594,29 +633,66 @@ router.post('/', createProject);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Project identifier
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             additionalProperties: false
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: New project name
+ *               description:
+ *                 type: string
+ *                 description: New project description
+ *               public:
+ *                 type: boolean
+ *                 description: Public visibility flag
+ *               managerId:
+ *                 type: string
+ *                 description: User ID of the new project manager
  *     responses:
  *       200:
- *         description: Project updated
+ *         description: Project updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 project:
+ *                   $ref: '#/components/schemas/Project'
+ *       400:
+ *         description: Invalid request or forbidden fields
  *       401:
  *         description: Authentication required
  *       403:
- *         description: Not authorized
+ *         description: Only project managers can update the project
  *       404:
  *         description: Project not found
  */
-router.put('/:projectId', updateProject);
+router.put('/:projectId', requireAuth, updateProject);
 
 /**
  * @openapi
  * /api/projects/{projectId}:
  *   delete:
- *     summary: Delete project
+ *     summary: Delete a project
+ *     description: |
+ *       Permanently deletes a project.
+ *
+ *       **Important notes:**
+ *       - The project is identified **only** by `projectId` in the URL.
+ *       - This operation is irreversible.
+ *
+ *       An audit event `project.delete` is generated containing:
+ *       - a snapshot of the project **before deletion**
+ *       - a success flag
  *     tags:
  *       - Projects
  *     security:
@@ -627,16 +703,25 @@ router.put('/:projectId', updateProject);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Project identifier
  *     responses:
  *       200:
- *         description: Project deleted
+ *         description: Project deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *       401:
  *         description: Authentication required
  *       403:
- *         description: Not authorized
+ *         description: Only project managers can delete the project
  *       404:
  *         description: Project not found
  */
-router.delete('/:projectId', deleteProject);
+router.delete('/:projectId', requireAuth, deleteProject);
 
 export default router;
