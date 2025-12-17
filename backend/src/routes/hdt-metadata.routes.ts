@@ -40,6 +40,140 @@ import { getHDTDocument } from '../services/hdt-metadata.service.js';
 const router = Router();
 
 /* ============================================================================
+ * DIGITAL ASSETS (in HDT document) + RTI upload
+ * ============================================================================
+ */
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets:
+ *   post:
+ *     summary: Add a digital asset
+ *     description: Adds a digital asset to the project's HDT document (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DigitalAssetCreate'
+ *     responses:
+ *       201:
+ *         description: HDT document updated (asset added)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets/{assetId}:
+ *   put:
+ *     summary: Update a digital asset
+ *     description: Updates a digital asset in the HDT document (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Asset ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DigitalAssetUpdate'
+ *     responses:
+ *       200:
+ *         description: HDT document updated (asset updated)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or asset not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/hdt/assets/{assetId}:
+ *   delete:
+ *     summary: Remove a digital asset
+ *     description: Removes a digital asset from the HDT document (and all scenes). For RTI assets, also removes files on disk (manager only).
+ *     tags:
+ *       - HDT Assets
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *       - in: path
+ *         name: assetId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Asset ID.
+ *     responses:
+ *       200:
+ *         description: HDT document updated (asset removed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       404:
+ *         description: HDT document or asset not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler);
+
+/* ============================================================================
  * HDT DOCUMENT (MongoDB)
  * ============================================================================
  */

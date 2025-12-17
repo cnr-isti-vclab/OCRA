@@ -1,14 +1,26 @@
 /**
  * Users Routes (TypeScript version)
- * 
+ *
  * Route definitions for user management endpoints
  */
 
 import express from 'express';
-import { getAllUsers, getAllUsersWithStats, getUserById, updateUserAdminStatus, getUsersForDropdown, debugProjectRoles } from '../controllers/users.controller.js';
+import {
+  getAllUsers,
+  getAllUsersWithStats,
+  getUserById,
+  updateUserAdminStatus,
+  getUsersForDropdown,
+  debugProjectRoles
+} from '../controllers/users.controller.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
+
+/* ============================================================================
+ * USERS COLLECTION
+ * ============================================================================
+ */
 
 /**
  * @openapi
@@ -40,6 +52,11 @@ const router = express.Router();
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/', requireAuth, requireAdmin, getAllUsers);
+
+/* ============================================================================
+ * USERS LISTS / STATS / DEBUG (STATIC ROUTES)
+ * ============================================================================
+ */
 
 /**
  * @openapi
@@ -113,6 +130,90 @@ router.get('/list', requireAuth, getUsersForDropdown);
  *         description: Not authorized (admin only)
  */
 router.get('/stats', requireAuth, requireAdmin, getAllUsersWithStats);
+
+/**
+ * @openapi
+ * /api/users/debug/roles:
+ *   get:
+ *     summary: Debug project role assignments
+ *     description: Returns debugging information about project role assignments (admin only)
+ *     tags:
+ *       - Users
+ *     security:
+ *       - sessionAuth: []
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Project role debug information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalManagerRoles:
+ *                   type: integer
+ *                   example: 1
+ *                 roles:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: cmj465jvf0006ueycughkxlg6
+ *                       userId:
+ *                         type: string
+ *                         example: cmitzelrh0000uejvvncbe969
+ *                       projectId:
+ *                         type: string
+ *                         example: cmj465eyp0002ueycc7m1ucxm
+ *                       role:
+ *                         type: string
+ *                         example: manager
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-12-13T10:44:35.931Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-12-13T10:44:35.931Z"
+ *                       user:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: cmitzelrh0000uejvvncbe969
+ *                           email:
+ *                             type: string
+ *                             format: email
+ *                             example: director@example.com
+ *                           name:
+ *                             type: string
+ *                             example: Roberto Neri
+ *                           username:
+ *                             type: string
+ *                             example: museum-director
+ *                       project:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: cmj465eyp0002ueycc7m1ucxm
+ *                           name:
+ *                             type: string
+ *                             example: TEST
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized (admin only)
+ */
+router.get('/debug/roles', requireAuth, requireAdmin, debugProjectRoles);
+
+/* ============================================================================
+ * USER BY ID
+ * ============================================================================
+ */
 
 /**
  * @openapi
@@ -220,85 +321,5 @@ router.get('/:userId', requireAuth, getUserById);
  *               $ref: '#/components/schemas/Error'
  */
 router.put('/:userId/admin', requireAuth, requireAdmin, updateUserAdminStatus);
-
-/**
- * @openapi
- * /api/users/debug/roles:
- *   get:
- *     summary: Debug project role assignments
- *     description: Returns debugging information about project role assignments (admin only)
- *     tags:
- *       - Users
- *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Project role debug information
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 totalManagerRoles:
- *                   type: integer
- *                   example: 1
- *                 roles:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                         example: cmj465jvf0006ueycughkxlg6
- *                       userId:
- *                         type: string
- *                         example: cmitzelrh0000uejvvncbe969
- *                       projectId:
- *                         type: string
- *                         example: cmj465eyp0002ueycc7m1ucxm
- *                       role:
- *                         type: string
- *                         example: manager
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-12-13T10:44:35.931Z"
- *                       updatedAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-12-13T10:44:35.931Z"
- *                       user:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                             example: cmitzelrh0000uejvvncbe969
- *                           email:
- *                             type: string
- *                             format: email
- *                             example: director@example.com
- *                           name:
- *                             type: string
- *                             example: Roberto Neri
- *                           username:
- *                             type: string
- *                             example: museum-director
- *                       project:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                             example: cmj465eyp0002ueycc7m1ucxm
- *                           name:
- *                             type: string
- *                             example: TEST
- *       401:
- *         description: Not authenticated
- *       403:
- *         description: Not authorized (admin only)
- */
-
-router.get('/debug/roles', requireAuth, requireAdmin, debugProjectRoles);
 
 export default router;

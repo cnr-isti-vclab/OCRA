@@ -34,6 +34,252 @@ import {
 const router = express.Router();
 
 /* ============================================================================
+ * PROJECT CRUD
+ * ============================================================================
+ */
+
+/**
+ * @openapi
+ * /api/projects:
+ *   get:
+ *     summary: List projects visible to the authenticated user
+ *     description: |
+ *       Returns the list of projects the current authenticated user can see.
+ *       This typically includes:
+ *       - projects where the user has a role (e.g., manager/member)
+ *       - optionally, public projects (depending on backend rules)
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     responses:
+ *       200:
+ *         description: Projects list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 projects:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Project'
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/', getAllProjects);
+
+/**
+ * @openapi
+ * /api/projects:
+ *   post:
+ *     summary: Create a new project
+ *     description: |
+ *       Creates a new project and assigns the current user as project manager.
+ *       An audit event `project.create` is generated with a snapshot of the created project.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Human-readable project name
+ *               description:
+ *                 type: string
+ *                 description: Optional project description
+ *               public:
+ *                 type: boolean
+ *                 description: Whether the project is publicly visible
+ *                 default: false
+ *     responses:
+ *       201:
+ *         description: Project created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 project:
+ *                   $ref: '#/components/schemas/Project'
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/', createProject);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}:
+ *   get:
+ *     summary: Get a project by ID
+ *     description: |
+ *       Returns project details for the given `projectId`, if the authenticated user
+ *       is allowed to access it.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     responses:
+ *       200:
+ *         description: Project details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 project:
+ *                   $ref: '#/components/schemas/Project'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized to access this project
+ *       404:
+ *         description: Project not found
+ */
+router.get('/:projectId', getProjectById);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}:
+ *   put:
+ *     summary: Update an existing project
+ *     description: |
+ *       Updates one or more mutable fields of an existing project.
+ *
+ *       **Important notes:**
+ *       - The project is identified **only** by `projectId` in the URL.
+ *       - The request body supports **partial updates** (PATCH-like semantics).
+ *       - The following fields are **forbidden** in the request body:
+ *         `id`, `createdAt`, `updatedAt`.
+ *       - `updatedAt` is managed automatically by the backend.
+ *
+ *       An audit event `project.update` is generated with the applied patch only.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: false
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: New project name
+ *               description:
+ *                 type: string
+ *                 description: New project description
+ *               public:
+ *                 type: boolean
+ *                 description: Public visibility flag
+ *               managerId:
+ *                 type: string
+ *                 description: User ID of the new project manager
+ *     responses:
+ *       200:
+ *         description: Project updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 project:
+ *                   $ref: '#/components/schemas/Project'
+ *       400:
+ *         description: Invalid request or forbidden fields
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Only project managers can update the project
+ *       404:
+ *         description: Project not found
+ */
+router.put('/:projectId', requireAuth, updateProject);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}:
+ *   delete:
+ *     summary: Delete a project
+ *     description: |
+ *       Permanently deletes a project.
+ *
+ *       **Important notes:**
+ *       - The project is identified **only** by `projectId` in the URL.
+ *       - This operation is irreversible.
+ *
+ *       An audit event `project.delete` is generated containing:
+ *       - a snapshot of the project **before deletion**
+ *       - a success flag
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     responses:
+ *       200:
+ *         description: Project deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Only project managers can delete the project
+ *       404:
+ *         description: Project not found
+ */
+router.delete('/:projectId', requireAuth, deleteProject);
+
+/* ============================================================================
  * PROJECT PERMISSIONS
  * ============================================================================
  */
@@ -193,97 +439,7 @@ router.post('/:projectId/members', addProjectMember);
 router.delete('/:projectId/members/:userId', removeProjectMember);
 
 /* ============================================================================
- * LEGACY / DEBUG SCENE FILE
- * ============================================================================
- */
-
-/**
- * openapi
- * /api/projects/{projectId}/scene:
- *   get:
- *     summary: Get legacy scene file
- *     description: |
- *       Returns the legacy/debug scene.json file.
- *       NOTE: Production scenes are stored in MongoDB (HDT).
- *     tags:
- *       - Projects
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Scene JSON
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 models:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                         example: bunny
- *                       file:
- *                         type: string
- *                         description: Relative path to the model file
- *                         example: asset_1765697505792_3bp7qg8hf/bunny.ply
- *                       title:
- *                         type: string
- *                         example: bunny
- *                       visible:
- *                         type: boolean
- *                         example: true
- *       401:
- *         description: Authentication required
- *       404:
- *         description: Scene not found
- */
-//router.get('/:projectId/scene', getProjectScene);
-
-/**
- * openapi
- * /api/projects/{projectId}/scene:
- *   put:
- *     summary: Update legacy scene file
- *     description: Updates the legacy/debug scene.json (manager only).
- *     tags:
- *       - Projects
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *     responses:
- *       200:
- *         description: Scene updated
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Not authorized
- *       404:
- *         description: Project not found
- */
-//router.put('/:projectId/scene', updateProjectScene);
-
-/* ============================================================================
- * PROJECT FILES
+ * PROJECT FILES / ASSETS
  * ============================================================================
  */
 
@@ -348,7 +504,6 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  */
 router.get('/:projectId/files', listProjectFiles);
 
-// FIXME da sistemare il commento e' il punto di upload dei file di un asset
 /**
  * @openapi
  * /api/projects/{projectId}/files:
@@ -396,13 +551,13 @@ router.get('/:projectId/files', listProjectFiles);
  *         description: Project or asset not found
  */
 router.post(
-  '/:projectId/files', 
-  requireAuth,                    // Auth middleware
-  unifiedAssetUploadMiddleware,   // File processing middleware  
-  unifiedAssetUploadHandler       // Upload controller
+  '/:projectId/files',
+  requireAuth,                  // Auth middleware
+  unifiedAssetUploadMiddleware, // File processing middleware
+  unifiedAssetUploadHandler     // Upload controller
 );
 
-// FIXME Ha senso? e' usato
+// FIXME: currently unused (commented out)
 /**
  * openapi
  * /api/projects/{projectId}/files/{assetId}/{filename}:
@@ -437,8 +592,9 @@ router.post(
  *       404:
  *         description: File not found
  */
-//router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
+// router.get('/:projectId/files/:assetId/:filename', downloadProjectFile);
 
+// FIXME: currently unused (commented out)
 /**
  * openapi
  * /api/projects/{projectId}/files/{assetId}/{filename}:
@@ -475,154 +631,73 @@ router.post(
  *       404:
  *         description: File not found
  */
-//router.delete('/:projectId/files/:assetId/:filename', deleteProjectFile);
+// router.delete('/:projectId/files/:assetId/:filename', deleteProjectFile);
 
 /* ============================================================================
- * PROJECT CRUD
+ * LEGACY / DEBUG SCENE FILE (NOT USED IN PRODUCTION)
  * ============================================================================
  */
 
+// NOTE: These endpoints are intentionally disabled.
+// Scenes are stored in MongoDB (HDT).
+
 /**
- * @openapi
- * /api/projects:
+ * openapi
+ * /api/projects/{projectId}/scene:
  *   get:
- *     summary: List projects visible to the authenticated user
+ *     summary: Get legacy scene file
  *     description: |
- *       Returns the list of projects the current authenticated user can see.
- *       This typically includes:
- *       - projects where the user has a role (e.g., manager/member)
- *       - optionally, public projects (depending on backend rules)
+ *       Returns the legacy/debug scene.json file.
+ *       NOTE: Production scenes are stored in MongoDB (HDT).
  *     tags:
  *       - Projects
  *     security:
  *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
- *         description: Projects list
+ *         description: Scene JSON
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 projects:
+ *                 models:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Project'
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: bunny
+ *                       file:
+ *                         type: string
+ *                         description: Relative path to the model file
+ *                         example: asset_1765697505792_3bp7qg8hf/bunny.ply
+ *                       title:
+ *                         type: string
+ *                         example: bunny
+ *                       visible:
+ *                         type: boolean
+ *                         example: true
  *       401:
  *         description: Authentication required
- */
-router.get('/', getAllProjects);
-
-/**
- * @openapi
- * /api/projects/{projectId}:
- *   get:
- *     summary: Get a project by ID
- *     description: |
- *       Returns project details for the given `projectId`, if the authenticated user
- *       is allowed to access it.
- *     tags:
- *       - Projects
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: Project identifier
- *     responses:
- *       200:
- *         description: Project details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 project:
- *                   $ref: '#/components/schemas/Project'
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Not authorized to access this project
  *       404:
- *         description: Project not found
+ *         description: Scene not found
  */
-router.get('/:projectId', getProjectById);
-
+// router.get('/:projectId/scene', getProjectScene);
 
 /**
- * @openapi
- * /api/projects:
- *   post:
- *     summary: Create a new project
- *     description: |
- *       Creates a new project and assigns the current user as project manager.
- *       An audit event `project.create` is generated with a snapshot of the created project.
- *     tags:
- *       - Projects
- *     security:
- *       - sessionCookie: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *             properties:
- *               name:
- *                 type: string
- *                 description: Human-readable project name
- *               description:
- *                 type: string
- *                 description: Optional project description
- *               public:
- *                 type: boolean
- *                 description: Whether the project is publicly visible
- *                 default: false
- *     responses:
- *       201:
- *         description: Project created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 project:
- *                   $ref: '#/components/schemas/Project'
- *       401:
- *         description: Authentication required
- */
-router.post('/', createProject);
-
-/**
- * @openapi
- * /api/projects/{projectId}:
+ * openapi
+ * /api/projects/{projectId}/scene:
  *   put:
- *     summary: Update an existing project
- *     description: |
- *       Updates one or more mutable fields of an existing project.
- *
- *       **Important notes:**
- *       - The project is identified **only** by `projectId` in the URL.
- *       - The request body supports **partial updates** (PATCH-like semantics).
- *       - The following fields are **forbidden** in the request body:
- *         `id`, `createdAt`, `updatedAt`.
- *       - `updatedAt` is managed automatically by the backend.
- *
- *       An audit event `project.update` is generated with the applied patch only.
+ *     summary: Update legacy scene file
+ *     description: Updates the legacy/debug scene.json (manager only).
  *     tags:
  *       - Projects
  *     security:
@@ -633,95 +708,22 @@ router.post('/', createProject);
  *         required: true
  *         schema:
  *           type: string
- *         description: Project identifier
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             additionalProperties: false
- *             properties:
- *               name:
- *                 type: string
- *                 description: New project name
- *               description:
- *                 type: string
- *                 description: New project description
- *               public:
- *                 type: boolean
- *                 description: Public visibility flag
- *               managerId:
- *                 type: string
- *                 description: User ID of the new project manager
  *     responses:
  *       200:
- *         description: Project updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 project:
- *                   $ref: '#/components/schemas/Project'
- *       400:
- *         description: Invalid request or forbidden fields
+ *         description: Scene updated
  *       401:
  *         description: Authentication required
  *       403:
- *         description: Only project managers can update the project
+ *         description: Not authorized
  *       404:
  *         description: Project not found
  */
-router.put('/:projectId', requireAuth, updateProject);
-
-/**
- * @openapi
- * /api/projects/{projectId}:
- *   delete:
- *     summary: Delete a project
- *     description: |
- *       Permanently deletes a project.
- *
- *       **Important notes:**
- *       - The project is identified **only** by `projectId` in the URL.
- *       - This operation is irreversible.
- *
- *       An audit event `project.delete` is generated containing:
- *       - a snapshot of the project **before deletion**
- *       - a success flag
- *     tags:
- *       - Projects
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: Project identifier
- *     responses:
- *       200:
- *         description: Project deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Only project managers can delete the project
- *       404:
- *         description: Project not found
- */
-router.delete('/:projectId', requireAuth, deleteProject);
+// router.put('/:projectId/scene', updateProjectScene);
 
 export default router;
