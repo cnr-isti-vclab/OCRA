@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { createSession, getSession, removeSession } from '../services/session.service.js';
-import { logAuditEvent } from '../../db.js';
+import { auditBestEffort } from '../utils/audit.js';
 import { logLogin, logLogout } from '../services/auth.service.js';
 import { CreateSessionRequest } from '../types/index.js';
 
@@ -35,20 +35,13 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
     );
 
     // Audit log
-    try {
-      await logAuditEvent({
-        userSub: userProfile?.sub,
-        userId: null,
-        action: 'auth.login',
-        resource: null,
-        success: true,
-        ip: req.ip || null,
-        userAgent: req.headers['user-agent'] as string,
-        payload: { sessionId }
-      });
-    } catch (err) {
-      console.warn('Audit logging failed for login:', err instanceof Error ? err.message : err);
-    }
+    await auditBestEffort({
+      req,
+      userSub: userProfile?.sub ?? 'system',
+      action: 'auth.login',
+      success: true,
+      payload: { sessionId }
+    });
 
     // Set HTTP-only cookie for authentication
     // Cookie domain: undefined allows it to work on any domain (localhost, production, etc.)
@@ -146,20 +139,13 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
       );
       
       // Audit log for logout
-      try {
-        await logAuditEvent({
-          userSub: session.user.sub,
-          userId: (session.user as any).id || session.user.sub || null,
-          action: 'auth.logout',
-          resource: null,
-          success: true,
-          ip: req.ip || null,
-          userAgent: req.headers['user-agent'] as string,
-          payload: { sessionId }
-        });
-      } catch (err) {
-        console.warn('Audit logging failed for logout:', err instanceof Error ? err.message : err);
-      }
+      await auditBestEffort({
+        req,
+        userSub: session.user.sub,
+        action: 'auth.logout',
+        success: true,
+        payload: { sessionId }
+      });
     }
 
     res.status(200).json({ success: true, message: 'Session deleted successfully' });

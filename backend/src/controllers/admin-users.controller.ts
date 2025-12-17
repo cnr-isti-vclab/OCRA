@@ -6,7 +6,7 @@
 
 import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
-import { logAuditEvent } from '../../db.js';
+import { auditBestEffort } from '../utils/audit.js';
 import type { User } from '../types/index.js';
 
 /**
@@ -61,18 +61,13 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     
     if (!currentUser.sys_admin) {
       // Log unauthorized attempt
-      try {
-        await logAuditEvent({
-          userSub: currentUser.sub,
-          eventType: 'user.create',
-          success: false,
-          userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.socket?.remoteAddress || null,
-          payload: { targetEmail: email, error: 'Unauthorized - not admin' }
-        });
-      } catch (auditErr) {
-        console.warn('Failed to log audit event:', auditErr);
-      }
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'user.create',
+        success: false,
+        payload: { targetEmail: email, error: 'Unauthorized - not admin' }
+      });
       
       res.status(403).json({ error: 'Only administrators can create users' });
       return;
@@ -110,24 +105,19 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     });
     
     // Log successful creation
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'user.create',
-        success: true,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.socket?.remoteAddress || null,
-        payload: {
-          createdUserId: newUser.id,
-          createdEmail: newUser.email,
-          createdUsername: newUser.username,
-          sys_admin: newUser.sys_admin,
-          sys_creator: newUser.sys_creator
-        }
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log audit event:', auditErr);
-    }
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'user.create',
+      success: true,
+      payload: {
+        createdUserId: newUser.id,
+        createdEmail: newUser.email,
+        createdUsername: newUser.username,
+        sys_admin: newUser.sys_admin,
+        sys_creator: newUser.sys_creator
+      }
+    });
     
     res.status(201).json({
       success: true,
@@ -182,18 +172,13 @@ export async function updateUserPrivileges(req: Request, res: Response): Promise
     
     if (!currentUser.sys_admin) {
       // Log unauthorized attempt
-      try {
-        await logAuditEvent({
-          userSub: currentUser.sub,
-          eventType: 'user.privileges.update',
-          success: false,
-          userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.socket?.remoteAddress || null,
-          payload: { targetUserId: userId, error: 'Unauthorized - not admin' }
-        });
-      } catch (auditErr) {
-        console.warn('Failed to log audit event:', auditErr);
-      }
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'user.privileges.update',
+        success: false,
+        payload: { targetUserId: userId, error: 'Unauthorized - not admin' }
+      });
       
       res.status(403).json({ error: 'Only administrators can update user privileges' });
       return;
@@ -220,30 +205,25 @@ export async function updateUserPrivileges(req: Request, res: Response): Promise
     });
     
     // Log successful update
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'user.privileges.update',
-        success: true,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.socket?.remoteAddress || null,
-        payload: {
-          targetUserId: userId,
-          targetEmail: updatedUser.email,
-          targetUsername: updatedUser.username,
-          previousPrivileges: {
-            sys_admin: targetUser.sys_admin,
-            sys_creator: targetUser.sys_creator
-          },
-          newPrivileges: {
-            sys_admin: updatedUser.sys_admin,
-            sys_creator: updatedUser.sys_creator
-          }
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'user.privileges.update',
+      success: true,
+      payload: {
+        targetUserId: userId,
+        targetEmail: updatedUser.email,
+        targetUsername: updatedUser.username,
+        previousPrivileges: {
+          sys_admin: targetUser.sys_admin,
+          sys_creator: targetUser.sys_creator
+        },
+        newPrivileges: {
+          sys_admin: updatedUser.sys_admin,
+          sys_creator: updatedUser.sys_creator
         }
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log audit event:', auditErr);
-    }
+      }
+    });
     
     res.json({
       success: true,
@@ -349,23 +329,18 @@ export async function batchCreateUsers(req: Request, res: Response): Promise<voi
     }
     
     // Log batch operation
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'user.batch.create',
-        success: true,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.socket?.remoteAddress || null,
-        payload: {
-          totalRequested: users.length,
-          created: results.created.length,
-          skipped: results.skipped.length,
-          errors: results.errors.length
-        }
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log audit event:', auditErr);
-    }
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'user.batch.create',
+      success: true,
+      payload: {
+        totalRequested: users.length,
+        created: results.created.length,
+        skipped: results.skipped.length,
+        errors: results.errors.length
+      }
+    });
     
     res.json({
       success: true,

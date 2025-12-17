@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
 import { RoleEnum } from '@prisma/client';
 import type { User } from '../types/index.js';
-import { logAuditEvent } from '../../db.js';
+import { auditBestEffort } from '../utils/audit.js';
 
 /**
  * Get current user from request (helper)
@@ -180,18 +180,13 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     const canManage = await canManageProject(currentUser, projectId);
     if (!canManage) {
       // Log unauthorized attempt
-      try {
-        await logAuditEvent({
-          userSub: currentUser.sub,
-          eventType: 'project.member.add',
-          success: false,
-          userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.socket?.remoteAddress || null,
-          payload: { projectId, targetUserId: userId, targetEmail: email, role, error: 'Unauthorized' }
-        });
-      } catch (auditErr) {
-        console.warn('Failed to log audit event:', auditErr);
-      }
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'project.member.add',
+        success: false,
+        payload: { projectId, targetUserId: userId, targetEmail: email, role, error: 'Unauthorized' }
+      });
       
       res.status(403).json({ error: 'Only project managers and admins can manage project members' });
       return;
@@ -240,25 +235,20 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     });
     
     // Log successful operation
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'project.member.add',
-        success: true,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.socket?.remoteAddress || null,
-        payload: { 
-          projectId, 
-          projectName: project.name,
-          targetUserId: targetUser.id, 
-          targetEmail: targetUser.email,
-          targetUsername: targetUser.username,
-          role: role 
-        }
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log audit event:', auditErr);
-    }
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'project.member.add',
+      success: true,
+      payload: { 
+        projectId, 
+        projectName: project.name,
+        targetUserId: targetUser.id, 
+        targetEmail: targetUser.email,
+        targetUsername: targetUser.username,
+        role: role 
+      }
+    });
     
     res.json({ 
       success: true,
@@ -313,18 +303,13 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
     const canManage = await canManageProject(currentUser, projectId);
     if (!canManage) {
       // Log unauthorized attempt
-      try {
-        await logAuditEvent({
-          userSub: currentUser.sub,
-          eventType: 'project.member.remove',
-          success: false,
-          userAgent: req.headers['user-agent'] || null,
-          ipAddress: req.ip || req.socket?.remoteAddress || null,
-          payload: { projectId, targetUserId: userId, error: 'Unauthorized' }
-        });
-      } catch (auditErr) {
-        console.warn('Failed to log audit event:', auditErr);
-      }
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'project.member.remove',
+        success: false,
+        payload: { projectId, targetUserId: userId, error: 'Unauthorized' }
+      });
       
       res.status(403).json({ error: 'Only project managers and admins can manage project members' });
       return;
@@ -359,25 +344,20 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
     });
     
     // Log successful operation
-    try {
-      await logAuditEvent({
-        userSub: currentUser.sub,
-        eventType: 'project.member.remove',
-        success: true,
-        userAgent: req.headers['user-agent'] || null,
-        ipAddress: req.ip || req.socket?.remoteAddress || null,
-        payload: { 
-          projectId,
-          projectName: project.name,
-          targetUserId: userId,
-          targetEmail: targetUser?.email,
-          targetUsername: targetUser?.username,
-          previousRole: existingRole.role
-        }
-      });
-    } catch (auditErr) {
-      console.warn('Failed to log audit event:', auditErr);
-    }
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'project.member.remove',
+      success: true,
+      payload: { 
+        projectId,
+        projectName: project.name,
+        targetUserId: userId,
+        targetEmail: targetUser?.email,
+        targetUsername: targetUser?.username,
+        previousRole: existingRole.role
+      }
+    });
     
     res.json({ 
       success: true,
