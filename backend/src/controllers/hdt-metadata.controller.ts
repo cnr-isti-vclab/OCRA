@@ -44,10 +44,11 @@ import {
   generateAllSceneFiles,
   getAvailableScenes
 } from '../services/hdt-metadata.service.js';
-import { getPrismaClient } from '../../db.js';
+import { getPrismaClient, logAuditEvent } from '../../db.js';
 import { User, DigitalAssetCreateRequest } from '../types/index.js';
 import { RoleEnum } from '@prisma/client';
 import { projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
+
 import fs from 'fs/promises';
 
 /**
@@ -355,9 +356,26 @@ export async function deleteHDTMetadataHandler(req: Request, res: Response) {
  *     project_files/<projectId>/rti/<assetId>/(info.json + data...)
  */
 export async function addAssetHandler(req: Request, res: Response) {
+  const { projectId } = req.params;
+  const currentUser = getCurrentUser(req);
+
+  // Helper to keep audit best-effort and avoid repeating try/catch blocks.
+  async function auditBestEffort(success: boolean, payload: Record<string, any>) {
+    try {
+      await logAuditEvent({
+        userSub: currentUser?.sub || 'system',
+        eventType: 'hdt.asset.create',
+        success,
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
+        payload
+      });
+    } catch {
+      // Never block the API on audit failures.
+    }
+  }
+
   try {
-    const { projectId } = req.params;
-    const currentUser = getCurrentUser(req);
     const body = req.body ?? {};
 
     // Accept the new DigitalAssetCreateRequest shape
@@ -394,30 +412,74 @@ export async function addAssetHandler(req: Request, res: Response) {
     }
 
     if (!currentUser) {
+      // Audit authentication failure (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        error: 'Authentication required'
+      });
+
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
+      // Audit authorization failure (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        error: 'Unauthorized: not project manager',
+        assetType: normalizedAsset.type,
+        label: normalizedAsset.label,
+        entryPointUrl: normalizedAsset.entryPointUrl ?? null
+      });
+
       return res.status(403).json({ error: 'Only project managers can add assets' });
     }
 
     const updatedDoc = await addDigitalAsset(projectId, normalizedAsset, currentUser.sub);
 
     if (!updatedDoc) {
+      // Audit "not found" (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        error: 'HDT document not found',
+        assetType: normalizedAsset.type,
+        label: normalizedAsset.label,
+        entryPointUrl: normalizedAsset.entryPointUrl ?? null
+      });
+
       return res.status(404).json({ error: 'HDT document not found' });
     }
+
+    // Audit success (best-effort).
+    // Note: the asset id is usually assigned inside addDigitalAsset; if addDigitalAsset returns it,
+    // prefer logging that id. Otherwise we log what we have (type/label/entryPointUrl).
+    await auditBestEffort(true, {
+      projectId,
+      assetType: normalizedAsset.type,
+      label: normalizedAsset.label,
+      title: normalizedAsset.title ?? null,
+      entryPointUrl: normalizedAsset.entryPointUrl ?? null,
+      entryPoint: normalizedAsset.entryPoint ?? null,
+      mimeType: normalizedAsset.mimeType ?? null,
+      fileSize: normalizedAsset.fileSize ?? null
+    });
 
     // Keep derived scene descriptions in sync (used by the viewer).
     await generateAllSceneFiles(projectId);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      value: updatedDoc  // Frontend will use json.value.digitalAssets
+      value: updatedDoc // Frontend will use json.value.digitalAssets
     });
   } catch (error: any) {
+    // Audit unexpected failure (best-effort).
+    await auditBestEffort(false, {
+      projectId,
+      error: error?.message || String(error)
+    });
+
     console.error('Error adding asset:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to add asset',
       message: error?.message || String(error)
     });
@@ -429,32 +491,87 @@ export async function addAssetHandler(req: Request, res: Response) {
  * Update a digital asset record (manager only).
  */
 export async function updateAssetHandler(req: Request, res: Response) {
+  const { projectId, assetId } = req.params;
+  const currentUser = getCurrentUser(req);
+
+  // Helper to keep audit best-effort and avoid repeating try/catch blocks.
+  async function auditBestEffort(success: boolean, payload: Record<string, any>) {
+    try {
+      await logAuditEvent({
+        userSub: currentUser?.sub || 'system',
+        eventType: 'hdt.asset.update',
+        success,
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
+        payload
+      });
+    } catch {
+      // Never block the API on audit failures.
+    }
+  }
+
   try {
-    const { projectId, assetId } = req.params;
-    const currentUser = getCurrentUser(req);
     const updates = req.body;
 
     if (!currentUser) {
+      // Audit authentication failure (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'Authentication required'
+      });
+
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
+      // Audit authorization failure (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'Unauthorized: not project manager',
+        // Log the attempted changes at a high level (avoid logging huge/binary blobs).
+        updateKeys: updates && typeof updates === 'object' ? Object.keys(updates) : null
+      });
+
       return res.status(403).json({ error: 'Only project managers can update assets' });
     }
 
     const updatedDoc = await updateDigitalAsset(projectId, assetId, updates, currentUser.sub);
 
     if (!updatedDoc) {
+      // Audit not found (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'HDT document or asset not found',
+        updateKeys: updates && typeof updates === 'object' ? Object.keys(updates) : null
+      });
+
       return res.status(404).json({ error: 'HDT document or asset not found' });
     }
 
+    // Audit success (best-effort).
+    await auditBestEffort(true, {
+      projectId,
+      assetId,
+      updateKeys: updates && typeof updates === 'object' ? Object.keys(updates) : null
+    });
+
     await generateAllSceneFiles(projectId);
 
-    res.json(updatedDoc);
+    return res.json(updatedDoc);
   } catch (error: any) {
+    // Audit unexpected failure (best-effort).
+    await auditBestEffort(false, {
+      projectId,
+      assetId,
+      error: error?.message || String(error)
+    });
+
     console.error('Error updating asset:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to update asset',
       message: error?.message || String(error)
     });
@@ -473,24 +590,60 @@ export async function updateAssetHandler(req: Request, res: Response) {
  * - 3d-model file cleanup is typically handled by the project files endpoints
  *   (or by a dedicated cleanup strategy if desired).
  */
-
 export async function removeAssetHandler(req: Request, res: Response) {
-  try {
-    const { projectId, assetId } = req.params;
-    const currentUser = getCurrentUser(req);
+  const { projectId, assetId } = req.params;
+  const currentUser = getCurrentUser(req);
 
+  // Helper to keep audit best-effort and avoid repeating try/catch blocks.
+  async function auditBestEffort(success: boolean, payload: Record<string, any>) {
+    try {
+      await logAuditEvent({
+        userSub: currentUser?.sub || 'system',
+        eventType: 'hdt.asset.delete',
+        success,
+        userAgent: req.headers['user-agent'] || null,
+        ipAddress: req.ip || (req.connection as any)?.remoteAddress || null,
+        payload
+      });
+    } catch {
+      // Never block the API on audit failures.
+    }
+  }
+
+  try {
     if (!currentUser) {
+      // Audit authentication failure (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'Authentication required'
+      });
+
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
+      // Audit authorization failure (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'Unauthorized: not project manager'
+      });
+
       return res.status(403).json({ error: 'Only project managers can remove assets' });
     }
 
     // 1) Retrieve current HDT document to inspect the asset before removal
     const hdtDoc = await getHDTDocument(projectId);
     if (!hdtDoc) {
+      // Audit not found (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'HDT document not found'
+      });
+
       return res.status(404).json({ error: 'HDT document not found' });
     }
 
@@ -499,6 +652,13 @@ export async function removeAssetHandler(req: Request, res: Response) {
       : undefined;
 
     if (!asset) {
+      // Audit not found (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'Asset not found in HDT document'
+      });
+
       return res.status(404).json({ error: 'Asset not found in HDT document' });
     }
 
@@ -533,10 +693,23 @@ export async function removeAssetHandler(req: Request, res: Response) {
     console.log('📝 [removeAssetHandler] Removing from HDT document...');
     const updatedDoc = await removeDigitalAsset(projectId, assetId, currentUser.sub);
     if (!updatedDoc) {
+      // Audit unexpected missing doc after removal attempt (best-effort).
+      await auditBestEffort(false, {
+        projectId,
+        assetId,
+        error: 'HDT document not found after removal',
+        assetType: asset.type,
+        label: asset.label ?? null,
+        entryPointUrl: asset.entryPointUrl ?? null
+      });
+
       return res.status(404).json({ error: 'HDT document not found after removal' });
     }
 
     // 4) Remove asset directory from filesystem if it exists
+    let filesystemRemoved = false;
+    let filesystemError: string | null = null;
+
     if (assetDirToDelete) {
       try {
         // Check if directory exists first
@@ -545,6 +718,8 @@ export async function removeAssetHandler(req: Request, res: Response) {
         // Remove directory and all contents
         await fs.rm(assetDirToDelete, { recursive: true, force: true });
 
+        filesystemRemoved = true;
+
         console.log('✅ [removeAssetHandler] Asset directory removed successfully:', {
           projectId,
           assetId,
@@ -552,12 +727,14 @@ export async function removeAssetHandler(req: Request, res: Response) {
           directory: assetDirToDelete
         });
       } catch (fsErr: any) {
+        filesystemError = fsErr?.message || String(fsErr);
+
         console.warn('⚠️ [removeAssetHandler] Failed to remove asset directory:', {
           projectId,
           assetId,
           type: asset.type,
           directory: assetDirToDelete,
-          error: fsErr.message || String(fsErr)
+          error: filesystemError
         });
 
         // Continue with response - don't block deletion if filesystem cleanup fails
@@ -573,12 +750,34 @@ export async function removeAssetHandler(req: Request, res: Response) {
 
     // 5) Regenerate derived scene descriptions used by the viewer
     console.log('🔄 [removeAssetHandler] Regenerating scene files...');
+    let sceneFilesRegenerated = false;
+    let sceneRegenError: string | null = null;
+
     try {
       await generateAllSceneFiles(projectId);
+      sceneFilesRegenerated = true;
     } catch (sceneErr: any) {
-      console.warn('⚠️ [removeAssetHandler] Failed to regenerate scene files:', sceneErr.message);
+      sceneRegenError = sceneErr?.message || String(sceneErr);
+
+      console.warn('⚠️ [removeAssetHandler] Failed to regenerate scene files:', sceneRegenError);
       // Continue - scene regeneration failure shouldn't block deletion
     }
+
+    // Audit success (best-effort).
+    // Note: we log filesystem + scene regeneration outcomes for post-mortem debugging.
+    await auditBestEffort(true, {
+      projectId,
+      assetId,
+      assetType: asset.type,
+      label: asset.label ?? null,
+      title: asset.title ?? null,
+      entryPointUrl: asset.entryPointUrl ?? null,
+      directory: assetDirToDelete,
+      filesystemRemoved,
+      filesystemError,
+      sceneFilesRegenerated,
+      sceneRegenError
+    });
 
     console.log('✅ [removeAssetHandler] Asset deletion completed:', {
       projectId,
@@ -593,6 +792,13 @@ export async function removeAssetHandler(req: Request, res: Response) {
     });
 
   } catch (error: any) {
+    // Audit unexpected failure (best-effort).
+    await auditBestEffort(false, {
+      projectId,
+      assetId,
+      error: error?.message || String(error)
+    });
+
     console.error('❌ [removeAssetHandler] Error removing asset:', {
       error: error.message || String(error),
       stack: error.stack
