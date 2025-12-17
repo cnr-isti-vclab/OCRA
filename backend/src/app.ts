@@ -37,6 +37,11 @@ declare global {
 export function createApp(): Express {
   const app = express();
 
+  // Trust reverse proxy (nginx / traefik / docker)
+  // Needed to get correct req.ip from X-Forwarded-For
+  app.set('trust proxy', true);
+
+
   // CORS configuration - allow credentials for cookie-based auth
   // Get allowed origins from environment or use defaults
   const allowedOrigins = process.env.CORS_ORIGINS
