@@ -610,12 +610,19 @@ export default function HDTPage() {
   }
 
   /**
-   * Determine asset type from file extension and name
+   * Determine asset type from file extension and name, 
+   * it handles zip archives checking if it contains RTI keywords or not.
+   * - used in unified upload handler
+   * @returns '3d-model' | 'rti'
    */
   const determineAssetType = (file: File): '3d-model' | 'rti' => {
     const fileName = file.name.toLowerCase();
     const ext = fileName.split('.').pop() || '';
 
+    // Check for ZIP archives first
+    // If ZIP contains RTI-related keywords, classify as 'rti'
+    // Otherwise, classify as '3d-model' archive
+  
     if (ext === 'zip') {
       const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
       const hasRtiKeyword = rtiKeywords.some(keyword => fileName.includes(keyword));
@@ -627,7 +634,7 @@ export default function HDTPage() {
       return '3d-model';
     }
 
-    const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'blend', 'ase', 'ifc'];
+    const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'nxz', 'ase', 'ifc'];
     if (model3dExtensions.includes(ext)) {
       console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
       return '3d-model';
@@ -1002,7 +1009,7 @@ export default function HDTPage() {
               <div className="mb-4 p-3 bg-light rounded">
                 <h6 className="mb-2">Supported Asset Types</h6>
                 <div className="d-flex gap-2 flex-wrap">
-                  <span className="badge bg-primary">3D Models (GLB, GLTF, PLY, OBJ, NXS)</span>
+                  <span className="badge bg-primary">3D Models (GLB, GLTF, PLY, OBJ, NXS, NXZ)</span>
                   <span className="badge bg-primary">RTI</span>
                   <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
@@ -1025,7 +1032,8 @@ export default function HDTPage() {
                       <thead>
                         <tr>
                           <th>Type</th>
-                          <th>Asset</th>
+                          <th>Label</th>
+                          <th>Filename</th>
                           <th>Size</th>
                           <th>Added</th>
                           <th>Actions</th>
@@ -1043,6 +1051,9 @@ export default function HDTPage() {
                             </td>
                             <td>
                               <strong>{asset.label || asset.title || '(unnamed)'}</strong>
+                            </td>
+                            <td className="text-muted small">
+                              {asset.fileName || '-'}
                             </td>
                             <td className="text-muted small">
                               {asset.entrySize ? `${(asset.entrySize / (1024 * 1024)).toFixed(2)} MB` : '-'}
@@ -1166,14 +1177,10 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                       return;
                     }
-
-                    const assetLabel = prompt('Enter asset label (short identifier):');
-                    if (!assetLabel) {
-                      (e.target as HTMLInputElement).value = '';
-                      return;
-                    }
-
-                    const assetTitle = prompt('Enter asset title (display name):') || assetLabel;
+                    // asset label by default is the filename with extension
+                    const assetLabel = file.name;
+                    // asset title by default is filename without extension
+                    const assetTitle = file.name.replace(/\.[^/.]+$/, '');
 
                     try {
                       await handleUnifiedAssetUpload(file, assetLabel.trim(), assetTitle.trim());

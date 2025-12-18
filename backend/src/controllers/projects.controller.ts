@@ -409,7 +409,19 @@ export async function uploadProjectFile(req: Request, res: Response) {
     fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2), 'utf-8');
     console.log(`✅ Added model ${modelId} (${relFile}) to scene.json for project ${projectId}`);
 
-    res.json({ success: true, projectId, assetId, file: file.originalname });
+    res.json({ 
+      success: true, 
+      projectId, 
+      assetId, 
+      file: file.originalname,
+      fileName: file.originalname,
+      value: {
+        fileName: file.originalname,
+        type: '3d-model',
+        entrySize: file.size,
+        mimeType: file.mimetype
+      }
+    });
   } catch (sceneErr: any) {
     console.warn('Failed to finalize upload or update scene.json:', sceneErr?.message ?? String(sceneErr));
     res.status(500).json({
