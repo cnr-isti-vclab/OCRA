@@ -55,6 +55,10 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Generate Prisma Client
+        working-directory: backend
+        run: npx prisma generate
+      
       - name: Create test database
         env:
           PGPASSWORD: postgres
