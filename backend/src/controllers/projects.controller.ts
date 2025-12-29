@@ -69,6 +69,20 @@ async function getCurrentUser(req: Request): Promise<User | null> {
   console.log('🔐 [getCurrentUser] Starting authentication check...');
 
   try {
+    // TEST MODE: Allow bypassing auth with X-Test-User-Id header (Express converts to lowercase)
+    if (process.env.NODE_ENV === 'test') {
+      const testUserId = req.headers['x-test-user-id'] as string;
+      if (testUserId) {
+        console.log('🧪 [getCurrentUser] TEST MODE: Using X-Test-User-Id header');
+        const db = getPrismaClient();
+        const dbUser = await db.user.findUnique({ where: { id: testUserId } });
+        if (dbUser) {
+          console.log('✅ [getCurrentUser] TEST MODE: User found:', dbUser.email);
+          return dbUser as User;
+        }
+      }
+    }
+    
     // Get session ID from cookie first, then fall back to header or URL param
     let sessionId = (req as any).cookies?.session_id;
     console.log('🍪 [getCurrentUser] Cookie session_id:', sessionId ? 'Present' : 'Missing');
@@ -266,6 +280,13 @@ export async function listProjectFiles(req: Request, res: Response) {
   }
 
   try {
+    // Verify project exists
+    const db = getPrismaClient();
+    const project = await db.project.findUnique({ where: { id: projectId } });
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
     const hdtDoc = await getHDTDocument(projectId);
     const assets = hdtDoc?.digitalAssets || [];
 
@@ -917,6 +938,16 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Check project existence FIRST (before permission check)
+    const existingProject = await db.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!existingProject) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
     // Authorization: manager only
     const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
     if (!isManager) {
@@ -934,16 +965,6 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       });
 
       res.status(403).json({ error: 'Only project managers can update the project' });
-      return;
-    }
-
-    // Load existing project
-    const existingProject = await db.project.findUnique({
-      where: { id: projectId },
-    });
-
-    if (!existingProject) {
-      res.status(404).json({ error: 'Project not found' });
       return;
     }
 
@@ -1083,21 +1104,7 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Authorization: manager only
-    const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
-    if (!isManager) {
-      await auditBestEffort({
-        req,
-        userSub: currentUser.sub,
-        action: 'project.delete',
-        success: false,
-        payload: { projectId, error: 'Unauthorized: not project manager' },
-      });
-      res.status(403).json({ error: 'Only project managers can delete the project' });
-      return;
-    }
-
-    // Load project snapshot BEFORE deletion
+    // Check project existence FIRST (before permission check)
     const projectBefore = await db.project.findUnique({
       where: { id: projectId },
       select: {
@@ -1112,6 +1119,20 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
 
     if (!projectBefore) {
       res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    // Authorization: manager only
+    const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
+    if (!isManager) {
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'project.delete',
+        success: false,
+        payload: { projectId, error: 'Unauthorized: not project manager' },
+      });
+      res.status(403).json({ error: 'Only project managers can delete the project' });
       return;
     }
 

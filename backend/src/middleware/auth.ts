@@ -18,6 +18,23 @@ type NextFunction = express.NextFunction;
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    // TEST MODE: Allow bypassing auth with X-Test-User-Id header (Express converts to lowercase)
+    if (process.env.NODE_ENV === 'test') {
+      const testUserId = req.headers['x-test-user-id'] as string;
+      if (testUserId) {
+        const db = await import('../../db.js');
+        const prisma = db.getPrismaClient();
+        const dbUser = await prisma.user.findUnique({ where: { id: testUserId } });
+        
+        if (dbUser) {
+          req.user = dbUser as any;
+          req.sessionId = 'test-session';
+          next();
+          return;
+        }
+      }
+    }
+    
     // Get session ID from cookie first, then fall back to header or URL param for backward compatibility
     let sessionId = req.cookies?.session_id;
     
