@@ -71,8 +71,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
         run: |
-          npx prisma migrate deploy
-          echo "✅ Migrations applied"
+          echo "📦 Applying Prisma migrations..."
+          npx prisma migrate deploy --schema=./prisma/schema.prisma
+          echo "✅ Migrations applied successfully"
+          echo "📊 Checking database schema..."
+          psql postgresql://postgres:postgres@localhost:5432/oauth_demo_test -c "\dt"
       
       - name: Run tests
         working-directory: backend
