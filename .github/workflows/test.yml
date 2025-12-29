@@ -66,15 +66,15 @@ jobs:
           psql -h localhost -U postgres -c "CREATE DATABASE oauth_demo_test;"
           echo "✅ Test database created"
       
-      - name: Run Prisma migrations
+      - name: Setup test database schema
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
         run: |
-          echo "📦 Applying Prisma migrations..."
-          npx prisma migrate deploy --schema=./prisma/schema.prisma
-          echo "✅ Migrations applied successfully"
-          echo "📊 Checking database schema..."
+          echo "📦 Pushing database schema..."
+          npx prisma db push --skip-generate --accept-data-loss
+          echo "✅ Database schema created"
+          echo "📊 Checking database tables..."
           psql postgresql://postgres:postgres@localhost:5432/oauth_demo_test -c "\dt"
       
       - name: Run tests
