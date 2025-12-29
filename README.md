@@ -1,6 +1,6 @@
 # OCRA
 
-![Backend Tests](https://github.com/YOUR_USERNAME/OCRA/workflows/Backend%20Tests/badge.svg)
+![Backend Tests](https://github.com/cnr-isti-vclab/OCRA/workflows/Backend%20Tests/badge.svg)
 
 OCRA is a small full-stack platform for collaborative annotation and management of 3D assets.
 
