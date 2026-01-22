@@ -165,9 +165,118 @@ curl http://localhost:8081/ # should return Keycloak HTML
 
 ***
 
-## 4. Initialize Prisma database
+## 4. Understanding PostgreSQL Setup: Volumes and Credentials
 
-### 4.1 Install dependencies
+This section explains how OCRA manages PostgreSQL data persistence and credential creation.
+
+### 4.1 Docker Volume Creation
+
+When you run `npm run services:start` for the first time, Docker automatically creates a **named volume** called `ocra-postgres-data`:
+
+```bash
+# The start script includes this volume mount:
+-v ocra-postgres-data:/var/lib/postgresql/data
+```
+
+**What happens:**
+1. **First run**: Docker creates the volume `ocra-postgres-data` and mounts it to `/var/lib/postgresql/data` inside the container
+2. **Subsequent runs**: Docker reuses the existing volume, preserving all data
+
+You can inspect the volume:
+```bash
+# List Docker volumes
+docker volume ls | grep ocra
+
+# Inspect volume details
+docker volume inspect ocra-postgres-data
+```
+
+### 4.2 PostgreSQL Credential Generation
+
+The PostgreSQL container uses these environment variables to automatically configure the database:
+
+```bash
+-e POSTGRES_USER=ocra_user       # Creates this user as database owner
+-e POSTGRES_PASSWORD=ocra_pass   # Sets password for ocra_user  
+-e POSTGRES_DB=ocra              # Creates database named "ocra"
+```
+
+**First-time initialization process:**
+1. Container starts and detects empty data volume
+2. PostgreSQL runs initialization scripts that:
+   - Create the `ocra_user` with password `ocra_pass`
+   - Create the `ocra` database owned by `ocra_user`
+   - Grant all privileges on `ocra` database to `ocra_user`
+3. All this configuration is saved in the volume
+
+**Important:** This initialization only happens when the data volume is empty. If the volume already contains data, PostgreSQL skips initialization and uses existing users/databases.
+
+### 4.3 Data Persistence Behavior
+
+Understanding what persists and what doesn't:
+
+**Container Level (Ephemeral):**
+- Container process and configuration
+- Environment variables
+- Network settings
+- **Removed with**: `docker rm bare-ocra-postgres`
+
+**Volume Level (Persistent):**
+- Database files and data
+- User accounts and permissions
+- All your Prisma tables and data
+- **Removed only with**: `docker volume rm ocra-postgres-data`
+
+### 4.4 Common Scenarios
+
+**Scenario A: Container recreation (normal troubleshooting)**
+```bash
+docker stop bare-ocra-postgres
+docker rm bare-ocra-postgres        # Container deleted
+npm run services:start              # New container, same volume
+# Result: All data preserved, same credentials work
+```
+
+**Scenario B: Complete reset**
+```bash
+docker stop bare-ocra-postgres
+docker rm bare-ocra-postgres
+docker volume rm ocra-postgres-data  # Volume deleted
+npm run services:start               # Everything recreated
+# Result: Fresh database, need to run migrations again
+```
+
+**Scenario C: Credential mismatch (what happened in your case)**
+```bash
+# Old container had different credentials (maybe postgres:postgres)
+# Volume has data from old setup
+# New container tries ocra_user:ocra_pass but volume expects old credentials
+# Solution: Remove container, let script recreate with correct credentials
+```
+
+### 4.5 Verification Commands
+
+Check your setup at any time:
+
+```bash
+# Check if volume exists
+docker volume ls | grep ocra-postgres-data
+
+# Check container status
+docker ps | grep bare-ocra-postgres
+
+# Test database connection
+psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "SELECT version();"
+
+# Check if Prisma tables exist
+psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "\dt"
+```
+
+***
+
+## 5. Initialize Prisma database
+
+### 5.1 Install dependencies
 
 From the repo root:
 ```bash
@@ -177,7 +286,7 @@ npm install
 
 This uses workspaces configuration to install dependencies for both `frontend` and `backend`.
 
-### 4.2 Generate Prisma Client and run migrations
+### 5.2 Generate Prisma Client and run migrations
 
 **Important:** The PostgreSQL container automatically creates the `ocra` database when first started (via `POSTGRES_DB=ocra` environment variable). Prisma then creates the tables inside this existing database.
 
@@ -212,7 +321,7 @@ You should see tables: `users`, `sessions`, `projects`, `project_roles`, `vocabu
 
 ***
 
-## 5. Directory for project files
+## 6. Directory for project files
 
 Create a local writable directory for project-related files:
 
@@ -225,16 +334,16 @@ The backend uses this path via `PROJECT_FILES_PATH` in `backend/.env`.
 
 ***
 
-## 6. Keycloak configuration (demo realm)
+## 7. Keycloak configuration (demo realm)
 
-### 6.1 Access Keycloak Admin Console
+### 7.1 Access Keycloak Admin Console
 
 1. Open `http://localhost:8081/` in the browser
 2. Log in as admin:
    - Username: `Administrator`
    - Password: `admin@ocra.it`
 
-### 6.2 Import demo realm
+### 7.2 Import demo realm
 
 1. Create realm `demo`:
    - Left menu → **Create Realm**
@@ -259,11 +368,11 @@ Token: /protocol/openid-connect/token
 
 ***
 
-## 7. Start backend and frontend
+## 8. Start backend and frontend
 
 **RECOMMENDED:** Use two separate terminal windows/tabs for better log visibility and control.
 
-### 7.1 Backend (Terminal 1)
+### 8.1 Backend (Terminal 1)
 
 From the repo root:
 ```bash
@@ -283,7 +392,7 @@ Health check:
 curl http://localhost:3002/health
 ```
 
-### 7.2 Frontend (Terminal 2)
+### 8.2 Frontend (Terminal 2)
 
 From the repo root in a **separate terminal window**:
 
@@ -300,7 +409,7 @@ Expected logs:
 
 Open `http://localhost:5173/` in the browser.
 
-### 7.3 Why separate terminals?
+### 8.3 Why separate terminals?
 
 Using separate terminals allows you to:
 - Monitor backend and frontend logs independently
@@ -310,9 +419,9 @@ Using separate terminals allows you to:
 
 ***
 
-## 8. First login and user permissions
+## 9. First login and user permissions
 
-### 8.1 Login process
+### 9.1 Login process
 
 1. From the frontend, click **Login**
 2. Keycloak login page opens for realm `demo`
@@ -322,7 +431,7 @@ Using separate terminals allows you to:
    password: museum-director
    ```
 
-### 8.2 Grant creator permissions (if needed)
+### 9.2 Grant creator permissions (if needed)
 
 After first login, the user is created in the `users` table. If you need creator/admin permissions:
 
@@ -338,11 +447,11 @@ When logged in as `museum-director` you should see the button to create new proj
 
 ***
 
-## 9. Testing (Optional)
+## 10. Testing (Optional)
 
 The project includes comprehensive testing capabilities:
 
-### 9.1 Run tests
+### 10.1 Run tests
 
 ```bash
 cd /home/<user>/git/OCRA
@@ -360,7 +469,7 @@ npm run test:ui
 npm run test:coverage
 ```
 
-### 9.2 Database utilities
+### 10.2 Database utilities
 
 ```bash
 # Open Prisma Studio (web UI for database inspection)
@@ -372,9 +481,9 @@ npm run db:reset
 
 ***
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
-### 10.1 PostgreSQL connection issues
+### 11.1 PostgreSQL connection issues
 
 If you get `password authentication failed for user "ocra_user"`:
 
@@ -401,7 +510,7 @@ psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "\dt"
 npm run db:migrate
 ```
 
-### 10.2 Complete PostgreSQL reset (nuclear option)
+### 11.2 Complete PostgreSQL reset (nuclear option)
 
 If you want to start completely fresh (WARNING: deletes all data):
 
@@ -418,7 +527,7 @@ npm run services:start
 npm run db:migrate  # Now required since database is empty
 ```
 
-### 10.2 Complete service restart
+### 11.3 Complete service restart
 
 If you need to restart all services:
 
@@ -430,7 +539,7 @@ npm run services:stop
 npm run services:start
 ```
 
-### 10.3 Database schema issues
+### 11.4 Database schema issues
 
 If you get Prisma errors about missing tables:
 
@@ -445,7 +554,7 @@ npm run db:migrate
 npm run db:generate
 ```
 
-### 10.4 Port conflicts
+### 11.5 Port conflicts
 
 Check if ports are already in use:
 
@@ -457,7 +566,7 @@ lsof -i :3002  # Backend
 lsof -i :5173  # Frontend
 ```
 
-### 10.5 Project files permissions
+### 11.6 Project files permissions
 
 If you get `EACCES` errors:
 
@@ -469,7 +578,7 @@ chmod 777 /home/<user>/git/OCRA/project_files
 
 ***
 
-## 11. Verification commands
+## 12. Verification commands
 
 **Database status:**
 ```bash
