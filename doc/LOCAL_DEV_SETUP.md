@@ -179,6 +179,8 @@ This uses workspaces configuration to install dependencies for both `frontend` a
 
 ### 4.2 Generate Prisma Client and run migrations
 
+**Important:** The PostgreSQL container automatically creates the `ocra` database when first started (via `POSTGRES_DB=ocra` environment variable). Prisma then creates the tables inside this existing database.
+
 From the repo root (using npm workspace scripts):
 
 ```bash
@@ -187,16 +189,20 @@ cd /home/<user>/git/OCRA
 # Generate Prisma Client
 npm run db:generate
 
-# Apply database migrations
+# Apply database migrations (creates tables in existing "ocra" database)
 npm run db:migrate
 
 # OR if you prefer to push schema without migrations:
 cd backend && npx prisma db push
 ```
 
-Quick verification:
+Verification steps:
 
 ```bash
+# 1. Check database exists (created by PostgreSQL container)
+psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "\l"
+
+# 2. Check tables exist (created by Prisma migration)
 psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "\dt"
 ```
 
@@ -378,11 +384,38 @@ docker ps -a | grep postgres
 
 # If you have old containers with different credentials:
 docker stop bare-ocra-postgres
-docker rm bare-ocra-postgres
+docker rm bare-ocra-postgres  # This removes ONLY the container, not the data
 
 # Recreate with correct credentials using npm script
 npm run services:stop
 npm run services:start
+
+# Check if your tables still exist (data is preserved in volume)
+psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "\dt"
+```
+
+**Important:** Removing the container (`docker rm`) preserves data in the volume `ocra-postgres-data`. Your Prisma tables should still exist after recreating the container.
+
+**Only if you see "No relations found"**, you need to run migrations again:
+```bash
+npm run db:migrate
+```
+
+### 10.2 Complete PostgreSQL reset (nuclear option)
+
+If you want to start completely fresh (WARNING: deletes all data):
+
+```bash
+# Stop and remove container
+docker stop bare-ocra-postgres
+docker rm bare-ocra-postgres
+
+# Remove data volume (THIS DELETES ALL DATA)
+docker volume rm ocra-postgres-data
+
+# Recreate everything
+npm run services:start
+npm run db:migrate  # Now required since database is empty
 ```
 
 ### 10.2 Complete service restart
