@@ -1,8 +1,9 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { getCurrentUser } from '../backend';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
+import OpenLIMEViewer, { type OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer';
 import { LoadingProgress } from '../lib/ThreePresenter/src';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription, Annotation } from '../../../shared/scene-types';
@@ -31,6 +32,9 @@ interface HDTModelMeta {
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode') || '3d';
+  
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
@@ -59,8 +63,14 @@ export default function ProjectPage() {
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
+  
+  // 2D viewer (RTI) state
+  const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
+  const [rtiLoading, setRtiLoading] = useState(false);
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
+  const openLimeRef = useRef<OpenLIMEViewerRef>(null);
 
   // Ensure HDT document and default scene exist before updating
   const ensureHDTDocument = async (projectId: string): Promise<boolean> => {
@@ -525,20 +535,38 @@ export default function ProjectPage() {
           if (hdtRes.ok) {
             const doc: any = await hdtRes.json();
 
-            // Pick a 3D asset from digitalAssets (new architecture)
             const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
-            const modelAsset =
-              assets.find((a: any) => a?.type === '3d-model') ||
-              assets.find((a: any) => typeof a?.type === 'string' && a.type.includes('3d'));
+            
+            // Handle 3D assets
+            if (mode === '3d') {
+              const modelAsset =
+                assets.find((a: any) => a?.type === '3d-model') ||
+                assets.find((a: any) => typeof a?.type === 'string' && a.type.includes('3d'));
 
-            // Keep a minimal reference for UI purposes only (no scene mutation here).
-            if (modelAsset?.entryPoint) {
-              setHdtModel({
-                fileName: modelAsset.entryPoint,
-                fileUrl: modelAsset.entryPointUrl,
-              });
-            } else {
-              setHdtModel(null);
+              // Keep a minimal reference for UI purposes only (no scene mutation here).
+              if (modelAsset?.entryPoint) {
+                setHdtModel({
+                  fileName: modelAsset.entryPoint,
+                  fileUrl: modelAsset.entryPointUrl,
+                });
+              } else {
+                setHdtModel(null);
+              }
+            }
+            
+            // Handle 2D RTI assets
+            if (mode === '2d') {
+              const rtiAsset = assets.find((a: any) => a?.type === 'rti');
+              if (rtiAsset) {
+                setRtiAsset({
+                  infoJsonUrl: rtiAsset.entryPointUrl,
+                  entryPoint: rtiAsset.entryPoint,
+                });
+                console.log('📸 RTI asset found:', rtiAsset);
+                console.log('📸 RTI viewer will load from:', rtiAsset.entryPoint);
+              } else {
+                setRtiAsset(null);
+              }
             }
           }
         } catch (e) {
@@ -552,7 +580,7 @@ export default function ProjectPage() {
     };
     if (projectId) fetchAll();
     // eslint-disable-next-line
-  }, [projectId]);
+  }, [projectId, mode]);
 
   // Reload scene when selected scene changes
   useEffect(() => {
@@ -769,10 +797,10 @@ export default function ProjectPage() {
 
       {/* Main content */}
       <div className="flex-grow-1 d-flex overflow-hidden">
-        {/* 3D Viewer */}
+        {/* 3D/2D Viewer */}
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
 
-          {sceneDesc && (
+          {mode === '3d' && sceneDesc && (
             <>
               <ThreeJSViewer
                 ref={viewerRef}
@@ -857,11 +885,60 @@ export default function ProjectPage() {
               )}
             </>
           )}
+
+          {mode === '2d' && rtiAsset && rtiAsset.infoJsonUrl && (
+            <OpenLIMEViewer
+              ref={openLimeRef}
+              sceneUrl={rtiAsset.infoJsonUrl}
+              layerType="rti"
+              layout="deepzoom"
+              onReady={() => {
+                console.log('📸 2D RTI viewer ready');
+              }}
+              onError={(err) => {
+                console.error('📸 2D RTI viewer error:', err);
+                setError(`Failed to load RTI viewer: ${err.message}, ${rtiAsset.infoJsonUrl}`);
+              }}
+            />
+          )}
+
+          {mode === '2d' && !rtiAsset?.infoJsonUrl && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              backgroundColor: '#f5f5f5'
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📸</div>
+                <p style={{ color: '#666', marginBottom: '8px' }}>No RTI (2D) assets available</p>
+                <p style={{ color: '#999', fontSize: '14px' }}>Please add RTI assets to this project</p>
+                <p style={{ color: '#999', fontSize: '14px' }}>{rtiAsset?.infoJsonUrl}</p>
+              </div>
+            </div>
+          )}
+
+          {mode === '3d' && !sceneDesc && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              backgroundColor: '#f5f5f5'
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📦</div>
+                <p style={{ color: '#666', marginBottom: '8px' }}>No 3D models available</p>
+                <p style={{ color: '#999', fontSize: '14px' }}>Please add 3D assets to this project</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar with Tabs */}
         <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
-          <div className="h-100 d-flex flex-column">
+            <div className="h-100 d-flex flex-column">
             {/* Tab Navigation */}
             <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
               <li className="nav-item" role="presentation">

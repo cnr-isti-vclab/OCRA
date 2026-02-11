@@ -53,6 +53,7 @@ export default function Projects() {
   const [managerMap, setManagerMap] = useState<Record<string, boolean>>({});
   // Map of projectId to has3DAssets boolean
   const [has3DAssetsMap, setHas3DAssetsMap] = useState<Record<string, boolean>>({});
+  const [has2DAssetsMap, setHas2DAssetsMap] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -175,8 +176,9 @@ export default function Projects() {
   useEffect(() => {
     if (projects.length === 0) return;
     
-    const fetch3DAssetStatus = async () => {
-      const newMap: Record<string, boolean> = {};
+    const fetchAssetStatus = async () => {
+      const newMap2D: Record<string, boolean> = {};
+      const newMap3D: Record<string, boolean> = {};
       await Promise.all(projects.map(async (project) => {
         try {
           const res = await fetch(`${getApiBase()}/api/projects/${project.id}/hdt`, {
@@ -184,19 +186,24 @@ export default function Projects() {
           });
           if (res.ok) {
             const hdtData = await res.json();
-            // Check if there are digital assets of type '3d-model'
+            // Check if there are digital assets of type '3d-model' or 'rti'
             const has3DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === '3d-model') || false;
-            newMap[project.id] = has3DAssets;
+            const has2DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'rti') || false;
+            newMap3D[project.id] = has3DAssets;
+            newMap2D[project.id] = has2DAssets;
           } else {
-            newMap[project.id] = false;
+            newMap3D[project.id] = false;
+            newMap2D[project.id] = false;
           }
         } catch {
-          newMap[project.id] = false;
+          newMap3D[project.id] = false;
+          newMap2D[project.id] = false;
         }
       }));
-      setHas3DAssetsMap(newMap);
+      setHas3DAssetsMap(newMap3D);
+      setHas2DAssetsMap(newMap2D);
     };
-    fetch3DAssetStatus();
+    fetchAssetStatus();
   }, [projects]);
 
   if (loading) {
@@ -292,7 +299,7 @@ export default function Projects() {
                   </div>
 
                   {/* Bottom Section - Action Buttons */}
-                  <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
+                  <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }}>
                     {has3DAssetsMap[project.id] ? (
                       <Link
                         to={`/projects/${project.id}`}
@@ -307,6 +314,22 @@ export default function Projects() {
                         title="No 3D assets available"
                       >
                         3D
+                      </button>
+                    )}
+                    {has2DAssetsMap[project.id] ? (
+                      <Link
+                        to={`/projects/${project.id}?mode=2d`}
+                        className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                      >
+                        2D
+                      </Link>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                        disabled
+                        title="No 2D assets available"
+                      >
+                        2D
                       </button>
                     )}
                     <Link
