@@ -17,35 +17,74 @@
 
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as OpenLIME from 'openlime';
+import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './skin.css';
+import { SceneDescription } from '../../lib/ThreePresenter/src';
 
 export interface OpenLIMEViewerRef {
   // Put Here API methods you want to expose to parent components, e.g.:
-  resize: () => void;
+  loadScene: (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[] /*, layerType: string, layout: 'deepzoom' | 'image'*/) => void;
 }
 
 const OpenLIMEViewer = forwardRef<
   OpenLIMEViewerRef,
   {
-    sceneUrl: string;
-    layerType: string;
-    layout: 'deepzoom' | 'image';
+    sceneDesc: SceneDescription, 
+    digitalAssets: DigitalAsset[],
     onReady?: () => void;
     onError?: (error: Error) => void;
-  }
->(
+  } >(
   (
-    { sceneUrl, layerType, layout, onReady, onError },
+    { sceneDesc, digitalAssets, onReady, onError },
     ref
   ) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const viewerRef = useRef<OpenLIME.Viewer | null>(null);
 
+    const loadScene = (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
+      console.log("Loading scene into OpenLIME Viewer with description:", sceneDesc);
+      if (viewerRef.current === null) {
+        console.warn('⚠️ Cannot load scene: OpenLIME Viewer not initialized');
+        return;
+      }
+      if (digitalAssets.length === 0  ) {
+        console.warn('⚠️ Cannot load scene: No digital assets provided');
+        return;
+      }
+
+      console.log('🎬 Loading scene into OpenLIME Viewer with description:', sceneDesc);
+      const viewer = viewerRef.current;
+      viewer.clearLayers();
+
+      // For simplicity, we assume a single layer with all assets. In a real implementation, you might want to support multiple layers and different layouts.
+      const layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
+      const layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
+
+      digitalAssets.forEach((asset) => {
+        if (asset.type === 'rti') {
+          const url = asset.entryPointUrl; // Assuming the URL is directly usable by OpenLIME
+          const layer = new OpenLIME.Layer({
+            label: layerType,
+            url: url,
+            layout: layout,
+            type: layerType,
+            normals: false,
+            visible: true,
+          });
+          viewer.addLayer(layerType, layer);
+          console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url})`);
+        }
+      });
+
+      viewer.redraw();
+      console.log('✅ OpenLIME scene loaded successfully');
+    }
+
     // Expose resize method to parent component
     useImperativeHandle(ref, () => ({
       // Put Here API methods (same as in OpenLIMEViewerRef) you want to expose to parent components, e.g.:
-      resize: () => {
-        console.log("REMOVE THIS FUNCTION");
+      loadScene: (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
+        loadScene(sceneDesc, digitalAssets);
       }
     }));
 
@@ -69,7 +108,7 @@ const OpenLIMEViewer = forwardRef<
       window.addEventListener('resize', resize);
 
       try {
-        console.log('🎬 Initializing OpenLIME Viewer with scene:', sceneUrl);
+        console.log('🎬 Initializing OpenLIME Viewer with scene:', sceneDesc);
 
         const viewer = new OpenLIME.Viewer(mountRef.current);
 
@@ -78,34 +117,14 @@ const OpenLIMEViewer = forwardRef<
         }
 
         viewerRef.current = viewer;
-        const layer = new OpenLIME.Layer({
-          label: layerType,
-          url: sceneUrl,
-          layout: layout,
-          type: layerType,
-          normals: false,
-          visible: true,
-        });
 
-        viewer.addLayer(layerType, layer);
-
-        // const viewer : OpenLIME.Viewer = OpenLIME.ManifestLoader.load(sceneUrl)
-        //   .then((manifest) => {
-        //     console.log('🎬 Manifest loaded:', manifest);
-        //   })
-        //   .catch((err) => {
-        //     console.error('❌ Failed to load manifest:', err);
-        //     if (onError) {
-        //       onError(err instanceof Error ? err : new Error(String(err)));
-        //     }
-        //   }) as unknown as OpenLIME.Viewer;
-        // console.log("🎬 OpenLIME Viewer initialized:", viewer);
-        // viewerRef.current = viewer;
+        loadScene(sceneDesc, digitalAssets);
 
         resize();
         viewer.redraw();
         console.log('✅ OpenLIME scene loaded successfully');
        
+        // Setup Interface and skin
         OpenLIME.Skin.setUrl('/skin.svg');
         console.log('🎬 Loaded OpenLIME skin from ./skin.svg');
 
@@ -135,7 +154,7 @@ const OpenLIMEViewer = forwardRef<
           viewerRef.current = null;
         }
       };
-    }, [sceneUrl, onReady, onError]);
+    }, [onReady, onError]);
 
     return (
       <div className='openlime-container'
