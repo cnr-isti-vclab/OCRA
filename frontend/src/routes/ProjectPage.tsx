@@ -7,6 +7,7 @@ import OpenLIMEViewer, { type OpenLIMEViewerRef } from '../adapters/openlime-vie
 import { LoadingProgress } from '../lib/ThreePresenter/src';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription, Annotation } from '../../../shared/scene-types';
+import { DigitalAsset } from './HDTPage.tsx';
 
 interface Project {
   id: string;
@@ -65,8 +66,10 @@ export default function ProjectPage() {
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
   
   // 2D viewer (RTI) state
-  const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
-  const [rtiLoading, setRtiLoading] = useState(false);
+ // const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
+  const [rtiAvailable, setRtiAvailable] = useState(false);
+
+  const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
@@ -536,6 +539,8 @@ export default function ProjectPage() {
             const doc: any = await hdtRes.json();
 
             const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
+            // Keep a reference to all digital assets for UI purposes (e.g. RTI viewer), but do NOT mutate the scene with HDT metadata.
+            setDigitalAssets(assets);
             
             // Handle 3D assets
             if (mode === '3d') {
@@ -557,15 +562,12 @@ export default function ProjectPage() {
             // Handle 2D RTI assets
             if (mode === '2d') {
               const rtiAsset = assets.find((a: any) => a?.type === 'rti');
-              if (rtiAsset) {
-                setRtiAsset({
-                  infoJsonUrl: rtiAsset.entryPointUrl,
-                  entryPoint: rtiAsset.entryPoint,
-                });
-                console.log('📸 RTI asset found:', rtiAsset);
-                console.log('📸 RTI viewer will load from:', rtiAsset.entryPoint);
+              const rtiAvailable = rtiAsset !== undefined; //!!rtiAsset?.entryPoint;
+              setRtiAvailable(rtiAvailable);
+              if (rtiAvailable) {
+                console.log('📸 RTI asset found');
               } else {
-                setRtiAsset(null);
+                console.log('📸 No RTI asset found in HDT metadata');
               }
             }
           }
@@ -886,23 +888,22 @@ export default function ProjectPage() {
             </>
           )}
 
-          {mode === '2d' && rtiAsset && rtiAsset.infoJsonUrl && (
+          {mode === '2d' && sceneDesc && rtiAvailable && (
             <OpenLIMEViewer
               ref={openLimeRef}
-              sceneUrl={rtiAsset.infoJsonUrl}
-              layerType="rti"
-              layout="deepzoom"
+              sceneDesc={sceneDesc}
+              digitalAssets={ digitalAssets }
               onReady={() => {
                 console.log('📸 2D RTI viewer ready');
               }}
               onError={(err) => {
                 console.error('📸 2D RTI viewer error:', err);
-                setError(`Failed to load RTI viewer: ${err.message}, ${rtiAsset.infoJsonUrl}`);
+                setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
               }}
             />
           )}
 
-          {mode === '2d' && !rtiAsset?.infoJsonUrl && (
+          {mode === '2d' && !rtiAvailable && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -914,7 +915,6 @@ export default function ProjectPage() {
                 <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📸</div>
                 <p style={{ color: '#666', marginBottom: '8px' }}>No RTI (2D) assets available</p>
                 <p style={{ color: '#999', fontSize: '14px' }}>Please add RTI assets to this project</p>
-                <p style={{ color: '#999', fontSize: '14px' }}>{rtiAsset?.infoJsonUrl}</p>
               </div>
             </div>
           )}
