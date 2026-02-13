@@ -23,7 +23,7 @@ import { SceneDescription } from '../../lib/ThreePresenter/src';
 
 export interface OpenLIMEViewerRef {
   // Put Here API methods you want to expose to parent components, e.g.:
-  loadScene: (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[] /*, layerType: string, layout: 'deepzoom' | 'image'*/) => void;
+  resetCamera: () => void;
 }
 
 const OpenLIMEViewer = forwardRef<
@@ -40,53 +40,7 @@ const OpenLIMEViewer = forwardRef<
   ) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const viewerRef = useRef<OpenLIME.Viewer | null>(null);
-
-    const loadScene = (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
-      console.log("Loading scene into OpenLIME Viewer with description:", sceneDesc);
-      if (viewerRef.current === null) {
-        console.warn('⚠️ Cannot load scene: OpenLIME Viewer not initialized');
-        return;
-      }
-      if (digitalAssets.length === 0  ) {
-        console.warn('⚠️ Cannot load scene: No digital assets provided');
-        return;
-      }
-
-      console.log('🎬 Loading scene into OpenLIME Viewer with description:', sceneDesc);
-      const viewer = viewerRef.current;
-      viewer.clearLayers();
-
-      // For simplicity, we assume a single layer with all assets. In a real implementation, you might want to support multiple layers and different layouts.
-      const layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
-      const layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
-
-      digitalAssets.forEach((asset) => {
-        if (asset.type === 'rti') {
-          const url = asset.entryPointUrl; // Assuming the URL is directly usable by OpenLIME
-          const layer = new OpenLIME.Layer({
-            label: layerType,
-            url: url,
-            layout: layout,
-            type: layerType,
-            normals: false,
-            visible: true,
-          });
-          viewer.addLayer(layerType, layer);
-          console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url})`);
-        }
-      });
-
-      viewer.redraw();
-      console.log('✅ OpenLIME scene loaded successfully');
-    }
-
-    // Expose resize method to parent component
-    useImperativeHandle(ref, () => ({
-      // Put Here API methods (same as in OpenLIMEViewerRef) you want to expose to parent components, e.g.:
-      loadScene: (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
-        loadScene(sceneDesc, digitalAssets);
-      }
-    }));
+    const uiRef = useRef<OpenLIME.UIBasic | null>(null);
 
     // Initialize viewer on mount
     useEffect(() => {
@@ -118,23 +72,15 @@ const OpenLIMEViewer = forwardRef<
 
         viewerRef.current = viewer;
 
-        loadScene(sceneDesc, digitalAssets);
-
         resize();
         viewer.redraw();
-        console.log('✅ OpenLIME scene loaded successfully');
+        console.log('✅ OpenLIME Viewer initialized successfully');
        
         // Setup Interface and skin
         OpenLIME.Skin.setUrl('/skin.svg');
         console.log('🎬 Loaded OpenLIME skin from ./skin.svg');
 
-        const ui = new OpenLIME.UIBasic(viewer, {
-          showLightDirections: true,
-        });
-        ui.actions.zoomin.display = true;
-        ui.actions.zoomout.display = true;
-        ui.actions.light.active = true;
-       
+
         if (onReady) {
           onReady();
         }
@@ -155,6 +101,66 @@ const OpenLIMEViewer = forwardRef<
         }
       };
     }, [onReady, onError]);
+
+    //const loadScene = (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
+    useEffect(() => {
+      console.log("Loading scene into OpenLIME Viewer with description:", sceneDesc);
+      if (viewerRef.current === null) {
+        console.warn('⚠️ Cannot load scene: OpenLIME Viewer not initialized');
+        return;
+      }
+      if (digitalAssets.length === 0  ) {
+        console.warn('⚠️ Cannot load scene: No digital assets provided');
+        return;
+      }
+
+      const viewer = viewerRef.current;
+      viewer.clearLayers();
+
+      // For simplicity, we assume a single layer with all assets. In a real implementation, you might want to support multiple layers and different layouts.
+      const layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
+      const layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
+
+      digitalAssets.forEach((asset) => {
+        if (asset.type === 'rti') {
+          const url = asset.entryPointUrl; // Assuming the URL is directly usable by OpenLIME
+          const layer = new OpenLIME.Layer({
+            label: layerType,
+            url: url,
+            layout: layout,
+            type: layerType,
+            normals: false,
+            visible: true,
+          });
+          viewer.addLayer(layerType, layer);
+          console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url})`);
+        }
+      });
+
+      console.log("Create new OpenLIME.UIBasic");
+      uiRef.current = new OpenLIME.UIBasic(viewer, {
+        showLightDirections: true,
+      });
+      uiRef.current.actions.zoomin.display = true;
+      uiRef.current.actions.zoomout.display = true;
+      uiRef.current.actions.light.active = true;
+       
+      viewer.redraw();
+      console.log('✅ OpenLIME scene loaded successfully');
+    }, [sceneDesc, viewerRef.current]);
+
+    // Expose resize method to parent component
+    useImperativeHandle(ref, () => ({
+      // Put Here API methods (same as in OpenLIMEViewerRef) you want to expose to parent components, e.g.:
+      // loadScene: (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
+      //   loadScene(sceneDesc, digitalAssets);
+      // }
+      resetCamera() {
+        if (viewerRef.current != null) {
+          viewerRef.current.camera.reset();
+        }
+      }
+    }));
 
     return (
       <div className='openlime-container'
