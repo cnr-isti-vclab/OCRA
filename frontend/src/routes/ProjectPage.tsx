@@ -2,12 +2,14 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
-import OpenLIMEViewer, { type OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer';
+import { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
+import { type OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer';
 import { LoadingProgress } from '../lib/ThreePresenter/src';
 import { getApiBase } from '../config/oauth';
 import type { SceneDescription, Annotation } from '../../../shared/scene-types';
 import { DigitalAsset } from './HDTPage.tsx';
+import Viewer3DPanel from './components/Viewer3DPanel';
+import Viewer2DPanel from './components/Viewer2DPanel';
 
 interface Project {
   id: string;
@@ -801,98 +803,48 @@ export default function ProjectPage() {
       <div className="flex-grow-1 d-flex overflow-hidden">
         {/* 3D/2D Viewer */}
         <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
-
-          {mode === '3d' && sceneDesc && (
-            <>
-              <ThreeJSViewer
-                ref={viewerRef}
-                height="100%"
-                sceneDesc={sceneDesc}
-                onReady={setupAnnotationCallback}
-                onLoadProgress={(progress: LoadingProgress) => {
-                  setLoadingModels(true);
-                  setModelLoadProgress(prev => ({
-                    ...prev,
-                    [progress.modelId]: progress.percentage
-                  }));
-                }}
-                onLoadComplete={(modelId: string) => {
-                  setModelLoadProgress(prev => {
-                    const updated = { ...prev };
-                    delete updated[modelId];
-                    // Check if all models are done after this deletion
-                    if (Object.keys(updated).length === 0) {
-                      setLoadingModels(false);
-                    }
-                    return updated;
-                  });
-                }}
-                onLoadError={(modelId: string, error: Error) => {
-                  console.error(`Failed to load model ${modelId}:`, error);
-                  setModelLoadProgress(prev => {
-                    const updated = { ...prev };
-                    delete updated[modelId];
-                    return updated;
-                  });
-                }}
-              />
-              {/* Loading overlay */}
-              {loadingModels && Object.keys(modelLoadProgress).length > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'rgba(0, 0, 0, 0.6)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontFamily: 'sans-serif',
-                  zIndex: 1000,
-                  pointerEvents: 'none'
-                }}>
-                  <div style={{ textAlign: 'center', maxWidth: '400px', width: '90%' }}>
-                    <div style={{ fontSize: '18px', marginBottom: '15px', fontWeight: 500 }}>
-                      Loading 3D Models...
-                    </div>
-                    {Object.entries(modelLoadProgress).map(([modelId, percentage]) => (
-                      <div key={modelId} style={{ marginBottom: '12px' }}>
-                        <div style={{ fontSize: '14px', marginBottom: '6px', opacity: 0.9 }}>
-                          {modelId}
-                        </div>
-                        <div style={{
-                          width: '100%',
-                          height: '6px',
-                          background: 'rgba(255, 255, 255, 0.2)',
-                          borderRadius: '3px',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{
-                            width: `${percentage}%`,
-                            height: '100%',
-                            background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
-                            borderRadius: '3px',
-                            transition: 'width 0.3s ease'
-                          }} />
-                        </div>
-                        <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
-                          {Math.round(percentage)}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+          {mode === '3d' && (
+            <Viewer3DPanel
+              ref={viewerRef}
+              sceneDesc={sceneDesc}
+              loadingModels={loadingModels}
+              modelLoadProgress={modelLoadProgress}
+              onReady={setupAnnotationCallback}
+              onLoadProgress={(progress: LoadingProgress) => {
+                setLoadingModels(true);
+                setModelLoadProgress(prev => ({
+                  ...prev,
+                  [progress.modelId]: progress.percentage
+                }));
+              }}
+              onLoadComplete={(modelId: string) => {
+                setModelLoadProgress(prev => {
+                  const updated = { ...prev };
+                  delete updated[modelId];
+                  // Check if all models are done after this deletion
+                  if (Object.keys(updated).length === 0) {
+                    setLoadingModels(false);
+                  }
+                  return updated;
+                });
+              }}
+              onLoadError={(modelId: string, error: Error) => {
+                console.error(`Failed to load model ${modelId}:`, error);
+                setModelLoadProgress(prev => {
+                  const updated = { ...prev };
+                  delete updated[modelId];
+                  return updated;
+                });
+              }}
+            />
           )}
 
-          {mode === '2d' && sceneDesc && rtiAvailable && (
-            <OpenLIMEViewer
+          {mode === '2d' && (
+            <Viewer2DPanel
               ref={openLimeRef}
               sceneDesc={sceneDesc}
-              digitalAssets={ digitalAssets }
+              digitalAssets={digitalAssets}
+              rtiAvailable={rtiAvailable}
               onReady={() => {
                 console.log('📸 2D RTI viewer ready');
               }}
@@ -901,38 +853,6 @@ export default function ProjectPage() {
                 setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
               }}
             />
-          )}
-
-          {mode === '2d' && !rtiAvailable && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              backgroundColor: '#f5f5f5'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📸</div>
-                <p style={{ color: '#666', marginBottom: '8px' }}>No RTI (2D) assets available</p>
-                <p style={{ color: '#999', fontSize: '14px' }}>Please add RTI assets to this project</p>
-              </div>
-            </div>
-          )}
-
-          {mode === '3d' && !sceneDesc && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              backgroundColor: '#f5f5f5'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📦</div>
-                <p style={{ color: '#666', marginBottom: '8px' }}>No 3D models available</p>
-                <p style={{ color: '#999', fontSize: '14px' }}>Please add 3D assets to this project</p>
-              </div>
-            </div>
           )}
         </div>
 
