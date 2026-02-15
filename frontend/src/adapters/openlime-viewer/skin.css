@@ -142,13 +142,15 @@
 .openlime-toolbar {
 	position: absolute;
 	left: 5px;
+	top: 10px;
+	bottom: auto;
+
 	padding: 5px;
-	background-color: transparent;
 	display: flex;
 	flex-direction: column;
 	border-radius: 8px;
-	top: 10px;
-	bottom: auto;
+
+	background-color: rgba(40, 40, 40, 0.6); /* grigio scuro semi-trasparente */
 }
 
 .openlime-toolbar svg:not(:root) {
@@ -185,6 +187,12 @@
 	stroke-width: 1.5px;
 	vector-effect: non-scaling-stroke;
 }
+
+/* ANNOTATION PENCIL */
+.openlime-toolbar .openlime-pencil.openlime-pencil-active path[style] {
+	fill: #f00 !important;
+}
+
 
 g.openlime-compact {
 	visibility: hidden !important;
