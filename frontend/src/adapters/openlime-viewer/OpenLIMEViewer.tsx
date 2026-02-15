@@ -41,6 +41,32 @@ const OpenLIMEViewer = forwardRef<
     const mountRef = useRef<HTMLDivElement | null>(null);
     const viewerRef = useRef<OpenLIME.Viewer | null>(null);
     const uiRef = useRef<OpenLIME.UIBasic | null>(null);
+    const onReadyRef = useRef<typeof onReady>(onReady);
+    const onErrorRef = useRef<typeof onError>(onError);
+
+    const enforceScaleBarStyle = () => {
+      const uiAny = uiRef.current as any;
+      const svg: SVGElement | undefined = uiAny?.scalebar?.svg;
+      const text: SVGTextElement | undefined = uiAny?.scalebar?.text;
+      const line: SVGLineElement | undefined = uiAny?.scalebar?.line;
+      if (!svg || !text || !line) return false;
+
+      svg.style.setProperty('width', '200px', 'important');
+      svg.style.setProperty('height', '40px', 'important');
+      svg.style.setProperty('padding', '15px', 'important');
+      text.style.setProperty('font-size', '24px', 'important');
+      text.setAttribute('font-size', '24px');
+      line.style.setProperty('stroke-width', '2px', 'important');
+      return true;
+    };
+
+    useEffect(() => {
+      onReadyRef.current = onReady;
+    }, [onReady]);
+
+    useEffect(() => {
+      onErrorRef.current = onError;
+    }, [onError]);
 
     // Initialize viewer on mount
     useEffect(() => {
@@ -81,14 +107,14 @@ const OpenLIMEViewer = forwardRef<
         console.log('🎬 Loaded OpenLIME skin from ./skin.svg');
 
 
-        if (onReady) {
-          onReady();
+        if (onReadyRef.current) {
+          onReadyRef.current();
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         console.error('❌ Failed to initialize OpenLIME Viewer:', err);
-        if (onError) {
-          onError(err);
+        if (onErrorRef.current) {
+          onErrorRef.current(err);
         }
       }
 
@@ -100,54 +126,127 @@ const OpenLIMEViewer = forwardRef<
           viewerRef.current = null;
         }
       };
-    }, [onReady, onError]);
+    }, []);
 
     //const loadScene = (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
     useEffect(() => {
-      console.log("Loading scene into OpenLIME Viewer with description:", sceneDesc);
-      if (viewerRef.current === null) {
-        console.warn('⚠️ Cannot load scene: OpenLIME Viewer not initialized');
-        return;
-      }
-      if (digitalAssets.length === 0  ) {
-        console.warn('⚠️ Cannot load scene: No digital assets provided');
-        return;
-      }
+      let cancelled = false;
 
-      const viewer = viewerRef.current;
-      viewer.clearLayers();
+      const loadScene = async () => {
+        console.log("Loading scene into OpenLIME Viewer with description:", sceneDesc);
+        if (viewerRef.current === null) {
+          console.warn('⚠️ Cannot load scene: OpenLIME Viewer not initialized');
+          return;
+        }
+        if (digitalAssets.length === 0) {
+          console.warn('⚠️ Cannot load scene: No digital assets provided');
+          return;
+        }
 
-      // For simplicity, we assume a single layer with all assets. In a real implementation, you might want to support multiple layers and different layouts.
-      const layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
-      const layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
+        const viewer = viewerRef.current;
+        viewer.clearLayers();
 
-      digitalAssets.forEach((asset) => {
-        if (asset.type === 'rti') {
-          const url = asset.entryPointUrl; // Assuming the URL is directly usable by OpenLIME
-          const layer = new OpenLIME.Layer({
-            label: layerType,
-            url: url,
-            layout: layout,
+        const layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
+        const layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
+
+        let scalePixelSize: number | null = null;
+
+        for (let i = 0; i < digitalAssets.length; i++) {
+          const asset = digitalAssets[i];
+          if (asset.type !== 'rti') continue;
+
+          const url = asset.entryPointUrl;
+          if (!url) continue;
+
+          let pixelSizeInMM: number | null = null;
+          try {
+            const response = await fetch(url, { credentials: 'include' });
+            if (response.ok) {
+              const info = await response.json();
+              const parsed = Number(info?.pixelSizeInMM);
+              if (Number.isFinite(parsed) && parsed > 0) {
+                pixelSizeInMM = parsed;
+                if (scalePixelSize == null) {
+                  scalePixelSize = parsed;
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`⚠️ Could not read pixelSizeInMM from ${url}:`, error);
+          }
+
+          if (pixelSizeInMM == null) {
+            const metadataPixel = Number((asset as any)?.metadata?.pixelSizeInMM);
+            if (Number.isFinite(metadataPixel) && metadataPixel > 0) {
+              pixelSizeInMM = metadataPixel;
+              if (scalePixelSize == null) {
+                scalePixelSize = metadataPixel;
+              }
+            }
+          }
+
+          if (cancelled) return;
+
+          const layerId = asset.id || `${layerType}-${i}`;
+          const layerOptions: any = {
+            label: asset.fileName || layerType,
+            url,
+            layout,
             type: layerType,
             normals: false,
             visible: true,
-          });
-          viewer.addLayer(layerType, layer);
-          console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url})`);
-        }
-      });
+          };
+          if (pixelSizeInMM != null) {
+            layerOptions.pixelSize = pixelSizeInMM;
+          }
 
-      console.log("Create new OpenLIME.UIBasic");
-      uiRef.current = new OpenLIME.UIBasic(viewer, {
-        showLightDirections: true,
-      });
-      uiRef.current.actions.zoomin.display = true;
-      uiRef.current.actions.zoomout.display = true;
-      uiRef.current.actions.light.active = true;
-       
-      viewer.redraw();
-      console.log('✅ OpenLIME scene loaded successfully');
-    }, [sceneDesc, viewerRef.current]);
+          const layer = new OpenLIME.Layer(layerOptions);
+          viewer.addLayer(layerId, layer);
+          console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url}), pixelSizeInMM=${pixelSizeInMM ?? 'n/a'}`);
+        }
+
+        if (cancelled) return;
+
+        if (!uiRef.current) {
+          console.log("Create new OpenLIME.UIBasic");
+          uiRef.current = new OpenLIME.UIBasic(viewer, {
+            showLightDirections: true,
+            pixelSize: scalePixelSize ?? undefined,
+          });
+        } else if (scalePixelSize != null) {
+          const uiAny = uiRef.current as any;
+          uiAny.pixelSize = scalePixelSize;
+          if (uiAny.scalebar) {
+            uiAny.scalebar.pixelSize = scalePixelSize;
+          } else if ((OpenLIME as any).ScaleBar) {
+            uiAny.scalebar = new (OpenLIME as any).ScaleBar(scalePixelSize, viewer);
+          }
+        }
+
+        if (uiRef.current) {
+          uiRef.current.actions.zoomin.display = true;
+          uiRef.current.actions.zoomout.display = true;
+          uiRef.current.actions.light.active = true;
+        }
+
+        const maybeStyleScaleBar = (attempt = 0) => {
+          if (cancelled) return;
+          const ok = enforceScaleBarStyle();
+          if (!ok && attempt < 20) {
+            window.setTimeout(() => maybeStyleScaleBar(attempt + 1), 100);
+          }
+        };
+        maybeStyleScaleBar();
+
+        viewer.redraw();
+        console.log('✅ OpenLIME scene loaded successfully');
+      };
+
+      void loadScene();
+      return () => {
+        cancelled = true;
+      };
+    }, [sceneDesc, digitalAssets]);
 
     // Expose resize method to parent component
     useImperativeHandle(ref, () => ({
@@ -163,7 +262,7 @@ const OpenLIMEViewer = forwardRef<
     }));
 
     return (
-      <div className='openlime-container'
+      <div className='openlime openlime-container'
         ref={mountRef}
         style={{
           position: 'relative',

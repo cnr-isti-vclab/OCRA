@@ -27,19 +27,19 @@
 	height: 100%;
 }
 
-.openlime-scale {
+.openlime .openlime-scale {
 	position: absolute;
 	bottom: 25px;
 	left: 0px;
-	width: 200px;
-	height: 40px;
-	padding: 15px;
+	width: 200px !important;
+	height: 40px !important;
+	padding: 15px !important;
 	fill: white;
 	z-index: 1000;
 }
 
-.openlime-scale>text {
-	font-size: 24px;
+.openlime .openlime-scale>text {
+	font-size: 24px !important;
 }
 
 .openlime-scale>line {
@@ -191,6 +191,7 @@
 /* ANNOTATION PENCIL */
 .openlime-toolbar .openlime-pencil.openlime-pencil-active path[style] {
 	fill: #f00 !important;
+	stroke: #f00 !important;
 }
 
 
