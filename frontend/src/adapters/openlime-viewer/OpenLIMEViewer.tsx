@@ -44,22 +44,6 @@ const OpenLIMEViewer = forwardRef<
     const onReadyRef = useRef<typeof onReady>(onReady);
     const onErrorRef = useRef<typeof onError>(onError);
 
-    const enforceScaleBarStyle = () => {
-      const uiAny = uiRef.current as any;
-      const svg: SVGElement | undefined = uiAny?.scalebar?.svg;
-      const text: SVGTextElement | undefined = uiAny?.scalebar?.text;
-      const line: SVGLineElement | undefined = uiAny?.scalebar?.line;
-      if (!svg || !text || !line) return false;
-
-      svg.style.setProperty('width', '200px', 'important');
-      svg.style.setProperty('height', '40px', 'important');
-      svg.style.setProperty('padding', '15px', 'important');
-      text.style.setProperty('font-size', '24px', 'important');
-      text.setAttribute('font-size', '24px');
-      line.style.setProperty('stroke-width', '2px', 'important');
-      return true;
-    };
-
     useEffect(() => {
       onReadyRef.current = onReady;
     }, [onReady]);
@@ -160,7 +144,7 @@ const OpenLIMEViewer = forwardRef<
 
           let pixelSizeInMM: number | null = null;
           try {
-            const response = await fetch(url, { credentials: 'include' });
+            const response = await fetch(url);
             if (response.ok) {
               const info = await response.json();
               const parsed = Number(info?.pixelSizeInMM);
@@ -173,16 +157,6 @@ const OpenLIMEViewer = forwardRef<
             }
           } catch (error) {
             console.warn(`⚠️ Could not read pixelSizeInMM from ${url}:`, error);
-          }
-
-          if (pixelSizeInMM == null) {
-            const metadataPixel = Number((asset as any)?.metadata?.pixelSizeInMM);
-            if (Number.isFinite(metadataPixel) && metadataPixel > 0) {
-              pixelSizeInMM = metadataPixel;
-              if (scalePixelSize == null) {
-                scalePixelSize = metadataPixel;
-              }
-            }
           }
 
           if (cancelled) return;
@@ -228,15 +202,6 @@ const OpenLIMEViewer = forwardRef<
           uiRef.current.actions.zoomout.display = true;
           uiRef.current.actions.light.active = true;
         }
-
-        const maybeStyleScaleBar = (attempt = 0) => {
-          if (cancelled) return;
-          const ok = enforceScaleBarStyle();
-          if (!ok && attempt < 20) {
-            window.setTimeout(() => maybeStyleScaleBar(attempt + 1), 100);
-          }
-        };
-        maybeStyleScaleBar();
 
         viewer.redraw();
         console.log('✅ OpenLIME scene loaded successfully');

@@ -27,19 +27,19 @@
 	height: 100%;
 }
 
-.openlime .openlime-scale {
+.openlime-scale {
 	position: absolute;
 	bottom: 25px;
 	left: 0px;
-	width: 200px !important;
-	height: 40px !important;
-	padding: 15px !important;
+	width: 200px;
+	height: 80px;
+	padding: 15px;
 	fill: white;
 	z-index: 1000;
 }
 
-.openlime .openlime-scale>text {
-	font-size: 24px !important;
+.openlime-scale>text {
+	font-size: 20px;
 }
 
 .openlime-scale>line {
