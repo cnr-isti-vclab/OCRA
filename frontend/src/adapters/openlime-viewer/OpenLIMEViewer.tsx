@@ -165,46 +165,99 @@ const OpenLIMEViewer = forwardRef<
           return;
         }
 
+        const getMatrix = (model: SceneDescription['models'][number]) => {
+          console.log(`Calculating transformation matrix for model ${model.id} with properties:`, model);
+          const scale = model.scale || 1;
+          const pos = model.position || [0, 0, 0];
+          const rotScale = (model.rotationUnits && model.rotationUnits === 'rad') ?  180 / Math.PI : 1;
+          const rot = model.rotation ? model.rotation[2] * rotScale : 0;
+
+          let t = new OpenLIME.Transform(); 
+          t.x = pos[0];
+          t.y = pos[1];
+          t.a = rot;
+          t.sx = scale;
+          t.sy = scale;
+          t.t = 0;
+          //
+          t.print();
+          return t;
+        };
+        
         const viewer = viewerRef.current;
         viewer.clearLayers();
 
-        const layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
-        const layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
-
+       
         let scalePixelSize: number | null = null;
 
-        for (let i = 0; i < digitalAssets.length; i++) {
-          const asset = digitalAssets[i];
-          if (asset.type !== 'rti') continue;
+        // FIXME HOW TO HANDLE DIFFERENT PIXEL SIZES ACROSS LAYERS? SHOULD WE ENFORCE A SINGLE SCALE FOR THE WHOLE SCENE, OR ALLOW PER-LAYER SCALES?
 
-          const url = asset.entryPointUrl;
-          if (!url) continue;
-
-          let pixelSizeInMM: number | null = null;
-          try {
-            const response = await fetch(url);
-            if (response.ok) {
-              const info = await response.json();
-              const parsed = Number(info?.pixelSizeInMM);
-              if (Number.isFinite(parsed) && parsed > 0) {
-                pixelSizeInMM = parsed;
-                if (scalePixelSize == null) {
-                  scalePixelSize = parsed;
-                }
-              }
+        // Find all the RTI models in the scene description and add them to the viewer, 
+        // while keeping track of their corresponding digital assets and transformation matrices
+        let selectedAssets: number[] = [];
+        let matrices: OpenLIME.Transform[] = [];
+        let urls: string[] = [];
+        sceneDesc.models.forEach((model) => {
+          const assetId = model.id;
+          const foundIndex = digitalAssets.findIndex(a => a.id === assetId);
+          if (foundIndex != -1) {
+            const asset = digitalAssets[foundIndex];
+            if (asset.entryPointUrl != null && asset.type === 'rti') {
+              selectedAssets.push(foundIndex);
+              matrices.push(getMatrix(model));
+              urls.push(asset.entryPointUrl);
+              console.log(`🎬 Prepared asset for OpenLIME Viewer: ${asset.fileName} (ID: ${asset.id}), URL: ${asset.entryPointUrl}`);
+            } else {
+              console.warn(`⚠️ Skipping asset ${asset.fileName} (ID: ${asset.id}): missing entryPointUrl or unsupported type (${asset.type})`);
             }
-          } catch (error) {
-            console.warn(`⚠️ Could not read pixelSizeInMM from ${url}:`, error);
+          } else {
+            console.warn(`⚠️ No matching digital asset found for model ID: ${assetId}`);
           }
+        });
+          
+        // Iterate over the selected assets and add them to the viewer with their corresponding transformation matrices, 
+        // while also attempting to read pixel size information from the asset's entry point URL if available
+        for (let i = 0; i < selectedAssets.length; i++) {
+          const asset = digitalAssets[selectedAssets[i]];
+          const matrix = matrices[i];
+          const url = urls[i];
+          console.log(`🎬 Adding asset to OpenLIME Viewer: ${asset.fileName}, ${url}, matrix `, matrix);
+
+          // Read Header data if available
+          let pixelSizeInMM: number | null = null;
+          let layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
+          let layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
+          try {
+              const response = await fetch(url);
+              if (response.ok) {
+                const info = await response.json();
+                const parsed = Number(info?.pixelSizeInMM);
+                if (Number.isFinite(parsed) && parsed > 0) {
+                  pixelSizeInMM = parsed;
+                  if (scalePixelSize == null) {
+                    scalePixelSize = parsed;
+                  }
+                }
+
+                //layerType = info?.type || layerType;
+                layout = info?.layout || layout;
+
+                console.log(`🎬 Read header info from ${url}: pixelSizeInMM=${pixelSizeInMM}, type=${layerType}, layout=${layout}`);
+              }
+
+            } catch (error) {
+              console.warn(`⚠️ Could not read pixelSizeInMM from ${url}:`, error);
+            }
 
           if (cancelled) return;
 
+          // Add layer to viewer with appropriate options, including transformation matrix and pixel size if available
           const layerId = asset.id || `${layerType}-${i}`;
           const layerOptions: any = {
             label: asset.fileName || layerType,
             url,
             layout,
-            type: layerType,
+            type: 'rti',
             normals: false,
             visible: true,
           };
@@ -216,9 +269,11 @@ const OpenLIMEViewer = forwardRef<
           viewer.addLayer(layerId, layer);
           console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url}), pixelSizeInMM=${pixelSizeInMM ?? 'n/a'}`);
         }
+        //////////////////////////////////////
 
         if (cancelled) return;
 
+        // After all layers are added, setup the UI and annotation callbacks
         if (!uiRef.current) {
           console.log("Create new OpenLIME.UIBasic");
           uiRef.current = new OpenLIME.UIBasic(viewer, {
