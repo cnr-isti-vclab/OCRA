@@ -21,9 +21,28 @@ import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './skin.css';
 import { SceneDescription } from '../../lib/ThreePresenter/src';
 
+/**
+ * Simplified annotation interface for CRUD operations
+ */
+export interface SimplifiedAnnotation {
+  id: string;
+  label?: string;
+  description?: string;
+  class?: string;
+  data?: any;
+  publish?: number;
+  state?: any;
+}
+
 export interface OpenLIMEViewerRef {
-  // Put Here API methods you want to expose to parent components, e.g.:
+  // Camera controls
   resetCamera: () => void;
+  
+  // Annotation CRUD operations
+  getAllAnnotations: () => SimplifiedAnnotation[];
+  getAnnotationById: (id: string) => SimplifiedAnnotation | null;
+  updateAnnotationById: (id: string, updates: Partial<SimplifiedAnnotation>) => SimplifiedAnnotation | null;
+  deleteAnnotationById: (id: string) => SimplifiedAnnotation | null;
 }
 
 const OpenLIMEViewer = forwardRef<
@@ -33,9 +52,13 @@ const OpenLIMEViewer = forwardRef<
     digitalAssets: DigitalAsset[],
     onReady?: () => void;
     onError?: (error: Error) => void;
+    // Annotation callbacks
+    onAnnotationCreated?: (annotation: SimplifiedAnnotation) => void;
+    onAnnotationUpdated?: (annotation: SimplifiedAnnotation) => void;
+    onAnnotationDeleted?: (annotation: SimplifiedAnnotation) => void;
   } >(
   (
-    { sceneDesc, digitalAssets, onReady, onError },
+    { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted },
     ref
   ) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
@@ -43,6 +66,9 @@ const OpenLIMEViewer = forwardRef<
     const uiRef = useRef<OpenLIME.UIBasic | null>(null);
     const onReadyRef = useRef<typeof onReady>(onReady);
     const onErrorRef = useRef<typeof onError>(onError);
+    const onAnnotationCreatedRef = useRef<typeof onAnnotationCreated>(onAnnotationCreated);
+    const onAnnotationUpdatedRef = useRef<typeof onAnnotationUpdated>(onAnnotationUpdated);
+    const onAnnotationDeletedRef = useRef<typeof onAnnotationDeleted>(onAnnotationDeleted);
 
     useEffect(() => {
       onReadyRef.current = onReady;
@@ -51,6 +77,18 @@ const OpenLIMEViewer = forwardRef<
     useEffect(() => {
       onErrorRef.current = onError;
     }, [onError]);
+
+    useEffect(() => {
+      onAnnotationCreatedRef.current = onAnnotationCreated;
+    }, [onAnnotationCreated]);
+
+    useEffect(() => {
+      onAnnotationUpdatedRef.current = onAnnotationUpdated;
+    }, [onAnnotationUpdated]);
+
+    useEffect(() => {
+      onAnnotationDeletedRef.current = onAnnotationDeleted;
+    }, [onAnnotationDeleted]);
 
     // Initialize viewer on mount
     useEffect(() => {
@@ -201,7 +239,19 @@ const OpenLIMEViewer = forwardRef<
           uiRef.current.actions.zoomin.display = true;
           uiRef.current.actions.zoomout.display = true;
           uiRef.current.actions.light.active = true;
+          uiRef.current.actions.pencil.display = true;
+          
+          // Setup annotation callback for new annotations created via pencil tool
+          (uiRef.current as any).annotationCallback = (annotation: any) => {
+            console.log('New annotation created via pencil tool:', annotation);
+            if (onAnnotationCreatedRef.current) {
+              onAnnotationCreatedRef.current(serializeAnnotation(annotation));
+            }
+          };
         }
+
+        // Setup event listeners for annotation layer events (update, delete)
+        setupAnnotationLayerListeners();
 
         viewer.redraw();
         console.log('✅ OpenLIME scene loaded successfully');
@@ -213,16 +263,107 @@ const OpenLIMEViewer = forwardRef<
       };
     }, [sceneDesc, digitalAssets]);
 
-    // Expose resize method to parent component
+    // Helper function to get annotation layer
+    const getAnnotationLayer = () => {
+      if (!viewerRef.current || !uiRef.current) return null;
+      const ui = uiRef.current as any;
+      return ui._pencilAnnotationLayer || null;
+    };
+
+    // Helper function to serialize annotation for external use
+    const serializeAnnotation = (anno: any): SimplifiedAnnotation => {
+      return {
+        id: anno.id,
+        label: anno.label,
+        description: anno.description,
+        class: anno.class,
+        data: anno.data,
+        publish: anno.publish,
+        state: anno.state
+      };
+    };
+
+    // Setup listeners on annotation layer for update/delete events
+    const setupAnnotationLayerListeners = () => {
+      const layer = getAnnotationLayer();
+      if (!layer) {
+        console.warn('⚠️ Cannot setup annotation listeners: no annotation layer found');
+        return;
+      }
+
+      // Listen for updated events
+      layer.on('updated', (anno: any) => {
+        console.log('Annotation updated:', anno);
+        if (onAnnotationUpdatedRef.current) {
+          onAnnotationUpdatedRef.current(serializeAnnotation(anno));
+        }
+      });
+
+      // Listen for deleted events
+      layer.on('deleted', (anno: any) => {
+        console.log('Annotation deleted:', anno);
+        if (onAnnotationDeletedRef.current) {
+          onAnnotationDeletedRef.current(serializeAnnotation(anno));
+        }
+      });
+
+      console.log('✅ Annotation layer event listeners setup');
+    };
+
+    // Expose CRUD methods to parent component
     useImperativeHandle(ref, () => ({
-      // Put Here API methods (same as in OpenLIMEViewerRef) you want to expose to parent components, e.g.:
-      // loadScene: (sceneDesc: SceneDescription, digitalAssets: DigitalAsset[]) => {
-      //   loadScene(sceneDesc, digitalAssets);
-      // }
       resetCamera() {
         if (viewerRef.current != null) {
           viewerRef.current.camera.reset();
         }
+      },
+
+      getAllAnnotations(): SimplifiedAnnotation[] {
+        const layer = getAnnotationLayer();
+        if (!layer || typeof layer.listAnnotations !== 'function') {
+          console.warn('⚠️ Cannot get annotations: no annotation layer or method not available');
+          return [];
+        }
+        const annotations = layer.listAnnotations(true);
+        return annotations.map(serializeAnnotation);
+      },
+
+      getAnnotationById(id: string): SimplifiedAnnotation | null {
+        const layer = getAnnotationLayer();
+        if (!layer || typeof layer.getAnnotationById !== 'function') {
+          console.warn('⚠️ Cannot get annotation: no annotation layer or method not available');
+          return null;
+        }
+        const anno = layer.getAnnotationById(id);
+        return anno ? serializeAnnotation(anno) : null;
+      },
+
+      updateAnnotationById(id: string, updates: Partial<SimplifiedAnnotation>): SimplifiedAnnotation | null {
+        const layer = getAnnotationLayer();
+        if (!layer || typeof layer.updateAnnotationById !== 'function') {
+          console.warn('⚠️ Cannot update annotation: no annotation layer or method not available');
+          return null;
+        }
+        console.log(`Updating annotation ${id} with:`, updates);
+        const updatedAnno = layer.updateAnnotationById(id, updates);
+        if (updatedAnno && viewerRef.current) {
+          viewerRef.current.redraw();
+        }
+        return updatedAnno ? serializeAnnotation(updatedAnno) : null;
+      },
+
+      deleteAnnotationById(id: string): SimplifiedAnnotation | null {
+        const layer = getAnnotationLayer();
+        if (!layer || typeof layer.deleteAnnotationById !== 'function') {
+          console.warn('⚠️ Cannot delete annotation: no annotation layer or method not available');
+          return null;
+        }
+        console.log(`Deleting annotation ${id}`);
+        const deletedAnno = layer.deleteAnnotationById(id);
+        if (deletedAnno && viewerRef.current) {
+          viewerRef.current.redraw();
+        }
+        return deletedAnno ? serializeAnnotation(deletedAnno) : null;
       }
     }));
 
