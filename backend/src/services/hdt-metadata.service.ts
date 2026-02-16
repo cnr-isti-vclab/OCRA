@@ -781,8 +781,8 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
         continue;
       }
 
-      if (asset.type !== '3d-model') {
-        console.log(`⏭️  Skipping non-3D asset ${asset.id} (type: ${asset.type})`);
+      if (asset.type !== '3d-model' && asset.type !== 'rti') {
+        console.log(`⏭️  Skipping non-3D & non-RTI asset ${asset.id} (type: ${asset.type})`);
         continue;
       }
 
