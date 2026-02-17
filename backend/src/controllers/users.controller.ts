@@ -225,7 +225,8 @@ export async function updateUserAdminStatus(req: Request, res: Response): Promis
     
     res.json({
       success: true,
-      user: updatedUser
+      user: updatedUser,
+      isAdmin: updatedUser.sys_admin
     });
   } catch (error) {
     console.error('Error updating user admin status:', error);

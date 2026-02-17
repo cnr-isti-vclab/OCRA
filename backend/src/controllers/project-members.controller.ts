@@ -14,6 +14,16 @@ import { auditBestEffort } from '../utils/audit.js';
  * Get current user from request (helper)
  */
 async function getCurrentUser(req: Request): Promise<User | null> {
+  // TEST MODE: Allow bypassing auth with X-Test-User-Id header
+  if (process.env.NODE_ENV === 'test') {
+    const testUserId = req.headers['x-test-user-id'] as string;
+    if (testUserId) {
+      const db = getPrismaClient();
+      const dbUser = await db.user.findUnique({ where: { id: testUserId } });
+      if (dbUser) return dbUser as User;
+    }
+  }
+  
   const { getValidSession } = await import('../../db.js');
   
   let sessionId = req.cookies?.session_id;

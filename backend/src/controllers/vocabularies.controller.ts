@@ -7,6 +7,17 @@ import type { User } from '../types/index.js';
  */
 async function getCurrentUser(req: Request): Promise<User | null> {
   try {
+    // TEST MODE: Allow bypassing auth with X-Test-User-Id header
+    if (process.env.NODE_ENV === 'test') {
+      const testUserId = req.headers['x-test-user-id'] as string;
+      if (testUserId) {
+        const { getPrismaClient } = await import('../../db.js');
+        const db = getPrismaClient();
+        const dbUser = await db.user.findUnique({ where: { id: testUserId } });
+        if (dbUser) return dbUser as User;
+      }
+    }
+    
     // Get session ID from cookie
     let sessionId = req.cookies?.session_id;
     

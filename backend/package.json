@@ -12,6 +12,12 @@
     "seed": "tsx seed.ts",
     "prisma:push": "npx prisma db push",
     "prisma:generate": "npx prisma generate",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude 'src/test/**'",
+    "test:integration": "vitest run src/test/",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "test:quick": "tsx ./scripts/test-log-audit.ts && tsx ./scripts/test-get-users-stats.ts"
   },
   "dependencies": {
@@ -33,9 +39,11 @@
     "@types/fs-extra": "^11.0.4",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.0.0",
+    "@types/supertest": "^6.0.3",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
     "prisma": "^5.18.0",
+    "supertest": "^7.1.4",
     "tsx": "^4.7.0",
     "typescript": "^5.9.2"
   },
