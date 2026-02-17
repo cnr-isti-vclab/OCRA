@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
-import OpenLIMEViewer, { type OpenLIMEViewerRef } from '../../adapters/openlime-viewer/OpenLIMEViewer';
-import type { SceneDescription } from '../../../../shared/scene-types';
+import OpenLIMEViewer, { type OpenLIMEViewerRef, type SimplifiedAnnotation } from '../../adapters/openlime-viewer/OpenLIMEViewer';
+import type { SceneDescription, Annotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
 
 interface Viewer2DPanelProps {
@@ -9,13 +9,16 @@ interface Viewer2DPanelProps {
   rtiAvailable: boolean;
   onReady: () => void;
   onError: (error: Error) => void;
+  onAnnotationCreated?: (annotation: Annotation) => void;
+  onAnnotationUpdated?: (annotation: Annotation) => void;
+  onAnnotationDeleted?: (id: string) => void;
 }
 
 /**
  * Component that encapsulates the 2D (RTI) viewer
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
+  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted }, ref) => {
     if (!rtiAvailable) {
       return (
         <div
@@ -55,6 +58,20 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       );
     }
 
+    const handleAnnotationCreated = (anno: any) => {
+      const ocraAnno: Annotation = {
+        id: anno.id || `anno-${Date.now()}`,
+        label: anno.label || 'New Annotation 2D',
+        type: 'point',
+        geometry: [anno.data?.pos.x || 0, anno.data?.pos.y || 0, 0],
+        createdAt: new Date().toISOString()
+      };
+      
+      if (onAnnotationCreated) {
+        onAnnotationCreated(ocraAnno);
+      }
+    };
+
     return (
       <OpenLIMEViewer
         ref={ref}
@@ -62,6 +79,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         digitalAssets={digitalAssets}
         onReady={onReady}
         onError={onError}
+        onAnnotationCreated={handleAnnotationCreated}
+        onAnnotationUpdated={onAnnotationUpdated}
+        onAnnotationDeleted={onAnnotationDeleted}
       />
     );
   }

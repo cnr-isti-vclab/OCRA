@@ -721,6 +721,55 @@ export default function ProjectPage() {
     return () => clearInterval(interval);
   }, [selectedAnnotationIds]);
 
+  ///////////////////// ANNOTATION CALLBACKS BEGIN /////////////////////
+  const onAnnotationCreated = (annotation: Annotation) => {
+    console.log('2D Annotation created:', annotation);
+    setAnnotations(prev => [...prev, annotation]);
+    console.log('Updated annotations state:', annotations);
+
+    // Save to backend
+    if (sceneDesc && selectedSceneId) {
+      const updatedScene = { ...sceneDesc, annotations: [...annotations, annotation] } as SceneDescription;
+      fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedScene)
+      }).catch(err => console.error('Failed to save annotation:', err));
+    }
+  }
+  const onAnnotationUpdated = (annotation: Annotation) => {
+    console.log('2D Annotation updated:', annotation);
+    setAnnotations(prev => prev.map(a => a.id === annotation.id ? annotation : a));
+    // Save to backend
+    if (sceneDesc && selectedSceneId) {
+      const updatedAnnotations = annotations.map(a => a.id === annotation.id ? annotation : a);
+      const updatedScene = { ...sceneDesc, annotations: updatedAnnotations } as SceneDescription;
+      fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedScene)
+      }).catch(err => console.error('Failed to save annotation:', err));
+    }
+  }
+  const onAnnotationDeleted= (id:string) => {
+    console.log('2D Annotation deleted:', id);
+    setAnnotations(prev => prev.filter(a => a.id !== id));
+    // Save to backend
+    if (sceneDesc && selectedSceneId) {
+      const updatedAnnotations = annotations.filter(a => a.id !== id);
+      const updatedScene = { ...sceneDesc, annotations: updatedAnnotations } as SceneDescription;
+      fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedScene)
+      }).catch(err => console.error('Failed to save annotation:', err));
+    }
+  }
+  ///////////////////// ANNOTATION CALLBACKS END/////////////////////
+ 
   // isManager now comes from backend API
 
   if (loading) {
@@ -852,6 +901,9 @@ export default function ProjectPage() {
                 console.error('📸 2D RTI viewer error:', err);
                 setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
               }}
+              onAnnotationCreated={onAnnotationCreated}
+              onAnnotationUpdated={onAnnotationUpdated}
+              onAnnotationDeleted={onAnnotationDeleted}
             />
           )}
         </div>
