@@ -58,7 +58,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       );
     }
 
-    const handleAnnotationCreated = (anno: any) => {
+    const handleAnnotationCreated = (anno: SimplifiedAnnotation) => {
       const ocraAnno: Annotation = {
         id: anno.id || `anno-${Date.now()}`,
         label: anno.label || 'New Annotation 2D',
@@ -72,6 +72,26 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     };
 
+    const handleAnnotationUpdated = (anno: SimplifiedAnnotation) => {
+      const ocraAnno: Annotation = {
+        id: anno.id,
+        label: anno.label || 'Updated Annotation 2D',
+        type: 'point',
+        geometry: [anno.data?.pos.x || 0, anno.data?.pos.y || 0, 0],
+        createdAt: new Date().toISOString()
+      };
+      
+      if (onAnnotationUpdated) {
+        onAnnotationUpdated(ocraAnno);
+      }
+    }
+
+    const handleAnnotationDeleted = (anno: SimplifiedAnnotation) => {
+      if (onAnnotationDeleted) {
+        onAnnotationDeleted(anno.id);
+      }
+    }
+
     return (
       <OpenLIMEViewer
         ref={ref}
@@ -80,8 +100,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         onReady={onReady}
         onError={onError}
         onAnnotationCreated={handleAnnotationCreated}
-        onAnnotationUpdated={onAnnotationUpdated}
-        onAnnotationDeleted={onAnnotationDeleted}
+        onAnnotationUpdated={handleAnnotationUpdated}
+        onAnnotationDeleted={handleAnnotationDeleted}
       />
     );
   }
