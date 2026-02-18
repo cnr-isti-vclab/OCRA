@@ -12,13 +12,15 @@ interface Viewer2DPanelProps {
   onAnnotationCreated?: (annotation: Annotation) => void;
   onAnnotationUpdated?: (annotation: Annotation) => void;
   onAnnotationDeleted?: (id: string) => void;
+  onAnnotationSelected?: (id: string) => void;
 }
 
 /**
  * Component that encapsulates the 2D (RTI) viewer
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted }, ref) => {
+  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError, 
+    onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelected }, ref) => {
     if (!rtiAvailable) {
       return (
         <div
@@ -92,6 +94,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     }
 
+    const handleAnnotationSelected = (id: string) => {
+      console.log('Viewer2DPanel::handleAnnotationSelected, id', id);
+      if (onAnnotationSelected) {
+        onAnnotationSelected(id);
+      }
+    }
+
     return (
       <OpenLIMEViewer
         ref={ref}
@@ -102,6 +111,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         onAnnotationCreated={handleAnnotationCreated}
         onAnnotationUpdated={handleAnnotationUpdated}
         onAnnotationDeleted={handleAnnotationDeleted}
+        onAnnotationSelected={handleAnnotationSelected}
       />
     );
   }

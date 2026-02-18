@@ -56,9 +56,10 @@ const OpenLIMEViewer = forwardRef<
     onAnnotationCreated?: (annotation: SimplifiedAnnotation) => void;
     onAnnotationUpdated?: (annotation: SimplifiedAnnotation) => void;
     onAnnotationDeleted?: (annotation: SimplifiedAnnotation) => void;
+    onAnnotationSelected?: (id: string) => void;
   } >(
   (
-    { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted },
+    { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelected },
     ref
   ) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
@@ -69,7 +70,7 @@ const OpenLIMEViewer = forwardRef<
     const onAnnotationCreatedRef = useRef<typeof onAnnotationCreated>(onAnnotationCreated);
     const onAnnotationUpdatedRef = useRef<typeof onAnnotationUpdated>(onAnnotationUpdated);
     const onAnnotationDeletedRef = useRef<typeof onAnnotationDeleted>(onAnnotationDeleted);
-
+    const onAnnotationSelectedRef = useRef<typeof onAnnotationSelected>(onAnnotationSelected);
     useEffect(() => {
       onReadyRef.current = onReady;
     }, [onReady]);
@@ -89,6 +90,10 @@ const OpenLIMEViewer = forwardRef<
     useEffect(() => {
       onAnnotationDeletedRef.current = onAnnotationDeleted;
     }, [onAnnotationDeleted]);
+
+    useEffect(() => {
+      onAnnotationSelectedRef.current = onAnnotationSelected;
+    }, [onAnnotationSelected]);
 
     // Initialize viewer on mount
     useEffect(() => {
@@ -298,9 +303,15 @@ const OpenLIMEViewer = forwardRef<
           
           // Setup annotation callback for new annotations created via pencil tool
           (uiRef.current as any).annotationCallback = (annotation: any) => {
-            console.log('New annotation created via pencil tool:', annotation);
             if (onAnnotationCreatedRef.current) {
               onAnnotationCreatedRef.current(serializeAnnotation(annotation));
+            }
+          };
+
+          // Setup annotation callback for clicked annotations
+          (uiRef.current as any).annotationClickCallback = (annotation: any) => {
+            if (onAnnotationSelectedRef.current) {
+              onAnnotationSelectedRef.current(annotation.id);
             }
           };
         }

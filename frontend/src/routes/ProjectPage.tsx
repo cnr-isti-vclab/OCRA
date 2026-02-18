@@ -768,10 +768,16 @@ export default function ProjectPage() {
       }).catch(err => console.error('Failed to save annotation:', err));
     }
   }
+  const onAnnotationSelected = (id: string) => {
+    const annotation = annotations.find(a => a.id === id);
+    if (annotation) {
+      setSelectedAnnotationIds([id]);
+    }
+  }
   ///////////////////// ANNOTATION CALLBACKS END/////////////////////
  
   // isManager now comes from backend API
-
+  
   if (loading) {
     return <div className="container py-5 text-center text-muted">Loading...</div>;
   }
@@ -904,6 +910,7 @@ export default function ProjectPage() {
               onAnnotationCreated={onAnnotationCreated}
               onAnnotationUpdated={onAnnotationUpdated}
               onAnnotationDeleted={onAnnotationDeleted}
+              onAnnotationSelected={onAnnotationSelected}
             />
           )}
         </div>
