@@ -37,7 +37,7 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || '3d';
-  
+
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
@@ -66,13 +66,13 @@ export default function ProjectPage() {
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
-  
+
   // 2D viewer (RTI) state
- // const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
+  // const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
   const [rtiAvailable, setRtiAvailable] = useState(false);
 
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
@@ -543,7 +543,7 @@ export default function ProjectPage() {
             const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
             // Keep a reference to all digital assets for UI purposes (e.g. RTI viewer), but do NOT mutate the scene with HDT metadata.
             setDigitalAssets(assets);
-            
+
             // Handle 3D assets
             if (mode === '3d') {
               const modelAsset =
@@ -560,7 +560,7 @@ export default function ProjectPage() {
                 setHdtModel(null);
               }
             }
-            
+
             // Handle 2D RTI assets
             if (mode === '2d') {
               const rtiAsset = assets.find((a: any) => a?.type === 'rti');
@@ -753,7 +753,7 @@ export default function ProjectPage() {
       }).catch(err => console.error('Failed to save annotation:', err));
     }
   }
-  const onAnnotationDeleted= (id:string) => {
+  const onAnnotationDeleted = (id: string) => {
     console.log('2D Annotation deleted:', id);
     setAnnotations(prev => prev.filter(a => a.id !== id));
     // Save to backend
@@ -775,9 +775,9 @@ export default function ProjectPage() {
     }
   }
   ///////////////////// ANNOTATION CALLBACKS END/////////////////////
- 
+
   // isManager now comes from backend API
-  
+
   if (loading) {
     return <div className="container py-5 text-center text-muted">Loading...</div>;
   }
@@ -917,7 +917,7 @@ export default function ProjectPage() {
 
         {/* Sidebar with Tabs */}
         <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
-            <div className="h-100 d-flex flex-column">
+          <div className="h-100 d-flex flex-column">
             {/* Tab Navigation */}
             <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
               <li className="nav-item" role="presentation">
@@ -1605,6 +1605,28 @@ export default function ProjectPage() {
                                   {(annotation.geometry as [number, number, number][]).length} points
                                 </p>
                               )}
+                              <div className="d-flex gap-2">
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    //onEditClick(); 
+                                  }}
+                                  title="Edit"
+                                >
+                                  <i className="bi bi-pencil"></i> Edit
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    //onDeleteClick(); 
+                                  }}
+                                  title="Delete"
+                                >
+                                  <i className="bi bi-trash-fill"></i> Delete
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
