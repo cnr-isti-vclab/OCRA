@@ -17,7 +17,7 @@
 import type {
   FileUrlResolver,
   FileResolverContext,
-} from "../../lib/ThreePresenter/src/types/FileUrlResolver";
+} from "three-presenter";
 
 /**
  * Get API base URL from configuration
