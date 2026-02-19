@@ -56,6 +56,10 @@ import fs from 'fs/promises';
  * Get current user from request (populated by auth middleware).
  */
 function getCurrentUser(req: Request): User | null {
+  // TEST MODE: Check if user was set by test auth
+  if (process.env.NODE_ENV === 'test' && req.user) {
+    return req.user;
+  }
   return req.user || null;
 }
 

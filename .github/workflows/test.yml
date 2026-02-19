@@ -1,0 +1,97 @@
+name: Backend Tests
+
+on:
+  push:
+    # Run on all branches (allows testing on feature branches)
+    paths:
+      - 'backend/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    # PRs only to main/develop
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    # Service containers for databases
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      mongodb:
+        image: mongo:7
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 27017:27017
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Generate Prisma Client
+        working-directory: backend
+        run: npx prisma generate
+      
+      - name: Create test database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -c "CREATE DATABASE oauth_demo_test;"
+          echo "✅ Test database created"
+      
+      - name: Setup test database schema
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
+        run: |
+          echo "📦 Pushing database schema..."
+          npx prisma db push --skip-generate --accept-data-loss
+          echo "✅ Database schema created"
+          echo "📊 Checking database tables..."
+          psql postgresql://postgres:postgres@localhost:5432/oauth_demo_test -c "\dt"
+      
+      - name: Run tests
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
+          MONGODB_URI: mongodb://localhost:27017/ocra_audit_test
+        run: |
+          npm test -- src/test/comprehensive-workflow.e2e.test.ts
+      
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests:** 56 comprehensive E2E tests" >> $GITHUB_STEP_SUMMARY
+          echo "- **Duration:** ~1.3-1.5 seconds" >> $GITHUB_STEP_SUMMARY

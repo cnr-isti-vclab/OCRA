@@ -19,6 +19,10 @@
     "db:generate": "cd backend && npx prisma generate",
     "db:studio": "cd backend && npx prisma studio",
     "db:reset": "cd backend && npx prisma migrate reset --force",
+    "test": "cd backend && npm test -- src/test/comprehensive-workflow.e2e.test.ts",
+    "test:watch": "cd backend && npm run test:watch",
+    "test:ui": "cd backend && npm run test:ui",
+    "test:coverage": "cd backend && npm run test:coverage",
     "services:start": "bash scripts/start-services.sh",
     "services:stop": "bash scripts/stop-services.sh"
   },
@@ -32,11 +36,14 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
-    "@types/three": "^0.180.0"
+    "@types/three": "^0.180.0",
+    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/ui": "^4.0.16",
+    "vitest": "^4.0.16"
   },
   "overrides": {
     "three": "^0.180.0",
-     "prisma": "5.18.0",
-     "@prisma/client": "5.18.0"
+    "prisma": "5.18.0",
+    "@prisma/client": "5.18.0"
   }
 }
