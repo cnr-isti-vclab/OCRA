@@ -17,7 +17,7 @@ interface Viewer2DPanelProps {
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
   ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
-    const { handleAnnotationFromViewer, selectAnnotation, clearSelection } = useAnnotations();
+    const { createAnnotation, updateAnnotation, selectAnnotation, clearSelection } = useAnnotations();
 
     if (!rtiAvailable) {
       return (
@@ -67,7 +67,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         createdAt: new Date().toISOString()
       };
 
-      handleAnnotationFromViewer(ocraAnno, 'create');
+      createAnnotation(ocraAnno);
     };
 
     const handleAnnotationUpdated = (anno: SimplifiedAnnotation) => {
@@ -79,7 +79,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         createdAt: new Date().toISOString()
       };
 
-      handleAnnotationFromViewer(ocraAnno, 'update');
+      updateAnnotation(ocraAnno);
     };
 
     const handleAnnotationDeleted = (anno: SimplifiedAnnotation) => {

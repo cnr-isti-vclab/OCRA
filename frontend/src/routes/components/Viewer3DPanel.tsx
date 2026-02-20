@@ -1,7 +1,9 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
 import { LoadingProgress } from '../../lib/ThreePresenter/src';
 import type { SceneDescription } from '../../../../shared/scene-types';
+import type { Annotation } from '../../../../shared/scene-types';
+import { useAnnotations } from '../../context/AnnotationContext';
 
 interface Viewer3DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -29,6 +31,79 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     },
     ref
   ) => {
+    // Annotation integration (moved from AnnotationPickerController)
+    const { createAnnotation, annotations, setSelectedAnnotationIds } = useAnnotations();
+    const prevSelectedRef = useRef<string[]>([]);
+
+    // Set up 3D viewer point picking callback. Re-register when createAnnotation changes
+    useEffect(() => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) {
+        console.warn('Viewer3DPanel: Viewer ref not available for setting up annotation picker');
+        return;
+      }
+
+      const handler = (point: [number, number, number]) => {
+        const newAnnotation: Annotation = {
+          id: `annotation-${Date.now()}`,
+          label: `Point ${new Date().toLocaleString()}`,
+          type: 'point',
+          geometry: point,
+          createdAt: new Date().toISOString()
+        } as Annotation;
+
+        // call the latest createAnnotation
+        createAnnotation(newAnnotation).catch(err => {
+          console.error('Failed to create annotation from 3D viewer:', err);
+        });
+      };
+
+      viewer.setOnPointPicked(handler);
+
+      return () => {
+        try {
+          // only clear handler if still the same viewer
+          viewer.setOnPointPicked(null);
+        } catch (e) {
+          // ignore
+        }
+      };
+    }, [ref, createAnnotation]);
+
+    // Render annotations when they change
+    useEffect(() => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) return;
+      try {
+        viewer.renderAnnotations(annotations);
+      } catch (e) {
+        // ignore render errors
+      }
+    }, [annotations, ref]);
+
+    // Poll 3D viewer annotation manager for selection changes
+    useEffect(() => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) return;
+
+      const interval = setInterval(() => {
+        try {
+          const annotationMgr = viewer.getAnnotationManager?.();
+          if (annotationMgr) {
+            const selectedIds: string[] = annotationMgr.getSelected?.() || [];
+            if (JSON.stringify(selectedIds) !== JSON.stringify(prevSelectedRef.current)) {
+              prevSelectedRef.current = selectedIds;
+              setSelectedAnnotationIds(selectedIds);
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+      }, 200);
+
+      return () => clearInterval(interval);
+    }, [ref, setSelectedAnnotationIds]);
+
     if (!sceneDesc) {
       return (
         <div

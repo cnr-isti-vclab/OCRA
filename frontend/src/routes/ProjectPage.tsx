@@ -12,7 +12,6 @@ import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import AnnotationPanel from './components/AnnotationPanel';
-import AnnotationPickerController from './components/AnnotationPickerController';
 
 interface Project {
   id: string;
@@ -651,12 +650,7 @@ export default function ProjectPage() {
       selectedSceneId={selectedSceneId || ''}
       sceneDesc={sceneDesc}
     >
-      {/* Controller to connect viewers with annotation context */}
-      <AnnotationPickerController
-        mode={mode as '3d' | '2d'}
-        viewerRef3D={viewerRef}
-        viewerRef2D={openLimeRef}
-      />
+      {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
       
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
       {/* Project Header */}

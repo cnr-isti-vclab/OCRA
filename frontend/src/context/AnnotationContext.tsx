@@ -24,8 +24,6 @@ interface AnnotationContextType {
   setSelectedAnnotationIds: (ids: string[]) => void;
   clearSelection: () => void;
 
-  // External update (from viewers)
-  handleAnnotationFromViewer: (annotation: Annotation, action: 'create' | 'update') => Promise<void>;
 }
 
 const AnnotationContext = createContext<AnnotationContextType | undefined>(undefined);
@@ -180,31 +178,6 @@ export function AnnotationProvider({
     setSelectedAnnotationIds([]);
   }, []);
 
-  /**
-   * Set selected annotation IDs directly (used for multi-select from viewers)
-   */
-  const updateAnnotationSelection = useCallback((ids: string[]) => {
-    setSelectedAnnotationIds(ids);
-  }, []);
-
-  /**
-   * Handle annotation events from viewers (2D/3D)
-   */
-  const handleAnnotationFromViewer = useCallback(
-    async (annotation: Annotation, action: 'create' | 'update') => {
-      try {
-        if (action === 'create') {
-          await createAnnotation(annotation);
-        } else if (action === 'update') {
-          await updateAnnotation(annotation);
-        }
-      } catch (err) {
-        console.error(`Failed to handle ${action} from viewer:`, err);
-        throw err;
-      }
-    },
-    [createAnnotation, updateAnnotation]
-  );
 
   const value: AnnotationContextType = {
     annotations,
@@ -215,9 +188,8 @@ export function AnnotationProvider({
     updateAnnotation,
     deleteAnnotations,
     selectAnnotation,
-    setSelectedAnnotationIds: updateAnnotationSelection,
+    setSelectedAnnotationIds,
     clearSelection,
-    handleAnnotationFromViewer
   };
 
   return (
