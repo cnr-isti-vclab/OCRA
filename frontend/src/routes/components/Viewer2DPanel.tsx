@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import OpenLIMEViewer, { type OpenLIMEViewerRef, type SimplifiedAnnotation } from '../../adapters/openlime-viewer/OpenLIMEViewer';
 import type { SceneDescription, Annotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
+import { useAnnotations } from '../../context/AnnotationContext';
 
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -9,18 +10,15 @@ interface Viewer2DPanelProps {
   rtiAvailable: boolean;
   onReady: () => void;
   onError: (error: Error) => void;
-  onAnnotationCreated?: (annotation: Annotation) => void;
-  onAnnotationUpdated?: (annotation: Annotation) => void;
-  onAnnotationDeleted?: (id: string) => void;
-  onAnnotationSelected?: (id: string) => void;
 }
 
 /**
  * Component that encapsulates the 2D (RTI) viewer
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError, 
-    onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelected }, ref) => {
+  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
+    const { handleAnnotationFromViewer, selectAnnotation, clearSelection } = useAnnotations();
+
     if (!rtiAvailable) {
       return (
         <div
@@ -68,10 +66,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         geometry: [anno.data?.pos.x || 0, anno.data?.pos.y || 0, 0],
         createdAt: new Date().toISOString()
       };
-      
-      if (onAnnotationCreated) {
-        onAnnotationCreated(ocraAnno);
-      }
+
+      handleAnnotationFromViewer(ocraAnno, 'create');
     };
 
     const handleAnnotationUpdated = (anno: SimplifiedAnnotation) => {
@@ -82,24 +78,20 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         geometry: [anno.data?.pos.x || 0, anno.data?.pos.y || 0, 0],
         createdAt: new Date().toISOString()
       };
-      
-      if (onAnnotationUpdated) {
-        onAnnotationUpdated(ocraAnno);
-      }
-    }
+
+      handleAnnotationFromViewer(ocraAnno, 'update');
+    };
 
     const handleAnnotationDeleted = (anno: SimplifiedAnnotation) => {
-      if (onAnnotationDeleted) {
-        onAnnotationDeleted(anno.id);
-      }
-    }
+      // Annotation deletion is handled through AnnotationPanel's delete button
+      // When viewer wants to delete, it should go through the same path
+      console.log('Annotation deletion from 2D viewer:', anno.id);
+    };
 
     const handleAnnotationSelected = (id: string) => {
       console.log('Viewer2DPanel::handleAnnotationSelected, id', id);
-      if (onAnnotationSelected) {
-        onAnnotationSelected(id);
-      }
-    }
+      selectAnnotation(id, false);
+    };
 
     return (
       <OpenLIMEViewer

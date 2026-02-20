@@ -1,15 +1,18 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
 import { type OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer';
 import { LoadingProgress } from '../lib/ThreePresenter/src';
 import { getApiBase } from '../config/oauth';
-import type { SceneDescription, Annotation } from '../../../shared/scene-types';
+import type { SceneDescription } from '../../../shared/scene-types';
 import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
+import { AnnotationProvider } from '../context/AnnotationContext';
+import AnnotationPanel from './components/AnnotationPanel';
+import AnnotationPickerController from './components/AnnotationPickerController';
 
 interface Project {
   id: string;
@@ -48,8 +51,6 @@ export default function ProjectPage() {
   const [availableScenes, setAvailableScenes] = useState<Array<{ id: string; name: string; isDefault?: boolean }>>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -515,8 +516,6 @@ export default function ProjectPage() {
           }
           fetchedScene = scene;
           setSceneDesc(scene);
-          // Load annotations from scene
-          setAnnotations(scene.annotations || []);
           // Initialize visibility state for all models (all visible by default)
           const initialVisibility: Record<string, boolean> = {};
           if (scene.models) {
@@ -527,7 +526,6 @@ export default function ProjectPage() {
           setMeshVisibility(initialVisibility);
         } else {
           setSceneDesc(null);
-          setAnnotations([]);
         }
 
         // Fetch HDT metadata (read-only): keep a reference for UI, do NOT inject models into the scene.
@@ -611,8 +609,6 @@ export default function ProjectPage() {
           setBackgroundColor(scene.environment?.background || '#404040');
           setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
 
-          // Load annotations from scene
-          setAnnotations(scene.annotations || []);
           // Initialize visibility state for all models
           const initialVisibility: Record<string, boolean> = {};
           if (scene.models) {
@@ -637,145 +633,6 @@ export default function ProjectPage() {
     }
   }, [activeTab]);
 
-  // Set up annotation point picking callback when viewer is ready
-  const setupAnnotationCallback = useCallback(() => {
-    if (!viewerRef.current || !projectId) {
-      return;
-    }
-
-    viewerRef.current.setOnPointPicked((point: [number, number, number]) => {
-      // Create a new annotation
-      const newAnnotation: Annotation = {
-        id: `annotation-${Date.now()}`,
-        label: `Point ${Date.now()}`,
-        type: 'point',
-        geometry: point,
-        createdAt: new Date().toISOString()
-      };
-
-      // Add to state - using functional update to get latest state
-      setAnnotations(prevAnnotations => {
-        const updatedAnnotations = [...prevAnnotations, newAnnotation];
-
-        // Save to backend - use functional update to get latest sceneDesc
-        setSceneDesc(currentSceneDesc => {
-          if (currentSceneDesc) {
-            const updatedScene = {
-              ...currentSceneDesc,
-              annotations: updatedAnnotations
-            };
-
-            // Ensure HDT document exists before saving
-            ensureHDTDocument(projectId).then(exists => {
-              if (!exists) {
-                console.error('Failed to ensure HDT document exists');
-                return;
-              }
-
-              fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                method: 'PUT',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedScene)
-              }).then(response => {
-                if (!response.ok) {
-                  console.error('Failed to save annotations');
-                }
-              }).catch(error => {
-                console.error('Error saving annotations:', error);
-              });
-            });
-          }
-          return currentSceneDesc; // Don't update sceneDesc here
-        });
-
-        return updatedAnnotations;
-      });
-    });
-  }, [projectId, selectedSceneId]);
-
-  // Set up callback when dependencies change (after viewer is ready)
-  useEffect(() => {
-    setupAnnotationCallback();
-  }, [setupAnnotationCallback]);
-
-  // Render annotations in 3D viewer when they change
-  useEffect(() => {
-    if (viewerRef.current && annotations.length >= 0) {
-      viewerRef.current.getAnnotationManager().render(annotations);
-    }
-  }, [annotations]);
-
-  // Poll viewer for annotation selection changes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (viewerRef.current) {
-        const selectedIds = viewerRef.current.getAnnotationManager().getSelected();
-        // Only update state if selection actually changed
-        if (JSON.stringify(selectedIds) !== JSON.stringify(selectedAnnotationIds)) {
-          setSelectedAnnotationIds(selectedIds);
-        }
-      }
-    }, 200); // Poll every 200ms
-
-    return () => clearInterval(interval);
-  }, [selectedAnnotationIds]);
-
-  ///////////////////// ANNOTATION CALLBACKS BEGIN /////////////////////
-  const onAnnotationCreated = (annotation: Annotation) => {
-    console.log('2D Annotation created:', annotation);
-    setAnnotations(prev => [...prev, annotation]);
-    console.log('Updated annotations state:', annotations);
-
-    // Save to backend
-    if (sceneDesc && selectedSceneId) {
-      const updatedScene = { ...sceneDesc, annotations: [...annotations, annotation] } as SceneDescription;
-      fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      }).catch(err => console.error('Failed to save annotation:', err));
-    }
-  }
-  const onAnnotationUpdated = (annotation: Annotation) => {
-    console.log('2D Annotation updated:', annotation);
-    setAnnotations(prev => prev.map(a => a.id === annotation.id ? annotation : a));
-    // Save to backend
-    if (sceneDesc && selectedSceneId) {
-      const updatedAnnotations = annotations.map(a => a.id === annotation.id ? annotation : a);
-      const updatedScene = { ...sceneDesc, annotations: updatedAnnotations } as SceneDescription;
-      fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      }).catch(err => console.error('Failed to save annotation:', err));
-    }
-  }
-  const onAnnotationDeleted= (id:string) => {
-    console.log('2D Annotation deleted:', id);
-    setAnnotations(prev => prev.filter(a => a.id !== id));
-    // Save to backend
-    if (sceneDesc && selectedSceneId) {
-      const updatedAnnotations = annotations.filter(a => a.id !== id);
-      const updatedScene = { ...sceneDesc, annotations: updatedAnnotations } as SceneDescription;
-      fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      }).catch(err => console.error('Failed to save annotation:', err));
-    }
-  }
-  const onAnnotationSelected = (id: string) => {
-    const annotation = annotations.find(a => a.id === id);
-    if (annotation) {
-      setSelectedAnnotationIds([id]);
-    }
-  }
-  ///////////////////// ANNOTATION CALLBACKS END/////////////////////
- 
   // isManager now comes from backend API
   
   if (loading) {
@@ -789,7 +646,19 @@ export default function ProjectPage() {
   }
 
   return (
-    <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
+    <AnnotationProvider
+      projectId={projectId || ''}
+      selectedSceneId={selectedSceneId || ''}
+      sceneDesc={sceneDesc}
+    >
+      {/* Controller to connect viewers with annotation context */}
+      <AnnotationPickerController
+        mode={mode as '3d' | '2d'}
+        viewerRef3D={viewerRef}
+        viewerRef2D={openLimeRef}
+      />
+      
+      <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
       {/* Project Header */}
       <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
         <div className="d-flex justify-content-between align-items-center">
@@ -864,7 +733,9 @@ export default function ProjectPage() {
               sceneDesc={sceneDesc}
               loadingModels={loadingModels}
               modelLoadProgress={modelLoadProgress}
-              onReady={setupAnnotationCallback}
+              onReady={() => {
+                console.log('✅ 3D viewer ready');
+              }}
               onLoadProgress={(progress: LoadingProgress) => {
                 setLoadingModels(true);
                 setModelLoadProgress(prev => ({
@@ -907,10 +778,6 @@ export default function ProjectPage() {
                 console.error('📸 2D RTI viewer error:', err);
                 setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
               }}
-              onAnnotationCreated={onAnnotationCreated}
-              onAnnotationUpdated={onAnnotationUpdated}
-              onAnnotationDeleted={onAnnotationDeleted}
-              onAnnotationSelected={onAnnotationSelected}
             />
           )}
         </div>
@@ -1543,80 +1410,27 @@ export default function ProjectPage() {
 
               {/* Annotations Tab */}
               {activeTab === 'annotations' && (
-                <div className="p-3 h-100 d-flex flex-column">
-                  <h3 className="h6 mb-3">Annotations</h3>
-
-                  {annotations.length === 0 ? (
-                    <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                      <p className="text-muted fst-italic">
-                        No annotations yet. Click the pencil button and double-click on the model to add an annotation point.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex-grow-1 overflow-auto">
-                      <div className="list-group">
-                        {annotations.map((annotation) => {
-                          const isSelected = selectedAnnotationIds.includes(annotation.id);
-                          return (
-                            <div
-                              key={annotation.id}
-                              className={`list-group-item list-group-item-action ${isSelected ? 'active' : ''}`}
-                              style={{ cursor: 'pointer' }}
-                              onClick={(e) => {
-                                if (viewerRef.current) {
-                                  const annotationMgr = viewerRef.current.getAnnotationManager();
-                                  if (e.ctrlKey || e.metaKey) {
-                                    // Toggle selection with Ctrl/Cmd
-                                    if (isSelected) {
-                                      // Remove from selection by selecting all others
-                                      const newSelection = selectedAnnotationIds.filter(id => id !== annotation.id);
-                                      annotationMgr.clearSelection();
-                                      annotationMgr.select(newSelection, false);
-                                    } else {
-                                      // Add to selection
-                                      annotationMgr.select([annotation.id], true);
-                                    }
-                                  } else {
-                                    // Single selection
-                                    annotationMgr.select([annotation.id], false);
-                                  }
-                                }
-                              }}
-                            >
-                              <div className="d-flex w-100 justify-content-between align-items-start">
-                                <h5 className="mb-1">{annotation.label}</h5>
-                                <span className={`badge ${annotation.type === 'point' ? 'bg-primary' :
-                                  annotation.type === 'line' ? 'bg-success' :
-                                    'bg-warning'
-                                  }`}>
-                                  {annotation.type}
-                                </span>
-                              </div>
-                              <p className="mb-1 small text-muted">
-                                ID: {annotation.id}
-                              </p>
-                              {annotation.type === 'point' && Array.isArray(annotation.geometry) && annotation.geometry.length === 3 && (
-                                <p className="mb-0 small font-monospace">
-                                  [{(annotation.geometry as [number, number, number])[0].toFixed(3)}, {(annotation.geometry as [number, number, number])[1].toFixed(3)}, {(annotation.geometry as [number, number, number])[2].toFixed(3)}]
-                                </p>
-                              )}
-                              {annotation.type !== 'point' && Array.isArray(annotation.geometry) && (
-                                <p className="mb-0 small">
-                                  {(annotation.geometry as [number, number, number][]).length} points
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <AnnotationPanel
+                  onSelectionChanged={(selectedIds) => {
+                    // Notify the active viewer about selection changes
+                    if (mode === '3d' && viewerRef.current) {
+                      const annotationMgr = viewerRef.current.getAnnotationManager();
+                      if (annotationMgr) {
+                        annotationMgr.clearSelection();
+                        annotationMgr.select(selectedIds, false);
+                      }
+                    } else if (mode === '2d' && openLimeRef.current) {
+                      // For 2D viewer, if needed
+                      console.log('2D viewer selection update:', selectedIds);
+                    }
+                  }}
+                />
               )}
             </div>
           </div>
         </div>
       </div>
     </div>
+    </AnnotationProvider>
   );
 }
