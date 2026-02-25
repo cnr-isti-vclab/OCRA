@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect } from 'react';
 import OpenLIMEViewer, { type OpenLIMEViewerRef, type SimplifiedAnnotation } from '../../adapters/openlime-viewer/OpenLIMEViewer';
 import type { SceneDescription, Annotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
@@ -17,7 +17,7 @@ interface Viewer2DPanelProps {
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
   ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
-    const { createAnnotation, updateAnnotation, selectAnnotation, clearSelection } = useAnnotations();
+    const { createAnnotation, updateAnnotation, selectAnnotation, selectedAnnotationIds, annotations } = useAnnotations();
 
     if (!rtiAvailable) {
       return (
@@ -58,31 +58,17 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       );
     }
 
-    const handleAnnotationCreated = (anno: SimplifiedAnnotation) => {
-      const ocraAnno: Annotation = {
-        id: anno.id || `anno-${Date.now()}`,
-        label: anno.label || 'New Annotation 2D',
-        type: 'point',
-        geometry: [anno.data?.pos.x || 0, anno.data?.pos.y || 0, 0],
-        createdAt: new Date().toISOString()
-      };
-
-      createAnnotation(ocraAnno);
+    const handleAnnotationCreated = (anno: Annotation) => {
+      console.log('Viewer2DPanel::handleAnnotationCreated', anno);
+      createAnnotation(anno);
     };
 
-    const handleAnnotationUpdated = (anno: SimplifiedAnnotation) => {
-      const ocraAnno: Annotation = {
-        id: anno.id,
-        label: anno.label || 'Updated Annotation 2D',
-        type: 'point',
-        geometry: [anno.data?.pos.x || 0, anno.data?.pos.y || 0, 0],
-        createdAt: new Date().toISOString()
-      };
-
-      updateAnnotation(ocraAnno);
+    const handleAnnotationUpdated = (anno: Annotation) => {
+      console.log('Viewer2DPanel::handleAnnotationUpdated', anno);
+      updateAnnotation(anno);
     };
 
-    const handleAnnotationDeleted = (anno: SimplifiedAnnotation) => {
+    const handleAnnotationDeleted = (anno: Annotation) => {
       // Annotation deletion is handled through AnnotationPanel's delete button
       // When viewer wants to delete, it should go through the same path
       console.log('Annotation deletion from 2D viewer:', anno.id);
@@ -92,6 +78,53 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       console.log('Viewer2DPanel::handleAnnotationSelected, id', id);
       selectAnnotation(id, false);
     };
+
+    /**
+     * Apply deletion to the viewer
+     * Compare annotation in viewer and in db 
+     * Remove from viewer the annotations which does not appear in db
+     */
+    useEffect(() => {
+      if (!ref || !('current' in ref) || !ref.current) return;
+      const viewer = ref.current;
+      const annotationManager = viewer.getAnnotationManager(); 
+      if (!annotationManager) return;
+      
+      const ids = annotations.map((a) => a.id);
+      console.log('Annotations changed', ids);
+      
+      const viewerAnnotations = annotationManager.getAnnotations();
+      const viewerAnnotationIds = viewerAnnotations.map((a) => a.id);
+      console.log('Viewer Annotations', viewerAnnotationIds);
+
+      const deletedIds = viewerAnnotationIds.filter((id) => !ids.includes(id));
+      
+      console.log(deletedIds);
+      deletedIds.forEach((id) => {
+        console.log('Removing deleted annotation from viewer:', id);
+        annotationManager.deleteAnnotation(id);
+      });
+
+      // annotations.forEach((anno) => {
+      //   // Update or delete annotations in the viewer, from the DB annotations
+      //   let foundViewerAnno = viewerAnnotations.find((element) => {element.id == anno.id});
+      //   if (foundViewerAnno) {
+      //     if (anno === foundViewerAnno) {
+      //       // Same, nothing to do
+      //     } else {
+      //       // Different, Update Viewer version
+      //       console.log('I should update viewr Annotation', foundViewerAnno, " to become ", anno);
+      //     }
+      //   } else {
+      //     // Missing in 
+      //     annotationManager.deleteAnnotation(anno.id);
+      //   }
+     // });
+    }, [annotations, ref]);
+
+    useEffect(() => {
+      
+    }, [selectedAnnotationIds, ref]);
 
     return (
       <OpenLIMEViewer

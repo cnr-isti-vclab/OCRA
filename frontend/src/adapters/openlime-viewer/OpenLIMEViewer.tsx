@@ -20,6 +20,8 @@ import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './skin.css';
 import { SceneDescription } from '../../lib/ThreePresenter/src';
+import { Annotation } from '../../../../shared/scene-types.ts';
+//import { on } from 'events';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -34,6 +36,19 @@ export interface SimplifiedAnnotation {
   state?: any;
 }
 
+function getOcraAnnotation(anno : SimplifiedAnnotation) : Annotation {
+  const ocraAnno : Annotation =  {
+    id: anno.id || `anno-${Date.now()}`,
+    label: anno.label || 'New Annotation 2D',
+    type: 'point',
+    geometry: [anno.data?._x || 0, anno.data?._y || 0, 0],
+    createdAt: new Date().toISOString(),
+    description: anno.description,
+    createdBy: 'User to be defined'
+  };
+  return ocraAnno;
+}
+
 export interface OpenLIMEViewerRef {
   // Camera controls
   resetCamera: () => void;
@@ -43,7 +58,11 @@ export interface OpenLIMEViewerRef {
   getAnnotationById: (id: string) => SimplifiedAnnotation | null;
   updateAnnotationById: (id: string, updates: Partial<SimplifiedAnnotation>) => SimplifiedAnnotation | null;
   deleteAnnotationById: (id: string) => SimplifiedAnnotation | null;
+
+  getAnnotationManager: () => OpenLIME.ManagerSvgAnnotation | null;
+
 }
+
 
 const OpenLIMEViewer = forwardRef<
   OpenLIMEViewerRef,
@@ -53,9 +72,9 @@ const OpenLIMEViewer = forwardRef<
     onReady?: () => void;
     onError?: (error: Error) => void;
     // Annotation callbacks
-    onAnnotationCreated?: (annotation: SimplifiedAnnotation) => void;
-    onAnnotationUpdated?: (annotation: SimplifiedAnnotation) => void;
-    onAnnotationDeleted?: (annotation: SimplifiedAnnotation) => void;
+    onAnnotationCreated?: (annotation: Annotation) => void;
+    onAnnotationUpdated?: (annotation: Annotation) => void;
+    onAnnotationDeleted?: (annotation: Annotation) => void;
     onAnnotationSelected?: (id: string) => void;
   } >(
   (
@@ -65,6 +84,7 @@ const OpenLIMEViewer = forwardRef<
     const mountRef = useRef<HTMLDivElement | null>(null);
     const viewerRef = useRef<OpenLIME.Viewer | null>(null);
     const uiRef = useRef<OpenLIME.UIBasic | null>(null);
+    const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
     const onReadyRef = useRef<typeof onReady>(onReady);
     const onErrorRef = useRef<typeof onError>(onError);
     const onAnnotationCreatedRef = useRef<typeof onAnnotationCreated>(onAnnotationCreated);
@@ -132,7 +152,6 @@ const OpenLIMEViewer = forwardRef<
         // Setup Interface and skin
         OpenLIME.Skin.setUrl('/skin.svg');
         console.log('🎬 Loaded OpenLIME skin from ./skin.svg');
-
 
         if (onReadyRef.current) {
           onReadyRef.current();
@@ -278,12 +297,82 @@ const OpenLIMEViewer = forwardRef<
 
         if (cancelled) return;
 
+        // Setup annotation manager
+        console.log('🎬 Setting up OpenLIME annotation manager');
+        const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {        
+          activeMarker: 'disk',
+            markerOptions: { radius: 14 },
+            // Colour classes — annotation.class (0/1/2) selects the style
+            classes: [
+                { label: 'Disk',     fill: '#3942e6', stroke: '#e63946', fillOpacity: 0.75, strokeWidth: 2, fillSelected: '#ffd700', strokeSelected: '#ffd700' },
+                { label: 'Polyline', fill: 'none',    stroke: '#00aaff', fillOpacity: 1,    strokeWidth: 2, fillSelected: 'none',    strokeSelected: '#ffd700' },
+                { label: 'Polygon',  fill: 'rgba(34,187,85,0.2)', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
+            ],
+            defaultAnnotationClass: 0,
+            // Capture viewer state (light direction, render mode, …) in each annotation
+            enableState: true,
+
+            // Called whenever a new annotation is created
+            onCreate: (anno:SimplifiedAnnotation) => {
+              if (onAnnotationCreatedRef.current) {
+                console.log('OpenLIMEViewerRef:onCreate Annotation', anno);
+                onAnnotationCreatedRef.current(getOcraAnnotation(anno));
+              } else {
+                console.log('OpenLIMEViewerRef:onCreate Missing Annotation Callback', anno);
+              }
+            },
+  
+            onDelete: (anno:SimplifiedAnnotation) => {
+              if (onAnnotationDeletedRef.current) {
+                console.log('OpenLIMEViewerRef:onDelete Annotation', anno);
+                onAnnotationDeletedRef.current(getOcraAnnotation(anno));
+              } else {
+                console.log('OpenLIMEViewerRef:onDelete Missing Annotation Callback', anno);
+              }
+            },
+
+            onUpdate: (anno:SimplifiedAnnotation) => {
+              if (onAnnotationUpdatedRef.current) {
+                console.log('OpenLIMEViewerRef:onUpdate Annotation', anno);
+                const ocraAnno = getOcraAnnotation(anno);
+                console.log('Update',ocraAnno);
+                onAnnotationUpdatedRef.current(ocraAnno);
+              } else {
+                console.log('OpenLIMEViewerRef:onUpdate Missing Annotation Callback', anno);
+              }
+            },
+
+            // Called when the user selects an annotation by clicking on it
+            onSelect: (anno:SimplifiedAnnotation) => {
+              console.log('🖱️ OpenLIMEViewerRef Selected (single-click)', anno.id);
+              if (onAnnotationSelectedRef.current) {
+                console.log('🖱️ Firing onSelect callback for:', anno.id);
+                onAnnotationSelectedRef.current(anno.id);
+              } else {
+                console.log('🖱️ onSelect Missing Annotation Callback');
+              }
+
+            },
+
+
+            // Lock toolbar and show creation hint during sequence creation
+            onSessionStart: (anno:SimplifiedAnnotation) => {
+
+            },
+            onSessionCancel: () => {
+
+            },
+
+        });
+        annotationManagerRef.current = annotationManager;
+
         // After all layers are added, setup the UI and annotation callbacks
         if (!uiRef.current) {
           console.log("Create new OpenLIME.UIBasic");
           uiRef.current = new OpenLIME.UIBasic(viewer, {
             showLightDirections: true,
             pixelSize: scalePixelSize ?? undefined,
+            annotationManager: annotationManagerRef.current,
           });
         } else if (scalePixelSize != null) {
           const uiAny = uiRef.current as any;
@@ -299,25 +388,50 @@ const OpenLIMEViewer = forwardRef<
           uiRef.current.actions.zoomin.display = true;
           uiRef.current.actions.zoomout.display = true;
           uiRef.current.actions.light.active = true;
+          // Show pencil tool but don't activate it by default
+          // This allows single-click selection to work
           uiRef.current.actions.pencil.display = true;
+          console.log('🎬 Toolbar setup: pencil displayed');
           
-          // Setup annotation callback for new annotations created via pencil tool
-          (uiRef.current as any).annotationCallback = (annotation: any) => {
-            if (onAnnotationCreatedRef.current) {
-              onAnnotationCreatedRef.current(serializeAnnotation(annotation));
-            }
-          };
+          // Set annotation manager to edit mode for single-click selection to work
+          // When pencil tool is activated, it will switch to create mode
+          if (annotationManagerRef.current) {
+            console.log('🎬 Setting annotation manager to edit mode for selection');
+            annotationManagerRef.current.setMode('edit');
+            console.log('AnnotationManager mode (should be edit)', annotationManagerRef.current._mode);
+          }
+          
+          // When pencil mode is activated, deselect all annotations
+          uiRef.current.addEvent('pencilEnabled', () => {
+            console.log('🎬 Pencil tool activated - deselecting all annotations');
+            if (annotationManagerRef.current) {
+              annotationManagerRef.current.deselectAll();
+              console.log('AnnotationManager Deselect all');
 
-          // Setup annotation callback for clicked annotations
-          (uiRef.current as any).annotationClickCallback = (annotation: any) => {
-            if (onAnnotationSelectedRef.current) {
-              onAnnotationSelectedRef.current(annotation.id);
             }
-          };
+          });
+
+          uiRef.current.addEvent('pencilDisabled', () => {
+            console.log('🎬 Pencil tool deactivatedù');
+          });
+
+          document.addEventListener('keydown', (e:KeyboardEvent) => {
+            console.log('Pressed', e.key);
+            if (e.key==='e') {
+                 annotationManagerRef.current.setMode('edit');
+            } else if (e.key==='c') {
+                 annotationManagerRef.current.setMode('create');
+            } else if (e.key==='i') {
+                 annotationManagerRef.current.setMode('idle');
+            } else {
+              console.log('unsupported mode', e.key);
+            }
+          });
+          
         }
 
         // Setup event listeners for annotation layer events (update, delete)
-        setupAnnotationLayerListeners();
+        //setupAnnotationLayerListeners();
 
         viewer.redraw();
         console.log('✅ OpenLIME scene loaded successfully');
@@ -331,9 +445,9 @@ const OpenLIMEViewer = forwardRef<
 
     // Helper function to get annotation layer
     const getAnnotationLayer = () => {
-      if (!viewerRef.current || !uiRef.current) return null;
-      const ui = uiRef.current as any;
-      return ui._pencilAnnotationLayer || null;
+      if (!annotationManagerRef.current) return null;
+      if (!annotationManagerRef.current.layer) return null;
+      return annotationManagerRef.current.layer;
     };
 
     // Helper function to serialize annotation for external use
@@ -345,36 +459,64 @@ const OpenLIMEViewer = forwardRef<
         class: anno.class,
         data: anno.data,
         publish: anno.publish,
-        state: anno.state
+        state: anno.state,
       };
     };
 
-    // Setup listeners on annotation layer for update/delete events
-    const setupAnnotationLayerListeners = () => {
-      const layer = getAnnotationLayer();
-      if (!layer) {
-        console.warn('⚠️ Cannot setup annotation listeners: no annotation layer found');
-        return;
-      }
+        // Setup listeners on annotation layer for update/delete events
+        // const setupAnnotationLayerListeners = () => {
+        //   const attachListeners = (layer: any) => {
+        //     // Listen for updated events
+        //     layer.on('updated', (anno: any) => {
+        //       console.log('Annotation updated:', anno);
+        //       try {
+        //         const cb = onAnnotationUpdatedRef.current;
+        //         console.log('layer.updated: callback type=', typeof cb, 'name=', (cb as any)?.name);
+        //         if (typeof cb === 'function') {
+        //           Promise.resolve().then(() => cb(serializeAnnotation(anno))).catch((err) => {
+        //             console.error('layer.updated callback threw', err);
+        //           });
+        //         }
+        //       } catch (err) {
+        //         console.error('onAnnotationUpdated callback threw', err);
+        //       }
+        //     });
 
-      // Listen for updated events
-      layer.on('updated', (anno: any) => {
-        console.log('Annotation updated:', anno);
-        if (onAnnotationUpdatedRef.current) {
-          onAnnotationUpdatedRef.current(serializeAnnotation(anno));
-        }
-      });
+        //     // Listen for deleted events
+        //     layer.on('deleted', (anno: any) => {
+        //       console.log('Annotation deleted:', anno);
+        //       try {
+        //         const cb = onAnnotationDeletedRef.current;
+        //         console.log('layer.deleted: callback type=', typeof cb, 'name=', (cb as any)?.name);
+        //         if (typeof cb === 'function') {
+        //           Promise.resolve().then(() => cb(serializeAnnotation(anno))).catch((err) => {
+        //             console.error('layer.deleted callback threw', err);
+        //           });
+        //         }
+        //       } catch (err) {
+        //         console.error('onAnnotationDeleted callback threw', err);
+        //       }
+        //     });
 
-      // Listen for deleted events
-      layer.on('deleted', (anno: any) => {
-        console.log('Annotation deleted:', anno);
-        if (onAnnotationDeletedRef.current) {
-          onAnnotationDeletedRef.current(serializeAnnotation(anno));
-        }
-      });
+        //     console.log('✅ Annotation layer event listeners setup');
+        //   };
 
-      console.log('✅ Annotation layer event listeners setup');
-    };
+        //   const tryAttach = (attempt = 0) => {
+        //     const layer = getAnnotationLayer();
+        //     if (layer) {
+        //       attachListeners(layer);
+        //       return;
+        //     }
+        //     if (attempt < 6) {
+        //       // retry a few times while UI initializes
+        //       setTimeout(() => tryAttach(attempt + 1), 200);
+        //     } else {
+        //       console.warn('⚠️ Cannot setup annotation listeners: no annotation layer found after retries');
+        //     }
+        //   };
+
+        //   tryAttach(0);
+        // };
 
     // Expose CRUD methods to parent component
     useImperativeHandle(ref, () => ({
@@ -419,6 +561,8 @@ const OpenLIMEViewer = forwardRef<
       },
 
       deleteAnnotationById(id: string): SimplifiedAnnotation | null {
+        console.log('Delete annotation by id');
+        console.log(id);
         const layer = getAnnotationLayer();
         if (!layer || typeof layer.deleteAnnotationById !== 'function') {
           console.warn('⚠️ Cannot delete annotation: no annotation layer or method not available');
@@ -430,7 +574,11 @@ const OpenLIMEViewer = forwardRef<
           viewerRef.current.redraw();
         }
         return deletedAnno ? serializeAnnotation(deletedAnno) : null;
-      }
+      },
+
+      getAnnotationManager() {
+        return annotationManagerRef.current;
+      },
     }));
 
     return (
