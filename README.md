@@ -3,6 +3,7 @@
 ![Backend Tests](https://github.com/cnr-isti-vclab/OCRA/workflows/Backend%20Tests/badge.svg)
 
 OCRA is a small full-stack platform for collaborative annotation and management of 3D assets.
+OCRA is developed within the frame of the [ECHOES project](https://www.echoes-eccch.eu/), and is open-source under the MIT License.
 
 ## Architecture (short)
 - Frontend: React + TypeScript (Vite), Bootstrap UI — dev server on `:3001`.
