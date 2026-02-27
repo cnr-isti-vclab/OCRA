@@ -18,7 +18,7 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
-import './skin.css';
+import './openlime-skin-ocra.css'; // custo skin.css for OCRA
 import { SceneDescription } from '../../lib/ThreePresenter/src';
 import { Annotation } from '../../../../shared/scene-types.ts';
 //import { on } from 'events';

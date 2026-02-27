@@ -190,8 +190,8 @@
 
 /* ANNOTATION PENCIL */
 .openlime-toolbar .openlime-pencil.openlime-pencil-active path[style] {
-	fill: #f00 !important;
-	stroke: #f00 !important;
+	fill: rgb(232, 147, 11) !important;
+	stroke: rgb(232, 147, 11) !important;
 }
 
 
