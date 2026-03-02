@@ -39,7 +39,8 @@ function EditAnnotationModal({
     if (annotation) {
       setEditedLabel(annotation.label);
       // Optional description field
-      setEditedDescription(annotation.description || '');}
+      setEditedDescription(annotation.description || '');
+    }
   }, [annotation, isOpen]);
 
   if (!isOpen || !annotation) return null;
@@ -144,7 +145,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     selectedAnnotationIds,
     isLoading,
     deleteAnnotations,
-    updateAnnotation,
+    updateAnnotationData,
     selectAnnotation,
     clearSelection
   } = useAnnotations();
@@ -209,7 +210,10 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
    */
   const handleEditSave = async (annotation: Annotation) => {
     try {
-      await updateAnnotation(annotation);
+      await updateAnnotationData(annotation.id, {
+        label: annotation.label,
+        description: annotation.description
+      });
       setIsEditModalOpen(false);
       setEditingAnnotation(null);
     } catch (err) {
@@ -260,9 +264,8 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
               return (
                 <div
                   key={annotation.id}
-                  className={`list-group-item list-group-item-action d-flex flex-column align-items-stretch ${
-                    isSelected ? 'active' : ''
-                  }`}
+                  className={`list-group-item list-group-item-action d-flex flex-column align-items-stretch ${isSelected ? 'active' : ''
+                    }`}
                   onClick={(e) => handleAnnotationClick(annotation.id, e)}
                   style={{ cursor: 'pointer' }}
                 >
@@ -279,13 +282,12 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
                     <div className="ms-2 d-flex gap-1 align-items-center flex-shrink-0">
                       <span
-                        className={`badge ${
-                          annotation.type === 'point'
+                        className={`badge ${annotation.type === 'point'
                             ? 'bg-primary'
                             : annotation.type === 'line'
-                            ? 'bg-success'
-                            : 'bg-warning'
-                        }`}
+                              ? 'bg-success'
+                              : 'bg-warning'
+                          }`}
                       >
                         {annotation.type}
                       </span>

@@ -39,7 +39,7 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || '3d';
-  
+
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
@@ -66,13 +66,13 @@ export default function ProjectPage() {
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
-  
+
   // 2D viewer (RTI) state
- // const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
+  // const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
   const [rtiAvailable, setRtiAvailable] = useState(false);
 
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
@@ -540,7 +540,7 @@ export default function ProjectPage() {
             const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
             // Keep a reference to all digital assets for UI purposes (e.g. RTI viewer), but do NOT mutate the scene with HDT metadata.
             setDigitalAssets(assets);
-            
+
             // Handle 3D assets
             if (mode === '3d') {
               const modelAsset =
@@ -557,7 +557,7 @@ export default function ProjectPage() {
                 setHdtModel(null);
               }
             }
-            
+
             // Handle 2D RTI assets
             if (mode === '2d') {
               const rtiAsset = assets.find((a: any) => a?.type === 'rti');
@@ -633,7 +633,7 @@ export default function ProjectPage() {
   }, [activeTab]);
 
   // isManager now comes from backend API
-  
+
   if (loading) {
     return <div className="container py-5 text-center text-muted">Loading...</div>;
   }
@@ -651,780 +651,780 @@ export default function ProjectPage() {
       sceneDesc={sceneDesc}
     >
       {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
-      
+
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
-      {/* Project Header */}
-      <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
-        <div className="d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center">
-            <h1 className="h3 mb-0 me-3">{project.name}</h1>
-            {project.description && <p className="text-muted mb-0">{project.description}</p>}
-          </div>
-          <div className="d-flex align-items-center gap-3">
-            <Link
-              to={`/projects/${projectId}/hdt`}
-              className="btn btn-outline-secondary btn-sm"
-              title="Manage HDT metadata and default 3D model"
-            >
-              <i className="bi bi-sliders me-2"></i>
-              Manage HDT
-            </Link>
-            <button
-              onClick={handleDownloadRdf}
-              disabled={downloadingRdf}
-              className="btn btn-outline-primary btn-sm"
-              title="Download Heritage Digital Twin metadata as RDF/Turtle"
-            >
-              {downloadingRdf ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-download me-2"></i>
-                  Download RDF
-                </>
-              )}
-            </button>
-            <button
-              onClick={async () => {
-                if (!projectId || !selectedSceneId) return;
-                try {
-                  const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${projectId}-${selectedSceneId}.json`;
-                  a.style.display = 'none';
-                  document.body.appendChild(a);
-                  a.click();
-                  setTimeout(() => document.body.removeChild(a), 100);
-                } catch (err: any) {
-                  console.error('Error exporting scene:', err);
-                  alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
-                }
-              }}
-              className="btn btn-outline-secondary btn-sm"
-              title="Export current scene as JSON file (for debugging)"
-            >
-              <i className="bi bi-file-earmark-code me-2"></i>
-              Export Scene JSON
-            </button>
-            <div className="text-secondary">
-              Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
+        {/* Project Header */}
+        <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
+          <div className="d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center">
+              <h1 className="h3 mb-0 me-3">{project.name}</h1>
+              {project.description && <p className="text-muted mb-0">{project.description}</p>}
+            </div>
+            <div className="d-flex align-items-center gap-3">
+              <Link
+                to={`/projects/${projectId}/hdt`}
+                className="btn btn-outline-secondary btn-sm"
+                title="Manage HDT metadata and default 3D model"
+              >
+                <i className="bi bi-sliders me-2"></i>
+                Manage HDT
+              </Link>
+              <button
+                onClick={handleDownloadRdf}
+                disabled={downloadingRdf}
+                className="btn btn-outline-primary btn-sm"
+                title="Download Heritage Digital Twin metadata as RDF/Turtle"
+              >
+                {downloadingRdf ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-download me-2"></i>
+                    Download RDF
+                  </>
+                )}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!projectId || !selectedSceneId) return;
+                  try {
+                    const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${projectId}-${selectedSceneId}.json`;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => document.body.removeChild(a), 100);
+                  } catch (err: any) {
+                    console.error('Error exporting scene:', err);
+                    alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
+                  }
+                }}
+                className="btn btn-outline-secondary btn-sm"
+                title="Export current scene as JSON file (for debugging)"
+              >
+                <i className="bi bi-file-earmark-code me-2"></i>
+                Export Scene JSON
+              </button>
+              <div className="text-secondary">
+                Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className="flex-grow-1 d-flex overflow-hidden">
-        {/* 3D/2D Viewer */}
-        <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
-          {mode === '3d' && (
-            <Viewer3DPanel
-              ref={viewerRef}
-              sceneDesc={sceneDesc}
-              loadingModels={loadingModels}
-              modelLoadProgress={modelLoadProgress}
-              onReady={() => {
-                console.log('✅ 3D viewer ready');
-              }}
-              onLoadProgress={(progress: LoadingProgress) => {
-                setLoadingModels(true);
-                setModelLoadProgress(prev => ({
-                  ...prev,
-                  [progress.modelId]: progress.percentage
-                }));
-              }}
-              onLoadComplete={(modelId: string) => {
-                setModelLoadProgress(prev => {
-                  const updated = { ...prev };
-                  delete updated[modelId];
-                  // Check if all models are done after this deletion
-                  if (Object.keys(updated).length === 0) {
-                    setLoadingModels(false);
-                  }
-                  return updated;
-                });
-              }}
-              onLoadError={(modelId: string, error: Error) => {
-                console.error(`Failed to load model ${modelId}:`, error);
-                setModelLoadProgress(prev => {
-                  const updated = { ...prev };
-                  delete updated[modelId];
-                  return updated;
-                });
-              }}
-            />
-          )}
+        {/* Main content */}
+        <div className="flex-grow-1 d-flex overflow-hidden">
+          {/* 3D/2D Viewer */}
+          <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
+            {mode === '3d' && (
+              <Viewer3DPanel
+                ref={viewerRef}
+                sceneDesc={sceneDesc}
+                loadingModels={loadingModels}
+                modelLoadProgress={modelLoadProgress}
+                onReady={() => {
+                  console.log('✅ 3D viewer ready');
+                }}
+                onLoadProgress={(progress: LoadingProgress) => {
+                  setLoadingModels(true);
+                  setModelLoadProgress(prev => ({
+                    ...prev,
+                    [progress.modelId]: progress.percentage
+                  }));
+                }}
+                onLoadComplete={(modelId: string) => {
+                  setModelLoadProgress(prev => {
+                    const updated = { ...prev };
+                    delete updated[modelId];
+                    // Check if all models are done after this deletion
+                    if (Object.keys(updated).length === 0) {
+                      setLoadingModels(false);
+                    }
+                    return updated;
+                  });
+                }}
+                onLoadError={(modelId: string, error: Error) => {
+                  console.error(`Failed to load model ${modelId}:`, error);
+                  setModelLoadProgress(prev => {
+                    const updated = { ...prev };
+                    delete updated[modelId];
+                    return updated;
+                  });
+                }}
+              />
+            )}
 
-          {mode === '2d' && (
-            <Viewer2DPanel
-              ref={openLimeRef}
-              sceneDesc={sceneDesc}
-              digitalAssets={digitalAssets}
-              rtiAvailable={rtiAvailable}
-              onReady={() => {
-                console.log('📸 2D RTI viewer ready');
-              }}
-              onError={(err) => {
-                console.error('📸 2D RTI viewer error:', err);
-                setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
-              }}
-            />
-          )}
-        </div>
+            {mode === '2d' && (
+              <Viewer2DPanel
+                ref={openLimeRef}
+                sceneDesc={sceneDesc}
+                digitalAssets={digitalAssets}
+                rtiAvailable={rtiAvailable}
+                onReady={() => {
+                  console.log('📸 2D RTI viewer ready');
+                }}
+                onError={(err) => {
+                  console.error('📸 2D RTI viewer error:', err);
+                  setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
+                }}
+              />
+            )}
+          </div>
 
-        {/* Sidebar with Tabs */}
-        <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
+          {/* Sidebar with Tabs */}
+          <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
             <div className="h-100 d-flex flex-column">
-            {/* Tab Navigation */}
-            <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
-              <li className="nav-item" role="presentation">
-                <button
-                  className={`nav-link ${activeTab === 'scene' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('scene')}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === 'scene'}
-                >
-                  Scenes
-                </button>
-              </li>
-              <li className="nav-item" role="presentation">
-                <button
-                  className={`nav-link ${activeTab === 'models' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('models')}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === 'models'}
-                >
-                  Models
-                </button>
-              </li>
-              <li className="nav-item" role="presentation">
-                <button
-                  className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('annotations')}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === 'annotations'}
-                >
-                  Annotations
-                </button>
-              </li>
-            </ul>
+              {/* Tab Navigation */}
+              <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
+                <li className="nav-item" role="presentation">
+                  <button
+                    className={`nav-link ${activeTab === 'scene' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('scene')}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'scene'}
+                  >
+                    Scenes
+                  </button>
+                </li>
+                <li className="nav-item" role="presentation">
+                  <button
+                    className={`nav-link ${activeTab === 'models' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('models')}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'models'}
+                  >
+                    Models
+                  </button>
+                </li>
+                <li className="nav-item" role="presentation">
+                  <button
+                    className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('annotations')}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'annotations'}
+                  >
+                    Annotations
+                  </button>
+                </li>
+              </ul>
 
-            {/* Tab Content */}
-            <div className="tab-content flex-grow-1 overflow-hidden d-flex flex-column">
-              {/* Models Tab */}
-              {activeTab === 'models' && (
-                <div className="p-3 h-100 d-flex flex-column">
-                  <div className="d-flex align-items-center justify-content-between mb-3">
-                    <h3 className="h6 mb-0">Models in Scene</h3>
-                    <button
-                      onClick={cycleModels}
-                      className="btn btn-sm btn-outline-secondary"
-                      title="Cycle through models (show one at a time)"
-                      disabled={!sceneDesc?.models || sceneDesc.models.length === 0}
-                    >
-                      <i className="bi bi-arrow-repeat"></i>
-                    </button>
-                  </div>
+              {/* Tab Content */}
+              <div className="tab-content flex-grow-1 overflow-hidden d-flex flex-column">
+                {/* Models Tab */}
+                {activeTab === 'models' && (
+                  <div className="p-3 h-100 d-flex flex-column">
+                    <div className="d-flex align-items-center justify-content-between mb-3">
+                      <h3 className="h6 mb-0">Models in Scene</h3>
+                      <button
+                        onClick={cycleModels}
+                        className="btn btn-sm btn-outline-secondary"
+                        title="Cycle through models (show one at a time)"
+                        disabled={!sceneDesc?.models || sceneDesc.models.length === 0}
+                      >
+                        <i className="bi bi-arrow-repeat"></i>
+                      </button>
+                    </div>
 
 
-                  <div className="flex-grow-1 overflow-auto">
-                    {files.length === 0 ? (
-                      <p className="text-muted fst-italic">No files uploaded yet.</p>
-                    ) : (
-                      <div className="list-group list-group-flush">
-                        {files.map(f => {
-                          // Handle diverse response formats (legacy name vs new assetId/entryPointUrl)
-                          const entryUrl = (f as any).entryPointUrl || (f as any).fileUrl || f.name || '';
-                          const safeAssetId = (f as any).assetId || f.name || 'unknown';
+                    <div className="flex-grow-1 overflow-auto">
+                      {files.length === 0 ? (
+                        <p className="text-muted fst-italic">No files uploaded yet.</p>
+                      ) : (
+                        <div className="list-group list-group-flush">
+                          {files.map(f => {
+                            // Handle diverse response formats (legacy name vs new assetId/entryPointUrl)
+                            const entryUrl = (f as any).entryPointUrl || (f as any).fileUrl || f.name || '';
+                            const safeAssetId = (f as any).assetId || f.name || 'unknown';
 
-                          // Derive filename from URL if possible
-                          let fileName = f.name;
-                          if (!fileName && entryUrl) {
-                            fileName = entryUrl.split('/').pop() || safeAssetId;
-                          }
-                          if (!fileName) fileName = safeAssetId;
+                            // Derive filename from URL if possible
+                            let fileName = f.name;
+                            if (!fileName && entryUrl) {
+                              fileName = entryUrl.split('/').pop() || safeAssetId;
+                            }
+                            if (!fileName) fileName = safeAssetId;
 
-                          // Determine display name: prefer model.title from scene
-                          const fileBase = fileName.replace(/\.[^/.]+$/, '');
-                          let displayName = fileBase;
+                            // Determine display name: prefer model.title from scene
+                            const fileBase = fileName.replace(/\.[^/.]+$/, '');
+                            let displayName = fileBase;
 
-                          // Find corresponding model in sceneDesc
-                          const sceneModel = sceneDesc?.models?.find((m: any) => {
-                            // Direct match for legacy scenes
-                            if (m.file === fileName) return true;
-                            // HDT URL matching: check if URL ends with filename
-                            if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
-                            // Match by ID if possible
-                            if (m.id === safeAssetId) return true;
-                            return false;
-                          });
-                          if (sceneModel && sceneModel.title) displayName = sceneModel.title;
+                            // Find corresponding model in sceneDesc
+                            const sceneModel = sceneDesc?.models?.find((m: any) => {
+                              // Direct match for legacy scenes
+                              if (m.file === fileName) return true;
+                              // HDT URL matching: check if URL ends with filename
+                              if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
+                              // Match by ID if possible
+                              if (m.id === safeAssetId) return true;
+                              return false;
+                            });
+                            if (sceneModel && sceneModel.title) displayName = sceneModel.title;
 
-                          // Use the actual model ID from the scene for visibility control
-                          const modelId = sceneModel?.id || fileBase;
-                          const isVisible = meshVisibility[modelId] !== false;
-                          const isSelected = selectedModelId === modelId;
+                            // Use the actual model ID from the scene for visibility control
+                            const modelId = sceneModel?.id || fileBase;
+                            const isVisible = meshVisibility[modelId] !== false;
+                            const isSelected = selectedModelId === modelId;
 
-                          return (
-                            <div key={(f as any).assetId || f.name || Math.random()} className="list-group-item p-0">
-                              <div className="d-flex align-items-center p-2">
-                                <button
-                                  onClick={() => toggleMeshVisibility(modelId)}
-                                  style={{
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    fontSize: '18px',
-                                    padding: '0 8px 0 0',
-                                    opacity: isVisible ? 1 : 0.3,
-                                    transition: 'opacity 0.2s'
-                                  }}
-                                  title={isVisible ? 'Hide mesh' : 'Show mesh'}
-                                >
-                                  <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
-                                </button>
-                                <button
-                                  onClick={() => toggleModelInfo(modelId)}
-                                  style={{
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                    flex: 1,
-                                    padding: 0,
-                                    color: 'inherit',
-                                    textDecoration: 'none'
-                                  }}
-                                  className="text-break"
-                                >
-                                  {displayName}
-                                </button>
-                                <a
-                                  href={f.url}
-                                  download
-                                  className="btn btn-sm btn-link p-0 ms-2"
-                                  title="Download file"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <i className="bi bi-download"></i>
-                                </a>
-                              </div>
+                            return (
+                              <div key={(f as any).assetId || f.name || Math.random()} className="list-group-item p-0">
+                                <div className="d-flex align-items-center p-2">
+                                  <button
+                                    onClick={() => toggleMeshVisibility(modelId)}
+                                    style={{
+                                      border: 'none',
+                                      background: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '18px',
+                                      padding: '0 8px 0 0',
+                                      opacity: isVisible ? 1 : 0.3,
+                                      transition: 'opacity 0.2s'
+                                    }}
+                                    title={isVisible ? 'Hide mesh' : 'Show mesh'}
+                                  >
+                                    <i className={`bi ${isVisible ? 'bi-eye' : 'bi-eye-slash'}`}></i>
+                                  </button>
+                                  <button
+                                    onClick={() => toggleModelInfo(modelId)}
+                                    style={{
+                                      border: 'none',
+                                      background: 'none',
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      flex: 1,
+                                      padding: 0,
+                                      color: 'inherit',
+                                      textDecoration: 'none'
+                                    }}
+                                    className="text-break"
+                                  >
+                                    {displayName}
+                                  </button>
+                                  <a
+                                    href={f.url}
+                                    download
+                                    className="btn btn-sm btn-link p-0 ms-2"
+                                    title="Download file"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <i className="bi bi-download"></i>
+                                  </a>
+                                </div>
 
-                              {/* Model Details (expandable) */}
-                              {isSelected && (
-                                <div className="px-2 pb-2 pt-1" style={{ fontSize: '0.85em', color: '#666' }}>
-                                  <div className="border-top pt-2">
-                                    <div><strong>Filename:</strong> {f.name}</div>
-                                    <div><strong>File Size:</strong> {f.size ? formatFileSize(f.size) : 'Unknown'}</div>
-                                    {(() => {
-                                      const stats = viewerRef.current?.getModelStats(modelId);
-                                      if (stats) {
-                                        return (
-                                          <>
-                                            <div><strong>Triangles:</strong> {stats.triangles.toLocaleString()}</div>
-                                            <div><strong>Vertices:</strong> {stats.vertices.toLocaleString()}</div>
-                                            <div>
-                                              <strong>BBox (X,Y,Z):</strong>{' '}
-                                              {stats.bbox.x.toFixed(3)}, {stats.bbox.y.toFixed(3)}, {stats.bbox.z.toFixed(3)}
-                                            </div>
-                                            <div>
-                                              <strong>Textures:</strong> {stats.textures.count}
-                                              {stats.textures.count > 0 && stats.textures.dimensions.length > 0 && (
-                                                <div style={{ marginLeft: '1rem', fontSize: '0.9em' }}>
-                                                  {stats.textures.dimensions.map((dim, idx) => (
-                                                    <div key={idx}>
-                                                      Texture {idx + 1}: {dim.width}×{dim.height}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              )}
-                                            </div>
-                                          </>
-                                        );
-                                      }
-                                      return null;
-                                    })()}
-
-                                    {/* Transformation Controls - Always Visible */}
-                                    <div className="mt-2" style={{ lineHeight: '1.2' }}>
-                                      <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
-                                        <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Position:</strong>
-                                        <input
-                                          type="text"
-                                          className="form-control form-control-sm"
-                                          placeholder="x, y, z"
-                                          value={editingModelId === modelId ? editedPosition : (sceneModel?.position?.join(', ') || '0, 0, 0')}
-                                          disabled={editingModelId !== modelId}
-                                          onChange={(e) => {
-                                            const newValue = e.target.value;
-                                            setEditedPosition(newValue);
-                                            applyLiveTransform(modelId, newValue, editedRotation, editedScale);
-                                          }}
-                                          style={{
-                                            backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
-                                            cursor: editingModelId === modelId ? 'text' : 'not-allowed',
-                                            padding: '0.2rem 0.4rem',
-                                            fontSize: '0.85em'
-                                          }}
-                                        />
-                                      </div>
-                                      <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
-                                        <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Rotation:</strong>
-                                        <input
-                                          type="text"
-                                          className="form-control form-control-sm"
-                                          placeholder="x, y, z"
-                                          value={editingModelId === modelId ? editedRotation : (sceneModel?.rotation?.join(', ') || '0, 0, 0')}
-                                          disabled={editingModelId !== modelId}
-                                          onChange={(e) => {
-                                            const newValue = e.target.value;
-                                            setEditedRotation(newValue);
-                                            applyLiveTransform(modelId, editedPosition, newValue, editedScale);
-                                          }}
-                                          style={{
-                                            backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
-                                            cursor: editingModelId === modelId ? 'text' : 'not-allowed',
-                                            padding: '0.2rem 0.4rem',
-                                            fontSize: '0.85em'
-                                          }}
-                                        />
-                                      </div>
-                                      <div className="d-flex align-items-center" style={{ marginBottom: '0.4rem' }}>
-                                        <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Scale:</strong>
-                                        <input
-                                          type="text"
-                                          className="form-control form-control-sm"
-                                          placeholder="1 or x, y, z"
-                                          value={editingModelId === modelId
-                                            ? editedScale
-                                            : (sceneModel?.scale !== undefined
-                                              ? (Array.isArray(sceneModel.scale)
-                                                ? sceneModel.scale.join(', ')
-                                                : String(sceneModel.scale))
-                                              : '1')}
-                                          disabled={editingModelId !== modelId}
-                                          onChange={(e) => {
-                                            const newValue = e.target.value;
-                                            setEditedScale(newValue);
-                                            applyLiveTransform(modelId, editedPosition, editedRotation, newValue);
-                                          }}
-                                          style={{
-                                            backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
-                                            cursor: editingModelId === modelId ? 'text' : 'not-allowed',
-                                            padding: '0.2rem 0.4rem',
-                                            fontSize: '0.85em'
-                                          }}
-                                        />
-                                      </div>
-
-                                      {saveError && editingModelId === modelId && (
-                                        <div className="alert alert-danger alert-sm py-1 px-2" style={{ fontSize: '0.85em', marginBottom: '0.4rem' }}>
-                                          {saveError}
-                                        </div>
-                                      )}
-
-                                      {isManager && (
-                                        <div className="d-flex gap-2 align-items-center">
-                                          {editingModelId === modelId ? (
+                                {/* Model Details (expandable) */}
+                                {isSelected && (
+                                  <div className="px-2 pb-2 pt-1" style={{ fontSize: '0.85em', color: '#666' }}>
+                                    <div className="border-top pt-2">
+                                      <div><strong>Filename:</strong> {f.name}</div>
+                                      <div><strong>File Size:</strong> {f.size ? formatFileSize(f.size) : 'Unknown'}</div>
+                                      {(() => {
+                                        const stats = viewerRef.current?.getModelStats(modelId);
+                                        if (stats) {
+                                          return (
                                             <>
-                                              <button
-                                                className="btn btn-sm btn-success"
-                                                onClick={() => saveModelProperties(modelId, f.name)}
-                                                title="Save changes"
-                                                style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                              >
-                                                <i className="bi bi-check-lg" style={{ fontSize: '1.2em' }}></i>
-                                              </button>
-                                              <button
-                                                className="btn btn-sm btn-secondary"
-                                                onClick={cancelEditing}
-                                                title="Cancel editing"
-                                                style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                              >
-                                                <i className="bi bi-x-lg" style={{ fontSize: '1.2em' }}></i>
-                                              </button>
+                                              <div><strong>Triangles:</strong> {stats.triangles.toLocaleString()}</div>
+                                              <div><strong>Vertices:</strong> {stats.vertices.toLocaleString()}</div>
+                                              <div>
+                                                <strong>BBox (X,Y,Z):</strong>{' '}
+                                                {stats.bbox.x.toFixed(3)}, {stats.bbox.y.toFixed(3)}, {stats.bbox.z.toFixed(3)}
+                                              </div>
+                                              <div>
+                                                <strong>Textures:</strong> {stats.textures.count}
+                                                {stats.textures.count > 0 && stats.textures.dimensions.length > 0 && (
+                                                  <div style={{ marginLeft: '1rem', fontSize: '0.9em' }}>
+                                                    {stats.textures.dimensions.map((dim, idx) => (
+                                                      <div key={idx}>
+                                                        Texture {idx + 1}: {dim.width}×{dim.height}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
                                             </>
-                                          ) : (
-                                            <button
-                                              className="btn btn-sm btn-outline-primary"
-                                              onClick={() => startEditingModel(modelId, sceneModel)}
-                                              title="Edit transformation"
-                                            >
-                                              <i className="bi bi-pencil"></i> Edit
-                                            </button>
-                                          )}
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+
+                                      {/* Transformation Controls - Always Visible */}
+                                      <div className="mt-2" style={{ lineHeight: '1.2' }}>
+                                        <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
+                                          <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Position:</strong>
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            placeholder="x, y, z"
+                                            value={editingModelId === modelId ? editedPosition : (sceneModel?.position?.join(', ') || '0, 0, 0')}
+                                            disabled={editingModelId !== modelId}
+                                            onChange={(e) => {
+                                              const newValue = e.target.value;
+                                              setEditedPosition(newValue);
+                                              applyLiveTransform(modelId, newValue, editedRotation, editedScale);
+                                            }}
+                                            style={{
+                                              backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
+                                              cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                              padding: '0.2rem 0.4rem',
+                                              fontSize: '0.85em'
+                                            }}
+                                          />
                                         </div>
-                                      )}
+                                        <div className="d-flex align-items-center" style={{ marginBottom: '0.25rem' }}>
+                                          <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Rotation:</strong>
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            placeholder="x, y, z"
+                                            value={editingModelId === modelId ? editedRotation : (sceneModel?.rotation?.join(', ') || '0, 0, 0')}
+                                            disabled={editingModelId !== modelId}
+                                            onChange={(e) => {
+                                              const newValue = e.target.value;
+                                              setEditedRotation(newValue);
+                                              applyLiveTransform(modelId, editedPosition, newValue, editedScale);
+                                            }}
+                                            style={{
+                                              backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
+                                              cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                              padding: '0.2rem 0.4rem',
+                                              fontSize: '0.85em'
+                                            }}
+                                          />
+                                        </div>
+                                        <div className="d-flex align-items-center" style={{ marginBottom: '0.4rem' }}>
+                                          <strong style={{ flex: '0 0 auto', width: '70px', fontSize: '0.9em' }}>Scale:</strong>
+                                          <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            placeholder="1 or x, y, z"
+                                            value={editingModelId === modelId
+                                              ? editedScale
+                                              : (sceneModel?.scale !== undefined
+                                                ? (Array.isArray(sceneModel.scale)
+                                                  ? sceneModel.scale.join(', ')
+                                                  : String(sceneModel.scale))
+                                                : '1')}
+                                            disabled={editingModelId !== modelId}
+                                            onChange={(e) => {
+                                              const newValue = e.target.value;
+                                              setEditedScale(newValue);
+                                              applyLiveTransform(modelId, editedPosition, editedRotation, newValue);
+                                            }}
+                                            style={{
+                                              backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
+                                              cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                              padding: '0.2rem 0.4rem',
+                                              fontSize: '0.85em'
+                                            }}
+                                          />
+                                        </div>
+
+                                        {saveError && editingModelId === modelId && (
+                                          <div className="alert alert-danger alert-sm py-1 px-2" style={{ fontSize: '0.85em', marginBottom: '0.4rem' }}>
+                                            {saveError}
+                                          </div>
+                                        )}
+
+                                        {isManager && (
+                                          <div className="d-flex gap-2 align-items-center">
+                                            {editingModelId === modelId ? (
+                                              <>
+                                                <button
+                                                  className="btn btn-sm btn-success"
+                                                  onClick={() => saveModelProperties(modelId, f.name)}
+                                                  title="Save changes"
+                                                  style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                  <i className="bi bi-check-lg" style={{ fontSize: '1.2em' }}></i>
+                                                </button>
+                                                <button
+                                                  className="btn btn-sm btn-secondary"
+                                                  onClick={cancelEditing}
+                                                  title="Cancel editing"
+                                                  style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                  <i className="bi bi-x-lg" style={{ fontSize: '1.2em' }}></i>
+                                                </button>
+                                              </>
+                                            ) : (
+                                              <button
+                                                className="btn btn-sm btn-outline-primary"
+                                                onClick={() => startEditingModel(modelId, sceneModel)}
+                                                title="Edit transformation"
+                                              >
+                                                <i className="bi bi-pencil"></i> Edit
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Scene Tab */}
+                {activeTab === 'scene' && (
+                  <div className="p-3 h-100 d-flex flex-column">
+                    {/* Scene Selector */}
+                    {availableScenes.length > 0 && (
+                      <div className="mb-3">
+                        <select
+                          id="scene-selector-sidebar"
+                          className="form-select"
+                          value={selectedSceneId || ''}
+                          onChange={(e) => setSelectedSceneId(e.target.value)}
+                        >
+                          {availableScenes.map((scene) => (
+                            <option key={scene.id} value={scene.id}>
+                              {scene.name} {scene.isDefault ? '⭐' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <small className="text-muted">
+                          {availableScenes.length} scene{availableScenes.length !== 1 ? 's' : ''} available
+                        </small>
+                      </div>
+                    )}
+
+                    <hr className="my-3" />
+
+                    {/* Scene Settings */}
+                    <h6 className="mb-3">Scene Settings</h6>
+                    {isManager ? (
+                      <div className="flex-grow-1">
+                        {/* Ground Grid Setting */}
+                        <div className="mb-3">
+                          <div className="form-check">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id="showGroundCheckbox"
+                              checked={showGround}
+                              onChange={async (e) => {
+                                const newShowGround = e.target.checked;
+
+                                // Update local state immediately for UI
+                                setShowGround(newShowGround);
+
+                                // Update 3D scene directly
+                                viewerRef.current?.setGroundVisible(newShowGround);
+
+                                // Ensure HDT document exists before saving
+                                if (!await ensureHDTDocument(projectId!)) {
+                                  console.error('Failed to ensure HDT document exists');
+                                  return;
+                                }
+
+                                // Save to backend
+                                const updatedScene = {
+                                  ...sceneDesc,
+                                  environment: {
+                                    ...sceneDesc?.environment,
+                                    showGround: newShowGround
+                                  }
+                                } as SceneDescription;
+
+                                try {
+                                  console.log('💾 Saving ground grid setting to backend:', updatedScene.environment);
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedScene)
+                                  });
+
+                                  if (!response.ok) {
+                                    const errorText = await response.text();
+                                    console.error('❌ Backend response:', errorText);
+                                    throw new Error('Failed to save scene settings');
+                                  }
+
+                                  // Do NOT update sceneDesc to avoid viewer re-initialization
+                                  console.log('✅ Ground grid setting saved:', newShowGround);
+                                } catch (err: any) {
+                                  console.error('❌ Failed to save ground setting:', err);
+                                  alert('Failed to save ground setting: ' + err.message);
+                                }
+                              }}
+                              title="Display a reference grid at the base of the scene"
+                            />
+                            <label className="form-check-label" htmlFor="showGroundCheckbox" title="Display a reference grid at the base of the scene">
+                              Show Ground Grid
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Background Color Setting */}
+                        <div className="mb-3">
+                          <div className="d-flex gap-2 align-items-center">
+                            <label htmlFor="backgroundColorInput" className="form-label mb-0" style={{ whiteSpace: 'nowrap' }}>
+                              Background Color
+                            </label>
+                            <input
+                              type="color"
+                              className="form-control form-control-color"
+                              id="backgroundColorInput"
+                              value={backgroundColor}
+                              onChange={async (e) => {
+                                const newBackground = e.target.value;
+
+                                // Update local state immediately for UI
+                                setBackgroundColor(newBackground);
+
+                                // Update 3D scene directly
+                                viewerRef.current?.setBackgroundColor(newBackground);
+
+                                // Ensure HDT document exists before saving
+                                if (!await ensureHDTDocument(projectId!)) {
+                                  console.error('Failed to ensure HDT document exists');
+                                  return;
+                                }
+
+                                // Save to backend
+                                const updatedScene = {
+                                  ...sceneDesc,
+                                  environment: {
+                                    ...sceneDesc?.environment,
+                                    background: newBackground
+                                  }
+                                } as SceneDescription;
+
+                                try {
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedScene)
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to save scene settings');
+                                  }
+
+                                  // Do NOT update sceneDesc
+                                  console.log('✅ Background color saved:', newBackground);
+                                } catch (err: any) {
+                                  console.error('❌ Failed to save background color:', err);
+                                  alert('Failed to save background color: ' + err.message);
+                                }
+                              }}
+                              title="Set the background color of the 3D viewer"
+                            />
+                            <input
+                              type="text"
+                              className="form-control"
+                              style={{ maxWidth: '100px' }}
+                              value={backgroundColor}
+                              onChange={async (e) => {
+                                const newBackground = e.target.value;
+                                // Validate hex color format
+                                if (!/^#[0-9A-Fa-f]{6}$/.test(newBackground)) return;
+
+                                // Update local state immediately for UI
+                                setBackgroundColor(newBackground);
+
+                                // Update 3D scene directly
+                                viewerRef.current?.setBackgroundColor(newBackground);
+
+                                // Ensure HDT document exists before saving
+                                if (!await ensureHDTDocument(projectId!)) {
+                                  console.error('Failed to ensure HDT document exists');
+                                  return;
+                                }
+
+                                // Save to backend
+                                const updatedScene = {
+                                  ...sceneDesc,
+                                  environment: {
+                                    ...sceneDesc?.environment,
+                                    background: newBackground
+                                  }
+                                } as SceneDescription;
+
+                                try {
+                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedScene)
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to save scene settings');
+                                  }
+
+                                  // Do NOT update sceneDesc
+                                  console.log('✅ Background color saved:', newBackground);
+                                } catch (err: any) {
+                                  console.error('❌ Failed to save background color:', err);
+                                }
+                              }}
+                              placeholder="#404040"
+                              title="Set the background color of the 3D viewer"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Headlight Offset Setting */}
+                        <div className="mb-3">
+                          <label className="form-label">
+                            Headlight Direction Offset (degrees)
+                          </label>
+                          <div className="d-flex gap-2 align-items-center">
+                            <div className="flex-fill">
+                              <label htmlFor="headlightHorizontal" className="form-label small mb-1">
+                                Horizontal
+                              </label>
+                              <input
+                                type="number"
+                                id="headlightHorizontal"
+                                className="form-control"
+                                step="1"
+                                value={String(headlightOffset[0])}
+                                onChange={async (e) => {
+                                  const newThetaDeg = parseFloat(e.target.value || '0');
+                                  const phiDeg = headlightOffset[1];
+                                  const updatedScene = {
+                                    ...sceneDesc,
+                                    environment: {
+                                      ...sceneDesc?.environment,
+                                      headLightOffset: [newThetaDeg, phiDeg]
+                                    }
+                                  } as SceneDescription;
+
+                                  try {
+                                    // Update local state first
+                                    setHeadlightOffset([newThetaDeg, phiDeg]);
+
+                                    // Update 3D scene directly
+                                    viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
+
+                                    // Ensure HDT document exists before saving
+                                    if (!await ensureHDTDocument(projectId!)) {
+                                      console.error('Failed to ensure HDT document exists');
+                                      return;
+                                    }
+
+                                    // Save to backend
+                                    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                      method: 'PUT',
+                                      credentials: 'include',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(updatedScene)
+                                    });
+                                    if (!response.ok) throw new Error('Failed to save headlight offset');
+
+                                    console.log('✅ Headlight horizontal offset saved:', newThetaDeg);
+                                  } catch (err: any) {
+                                    console.error('❌ Failed to save headlight offset:', err);
+                                    alert('Failed to save headlight offset: ' + err.message);
+                                  }
+                                }}
+                                placeholder="0"
+                              />
                             </div>
-                          );
-                        })}
+                            <div className="flex-fill">
+                              <label htmlFor="headlightVertical" className="form-label small mb-1">
+                                Vertical
+                              </label>
+                              <input
+                                type="number"
+                                id="headlightVertical"
+                                className="form-control"
+                                step="1"
+                                value={String(headlightOffset[1])}
+                                onChange={async (e) => {
+                                  const newPhiDeg = parseFloat(e.target.value || '0');
+                                  const thetaDeg = headlightOffset[0];
+                                  const updatedScene = {
+                                    ...sceneDesc,
+                                    environment: {
+                                      ...sceneDesc?.environment,
+                                      headLightOffset: [thetaDeg, newPhiDeg]
+                                    }
+                                  } as SceneDescription;
+
+                                  try {
+                                    // Update local state first
+                                    setHeadlightOffset([thetaDeg, newPhiDeg]);
+
+                                    // Update 3D scene directly
+                                    viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
+
+                                    // Ensure HDT document exists before saving
+                                    if (!await ensureHDTDocument(projectId!)) {
+                                      console.error('Failed to ensure HDT document exists');
+                                      return;
+                                    }
+
+                                    // Save to backend
+                                    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                      method: 'PUT',
+                                      credentials: 'include',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(updatedScene)
+                                    });
+                                    if (!response.ok) throw new Error('Failed to save headlight offset');
+
+                                    console.log('✅ Headlight vertical offset saved:', newPhiDeg);
+                                  } catch (err: any) {
+                                    console.error('❌ Failed to save headlight offset:', err);
+                                    alert('Failed to save headlight offset: ' + err.message);
+                                  }
+                                }}
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                          <small className="text-muted d-block mt-1">
+                            Adjust the headlight direction relative to the camera (0, 0 = aligned with camera)
+                          </small>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                        <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Scene Tab */}
-              {activeTab === 'scene' && (
-                <div className="p-3 h-100 d-flex flex-column">
-                  {/* Scene Selector */}
-                  {availableScenes.length > 0 && (
-                    <div className="mb-3">
-                      <select
-                        id="scene-selector-sidebar"
-                        className="form-select"
-                        value={selectedSceneId || ''}
-                        onChange={(e) => setSelectedSceneId(e.target.value)}
-                      >
-                        {availableScenes.map((scene) => (
-                          <option key={scene.id} value={scene.id}>
-                            {scene.name} {scene.isDefault ? '⭐' : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <small className="text-muted">
-                        {availableScenes.length} scene{availableScenes.length !== 1 ? 's' : ''} available
-                      </small>
-                    </div>
-                  )}
-
-                  <hr className="my-3" />
-
-                  {/* Scene Settings */}
-                  <h6 className="mb-3">Scene Settings</h6>
-                  {isManager ? (
-                    <div className="flex-grow-1">
-                      {/* Ground Grid Setting */}
-                      <div className="mb-3">
-                        <div className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="showGroundCheckbox"
-                            checked={showGround}
-                            onChange={async (e) => {
-                              const newShowGround = e.target.checked;
-
-                              // Update local state immediately for UI
-                              setShowGround(newShowGround);
-
-                              // Update 3D scene directly
-                              viewerRef.current?.setGroundVisible(newShowGround);
-
-                              // Ensure HDT document exists before saving
-                              if (!await ensureHDTDocument(projectId!)) {
-                                console.error('Failed to ensure HDT document exists');
-                                return;
-                              }
-
-                              // Save to backend
-                              const updatedScene = {
-                                ...sceneDesc,
-                                environment: {
-                                  ...sceneDesc?.environment,
-                                  showGround: newShowGround
-                                }
-                              } as SceneDescription;
-
-                              try {
-                                console.log('💾 Saving ground grid setting to backend:', updatedScene.environment);
-                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                  method: 'PUT',
-                                  credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(updatedScene)
-                                });
-
-                                if (!response.ok) {
-                                  const errorText = await response.text();
-                                  console.error('❌ Backend response:', errorText);
-                                  throw new Error('Failed to save scene settings');
-                                }
-
-                                // Do NOT update sceneDesc to avoid viewer re-initialization
-                                console.log('✅ Ground grid setting saved:', newShowGround);
-                              } catch (err: any) {
-                                console.error('❌ Failed to save ground setting:', err);
-                                alert('Failed to save ground setting: ' + err.message);
-                              }
-                            }}
-                            title="Display a reference grid at the base of the scene"
-                          />
-                          <label className="form-check-label" htmlFor="showGroundCheckbox" title="Display a reference grid at the base of the scene">
-                            Show Ground Grid
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* Background Color Setting */}
-                      <div className="mb-3">
-                        <div className="d-flex gap-2 align-items-center">
-                          <label htmlFor="backgroundColorInput" className="form-label mb-0" style={{ whiteSpace: 'nowrap' }}>
-                            Background Color
-                          </label>
-                          <input
-                            type="color"
-                            className="form-control form-control-color"
-                            id="backgroundColorInput"
-                            value={backgroundColor}
-                            onChange={async (e) => {
-                              const newBackground = e.target.value;
-
-                              // Update local state immediately for UI
-                              setBackgroundColor(newBackground);
-
-                              // Update 3D scene directly
-                              viewerRef.current?.setBackgroundColor(newBackground);
-
-                              // Ensure HDT document exists before saving
-                              if (!await ensureHDTDocument(projectId!)) {
-                                console.error('Failed to ensure HDT document exists');
-                                return;
-                              }
-
-                              // Save to backend
-                              const updatedScene = {
-                                ...sceneDesc,
-                                environment: {
-                                  ...sceneDesc?.environment,
-                                  background: newBackground
-                                }
-                              } as SceneDescription;
-
-                              try {
-                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                  method: 'PUT',
-                                  credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(updatedScene)
-                                });
-
-                                if (!response.ok) {
-                                  throw new Error('Failed to save scene settings');
-                                }
-
-                                // Do NOT update sceneDesc
-                                console.log('✅ Background color saved:', newBackground);
-                              } catch (err: any) {
-                                console.error('❌ Failed to save background color:', err);
-                                alert('Failed to save background color: ' + err.message);
-                              }
-                            }}
-                            title="Set the background color of the 3D viewer"
-                          />
-                          <input
-                            type="text"
-                            className="form-control"
-                            style={{ maxWidth: '100px' }}
-                            value={backgroundColor}
-                            onChange={async (e) => {
-                              const newBackground = e.target.value;
-                              // Validate hex color format
-                              if (!/^#[0-9A-Fa-f]{6}$/.test(newBackground)) return;
-
-                              // Update local state immediately for UI
-                              setBackgroundColor(newBackground);
-
-                              // Update 3D scene directly
-                              viewerRef.current?.setBackgroundColor(newBackground);
-
-                              // Ensure HDT document exists before saving
-                              if (!await ensureHDTDocument(projectId!)) {
-                                console.error('Failed to ensure HDT document exists');
-                                return;
-                              }
-
-                              // Save to backend
-                              const updatedScene = {
-                                ...sceneDesc,
-                                environment: {
-                                  ...sceneDesc?.environment,
-                                  background: newBackground
-                                }
-                              } as SceneDescription;
-
-                              try {
-                                const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                  method: 'PUT',
-                                  credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(updatedScene)
-                                });
-
-                                if (!response.ok) {
-                                  throw new Error('Failed to save scene settings');
-                                }
-
-                                // Do NOT update sceneDesc
-                                console.log('✅ Background color saved:', newBackground);
-                              } catch (err: any) {
-                                console.error('❌ Failed to save background color:', err);
-                              }
-                            }}
-                            placeholder="#404040"
-                            title="Set the background color of the 3D viewer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Headlight Offset Setting */}
-                      <div className="mb-3">
-                        <label className="form-label">
-                          Headlight Direction Offset (degrees)
-                        </label>
-                        <div className="d-flex gap-2 align-items-center">
-                          <div className="flex-fill">
-                            <label htmlFor="headlightHorizontal" className="form-label small mb-1">
-                              Horizontal
-                            </label>
-                            <input
-                              type="number"
-                              id="headlightHorizontal"
-                              className="form-control"
-                              step="1"
-                              value={String(headlightOffset[0])}
-                              onChange={async (e) => {
-                                const newThetaDeg = parseFloat(e.target.value || '0');
-                                const phiDeg = headlightOffset[1];
-                                const updatedScene = {
-                                  ...sceneDesc,
-                                  environment: {
-                                    ...sceneDesc?.environment,
-                                    headLightOffset: [newThetaDeg, phiDeg]
-                                  }
-                                } as SceneDescription;
-
-                                try {
-                                  // Update local state first
-                                  setHeadlightOffset([newThetaDeg, phiDeg]);
-
-                                  // Update 3D scene directly
-                                  viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
-
-                                  // Ensure HDT document exists before saving
-                                  if (!await ensureHDTDocument(projectId!)) {
-                                    console.error('Failed to ensure HDT document exists');
-                                    return;
-                                  }
-
-                                  // Save to backend
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                    method: 'PUT',
-                                    credentials: 'include',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedScene)
-                                  });
-                                  if (!response.ok) throw new Error('Failed to save headlight offset');
-
-                                  console.log('✅ Headlight horizontal offset saved:', newThetaDeg);
-                                } catch (err: any) {
-                                  console.error('❌ Failed to save headlight offset:', err);
-                                  alert('Failed to save headlight offset: ' + err.message);
-                                }
-                              }}
-                              placeholder="0"
-                            />
-                          </div>
-                          <div className="flex-fill">
-                            <label htmlFor="headlightVertical" className="form-label small mb-1">
-                              Vertical
-                            </label>
-                            <input
-                              type="number"
-                              id="headlightVertical"
-                              className="form-control"
-                              step="1"
-                              value={String(headlightOffset[1])}
-                              onChange={async (e) => {
-                                const newPhiDeg = parseFloat(e.target.value || '0');
-                                const thetaDeg = headlightOffset[0];
-                                const updatedScene = {
-                                  ...sceneDesc,
-                                  environment: {
-                                    ...sceneDesc?.environment,
-                                    headLightOffset: [thetaDeg, newPhiDeg]
-                                  }
-                                } as SceneDescription;
-
-                                try {
-                                  // Update local state first
-                                  setHeadlightOffset([thetaDeg, newPhiDeg]);
-
-                                  // Update 3D scene directly
-                                  viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
-
-                                  // Ensure HDT document exists before saving
-                                  if (!await ensureHDTDocument(projectId!)) {
-                                    console.error('Failed to ensure HDT document exists');
-                                    return;
-                                  }
-
-                                  // Save to backend
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                    method: 'PUT',
-                                    credentials: 'include',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedScene)
-                                  });
-                                  if (!response.ok) throw new Error('Failed to save headlight offset');
-
-                                  console.log('✅ Headlight vertical offset saved:', newPhiDeg);
-                                } catch (err: any) {
-                                  console.error('❌ Failed to save headlight offset:', err);
-                                  alert('Failed to save headlight offset: ' + err.message);
-                                }
-                              }}
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-                        <small className="text-muted d-block mt-1">
-                          Adjust the headlight direction relative to the camera (0, 0 = aligned with camera)
-                        </small>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                      <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Annotations Tab */}
-              {activeTab === 'annotations' && (
-                <AnnotationPanel
-                  onSelectionChanged={(selectedIds) => {
-                    // Notify the active viewer about selection changes
-                    if (mode === '3d' && viewerRef.current) {
-                      const annotationMgr = viewerRef.current.getAnnotationManager();
-                      if (annotationMgr) {
-                        annotationMgr.clearSelection();
-                        annotationMgr.select(selectedIds, false);
+                {/* Annotations Tab */}
+                {activeTab === 'annotations' && (
+                  <AnnotationPanel
+                    onSelectionChanged={(selectedIds) => {
+                      // Notify the active viewer about selection changes
+                      if (mode === '3d' && viewerRef.current) {
+                        const annotationMgr = viewerRef.current.getAnnotationManager();
+                        if (annotationMgr) {
+                          annotationMgr.clearSelection();
+                          annotationMgr.select(selectedIds, false);
+                        }
+                      } else if (mode === '2d' && openLimeRef.current) {
+                        // For 2D viewer, if needed
+                        console.log('2D viewer selection update:', selectedIds);
                       }
-                    } else if (mode === '2d' && openLimeRef.current) {
-                      // For 2D viewer, if needed
-                      console.log('2D viewer selection update:', selectedIds);
-                    }
-                  }}
-                />
-              )}
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </AnnotationProvider>
   );
 }

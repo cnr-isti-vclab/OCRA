@@ -17,20 +17,19 @@ export class AnnotationService {
   }
 
   /**
-   * Create a new annotation and save it to the backend
+   * Create a new annotation and save it to the backend.
+   * currentScene is the scene description with the new annotation added.
    */
   async createAnnotation(annotation: Annotation, currentScene: SceneDescription): Promise<Annotation> {
     try {
-      const updatedAnnotations = [...(currentScene.annotations || []), annotation];
-      const updatedScene = { ...currentScene, annotations: updatedAnnotations };
-
       const response = await fetch(
         `${getApiBase()}/api/projects/${this.projectId}/hdt/scenes/${this.selectedSceneId}`,
         {
           method: 'PUT',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedScene)
+          //         body: JSON.stringify(updatedScene)
+          body: JSON.stringify(currentScene)
         }
       );
 
@@ -54,18 +53,13 @@ export class AnnotationService {
     currentScene: SceneDescription
   ): Promise<Annotation> {
     try {
-      const updatedAnnotations = (currentScene.annotations || []).map(a =>
-        a.id === annotation.id ? annotation : a
-      );
-      const updatedScene = { ...currentScene, annotations: updatedAnnotations };
-
       const response = await fetch(
         `${getApiBase()}/api/projects/${this.projectId}/hdt/scenes/${this.selectedSceneId}`,
         {
           method: 'PUT',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedScene)
+          body: JSON.stringify(currentScene)
         }
       );
 
@@ -113,6 +107,53 @@ export class AnnotationService {
       console.error('❌ Failed to delete annotations:', error);
       throw error;
     }
+  }
+
+  /**
+   * Update only the geometry of an annotation
+   */
+  async updateAnnotationGeometry(
+    id: string,
+    geometry: Annotation['geometry'],
+    currentScene: SceneDescription
+  ): Promise<Annotation> {
+    console.log('AnnotationService: updateAnnotationGeometry(): Updating  ', id, ' scene annotations ', currentScene.annotations)
+    const annotation = currentScene.annotations?.find(a => a.id === id);
+    if (!annotation) {
+      console.error(`Service error: updateAnnotationGeometry(): Annotation ${id} not found in`, currentScene.annotations);
+      throw new Error(`Annotation ${id} not found`);
+    } else {
+      console.log(`Service info: updateAnnotationGeometry(): Found annotation ${id}`);
+    }
+
+    const updatedAnnotation: Annotation = {
+      ...annotation,
+      geometry
+    };
+
+    return this.updateAnnotation(updatedAnnotation, currentScene);
+  }
+
+  /**
+   * Update only the data/metadata of an annotation
+   */
+  async updateAnnotationData(
+    id: string,
+    data: Partial<Omit<Annotation, 'id' | 'geometry'>>,
+    currentScene: SceneDescription
+  ): Promise<Annotation> {
+    const annotation = currentScene.annotations?.find(a => a.id === id);
+    if (!annotation) {
+      console.error(`Service error: updateAnnotationData(): Annotation ${id} not found in`, currentScene.annotations);
+      throw new Error(`Annotation ${id} not found`);
+    }
+
+    const updatedAnnotation: Annotation = {
+      ...annotation,
+      ...data
+    };
+
+    return this.updateAnnotation(updatedAnnotation, currentScene);
   }
 
   /**

@@ -17,7 +17,7 @@ interface Viewer2DPanelProps {
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
   ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
-    const { createAnnotation, updateAnnotation, selectAnnotation, selectedAnnotationIds, annotations } = useAnnotations();
+    const { createAnnotation, updateAnnotationGeometry, selectAnnotation, selectedAnnotationIds, annotations } = useAnnotations();
 
     if (!rtiAvailable) {
       return (
@@ -65,7 +65,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const handleAnnotationUpdated = (anno: Annotation) => {
       console.log('Viewer2DPanel::handleAnnotationUpdated', anno);
-      updateAnnotation(anno);
+      updateAnnotationGeometry(anno.id, anno.geometry);
     };
 
     const handleAnnotationDeleted = (anno: Annotation) => {
@@ -87,19 +87,15 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) return;
       const viewer = ref.current;
-      const annotationManager = viewer.getAnnotationManager(); 
+      const annotationManager = viewer.getAnnotationManager();
       if (!annotationManager) return;
-      
+
       const ids = annotations.map((a) => a.id);
-      console.log('Annotations changed', ids);
-      
+
       const viewerAnnotations = annotationManager.getAnnotations();
       const viewerAnnotationIds = viewerAnnotations.map((a) => a.id);
-      console.log('Viewer Annotations', viewerAnnotationIds);
 
       const deletedIds = viewerAnnotationIds.filter((id) => !ids.includes(id));
-      
-      console.log(deletedIds);
       deletedIds.forEach((id) => {
         console.log('Removing deleted annotation from viewer:', id);
         annotationManager.deleteAnnotation(id);
@@ -119,11 +115,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       //     // Missing in 
       //     annotationManager.deleteAnnotation(anno.id);
       //   }
-     // });
+      // });
     }, [annotations, ref]);
 
     useEffect(() => {
-      
+
     }, [selectedAnnotationIds, ref]);
 
     return (
