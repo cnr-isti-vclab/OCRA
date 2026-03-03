@@ -73,9 +73,9 @@ This one is very preliminary and not fully fleshed out, but it is owned by Postg
 
 One logical HDT aggregate per `projectId`:
 
-- `id` (bridge key to PostgreSQL `Project.id`)
-- `physical-object-metadata` (to be better defined, the minimal could be just a reference to a external uri that are the source of truth for the metadata for the object itself (like for example a qXXXX for wikidata or the catalog entry of the italian ARCO), but we can also have some basic fields here for easier querying and indexing)
-  - `dublinCore` (just cached stuff got fronm the source of truth, like title, description, creator, date, etc.)
+- `projectId` (bridge key to PostgreSQL `Project.id`)
+- `physicalObjectMetadata` (to be better defined, the minimal could be just a reference to an external uri that is the source of truth for the metadata for the object itself (like for example a qXXXX for wikidata or the catalog entry of the Italian ARCO), but we can also have some basic fields here for easier querying and indexing)
+  - `dublinCore` (just cached stuff got from the source of truth, like title, description, creator, date, etc.)
   - `cidocCrm`
 - `digitalAssets[]`
 - `scenes[]`
@@ -85,14 +85,14 @@ One logical HDT aggregate per `projectId`:
 
 ## `DigitalAsset` (inside HDT document)
 - `id` (asset id, unique within project document)
-- `public_uri` (mandatory for each asset we shoud have a uri that is the source of truth for the asset, from which we can compy locally the assed internally for more efficient use. This is the uri that should be used in the HDT published, and it should be stable across imports/exports. It should be a reference to an external repository)
+- `publicUri` (mandatory for each asset we should have a uri that is the source of truth for the asset, from which we can copy locally the asset internally for more efficient use. This is the uri that should be used in the HDT published, and it should be stable across imports/exports. It should be a reference to an external repository)
 - `type` (`3d-model`, `rti`, `image`, `video`, `other`)
-- `digital-asset-paradata` (free-form JSON for traditional acquisition paradata, it could be extracted by the uri/manifest or provided by the user at upload time; there will be a way of mapping it into the HC2 Class of the HTD, but we can keep it free-form for now)
+- `assetParadata` (free-form JSON for traditional acquisition paradata, it could be extracted by the uri/manifest or provided by the user at upload time; there will be a way of mapping it into the HC2 Class of the HDT, but we can keep it free-form for now)
 - `label`
 - `description`
 - `thumbnail` (optional, local URL; if not provided the frontend can generate it on the fly for 3D models and RTI)
-- `entryPointUrl` (Local URL where the asset can be accessed, e.g. `/assets/projects/<projectId>/3d-model/<assetId>/model.gltf`)
-- `mimetype` (e.g. `model/gltf+json`, `image/jpeg`, etc.)
+- `entryPointUrl` (local URL where the asset can be accessed, e.g. `/assets/projects/<projectId>/3d-model/<assetId>/model.gltf`)
+- `mimeType` (e.g. `model/gltf+json`, `image/jpeg`, etc.)
 - Upload metadata (`uploadedAt`, `uploadedBy`)
 
 ## `HDTScene` (inside HDT document)
@@ -109,7 +109,7 @@ It is defined by a set of asset references and their relative positions. It is o
 ## `Annotation` (inside HDT document)
 - `id` (annotation id, unique within project document)
 - `referenceType` ('asset' or 'scene'; annotations are associated to a specific asset, or to a specific scene and have a meaning only in the context of that scene, for example an annotation tied to a specific point between two 3D models in a specific scene configuration)
-- `targetId` (references either a `Scene.id` or a `DigitalAsset.id`, depending on the type)
+- `targetId` (references either an `HDTScene.id` or a `DigitalAsset.id`, depending on the type)
 - `annotationGeometry` (JSON, type-specific, for the spatial/geometric definition of the annotation, e.g. point coordinates, bounding box, polygon vertices, etc.)
 - `annotationData` (JSON for the semantic content of the annotation, e.g. fields filled by the user, controlled vocabulary terms, etc.)
 - `annotationParadata` (free-form JSON for paradata related to the annotation, e.g. creation method, tools used, etc.)
