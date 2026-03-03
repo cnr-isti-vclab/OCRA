@@ -1,4 +1,4 @@
-import { forwardRef, useEffect } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import OpenLIMEViewer, { type OpenLIMEViewerRef, type SimplifiedAnnotation } from '../../adapters/openlime-viewer/OpenLIMEViewer';
 import type { SceneDescription, Annotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
@@ -18,6 +18,10 @@ interface Viewer2DPanelProps {
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
   ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
     const { createAnnotation, updateAnnotationGeometry, selectAnnotation, selectedAnnotationIds, annotations } = useAnnotations();
+
+    // Guard flag: true while we are programmatically pushing a selection into the viewer.
+    // Prevents the viewer's onSelect echo from bouncing back into the context and looping.
+    const isProgrammaticSelectionRef = useRef(false);
 
     if (!rtiAvailable) {
       return (
@@ -58,29 +62,36 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       );
     }
 
+    // Handle forward annotation creation from viewer to context, then to the annotationPanel
     const handleAnnotationCreated = (anno: Annotation) => {
-      console.log('Viewer2DPanel::handleAnnotationCreated', anno);
       createAnnotation(anno);
     };
 
+    // Handle forward annotation update from viewer to context, then to the annotationPanel
     const handleAnnotationUpdated = (anno: Annotation) => {
-      console.log('Viewer2DPanel::handleAnnotationUpdated', anno);
       updateAnnotationGeometry(anno.id, anno.geometry);
     };
 
+    // Handle forward annotation deletion from viewer to context, then to the annotationPanel
     const handleAnnotationDeleted = (anno: Annotation) => {
       // Annotation deletion is handled through AnnotationPanel's delete button
       // When viewer wants to delete, it should go through the same path
-      console.log('Annotation deletion from 2D viewer:', anno.id);
     };
 
+    // Handle forward annotation selection from viewer to context, then to the annotationPanel
     const handleAnnotationSelected = (id: string) => {
-      console.log('Viewer2DPanel::handleAnnotationSelected, id', id);
+      // If the selection was pushed programmatically (context → viewer), OpenLIME still
+      // fires onSelect for its own visual update — ignore that echo to avoid a loop.
+      if (isProgrammaticSelectionRef.current) {
+        isProgrammaticSelectionRef.current = false;
+        return;
+      }
+      // Update selection called from viewer, and update the context then the annotationPanel
       selectAnnotation(id, false);
     };
 
     /**
-     * Apply deletion to the viewer
+     * Apply deletion to the viewer when requested in the context
      * Compare annotation in viewer and in db 
      * Remove from viewer the annotations which does not appear in db
      */
@@ -100,26 +111,23 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         console.log('Removing deleted annotation from viewer:', id);
         annotationManager.deleteAnnotation(id);
       });
-
-      // annotations.forEach((anno) => {
-      //   // Update or delete annotations in the viewer, from the DB annotations
-      //   let foundViewerAnno = viewerAnnotations.find((element) => {element.id == anno.id});
-      //   if (foundViewerAnno) {
-      //     if (anno === foundViewerAnno) {
-      //       // Same, nothing to do
-      //     } else {
-      //       // Different, Update Viewer version
-      //       console.log('I should update viewr Annotation', foundViewerAnno, " to become ", anno);
-      //     }
-      //   } else {
-      //     // Missing in 
-      //     annotationManager.deleteAnnotation(anno.id);
-      //   }
-      // });
     }, [annotations, ref]);
 
     useEffect(() => {
-
+      // Update draw in the viewer when annotationPanel updates the selection 
+      // set annotation on openlimeviewer
+      if (!ref || !('current' in ref) || !ref.current) return;
+      const viewer = ref.current;
+      const annotationManager = viewer.getAnnotationManager();
+      if (!annotationManager) return;
+      if (selectedAnnotationIds.length > 0) {
+        // Set the flag before calling setSelected so the onSelect echo in handleAnnotationSelected
+        // is ignored. fireEvent stays true so OpenLIME updates its own visual state normally.
+        isProgrammaticSelectionRef.current = true;
+        selectedAnnotationIds.forEach(id => {
+          annotationManager.setSelected(id, true);
+        });
+      }
     }, [selectedAnnotationIds, ref]);
 
     return (

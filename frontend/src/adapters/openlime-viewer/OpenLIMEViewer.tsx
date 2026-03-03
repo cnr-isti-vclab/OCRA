@@ -342,14 +342,11 @@ const OpenLIMEViewer = forwardRef<
 
             // Called when the user selects an annotation by clicking on it
             onSelect: (anno: SimplifiedAnnotation) => {
-              console.log('🖱️ OpenLIMEViewerRef Selected (single-click)', anno.id);
               if (onAnnotationSelectedRef.current) {
-                console.log('🖱️ Firing onSelect callback for:', anno.id);
                 onAnnotationSelectedRef.current(anno.id);
               } else {
                 console.log('🖱️ onSelect Missing Annotation Callback');
               }
-
             },
 
 
@@ -396,7 +393,6 @@ const OpenLIMEViewer = forwardRef<
             if (annotationManagerRef.current) {
               console.log('🎬 Setting annotation manager to edit mode for selection');
               annotationManagerRef.current.setMode('edit');
-              console.log('AnnotationManager mode (should be edit)', annotationManagerRef.current._mode);
             }
 
             // When pencil mode is activated, deselect all annotations

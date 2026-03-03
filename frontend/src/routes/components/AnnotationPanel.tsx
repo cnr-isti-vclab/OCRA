@@ -283,10 +283,10 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                     <div className="ms-2 d-flex gap-1 align-items-center flex-shrink-0">
                       <span
                         className={`badge ${annotation.type === 'point'
-                            ? 'bg-primary'
-                            : annotation.type === 'line'
-                              ? 'bg-success'
-                              : 'bg-warning'
+                          ? 'bg-primary'
+                          : annotation.type === 'line'
+                            ? 'bg-success'
+                            : 'bg-warning'
                           }`}
                       >
                         {annotation.type}
