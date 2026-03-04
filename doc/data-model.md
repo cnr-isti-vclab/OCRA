@@ -48,9 +48,9 @@ This is the main source of truth for identity, authorization, and project regist
 - Relation: `projectRoles[]`
 
 ## `RoleEnum` (project-scoped)
-- `manager`
-- `editor`
-- `viewer`
+- `manager` is the only role that can edit project metadata, manage project users/roles, add assets, and publish HDT content.
+- `editor` can modify project content but cannot manage users or publish HDT content.
+- `viewer` can only view project content.
 
 ## `ProjectRole`
 - Primary key: `id`
