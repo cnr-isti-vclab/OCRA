@@ -192,6 +192,9 @@ export interface DigitalAssetCreateRequest {
   label: string;
   title?: string;
   description?: string;
+  publicUri?: string;          // Stable external reference URI for this asset
+  thumbnail?: string;          // Optional local URL for thumbnail
+  assetParadata?: Record<string, any>; // Free-form acquisition paradata
   // The following fields are calculated by backend after file upload:
   entryPointUrl?: string;
   entryPoint?: string;
@@ -214,6 +217,9 @@ export interface DigitalAsset {
   type: '3d-model' | 'rti' | 'image' | 'video' | 'other';
   title?: string;
   label: string;
+  publicUri?: string;          // Stable external reference URI (source of truth for published HDT)
+  thumbnail?: string;          // Optional local URL; frontend can generate on the fly if absent
+  assetParadata?: Record<string, any>; // Free-form acquisition paradata
   entryPointUrl?: string;
   entryPoint?: string;
   mimeType?: string;
@@ -266,14 +272,16 @@ export interface SceneAssetReference {
  */
 export interface HDTScene {
   id: string;
-  name: string;
+  label: string;
   description?: string;
+  type?: '3D' | '2D';          // Scene dimensionality
   isDefault?: boolean;        // True for the default scene
-  
+  annotations?: string[];     // Array of Annotation ids associated with this scene
+
   // Assets in this scene
   assets: SceneAssetReference[];
-  
-  // Environment configuration
+
+  // Environment configuration (lighting, background, ground plane, etc.)
   environment?: {
     backgroundColor?: string;
     background?: string;        // Alias for backgroundColor (used by SceneDescription)
@@ -301,24 +309,44 @@ export interface HDTScene {
 export interface HDTDocument {
   _id?: string;               // MongoDB ObjectId (optional, auto-generated)
   projectId: string;          // Link to PostgreSQL project
-  
-  // Ontology-based metadata (for future RDF/knowledge base integration)
-  metadata: {
+
+  // Physical object metadata (ontology-based, for future RDF/knowledge base integration)
+  physicalObjectMetadata: {
     dublinCore: DublinCoreMetadata;
     cidocCrm: CidocCrmMetadata;
   };
-  
+
   // Digital assets pool (3D models, RTI, images, etc.)
   digitalAssets: DigitalAsset[];
-  
+
   // Scene configurations
   scenes: HDTScene[];
-  
+
+  // Annotations pool (scene- or asset-scoped)
+  annotations?: Annotation[];
+
   // Document timestamps
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdBy?: string;         // User ID who created
   updatedBy?: string;         // User ID who last updated
+}
+
+/**
+ * Annotation
+ * Represents a semantic annotation associated with a scene or a digital asset.
+ */
+export interface Annotation {
+  id: string;                          // Unique within the HDT document
+  referenceType: 'asset' | 'scene';   // Whether the annotation targets an asset or a scene
+  targetId: string;                    // HDTScene.id or DigitalAsset.id
+  annotationGeometry?: Record<string, any>; // Type-specific spatial/geometric definition
+  annotationData?: Record<string, any>;     // Semantic content (fields, vocabulary terms, etc.)
+  annotationParadata?: Record<string, any>; // Provenance / creation method metadata
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 // ============================================================================

@@ -102,7 +102,7 @@ It is defined by a set of asset references and their relative positions. It is o
 - `label`, `description`
 - `type` ( `3D`, `2D`, eventually we will support also other types of mixed 3D/2D scenes, but for now we can keep it simple with just 3D and 2D)
 - `assets[]` (array of `SceneAssetReference` objects)
-- `settings` (free-form JSON, type-specific, for scene settings, e.g. background color, lighting, camera position, etc.) 
+- `environment` (typed JSON object for scene environment settings, e.g. background color, lighting, ground plane, camera position, etc.)
 - `annotations[]` (array of annotation ids that are associated with this scene)  
 - Timestamps and authorship fields (optional)
 
@@ -161,11 +161,11 @@ Public URLs are served under:
 
 ## 6) Known Drift To Resolve (tracked)
 
-These mismatches exist in current code/docs and should be removed progressively:
+No open items. All previously tracked drift has been resolved:
 
-1. Some API/docs still mention project role `admin` (not in Prisma `RoleEnum`).
-2. Some docs still describe legacy scene endpoints (`/api/projects/{projectId}/scene`) that are disabled in routes.
-3. Some docs still reference old static RTI URL root (`/assets/rti/...`) instead of `/assets/projects/...`.
+1. ~~Some API/docs still mention project role `admin`~~ — removed from `types/index.ts` and Swagger spec; `RoleEnum` is now `manager | editor | viewer` everywhere.
+2. ~~Some docs still describe legacy scene endpoints (`/api/projects/{projectId}/scene`)~~ — endpoints were already disabled in routes; Swagger comments retained for reference only.
+3. ~~Some docs still reference old static RTI URL root (`/assets/rti/...`)~~ — no active code references remain.
 
 ## 7) Change Management Rule
 

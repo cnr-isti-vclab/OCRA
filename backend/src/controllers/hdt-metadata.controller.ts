@@ -251,11 +251,13 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     }
 
     // Use provided metadata from request body, or fallback to project defaults
+    // Accept physicalObjectMetadata wrapper (canonical) or bare dublinCore at top-level (legacy)
     console.log('HDT CREATE: req.body:', JSON.stringify(req.body, null, 2));
-    const initialMetadata = req.body?.dublinCore
+    const bodyMeta = req.body?.physicalObjectMetadata ?? req.body;
+    const initialMetadata = bodyMeta?.dublinCore
       ? {
-        dublinCore: req.body.dublinCore,
-        cidocCrm: req.body.cidocCrm || {}
+        dublinCore: bodyMeta.dublinCore,
+        cidocCrm: bodyMeta.cidocCrm || {}
       }
       : {
         dublinCore: {
@@ -291,10 +293,10 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
   try {
     const { projectId } = req.params;
     const currentUser = getCurrentUser(req);
-    const metadataUpdates = req.body;
+    const rawBody = req.body;
 
     console.log('HDT UPDATE: req.body:', JSON.stringify(req.body, null, 2));
-    console.log('HDT UPDATE: metadataUpdates:', JSON.stringify(metadataUpdates, null, 2));
+    console.log('HDT UPDATE: metadataUpdates:', JSON.stringify(rawBody, null, 2));
 
     if (!currentUser) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -309,6 +311,8 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
       return res.status(403).json({ error: 'Only project managers can update HDT metadata' });
     }
 
+    // Accept physicalObjectMetadata wrapper (canonical) or bare dublinCore at top-level (legacy)
+    const metadataUpdates = rawBody.physicalObjectMetadata ?? rawBody;
     const updatedMetadata = await updateHDTMetadata(projectId, metadataUpdates, currentUser.sub);
 
     if (!updatedMetadata) {
