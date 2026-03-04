@@ -62,7 +62,7 @@ export interface Project {
 }
 
 
-export type RoleEnum = 'admin' | 'manager' | 'editor' | 'viewer';
+export type RoleEnum = 'manager' | 'editor' | 'viewer';
 
 export interface ProjectRole {
   id: string;
