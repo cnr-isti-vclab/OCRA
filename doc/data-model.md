@@ -6,7 +6,7 @@ This document is the canonical reference for OCRA data ownership and entity boun
 
 OCRA uses three persistence layers:
 
-1. PostgreSQL (via Prisma): identity, authorization, project registry, vocabularies(?), sessions.
+1. PostgreSQL (via Prisma): identity, authorization, project registry, vocabulary registry, sessions.
 2. MongoDB: HDT project content aggregate and audit and logging events.
 3. Filesystem (`project_files`): binary payloads (3D/RTI files) and derived exports.
 
@@ -61,7 +61,7 @@ This is the main source of truth for identity, authorization, and project regist
 - Constraint: unique `(userId, projectId)`
 
 ## `Vocabulary`
-This one is very preliminary and not fully fleshed out, but it is owned by PostgreSQL and managed by system admins. It is used to define controlled vocabularies for annotation types and fields. It has no direct relation to projects or users, but it could be referenced by annotations in the HDT content. Eventually, could be moved to MongoDB if it becomes more tightly coupled with project content.
+This one is very preliminary and not fully fleshed out, but it is owned by PostgreSQL and managed by system admins. It is used to define controlled vocabularies for annotation types and fields. It has no direct relation to projects or users, but it could be referenced by annotations in the HDT content. The registry is reasonable that stay in the PostgreSQL, the actual data of a vocabulary could be stored in MongoDB.
 - Primary key: `id`
 - Unique `name`
 - Required `description`
@@ -74,14 +74,19 @@ This one is very preliminary and not fully fleshed out, but it is owned by Postg
 One logical HDT aggregate per `projectId`:
 
 - `projectId` (bridge key to PostgreSQL `Project.id`)
-- `physicalObjectMetadata` (to be better defined, the minimal could be just a reference to an external uri that is the source of truth for the metadata for the object itself (like for example a qXXXX for wikidata or the catalog entry of the Italian ARCO), but we can also have some basic fields here for easier querying and indexing)
-  - `dublinCore` (just cached stuff got from the source of truth, like title, description, creator, date, etc.)
-  - `cidocCrm`
+- `physicalObjectMetadata` it is a typed JSON object that contains the basic metadata for the physical object represented in the HC1 class of the HDT. 
 - `digitalAssets[]`
 - `scenes[]`
 - Audit metadata:
   - `createdAt`, `updatedAt`
   - `createdBy`, `updatedBy`
+
+## `PhysicalObjectMetadata`
+This is a typed JSON object that contains the basic metadata for the physical object represented in the HC1 class of the HDT. Ideally the information contained here should be just a reference to an external URI that is the source of truth for the metadata of the object itself that is cached here (like for example a QXXXX for Wikidata or the catalog entry of the Italian ARCO), but we can also have some basic fields here for easier querying and indexing. 
+- `sourceUri` required,  the URI that is the source of truth for the metadata of the physical object, e.g. a Wikidata QXXXX or an ARCO catalog entry
+- `sourceType` required  (e.g. `ECHOES`, `wikidata`, `arco`, `other`)
+- `dublinCore` cached fields from the source, e.g. title, description, creator, date, etc. These fields are somewhat redundant with the sourceUri and are filled by a metadata extraction process that can be triggered at HDT creation time or later and cached here for easier querying and indexing.
+
 
 ## `DigitalAsset` (inside HDT document)
 - `id` (asset id, unique within project document)
@@ -159,13 +164,67 @@ Public URLs are served under:
    - filesystem subtree under project root.
 5. Role vocabulary for project membership is only: `manager | editor | viewer`.
 
-## 6) Known Drift To Resolve (tracked)
+## 6) Access Control Operation Matrix
+Defines for each role (system level and project level) what operations are allowed on which data stores. This is the basis for implementing authorization checks in the backend controllers.
 
-No open items. All previously tracked drift has been resolved:
+Legend:
+- ✅ allowed
+- ❌ denied
+- ⚠️ conditional (see notes)
 
-1. ~~Some API/docs still mention project role `admin`~~ — removed from `types/index.ts` and Swagger spec; `RoleEnum` is now `manager | editor | viewer` everywhere.
-2. ~~Some docs still describe legacy scene endpoints (`/api/projects/{projectId}/scene`)~~ — endpoints were already disabled in routes; Swagger comments retained for reference only.
-3. ~~Some docs still reference old static RTI URL root (`/assets/rti/...`)~~ — no active code references remain.
+Resolution rules: 
+System roles (`sys_admin`, `sys_creator`) are orthogonal to project roles and evaluated first:
+1. `sys_admin` bypasses all project-scoped role checks.
+2. `sys_creator` can create new registries/projects globally but has no special permissions on existing projects unless assigned a project role.
+
+Project-scoped permissions are evaluated from `ProjectRole` and are meant to be a superset of permissions (`manager > editor > viewer > authenticated`).
+A user can have multiple roles but in different projects (should not happen due unique `(userId, projectId)`).
+
+### 6.1 Project Registry (PostgreSQL)
+
+| Operation | Anonymous | Authenticated | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| List projects | ⚠️ (public only) | ⚠️ (public + assigned) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read project metadata by id | ⚠️ (public only) | ⚠️ (public only) | ✅ | ✅ | ✅ | ⚠️ (public only) | ✅ |
+| Create project | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+### 6.2 Project Management  (PostgreSQL)
+| Operation | Anonymous | Authenticated | Viewer | Editor | Manager | 
+| --- | --- | --- | --- | --- | --- | 
+| Update project metadata (`name`, `description`, `public`) | ❌ | ❌ | ❌ | ❌ | ✅ | 
+| Delete project | ❌ | ❌ | ❌ | ❌ | ✅ |
+| List project members | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Add/update/remove project member roles | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+
+
+### 6.3 HDT Content (MongoDB + Filesystem)
+
+| Operation | Anonymous | Authenticated | Viewer | Editor | Manager | 
+| --- | --- | --- | --- | --- | --- | 
+| Read HDT document (`/hdt`) | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Read generated scene JSON (`/scenes`) | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Create/update/delete `physicalObjectMetadata` | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Add/update/delete `digitalAssets[]` metadata | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Upload/remove asset files under `project_files/<projectId>/...` | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Create/update/delete scenes | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Add/update/remove scene-asset references | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Export/publish RDF (`/export/rdf`) | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+
+### 6.4 Vocabulary Registry (PostgreSQL + optional payload in MongoDB)
+
+| Operation | Anonymous | Authenticated | Viewer | Editor | Manager |
+| --- | --- | --- | --- | --- | --- |
+| List vocabularies | ⚠️ (public only) | ✅ | ✅ | ✅ | ✅ |
+| Read vocabulary by id | ⚠️ (public only) | ✅ | ✅ | ✅ | ✅ |
+| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+Conformance note:
+- This matrix is canonical for policy decisions. If an endpoint behavior differs, treat it as drift and reconcile implementation or documentation in the same PR.
+
+
 
 ## 7) Change Management Rule
 
