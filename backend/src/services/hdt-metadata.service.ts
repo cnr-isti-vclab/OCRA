@@ -117,7 +117,7 @@ export async function createHDTDocument(
 
   const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,
-    metadata: {
+    physicalObjectMetadata: {
       dublinCore: initialData?.dublinCore || {},
       cidocCrm: initialData?.cidocCrm || {}
     },
@@ -164,11 +164,11 @@ export async function updateHDTMetadata(
   };
 
   if (metadataUpdate.dublinCore) {
-    updateDoc.$set['metadata.dublinCore'] = metadataUpdate.dublinCore;
+    updateDoc.$set['physicalObjectMetadata.dublinCore'] = metadataUpdate.dublinCore;
   }
 
   if (metadataUpdate.cidocCrm) {
-    updateDoc.$set['metadata.cidocCrm'] = metadataUpdate.cidocCrm;
+    updateDoc.$set['physicalObjectMetadata.cidocCrm'] = metadataUpdate.cidocCrm;
   }
 
   console.log('HDT SERVICE: updateDoc to MongoDB:', JSON.stringify(updateDoc, null, 2));
@@ -243,7 +243,7 @@ export async function addDigitalAsset(
     // Create new HDT document with first asset and default scene
     const defaultScene: HDTScene = {
       id: `scene_${Date.now()}`,
-      name: 'Default Scene',
+      label: 'Default Scene',
       description: 'Default scene created automatically',
       isDefault: true,
       assets: [
@@ -260,7 +260,7 @@ export async function addDigitalAsset(
 
     const newDoc: Omit<HDTDocument, '_id'> = {
       projectId,
-      metadata: {
+      physicalObjectMetadata: {
         dublinCore: {},
         cidocCrm: {}
       },
@@ -276,7 +276,7 @@ export async function addDigitalAsset(
     const created = await collection.findOne({ _id: insertResult.insertedId });
     console.log(`✅ Created new HDT document for project ${projectId} with first asset and default scene`);
     console.log(`   - Asset ID: ${newAsset.id}`);
-    console.log(`   - Scene: ${defaultScene.name}, Assets in scene: ${defaultScene.assets.length}`);
+    console.log(`   - Scene: ${defaultScene.label}, Assets in scene: ${defaultScene.assets.length}`);
     console.log(`   - Scene asset refs:`, JSON.stringify(defaultScene.assets, null, 2));
 
     // ✅ STANDARDIZED: Return consistent format
@@ -307,7 +307,7 @@ export async function addDigitalAsset(
     // No default scene exists - create one
     const defaultScene: HDTScene = {
       id: `scene_${Date.now()}`,
-      name: 'Default Scene',
+      label: 'Default Scene',
       description: 'Default scene created automatically',
       isDefault: true,
       assets: [
@@ -336,7 +336,7 @@ export async function addDigitalAsset(
   if (doc && doc.scenes) {
     console.log(`📊 HDT document updated. Total scenes: ${doc.scenes.length}`);
     doc.scenes.forEach((scene: any) => {
-      console.log(`   - Scene "${scene.name}": ${scene.assets?.length || 0} assets`);
+      console.log(`   - Scene "${scene.label}": ${scene.assets?.length || 0} assets`);
     });
   }
 
@@ -853,7 +853,7 @@ export async function generateAllSceneFiles(projectId: string): Promise<Array<{ 
         sceneId: scene.id,
         scene: sceneDesc
       });
-      console.log(`✅ Generated scene file for: ${scene.name} (${scene.id})`);
+      console.log(`✅ Generated scene file for: ${scene.label} (${scene.id})`);
     } catch (error: any) {
       console.error(`❌ Failed to generate scene file for ${scene.id}:`, error.message);
       // Continue with other scenes instead of failing completely
@@ -873,7 +873,7 @@ export async function generateAllSceneFiles(projectId: string): Promise<Array<{ 
  */
 export async function getAvailableScenes(projectId: string): Promise<Array<{
   id: string;
-  name: string;
+  label: string;
   description?: string;
   isDefault?: boolean;
   assetCount: number;
@@ -892,7 +892,7 @@ export async function getAvailableScenes(projectId: string): Promise<Array<{
 
   const sceneInfos = doc.scenes.map((scene: any) => ({
     id: scene.id,
-    name: scene.name,
+    label: scene.label,
     description: scene.description,
     isDefault: scene.isDefault || false,
     assetCount: scene.assets ? scene.assets.length : 0,

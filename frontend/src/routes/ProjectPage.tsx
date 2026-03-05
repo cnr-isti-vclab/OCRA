@@ -47,7 +47,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
-  const [availableScenes, setAvailableScenes] = useState<Array<{ id: string; name: string; isDefault?: boolean }>>([]);
+  const [availableScenes, setAvailableScenes] = useState<Array<{ id: string; label: string; isDefault?: boolean }>>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
@@ -469,7 +469,7 @@ export default function ProjectPage() {
               }
             } else {
               // No scenes found - fallback to a virtual default scene
-              const defaultScene = { id: 'default', name: 'Default Scene', isDefault: true };
+              const defaultScene = { id: 'default', label: 'Default Scene', isDefault: true };
               setAvailableScenes([defaultScene]);
               if (!selectedSceneId) setSelectedSceneId('default');
             }
@@ -477,7 +477,7 @@ export default function ProjectPage() {
             // API error - fallback to default empty scene
             const defaultScene = {
               id: 'default',
-              name: 'Default Scene',
+              label: 'Default Scene',
               isDefault: true
             };
             setAvailableScenes([defaultScene]);
@@ -490,7 +490,7 @@ export default function ProjectPage() {
           // Error - fallback to default empty scene
           const defaultScene = {
             id: 'default',
-            name: 'Default Scene',
+            label: 'Default Scene',
             isDefault: true
           };
           setAvailableScenes([defaultScene]);
@@ -1089,7 +1089,7 @@ export default function ProjectPage() {
                         >
                           {availableScenes.map((scene) => (
                             <option key={scene.id} value={scene.id}>
-                              {scene.name} {scene.isDefault ? '⭐' : ''}
+                              {scene.label} {scene.isDefault ? '⭐' : ''}
                             </option>
                           ))}
                         </select>

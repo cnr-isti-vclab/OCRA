@@ -948,17 +948,17 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
 
   <rdf:Description rdf:about="urn:project:${projectId}">
     <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>
-    <dc:title>${escapeXml((hdtDoc.metadata?.dublinCore?.title as any) || 'Untitled')}</dc:title>
-    <dc:description>${escapeXml((hdtDoc.metadata?.dublinCore?.description as any) || '')}</dc:description>
-    <dc:creator>${escapeXml((hdtDoc.metadata?.dublinCore?.creator as any) || '')}</dc:creator>
-    <dc:date>${escapeXml((hdtDoc.metadata?.dublinCore?.date as any) || '')}</dc:date>
-    <dc:coverage>${escapeXml((hdtDoc.metadata?.dublinCore?.coverage as any) || '')}</dc:coverage>
-    <dc:rights>${escapeXml((hdtDoc.metadata?.dublinCore?.rights as any) || '')}</dc:rights>
-    <dc:identifier>${escapeXml((hdtDoc.metadata?.dublinCore?.identifier as any) || '')}</dc:identifier>
-    <dc:subject>${escapeXml((hdtDoc.metadata?.dublinCore?.subject as any) || '')}</dc:subject>
-    <dc:type>${escapeXml((hdtDoc.metadata?.dublinCore?.type as any) || '')}</dc:type>
-    <dc:language>${escapeXml((hdtDoc.metadata?.dublinCore?.language as any) || '')}</dc:language>
-    <dc:source>${escapeXml((hdtDoc.metadata?.dublinCore?.source as any) || '')}</dc:source>
+    <dc:title>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.title as any) || 'Untitled')}</dc:title>
+    <dc:description>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.description as any) || '')}</dc:description>
+    <dc:creator>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.creator as any) || '')}</dc:creator>
+    <dc:date>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.date as any) || '')}</dc:date>
+    <dc:coverage>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.coverage as any) || '')}</dc:coverage>
+    <dc:rights>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.rights as any) || '')}</dc:rights>
+    <dc:identifier>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.identifier as any) || '')}</dc:identifier>
+    <dc:subject>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.subject as any) || '')}</dc:subject>
+    <dc:type>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.type as any) || '')}</dc:type>
+    <dc:language>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.language as any) || '')}</dc:language>
+    <dc:source>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.source as any) || '')}</dc:source>
     <dcterms:created>${hdtDoc.createdAt ? new Date(hdtDoc.createdAt).toISOString() : ''}</dcterms:created>
     <dcterms:modified>${hdtDoc.updatedAt ? new Date(hdtDoc.updatedAt).toISOString() : ''}</dcterms:modified>
     <hdt:HP1 rdf:resource="urn:project:${projectId}:hdt"/>

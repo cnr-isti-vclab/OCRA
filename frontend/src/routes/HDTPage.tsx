@@ -108,9 +108,11 @@ export interface DigitalAsset {
 
 interface SceneConfig {
   id: string;
-  name: string;
+  label: string;
   description?: string;
+  type?: '3D' | '2D';
   isDefault?: boolean;
+  annotations?: string[];
   assets?: Array<any>;
   environment?: Record<string, any>;
 }
@@ -118,8 +120,10 @@ interface SceneConfig {
 interface HDTMetadata {
   _id?: string;
   projectId: string;
-  dublinCore: DublinCoreMetadata;
-  cidocCrm: CidocCrmMetadata;
+  physicalObjectMetadata: {
+    dublinCore: DublinCoreMetadata;
+    cidocCrm: CidocCrmMetadata;
+  };
   gettyAAT: GettyAATTerms;
 
   digitalAssets?: DigitalAsset[];
@@ -440,8 +444,8 @@ export default function HDTPage() {
   };
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
-    const dublinCore = meta.dublinCore;
-    const cidocCrm = meta.cidocCrm;
+    const dublinCore = meta.physicalObjectMetadata?.dublinCore;
+    const cidocCrm = meta.physicalObjectMetadata?.cidocCrm;
 
     // Dublin Core
     if (dublinCore) {
@@ -491,37 +495,39 @@ export default function HDTPage() {
       setError(null);
 
       const metadataPayload: Partial<HDTMetadata> = {
-        dublinCore: {
-          title: dcTitle || undefined,
-          description: dcDescription || undefined,
-          creator: dcCreator ? dcCreator.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          subject: dcSubject ? dcSubject.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          date: dcDate || undefined,
-          type: dcType ? dcType.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          language: dcLanguage ? dcLanguage.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          coverage: dcCoverage || undefined,
-          rights: dcRights || undefined,
-          source: dcSource || undefined,
-        },
-        cidocCrm: {
-          objectType: objectType || undefined,
-          temporalCoverage: {
-            timeSpanBegin: timeSpanBegin || undefined,
-            timeSpanEnd: timeSpanEnd || undefined,
-            period: period || undefined,
-            century: century || undefined,
+        physicalObjectMetadata: {
+          dublinCore: {
+            title: dcTitle || undefined,
+            description: dcDescription || undefined,
+            creator: dcCreator ? dcCreator.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            subject: dcSubject ? dcSubject.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            date: dcDate || undefined,
+            type: dcType ? dcType.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            language: dcLanguage ? dcLanguage.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            coverage: dcCoverage || undefined,
+            rights: dcRights || undefined,
+            source: dcSource || undefined,
           },
-          spatialCoverage: {
-            placeName: placeName || undefined,
-            coordinates: (latitude && longitude)
-              ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) }
-              : undefined,
+          cidocCrm: {
+            objectType: objectType || undefined,
+            temporalCoverage: {
+              timeSpanBegin: timeSpanBegin || undefined,
+              timeSpanEnd: timeSpanEnd || undefined,
+              period: period || undefined,
+              century: century || undefined,
+            },
+            spatialCoverage: {
+              placeName: placeName || undefined,
+              coordinates: (latitude && longitude)
+                ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) }
+                : undefined,
+            },
+            material: material ? material.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            technique: technique ? technique.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            condition: condition || undefined,
+            culturalContext: culturalContext ? culturalContext.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            styleOrPeriod: styleOrPeriod ? styleOrPeriod.split(',').map(s => s.trim()).filter(Boolean) : undefined,
           },
-          material: material ? material.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          technique: technique ? technique.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          condition: condition || undefined,
-          culturalContext: culturalContext ? culturalContext.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          styleOrPeriod: styleOrPeriod ? styleOrPeriod.split(',').map(s => s.trim()).filter(Boolean) : undefined,
         },
         gettyAAT: {},
         digitalAssets: digitalAssets.length > 0 ? digitalAssets : undefined,
@@ -1228,7 +1234,7 @@ export default function HDTPage() {
                     onClick={() => {
                       const newScene: SceneConfig = {
                         id: `scene_${Date.now()}`,
-                        name: `Scene ${scenes.length + 1}`,
+                        label: `Scene ${scenes.length + 1}`,
                         description: '',
                         isDefault: scenes.length === 0,
                         assets: [],
@@ -1258,7 +1264,7 @@ export default function HDTPage() {
                           <div className="card-body">
                             <div className="d-flex justify-content-between align-items-start mb-2">
                               <h6 className="card-title mb-0">
-                                {scene.name}
+                                {scene.label}
                                 {scene.isDefault && <span className="badge bg-success ms-2">Default</span>}
                               </h6>
                               <div className="btn-group btn-group-sm">
@@ -1279,7 +1285,7 @@ export default function HDTPage() {
                                       alert('Cannot delete the last scene. Projects must have at least one scene.');
                                       return;
                                     }
-                                    if (confirm(`Delete scene "${scene.name}"?`)) {
+                                    if (confirm(`Delete scene "${scene.label}"?`)) {
                                       const updatedScenes = scenes.filter((_, i) => i !== index);
                                       if (scene.isDefault && updatedScenes.length > 0) {
                                         updatedScenes[0].isDefault = true;
@@ -1347,8 +1353,8 @@ export default function HDTPage() {
                           <input
                             type="text"
                             className="form-control"
-                            value={editingScene.name}
-                            onChange={(e) => setEditingScene({ ...editingScene, name: e.target.value })}
+                            value={editingScene.label}
+                            onChange={(e) => setEditingScene({ ...editingScene, label: e.target.value })}
                             placeholder="e.g., Overview, Detail View, Restoration"
                           />
                         </div>
@@ -1516,7 +1522,7 @@ export default function HDTPage() {
                           type="button"
                           className="btn btn-primary"
                           onClick={() => {
-                            if (!editingScene.name.trim()) {
+                            if (!editingScene.label.trim()) {
                               alert('Please enter a scene name');
                               return;
                             }

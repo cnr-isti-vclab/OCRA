@@ -176,7 +176,7 @@ describe('Projects API Integration Tests', () => {
         data: {
           projectId: project.id,
           userId: adminUser.id,
-          permission: 'viewer',
+          role: 'viewer',
         },
       });
 

@@ -90,6 +90,30 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
   return !!isManager;
 }
 
+/**
+ * Check whether the authenticated user is editor or manager of a given project.
+ * - sys_admin users are always allowed
+ * - otherwise user must have RoleEnum.manager or RoleEnum.editor for the project
+ */
+async function checkIsEditorOrManagerOfProject(userSub: string, projectId: string): Promise<boolean> {
+  const prisma = getPrismaClient();
+
+  const user = await prisma.user.findUnique({ where: { sub: userSub } });
+  if (!user) return false;
+
+  if (user.sys_admin) return true;
+
+  const role = await prisma.projectRole.findFirst({
+    where: {
+      projectId,
+      userId: user.id,
+      role: { in: [RoleEnum.manager, RoleEnum.editor] }
+    }
+  });
+
+  return !!role;
+}
+
 // ============================================================================
 // RTI Helpers
 // ============================================================================
@@ -227,11 +251,13 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     }
 
     // Use provided metadata from request body, or fallback to project defaults
+    // Accept physicalObjectMetadata wrapper (canonical) or bare dublinCore at top-level (legacy)
     console.log('HDT CREATE: req.body:', JSON.stringify(req.body, null, 2));
-    const initialMetadata = req.body?.dublinCore
+    const bodyMeta = req.body?.physicalObjectMetadata ?? req.body;
+    const initialMetadata = bodyMeta?.dublinCore
       ? {
-        dublinCore: req.body.dublinCore,
-        cidocCrm: req.body.cidocCrm || {}
+        dublinCore: bodyMeta.dublinCore,
+        cidocCrm: bodyMeta.cidocCrm || {}
       }
       : {
         dublinCore: {
@@ -267,10 +293,10 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
   try {
     const { projectId } = req.params;
     const currentUser = getCurrentUser(req);
-    const metadataUpdates = req.body;
+    const rawBody = req.body;
 
     console.log('HDT UPDATE: req.body:', JSON.stringify(req.body, null, 2));
-    console.log('HDT UPDATE: metadataUpdates:', JSON.stringify(metadataUpdates, null, 2));
+    console.log('HDT UPDATE: metadataUpdates:', JSON.stringify(rawBody, null, 2));
 
     if (!currentUser) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -285,6 +311,8 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
       return res.status(403).json({ error: 'Only project managers can update HDT metadata' });
     }
 
+    // Accept physicalObjectMetadata wrapper (canonical) or bare dublinCore at top-level (legacy)
+    const metadataUpdates = rawBody.physicalObjectMetadata ?? rawBody;
     const updatedMetadata = await updateHDTMetadata(projectId, metadataUpdates, currentUser.sub);
 
     if (!updatedMetadata) {
@@ -416,7 +444,7 @@ export async function addAssetHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       // Audit authorization failure (best-effort).
       await auditBestEffort({
@@ -533,7 +561,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       // Audit authorization failure (best-effort).
       await auditBestEffort({
@@ -645,7 +673,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       // Audit authorization failure (best-effort).
       await auditBestEffort({
@@ -909,9 +937,9 @@ export async function createSceneHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can create scenes' });
+      return res.status(403).json({ error: 'Only project managers or editors can create scenes' });
     }
 
     const updatedDoc = await addScene(projectId, sceneData, currentUser.sub);
@@ -949,9 +977,9 @@ export async function updateSceneHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can update scenes' });
+      return res.status(403).json({ error: 'Only project managers or editors can update scenes' });
     }
 
     const updatedDoc = await updateScene(projectId, sceneId, updates, currentUser.sub);
@@ -988,9 +1016,9 @@ export async function deleteSceneHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can delete scenes' });
+      return res.status(403).json({ error: 'Only project managers or editors can delete scenes' });
     }
 
     const updatedDoc = await removeScene(projectId, sceneId, currentUser.sub);
@@ -1027,9 +1055,9 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can modify scenes' });
+      return res.status(403).json({ error: 'Only project managers or editors can modify scenes' });
     }
 
     const updatedDoc = await addAssetToScene(projectId, sceneId, assetReference, currentUser.sub);
@@ -1063,9 +1091,9 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can modify scenes' });
+      return res.status(403).json({ error: 'Only project managers or editors can modify scenes' });
     }
 
     const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updates, currentUser.sub);
@@ -1098,9 +1126,9 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can modify scenes' });
+      return res.status(403).json({ error: 'Only project managers or editors can modify scenes' });
     }
 
     const updatedDoc = await removeAssetFromScene(projectId, sceneId, assetId, currentUser.sub);

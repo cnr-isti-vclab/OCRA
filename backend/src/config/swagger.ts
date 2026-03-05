@@ -193,7 +193,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             id: { type: 'string', example: '507f1f77bcf86cd799439013' },
             projectId: { type: 'string', example: '507f1f77bcf86cd799439012' },
             userId: { type: 'string', example: '507f1f77bcf86cd799439011' },
-            role: { type: 'string', enum: ['viewer', 'editor', 'admin'], example: 'editor' },
+            role: { type: 'string', enum: ['manager', 'editor', 'viewer'], example: 'editor' },
             addedAt: { type: 'string', format: 'date-time' },
             addedBy: { type: 'string', example: '507f1f77bcf86cd799439010' },
           },
