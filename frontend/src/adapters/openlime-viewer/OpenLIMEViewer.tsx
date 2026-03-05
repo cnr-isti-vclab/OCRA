@@ -73,10 +73,10 @@ const OpenLIMEViewer = forwardRef<
     onAnnotationCreated?: (annotation: Annotation) => void;
     onAnnotationUpdated?: (annotation: Annotation) => void;
     onAnnotationDeleted?: (annotation: Annotation) => void;
-    onAnnotationSelected?: (id: string) => void;
+    onAnnotationSelectionChanged?: (ids: string[]) => void;
   }>(
     (
-      { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelected },
+      { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelectionChanged },
       ref
     ) => {
       const mountRef = useRef<HTMLDivElement | null>(null);
@@ -88,7 +88,7 @@ const OpenLIMEViewer = forwardRef<
       const onAnnotationCreatedRef = useRef<typeof onAnnotationCreated>(onAnnotationCreated);
       const onAnnotationUpdatedRef = useRef<typeof onAnnotationUpdated>(onAnnotationUpdated);
       const onAnnotationDeletedRef = useRef<typeof onAnnotationDeleted>(onAnnotationDeleted);
-      const onAnnotationSelectedRef = useRef<typeof onAnnotationSelected>(onAnnotationSelected);
+      const onAnnotationSelectionChangedRef = useRef<typeof onAnnotationSelectionChanged>(onAnnotationSelectionChanged);
       useEffect(() => {
         onReadyRef.current = onReady;
       }, [onReady]);
@@ -110,8 +110,8 @@ const OpenLIMEViewer = forwardRef<
       }, [onAnnotationDeleted]);
 
       useEffect(() => {
-        onAnnotationSelectedRef.current = onAnnotationSelected;
-      }, [onAnnotationSelected]);
+        onAnnotationSelectionChangedRef.current = onAnnotationSelectionChanged;
+      }, [onAnnotationSelectionChanged]);
 
       // Initialize viewer on mount
       useEffect(() => {
@@ -307,6 +307,10 @@ const OpenLIMEViewer = forwardRef<
               { label: 'Polygon', fill: 'rgba(34,187,85,0.2)', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
             ],
             defaultAnnotationClass: 0,
+
+            // With singleEditMode, vertex handles are shown only when exactly
+            // one annotation is selected; activeAnnotation returns null otherwise.
+            singleEditMode: true,
             // Capture viewer state (light direction, render mode, …) in each annotation
             enableState: true,
 
@@ -340,22 +344,15 @@ const OpenLIMEViewer = forwardRef<
               }
             },
 
-            // Called when the user selects an annotation by clicking on it
-            onSelect: (anno: SimplifiedAnnotation) => {
-              if (onAnnotationSelectedRef.current) {
-                onAnnotationSelectedRef.current(anno.id);
-              } else {
-                console.log('🖱️ onSelect Missing Annotation Callback');
+            onSelectionChange: (annotations: SimplifiedAnnotation[]) => {
+              // console.log(
+              //   '[OpenLIMEViewer] SELECTION_CHANGE',
+              //   annotations.map(a => ({ id: a.id }))
+              // );
+
+              if (onAnnotationSelectionChangedRef.current) {
+                onAnnotationSelectionChangedRef.current(annotations.map((a) => a.id));
               }
-            },
-
-
-            // Lock toolbar and show creation hint during sequence creation
-            onSessionStart: (anno: SimplifiedAnnotation) => {
-
-            },
-            onSessionCancel: () => {
-
             },
 
           });
