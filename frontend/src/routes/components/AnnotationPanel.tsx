@@ -225,7 +225,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   return (
     <div className="p-3 h-100 d-flex flex-column">
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="h6 mb-0">Annotations</h3>
+        <h4 className="h4 mb-0">Annotations</h4>
         {selectedAnnotationIds.length > 0 && (
           <div className="btn-group btn-group-sm" role="group">
             <button

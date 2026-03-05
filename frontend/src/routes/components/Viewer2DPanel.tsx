@@ -121,6 +121,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const viewer = ref.current;
       const annotationManager = viewer.getAnnotationManager();
       if (!annotationManager) return;
+      annotationManager.deselectAll();
       if (selectedAnnotationIds.length > 0) {
         // Increment the counter by the number of setSelected calls we are about to make.
         // Each call causes OpenLIME to echo an onSelect event; the counter tracks how many
