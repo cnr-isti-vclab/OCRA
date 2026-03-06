@@ -152,7 +152,17 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [expandedGeomIds, setExpandedGeomIds] = useState<Set<string>>(new Set());
   const annotationListRef = useRef<HTMLDivElement>(null);
+
+  const toggleGeom = (id: string) => {
+    setExpandedGeomIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   /**
    * Handle annotation item click with Ctrl/Cmd for multi-select
@@ -341,27 +351,39 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
                     {annotation.type !== 'point' &&
                       Array.isArray(annotation.geometry) && (
-                        <>
-                          <p className="mb-0 small">
-                            {(annotation.geometry as [number, number, number][]).length} points
-                          </p>
-                          <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            [
-                            {(annotation.geometry as [number, number, number][]).map((point, i) => (
-                              <span key={i}>
-                                {point[0].toFixed(1)}, {point[1].toFixed(1)}, {point[2].toFixed(1)}
-                                {i < (annotation.geometry as [number, number, number][]).length - 1 && (
-                                  <>
-                                    ],
-                                    <br />
-                                    [
-                                  </>
-                                )}
-                              </span>
-                            ))}
-                            ]
-                          </p>
-                        </>
+                        <div className="mt-2">
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            type="button"
+                            aria-expanded={expandedGeomIds.has(annotation.id)}
+                            onClick={(e) => { e.stopPropagation(); toggleGeom(annotation.id); }}
+                          >
+                            {expandedGeomIds.has(annotation.id) ? 'Hide Geometry' : 'Show Geometry'}
+                          </button>
+                          {expandedGeomIds.has(annotation.id) && (
+                            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                              <p className="mb-1 small">
+                                {(annotation.geometry as [number, number, number][]).length} points
+                              </p>
+                              <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                [
+                                {(annotation.geometry as [number, number, number][]).map((point, i) => (
+                                  <span key={i}>
+                                    {point[0].toFixed(1)}, {point[1].toFixed(1)}, {point[2].toFixed(1)}
+                                    {i < (annotation.geometry as [number, number, number][]).length - 1 && (
+                                      <>
+                                        ],
+                                        <br />
+                                        [
+                                      </>
+                                    )}
+                                  </span>
+                                ))}
+                                ]
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       )}
                   </div>
                 </div>
