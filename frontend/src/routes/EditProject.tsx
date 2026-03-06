@@ -17,65 +17,6 @@ const DEFAULT_ECHOES_QUERY = `{
 }`;
 
 /**
- * Convert SPARQL JSON results to N3 Quads
- * @param sparqlJson SPARQL JSON results object
- * @returns Array of N3 Quads
- */
-function sparqlJsonToQuads(sparqlJson: any): N3.Quad[] {
-  const { DataFactory } = N3;
-  const quads: N3.Quad[] = [];
-  
-  if (!sparqlJson?.results?.bindings) {
-    throw new Error('Invalid SPARQL JSON format');
-  }
-  
-  for (const binding of sparqlJson.results.bindings) {
-    // Extract subject, predicate, object from binding
-    const s = binding.s || binding.subject;
-    const p = binding.p || binding.predicate;
-    const o = binding.o || binding.object;
-    
-    if (!s || !p || !o) continue;
-    
-    // Create subject term
-    let subject: N3.Quad_Subject;
-    if (s.type === 'uri' || s.type === 'iri') {
-      subject = DataFactory.namedNode(s.value);
-    } else if (s.type === 'bnode') {
-      subject = DataFactory.blankNode(s.value);
-    } else {
-      continue; // Skip invalid subjects
-    }
-    
-    // Create predicate term (must be URI)
-    if (p.type !== 'uri' && p.type !== 'iri') continue;
-    const predicate = DataFactory.namedNode(p.value);
-    
-    // Create object term
-    let object: N3.Quad_Object;
-    if (o.type === 'uri' || o.type === 'iri') {
-      object = DataFactory.namedNode(o.value);
-    } else if (o.type === 'bnode') {
-      object = DataFactory.blankNode(o.value);
-    } else if (o.type === 'literal' || o.type === 'typed-literal') {
-      if (o.datatype) {
-        object = DataFactory.literal(o.value, DataFactory.namedNode(o.datatype));
-      } else if (o['xml:lang'] || o.lang) {
-        object = DataFactory.literal(o.value, o['xml:lang'] || o.lang);
-      } else {
-        object = DataFactory.literal(o.value);
-      }
-    } else {
-      continue; // Skip invalid objects
-    }
-    
-    quads.push(DataFactory.quad(subject, predicate, object));
-  }
-  
-  return quads;
-}
-
-/**
  * Extract Dublin Core metadata from RDF quads
  * @param quads Array of N3 Quads
  * @returns Dublin Core metadata object
@@ -136,42 +77,14 @@ function extractDublinCoreFromQuads(quads: N3.Quad[]): any {
   return dublinCore;
 }
 
-/**
- * EXPERIMENTAL: Import HDT metadata from Echoes KB Manager API
- * 
- * This function handles the complete workflow of querying the Echoes KB Manager API
- * and extracting Dublin Core metadata from the results.
- * 
- * API Format:
- * - Endpoint: https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query
- * - Method: POST
- * - Content-Type: application/json
- * - Body: { query: string, tripleStoreIds: string[], executorTripleStoreId: string }
- * 
- * @param endpointUrl The API endpoint URL (e.g., Echoes KB Manager query endpoint)
- * @param queryPayloadJson JSON string containing query, tripleStoreIds, and executorTripleStoreId
- * @returns Promise with Dublin Core metadata and quad count
- */
-async function importFromSparqlEndpoint(
-  endpointUrl: string,
-  queryPayloadJson: string
-): Promise<{ dublinCore: any; quadCount: number }> {
-  // Parse the JSON payload
-  let queryPayload;
-  try {
-    queryPayload = JSON.parse(queryPayloadJson);
-  } catch (e) {
-    throw new Error('Query payload must be valid JSON with query, tripleStoreIds, and executorTripleStoreId fields');
-  }
-  
-  // Validate required fields
-  if (!queryPayload.query || !queryPayload.tripleStoreIds || !queryPayload.executorTripleStoreId) {
-    throw new Error('Query payload must include query, tripleStoreIds, and executorTripleStoreId');
-  }
-  
-  // Use backend proxy to avoid CORS issues
+async function importPhysicalObjectMetadataViaBackend(
+  projectId: string,
+  sourceType: 'echoes' | 'wikidata' | 'arco' | 'other',
+  sourceUri: string,
+  payload?: Record<string, unknown>
+): Promise<any> {
   const sessionId = localStorage.getItem('oauth_session_id');
-  const response = await fetch(`${getApiBase()}/api/sparql-proxy`, {
+  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/physical-object/import`, {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -180,37 +93,18 @@ async function importFromSparqlEndpoint(
       'Accept': 'application/json'
     },
     body: JSON.stringify({
-      endpoint: endpointUrl,
-      payload: queryPayload
+      sourceType,
+      sourceUri,
+      payload
     })
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `API request failed: ${response.status} ${response.statusText}`);
+    throw new Error(errorData.error || `Import failed: ${response.status} ${response.statusText}`);
   }
-  
-  let sparqlJson = await response.json();
-  
-  // Handle wrapped responses (e.g., {"succeed": true, "results": {...}})
-  if (sparqlJson.succeed && sparqlJson.results) {
-    sparqlJson = sparqlJson.results;
-  }
-  
-  // Convert SPARQL JSON to RDF quads
-  const quads = sparqlJsonToQuads(sparqlJson);
-  
-  if (quads.length === 0) {
-    throw new Error('No RDF triples found in SPARQL results');
-  }
-  
-  // Extract Dublin Core metadata from quads
-  const dublinCore = extractDublinCoreFromQuads(quads);
-  
-  return {
-    dublinCore,
-    quadCount: quads.length
-  };
+
+  return response.json();
 }
 
 /**
@@ -1032,122 +926,26 @@ export default function EditProject() {
                           return;
                         }
                         
-                        // Helper to get literal value or URI
-                        const getValue = (term: N3.Term | null): string => {
-                          if (!term) return '';
-                          if (term.termType === 'Literal') {
-                            return term.value;
-                          }
-                          if (term.termType === 'NamedNode') {
-                            return term.value;
-                          }
-                          return term.value;
-                        };
-                        
-                        // Extract Dublin Core metadata from RDF triples
-                        const dcNamespace = 'http://purl.org/dc/elements/1.1/';
-                        const foafNamespace = 'http://xmlns.com/foaf/0.1/';
-                        
-                        const dublinCore: any = {};
-                        const creatorNodes = new Set<string>();
-                        
-                        // First pass: collect all predicates
-                        for (const quad of quads) {
-                          const predicate = quad.predicate.value;
-                          
-                          if (predicate === dcNamespace + 'title') {
-                            dublinCore.title = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'creator') {
-                            // Creator might be a URI reference to another node
-                            if (quad.object.termType === 'NamedNode' || quad.object.termType === 'BlankNode') {
-                              creatorNodes.add(quad.object.value);
-                            } else {
-                              dublinCore.creator = getValue(quad.object);
-                            }
-                          } else if (predicate === dcNamespace + 'date') {
-                            dublinCore.date = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'description') {
-                            dublinCore.description = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'coverage') {
-                            dublinCore.coverage = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'rights') {
-                            dublinCore.rights = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'identifier') {
-                            dublinCore.identifier = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'subject') {
-                            dublinCore.subject = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'type') {
-                            dublinCore.type = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'language') {
-                            dublinCore.language = getValue(quad.object);
-                          } else if (predicate === dcNamespace + 'source') {
-                            dublinCore.source = getValue(quad.object);
-                          }
-                        }
-                        
-                        // Second pass: resolve creator names from foaf:name
-                        if (creatorNodes.size > 0 && !dublinCore.creator) {
-                          for (const quad of quads) {
-                            if (creatorNodes.has(quad.subject.value) && quad.predicate.value === foafNamespace + 'name') {
-                              dublinCore.creator = getValue(quad.object);
-                              break;
-                            }
-                          }
+                        const dublinCore = extractDublinCoreFromQuads(quads);
+
+                        if (!projectId) {
+                          throw new Error('Missing projectId');
                         }
 
-                        // Create or update HDT metadata via backend
-                        const sessionId = localStorage.getItem('oauth_session_id');
-                        const hdtPayload = {
+                        const sourceUri =
+                          typeof dublinCore.source === 'string' && dublinCore.source.trim().length > 0
+                            ? dublinCore.source.trim()
+                            : `urn:ocra:project:${projectId}:file-import:${file.name}`;
+
+                        await importPhysicalObjectMetadataViaBackend(projectId, 'other', sourceUri, {
                           dublinCore,
-                          cidocCrm: {},
-                          gettyAAT: {},
-                          digitalAssets: [],
-                          scenes: []
-                        };
-
-                        // Check if HDT exists
-                        const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-                          credentials: 'include',
-                          headers: { 'Content-Type': 'application/json' },
-                        });
-
-                        let response;
-                        if (checkRes.status === 404) {
-                          // Create new HDT
-                          response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: {
-                              'Authorization': `Bearer ${sessionId}`,
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(hdtPayload)
-                          });
-                        } else {
-                          // Update existing HDT
-                          response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-                            method: 'PUT',
-                            credentials: 'include',
-                            headers: {
-                              'Authorization': `Bearer ${sessionId}`,
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(hdtPayload)
-                          });
-                        }
-
-                        if (!response.ok) {
-                          const errText = await response.text();
-                          let errData;
-                          try {
-                            errData = JSON.parse(errText);
-                          } catch {
-                            errData = { error: errText };
+                          sourceRecord: {
+                            importedFrom: 'rdf-file',
+                            fileName: file.name,
+                            quadCount: quads.length,
+                            importedAt: new Date().toISOString()
                           }
-                          throw new Error(errData.error || `HTTP ${response.status}: ${errText}`);
-                        }
-
-                        const result = await response.json();
+                        });
 
                         setShowImportModal(false);
                         setHasHdt(true); // Update state so button disappears
@@ -1209,45 +1007,39 @@ export default function EditProject() {
                   onClick={async () => {
                     try {
                       setSparqlLoading(true);
+
+                      if (!projectId) {
+                        throw new Error('Missing projectId');
+                      }
                       
                       // Use default values if fields are empty
                       const endpoint = sparqlEndpoint.trim() || DEFAULT_ECHOES_ENDPOINT;
-                      const payload = sparqlQuery.trim() || DEFAULT_ECHOES_QUERY;
-                      
-                      // EXPERIMENTAL: Use isolated SPARQL import function
-                      const { dublinCore, quadCount } = await importFromSparqlEndpoint(
-                        endpoint,
-                        payload
+                      const payloadRaw = sparqlQuery.trim() || DEFAULT_ECHOES_QUERY;
+
+                      let queryPayload: Record<string, unknown>;
+                      try {
+                        queryPayload = JSON.parse(payloadRaw);
+                      } catch {
+                        throw new Error('Query payload must be valid JSON');
+                      }
+
+                      const sourceUri =
+                        typeof queryPayload.sourceUri === 'string' && queryPayload.sourceUri.trim().length > 0
+                          ? queryPayload.sourceUri.trim()
+                          : endpoint;
+
+                      const importedDoc = await importPhysicalObjectMetadataViaBackend(
+                        projectId,
+                        'echoes',
+                        sourceUri,
+                        {
+                          endpoint,
+                          queryPayload
+                        }
                       );
 
-                      // Save to backend
-                      const sessionId = localStorage.getItem('oauth_session_id');
-                      const hdtPayload = { 
-                        dublinCore, 
-                        cidocCrm: {}, 
-                        gettyAAT: {}, 
-                        digitalAssets: [], 
-                        scenes: [] 
-                      };
-                      
-                      const checkRes = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, { 
-                        credentials: 'include' 
-                      });
-                      
-                      const method = checkRes.status === 404 ? 'POST' : 'PUT';
-                      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-                        method,
-                        credentials: 'include',
-                        headers: { 
-                          'Authorization': `Bearer ${sessionId}`, 
-                          'Content-Type': 'application/json' 
-                        },
-                        body: JSON.stringify(hdtPayload)
-                      });
-
-                      if (!response.ok) {
-                        throw new Error(`Failed to save: HTTP ${response.status}`);
-                      }
+                      const dublinCore = importedDoc?.physicalObjectMetadata?.dublinCore || {};
+                      const quadCount = importedDoc?.physicalObjectMetadata?.sourceRecord?.tripleCount;
 
                       setShowImportModal(false);
                       setHasHdt(true);
@@ -1256,7 +1048,10 @@ export default function EditProject() {
                         setName(dublinCore.title);
                       }
                       
-                      alert(`✅ Successfully imported ${quadCount} RDF triples from SPARQL endpoint!\n\nDublin Core metadata has been saved.`);
+                      const tripleMessage = typeof quadCount === 'number'
+                        ? `${quadCount} RDF triples`
+                        : 'metadata';
+                      alert(`✅ Successfully imported ${tripleMessage} from SPARQL endpoint!\n\nDublin Core metadata has been saved.`);
                     } catch (err: any) {
                       console.error('SPARQL import error:', err);
                       alert('Error importing from SPARQL: ' + (err?.message || String(err)));

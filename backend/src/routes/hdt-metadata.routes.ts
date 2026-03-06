@@ -20,6 +20,7 @@ import {
   getHDTMetadataHandler,
   createHDTMetadataHandler,
   updateHDTMetadataHandler,
+  importPhysicalObjectMetadataHandler,
   deleteHDTMetadataHandler,
   addAssetHandler,
   updateAssetHandler,
@@ -235,10 +236,18 @@ router.get('/:projectId/hdt', requireAuth, getHDTMetadataHandler);
  *           schema:
  *             type: object
  *             properties:
- *               dublinCore:
+ *               physicalObjectMetadata:
  *                 type: object
- *               cidocCrm:
- *                 type: object
+ *                 properties:
+ *                   sourceUri:
+ *                     type: string
+ *                   sourceType:
+ *                     type: string
+ *                     enum: [echoes, wikidata, arco, other]
+ *                   dublinCore:
+ *                     type: object
+ *                   cidocCrm:
+ *                     type: object
  *     responses:
  *       201:
  *         description: HDT document created
@@ -283,10 +292,18 @@ router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
  *           schema:
  *             type: object
  *             properties:
- *               dublinCore:
+ *               physicalObjectMetadata:
  *                 type: object
- *               cidocCrm:
- *                 type: object
+ *                 properties:
+ *                   sourceUri:
+ *                     type: string
+ *                   sourceType:
+ *                     type: string
+ *                     enum: [echoes, wikidata, arco, other]
+ *                   dublinCore:
+ *                     type: object
+ *                   cidocCrm:
+ *                     type: object
  *     responses:
  *       200:
  *         description: HDT document updated
@@ -304,6 +321,67 @@ router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
  *         description: Server error
  */
 router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/hdt/physical-object/import:
+ *   post:
+ *     summary: Import physical object metadata
+ *     description: Imports physical object metadata from a source adapter (manager only).
+ *     tags:
+ *       - HDT
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sourceType
+ *               - sourceUri
+ *             properties:
+ *               sourceType:
+ *                 type: string
+ *                 enum: [echoes, wikidata, arco, other]
+ *               sourceUri:
+ *                 type: string
+ *               payload:
+ *                 type: object
+ *                 description: Source-specific request payload.
+ *     responses:
+ *       200:
+ *         description: HDT document updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       201:
+ *         description: HDT document created and metadata imported
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       400:
+ *         description: Invalid request payload
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized (manager only)
+ *       501:
+ *         description: Source adapter not implemented
+ *       500:
+ *         description: Server error
+ */
+router.post('/:projectId/hdt/physical-object/import', requireAuth, importPhysicalObjectMetadataHandler);
 
 /**
  * @openapi

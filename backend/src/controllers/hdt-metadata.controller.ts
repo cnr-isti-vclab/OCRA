@@ -46,9 +46,19 @@ import {
 } from '../services/hdt-metadata.service.js';
 import { getPrismaClient } from '../../db.js';
 import { auditBestEffort } from '../utils/audit.js';
-import { User, DigitalAssetCreateRequest } from '../types/index.js';
+import {
+  User,
+  DigitalAssetCreateRequest,
+  PhysicalObjectMetadata
+} from '../types/index.js';
 import { RoleEnum } from '@prisma/client';
 import { projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
+import {
+  defaultPhysicalObjectMetadata,
+  normalizePhysicalObjectSourceType,
+  toPhysicalObjectMetadataPatch
+} from '../services/physical-object-import/normalize.js';
+import { getPhysicalObjectImportAdapter } from '../services/physical-object-import/index.js';
 
 import fs from 'fs/promises';
 
@@ -171,6 +181,48 @@ function resolveRtiAssetDirectory(entryPointUrl?: string | null): string | null 
   return projectRtiAssetDir(projectId, assetId);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Accept both canonical payloads ({ physicalObjectMetadata: {...} })
+ * and legacy top-level metadata payloads.
+ */
+function extractPhysicalObjectMetadataPatch(rawBody: unknown): Partial<PhysicalObjectMetadata> {
+  if (!isRecord(rawBody)) {
+    return {};
+  }
+
+  if (isRecord(rawBody.physicalObjectMetadata)) {
+    return toPhysicalObjectMetadataPatch(rawBody.physicalObjectMetadata, {
+      allowExtraFields: true
+    });
+  }
+
+  const legacyPayload: Record<string, unknown> = {};
+  const acceptedLegacyKeys = ['sourceUri', 'sourceType', 'dublinCore', 'cidocCrm', 'sourceRecord'];
+  for (const key of acceptedLegacyKeys) {
+    if (rawBody[key] !== undefined) {
+      legacyPayload[key] = rawBody[key];
+    }
+  }
+
+  return toPhysicalObjectMetadataPatch(legacyPayload);
+}
+
+function mergePhysicalObjectMetadata(
+  base: PhysicalObjectMetadata,
+  patch: Partial<PhysicalObjectMetadata>
+): PhysicalObjectMetadata {
+  return {
+    ...base,
+    ...patch,
+    dublinCore: patch.dublinCore ?? base.dublinCore,
+    cidocCrm: patch.cidocCrm ?? base.cidocCrm
+  };
+}
+
 // ============================================================================
 // HDT DOCUMENT ENDPOINTS
 // ============================================================================
@@ -235,14 +287,12 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       });
     }
 
-    // Get project details to initialize metadata
+    // Validate project existence
     const prisma = getPrismaClient();
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: {
-        id: true,
-        name: true,
-        description: true
+        id: true
       }
     });
 
@@ -250,25 +300,22 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Use provided metadata from request body, or fallback to project defaults
-    // Accept physicalObjectMetadata wrapper (canonical) or bare dublinCore at top-level (legacy)
+    // Use provided metadata from request body, or fallback to project defaults.
+    // Accept canonical wrapper or legacy top-level payload.
     console.log('HDT CREATE: req.body:', JSON.stringify(req.body, null, 2));
-    const bodyMeta = req.body?.physicalObjectMetadata ?? req.body;
-    const initialMetadata = bodyMeta?.dublinCore
-      ? {
-        dublinCore: bodyMeta.dublinCore,
-        cidocCrm: bodyMeta.cidocCrm || {}
-      }
-      : {
-        dublinCore: {
-          title: project.name,
-          description: project.description || undefined,
-          date: new Date().toISOString().split('T')[0]
-        },
-        cidocCrm: {
-          objectType: 'Digital Heritage Twin'
-        }
-      };
+
+    let metadataPatch: Partial<PhysicalObjectMetadata>;
+    try {
+      metadataPatch = extractPhysicalObjectMetadataPatch(req.body);
+    } catch (error: any) {
+      return res.status(400).json({
+        error: error?.message || 'Invalid physical object metadata payload'
+      });
+    }
+
+    const defaultMetadata = defaultPhysicalObjectMetadata(projectId);
+    const initialMetadata = mergePhysicalObjectMetadata(defaultMetadata, metadataPatch);
+
     console.log('HDT CREATE: initialMetadata:', JSON.stringify(initialMetadata, null, 2));
 
     // Create HDT document with metadata
@@ -311,9 +358,30 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
       return res.status(403).json({ error: 'Only project managers can update HDT metadata' });
     }
 
-    // Accept physicalObjectMetadata wrapper (canonical) or bare dublinCore at top-level (legacy)
-    const metadataUpdates = rawBody.physicalObjectMetadata ?? rawBody;
-    const updatedMetadata = await updateHDTMetadata(projectId, metadataUpdates, currentUser.sub);
+    const existingDocument = await getHDTDocument(projectId);
+    if (!existingDocument) {
+      return res.status(404).json({ error: 'HDT metadata not found for this project' });
+    }
+
+    let metadataPatch: Partial<PhysicalObjectMetadata>;
+    try {
+      metadataPatch = extractPhysicalObjectMetadataPatch(rawBody);
+    } catch (error: any) {
+      return res.status(400).json({
+        error: error?.message || 'Invalid physical object metadata payload'
+      });
+    }
+
+    if (Object.keys(metadataPatch).length === 0) {
+      return res.status(400).json({ error: 'No physicalObjectMetadata fields provided' });
+    }
+
+    const mergedCurrent = mergePhysicalObjectMetadata(
+      defaultPhysicalObjectMetadata(projectId),
+      existingDocument.physicalObjectMetadata || {}
+    );
+    const normalizedUpdate = mergePhysicalObjectMetadata(mergedCurrent, metadataPatch);
+    const updatedMetadata = await updateHDTMetadata(projectId, normalizedUpdate, currentUser.sub);
 
     if (!updatedMetadata) {
       return res.status(404).json({ error: 'HDT metadata not found for this project' });
@@ -325,6 +393,112 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
     res.status(500).json({
       error: 'Failed to update HDT metadata',
       message: error?.message || String(error)
+    });
+  }
+}
+
+/**
+ * POST /api/projects/:projectId/hdt/physical-object/import
+ * Import physical object metadata from a source-specific adapter (manager only).
+ */
+export async function importPhysicalObjectMetadataHandler(req: Request, res: Response) {
+  try {
+    const { projectId } = req.params;
+    const currentUser = getCurrentUser(req);
+
+    if (!currentUser) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    if (!isManager) {
+      return res.status(403).json({ error: 'Only project managers can import physical object metadata' });
+    }
+
+    if (!isRecord(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
+
+    const sourceUri =
+      typeof req.body.sourceUri === 'string' && req.body.sourceUri.trim().length > 0
+        ? req.body.sourceUri.trim()
+        : '';
+
+    if (!sourceUri) {
+      return res.status(400).json({ error: 'sourceUri is required' });
+    }
+
+    const sourceType = normalizePhysicalObjectSourceType(req.body.sourceType);
+    const adapter = getPhysicalObjectImportAdapter(sourceType);
+
+    const importResult = await adapter.importMetadata({
+      sourceUri,
+      payload: req.body.payload
+    });
+
+    const importPatch = toPhysicalObjectMetadataPatch(
+      {
+        sourceUri,
+        sourceType,
+        dublinCore: importResult.dublinCore,
+        sourceRecord: importResult.sourceRecord,
+        ...(importResult.metadataPatch || {})
+      },
+      { allowExtraFields: true }
+    );
+
+    const existingDocument = await getHDTDocument(projectId);
+
+    if (!existingDocument) {
+      const prisma = getPrismaClient();
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: {
+          id: true
+        }
+      });
+
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const defaults = defaultPhysicalObjectMetadata(projectId);
+      const initialMetadata = mergePhysicalObjectMetadata(defaults, importPatch);
+
+      const createdDocument = await createHDTDocument(projectId, currentUser.sub, initialMetadata);
+      return res.status(201).json(createdDocument);
+    }
+
+    const mergedCurrent = mergePhysicalObjectMetadata(
+      defaultPhysicalObjectMetadata(projectId),
+      existingDocument.physicalObjectMetadata || {}
+    );
+    const normalizedUpdate = mergePhysicalObjectMetadata(mergedCurrent, importPatch);
+    const updatedDocument = await updateHDTMetadata(projectId, normalizedUpdate, currentUser.sub);
+
+    if (!updatedDocument) {
+      return res.status(404).json({ error: 'HDT metadata not found for this project' });
+    }
+
+    return res.status(200).json(updatedDocument);
+  } catch (error: any) {
+    console.error('Error importing physical object metadata:', error);
+
+    const message = error?.message || 'Failed to import physical object metadata';
+    if (typeof message === 'string' && message.toLowerCase().includes('not implemented')) {
+      return res.status(501).json({ error: message });
+    }
+    if (typeof message === 'string' && message.toLowerCase().includes('source')) {
+      return res.status(400).json({ error: message });
+    }
+
+    return res.status(500).json({
+      error: 'Failed to import physical object metadata',
+      message
     });
   }
 }

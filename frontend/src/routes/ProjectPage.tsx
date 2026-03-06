@@ -82,7 +82,9 @@ export default function ProjectPage() {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            metadata: {
+            physicalObjectMetadata: {
+              sourceUri: `urn:ocra:project:${projectId}`,
+              sourceType: 'other',
               dublinCore: {},
               cidocCrm: {}
             }
