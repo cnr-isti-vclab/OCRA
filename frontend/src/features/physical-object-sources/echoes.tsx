@@ -22,6 +22,10 @@ export interface EchoesFormState {
   datasetUri: string;
 }
 
+function readDatasetUri(state: EchoesFormState | null | undefined): string {
+  return typeof state?.datasetUri === 'string' ? state.datasetUri : '';
+}
+
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
@@ -61,6 +65,8 @@ function EchoesImportForm({
   onChange,
   disabled,
 }: PhysicalObjectSourceFormProps<EchoesFormState>) {
+  const datasetUriValue = readDatasetUri(state);
+
   return (
     <div className="border rounded p-3 bg-light">
       <h6 className="mb-3">ECHOES Import Parameters</h6>
@@ -72,7 +78,7 @@ function EchoesImportForm({
           id="echoes-dataset-uri"
           type="text"
           className="form-control"
-          value={state.datasetUri}
+          value={datasetUriValue}
           onChange={(e) => onChange({ ...state, datasetUri: e.target.value })}
           disabled={disabled}
           placeholder={DEFAULT_DATASET_URI}
@@ -194,7 +200,7 @@ export const echoesSourceAdapter: PhysicalObjectSourceAdapter<EchoesFormState> =
   }),
   ImportForm: EchoesImportForm,
   buildImportRequest: (_projectId: string, state: EchoesFormState) => {
-    const sourceUri = state.datasetUri.trim() || DEFAULT_DATASET_URI;
+    const sourceUri = readDatasetUri(state).trim() || DEFAULT_DATASET_URI;
     return {
       sourceType: 'echoes',
       sourceUri,

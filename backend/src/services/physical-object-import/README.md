@@ -6,6 +6,6 @@ Current adapters:
 - `echoes`: fetches SPARQL JSON from ECHOES-compatible endpoints and extracts Dublin Core.
 - `wikidata`: pass-through adapter (expects payload-provided metadata).
 - `other`: pass-through adapter.
-- `arco`: stub adapter (intentionally not implemented yet).
+- `arco`: fetches ARCO JSON-LD records and extracts Dublin Core fields.
 
 Use `getPhysicalObjectImportAdapter(sourceType)` to resolve the adapter.

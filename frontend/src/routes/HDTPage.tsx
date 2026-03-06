@@ -205,12 +205,13 @@ export default function HDTPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  useEffect(() => {
-    const adapter = getPhysicalObjectSourceAdapter(selectedSourceType);
+  const updateSelectedSourceType = (nextSourceType: PhysicalObjectSourceType) => {
+    setSelectedSourceType(nextSourceType);
+    const adapter = getPhysicalObjectSourceAdapter(nextSourceType);
     if (adapter) {
       setSourceFormState(adapter.createInitialState());
     }
-  }, [selectedSourceType]);
+  };
 
   // HELPERS
 
@@ -444,11 +445,7 @@ export default function HDTPage() {
 
         const sourceType = metadataData?.physicalObjectMetadata?.sourceType;
         if (isKnownPhysicalObjectSourceType(sourceType)) {
-          setSelectedSourceType(sourceType);
-          const adapter = getPhysicalObjectSourceAdapter(sourceType);
-          if (adapter) {
-            setSourceFormState(adapter.createInitialState());
-          }
+          updateSelectedSourceType(sourceType);
         }
 
         setDigitalAssets(Array.isArray(metadataData.digitalAssets) ? metadataData.digitalAssets : []);
@@ -543,7 +540,7 @@ export default function HDTPage() {
 
       const importedSourceType = importedMetadata?.physicalObjectMetadata?.sourceType;
       if (isKnownPhysicalObjectSourceType(importedSourceType)) {
-        setSelectedSourceType(importedSourceType);
+        updateSelectedSourceType(importedSourceType);
       }
 
       setSuccessMessage(`HC1 metadata imported from ${adapter.label}`);
@@ -850,7 +847,7 @@ export default function HDTPage() {
                         id="physical-object-source"
                         className="form-select"
                         value={selectedSourceType}
-                        onChange={(e) => setSelectedSourceType(e.target.value as PhysicalObjectSourceType)}
+                        onChange={(e) => updateSelectedSourceType(e.target.value as PhysicalObjectSourceType)}
                         disabled={importingPhysicalObject}
                       >
                         {physicalObjectSourceAdapters.map((adapter) => (
