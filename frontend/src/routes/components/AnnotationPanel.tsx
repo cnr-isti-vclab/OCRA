@@ -274,7 +274,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
               return (
                 <div
                   key={annotation.id}
-                  className={`list-group-item list-group-item-action d-flex flex-column align-items-stretch ${isSelected ? 'active' : ''
+                  className={`list-group-item list-group-item-action d-flex flex-column align-items-stretch ${isSelected ? 'bg-warning' : 'bg-light'
                     }`}
                   onClick={(e) => handleAnnotationClick(annotation.id, e)}
                   style={{ cursor: 'pointer' }}
