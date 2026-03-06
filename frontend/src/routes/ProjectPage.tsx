@@ -649,6 +649,7 @@ export default function ProjectPage() {
       projectId={projectId || ''}
       selectedSceneId={selectedSceneId || ''}
       sceneDesc={sceneDesc}
+      user={user}
     >
       {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
 

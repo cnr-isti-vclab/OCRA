@@ -19,7 +19,7 @@ import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react
 import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
-import { Annotation, SceneDescription } from '../../../../shared/scene-types.ts';
+import { Annotation, AnnotationType, AnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -27,21 +27,54 @@ import { Annotation, SceneDescription } from '../../../../shared/scene-types.ts'
 export interface SimplifiedAnnotation {
   id: string;
   label?: string;
-  description?: string;
   class?: string;
   data?: any;
+  type?: string;
   publish?: number;
   state?: any;
 }
 
 function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
+  console.log('Converting SimplifiedAnnotation to OCRA Annotation:', anno);
+  let annoType: AnnotationType = 'point';
+  let geometry: AnnotationGeometry = ([]);
+
+  if (anno.type === 'disk') {
+    annoType = 'point';
+    geometry = [anno.data?._x || 0, anno.data?._y || 0, 0];
+  } else if (anno.type === 'polyline') {
+    annoType = 'line';
+    geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
+  } else if (anno.type === 'polygon') {
+    annoType = 'area';
+    geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
+  } else if (anno.type === 'rect') {
+    annoType = 'area';
+    //geometry = anno.data?._markerCorners.map((point: any) => [point.x, point.y, 0]);
+    // Convert the two markerCorners into 4 explicit points
+    geometry = [];
+    geometry.push([anno.data?._markerCorners[0].x, anno.data?._markerCorners[0].y, 0]);
+    geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[0].y, 0]);
+    geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[1].y, 0]);
+    geometry.push([anno.data?._markerCorners[0].x, anno.data?._markerCorners[1].y, 0]);
+  } else {
+    console.log('Unknown annotation type:', anno.type);
+  }
+
+  if (geometry.length === 0) {
+    geometry = [anno.data?._x || 0, anno.data?._y || 0, 0];
+  }
+  // console.log('Data:', anno.data);
+  // console.log('Type:', anno.type);
+  // console.log('MarkerPoints:', anno.data?._markerPoints);
+  // console.log('Extracted geometry:', geometry);
+
   const ocraAnno: Annotation = {
     id: anno.id || `anno-${Date.now()}`,
     label: anno.label || 'New Annotation 2D',
-    type: 'point',
-    geometry: [anno.data?._x || 0, anno.data?._y || 0, 0],
+    type: annoType,
+    geometry: geometry,
     createdAt: new Date().toISOString(),
-    description: anno.description,
     createdBy: 'User to be defined'
   };
   return ocraAnno;
@@ -58,7 +91,6 @@ export interface OpenLIMEViewerRef {
   deleteAnnotationById: (id: string) => SimplifiedAnnotation | null;
 
   getAnnotationManager: () => OpenLIME.ManagerSvgAnnotation | null;
-
 }
 
 
@@ -302,9 +334,10 @@ const OpenLIMEViewer = forwardRef<
             markerOptions: { radius: 14 },
             // Colour classes — annotation.class (0/1/2) selects the style
             classes: [
-              { label: 'Disk', fill: '#3942e6', stroke: '#e63946', fillOpacity: 0.75, strokeWidth: 2, fillSelected: '#ffd700', strokeSelected: '#ffd700' },
-              { label: 'Polyline', fill: 'none', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'none', strokeSelected: '#ffd700' },
-              { label: 'Polygon', fill: 'rgba(34,187,85,0.2)', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
+              { label: 'Disk', fill: '#e63946', stroke: '#e63946', fillOpacity: 0.75, strokeWidth: 2, fillSelected: '#ffd700', strokeSelected: '#ffd700' },
+              { label: 'Polyline', fill: 'none', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'none', strokeSelected: '#ffd700' },
+              { label: 'Polygon', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
+              { label: 'Rect', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
             ],
             defaultAnnotationClass: 0,
 
@@ -345,11 +378,6 @@ const OpenLIMEViewer = forwardRef<
             },
 
             onSelectionChange: (annotations: SimplifiedAnnotation[]) => {
-              // console.log(
-              //   '[OpenLIMEViewer] SELECTION_CHANGE',
-              //   annotations.map(a => ({ id: a.id }))
-              // );
-
               if (onAnnotationSelectionChangedRef.current) {
                 onAnnotationSelectionChangedRef.current(annotations.map((a) => a.id));
               }
@@ -406,16 +434,40 @@ const OpenLIMEViewer = forwardRef<
               console.log('🎬 Pencil tool deactivatedù');
             });
 
+            // ── Marker selector panel ────────────────────────────────────────
+            type MarkerType = 'disk' | 'polyline' | 'polygon' | 'rect';
+            const markerType: MarkerType = 'disk';
+            const markerConfigs = {
+              'disk': { type: 'disk', opts: { radius: 14 }, classIdx: 0 },
+              'polyline': { type: 'polyline', opts: { closed: false, vertexRadius: 5 }, classIdx: 1 },
+              'polygon': { type: 'polyline', opts: { closed: true, vertexRadius: 5 }, classIdx: 2 },
+              'rect': { type: 'rect', opts: { vertexRadius: 6 }, classIdx: 3 },
+            };
+
+            function setMarker(key: MarkerType) {
+              const manager = annotationManagerRef.current;
+              if (!manager) return;
+              const cfg = markerConfigs[key];
+              manager.setActiveMarker(cfg.type, cfg.opts);
+              manager.defaultAnnotationClass = cfg.classIdx;
+            }
+
             document.addEventListener('keydown', (e: KeyboardEvent) => {
-              console.log('Pressed', e.key);
-              if (e.key === 'e') {
-                annotationManagerRef.current.setMode('edit');
-              } else if (e.key === 'c') {
-                annotationManagerRef.current.setMode('create');
-              } else if (e.key === 'i') {
-                annotationManagerRef.current.setMode('idle');
+              let markerType: MarkerType | undefined;
+              if (e.key === '0') {
+                markerType = 'disk';
+              } else if (e.key === '1') {
+                markerType = 'polyline';
+              } else if (e.key === '2') {
+                markerType = 'polygon';
+              } else if (e.key === '3') {
+                markerType = 'rect';
               } else {
-                console.log('unsupported mode', e.key);
+                console.log('Pressed', e.key, 'Annotation mode: 0=disk, 1=polyline, 2=polygon, 3=rect');
+              }
+              if (markerType) {
+                setMarker(markerType);
+                console.log('Annotation mode set to', markerType);
               }
             });
 
@@ -446,68 +498,12 @@ const OpenLIMEViewer = forwardRef<
         return {
           id: anno.id,
           label: anno.label,
-          description: anno.description,
           class: anno.class,
           data: anno.data,
           publish: anno.publish,
           state: anno.state,
         };
       };
-
-      // Setup listeners on annotation layer for update/delete events
-      // const setupAnnotationLayerListeners = () => {
-      //   const attachListeners = (layer: any) => {
-      //     // Listen for updated events
-      //     layer.on('updated', (anno: any) => {
-      //       console.log('Annotation updated:', anno);
-      //       try {
-      //         const cb = onAnnotationUpdatedRef.current;
-      //         console.log('layer.updated: callback type=', typeof cb, 'name=', (cb as any)?.name);
-      //         if (typeof cb === 'function') {
-      //           Promise.resolve().then(() => cb(serializeAnnotation(anno))).catch((err) => {
-      //             console.error('layer.updated callback threw', err);
-      //           });
-      //         }
-      //       } catch (err) {
-      //         console.error('onAnnotationUpdated callback threw', err);
-      //       }
-      //     });
-
-      //     // Listen for deleted events
-      //     layer.on('deleted', (anno: any) => {
-      //       console.log('Annotation deleted:', anno);
-      //       try {
-      //         const cb = onAnnotationDeletedRef.current;
-      //         console.log('layer.deleted: callback type=', typeof cb, 'name=', (cb as any)?.name);
-      //         if (typeof cb === 'function') {
-      //           Promise.resolve().then(() => cb(serializeAnnotation(anno))).catch((err) => {
-      //             console.error('layer.deleted callback threw', err);
-      //           });
-      //         }
-      //       } catch (err) {
-      //         console.error('onAnnotationDeleted callback threw', err);
-      //       }
-      //     });
-
-      //     console.log('✅ Annotation layer event listeners setup');
-      //   };
-
-      //   const tryAttach = (attempt = 0) => {
-      //     const layer = getAnnotationLayer();
-      //     if (layer) {
-      //       attachListeners(layer);
-      //       return;
-      //     }
-      //     if (attempt < 6) {
-      //       // retry a few times while UI initializes
-      //       setTimeout(() => tryAttach(attempt + 1), 200);
-      //     } else {
-      //       console.warn('⚠️ Cannot setup annotation listeners: no annotation layer found after retries');
-      //     }
-      //   };
-
-      //   tryAttach(0);
-      // };
 
       // Expose CRUD methods to parent component
       useImperativeHandle(ref, () => ({

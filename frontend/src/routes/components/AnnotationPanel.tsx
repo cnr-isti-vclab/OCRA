@@ -283,10 +283,10 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                     <div className="ms-2 d-flex gap-1 align-items-center flex-shrink-0">
                       <span
                         className={`badge ${annotation.type === 'point'
-                          ? 'bg-primary'
+                          ? 'bg-danger'
                           : annotation.type === 'line'
                             ? 'bg-success'
-                            : 'bg-warning'
+                            : 'bg-primary'
                           }`}
                       >
                         {annotation.type}
@@ -325,24 +325,43 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                   <div className="mt-2 w-100">
                     <p className="mb-1 small text-muted">ID: {annotation.id}</p>
                     <p className="mb-1 small text-muted">Description: {annotation.description}</p>
-
+                    <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Created by: {annotation.createdBy}
+                    </p>
+                    <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Type: {annotation.type}
+                    </p>
                     {annotation.type === 'point' &&
                       Array.isArray(annotation.geometry) &&
                       annotation.geometry.length === 3 && (
                         <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          [
-                          {(annotation.geometry as [number, number, number])[0].toFixed(1)},
-                          {(annotation.geometry as [number, number, number])[1].toFixed(1)},
-                          {(annotation.geometry as [number, number, number])[2].toFixed(1)}
-                          ]
+                          [{annotation.geometry[0].toFixed(1)}, {annotation.geometry[1].toFixed(1)}, {annotation.geometry[2].toFixed(1)}]
                         </p>
                       )}
 
                     {annotation.type !== 'point' &&
                       Array.isArray(annotation.geometry) && (
-                        <p className="mb-0 small">
-                          {(annotation.geometry as [number, number, number][]).length} points
-                        </p>
+                        <>
+                          <p className="mb-0 small">
+                            {(annotation.geometry as [number, number, number][]).length} points
+                          </p>
+                          <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            [
+                            {(annotation.geometry as [number, number, number][]).map((point, i) => (
+                              <span key={i}>
+                                {point[0].toFixed(1)}, {point[1].toFixed(1)}, {point[2].toFixed(1)}
+                                {i < (annotation.geometry as [number, number, number][]).length - 1 && (
+                                  <>
+                                    ],
+                                    <br />
+                                    [
+                                  </>
+                                )}
+                              </span>
+                            ))}
+                            ]
+                          </p>
+                        </>
                       )}
                   </div>
                 </div>

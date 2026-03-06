@@ -35,6 +35,7 @@ interface AnnotationProviderProps {
   projectId: string;
   selectedSceneId: string;
   sceneDesc: SceneDescription | null;
+  user: any;
 }
 
 /**
@@ -45,7 +46,8 @@ export function AnnotationProvider({
   children,
   projectId,
   selectedSceneId,
-  sceneDesc
+  sceneDesc,
+  user
 }: AnnotationProviderProps) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
@@ -75,6 +77,7 @@ export function AnnotationProvider({
    */
   const createAnnotation = useCallback(
     async (annotation: Annotation) => {
+      annotation.createdBy = user.username;
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);
