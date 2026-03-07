@@ -413,12 +413,14 @@ const OpenLIMEViewer = forwardRef<
             uiRef.current.actions.pencil.display = true;
             console.log('🎬 Toolbar setup: pencil displayed');
 
-            // Set annotation manager to edit mode for single-click selection to work
-            // When pencil tool is activated, it will switch to create mode
-            if (annotationManagerRef.current) {
-              console.log('🎬 Setting annotation manager to edit mode for selection');
-              annotationManagerRef.current.setMode('edit');
-            }
+            // Leave the annotation manager in 'idle' mode at startup.
+            // Single-click selection still works from 'idle': LayerSvgAnnotation
+            // handles annotation clicks independently of mode, and _onSingleTap
+            // auto-transitions to 'edit' on the first canvas tap.
+            // Starting from 'idle' is required so the pencil button appears
+            // correctly inactive (UIBasic marks it active for any mode !== 'idle',
+            // so starting in 'edit' would make the button look already pressed,
+            // causing the first click to be visually silent).
 
             // When pencil mode is activated, deselect all annotations
             uiRef.current.addEvent('pencilEnabled', () => {
