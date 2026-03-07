@@ -103,6 +103,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const annotationManager = viewer.getAnnotationManager();
       if (!annotationManager) return;
 
+      // Skip deletion sync while a drawing session is in progress.
+      // When the backend PUT resolves after finalizing one annotation, React
+      // re-renders and this effect would see the in-progress annotation (already
+      // pushed to layer.annotations by _startSession) as "deleted from context",
+      // calling deleteAnnotation() and removing its SVG elements — including the
+      // vertex-handle dots — from the DOM.
+      if (annotationManager.mode === 'create') return;
+
       const ids = annotations.map((a) => a.id);
 
       const viewerAnnotations = annotationManager.getAnnotations();
