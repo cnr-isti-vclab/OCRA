@@ -191,6 +191,27 @@ export interface CidocCrmMetadata {
 }
 
 /**
+ * Supported source types for physical object metadata imports.
+ */
+export type PhysicalObjectSourceType = 'echoes' | 'wikidata' | 'arco' | 'other';
+
+/**
+ * Physical object metadata stored in the HDT document.
+ *
+ * sourceUri and sourceType are required and identify where metadata comes from.
+ * dublinCore is a cache used for query/index convenience.
+ * Additional source-specific fields are allowed for extensibility.
+ */
+export interface PhysicalObjectMetadata {
+  sourceUri: string;
+  sourceType: PhysicalObjectSourceType;
+  dublinCore?: DublinCoreMetadata;
+  cidocCrm?: CidocCrmMetadata;
+  sourceRecord?: Record<string, any>;
+  [key: string]: any;
+}
+
+/**
  * RTI Types
  */
 type RTIFormat = 'ptm' | 'lptm' | 'hsh' | 'yrbf';  // 'rsc' 
@@ -299,11 +320,8 @@ export interface HDTDocument {
   _id?: string;               // MongoDB ObjectId (optional, auto-generated)
   projectId: string;          // Link to PostgreSQL project
 
-  // Ontology-based metadata (for future RDF/knowledge base integration)
-  metadata: {
-    dublinCore: DublinCoreMetadata;
-    cidocCrm: CidocCrmMetadata;
-  };
+  // Physical object metadata and source provenance
+  physicalObjectMetadata: PhysicalObjectMetadata;
 
   // Digital assets pool (3D models, RTI, images, etc.)
   digitalAssets: DigitalAsset[];

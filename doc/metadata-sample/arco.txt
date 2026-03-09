@@ -1,0 +1,269 @@
+{
+  "@id" : "arco-res:HistoricOrArtisticProperty/0901078520",
+  "@type" : [ "arco:MovableCulturalProperty", "arco:HistoricOrArtisticProperty" ],
+  "author" : "arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7",
+  "materialAndTechnique" : [ "bronzo/ fusione a cera persa", "pietra verrucana/ intaglio" ],
+  "preview" : [ "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350215_SBAAAS_PI_dig_05536.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350211_SBAAAS_PI_dig_05535.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350209_SBAAAS_PI_dig_05534.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350218_SBAAAS_PI_dig_05537.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350221_SBAAAS_PI_dig_05538.JPG" ],
+  "coverage" : "Pisa (PI)",
+  "creator" : "arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7",
+  "date" : "1924-1924",
+  "dc:description" : "Monumento a cippo composto da una base composita in pietra e da una statua in bronzo soprastante. Il basamento è rivestito da cinque lastre in pietra metamorfica e reca sulla fronte una iscrizione a caratteri applicati, in parte perduti. La statua superiore, firmata sul retro di un basso basamento scabro da Elio Galassi e datata al 1924, rappresenta una donna a grandezza naturale inginocchiata e prostrata in avanti in segno di disperazione. La figura, nuda, è coperta da un leggerissimo manto delicatamente panneggiato sui fianchi, che lascia parzialmente scoperta la parte inferiore della schiena; il capo è cinto da una benda posta sulla fronte che lascia liberi di cadere verso terra i lunghi capelli della nuca ai lati del volto rivolto verso il basso. Le mani sono protese in avanti, in totale abbandono",
+  "format" : "arco-res:MeasurementCollection/0901078520-1",
+  "identifier" : "0901078520",
+  "rights" : "proprietà Ente pubblico territoriale",
+  "source" : [ "arco-res:CatalogueRecordOA/0901078520", "https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0901078520" ],
+  "subject" : [ "Allegoria della disperazione", {
+    "@id" : "http://culturaitalia.it/pico/thesaurus/4.1#opere_d_arte_visiva"
+  } ],
+  "title" : "Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)",
+  "type" : "monumento ai caduti a cippo",
+  "isReferencedBy" : "arco-res:CatalogueRecordOA/0901078520",
+  "spatial" : "arco-res:Address/88cc826bfe22ea6c3b941087b529e1d9",
+  "comment" : "monumento ai caduti, a cippo, opera isolata, Monumento ai caduti della prima guerra mondiale Allegoria della disperazione",
+  "label" : [ {
+    "@language" : "en",
+    "@value" : "Allegoria della disperazione (monumento ai caduti - a cippo, opera isolata) by Galassi Elio (attribuito) (sec. XX)"
+  }, {
+    "@language" : "it",
+    "@value" : "Allegoria della disperazione (monumento ai caduti - a cippo, opera isolata) di Galassi Elio (attribuito) (sec. XX)"
+  } ],
+  "depiction" : [ "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350209_SBAAAS_PI_dig_05534.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350221_SBAAAS_PI_dig_05538.JPG", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350215_SBAAAS_PI_dig_05536.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350211_SBAAAS_PI_dig_05535.jpg", "http://www.sigecweb.beniculturali.it/images/fullsize/ICCD1037307/ICCD12350218_SBAAAS_PI_dig_05537.jpg" ],
+  "catalogueNumber" : "01078520",
+  "hasCataloguingAgency" : "arco-res:Agent/eadb82aaf3a73512cbe8b13b8a7e3fba",
+  "hasCulturalPropertyCataloguingCategory" : "arco-res:CulturalPropertyCataloguingCategory/opera-isolata",
+  "hasHeritageProtectionAgency" : "arco-res:Agent/eadb82aaf3a73512cbe8b13b8a7e3fba",
+  "regionIdentifier" : "09",
+  "uniqueIdentifier" : "0901078520",
+  "isDescribedByCatalogueRecord" : "arco-res:CatalogueRecordOA/0901078520",
+  "hasAuthor" : "arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7",
+  "hasAuthorshipAttribution" : "arco-res:PreferredAuthorshipAttribution/0901078520-1",
+  "hasDating" : "arco-res:Dating/0901078520-1",
+  "hasDocumentation" : [ "arco-res:PhotographicDocumentation/0901078520-photographic-documentation-2", "arco-res:PhotographicDocumentation/0901078520-photographic-documentation-5", "arco-res:PhotographicDocumentation/0901078520-photographic-documentation-1", "arco-res:PhotographicDocumentation/0901078520-photographic-documentation-4", "arco-res:PhotographicDocumentation/0901078520-photographic-documentation-3" ],
+  "hasLegalSituation" : "arco-res:LegalSituation/0901078520-legal-situation-proprieta-ente-pubblico-territoriale",
+  "hasPreferredAuthor" : "arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7",
+  "hasSubject" : "arco-res:Subject/1027c9384084605dc214a04f50085785",
+  "historicalInformation" : "BIBLIOGRAFIA: Villani M., Le epigrafi commemorative di Pisa. Frammenti di Storia scolpiti sulle case, sulle chiese e sui monumenti sparsi per le vie della città, Ghezzano (PI) 2012, p.257",
+  "iconclassCode" : "56DD11(+2)",
+  "a-cd:subject" : "Allegoria della disperazione",
+  "description" : "Monumento a cippo composto da una base composita in pietra e da una statua in bronzo soprastante. Il basamento è rivestito da cinque lastre in pietra metamorfica e reca sulla fronte una iscrizione a caratteri applicati, in parte perduti. La statua superiore, firmata sul retro di un basso basamento scabro da Elio Galassi e datata al 1924, rappresenta una donna a grandezza naturale inginocchiata e prostrata in avanti in segno di disperazione. La figura, nuda, è coperta da un leggerissimo manto delicatamente panneggiato sui fianchi, che lascia parzialmente scoperta la parte inferiore della schiena; il capo è cinto da una benda posta sulla fronte che lascia liberi di cadere verso terra i lunghi capelli della nuca ai lati del volto rivolto verso il basso. Le mani sono protese in avanti, in totale abbandono",
+  "hasAgentRole" : [ "arco-res:AgentRole/0901078520-heritage-protection-agency", "arco-res:AgentRole/0901078520-cataloguing-agency" ],
+  "hasAffixedElement" : [ "arco-res:Inscription/0901078520-inscription-2", "arco-res:Inscription/0901078520-inscription-1" ],
+  "hasConservationStatus" : "arco-res:ConservationStatus/0901078520-conservation-status-1",
+  "hasCulturalPropertyType" : "arco-res:CulturalPropertyType/59e7365a26e8a8580695f5b7e179e07c",
+  "hasDesignationInTime" : "arco-res:DesignationInTime/0901078520-monumento-ai-caduti-della-prima-guerra-mondiale",
+  "hasMaterialOrTechnique" : [ "arco-res:TechnicalCharacteristic/bronzo-fusione-a-cera-persa", "arco-res:TechnicalCharacteristic/pietra-verrucana-intaglio" ],
+  "hasMeasurementCollection" : "arco-res:MeasurementCollection/0901078520-1",
+  "hasTechnicalStatus" : "arco-res:CulturalEntityTechnicalStatus/0901078520",
+  "hasCulturalPropertyAddress" : "arco-res:Address/88cc826bfe22ea6c3b941087b529e1d9",
+  "hasTimeIndexedTypedLocation" : "arco-res:TimeIndexedTypedLocation/0901078520-current",
+  "hasGeometry" : [ "arco-res:Geometry/0901078520-geometry-point-1", "arco-res:Geometry/0901078520-geometry-point" ],
+  "@context" : {
+    "hasTimeIndexedTypedLocation" : {
+      "@id" : "https://w3id.org/arco/ontology/location/hasTimeIndexedTypedLocation",
+      "@type" : "@id"
+    },
+    "date" : "http://purl.org/dc/elements/1.1/date",
+    "hasMeasurementCollection" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasMeasurementCollection",
+      "@type" : "@id"
+    },
+    "depiction" : {
+      "@id" : "http://xmlns.com/foaf/0.1/depiction",
+      "@type" : "@id"
+    },
+    "hasLegalSituation" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasLegalSituation",
+      "@type" : "@id"
+    },
+    "hasAuthor" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasAuthor",
+      "@type" : "@id"
+    },
+    "coverage" : "http://purl.org/dc/elements/1.1/coverage",
+    "rights" : "http://purl.org/dc/elements/1.1/rights",
+    "hasConservationStatus" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasConservationStatus",
+      "@type" : "@id"
+    },
+    "hasHeritageProtectionAgency" : {
+      "@id" : "https://w3id.org/arco/ontology/arco/hasHeritageProtectionAgency",
+      "@type" : "@id"
+    },
+    "subject" : "http://purl.org/dc/elements/1.1/subject",
+    "preview" : {
+      "@id" : "http://data.cochrane.org/ontologies/pico/preview",
+      "@type" : "@id"
+    },
+    "regionIdentifier" : "https://w3id.org/arco/ontology/arco/regionIdentifier",
+    "hasDocumentation" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasDocumentation",
+      "@type" : "@id"
+    },
+    "hasAgentRole" : {
+      "@id" : "https://w3id.org/arco/ontology/core/hasAgentRole",
+      "@type" : "@id"
+    },
+    "author" : {
+      "@id" : "http://data.cochrane.org/ontologies/pico/author",
+      "@type" : "@id"
+    },
+    "identifier" : "http://purl.org/dc/elements/1.1/identifier",
+    "hasDesignationInTime" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasDesignationInTime",
+      "@type" : "@id"
+    },
+    "catalogueNumber" : "https://w3id.org/arco/ontology/arco/catalogueNumber",
+    "hasSubject" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasSubject",
+      "@type" : "@id"
+    },
+    "source" : {
+      "@id" : "http://purl.org/dc/elements/1.1/source",
+      "@type" : "@id"
+    },
+    "hasCulturalPropertyAddress" : {
+      "@id" : "https://w3id.org/arco/ontology/location/hasCulturalPropertyAddress",
+      "@type" : "@id"
+    },
+    "hasAuthorshipAttribution" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasAuthorshipAttribution",
+      "@type" : "@id"
+    },
+    "materialAndTechnique" : "http://data.cochrane.org/ontologies/pico/materialAndTechnique",
+    "uniqueIdentifier" : "https://w3id.org/arco/ontology/arco/uniqueIdentifier",
+    "hasCulturalPropertyType" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasCulturalPropertyType",
+      "@type" : "@id"
+    },
+    "format" : {
+      "@id" : "http://purl.org/dc/elements/1.1/format",
+      "@type" : "@id"
+    },
+    "hasGeometry" : {
+      "@id" : "https://w3id.org/italia/onto/CLV/hasGeometry",
+      "@type" : "@id"
+    },
+    "hasCataloguingAgency" : {
+      "@id" : "https://w3id.org/arco/ontology/arco/hasCataloguingAgency",
+      "@type" : "@id"
+    },
+    "label" : "http://www.w3.org/2000/01/rdf-schema#label",
+    "description" : "https://w3id.org/arco/ontology/core/description",
+    "comment" : "http://www.w3.org/2000/01/rdf-schema#comment",
+    "hasAffixedElement" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasAffixedElement",
+      "@type" : "@id"
+    },
+    "hasPreferredAuthor" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasPreferredAuthor",
+      "@type" : "@id"
+    },
+    "spatial" : {
+      "@id" : "http://purl.org/dc/terms/spatial",
+      "@type" : "@id"
+    },
+    "isDescribedByCatalogueRecord" : {
+      "@id" : "https://w3id.org/arco/ontology/catalogue/isDescribedByCatalogueRecord",
+      "@type" : "@id"
+    },
+    "hasTechnicalStatus" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasTechnicalStatus",
+      "@type" : "@id"
+    },
+    "hasMaterialOrTechnique" : {
+      "@id" : "https://w3id.org/arco/ontology/denotative-description/hasMaterialOrTechnique",
+      "@type" : "@id"
+    },
+    "isReferencedBy" : {
+      "@id" : "http://purl.org/dc/terms/isReferencedBy",
+      "@type" : "@id"
+    },
+    "type" : "http://purl.org/dc/elements/1.1/type",
+    "creator" : {
+      "@id" : "http://purl.org/dc/elements/1.1/creator",
+      "@type" : "@id"
+    },
+    "historicalInformation" : "https://w3id.org/arco/ontology/context-description/historicalInformation",
+    "hasDating" : {
+      "@id" : "https://w3id.org/arco/ontology/context-description/hasDating",
+      "@type" : "@id"
+    },
+    "title" : "http://purl.org/dc/elements/1.1/title",
+    "hasCulturalPropertyCataloguingCategory" : {
+      "@id" : "https://w3id.org/arco/ontology/arco/hasCulturalPropertyCataloguingCategory",
+      "@type" : "@id"
+    },
+    "iconclassCode" : "https://w3id.org/arco/ontology/context-description/iconclassCode",
+    "geonames" : "http://www.geonames.org/ontology#",
+    "owl" : "http://www.w3.org/2002/07/owl#",
+    "a-cat" : "https://w3id.org/arco/ontology/catalogue/",
+    "skos" : "http://www.w3.org/2004/02/skos/core#",
+    "schema-org" : "http://schema.org/",
+    "bio" : "http://purl.org/vocab/bio/0.1/",
+    "conf" : "http://lodview.it/conf#",
+    "metalex" : "http://www.metalex.eu/metalex/2008-05-02#",
+    "cov" : "https://w3id.org/italia/onto/COV/",
+    "ocd" : "http://dati.camera.it/ocd/",
+    "pico" : "http://data.cochrane.org/ontologies/pico/",
+    "rel" : "http://purl.org/vocab/relationship/",
+    "dcterms" : "http://purl.org/dc/terms/",
+    "dbpprop" : "http://dbpedia.org/property/",
+    "foaf" : "http://xmlns.com/foaf/0.1/",
+    "bbc" : "http://www.bbc.co.uk/ontologies/",
+    "void" : "http://rdfs.org/ns/void#",
+    "dbpedia-owl" : "http://dbpedia.org/ontology/",
+    "cpv" : "https://w3id.org/italia/onto/CPV/",
+    "dbpedia" : "http://dbpedia.org/resource/",
+    "frbr" : "http://purl.org/vocab/frbr/core#",
+    "clv" : "https://w3id.org/italia/onto/CLV/",
+    "dwc" : "http://rs.tdwg.org/dwc/terms/",
+    "claros" : "http://purl.org/NET/Claros/vocab#",
+    "core" : "https://w3id.org/arco/ontology/core/",
+    "crm-owl" : "http://purl.org/NET/crm-owl#",
+    "meta" : "http://example.org/metadata#",
+    "a-loc" : "https://w3id.org/arco/ontology/location/",
+    "bmuseum" : "http://collection.britishmuseum.org/id/ontology/",
+    "ods" : "http://lod.xdams.org/ontologies/ods/",
+    "a-ip" : "https://w3id.org/arco/ontology/immovable-property/",
+    "a-dd" : "https://w3id.org/arco/ontology/denotative-description/",
+    "l0" : "https://w3id.org/italia/onto/l0/",
+    "gml" : "http://www.opengis.net/gml/",
+    "muninn" : "http://rdf.muninn-project.org/ontologies/documents#",
+    "xsd" : "http://www.w3.org/2001/XMLSchema#",
+    "yago" : "http://dbpedia.org/class/yago/",
+    "rdfs" : "http://www.w3.org/2000/01/rdf-schema#",
+    "arco-res" : "https://w3id.org/arco/resource/",
+    "units" : "http://dbpedia.org/units/",
+    "cis" : "http://dati.beniculturali.it/cis/",
+    "arco-lite" : "https://w3id.org/arco/ontology/arco-lite/",
+    "rso" : "http://www.researchspace.org/ontology/",
+    "geo" : "http://www.w3.org/2003/01/geo/wgs84_pos#",
+    "oad" : "http://lod.xdams.org/reload/oad/",
+    "crm120111" : "http://erlangen-crm.org/120111/",
+    "cdoc" : "http://www.cidoc-crm.org/cidoc-crm#",
+    "bibleontology" : "http://bibleontology.com/property#",
+    "prov" : "http://www.w3.org/ns/prov#",
+    "crm" : "http://erlangen-crm.org/current/",
+    "cc" : "http://creativecommons.org/ns#",
+    "a-cc" : "https://w3id.org/arco/ontology/cataloguing-campaign/",
+    "a-cd" : "https://w3id.org/arco/ontology/context-description/",
+    "a-ce" : "https://w3id.org/arco/ontology/cultural-event/",
+    "shoah" : "http://dati.cdec.it/lod/shoah/",
+    "npg" : "http://ns.nature.com/terms/",
+    "org" : "http://www.w3.org/ns/org#",
+    "gn" : "http://www.geonames.org/ontology#",
+    "ibc" : "http://dati.ibc.it/ibc/",
+    "aemetonto" : "http://aemet.linkeddata.es/ontology/",
+    "arco" : "https://w3id.org/arco/ontology/arco/",
+    "skos-xl" : "http://www.w3.org/2008/05/skos-xl#",
+    "lgdo" : "http://linkedgeodata.org/ontology/capital",
+    "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "ti" : "https://w3id.org/italia/onto/TI/",
+    "eac-cpf" : "http://archivi.ibc.regione.emilia-romagna.it/ontology/eac-cpf/",
+    "bibo" : "http://purl.org/ontology/bibo/",
+    "time" : "http://www.w3.org/2006/time#",
+    "dc" : "http://purl.org/dc/elements/1.1/",
+    "prism21" : "http://prismstandard.org/namespaces/basic/2.1/",
+    "po" : "http://purl.org/ontology/po/"
+  }
+}

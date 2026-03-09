@@ -1,0 +1,48 @@
+import type { ComponentType } from 'react';
+
+export type PhysicalObjectSourceType = 'echoes' | 'arco' | 'wikidata';
+
+export interface PhysicalObjectMetadataRecord {
+  sourceUri?: string;
+  sourceType?: string;
+  dublinCore?: Record<string, unknown>;
+  cidocCrm?: Record<string, unknown>;
+  sourceRecord?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface PhysicalObjectImportRequest {
+  sourceType: 'echoes' | 'arco' | 'wikidata' | 'other';
+  sourceUri: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface PhysicalObjectSourceFormProps<TState> {
+  state: TState;
+  onChange: (next: TState) => void;
+  disabled: boolean;
+}
+
+export interface OntologyMappingTriple {
+  predicate: string;
+  value: string;
+}
+
+export interface OntologyMappingResult {
+  classId: 'HC1';
+  sourceType: string;
+  triples: OntologyMappingTriple[];
+  notes?: string[];
+}
+
+export interface PhysicalObjectSourceAdapter<TState = any> {
+  sourceType: PhysicalObjectSourceType;
+  label: string;
+  description: string;
+  status: 'available' | 'placeholder';
+  createInitialState: () => TState;
+  ImportForm: ComponentType<PhysicalObjectSourceFormProps<TState>>;
+  buildImportRequest: (projectId: string, state: TState) => PhysicalObjectImportRequest;
+  MetadataView: ComponentType<{ metadata: PhysicalObjectMetadataRecord | null }>;
+  mapToHdtOntology: (metadata: PhysicalObjectMetadataRecord | null) => OntologyMappingResult;
+}

@@ -17,8 +17,7 @@ import type {
   DigitalAsset,
   HDTScene,
   SceneAssetReference,
-  DublinCoreMetadata,
-  CidocCrmMetadata,
+  PhysicalObjectMetadata,
   SceneDescription,
   ModelDefinition
 } from '../types/index.js';
@@ -98,10 +97,7 @@ export async function getHDTDocument(projectId: string): Promise<HDTDocument | n
 export async function createHDTDocument(
   projectId: string,
   userId?: string,
-  initialData?: {
-    dublinCore?: Partial<DublinCoreMetadata>;
-    cidocCrm?: Partial<CidocCrmMetadata>;
-  }
+  initialData?: Partial<PhysicalObjectMetadata>
 ): Promise<HDTDocument> {
   const collection = await getCollection();
 
@@ -115,12 +111,27 @@ export async function createHDTDocument(
 
   console.log('HDT SERVICE: createHDTDocument initialData:', JSON.stringify(initialData, null, 2));
 
+  const sourceUri =
+    typeof initialData?.sourceUri === 'string' && initialData.sourceUri.trim().length > 0
+      ? initialData.sourceUri.trim()
+      : `urn:ocra:project:${projectId}`;
+  const sourceType = initialData?.sourceType ?? 'other';
+
+  const physicalObjectMetadata: PhysicalObjectMetadata = {
+    sourceUri,
+    sourceType,
+    dublinCore: initialData?.dublinCore || {},
+    cidocCrm: initialData?.cidocCrm || {},
+    ...initialData,
+  };
+
+  // Guarantee required fields even if initialData overwrote them with invalid values.
+  physicalObjectMetadata.sourceUri = sourceUri;
+  physicalObjectMetadata.sourceType = sourceType;
+
   const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,
-    physicalObjectMetadata: {
-      dublinCore: initialData?.dublinCore || {},
-      cidocCrm: initialData?.cidocCrm || {}
-    },
+    physicalObjectMetadata,
     digitalAssets: [],
     scenes: [],
     createdAt: now,
@@ -139,7 +150,7 @@ export async function createHDTDocument(
 }
 
 /**
- * Update HDT metadata (Dublin Core or CIDOC-CRM)
+ * Update HDT physical object metadata
  * 
  * @param projectId - Project ID
  * @param metadataUpdate - Metadata fields to update
@@ -148,10 +159,7 @@ export async function createHDTDocument(
  */
 export async function updateHDTMetadata(
   projectId: string,
-  metadataUpdate: {
-    dublinCore?: Partial<DublinCoreMetadata>;
-    cidocCrm?: Partial<CidocCrmMetadata>;
-  },
+  metadataUpdate: Partial<PhysicalObjectMetadata>,
   userId?: string
 ): Promise<HDTDocument | null> {
   const collection = await getCollection();
@@ -163,12 +171,10 @@ export async function updateHDTMetadata(
     }
   };
 
-  if (metadataUpdate.dublinCore) {
-    updateDoc.$set['physicalObjectMetadata.dublinCore'] = metadataUpdate.dublinCore;
-  }
-
-  if (metadataUpdate.cidocCrm) {
-    updateDoc.$set['physicalObjectMetadata.cidocCrm'] = metadataUpdate.cidocCrm;
+  for (const [key, value] of Object.entries(metadataUpdate ?? {})) {
+    if (value === undefined) continue;
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') continue;
+    updateDoc.$set[`physicalObjectMetadata.${key}`] = value;
   }
 
   console.log('HDT SERVICE: updateDoc to MongoDB:', JSON.stringify(updateDoc, null, 2));
@@ -261,6 +267,8 @@ export async function addDigitalAsset(
     const newDoc: Omit<HDTDocument, '_id'> = {
       projectId,
       physicalObjectMetadata: {
+        sourceUri: `urn:ocra:project:${projectId}`,
+        sourceType: 'other',
         dublinCore: {},
         cidocCrm: {}
       },
