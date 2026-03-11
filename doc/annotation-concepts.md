@@ -2,7 +2,7 @@
 
 ## Overview
 
-An annotation is a persistent entity stored in the HDT document.
+An annotation is a persistent entity stored within the annotation list of a scene.
 Within OCRA, an annotation always belongs to exactly one scene, which is its viewing and editing context.
 Its purpose is to connect semantic information to a geometric entity defined in 3D space.
 
@@ -25,7 +25,7 @@ This is expressed by the pair:
 This semantic target is distinct from scene membership.
 In other words:
 
-- `sceneId` identifies the scene in which the annotation exists
+- scene membership is defined by the `HDTScene` that contains the annotation in its `annotations` list
 - `referenceType` and `targetId` identify what the annotation refers to within that scene
 
 As a consequence, annotations are not shared directly across scenes.
@@ -44,12 +44,12 @@ In practice, an annotation is a semantic description of a geometric entity defin
 
 ---
 
-## `Annotation` (inside HDT document)
+## `Annotation` (inside `HDTScene.annotations`)
 
 ### Core fields
 
 - `id`  
-    Unique annotation identifier within the HDT document.
+    Unique annotation identifier within the scene.
 
 - `referenceType`  
     Indicates the type of semantic target entity:
@@ -85,7 +85,6 @@ In practice, an annotation is a semantic description of a geometric entity defin
 ```json
 {
     "id": "ann_xxxxx",
-    "sceneId": "scene_3d_main",
     "referenceType": "scene",
     "targetId": "scene_3d_main",
     "annotationClass": "damage",
@@ -236,6 +235,8 @@ Each annotation belongs to exactly one scene.
 - annotations targeting assets are still scene-local annotations
 - if similar annotations are needed in multiple scenes, they should be duplicated rather than shared by reference across scenes
 
+Scene membership is therefore implicit in the container structure: an annotation belongs to the `HDTScene.annotations` array in which it is stored.
+
 This keeps scene state self-contained and avoids ambiguity when geometry, visibility, transforms, or interpretation differ across scenes.
 
 ### On create
@@ -283,10 +284,10 @@ The annotation store should support the following operations.
 Within OCRA, the scene is the main retrieval context for annotations shown in the viewer.
 For this reason, `getAnnotations(HDTScene.id)` should be understood as:
 
-- return all annotations that belong to the scene composition
+- return the annotation list owned by that scene
 - regardless of whether each annotation targets the scene itself or one of the assets included in that scene
 
-In practice, this is consistent with a model where each annotation has a `sceneId` and a scene may also maintain an explicit list of associated annotation ids, while each annotation still keeps its own semantic target through `referenceType` and `targetId`.
+In practice, this is consistent with a model where each scene owns its own `annotations` collection and each annotation still keeps its own semantic target through `referenceType` and `targetId`.
 
 ### Write operations
 
@@ -337,8 +338,7 @@ In practice, this is consistent with a model where each annotation has a `sceneI
 Since annotations are expected to be queried primarily by scene composition and by identifier, the implementation should support efficient retrieval by:
 
 - `id`
-- `sceneId`
-- scene membership / scene annotation association
+- scene ownership through `HDTScene.annotations`
 - `targetId`
 - `referenceType`
 - optionally `annotationClass`
@@ -351,16 +351,18 @@ Typical access patterns include:
 - duplicating or relating scene-local annotations that represent the same conceptual mark across different scenes
 - retrieving all annotations of a given class within a target entity
 
+Since annotations are scene-owned, implementations may also choose to resolve `getAnnotation(annotation.id)` within a scene context rather than as a global HDT-level lookup.
+
 ---
 
-## `AnnotationGraph` (inside HDT document)
+## `AnnotationGraph` (inside a scene, optional)
 
 `AnnotationGraph` can be introduced later to represent explicit relationships between annotations.
 
 For OCRA, a flexible and non-redundant approach is to treat:
 
-- each `Annotation` as a graph node
-- each relation between annotations as an explicit typed edge
+- each `Annotation` in a scene as a graph node
+- each relation between scene-local annotations as an explicit typed edge
 
 This is preferable to storing structural pointers such as `up`, `down`, `prev`, and `next`, because those fields are more suitable for tree-like or sequential navigation, while OCRA may need more general semantic relationships.
 
