@@ -313,7 +313,8 @@ const OpenLIMEViewer = forwardRef<
               layout,
               type: 'rti',
               normals: false,
-              visible: true,
+              visible: i == 0,
+              zindex: selectedAssets.length-i, // THe top layer is the front one
             };
             if (pixelSizeInMM != null) {
               layerOptions.pixelSize = pixelSizeInMM;
@@ -387,12 +388,39 @@ const OpenLIMEViewer = forwardRef<
           annotationManagerRef.current = annotationManager;
 
           // After all layers are added, setup the UI and annotation callbacks
+
+          // Before creating the UI create a lensLayer which could be activated for each layer, to be passed to the UIBasic interface
           if (!uiRef.current) {
             console.log("Create new OpenLIME.UIBasic");
+            const lensLayer = new OpenLIME.Layer({
+                type: "lens",
+                layers: [],
+                camera: viewer.camera,
+                radius: 300,
+                borderEnable: true,
+                borderColor: [0.5, 0.5, 0.5, 1],
+                borderWidth: 5,
+                visible: false,
+                zindex: selectedAssets.length + 1, // Ensure lens is always on top
+            });
+            viewer.addLayer('lens', lensLayer);
+
+            // Create a lens controller for focus and context exploration when lenses are enabled.
+            const controllerLens = new OpenLIME.ControllerFocusContext({
+                lensLayer: lensLayer,
+                camera: viewer.camera,
+                canvas: viewer.canvas,
+            });
+            viewer.pointerManager.onEvent(controllerLens);
+            lensLayer.controllers.push(controllerLens);
+
+            // Here we are: create the UI
             uiRef.current = new OpenLIME.UIBasic(viewer, {
               showLightDirections: true,
               pixelSize: scalePixelSize ?? undefined,
               annotationManager: annotationManagerRef.current,
+              layerVisibilityMode: 'nonExclusive',
+              lensLayer: lensLayer,
             });
           } else if (scalePixelSize != null) {
             const uiAny = uiRef.current as any;
