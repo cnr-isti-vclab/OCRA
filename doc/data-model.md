@@ -87,7 +87,7 @@ This is a typed JSON object that contains the basic metadata for the physical ob
 - `sourceType` required  (e.g. `ECHOES`, `wikidata`, `arco`, `other`)
 - `dublinCore` cached fields from the source, e.g. title, description, creator, date, etc. These fields are somewhat redundant with the sourceUri and are filled by a metadata extraction process that can be triggered at HDT creation time or later and cached here for easier querying and indexing.
 
-See the physical-object.md for more details on the metadata model for the physical object.
+See the [physical-object-metadata.md](physical-object-metadata.md) for more details on the metadata model for the physical object.
 
 
 ## `DigitalAsset` (inside HDT document)

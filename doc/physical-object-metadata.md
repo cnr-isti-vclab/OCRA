@@ -43,8 +43,8 @@ Supported `sourceType` values in current code:
 
 ## Runtime Behavior
 
-- A project can start with no imported HC1 metadata.
-- User chooses a source and provides source-specific input.
+- When a project is created, it starts with no imported HC1 metadata.
+- When a project has no imported HC1 metadata, this is evident in the GUI and the user can choose a source and provide source-specific input (for example ECHOES dataset parameters, ARCO catalog ID, or Wikidata/Reasonator QID URL).
 - Backend imports/transforms source data into `physicalObjectMetadata`.
 - Frontend renders imported data in read-only mode.
 - Source-specific ontology mapping preview is generated in frontend adapter code.
@@ -63,8 +63,11 @@ Supported `sourceType` values in current code:
 	[`backend/src/services/physical-object-import/index.ts`](../backend/src/services/physical-object-import/index.ts)
 - ECHOES adapter:
 	[`backend/src/services/physical-object-import/echoes.adapter.ts`](../backend/src/services/physical-object-import/echoes.adapter.ts)
-- ARCO adapter placeholder:
+
+- ARCO adapter:
 	[`backend/src/services/physical-object-import/arco.adapter.ts`](../backend/src/services/physical-object-import/arco.adapter.ts)
+- Wikidata adapter:
+	[`backend/src/services/physical-object-import/wikidata.adapter.ts`](../backend/src/services/physical-object-import/wikidata.adapter.ts)
 - Import endpoint handler:
 	[`backend/src/controllers/hdt-metadata.controller.ts`](../backend/src/controllers/hdt-metadata.controller.ts)
 - Import endpoint route:
@@ -80,10 +83,13 @@ Supported `sourceType` values in current code:
 	[`frontend/src/features/physical-object-sources/registry.tsx`](../frontend/src/features/physical-object-sources/registry.tsx)
 - ECHOES source adapter (form + request builder + read-only view + HC1 mapping):
 	[`frontend/src/features/physical-object-sources/echoes.tsx`](../frontend/src/features/physical-object-sources/echoes.tsx)
-- ARCO source adapter placeholder:
+
+- ARCO source adapter:
 	[`frontend/src/features/physical-object-sources/arco.tsx`](../frontend/src/features/physical-object-sources/arco.tsx)
-- HC1 UI integration (import-only/read-only):
-	[`frontend/src/routes/HDTPage.tsx`](../frontend/src/routes/HDTPage.tsx)
+- Wikidata source adapter:
+	[`frontend/src/features/physical-object-sources/wikidata.tsx`](../frontend/src/features/physical-object-sources/wikidata.tsx)
+- Import UI integration:
+	[`frontend/src/routes/EditProject.tsx`](../frontend/src/routes/EditProject.tsx)
 
 ## Source Adapter Pattern
 
@@ -99,8 +105,8 @@ This keeps source logic isolated and allows adding new sources without touching 
 ## Current Source Status
 
 - ECHOES: implemented.
-- ARCO: backend and frontend placeholders are present.
-- Wikidata: frontend placeholder is present.
+- ARCO: implemented.
+- Wikidata: implemented (Reasonator-compatible QID resolution).
 
 ## ARCO Samples
 
