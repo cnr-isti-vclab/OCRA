@@ -113,7 +113,7 @@ It is defined by a set of asset references and their relative positions. It is o
 - `annotations[]` (array of annotation ids that are associated with this scene)  
 - Timestamps and authorship fields (optional)
 
-## `Annotation` (inside HDT document)
+## `Annotation` (inside HDT document) (See [annotation-concepts.md](./annotation-concepts.md)
 - `id` (annotation id, unique within project document)
 - `referenceType` ('asset' or 'scene'; annotations are associated to a specific asset, or to a specific scene and have a meaning only in the context of that scene, for example an annotation tied to a specific point between two 3D models in a specific scene configuration)
 - `targetId` (references either an `HDTScene.id` or a `DigitalAsset.id`, depending on the type)
