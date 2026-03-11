@@ -51,9 +51,6 @@ In practice, an annotation is a semantic description of a geometric entity defin
 - `id`  
     Unique annotation identifier within the HDT document.
 
-- `sceneId`  
-    Identifier of the scene to which the annotation belongs. This field defines the scene-local ownership of the annotation.
-
 - `referenceType`  
     Indicates the type of semantic target entity:
     - `'scene'`
