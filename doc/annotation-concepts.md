@@ -377,10 +377,6 @@ Operationally, this means returning the annotations referenced by the scene anno
     Deletes the annotation.
     It then removes the annotation id from the affected scene annotation indexes.
 
-- `removeFromScene(HDTScene.id, annotation.id)`  
-    Removes an annotation from a scene according to its scope rules.
-    Depending on the `sceneId` / `assetId` combination, this may imply deleting the annotation from the project-level annotation database and updating multiple scene annotation indexes.
-
 - `deleteScene(HDTScene.id)`  
     Deletes the scene, removes its scene annotation index, deletes scene-local annotations from `HDTProject.annotations`, and preserves pure asset annotations that remain valid in other scenes.
 
