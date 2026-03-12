@@ -2,64 +2,72 @@
 
 ## Overview
 
-An annotation is a persistent entity stored within the annotation list of a scene.
-Within OCRA, an annotation always belongs to exactly one scene, which is its viewing and editing context.
-Its purpose is to connect semantic information to a geometric entity defined in 3D space.
+This document defines our work in progress core concepts for annotations.
+Starting from the [data-model.md](data-model.md), an annotation is a persistent entity that is stored within the annotation list of a `HDTProject`.
+We tried to adhere as much as possible to the current model, but we also present here some changes and extensions that we consider useful.
 
-In the current model, an annotation is composed of three main parts:
+### Proposal for a different annotation model
 
+We also have considered a different annotation representation, considering an annotation as a relationship between geometry and annotation content. This would move from a one-to-one relationship between geometry and annotation content to a many-to-many relationship. 
+A single geometry can be annotated by multiple annotation contents, and a single annotation content can be applied to multiple geometries. This is a proposal, but currently it is not further developed in this document. 
+
+### Current annotation model
+
+In the current model, an annotation is what is presented in the [data-model.md](data-model.md), but with a modification related to the scene and asset references.
+An annotation has two references: a `sceneId` and an `assetId`.
+Both can contain a value, but at least one of them must be set.
+This table describes the possible combinations and their meaning.   
+
+| sceneId | assetId | semantic target | Reference Frame | Visibility
+| --- | --- | --- | --- | --- |
+| null | null | invalid | invalid | invalid |
+| id | null | HDTScene | HDTScene  |     only this scene |
+| null | id | DigitalAsset | DigitalAsset | all scenes containing this asset |
+| id | id | HDTScene and DigitalAsset | DigitalAsset | only this scene when asset is enabled |
+
+---
+
+The annotation contains also the following fields:  
 - `annotationGeometry`: the geometric definition of the annotated entity in 3D space
 - `annotationData`: the minimal semantic content shown to users
 - `annotationParadata`: provenance and workflow metadata about how the annotation was created or modified
+- information related to the user and date of creation and update
 
-An annotation may semantically target:
-
-- an `HDTScene`
-- a `DigitalAsset`
-
-This is expressed by the pair:
-
-- `referenceType`
-- `targetId`
-
-This semantic target is distinct from scene membership.
-In other words:
-
-- scene membership is defined by the `HDTScene` that contains the annotation in its `annotations` list
-- `referenceType` and `targetId` identify what the annotation refers to within that scene
-
-As a consequence, annotations are not shared directly across scenes.
-If the same conceptual annotation must appear in multiple scenes, it should normally be duplicated as a scene-local annotation, optionally linked to the others through an annotation relation such as `isDerivedFrom` or `correspondsTo`.
 
 ---
 
-## Basic Concepts
+## `Annotation`
 
-Two main concepts are involved:
+The `Annotation` (`HDTProject.annotations`) is the main entity of the annotation system.
+Each annotation can be related to a scene or an asset or both.
+The Annotation database is a list of annotations.
+From this database is possible to retrieve the annotations related to a specific scene or asset.
 
-- **Georeferences**: 3D entities geometrically defined within the model space
-- **Annotations**: semantic descriptions associated with one or more georeferences
+- If an annotation is related to a scene, it will be visible in that scene.
+- If an annotation is related to an asset, it will be visible in all scenes containing that asset.
+- If an annotation is related to both a scene and an asset, it will be visible in the scene when the asset is enabled.
 
-In practice, an annotation is a semantic description of a geometric entity defined on a 3D model or within a 3D scene.
+### Scene Annotation List
+A scene contain a list of annotation ids of the annotations that will appear into that scene. This list is called `annotations`. This list is used for fast retrieval of the annotations that will be displayed in the scene.
 
----
+### Annotation creation and deletion
+When an annotation is created or deleted, the HDTProject `annotations` list is updated. If the annotation is related to a scene, the `annotations` ids list of the scene is updated automatically.
+If the annotation is related to an asset, the `annotations` ids list of all scenes containing the asset is updated automatically.
 
-## `Annotation` (inside `HDTScene.annotations`)
+### Annotation update
+When an annotation is updated, the HDTProject `annotations` list is updated. 
+There's no need to update the list of the scenes annotation ids
 
 ### Core fields
 
 - `id`  
-    Unique annotation identifier within the scene.
+    Unique annotation identifier within the project.
 
-- `referenceType`  
-    Indicates the type of semantic target entity:
-    - `'scene'`
-    - `'asset'`
+- `sceneId`  
+    Identifier of the HDTScene to which the annotation belongs | null if the annotation is not linked to a scene.
 
-- `targetId`  
-    Identifier of the semantic target entity:
-    - `HDTScene.id` if `referenceType = 'scene'`
-    - `DigitalAsset.id` if `referenceType = 'asset'`
+- `assetId`  
+    Identifier of the DigitalAsset to which the annotation belongs | null if the annotation is not linked to an asset.
 
 - `annotationGeometry`  
     Structured geometric definition of the annotated 3D entity.
@@ -85,8 +93,8 @@ In practice, an annotation is a semantic description of a geometric entity defin
 ```json
 {
     "id": "ann_xxxxx",
-    "referenceType": "scene",
-    "targetId": "scene_3d_main",
+    "sceneId": "scene_id_main",
+    "assetId": "asset_id_main",
     "annotationClass": "damage",
     "annotationGeometry": {
         "type": "point",
@@ -212,7 +220,6 @@ An ordered list of 3D points representing a polygonal area.
 
 Typical examples include:
 
-- creation method (`manual`, `imported`, `derived`)
 - software tool used
 - editing notes
 - confidence or quality notes
@@ -226,19 +233,6 @@ This field is intentionally free-form in the current version.
 
 All write operations on annotations must update timestamps and authorship consistently.
 
-### Scene-local ownership rule
-
-Each annotation belongs to exactly one scene.
-
-- annotations are created inside a specific scene
-- annotations are retrieved primarily through their scene
-- annotations targeting assets are still scene-local annotations
-- if similar annotations are needed in multiple scenes, they should be duplicated rather than shared by reference across scenes
-
-Scene membership is therefore implicit in the container structure: an annotation belongs to the `HDTScene.annotations` array in which it is stored.
-
-This keeps scene state self-contained and avoids ambiguity when geometry, visibility, transforms, or interpretation differ across scenes.
-
 ### On create
 
 The system must:
@@ -248,6 +242,9 @@ The system must:
 - set `createdBy`
 - set `updatedAt`
 - set `updatedBy`
+
+If the annotation is related to the scene, the `annotations` list of that scene must be updated.
+If the annotation is related to the asset, the `annotations` list of all scenes containing the asset must be updated.
 
 ### On update
 
@@ -272,7 +269,8 @@ For operations such as `updateGeometry`, `updateData`, `updateParadata`, and `up
 
 The system must:
 
-- remove the annotation from the annotation store
+- remove the annotation from the HDTProject `annotations` list
+- remove the annotation from the `annotations` list of the scenes
 - remove any dependent reference to `annotation.id` if such references are maintained elsewhere in the HDT document
 
 ---
@@ -287,12 +285,13 @@ For this reason, `getAnnotations(HDTScene.id)` should be understood as:
 - return the annotation list owned by that scene
 - regardless of whether each annotation targets the scene itself or one of the assets included in that scene
 
-In practice, this is consistent with a model where each scene owns its own `annotations` collection and each annotation still keeps its own semantic target through `referenceType` and `targetId`.
 
 ### Write operations
 
 - `create(annotation)`  
     Creates a new annotation and assigns `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy`.
+    If the annotation is related to the scene, the `annotations` ids list of that scene must be updated.
+    If the annotation is related to the asset, the `annotations` ids list of all scenes containing the asset must be updated.
 
 - `update(annotation.id, patch)`  
     Updates one or more mutable fields of the annotation.
@@ -311,6 +310,8 @@ In practice, this is consistent with a model where each scene owns its own `anno
 
 - `delete(annotation.id)`  
     Deletes the annotation.
+    If the annotation is related to the scene, the `annotations` ids list of that scene must be updated.
+    If the annotation is related to the asset, the `annotations` ids list of all scenes containing the asset must be updated.
 
 ### Read operations
 
@@ -318,7 +319,19 @@ In practice, this is consistent with a model where each scene owns its own `anno
     Returns a single annotation by identifier.
 
 - `getAnnotations(HDTScene.id)`  
-    Returns all annotations that compose a given scene, including annotations targeting the scene itself and annotations targeting assets used in that scene.
+    Returns all annotations that compose a given scene.
+    This is a global lookup.
+
+- `getAnnotations(DigitalAsset.id)`  
+    Returns all annotations that target a given asset.
+    This is a global lookup.
+
+- `getAnnotations(HDTProject.id)`  
+    Returns all annotations that compose the project.
+    This is a global lookup.
+
+- `getScenes(DigitalAsset.id)`  
+    Returns all scenes that contain a given asset.
 
 ### Utility operations
 
@@ -331,27 +344,14 @@ In practice, this is consistent with a model where each scene owns its own `anno
 - `getDescription(annotation.id)`  
     Returns `annotationData.description`.
 
----
-
-## Query and indexing considerations
-
-Since annotations are expected to be queried primarily by scene composition and by identifier, the implementation should support efficient retrieval by:
-
-- `id`
-- scene ownership through `HDTScene.annotations`
-- `targetId`
-- `referenceType`
-- optionally `annotationClass`
-
-Typical access patterns include:
+### Typical access patterns
 
 - retrieving a single annotation by `id`
 - retrieving all annotations belonging to a given scene
-- resolving scene annotations even when individual annotations target different assets inside that scene
-- duplicating or relating scene-local annotations that represent the same conceptual mark across different scenes
+- retrieving all annotations targeting a given asset
 - retrieving all annotations of a given class within a target entity
-
-Since annotations are scene-owned, implementations may also choose to resolve `getAnnotation(annotation.id)` within a scene context rather than as a global HDT-level lookup.
+- retrievnig all annotations of a given project
+- retrieving all scenes containing a given asset
 
 ---
 
