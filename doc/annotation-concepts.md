@@ -47,16 +47,26 @@ From this database is possible to retrieve the annotations related to a specific
 - If an annotation is related to an asset, it will be visible in all scenes containing that asset.
 - If an annotation is related to both a scene and an asset, it will be visible in the scene when the asset is enabled.
 
-### Scene Annotation List
-A scene contain a list of annotation ids of the annotations that will appear into that scene. This list is called `annotations`. This list is used for fast retrieval of the annotations that will be displayed in the scene.
+### Scene Annotation Index
+A scene contains a list of annotation ids of the annotations that will appear in that scene. This list is called `annotations`.
+
+This list is a derived scene annotation index for fast retrieval in the viewer. The ground truth remains the project-level annotation database `HDTProject.annotations`.
+
+The scene annotation index can always be rebuilt from `HDTProject.annotations` by applying the visibility rules defined by `sceneId` and `assetId`.
+
+In particular, an annotation belongs to the index of a scene if:
+
+- `sceneId = currentScene.id`
+- or `sceneId = null` and `assetId` identifies an asset contained in the current scene
 
 ### Annotation creation and deletion
-When an annotation is created or deleted, the HDTProject `annotations` list is updated. If the annotation is related to a scene, the `annotations` ids list of the scene is updated automatically.
-If the annotation is related to an asset, the `annotations` ids list of all scenes containing the asset is updated automatically.
+When an annotation is created or deleted, the ground truth `HDTProject.annotations` list is updated first.
+Then the scene annotation indexes (`HDTScene.annotations`) are updated accordingly.
 
 ### Annotation update
-When an annotation is updated, the HDTProject `annotations` list is updated. 
-There's no need to update the list of the scenes annotation ids
+When an annotation is updated, the corresponding record in `HDTProject.annotations` is updated.
+In general there is no need to modify scene annotation indexes if `sceneId` and `assetId` do not change.
+If `sceneId` or `assetId` changes, the affected scene annotation indexes must be recomputed.
 
 ### Core fields
 
@@ -233,6 +243,14 @@ This field is intentionally free-form in the current version.
 
 All write operations on annotations must update timestamps and authorship consistently.
 
+### Ground truth and derived index rule
+
+- `HDTProject.annotations` is the ground truth of the annotation database
+- `HDTScene.annotations` is a derived scene annotation index of annotation ids used for scene-level retrieval and rendering
+- scene annotation indexes must always be derivable from the project-level annotation database
+
+This means that write operations must update the project-level annotation record first, and then update or rebuild the affected scene annotation indexes.
+
 ### On create
 
 The system must:
@@ -243,8 +261,19 @@ The system must:
 - set `updatedAt`
 - set `updatedBy`
 
-If the annotation is related to the scene, the `annotations` list of that scene must be updated.
-If the annotation is related to the asset, the `annotations` list of all scenes containing the asset must be updated.
+The following cases must then be handled:
+
+- `sceneId = null`, `assetId = null`  
+    Invalid. Annotation creation must be rejected.
+
+- `sceneId = id`, `assetId = null`  
+    Scene annotation. The annotation is inserted into `HDTProject.annotations` and its id is added to the index of that scene only.
+
+- `sceneId = null`, `assetId = id`  
+    Pure asset annotation. The annotation is inserted into `HDTProject.annotations` and its id is added to the index of all scenes containing that asset, including the current scene.
+
+- `sceneId = id`, `assetId = id`  
+    Scene-specific asset annotation. The annotation is inserted into `HDTProject.annotations` and its id is added only to the index of the specified scene. It is visible only in that scene, when the referenced asset is enabled there.
 
 ### On update
 
@@ -270,8 +299,41 @@ For operations such as `updateGeometry`, `updateData`, `updateParadata`, and `up
 The system must:
 
 - remove the annotation from the HDTProject `annotations` list
-- remove the annotation from the `annotations` list of the scenes
+- remove the annotation from the indexes of all affected scenes
 - remove any dependent reference to `annotation.id` if such references are maintained elsewhere in the HDT document
+
+The affected scene annotation indexes depend on the annotation type:
+
+- `sceneId = id`, `assetId = null`  
+    Remove the annotation id from the index of that scene.
+
+- `sceneId = null`, `assetId = id`  
+    Remove the annotation id from the index of all scenes containing that asset.
+
+- `sceneId = id`, `assetId = id`  
+    Remove the annotation id from the index of that scene only.
+
+### On remove from a scene
+
+Removing an annotation from a scene means removing it from the scene annotation index and applying the appropriate rule according to its scope.
+
+- If the annotation is a pure scene annotation (`sceneId = currentScene.id`, `assetId = null`), removing it from the scene means deleting the annotation itself from `HDTProject.annotations`.
+
+- If the annotation is a pure asset annotation (`sceneId = null`, `assetId = id`), removing it from one scene means deleting the annotation itself from `HDTProject.annotations`, and therefore removing it from the cache of all scenes containing that asset.
+
+- If the annotation is a scene-specific asset annotation (`sceneId = currentScene.id`, `assetId = id`), removing it from the scene means deleting the annotation itself from `HDTProject.annotations` and removing it from the index of that scene only.
+
+### On scene deletion
+
+When a scene is deleted:
+
+- the scene annotation index `HDTScene.annotations` is removed with the scene
+- all scene-local annotations of that scene must be deleted from `HDTProject.annotations`
+- this includes:
+    - pure scene annotations (`sceneId = deletedScene.id`, `assetId = null`)
+    - scene-specific asset annotations (`sceneId = deletedScene.id`, `assetId = id`)
+- pure asset annotations (`sceneId = null`, `assetId = id`) must not be deleted from `HDTProject.annotations`
+- pure asset annotations simply disappear from the deleted scene because its scene annotation index is removed, but remain visible in all other scenes containing the same asset
 
 ---
 
@@ -285,16 +347,19 @@ For this reason, `getAnnotations(HDTScene.id)` should be understood as:
 - return the annotation list owned by that scene
 - regardless of whether each annotation targets the scene itself or one of the assets included in that scene
 
+Operationally, this means returning the annotations referenced by the scene cache, or rebuilding that cache from `HDTProject.annotations` when needed.
+Operationally, this means returning the annotations referenced by the scene annotation index, or rebuilding that index from `HDTProject.annotations` when needed.
+
 
 ### Write operations
 
 - `create(annotation)`  
     Creates a new annotation and assigns `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy`.
-    If the annotation is related to the scene, the `annotations` ids list of that scene must be updated.
-    If the annotation is related to the asset, the `annotations` ids list of all scenes containing the asset must be updated.
+    It then updates the affected scene annotation indexes according to the `sceneId` / `assetId` combination.
 
 - `update(annotation.id, patch)`  
     Updates one or more mutable fields of the annotation.
+    If `sceneId` or `assetId` changes, the affected scene annotation indexes must be updated.
 
 - `updateGeometry(annotation.id, annotationGeometry)`  
     Updates only `annotationGeometry`.
@@ -310,8 +375,14 @@ For this reason, `getAnnotations(HDTScene.id)` should be understood as:
 
 - `delete(annotation.id)`  
     Deletes the annotation.
-    If the annotation is related to the scene, the `annotations` ids list of that scene must be updated.
-    If the annotation is related to the asset, the `annotations` ids list of all scenes containing the asset must be updated.
+    It then removes the annotation id from the affected scene annotation indexes.
+
+- `removeFromScene(HDTScene.id, annotation.id)`  
+    Removes an annotation from a scene according to its scope rules.
+    Depending on the `sceneId` / `assetId` combination, this may imply deleting the annotation from the project-level annotation database and updating multiple scene annotation indexes.
+
+- `deleteScene(HDTScene.id)`  
+    Deletes the scene, removes its scene annotation index, deletes scene-local annotations from `HDTProject.annotations`, and preserves pure asset annotations that remain valid in other scenes.
 
 ### Read operations
 
@@ -320,7 +391,7 @@ For this reason, `getAnnotations(HDTScene.id)` should be understood as:
 
 - `getAnnotations(HDTScene.id)`  
     Returns all annotations that compose a given scene.
-    This is a global lookup.
+    This is resolved from the scene annotation index or by rebuilding it from the project-level annotation database.
 
 - `getAnnotations(DigitalAsset.id)`  
     Returns all annotations that target a given asset.
