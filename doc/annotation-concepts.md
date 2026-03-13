@@ -2,122 +2,113 @@
 
 ## Overview
 
-This document defines our work in progress core concepts for annotations.
-Starting from the [data-model.md](data-model.md), an annotation is a persistent entity that is stored within the annotation list of a `HDTProject`.
-We tried to adhere as much as possible to the current model, but we also present here some changes and extensions that we consider useful.
+This document defines the core concepts for the annotation system. It introduces a decomposed, relational data model.
 
-### Proposal for a different annotation model
+The model separates three concerns:
 
-We also have considered a different annotation representation, considering an annotation as a relationship between geometry and annotation content. This would move from a one-to-one relationship between geometry and annotation content to a many-to-many relationship. 
-A single geometry can be annotated by multiple annotation contents, and a single annotation content can be applied to multiple geometries. This is a proposal, but currently it is not further developed in this document. 
+- **Spatial placement** — where in 3D space the annotation is anchored, and to which scene or asset it refers (`annotationGeometry`)
+- **Semantic content** — what the annotation conveys (`annotationData`)
+- **Association** — the explicit, immutable link between **a single spatial anchor and a single semantic content** record (`annotationLink`)
 
-### Current annotation model
+An optional fourth layer, `AnnotationGraph`, enables typed directed relationships between geometry nodes.
 
-In the current model, an annotation is what is presented in the [data-model.md](data-model.md), but with a modification related to the scene and asset references.
-An annotation has two references: a `sceneId` and an `assetId`.
-Both can contain a value, but at least one of them must be set.
-This table describes the possible combinations and their meaning.   
+A single geometry node can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry nodes. The `annotationLink` entity makes each association explicit, queryable, and independently manageable.
 
-| sceneId | assetId | semantic target | Reference Frame | Visibility
-| --- | --- | --- | --- | --- |
-| null | null | invalid | invalid | invalid |
-| id | null | HDTScene | HDTScene  |     only this scene |
-| null | id | DigitalAsset | DigitalAsset | all scenes containing this asset |
-| id | id | HDTScene and DigitalAsset | DigitalAsset | only this scene when asset is enabled |
+![Diagram illustrating the data model and relationships](media/annotation-model.svg)
 
----
+### Entity summary
 
-The annotation contains also the following fields:  
-- `annotationGeometry`: the geometric definition of the annotated entity in 3D space
-- `annotationData`: the minimal semantic content shown to users
-- `annotationParadata`: provenance and workflow metadata about how the annotation was created or modified
-- information related to the user and date of creation and update
-
+| Entity | Role |
+| --- | --- |
+| `annotationGeometry` | Standalone 3D geometric shape anchored to a scene or asset |
+| `annotationData` | Standalone semantic content, optionally scoped to a specific scene |
+| `annotationLink` | Immutable join entity associating one geometry node with one data record |
+| `AnnotationGraph` | Optional graph structure with typed directed edges between geometry nodes |
 
 ---
 
-## `Annotation`
+## Data Model
 
-The `Annotation` (`HDTProject.annotations`) is the main entity of the annotation system.
-Each annotation can be related to a scene or an asset or both.
-The Annotation database is a list of annotations.
-From this database is possible to retrieve the annotations related to a specific scene or asset.
+### `annotationGeometry`
 
-- If an annotation is related to a scene, it will be visible in that scene.
-- If an annotation is related to an asset, it will be visible in all scenes containing that asset.
-- If an annotation is related to both a scene and an asset, it will be visible in the scene when the asset is enabled.
+`annotationGeometry` is an independent entity that defines the 3D geometric shape of an annotation anchor and its binding to a scene or asset. Each `annotationGeometry` element acts as a node in the annotation graph.
 
-### Scene Annotation Index
-A scene contains a list of annotation ids of the annotations that will appear in that scene. This list is called `annotations`.
+#### Fields
 
-This list is a derived scene annotation index for fast retrieval in the viewer. The ground truth remains the project-level annotation database `HDTProject.annotations`.
+- `id: string`  
+  Unique identifier of the geometry element within the project.
 
-The scene annotation index can always be rebuilt from `HDTProject.annotations` by applying the visibility rules defined by `sceneId` and `assetId`.
+- `shapes: array of { type, data }`  
+  Ordered list of geometric primitives that together define the annotation anchor. Each element is an object with two fields:
+  - `type: "points" | "polyline" | "polygon"` — the type of the primitive.
+  - `data: array of [x, y, z]` — ordered list of 3D coordinate triples. Cardinality constraints depend on `type` (see table below).
 
-In particular, an annotation belongs to the index of a scene if:
+  A single `annotationGeometry` may contain one or more shapes of any combination of types. The common case is a single-element `shapes` array. Heterogeneous groups (e.g. a polygon and a set of sample points) are expressed by including multiple shapes in the same element.
 
-- `sceneId = currentScene.id`
-- or `sceneId = null` and `assetId` identifies an asset contained in the current scene
+- `referenceType: "scene" | "asset"`  
+  Indicates whether this geometry is anchored to a scene or to a digital asset.
 
-### Annotation creation and deletion
-When an annotation is created or deleted, the ground truth `HDTProject.annotations` list is updated first.
-Then the scene annotation indexes (`HDTScene.annotations`) are updated accordingly.
+- `referenceData: string`  
+  Identifier of the target `HDTScene` or `DigitalAsset`, depending on `referenceType`. This field determines the 3D reference space in which `geometryData` coordinates are expressed, and controls scene visibility.
 
-### Annotation update
-When an annotation is updated, the corresponding record in `HDTProject.annotations` is updated.
-In general there is no need to modify scene annotation indexes if `sceneId` and `assetId` do not change.
-If `sceneId` or `assetId` changes, the affected scene annotation indexes must be recomputed.
+- `createdAt: ISO 8601 timestamp`  
+- `createdBy: user id`  
+- `updatedAt: ISO 8601 timestamp`  
+- `updatedBy: user id`
 
-### Core fields
+#### Shape types
 
-- `id`  
-    Unique annotation identifier within the project.
+| `type` | Description | `data` cardinality | Notes |
+| --- | --- | --- | --- |
+| `points` | Single point or multipoint | At least one `[x, y, z]` | `data.length == 1` is a single point; `data.length > 1` is a multipoint (disjoint sample locations) |
+| `polyline` | Ordered open line | At least two `[x, y, z]` | |
+| `polygon` | Ordered closed area | At least three `[x, y, z]` | Closure is implicit at application level |
 
-- `sceneId`  
-    Identifier of the HDTScene to which the annotation belongs | null if the annotation is not linked to a scene.
+All coordinates are expressed in the 3D reference space of the entity identified by `referenceData`.
 
-- `assetId`  
-    Identifier of the DigitalAsset to which the annotation belongs | null if the annotation is not linked to an asset.
+#### Visibility rules
 
-- `annotationGeometry`  
-    Structured geometric definition of the annotated 3D entity.
+The `referenceType` / `referenceData` pair controls where the geometry (and any associated annotation) is visible:
 
-- `annotationData`  
-    Structured semantic content of the annotation.
+| `referenceType` | `referenceData` | Visible in |
+| --- | --- | --- |
+| `"scene"` | `sceneId` | Only the scene with `id == sceneId` |
+| `"asset"` | `assetId` | All scenes that contain the asset with `id == assetId` |
 
-- `annotationParadata`  
-    Free-form metadata describing how the annotation was produced, updated, or interpreted.
+#### Invariants
 
-- `annotationClass`  
-    Optional classification label for the annotation, for example `damage`, `restoration`, `material`, `diagnostic`, etc.
+- `referenceType` must be `"scene"` or `"asset"`.
+- `referenceData` must be a valid, existing identifier of an `HDTScene` or `DigitalAsset` at the time of creation.
+- `shapes` must be a non-empty array.
+- Each shape must have a `type` of `"points"`, `"polyline"`, or `"polygon"`, and a `data` array satisfying the cardinality constraint for that type.
+- All elements of `data` within each shape must be finite 3D vectors `[x, y, z]`.
+- `referenceType` and `referenceData` are immutable after creation. `shapes[].type` is immutable per element; only `shapes[].data` may be updated.
 
-### Audit fields
-
-- `createdAt` — timestamp of creation
-- `createdBy` — user id of the creator
-- `updatedAt` — timestamp of last update
-- `updatedBy` — user id of the last updater
-
-### Logical structure
+#### JSON example
 
 ```json
 {
-    "id": "ann_xxxxx",
-    "sceneId": "scene_id_main",
-    "assetId": "asset_id_main",
-    "annotationClass": "damage",
-    "annotationGeometry": {
-        "type": "point",
-        "coordinates": [0.42, 0.31, 0.12]
-    },
-    "annotationData": {
-        "label": "Lacuna",
-        "description": "Small loss of material on the lower left area."
-    },
-    "annotationParadata": {
-        "method": "manual",
-        "tool": "OpenLIME"
-    },
+    "id": "geom_abc123",
+    "shapes": [
+        {
+            "type": "polygon",
+            "data": [
+                [0.42, 0.31, 0.12],
+                [0.44, 0.31, 0.12],
+                [0.44, 0.33, 0.12],
+                [0.42, 0.33, 0.12]
+            ]
+        },
+        {
+            "type": "points",
+            "data": [
+                [0.43, 0.32, 0.12],
+                [0.435, 0.315, 0.12]
+            ]
+        }
+    ],
+    "referenceType": "scene",
+    "referenceData": "scene_id_main",
     "createdAt": "2026-03-11T10:00:00.000Z",
     "createdBy": "user-id-1",
     "updatedAt": "2026-03-11T10:00:00.000Z",
@@ -127,321 +118,139 @@ If `sceneId` or `assetId` changes, the affected scene annotation indexes must be
 
 ---
 
-## `annotationData`
+### `annotationData`
 
-For the current version, `annotationData` is intentionally minimal and contains only the user-facing textual content of the annotation.
+`annotationData` is an independent entity that holds the semantic content of an annotation. It exists independently of any specific geometry and can be linked to one or more geometry nodes via `annotationLink`.
 
-### Fields
+#### Fields
+
+- `id: string`  
+  Unique identifier of the annotation data element.
 
 - `label: string`  
-    Short label or title of the annotation.
+  Short label or title of the annotation. Must be concise and suitable for lists, legends, and quick-selection tools.
 
 - `description: string`  
-    Free-text description of the annotation.
+  Free-text description. May contain a detailed explanation, notes, or references.
 
-### Current structure
+- `class: string | null`  
+  Optional classification label, for example `damage`, `restoration`, `material`, `diagnostic`. A controlled vocabulary for valid class values may be enforced at application level.
+
+- `privateToScene: string | null`  
+  Scene-scope constraint for this data record.  
+  - If `null`: the record is **global** and may be associated with geometry in any scene or asset context.  
+  - If set to a `sceneId`: the record is **scene-private** and may only be associated with geometry that belongs to that specific scene context (see the scene consistency invariant in `annotationLink`).
+
+- `createdAt: ISO 8601 timestamp`  
+- `createdBy: user id`  
+- `updatedAt: ISO 8601 timestamp`  
+- `updatedBy: user id`
+
+#### `privateToScene` semantics
+
+| `privateToScene` | Scope | Reusability |
+| --- | --- | --- |
+| `null` | Global | May be linked to geometry in any scene or asset |
+| `sceneId` | Scene-private | May only be linked to geometry referencing that scene, or to an asset contained in that scene |
+
+#### Invariants
+
+- If `privateToScene` is not null, it must be a valid existing `sceneId` at the time of creation.
+- `label` must be a non-empty string.
+- `privateToScene` is immutable after creation. To change the scene scope of a data record, the existing element must be deleted and a new one created.
+
+#### JSON example
 
 ```json
 {
+    "id": "data_def456",
     "label": "Lacuna",
-    "description": "Small loss of material on the lower left area."
+    "description": "Small loss of material on the lower left area.",
+    "class": "damage",
+    "privateToScene": "scene_id_main",
+    "createdAt": "2026-03-11T10:00:00.000Z",
+    "createdBy": "user-id-1",
+    "updatedAt": "2026-03-11T10:00:00.000Z",
+    "updatedBy": "user-id-1"
 }
 ```
 
-### Notes
-
-- `label` should be concise and suitable for lists, legends, and quick selection tools.
-- `description` may contain a more detailed explanation.
-- Future versions may extend `annotationData` with controlled vocabulary references or domain-specific fields.
-
 ---
 
-## `annotationGeometry`
+### `annotationLink`
 
-`annotationGeometry` defines the 3D geometric entity to which the annotation refers.
+`annotationLink` is a first-class join entity that represents the association between one `annotationGeometry` element (the `annotationGeometry` node) and one `annotationData` element.
 
-### Supported geometry types
+It carries no semantic content of its own. Its role is to make the geometry–data association explicit, auditable, and independently manageable.
 
-The current model supports the following 3D geometry types:
+`annotationLink` is **immutable after creation**: no update operation is defined. To modify an association, the existing link must be deleted and a new one created.
 
-- `point`
-- `polyline`
-- `polygon`
+#### Fields
 
-### Geometry coordinate model
+- `id: string`  
+  Unique identifier of the link.
 
-Coordinates are expressed in the 3D reference space of the target scene or target asset.
+- `annotationGeometry: string`  
+  Identifier of the `annotationGeometry` element that acts as the graph node in this association.
 
-#### Point
+- `annotationData: string`  
+  Identifier of the `annotationData` element associated through this link.
 
-A single point in 3D space.
+- `createdAt: ISO 8601 timestamp`  
+- `createdBy: user id`  
+- `updatedAt: ISO 8601 timestamp`  
+- `updatedBy: user id`
+
+#### Invariants
+
+1. **Referential integrity**  
+   Both `annotationGeometry` and `annotationData` must reference existing entities at the time of creation and must remain valid throughout the link's lifetime.
+
+2. **Uniqueness**  
+   The pair (`annotationGeometry`, `annotationData`) must be unique within the system. A geometry node may not be linked to the same annotation data record more than once.
+
+3. **Scene consistency**  
+   If `annotationData.privateToScene` is not null, the following constraint must hold based on the `referenceType` of the referenced `annotationGeometry`:
+
+   - If `annotationGeometry.referenceType == "scene"`:  
+     `annotationData.privateToScene` must equal `annotationGeometry.referenceData`.
+
+   - If `annotationGeometry.referenceType == "asset"`:  
+     `annotationData.privateToScene` must be the `id` of a scene that contains the asset identified by `annotationGeometry.referenceData`.  
+
+   This ensures that a scene-private data record is never associated with geometry that belongs to an unrelated scene context.
+
+#### JSON example
 
 ```json
 {
-    "type": "point",
-    "coordinates": [x, y, z]
+    "id": "link_ghi789",
+    "annotationGeometry": "geom_abc123",
+    "annotationData": "data_def456",
+    "createdAt": "2026-03-11T10:00:00.000Z",
+    "createdBy": "user-id-1",
+    "updatedAt": "2026-03-11T10:00:00.000Z",
+    "updatedBy": "user-id-1"
 }
 ```
 
-#### Polyline
-
-An ordered list of 3D points representing an open line.
-
-```json
-{
-    "type": "polyline",
-    "coordinates": [
-        [x1, y1, z1],
-        [x2, y2, z2],
-        [x3, y3, z3]
-    ]
-}
-```
-
-#### Polygon
-
-An ordered list of 3D points representing a polygonal area.
-
-```json
-{
-    "type": "polygon",
-    "coordinates": [
-        [x1, y1, z1],
-        [x2, y2, z2],
-        [x3, y3, z3],
-        [x4, y4, z4]
-    ]
-}
-```
-
-### Validation rules
-
-- `point` must contain exactly one 3D coordinate.
-- `polyline` must contain at least two 3D points.
-- `polygon` must contain at least three 3D points.
-- All coordinates must be expressed in a consistent 3D reference space.
-- Polygon closure may be treated as implicit at application level, unless the implementation explicitly requires the first and last point to coincide.
-
 ---
 
-## `annotationParadata`
+### `AnnotationGraph`
 
-`annotationParadata` stores provenance and workflow-related information about the annotation.
+`AnnotationGraph` is an optional layer that represents explicit typed directed relationships between `annotationGeometry` nodes. It does not alter the semantics of individual annotations but enables higher-order structures such as hierarchies, sequences, and cross-reference networks.
 
-Typical examples include:
+Each element of `annotationGeometry` is treated as a graph node. Relationships between nodes are represented as typed edges.
 
-- software tool used
-- editing notes
-- confidence or quality notes
-- workflow state information
-
-This field is intentionally free-form in the current version.
-
----
-
-## Annotation lifecycle and audit rules
-
-All write operations on annotations must update timestamps and authorship consistently.
-
-### Ground truth and derived index rule
-
-- `HDTProject.annotations` is the ground truth of the annotation database
-- `HDTScene.annotations` is a derived scene annotation index of annotation ids used for scene-level retrieval and rendering
-- scene annotation indexes must always be derivable from the project-level annotation database
-
-This means that write operations must update the project-level annotation record first, and then update or rebuild the affected scene annotation indexes.
-
-### On create
-
-The system must:
-
-- generate a new `annotation.id`
-- set `createdAt`
-- set `createdBy`
-- set `updatedAt`
-- set `updatedBy`
-
-The following cases must then be handled:
-
-- `sceneId = null`, `assetId = null`  
-    Invalid. Annotation creation must be rejected.
-
-- `sceneId = id`, `assetId = null`  
-    Scene annotation. The annotation is inserted into `HDTProject.annotations` and its id is added to the index of that scene only.
-
-- `sceneId = null`, `assetId = id`  
-    Pure asset annotation. The annotation is inserted into `HDTProject.annotations` and its id is added to the index of all scenes containing that asset, including the current scene.
-
-- `sceneId = id`, `assetId = id`  
-    Scene-specific asset annotation. The annotation is inserted into `HDTProject.annotations` and its id is added only to the index of the specified scene. It is visible only in that scene, when the referenced asset is enabled there.
-
-### On update
-
-The system must:
-
-- preserve `id`
-- preserve `createdAt`
-- preserve `createdBy`
-- update `updatedAt`
-- update `updatedBy`
-
-### On partial update
-
-For operations such as `updateGeometry`, `updateData`, `updateParadata`, and `updateClass`:
-
-- only the targeted field must be modified
-- `updatedAt` must be refreshed
-- `updatedBy` must be refreshed
-- all other fields must remain unchanged
-
-### On delete
-
-The system must:
-
-- remove the annotation from the HDTProject `annotations` list
-- remove the annotation from the indexes of all affected scenes
-- remove any dependent reference to `annotation.id` if such references are maintained elsewhere in the HDT document
-
-The affected scene annotation indexes depend on the annotation type:
-
-- `sceneId = id`, `assetId = null`  
-    Remove the annotation id from the index of that scene.
-
-- `sceneId = null`, `assetId = id`  
-    Remove the annotation id from the index of all scenes containing that asset.
-
-- `sceneId = id`, `assetId = id`  
-    Remove the annotation id from the index of that scene only.
-
-### On remove from a scene
-
-Removing an annotation from a scene means removing it from the scene annotation index and applying the appropriate rule according to its scope.
-
-- If the annotation is a pure scene annotation (`sceneId = currentScene.id`, `assetId = null`), removing it from the scene means deleting the annotation itself from `HDTProject.annotations`.
-
-- If the annotation is a pure asset annotation (`sceneId = null`, `assetId = id`), removing it from one scene means deleting the annotation itself from `HDTProject.annotations`, and therefore removing it from the cache of all scenes containing that asset.
-
-- If the annotation is a scene-specific asset annotation (`sceneId = currentScene.id`, `assetId = id`), removing it from the scene means deleting the annotation itself from `HDTProject.annotations` and removing it from the index of that scene only.
-
-### On scene deletion
-
-When a scene is deleted:
-
-- the scene annotation index `HDTScene.annotations` is removed with the scene
-- all scene-local annotations of that scene must be deleted from `HDTProject.annotations`
-- this includes:
-    - pure scene annotations (`sceneId = deletedScene.id`, `assetId = null`)
-    - scene-specific asset annotations (`sceneId = deletedScene.id`, `assetId = id`)
-- pure asset annotations (`sceneId = null`, `assetId = id`) must not be deleted from `HDTProject.annotations`
-- pure asset annotations simply disappear from the deleted scene because its scene annotation index is removed, but remain visible in all other scenes containing the same asset
-
----
-
-## Annotation operations
-
-The annotation store should support the following operations.
-
-Within OCRA, the scene is the main retrieval context for annotations shown in the viewer.
-For this reason, `getAnnotations(HDTScene.id)` should be understood as:
-
-- return the annotation list owned by that scene
-- regardless of whether each annotation targets the scene itself or one of the assets included in that scene
-
-Operationally, this means returning the annotations referenced by the scene cache, or rebuilding that cache from `HDTProject.annotations` when needed.
-Operationally, this means returning the annotations referenced by the scene annotation index, or rebuilding that index from `HDTProject.annotations` when needed.
-
-
-### Write operations
-
-- `create(annotation)`  
-    Creates a new annotation and assigns `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy`.
-    It then updates the affected scene annotation indexes according to the `sceneId` / `assetId` combination.
-
-- `update(annotation.id, patch)`  
-    Updates one or more mutable fields of the annotation.
-    If `sceneId` or `assetId` changes, the affected scene annotation indexes must be updated.
-
-- `updateGeometry(annotation.id, annotationGeometry)`  
-    Updates only `annotationGeometry`.
-
-- `updateData(annotation.id, annotationData)`  
-    Updates only `annotationData`.
-
-- `updateParadata(annotation.id, annotationParadata)`  
-    Updates only `annotationParadata`.
-
-- `updateClass(annotation.id, annotationClass)`  
-    Updates only `annotationClass`.
-
-- `delete(annotation.id)`  
-    Deletes the annotation.
-    It then removes the annotation id from the affected scene annotation indexes.
-
-- `deleteScene(HDTScene.id)`  
-    Deletes the scene, removes its scene annotation index, deletes scene-local annotations from `HDTProject.annotations`, and preserves pure asset annotations that remain valid in other scenes.
-
-### Read operations
-
-- `getAnnotation(annotation.id)`  
-    Returns a single annotation by identifier.
-
-- `getAnnotations(HDTScene.id)`  
-    Returns all annotations that compose a given scene.
-    This is resolved from the scene annotation index or by rebuilding it from the project-level annotation database.
-
-- `getAnnotations(DigitalAsset.id)`  
-    Returns all annotations that target a given asset.
-    This is a global lookup.
-
-- `getAnnotations(HDTProject.id)`  
-    Returns all annotations that compose the project.
-    This is a global lookup.
-
-- `getScenes(DigitalAsset.id)`  
-    Returns all scenes that contain a given asset.
-
-### Utility operations
-
-- `getClass(annotation.id)`  
-    Returns `annotationClass`.
-
-- `getLabel(annotation.id)`  
-    Returns `annotationData.label`.
-
-- `getDescription(annotation.id)`  
-    Returns `annotationData.description`.
-
-### Typical access patterns
-
-- retrieving a single annotation by `id`
-- retrieving all annotations belonging to a given scene
-- retrieving all annotations targeting a given asset
-- retrieving all annotations of a given class within a target entity
-- retrievnig all annotations of a given project
-- retrieving all scenes containing a given asset
-
----
-
-## `AnnotationGraph` (inside a scene, optional)
-
-`AnnotationGraph` can be introduced later to represent explicit relationships between annotations.
-
-For OCRA, a flexible and non-redundant approach is to treat:
-
-- each `Annotation` in a scene as a graph node
-- each relation between scene-local annotations as an explicit typed edge
-
-This is preferable to storing structural pointers such as `up`, `down`, `prev`, and `next`, because those fields are more suitable for tree-like or sequential navigation, while OCRA may need more general semantic relationships.
-
-### Minimal proposed structure
+#### Edge structure
 
 ```json
 {
     "relations": [
         {
             "id": "rel_001",
-            "sourceId": "ann_001",
-            "targetId": "ann_002",
+            "sourceId": "geom_abc123",
+            "targetId": "geom_def456",
             "type": "isPartOf",
             "label": "detail belongs to area",
             "createdAt": "2026-03-11T10:00:00.000Z",
@@ -453,25 +262,506 @@ This is preferable to storing structural pointers such as `up`, `down`, `prev`, 
 }
 ```
 
-### Conceptual model
+#### Defined relation types
 
-- nodes are annotations
-- edges are semantic or workflow relationships between annotations
+| Relation type | Semantics |
+| --- | --- |
+| `isPartOf` | Source is a spatial or logical component of target |
+| `isDerivedFrom` | Source was derived from, or is based on, target |
+| `correspondsTo` | Source matches or maps to target (e.g. across different acquisitions) |
+| `isSimilarTo` | Source and target exhibit relevant similarity |
+| `nextInSequence` | Source immediately precedes target in an ordered sequence |
 
-### Possible relation types
+#### Notes
 
-- `isPartOf`
-- `isDerivedFrom`
-- `correspondsTo`
-- `isSimilarTo`
-- `nextInSequence`
+- The model avoids redundant bidirectional pointers by representing directed typed edges.
+- Hierarchical structures (e.g. parent–child) can be derived from relation types such as `isPartOf`.
+- Cycle detection should be applied at creation time for relation types that imply acyclicity (e.g. `isPartOf`, `isDerivedFrom`).
+- `AnnotationGraph` is not strictly required for the initial version but is designed to be additive: the core model (`annotationGeometry`, `annotationData`, `annotationLink`) functions correctly without it.
 
-### Notes
+---
 
-- this model is extensible and avoids redundant bidirectional pointers
-- it supports hierarchical, sequential, and cross-reference relations in a uniform way
-- if a future UI needs explicit tree navigation, it can derive it from relation types such as `isPartOf`
+## Scene Annotation Index
 
-This is not strictly necessary for the first version, but it may become useful for more complex annotation scenarios.
+### Purpose and derivation
+
+The scene annotation index is a derived data structure that enables fast retrieval of the annotations visible in a given scene. It is not a ground truth: it can always be rebuilt from the project-level stores of `annotationGeometry`, `annotationData`, and `annotationLink`.
+
+A geometry element (and any associated link) is visible in a scene according to the following rule:
+
+| `referenceType` | `referenceData` | Condition for inclusion in scene index |
+| --- | --- | --- |
+| `"scene"` | `sceneId` | `sceneId == currentScene.id` |
+| `"asset"` | `assetId` | The asset `assetId` is present in `currentScene` |
+
+### Index maintenance
+
+- When an `annotationGeometry` is **created**, its id must be added to the index of the affected scene(s).
+- When an `annotationGeometry` is **deleted**, its id must be removed from the index of the affected scene(s).
+- When an `annotationLink` is created or deleted, the scene annotation index is not directly modified: the index is based on geometry presence, not on link presence.
+- When a **scene is deleted**, its scene annotation index is removed entirely. All `annotationGeometry` elements with `referenceType == "scene"` and `referenceData == deletedScene.id` must be handled according to the deletion policy described in the operations section.
+
+### Index rebuild
+
+The index for a given scene can be rebuilt at any time by scanning all `annotationGeometry` records and applying the visibility rules above. This operation is idempotent and can be used to recover from inconsistent states.
+
+---
+
+## Atomic Operations
+
+### `annotationGeometry` operations
+
+#### `createAnnotationGeometry(shapes, referenceType, referenceData)`
+
+Creates a new `annotationGeometry` element.
+
+**Pre-conditions:**
+- `referenceType` must be `"scene"` or `"asset"`.
+- `referenceData` must be a valid, existing identifier of an `HDTScene` or `DigitalAsset` respectively.
+- `shapes` must be a non-empty array.
+- Each element of `shapes` must have a valid `type` and a `data` array satisfying the cardinality constraint for that type.
+
+**System actions:**
+1. Generate a new unique `id`.
+2. Set `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+3. Persist the element to the geometry store.
+4. Add the new `id` to the scene annotation index of the affected scene(s).
+
+---
+
+#### `updateAnnotationGeometryShapes(geometryId, newShapes)`
+FIXME <span style="color:red;">how to delete a shape?</span>
+Updates the `shapes` field of an existing `annotationGeometry` element.
+
+`shapes` is the **only** mutable field. `referenceType` and `referenceData` are immutable after creation, as is `shapes[].type` for each existing primitive. To change the reference or the type of a primitive, the existing element must be deleted and a new one created (with all dependent links handled accordingly).
+
+**Pre-conditions:**
+- `geometryId` must reference an existing `annotationGeometry`.
+- `newShapes` must be a non-empty array.
+- Each element of `newShapes` must have a valid `type` and a `data` array satisfying the cardinality constraint for that type.
+
+**System actions:**
+1. Update `geometryData`.
+2. Update `updatedAt`, `updatedBy`.
+
+---
+
+#### `deleteAnnotationGeometry(geometryId)`
+
+Deletes an `annotationGeometry` element from the store.
+
+This is a low-level operation. Before invoking it directly, all `annotationLink` records referencing this geometry must have been resolved. In practice, this operation is typically invoked as part of an `annotationLink` deletion sequence (shallow or deep) rather than independently.
+
+**Pre-conditions:**
+- `geometryId` must reference an existing `annotationGeometry`.
+- No `annotationLink` must reference this `geometryId` at the time of deletion.
+
+**System actions:**
+1. Remove the element from the geometry store.
+
+---
+
+### `annotationData` operations
+
+#### `createAnnotationData(label, description, class, privateToScene)`
+
+Creates a new `annotationData` element.
+
+**Pre-conditions:**
+- `label` must be a non-empty string.
+- If `privateToScene` is not null, it must be a valid existing `sceneId`.
+
+**System actions:**
+1. Generate a new unique `id`.
+2. Set `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+3. Persist the element to the data store.
+
+---
+
+#### `updateAnnotationData(dataId, patch)`
+
+Updates one or more mutable fields of an `annotationData` element.
+
+**Permitted fields:** `label`, `description`, `class`.
+
+**Immutable fields:** `id`, `privateToScene`. To change the scene scope, the element must be deleted and a new one created.
+
+**Pre-conditions:**
+- `dataId` must reference an existing `annotationData`.
+- If `label` is included in the patch, it must be a non-empty string.
+
+**System actions:**
+1. Apply the patch to the permitted fields only.
+2. Update `updatedAt`, `updatedBy`.
+
+---
+
+#### `deleteAnnotationData(dataId)`
+
+Deletes an `annotationData` element from the store.
+
+As with `deleteAnnotationGeometry`, this is a low-level operation. All `annotationLink` records referencing this data element must have been resolved before invocation.
+
+**Pre-conditions:**
+- `dataId` must reference an existing `annotationData`.
+
+**System actions:**
+1. Remove the element from the data store.
+
+---
+
+### `annotationLink` operations
+
+#### `createAnnotationLink(annotationGeometryId, annotationDataId)`
+
+Creates a new `annotationLink` associating one `annotationGeometry` node with one `annotationData` record.
+
+**Pre-conditions (all must hold):**
+
+1. `annotationGeometryId` must reference an existing `annotationGeometry`.
+2. `annotationDataId` must reference an existing `annotationData`.
+3. The pair (`annotationGeometryId`, `annotationDataId`) must not already exist as a link.
+4. **Scene consistency**: if `annotationData.privateToScene` is not null:
+   - Resolve the referenced `annotationGeometry`.
+   - If `annotationGeometry.referenceType == "scene"`:  
+     `annotationData.privateToScene` must equal `annotationGeometry.referenceData`.
+   - If `annotationGeometry.referenceType == "asset"`:  
+     `annotationData.privateToScene` must be a valid `sceneId` of a scene that contains the asset identified by `annotationGeometry.referenceData`.
+
+**System actions:**
+1. Generate a new unique `id`.
+2. Set `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+3. Persist the link to the link store.
+
+---
+
+#### (No update operation)
+
+`annotationLink` is immutable after creation. No fields may be modified.
+
+To change an association, delete the existing link and create a new one.
+
+---
+
+#### `deleteAnnotationLinkShallow(linkId)`
+
+Deletes the `annotationLink` and performs conditional cleanup of the associated `annotationGeometry` and `annotationData`, based on whether they are still referenced.
+
+**Sequence:**
+
+1. Resolve the link: retrieve `annotationGeometryId` and `annotationDataId`.
+2. Delete the `annotationLink` record.
+3. **Geometry cleanup:**
+   - Query all remaining `annotationLink` records with `annotationGeometry == annotationGeometryId`.
+   - If none remain: invoke `deleteAnnotationGeometry(annotationGeometryId)`.
+   - Otherwise: leave the geometry in place.
+4. **Data cleanup:**
+   - If `annotationData.privateToScene` is not null (scene-private): invoke `deleteAnnotationData(annotationDataId)` unconditionally.
+   - If `annotationData.privateToScene` is null (global):
+     - Query all remaining `annotationLink` records with `annotationData == annotationDataId`.
+     - If none remain: invoke `deleteAnnotationData(annotationDataId)`.
+     - Otherwise: leave the data in place.
+
+**Rationale:**  
+A geometry that is no longer referenced by any link has no spatial role in the system and is safe to remove. A scene-private data record belongs by definition to a single scene context; when its last link is deleted, it loses its referent and should be cleaned up. A global data record that is still referenced by other links carries meaning in other contexts and must be preserved.  
+This strategy is conservative: it removes provably unreferenced entities without affecting entities that remain in use.
+
+---
+
+#### `deleteAnnotationLinkDeep(linkId)`
+FIXME <span style="color:red;">this operation is destructive and irreversible. Is it really necessary?</span>
+Deletes the `annotationLink` together with the referenced `annotationGeometry`, the referenced `annotationData`, and **all other** `annotationLink` records that reference either of those entities.
+
+**Sequence:**
+
+1. Resolve the link: retrieve `annotationGeometryId` and `annotationDataId`.
+2. Collect all `annotationLink` records where `annotationGeometry == annotationGeometryId` OR `annotationData == annotationDataId` (including the original link).
+3. Delete all collected `annotationLink` records.
+4. Invoke `deleteAnnotationGeometry(annotationGeometryId)`.
+5. Invoke `deleteAnnotationData(annotationDataId)`.
+6. Update all affected scene annotation indexes.
+FIXME <span style="color:red;">should it be performed recursively on the collected links?</span>
+**Rationale:**  
+A deep delete is appropriate when the intent is to remove the entire logical annotation — both its spatial anchor and its semantic content — without regard to other associations. It is the correct choice when the geometry node and its data are known to be incorrect, obsolete, or no longer needed, and all links should be severed unconditionally.
+
+> **Warning:** this operation is destructive and irreversible. It may affect annotation links that were independently created by other users or workflows, and that reference the same geometry or data. It must be offered as an explicit, user-confirmed action in any UI.
+
+---
+
+### `AnnotationGraph` operations
+
+#### `addRelation(sourceGeometryId, targetGeometryId, type, label?)`
+
+Adds a typed directed edge between two `annotationGeometry` nodes.
+
+**Pre-conditions:**
+- Both `sourceGeometryId` and `targetGeometryId` must reference existing `annotationGeometry` elements.
+- `type` must be one of the defined relation types.
+- For relation types that imply acyclicity (e.g. `isPartOf`, `isDerivedFrom`), the new edge must not introduce a cycle.
+
+**System actions:**
+1. Generate a new edge `id`.
+2. Set `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+3. Persist the edge.
+
+---
+
+#### `removeRelation(relationId)`
+
+Removes a typed edge from the graph.
+
+**Pre-conditions:**
+- `relationId` must reference an existing relation.
+
+**System actions:**
+1. Remove the edge from the graph store.
+
+---
+
+#### `updateRelation(relationId, patch)`
+
+Updates the `type` or `label` of an existing relation.
+
+**Permitted fields:** `type`, `label`.  
+**Immutable fields:** `id`, `sourceId`, `targetId`.
+
+**Pre-conditions:**
+- If `type` is being changed, the new type must be a valid relation type.
+- If the new `type` implies acyclicity, no cycle must be introduced.
+
+**System actions:**
+1. Apply the patch.
+2. Update `updatedAt`, `updatedBy`.
+
+---
+
+## Utility and Query Operations
+
+### Read operations
+
+#### `getAnnotationLink(linkId)`
+
+Returns a single `annotationLink` by identifier, including the resolved `annotationGeometry` and `annotationData` records.
+
+---
+
+#### `getAnnotationsForScene(sceneId)`
+
+Returns all `annotationLink` records visible in a given scene.
+
+A link is visible in a scene if its referenced `annotationGeometry` satisfies either of these conditions:
+
+- `referenceType == "scene"` and `referenceData == sceneId`
+- `referenceType == "asset"` and `referenceData` identifies an asset contained in the scene
+
+This query is resolved from the scene annotation index or by rebuilding it from the geometry store when needed.
+
+---
+
+#### `getAnnotationsForAsset(assetId)`
+
+Returns all `annotationLink` records whose referenced `annotationGeometry` has `referenceType == "asset"` and `referenceData == assetId`. This is a global lookup across all scenes.
+
+---
+
+#### `getAnnotationsForProject(projectId)`
+
+Returns all `annotationLink` records associated with a given project. This is a full scan of the project-level annotation stores.
+
+---
+
+#### `getLinksForGeometry(geometryId)`
+
+Returns all `annotationLink` records that reference a given `annotationGeometry`. Useful for determining whether a geometry node is orphaned or still in use.
+
+---
+
+#### `getLinksForData(dataId)`
+
+Returns all `annotationLink` records that reference a given `annotationData`. Useful for determining whether a data record is orphaned or still in use.
+
+---
+
+#### `getAnnotationGeometry(geometryId)`
+
+Returns a single `annotationGeometry` element by identifier.
+
+---
+
+#### `getAnnotationData(dataId)`
+
+Returns a single `annotationData` element by identifier.
+
+---
+
+#### `getAnnotationsByShapeType(shapeType, sceneId?)`
+
+Returns all `annotationLink` records whose referenced `annotationGeometry` contains at least one shape of the given `type` (`"points"`, `"polyline"`, or `"polygon"`). Optionally filtered to a specific scene. Useful for retrieving all point-based annotations or all area annotations within a context.
+
+---
+
+#### `getAnnotationsByClass(class, sceneId?)`
+
+Returns all `annotationLink` records whose associated `annotationData.class` matches the given value. Optionally filtered to a specific scene.
+
+---
+
+#### `getAnnotationsByLabel(label, sceneId?)`
+
+Returns all `annotationLink` records whose associated `annotationData.label` matches or contains the given string. Optionally filtered to a specific scene.
+
+---
+
+#### `searchAnnotations(query, sceneId?)`
+
+Full-text search over `annotationData.label` and `annotationData.description`. Returns matching `annotationLink` records. Optionally scoped to a scene.
+
+---
+
+#### `getOrphanedGeometries()`
+
+Returns all `annotationGeometry` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
+
+---
+
+#### `getOrphanedData()`
+
+Returns all `annotationData` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
+
+---
+
+#### `getRelationsForGeometry(geometryId, direction?)`
+
+Returns all `AnnotationGraph` edges incident on a given `annotationGeometry` node.  
+`direction` may be `"outgoing"`, `"incoming"`, or `"both"` (default: `"both"`).
+
+---
+
+#### `getNeighbors(geometryId, relationType?)`
+
+Returns the set of `annotationGeometry` nodes directly connected to the given node, optionally filtered by relation type. Useful for graph traversal and building tree views.
+
+---
+
+#### `getAnnotationSubgraph(geometryId, depth?, relationType?)`
+
+Returns the subgraph of `annotationGeometry` nodes reachable from the given node up to a specified depth, optionally filtered by relation type. Supports rendering hierarchical or sequential annotation structures.
+
+---
+
+### Maintenance operations
+
+#### `rebuildSceneAnnotationIndex(sceneId)`
+
+Reconstructs the scene annotation index for a given scene from the ground truth geometry store by applying the visibility rules. Idempotent. Used after bulk operations, crashes, or data migrations to ensure index correctness.
+
+---
+
+#### `validateLink(linkId)`
+
+Verifies all invariants for a given `annotationLink`:
+
+1. Referential integrity of `annotationGeometry` and `annotationData`.
+2. Uniqueness of the (`annotationGeometry`, `annotationData`) pair.
+3. Scene consistency constraint on `annotationData.privateToScene`.
+
+Returns a validation report listing any violated constraints.
+
+---
+
+#### `validateAllLinks()`
+
+Runs `validateLink` on every `annotationLink` record in the system. Returns a list of invalid links with their violation details. Intended for data integrity audits and post-migration verification.
+
+---
+
+#### `deleteOrphanedGeometries()`
+
+Deletes all `annotationGeometry` elements not referenced by any `annotationLink`. Updates affected scene annotation indexes. Safe to invoke during maintenance windows after bulk deletions.
+
+---
+
+#### `deleteOrphanedData()`
+
+Deletes all `annotationData` elements not referenced by any `annotationLink`. Both global (`privateToScene == null`) and scene-private (`privateToScene != null`) unreferenced records are eligible for deletion.
+
+---
+
+#### `onSceneDeletion(sceneId)`
+
+Handles all cascading cleanup when a scene is deleted.
+
+**Sequence:**
+
+1. Remove the scene annotation index.
+2. Find all `annotationGeometry` elements with `referenceType == "scene"` and `referenceData == sceneId`.
+3. For each such geometry, invoke `deleteAnnotationLinkShallow` or `deleteAnnotationLinkDeep` on all associated links, according to the configured deletion policy.
+4. Invoke `deleteAnnotationGeometry` for each geometry identified in step 2.
+5. Find all `annotationData` elements with `privateToScene == sceneId` that are no longer referenced by any `annotationLink` and delete them.
+6. Remove from all other scene annotation indexes any `annotationGeometry` id that was deleted in step 4.
+
+> **Note:** `annotationGeometry` elements with `referenceType == "asset"` are not affected by scene deletion; they remain valid in all other scenes containing the same asset.
+
+---
+
+#### `onAssetDeletion(assetId)`
+
+Handles all cascading cleanup when a digital asset is deleted.
+
+**Sequence:**
+
+1. Find all `annotationGeometry` elements with `referenceType == "asset"` and `referenceData == assetId`.
+2. For each such geometry, resolve and delete all associated `annotationLink` records (shallow or deep, according to policy).
+3. Invoke `deleteAnnotationGeometry` for each geometry identified in step 1.
+4. Update all scene annotation indexes that referenced those geometries.
+
+---
+
+### Aggregation and analytical operations
+
+#### `countAnnotationsByClass(sceneId?)`
+
+Returns a frequency map of annotation counts grouped by `annotationData.class`. Optionally scoped to a scene. Useful for dashboards, statistics, and annotation coverage reports.
+
+---
+
+#### `getAnnotationHistory(dataId)`
+
+Returns the audit trail for a given `annotationData` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Intended for provenance and workflow tracking.
+
+---
+
+#### `getGeometryHistory(geometryId)`
+
+Returns the audit trail for a given `annotationGeometry` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+
+---
+
+#### `exportAnnotationsForScene(sceneId, format?)`
+
+Exports all annotations visible in a given scene as a structured document (e.g. JSON or CSV). Includes resolved geometry, data, and link records. Useful for reporting, archiving, or interoperability with external tools.
+
+---
+
+#### `importAnnotations(payload, sceneId?)`
+
+Imports a structured set of annotation records (geometry, data, links) into the system, validating all invariants before persisting. Optionally scopes the import to a specific scene. Returns a summary of imported, skipped, and rejected records.
+
+---
+
+## Typical Access Patterns
+
+- Retrieving all annotations visible in a given scene
+- Retrieving all annotations associated with a given digital asset
+- Retrieving a single annotation by `annotationLink` identifier
+- Filtering annotations by class within a scene
+- Searching annotations by label or free-text description
+- Finding all data records associated with a given geometry node
+- Finding all geometry nodes associated with a given data record
+- Identifying orphaned geometries and data after bulk deletions
+- Validating referential integrity and invariants after import or migration
+- Rebuilding scene annotation indexes after a crash or migration
+- Exporting all annotations for a scene for external reporting
+- Traversing the annotation graph to display hierarchical or sequential structures
 
 ---
