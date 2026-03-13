@@ -43,49 +43,6 @@ interface DublinCoreMetadata {
   rights?: string;
 }
 
-interface CidocCrmMetadata {
-  objectType?: string;
-  temporalCoverage?: {
-    timeSpanBegin?: string;
-    timeSpanEnd?: string;
-    period?: string;
-    century?: string;
-  };
-  spatialCoverage?: {
-    placeName?: string;
-    coordinates?: {
-      latitude: number;
-      longitude: number;
-      elevation?: number;
-    };
-    geonames?: string;
-  };
-  material?: string[];
-  technique?: string[];
-  condition?: string;
-  conservationHistory?: string;
-  culturalContext?: string[];
-  styleOrPeriod?: string[];
-}
-
-interface GettyAATTerms {
-  materials?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-  techniques?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-  objectTypes?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-}
-
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
 
 interface DigitalAsset {
@@ -124,9 +81,9 @@ interface HDTMetadata {
     sourceUri?: string;
     sourceType?: 'echoes' | 'wikidata' | 'arco' | 'other';
     dublinCore: DublinCoreMetadata;
-    cidocCrm: CidocCrmMetadata;
+    cidocCrm?: Record<string, unknown>;
   };
-  gettyAAT: GettyAATTerms;
+  gettyAAT?: Record<string, unknown>;
 
   digitalAssets?: DigitalAsset[];
   scenes?: SceneConfig[];
@@ -172,21 +129,6 @@ export default function HDTPage() {
   const [dcCoverage, setDcCoverage] = useState('');
   const [dcRights, setDcRights] = useState('');
   const [dcSource, setDcSource] = useState('');
-
-  // Form state for CIDOC-CRM
-  const [objectType, setObjectType] = useState('');
-  const [timeSpanBegin, setTimeSpanBegin] = useState('');
-  const [timeSpanEnd, setTimeSpanEnd] = useState('');
-  const [period, setPeriod] = useState('');
-  const [century, setCentury] = useState('');
-  const [placeName, setPlaceName] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
-  const [material, setMaterial] = useState('');
-  const [technique, setTechnique] = useState('');
-  const [condition, setCondition] = useState('');
-  const [culturalContext, setCulturalContext] = useState('');
-  const [styleOrPeriod, setStyleOrPeriod] = useState('');
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -447,7 +389,6 @@ export default function HDTPage() {
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
     const dublinCore = meta.physicalObjectMetadata?.dublinCore;
-    const cidocCrm = meta.physicalObjectMetadata?.cidocCrm;
 
     // Dublin Core
     if (dublinCore) {
@@ -461,23 +402,6 @@ export default function HDTPage() {
       setDcCoverage(dublinCore.coverage || '');
       setDcRights(dublinCore.rights || '');
       setDcSource(dublinCore.source || '');
-    }
-
-    // CIDOC-CRM
-    if (cidocCrm) {
-      setObjectType(cidocCrm.objectType || '');
-      setTimeSpanBegin(cidocCrm.temporalCoverage?.timeSpanBegin || '');
-      setTimeSpanEnd(cidocCrm.temporalCoverage?.timeSpanEnd || '');
-      setPeriod(cidocCrm.temporalCoverage?.period || '');
-      setCentury(cidocCrm.temporalCoverage?.century || '');
-      setPlaceName(cidocCrm.spatialCoverage?.placeName || '');
-      setLatitude(cidocCrm.spatialCoverage?.coordinates?.latitude?.toString() || '');
-      setLongitude(cidocCrm.spatialCoverage?.coordinates?.longitude?.toString() || '');
-      setMaterial((cidocCrm.material || []).join(', '));
-      setTechnique((cidocCrm.technique || []).join(', '));
-      setCondition(cidocCrm.condition || '');
-      setCulturalContext((cidocCrm.culturalContext || []).join(', '));
-      setStyleOrPeriod((cidocCrm.styleOrPeriod || []).join(', '));
     }
   };
 
@@ -514,26 +438,7 @@ export default function HDTPage() {
             rights: dcRights || undefined,
             source: dcSource || undefined,
           },
-          cidocCrm: {
-            objectType: objectType || undefined,
-            temporalCoverage: {
-              timeSpanBegin: timeSpanBegin || undefined,
-              timeSpanEnd: timeSpanEnd || undefined,
-              period: period || undefined,
-              century: century || undefined,
-            },
-            spatialCoverage: {
-              placeName: placeName || undefined,
-              coordinates: (latitude && longitude)
-                ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) }
-                : undefined,
-            },
-            material: material ? material.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            technique: technique ? technique.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            condition: condition || undefined,
-            culturalContext: culturalContext ? culturalContext.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            styleOrPeriod: styleOrPeriod ? styleOrPeriod.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-          },
+          cidocCrm: metadata?.physicalObjectMetadata?.cidocCrm,
         },
         gettyAAT: {},
         digitalAssets: digitalAssets.length > 0 ? digitalAssets : undefined,
@@ -580,8 +485,6 @@ export default function HDTPage() {
   }, [
     projectId,
     dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, dcCoverage, dcRights, dcSource,
-    objectType, timeSpanBegin, timeSpanEnd, period, century, placeName, latitude, longitude,
-    material, technique, condition, culturalContext, styleOrPeriod,
     digitalAssets, scenes,
     metadata,
   ]);
