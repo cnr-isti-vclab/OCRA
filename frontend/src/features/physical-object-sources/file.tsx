@@ -1,10 +1,9 @@
 import * as N3 from 'n3';
 import type {
-  OntologyMappingResult,
-  PhysicalObjectMetadataRecord,
   PhysicalObjectSourceAdapter,
   PhysicalObjectSourceFormProps,
 } from './types';
+import { DefaultMetadataView, defaultMapToHdtOntology, asText, getSourceRecordField } from './shared';
 
 export interface FileFormState {
   file: File | null;
@@ -66,17 +65,6 @@ function extractDublinCoreFromQuads(quads: N3.Quad[]): Record<string, unknown> {
   }
 
   return dublinCore;
-}
-
-function asText(value: unknown): string {
-  if (Array.isArray(value)) return value.map((v) => asText(v)).filter(Boolean).join(', ');
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object') {
-    const r = value as Record<string, unknown>;
-    if (typeof r['@value'] === 'string') return r['@value'];
-    if (typeof r.value === 'string') return r.value;
-  }
-  return '';
 }
 
 function FileImportForm({
@@ -147,33 +135,10 @@ function FileImportForm({
   );
 }
 
-function FileMetadataView({ metadata }: { metadata: PhysicalObjectMetadataRecord | null }) {
-  if (!metadata) {
-    return <div className="text-muted">No imported metadata available.</div>;
-  }
-  const dc = metadata.dublinCore as Record<string, unknown> | undefined;
-  const sr = metadata.sourceRecord as Record<string, unknown> | undefined;
-  const field = (key: string) => asText(dc?.[key]) || '-';
-
+function FileMetadataView({ metadata }: { metadata: import('./types').PhysicalObjectMetadataRecord | null }) {
+  const sr = metadata?.sourceRecord as Record<string, unknown> | undefined;
   return (
-    <div>
-      <h6 className="mb-2">Dublin Core (Read-only)</h6>
-      <div className="table-responsive mb-3">
-        <table className="table table-sm align-middle">
-          <tbody>
-            <tr><th>Title</th><td>{field('title')}</td></tr>
-            <tr><th>Description</th><td>{field('description')}</td></tr>
-            <tr><th>Creator</th><td>{field('creator')}</td></tr>
-            <tr><th>Subject</th><td>{field('subject')}</td></tr>
-            <tr><th>Date</th><td>{field('date')}</td></tr>
-            <tr><th>Type</th><td>{field('type')}</td></tr>
-            <tr><th>Identifier</th><td>{field('identifier')}</td></tr>
-            <tr><th>Coverage</th><td>{field('coverage')}</td></tr>
-            <tr><th>Rights</th><td>{field('rights')}</td></tr>
-            <tr><th>Source</th><td>{field('source')}</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <DefaultMetadataView metadata={metadata}>
       <h6 className="mb-2">Import Record</h6>
       <ul className="list-group list-group-flush border rounded">
         <li className="list-group-item d-flex justify-content-between">
@@ -182,43 +147,15 @@ function FileMetadataView({ metadata }: { metadata: PhysicalObjectMetadataRecord
         </li>
         <li className="list-group-item d-flex justify-content-between">
           <span>Quad count</span>
-          <span>{asText(sr?.quadCount) || '-'}</span>
+          <span>{getSourceRecordField(metadata, 'quadCount') || '-'}</span>
         </li>
         <li className="list-group-item d-flex justify-content-between">
           <span>Imported At</span>
-          <span>{asText(sr?.importedAt) || '-'}</span>
+          <span>{getSourceRecordField(metadata, 'importedAt') || '-'}</span>
         </li>
       </ul>
-    </div>
+    </DefaultMetadataView>
   );
-}
-
-function mapFileToHdtOntology(metadata: PhysicalObjectMetadataRecord | null): OntologyMappingResult {
-  const triples: OntologyMappingResult['triples'] = [];
-  const dc = metadata?.dublinCore as Record<string, unknown> | undefined;
-  const push = (predicate: string, key: string) => {
-    const v = asText(dc?.[key]);
-    if (v) triples.push({ predicate, value: v });
-  };
-
-  triples.push({ predicate: 'rdf:type', value: 'hdt:HC1' });
-  push('dc:title', 'title');
-  push('dc:description', 'description');
-  push('dc:creator', 'creator');
-  push('dc:subject', 'subject');
-  push('dc:date', 'date');
-  push('dc:type', 'type');
-  push('dc:identifier', 'identifier');
-  push('dc:coverage', 'coverage');
-  push('dc:rights', 'rights');
-  push('dc:source', 'source');
-
-  return {
-    classId: 'HC1',
-    sourceType: 'file',
-    triples,
-    notes: ['Mapping is generated from Dublin Core fields extracted from the uploaded RDF file.'],
-  };
 }
 
 export const fileSourceAdapter: PhysicalObjectSourceAdapter<FileFormState> = {
@@ -252,5 +189,5 @@ export const fileSourceAdapter: PhysicalObjectSourceAdapter<FileFormState> = {
     };
   },
   MetadataView: FileMetadataView,
-  mapToHdtOntology: mapFileToHdtOntology,
+  mapToHdtOntology: (m) => defaultMapToHdtOntology(m, 'file', ['Mapping is generated from Dublin Core fields extracted from the uploaded RDF file.']),
 };

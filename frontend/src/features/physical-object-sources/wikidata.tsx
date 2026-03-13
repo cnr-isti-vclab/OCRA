@@ -1,9 +1,8 @@
 import type {
-  OntologyMappingResult,
-  PhysicalObjectMetadataRecord,
   PhysicalObjectSourceAdapter,
   PhysicalObjectSourceFormProps,
 } from './types';
+import { DefaultMetadataView, defaultMapToHdtOntology, getSourceRecordField } from './shared';
 
 const DEFAULT_WIKIDATA_SOURCE = 'https://reasonator.toolforge.org/?q=Q24628970';
 const DEFAULT_WIKIDATA_LANGUAGES = 'it,en';
@@ -19,38 +18,6 @@ function readSource(state: WikidataFormState | null | undefined): string {
 
 function readLanguages(state: WikidataFormState | null | undefined): string {
   return typeof state?.languages === 'string' ? state.languages : '';
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asText(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.map((entry) => asText(entry)).filter(Boolean).join(', ');
-  }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record['@value'] === 'string') return record['@value'];
-    if (typeof record.value === 'string') return record.value;
-  }
-
-  return '';
-}
-
-function getDublinCoreField(metadata: PhysicalObjectMetadataRecord | null, key: string): string {
-  const dublinCore = metadata?.dublinCore as Record<string, unknown> | undefined;
-  return asText(dublinCore?.[key]);
-}
-
-function getSourceRecordField(metadata: PhysicalObjectMetadataRecord | null, key: string): string {
-  const sourceRecord = metadata?.sourceRecord as Record<string, unknown> | undefined;
-  return asText(sourceRecord?.[key]);
 }
 
 function WikidataImportForm({
@@ -104,46 +71,9 @@ function WikidataImportForm({
   );
 }
 
-function WikidataMetadataView({ metadata }: { metadata: PhysicalObjectMetadataRecord | null }) {
-  if (!metadata) {
-    return <div className="text-muted">No imported metadata available.</div>;
-  }
-
+function WikidataMetadataView({ metadata }: { metadata: import('./types').PhysicalObjectMetadataRecord | null }) {
   return (
-    <div>
-      <div className="row g-3 mb-3">
-        <div className="col-md-6">
-          <div className="border rounded p-3 h-100">
-            <div className="text-muted small">Source Type</div>
-            <div className="fw-semibold">{asString(metadata.sourceType) || 'wikidata'}</div>
-          </div>
-        </div>
-        <div className="col-md-6">
-          <div className="border rounded p-3 h-100">
-            <div className="text-muted small">Source URI</div>
-            <code className="text-break">{asString(metadata.sourceUri) || '-'}</code>
-          </div>
-        </div>
-      </div>
-
-      <h6 className="mb-2">Dublin Core (Read-only)</h6>
-      <div className="table-responsive mb-3">
-        <table className="table table-sm align-middle">
-          <tbody>
-            <tr><th>Title</th><td>{getDublinCoreField(metadata, 'title') || '-'}</td></tr>
-            <tr><th>Description</th><td>{getDublinCoreField(metadata, 'description') || '-'}</td></tr>
-            <tr><th>Creator</th><td>{getDublinCoreField(metadata, 'creator') || '-'}</td></tr>
-            <tr><th>Subject</th><td>{getDublinCoreField(metadata, 'subject') || '-'}</td></tr>
-            <tr><th>Date</th><td>{getDublinCoreField(metadata, 'date') || '-'}</td></tr>
-            <tr><th>Type</th><td>{getDublinCoreField(metadata, 'type') || '-'}</td></tr>
-            <tr><th>Identifier</th><td>{getDublinCoreField(metadata, 'identifier') || '-'}</td></tr>
-            <tr><th>Coverage</th><td>{getDublinCoreField(metadata, 'coverage') || '-'}</td></tr>
-            <tr><th>Rights</th><td>{getDublinCoreField(metadata, 'rights') || '-'}</td></tr>
-            <tr><th>Source</th><td>{getDublinCoreField(metadata, 'source') || '-'}</td></tr>
-          </tbody>
-        </table>
-      </div>
-
+    <DefaultMetadataView metadata={metadata}>
       <h6 className="mb-2">Import Record</h6>
       <ul className="list-group list-group-flush border rounded">
         <li className="list-group-item d-flex justify-content-between">
@@ -163,37 +93,8 @@ function WikidataMetadataView({ metadata }: { metadata: PhysicalObjectMetadataRe
           <span>{getSourceRecordField(metadata, 'importedAt') || '-'}</span>
         </li>
       </ul>
-    </div>
+    </DefaultMetadataView>
   );
-}
-
-function mapWikidataToHdtOntology(metadata: PhysicalObjectMetadataRecord | null): OntologyMappingResult {
-  const triples: OntologyMappingResult['triples'] = [];
-
-  const pushTriple = (predicate: string, value: string) => {
-    if (value) {
-      triples.push({ predicate, value });
-    }
-  };
-
-  pushTriple('rdf:type', 'hdt:HC1');
-  pushTriple('dc:title', getDublinCoreField(metadata, 'title'));
-  pushTriple('dc:description', getDublinCoreField(metadata, 'description'));
-  pushTriple('dc:creator', getDublinCoreField(metadata, 'creator'));
-  pushTriple('dc:subject', getDublinCoreField(metadata, 'subject'));
-  pushTriple('dc:date', getDublinCoreField(metadata, 'date'));
-  pushTriple('dc:type', getDublinCoreField(metadata, 'type'));
-  pushTriple('dc:identifier', getDublinCoreField(metadata, 'identifier'));
-  pushTriple('dc:coverage', getDublinCoreField(metadata, 'coverage'));
-  pushTriple('dc:rights', getDublinCoreField(metadata, 'rights'));
-  pushTriple('dc:source', getDublinCoreField(metadata, 'source') || asString(metadata?.sourceUri));
-
-  return {
-    classId: 'HC1',
-    sourceType: 'wikidata',
-    triples,
-    notes: ['Mapping is generated from cached Dublin Core fields extracted from Wikidata EntityData.'],
-  };
 }
 
 export const wikidataSourceAdapter: PhysicalObjectSourceAdapter<WikidataFormState> = {
@@ -223,5 +124,5 @@ export const wikidataSourceAdapter: PhysicalObjectSourceAdapter<WikidataFormStat
     };
   },
   MetadataView: WikidataMetadataView,
-  mapToHdtOntology: mapWikidataToHdtOntology,
+  mapToHdtOntology: (m) => defaultMapToHdtOntology(m, 'wikidata', ['Mapping is generated from cached Dublin Core fields extracted from Wikidata EntityData.']),
 };

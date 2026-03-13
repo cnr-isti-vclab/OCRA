@@ -1,9 +1,8 @@
 import type {
-  OntologyMappingResult,
-  PhysicalObjectMetadataRecord,
   PhysicalObjectSourceAdapter,
   PhysicalObjectSourceFormProps,
 } from './types';
+import { DefaultMetadataView, defaultMapToHdtOntology, getSourceRecordField } from './shared';
 
 const DEFAULT_ARCO_CATALOG_ID = '0901078520';
 const DEFAULT_ARCO_RESOURCE_BASE =
@@ -22,31 +21,6 @@ function readCatalogId(state: ArcoFormState | null | undefined): string {
 
 function readEndpoint(state: ArcoFormState | null | undefined): string {
   return typeof state?.endpoint === 'string' ? state.endpoint : '';
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asText(value: unknown): string {
-  if (Array.isArray(value)) return value.map((entry) => asText(entry)).filter(Boolean).join(', ');
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record['@value'] === 'string') return record['@value'];
-    if (typeof record['@id'] === 'string') return record['@id'];
-  }
-  return '';
-}
-
-function getDublinCoreField(metadata: PhysicalObjectMetadataRecord | null, key: string): string {
-  const dublinCore = metadata?.dublinCore as Record<string, unknown> | undefined;
-  return asText(dublinCore?.[key]);
-}
-
-function getSourceRecordField(metadata: PhysicalObjectMetadataRecord | null, key: string): string {
-  const sourceRecord = metadata?.sourceRecord as Record<string, unknown> | undefined;
-  return asText(sourceRecord?.[key]);
 }
 
 function buildArcoEndpoint(catalogId: string): string {
@@ -116,46 +90,9 @@ function ArcoImportForm({
   );
 }
 
-function ArcoMetadataView({ metadata }: { metadata: PhysicalObjectMetadataRecord | null }) {
-  if (!metadata) {
-    return <div className="text-muted">No imported metadata available.</div>;
-  }
-
+function ArcoMetadataView({ metadata }: { metadata: import('./types').PhysicalObjectMetadataRecord | null }) {
   return (
-    <div>
-      <div className="row g-3 mb-3">
-        <div className="col-md-6">
-          <div className="border rounded p-3 h-100">
-            <div className="text-muted small">Source Type</div>
-            <div className="fw-semibold">{asString(metadata.sourceType) || 'arco'}</div>
-          </div>
-        </div>
-        <div className="col-md-6">
-          <div className="border rounded p-3 h-100">
-            <div className="text-muted small">Source URI</div>
-            <code className="text-break">{asString(metadata.sourceUri) || '-'}</code>
-          </div>
-        </div>
-      </div>
-
-      <h6 className="mb-2">Dublin Core (Read-only)</h6>
-      <div className="table-responsive mb-3">
-        <table className="table table-sm align-middle">
-          <tbody>
-            <tr><th>Title</th><td>{getDublinCoreField(metadata, 'title') || '-'}</td></tr>
-            <tr><th>Description</th><td>{getDublinCoreField(metadata, 'description') || '-'}</td></tr>
-            <tr><th>Creator</th><td>{getDublinCoreField(metadata, 'creator') || '-'}</td></tr>
-            <tr><th>Subject</th><td>{getDublinCoreField(metadata, 'subject') || '-'}</td></tr>
-            <tr><th>Date</th><td>{getDublinCoreField(metadata, 'date') || '-'}</td></tr>
-            <tr><th>Type</th><td>{getDublinCoreField(metadata, 'type') || '-'}</td></tr>
-            <tr><th>Identifier</th><td>{getDublinCoreField(metadata, 'identifier') || '-'}</td></tr>
-            <tr><th>Coverage</th><td>{getDublinCoreField(metadata, 'coverage') || '-'}</td></tr>
-            <tr><th>Rights</th><td>{getDublinCoreField(metadata, 'rights') || '-'}</td></tr>
-            <tr><th>Source</th><td>{getDublinCoreField(metadata, 'source') || '-'}</td></tr>
-          </tbody>
-        </table>
-      </div>
-
+    <DefaultMetadataView metadata={metadata}>
       <h6 className="mb-2">Import Record</h6>
       <ul className="list-group list-group-flush border rounded">
         <li className="list-group-item d-flex justify-content-between">
@@ -175,44 +112,8 @@ function ArcoMetadataView({ metadata }: { metadata: PhysicalObjectMetadataRecord
           <span>{getSourceRecordField(metadata, 'importedAt') || '-'}</span>
         </li>
       </ul>
-
-      <div className="border rounded p-3 bg-light mt-3">
-        <small className="text-muted d-block mb-2">Raw metadata (debug)</small>
-        <pre className="mb-0 small">{JSON.stringify(metadata, null, 2)}</pre>
-      </div>
-    </div>
+    </DefaultMetadataView>
   );
-}
-
-function mapArcoToHdtOntology(metadata: PhysicalObjectMetadataRecord | null): OntologyMappingResult {
-  const pushTriple = (triples: OntologyMappingResult['triples'], predicate: string, value: string) => {
-    if (value) {
-      triples.push({ predicate, value });
-    }
-  };
-
-  const triples: OntologyMappingResult['triples'] = [];
-
-  pushTriple(triples, 'rdf:type', 'hdt:HC1');
-  pushTriple(triples, 'dc:title', getDublinCoreField(metadata, 'title'));
-  pushTriple(triples, 'dc:description', getDublinCoreField(metadata, 'description'));
-  pushTriple(triples, 'dc:creator', getDublinCoreField(metadata, 'creator'));
-  pushTriple(triples, 'dc:subject', getDublinCoreField(metadata, 'subject'));
-  pushTriple(triples, 'dc:date', getDublinCoreField(metadata, 'date'));
-  pushTriple(triples, 'dc:type', getDublinCoreField(metadata, 'type'));
-  pushTriple(triples, 'dc:identifier', getDublinCoreField(metadata, 'identifier'));
-  pushTriple(triples, 'dc:source', getDublinCoreField(metadata, 'source') || asString(metadata?.sourceUri));
-  pushTriple(triples, 'dc:coverage', getDublinCoreField(metadata, 'coverage'));
-  pushTriple(triples, 'dc:rights', getDublinCoreField(metadata, 'rights'));
-
-  return {
-    classId: 'HC1',
-    sourceType: 'arco',
-    triples,
-    notes: [
-      'Mapping is generated from cached Dublin Core fields extracted from ARCO JSON-LD records.',
-    ],
-  };
 }
 
 export const arcoSourceAdapter: PhysicalObjectSourceAdapter<ArcoFormState> = {
@@ -240,5 +141,5 @@ export const arcoSourceAdapter: PhysicalObjectSourceAdapter<ArcoFormState> = {
     };
   },
   MetadataView: ArcoMetadataView,
-  mapToHdtOntology: mapArcoToHdtOntology,
+  mapToHdtOntology: (m) => defaultMapToHdtOntology(m, 'arco', ['Mapping is generated from cached Dublin Core fields extracted from ARCO JSON-LD records.']),
 };
