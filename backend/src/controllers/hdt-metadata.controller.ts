@@ -287,12 +287,14 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       });
     }
 
-    // Validate project existence
+    // Get project details to initialize metadata
     const prisma = getPrismaClient();
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: {
-        id: true
+        id: true,
+        name: true,
+        description: true
       }
     });
 
@@ -313,7 +315,10 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       });
     }
 
-    const defaultMetadata = defaultPhysicalObjectMetadata(projectId);
+    const defaultMetadata = defaultPhysicalObjectMetadata(projectId, {
+      title: project.name,
+      description: project.description || undefined
+    });
     const initialMetadata = mergePhysicalObjectMetadata(defaultMetadata, metadataPatch);
 
     console.log('HDT CREATE: initialMetadata:', JSON.stringify(initialMetadata, null, 2));
@@ -458,7 +463,9 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
       const project = await prisma.project.findUnique({
         where: { id: projectId },
         select: {
-          id: true
+          id: true,
+          name: true,
+          description: true
         }
       });
 
@@ -466,7 +473,10 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
         return res.status(404).json({ error: 'Project not found' });
       }
 
-      const defaults = defaultPhysicalObjectMetadata(projectId);
+      const defaults = defaultPhysicalObjectMetadata(projectId, {
+        title: project.name,
+        description: project.description || undefined
+      });
       const initialMetadata = mergePhysicalObjectMetadata(defaults, importPatch);
 
       const createdDocument = await createHDTDocument(projectId, currentUser.sub, initialMetadata);
