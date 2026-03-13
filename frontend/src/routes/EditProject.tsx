@@ -2,73 +2,11 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
-import * as N3 from 'n3';
 import {
   getPhysicalObjectSourceAdapter,
   physicalObjectSourceAdapters,
   type PhysicalObjectSourceType,
 } from '../features/physical-object-sources';
-
-/**
- * Extract Dublin Core metadata from RDF quads
- * @param quads Array of N3 Quads
- * @returns Dublin Core metadata object
- */
-function extractDublinCoreFromQuads(quads: N3.Quad[]): any {
-  const getValue = (term: N3.Term | null): string => {
-    if (!term) return '';
-    return term.value;
-  };
-  
-  const dcNamespace = 'http://purl.org/dc/elements/1.1/';
-  const foafNamespace = 'http://xmlns.com/foaf/0.1/';
-  const dublinCore: any = {};
-  const creatorNodes = new Set<string>();
-  
-  // First pass: extract Dublin Core properties
-  for (const quad of quads) {
-    const p = quad.predicate.value;
-    if (p === dcNamespace + 'title') {
-      dublinCore.title = getValue(quad.object);
-    } else if (p === dcNamespace + 'creator') {
-      if (quad.object.termType === 'NamedNode' || quad.object.termType === 'BlankNode') {
-        creatorNodes.add(quad.object.value);
-      } else {
-        dublinCore.creator = getValue(quad.object);
-      }
-    } else if (p === dcNamespace + 'date') {
-      dublinCore.date = getValue(quad.object);
-    } else if (p === dcNamespace + 'description') {
-      dublinCore.description = getValue(quad.object);
-    } else if (p === dcNamespace + 'coverage') {
-      dublinCore.coverage = getValue(quad.object);
-    } else if (p === dcNamespace + 'rights') {
-      dublinCore.rights = getValue(quad.object);
-    } else if (p === dcNamespace + 'identifier') {
-      dublinCore.identifier = getValue(quad.object);
-    } else if (p === dcNamespace + 'subject') {
-      dublinCore.subject = getValue(quad.object);
-    } else if (p === dcNamespace + 'type') {
-      dublinCore.type = getValue(quad.object);
-    } else if (p === dcNamespace + 'language') {
-      dublinCore.language = getValue(quad.object);
-    } else if (p === dcNamespace + 'source') {
-      dublinCore.source = getValue(quad.object);
-    }
-  }
-  
-  // Second pass: resolve creator names from foaf:name
-  if (creatorNodes.size > 0 && !dublinCore.creator) {
-    for (const quad of quads) {
-      if (creatorNodes.has(quad.subject.value) && quad.predicate.value === foafNamespace + 'name') {
-        dublinCore.creator = getValue(quad.object);
-        break;
-      }
-    }
-  }
-  
-  return dublinCore;
-}
 
 async function importPhysicalObjectMetadataViaBackend(
   projectId: string,
@@ -150,7 +88,6 @@ export default function EditProject() {
   const [error, setError] = useState<string | null>(null);
   const [hasHdt, setHasHdt] = useState<boolean | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importMode, setImportMode] = useState<'file' | 'source'>('source');
   const [selectedSourceType, setSelectedSourceType] = useState<PhysicalObjectSourceType>('echoes');
   const [sourceFormState, setSourceFormState] = useState<any>(() => {
     const adapter = getPhysicalObjectSourceAdapter('echoes');
@@ -919,30 +856,8 @@ export default function EditProject() {
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">
-                {/* Tab Navigation */}
-                <ul className="nav nav-tabs mb-3" role="tablist">
-                  <li className="nav-item" role="presentation">
-                    <button
-                      className={`nav-link ${importMode === 'source' ? 'active' : ''}`}
-                      onClick={() => setImportMode('source')}
-                      type="button"
-                    >
-                      Source Adapter
-                    </button>
-                  </li>
-                  <li className="nav-item" role="presentation">
-                    <button
-                      className={`nav-link ${importMode === 'file' ? 'active' : ''}`}
-                      onClick={() => setImportMode('file')}
-                      type="button"
-                    >
-                      Upload File
-                    </button>
-                  </li>
-                </ul>
-
-                {/* Source Adapter Tab */}
-                {importMode === 'source' && (() => {
+                {/* Source Adapter */}
+                {(() => {
                   const selectedSourceAdapter = getPhysicalObjectSourceAdapter(selectedSourceType);
                   if (!selectedSourceAdapter) {
                     return (
@@ -995,91 +910,6 @@ export default function EditProject() {
                     </div>
                   );
                 })()}
-
-                {/* File Upload Tab */}
-                {importMode === 'file' && (
-                  <div>
-                    <div className="mb-3">
-                      <label htmlFor="hdtRdfFile" className="form-label">Upload RDF file</label>
-                      <input
-                        type="file"
-                        id="hdtRdfFile"
-                        accept=".json,.jsonld,.rdf,.ttl,.txt,application/json,application/ld+json"
-                        className="form-control"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      try {
-                        const text = await file.text();
-                        
-                        // Parse RDF using N3 (supports JSON-LD, Turtle, RDF/XML, N-Triples)
-                        const parser = new N3.Parser();
-                        const quads: N3.Quad[] = [];
-                        
-                        await new Promise<void>((resolve, reject) => {
-                          parser.parse(text, (error, quad, prefixes) => {
-                            if (error) {
-                              reject(error);
-                              return;
-                            }
-                            if (quad) {
-                              quads.push(quad);
-                            } else {
-                              // Parsing complete
-                              resolve();
-                            }
-                          });
-                        });
-                        
-                        if (quads.length === 0) {
-                          alert('No RDF data found in file. Please check the format.');
-                          return;
-                        }
-                        
-                        const dublinCore = extractDublinCoreFromQuads(quads);
-
-                        if (!projectId) {
-                          throw new Error('Missing projectId');
-                        }
-
-                        const sourceUri =
-                          typeof dublinCore.source === 'string' && dublinCore.source.trim().length > 0
-                            ? dublinCore.source.trim()
-                            : `urn:ocra:project:${projectId}:file-import:${file.name}`;
-
-                        await importPhysicalObjectMetadataViaBackend(projectId, 'other', sourceUri, {
-                          dublinCore,
-                          sourceRecord: {
-                            importedFrom: 'rdf-file',
-                            fileName: file.name,
-                            quadCount: quads.length,
-                            importedAt: new Date().toISOString()
-                          }
-                        });
-
-                        setShowImportModal(false);
-                        setHasHdt(true); // Update state so button disappears
-                        
-                        // Update project name with dc:title from RDF
-                        if (dublinCore.title) {
-                          setName(dublinCore.title);
-                        }
-                        
-                        // Show success message
-                        alert('✅ RDF imported successfully!\n\nThe Dublin Core metadata has been saved.\nThe project title field has been updated with the dc:title from the RDF file.\n\nYou can now save the project settings or navigate to the HDT page to view all imported metadata.');
-                      } catch (err: any) {
-                        console.error('❌ Import error:', err);
-                        alert('Error importing RDF: ' + (err?.message || String(err)));
-                      }
-                    }}
-                  />
-                  <div className="form-text">Supported: JSON-LD, Turtle, RDF/XML, N-Triples</div>
-                </div>
-                <div className="alert alert-info">
-                  Upload an RDF file to import Dublin Core metadata via the generic <code>other</code> source path.
-                </div>
-              </div>
-            )}
           </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>Close</button>

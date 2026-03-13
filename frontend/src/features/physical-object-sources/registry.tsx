@@ -1,5 +1,6 @@
 import { arcoSourceAdapter } from './arco';
 import { echoesSourceAdapter } from './echoes';
+import { fileSourceAdapter } from './file';
 import { wikidataSourceAdapter } from './wikidata';
 import type {
   PhysicalObjectSourceAdapter,
@@ -17,12 +18,14 @@ export const physicalObjectSourceAdapters: PhysicalObjectSourceAdapter[] = [
   echoesSourceAdapter,
   arcoSourceAdapter,
   wikidataSourceAdapter,
+  fileSourceAdapter,
 ];
 
 const adaptersByType: Record<PhysicalObjectSourceType, PhysicalObjectSourceAdapter> = {
   echoes: echoesSourceAdapter,
   arco: arcoSourceAdapter,
   wikidata: wikidataSourceAdapter,
+  file: fileSourceAdapter,
 };
 
 export function isKnownPhysicalObjectSourceType(value: unknown): value is PhysicalObjectSourceType {
