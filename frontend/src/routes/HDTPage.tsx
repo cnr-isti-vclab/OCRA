@@ -146,7 +146,7 @@ export default function HDTPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes' | 'cidoc-crm'>('dublin-core');
+  const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
 
   // Digital Assets state
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
@@ -824,7 +824,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('assets')}
                 type="button"
               >
-                Digital Asset - HC2 Heritage Digital Twin
+                HC2 Digital Asset
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -834,15 +834,6 @@ export default function HDTPage() {
                 type="button"
               >
                 🎬 Scenes
-              </button>
-            </li>
-            <li className="nav-item" role="presentation">
-              <button
-                className={`nav-link ${activeTab === 'cidoc-crm' ? 'active' : ''}`}
-                onClick={() => setActiveTab('cidoc-crm')}
-                type="button"
-              >
-                🏛️ CIDOC-CRM
               </button>
             </li>
           </ul>
@@ -1565,205 +1556,6 @@ export default function HDTPage() {
             </div>
           )}
 
-          {/* CIDOC-CRM Tab */}
-          {activeTab === 'cidoc-crm' && (
-            <div>
-              <h5 className="mb-3">CIDOC-CRM Cultural Heritage Properties</h5>
-              <p className="text-muted small mb-4">
-                Structured metadata for cultural heritage objects using CIDOC Conceptual Reference Model.
-              </p>
-
-              <div className="mb-4">
-                <h6 className="text-primary">Object Information</h6>
-                <div className="mb-3">
-                  <label htmlFor="object-type" className="form-label">Object Type</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="object-type"
-                    value={objectType}
-                    onChange={(e) => setObjectType(e.target.value)}
-                    placeholder="e.g., Sculpture, Painting, Artifact"
-                  />
-                  <small className="form-text text-muted">crm:E73_Information_Object type</small>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h6 className="text-primary">Temporal Coverage</h6>
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="time-begin" className="form-label">Time Span Begin</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      id="time-begin"
-                      value={timeSpanBegin}
-                      onChange={(e) => setTimeSpanBegin(e.target.value)}
-                    />
-                    <small className="form-text text-muted">crm:P82a_begin_of_the_begin</small>
-                  </div>
-
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="time-end" className="form-label">Time Span End</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      id="time-end"
-                      value={timeSpanEnd}
-                      onChange={(e) => setTimeSpanEnd(e.target.value)}
-                    />
-                    <small className="form-text text-muted">crm:P82b_end_of_the_end</small>
-                  </div>
-                </div>
-
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="period" className="form-label">Period</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="period"
-                      value={period}
-                      onChange={(e) => setPeriod(e.target.value)}
-                      placeholder="e.g., Renaissance, Baroque, Medieval"
-                    />
-                    <small className="form-text text-muted">Named historical period</small>
-                  </div>
-
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="century" className="form-label">Century</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="century"
-                      value={century}
-                      onChange={(e) => setCentury(e.target.value)}
-                      placeholder="e.g., 16th century, 1500s"
-                    />
-                    <small className="form-text text-muted">Century reference</small>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h6 className="text-primary">Spatial Coverage</h6>
-                <div className="mb-3">
-                  <label htmlFor="place-name" className="form-label">Place Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="place-name"
-                    value={placeName}
-                    onChange={(e) => setPlaceName(e.target.value)}
-                    placeholder="e.g., Florence, Vatican City, Louvre Museum"
-                  />
-                  <small className="form-text text-muted">dcterms:spatial</small>
-                </div>
-
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="latitude" className="form-label">Latitude</label>
-                    <input
-                      type="number"
-                      step="any"
-                      className="form-control"
-                      id="latitude"
-                      value={latitude}
-                      onChange={(e) => setLatitude(e.target.value)}
-                      placeholder="e.g., 43.7731"
-                    />
-                    <small className="form-text text-muted">WGS84 decimal degrees</small>
-                  </div>
-
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="longitude" className="form-label">Longitude</label>
-                    <input
-                      type="number"
-                      step="any"
-                      className="form-control"
-                      id="longitude"
-                      value={longitude}
-                      onChange={(e) => setLongitude(e.target.value)}
-                      placeholder="e.g., 11.2560"
-                    />
-                    <small className="form-text text-muted">WGS84 decimal degrees</small>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h6 className="text-primary">Materials & Techniques</h6>
-                <div className="mb-3">
-                  <label htmlFor="material" className="form-label">Material(s)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="material"
-                    value={material}
-                    onChange={(e) => setMaterial(e.target.value)}
-                    placeholder="marble, bronze, wood, limestone (comma-separated)"
-                  />
-                  <small className="form-text text-muted">crm:P45_consists_of (comma-separated)</small>
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="technique" className="form-label">Technique(s)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="technique"
-                    value={technique}
-                    onChange={(e) => setTechnique(e.target.value)}
-                    placeholder="carving, casting, painting, photogrammetry (comma-separated)"
-                  />
-                  <small className="form-text text-muted">crm:P32_used_general_technique (comma-separated)</small>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h6 className="text-primary">Condition & Context</h6>
-                <div className="mb-3">
-                  <label htmlFor="condition" className="form-label">Condition</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="condition"
-                    value={condition}
-                    onChange={(e) => setCondition(e.target.value)}
-                    placeholder="e.g., Good, Fair, Restored, Fragmented"
-                  />
-                  <small className="form-text text-muted">Current condition state</small>
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="cultural-context" className="form-label">Cultural Context</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="cultural-context"
-                    value={culturalContext}
-                    onChange={(e) => setCulturalContext(e.target.value)}
-                    placeholder="Roman, Greek, Byzantine (comma-separated)"
-                  />
-                  <small className="form-text text-muted">Cultural affiliations (comma-separated)</small>
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="style-period" className="form-label">Style or Period</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="style-period"
-                    value={styleOrPeriod}
-                    onChange={(e) => setStyleOrPeriod(e.target.value)}
-                    placeholder="Gothic, Neoclassical, Art Deco (comma-separated)"
-                  />
-                  <small className="form-text text-muted">Art historical style/period (comma-separated)</small>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
