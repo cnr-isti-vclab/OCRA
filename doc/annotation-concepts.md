@@ -10,9 +10,7 @@ The model separates three concerns:
 - **Semantic content** — what the annotation conveys (`annotationData`)
 - **Association** — the explicit, immutable link between **a single spatial anchor and a single semantic content** record (`annotationLink`)
 
-An optional fourth layer, `AnnotationGraph`, enables typed directed relationships between geometry nodes.
-
-A single geometry node can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry nodes. The `annotationLink` entity makes each association explicit, queryable, and independently manageable.
+A single geometry element can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry elements. The `annotationLink` entity makes each association explicit, queryable, and independently manageable.
 
 ![Diagram illustrating the data model and relationships](media/annotation-model.svg)
 
@@ -23,7 +21,6 @@ A single geometry node can be associated with multiple annotation data records; 
 | `annotationGeometry` | Standalone 3D geometric shape anchored to a scene or asset |
 | `annotationData` | Standalone semantic content, optionally scoped to a specific scene |
 | `annotationLink` | Immutable join entity associating one geometry node with one data record |
-| `AnnotationGraph` | Optional graph structure with typed directed edges between geometry nodes |
 
 ---
 
@@ -31,7 +28,7 @@ A single geometry node can be associated with multiple annotation data records; 
 
 ### `annotationGeometry`
 
-`annotationGeometry` is an independent entity that defines the 3D geometric shape of an annotation anchor and its binding to a scene or asset. Each `annotationGeometry` element acts as a node in the annotation graph.
+`annotationGeometry` is an independent entity that defines the 3D geometric shape of an annotation anchor and its binding to a scene or asset.
 
 #### Fields
 
@@ -120,7 +117,7 @@ The `referenceType` / `referenceData` pair controls where the geometry (and any 
 
 ### `annotationData`
 
-`annotationData` is an independent entity that holds the semantic content of an annotation. It exists independently of any specific geometry and can be linked to one or more geometry nodes via `annotationLink`.
+`annotationData` is an independent entity that holds the semantic content of an annotation. It exists independently of any specific geometry and can be linked to one or more geometry elements via `annotationLink`.
 
 #### Fields
 
@@ -179,7 +176,7 @@ The `referenceType` / `referenceData` pair controls where the geometry (and any 
 
 ### `annotationLink`
 
-`annotationLink` is a first-class join entity that represents the association between one `annotationGeometry` element (the `annotationGeometry` node) and one `annotationData` element.
+`annotationLink` is a first-class join entity that represents the association between one `annotationGeometry` element and one `annotationData` element.
 
 It carries no semantic content of its own. Its role is to make the geometry–data association explicit, auditable, and independently manageable.
 
@@ -191,7 +188,7 @@ It carries no semantic content of its own. Its role is to make the geometry–da
   Unique identifier of the link.
 
 - `annotationGeometry: string`  
-  Identifier of the `annotationGeometry` element that acts as the graph node in this association.
+  Identifier of the `annotationGeometry` element referenced by this association.
 
 - `annotationData: string`  
   Identifier of the `annotationData` element associated through this link.
@@ -207,7 +204,7 @@ It carries no semantic content of its own. Its role is to make the geometry–da
    Both `annotationGeometry` and `annotationData` must reference existing entities at the time of creation and must remain valid throughout the link's lifetime.
 
 2. **Uniqueness**  
-   The pair (`annotationGeometry`, `annotationData`) must be unique within the system. A geometry node may not be linked to the same annotation data record more than once.
+  The pair (`annotationGeometry`, `annotationData`) must be unique within the system. A geometry element may not be linked to the same annotation data record more than once.
 
 3. **Scene consistency**  
    If `annotationData.privateToScene` is not null, the following constraint must hold based on the `referenceType` of the referenced `annotationGeometry`:
@@ -233,51 +230,6 @@ It carries no semantic content of its own. Its role is to make the geometry–da
     "updatedBy": "user-id-1"
 }
 ```
-
----
-
-### `AnnotationGraph`
-
-`AnnotationGraph` is an optional layer that represents explicit typed directed relationships between `annotationGeometry` nodes. It does not alter the semantics of individual annotations but enables higher-order structures such as hierarchies, sequences, and cross-reference networks.
-
-Each element of `annotationGeometry` is treated as a graph node. Relationships between nodes are represented as typed edges.
-
-#### Edge structure
-
-```json
-{
-    "relations": [
-        {
-            "id": "rel_001",
-            "sourceId": "geom_abc123",
-            "targetId": "geom_def456",
-            "type": "isPartOf",
-            "label": "detail belongs to area",
-            "createdAt": "2026-03-11T10:00:00.000Z",
-            "createdBy": "user-id-1",
-            "updatedAt": "2026-03-11T10:00:00.000Z",
-            "updatedBy": "user-id-1"
-        }
-    ]
-}
-```
-
-#### Defined relation types
-
-| Relation type | Semantics |
-| --- | --- |
-| `isPartOf` | Source is a spatial or logical component of target |
-| `isDerivedFrom` | Source was derived from, or is based on, target |
-| `correspondsTo` | Source matches or maps to target (e.g. across different acquisitions) |
-| `isSimilarTo` | Source and target exhibit relevant similarity |
-| `nextInSequence` | Source immediately precedes target in an ordered sequence |
-
-#### Notes
-
-- The model avoids redundant bidirectional pointers by representing directed typed edges.
-- Hierarchical structures (e.g. parent–child) can be derived from relation types such as `isPartOf`.
-- Cycle detection should be applied at creation time for relation types that imply acyclicity (e.g. `isPartOf`, `isDerivedFrom`).
-- `AnnotationGraph` is not strictly required for the initial version but is designed to be additive: the core model (`annotationGeometry`, `annotationData`, `annotationLink`) functions correctly without it.
 
 ---
 
@@ -414,7 +366,7 @@ As with `deleteAnnotationGeometry`, this is a low-level operation. All `annotati
 
 #### `createAnnotationLink(annotationGeometryId, annotationDataId)`
 
-Creates a new `annotationLink` associating one `annotationGeometry` node with one `annotationData` record.
+Creates a new `annotationLink` associating one `annotationGeometry` element with one `annotationData` record.
 
 **Pre-conditions (all must hold):**
 
@@ -482,56 +434,9 @@ Deletes the `annotationLink` together with the referenced `annotationGeometry`, 
 6. Update all affected scene annotation indexes.
 FIXME <span style="color:red;">should it be performed recursively on the collected links?</span>
 **Rationale:**  
-A deep delete is appropriate when the intent is to remove the entire logical annotation — both its spatial anchor and its semantic content — without regard to other associations. It is the correct choice when the geometry node and its data are known to be incorrect, obsolete, or no longer needed, and all links should be severed unconditionally.
+A deep delete is appropriate when the intent is to remove the entire logical annotation — both its spatial anchor and its semantic content — without regard to other associations. It is the correct choice when the geometry element and its data are known to be incorrect, obsolete, or no longer needed, and all links should be severed unconditionally.
 
 > **Warning:** this operation is destructive and irreversible. It may affect annotation links that were independently created by other users or workflows, and that reference the same geometry or data. It must be offered as an explicit, user-confirmed action in any UI.
-
----
-
-### `AnnotationGraph` operations
-
-#### `addRelation(sourceGeometryId, targetGeometryId, type, label?)`
-
-Adds a typed directed edge between two `annotationGeometry` nodes.
-
-**Pre-conditions:**
-- Both `sourceGeometryId` and `targetGeometryId` must reference existing `annotationGeometry` elements.
-- `type` must be one of the defined relation types.
-- For relation types that imply acyclicity (e.g. `isPartOf`, `isDerivedFrom`), the new edge must not introduce a cycle.
-
-**System actions:**
-1. Generate a new edge `id`.
-2. Set `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
-3. Persist the edge.
-
----
-
-#### `removeRelation(relationId)`
-
-Removes a typed edge from the graph.
-
-**Pre-conditions:**
-- `relationId` must reference an existing relation.
-
-**System actions:**
-1. Remove the edge from the graph store.
-
----
-
-#### `updateRelation(relationId, patch)`
-
-Updates the `type` or `label` of an existing relation.
-
-**Permitted fields:** `type`, `label`.  
-**Immutable fields:** `id`, `sourceId`, `targetId`.
-
-**Pre-conditions:**
-- If `type` is being changed, the new type must be a valid relation type.
-- If the new `type` implies acyclicity, no cycle must be introduced.
-
-**System actions:**
-1. Apply the patch.
-2. Update `updatedAt`, `updatedBy`.
 
 ---
 
@@ -572,7 +477,7 @@ Returns all `annotationLink` records associated with a given project. This is a 
 
 #### `getLinksForGeometry(geometryId)`
 
-Returns all `annotationLink` records that reference a given `annotationGeometry`. Useful for determining whether a geometry node is orphaned or still in use.
+Returns all `annotationLink` records that reference a given `annotationGeometry`. Useful for determining whether a geometry element is orphaned or still in use.
 
 ---
 
@@ -627,25 +532,6 @@ Returns all `annotationGeometry` elements that are not referenced by any `annota
 #### `getOrphanedData()`
 
 Returns all `annotationData` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
-
----
-
-#### `getRelationsForGeometry(geometryId, direction?)`
-
-Returns all `AnnotationGraph` edges incident on a given `annotationGeometry` node.  
-`direction` may be `"outgoing"`, `"incoming"`, or `"both"` (default: `"both"`).
-
----
-
-#### `getNeighbors(geometryId, relationType?)`
-
-Returns the set of `annotationGeometry` nodes directly connected to the given node, optionally filtered by relation type. Useful for graph traversal and building tree views.
-
----
-
-#### `getAnnotationSubgraph(geometryId, depth?, relationType?)`
-
-Returns the subgraph of `annotationGeometry` nodes reachable from the given node up to a specified depth, optionally filtered by relation type. Supports rendering hierarchical or sequential annotation structures.
 
 ---
 
@@ -725,15 +611,21 @@ Returns a frequency map of annotation counts grouped by `annotationData.class`. 
 
 ---
 
-#### `getAnnotationHistory(dataId)`
+#### `getAnnotationDataAuditInfo(dataId)`
 
-Returns the audit trail for a given `annotationData` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Intended for provenance and workflow tracking.
+Returns the audit fields for a given `annotationData` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Intended for provenance and workflow tracking.
 
 ---
 
-#### `getGeometryHistory(geometryId)`
+#### `getAnnotationGeometryAuditInfo(geometryId)`
 
-Returns the audit trail for a given `annotationGeometry` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+Returns the audit fields for a given `annotationGeometry` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
+
+---
+
+#### `getAnnotationLinkAuditInfo(linkId)`
+
+Returns the audit fields for a given `annotationLink` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
 
 ---
 
@@ -756,12 +648,11 @@ Imports a structured set of annotation records (geometry, data, links) into the 
 - Retrieving a single annotation by `annotationLink` identifier
 - Filtering annotations by class within a scene
 - Searching annotations by label or free-text description
-- Finding all data records associated with a given geometry node
-- Finding all geometry nodes associated with a given data record
+- Finding all data records associated with a given geometry element
+- Finding all geometry elements associated with a given data record
 - Identifying orphaned geometries and data after bulk deletions
 - Validating referential integrity and invariants after import or migration
 - Rebuilding scene annotation indexes after a crash or migration
 - Exporting all annotations for a scene for external reporting
-- Traversing the annotation graph to display hierarchical or sequential structures
 
 ---
