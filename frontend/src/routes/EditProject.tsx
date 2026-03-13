@@ -3,18 +3,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 import * as N3 from 'n3';
-
-// Default values for Echoes KB Manager API
-const DEFAULT_ECHOES_ENDPOINT = 'https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query';
-const DEFAULT_ECHOES_QUERY = `{
-  "query": "PREFIX htdo: <http://heritage-digital-twin-ontology/> PREFIX void: <http://rdfs.org/ns/void#> SELECT distinct ?s ?p ?o { graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>} ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }",
-  "tripleStoreIds": [
-    "69088495d17ed4f51ab8f6a8",
-    "69088509d17ed4f51ab8f6a9",
-    "690885c3d17ed4f51ab8f6aa"
-  ],
-  "executorTripleStoreId": "68fa3ad9f20fe43d497686b3"
-}`;
+import {
+  getPhysicalObjectSourceAdapter,
+  physicalObjectSourceAdapters,
+  type PhysicalObjectSourceType,
+} from '../features/physical-object-sources';
 
 /**
  * Extract Dublin Core metadata from RDF quads
@@ -157,10 +150,13 @@ export default function EditProject() {
   const [error, setError] = useState<string | null>(null);
   const [hasHdt, setHasHdt] = useState<boolean | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importMode, setImportMode] = useState<'file' | 'sparql'>('file');
-  const [sparqlEndpoint, setSparqlEndpoint] = useState('');
-  const [sparqlQuery, setSparqlQuery] = useState('');
-  const [sparqlLoading, setSparqlLoading] = useState(false);
+  const [importMode, setImportMode] = useState<'file' | 'source'>('source');
+  const [selectedSourceType, setSelectedSourceType] = useState<PhysicalObjectSourceType>('echoes');
+  const [sourceFormState, setSourceFormState] = useState<any>(() => {
+    const adapter = getPhysicalObjectSourceAdapter('echoes');
+    return adapter ? adapter.createInitialState() : {};
+  });
+  const [sourceImportLoading, setSourceImportLoading] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -299,6 +295,52 @@ export default function EditProject() {
       }
     } catch (e) {
       console.error('Failed to fetch project members:', e);
+    }
+  };
+
+  const updateSelectedSourceType = (nextSourceType: PhysicalObjectSourceType) => {
+    setSelectedSourceType(nextSourceType);
+    const adapter = getPhysicalObjectSourceAdapter(nextSourceType);
+    if (adapter) {
+      setSourceFormState(adapter.createInitialState());
+    }
+  };
+
+  const importFromSelectedSource = async () => {
+    if (!projectId) return;
+
+    const adapter = getPhysicalObjectSourceAdapter(selectedSourceType);
+    if (!adapter) {
+      alert(`Unsupported source type: ${selectedSourceType}`);
+      return;
+    }
+
+    try {
+      setSourceImportLoading(true);
+
+      const importRequest = adapter.buildImportRequest(projectId, sourceFormState);
+      const importedDoc = await importPhysicalObjectMetadataViaBackend(
+        projectId,
+        importRequest.sourceType,
+        importRequest.sourceUri,
+        importRequest.payload
+      );
+
+      const dublinCore = importedDoc?.physicalObjectMetadata?.dublinCore || {};
+
+      setShowImportModal(false);
+      setHasHdt(true);
+
+      if (dublinCore.title) {
+        setName(dublinCore.title);
+      }
+
+      alert(`✅ Successfully imported metadata from ${adapter.label}.`);
+    } catch (err: any) {
+      console.error('Source import error:', err);
+      alert('Error importing metadata: ' + (err?.message || String(err)));
+    } finally {
+      setSourceImportLoading(false);
     }
   };
 
@@ -530,17 +572,30 @@ export default function EditProject() {
       <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
         <div className="card-body">
           {hasHdt === false && (
-            <div className="alert alert-secondary d-flex justify-content-between align-items-center">
-              <div>
-                <strong>No HDT metadata yet.</strong> You can import an existing HDT definition to initialize it.
+            <div className="alert alert-secondary">
+              <div className="mb-3">
+                <strong>No imported HC1 metadata yet.</strong> Choose a source and provide source-specific input to initialize HC1 metadata.
               </div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowImportModal(true)}
-              >
-                Import HDT
-              </button>
+              <div className="d-flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowImportModal(true)}
+                >
+                  Choose Metadata Source
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hasHdt === true && (
+            <div className="alert alert-light d-flex justify-content-between align-items-center">
+              <div>
+                <strong>HDT metadata is initialized.</strong>
+              </div>
+              <Link to={`/projects/${projectId}/hdt`} className="btn btn-outline-primary">
+                Open HDT Metadata
+              </Link>
             </div>
           )}
           <form onSubmit={handleSubmit}>
@@ -854,18 +909,27 @@ export default function EditProject() {
         </div>
       )}
       
-      {/* Import HDT Modal with file upload */}
+      {/* HC1 initialization modal */}
       {showImportModal && (
         <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Import HDT</h5>
+                <h5 className="modal-title">Initialize HC1 Metadata</h5>
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">
                 {/* Tab Navigation */}
                 <ul className="nav nav-tabs mb-3" role="tablist">
+                  <li className="nav-item" role="presentation">
+                    <button
+                      className={`nav-link ${importMode === 'source' ? 'active' : ''}`}
+                      onClick={() => setImportMode('source')}
+                      type="button"
+                    >
+                      Source Adapter
+                    </button>
+                  </li>
                   <li className="nav-item" role="presentation">
                     <button
                       className={`nav-link ${importMode === 'file' ? 'active' : ''}`}
@@ -875,16 +939,62 @@ export default function EditProject() {
                       Upload File
                     </button>
                   </li>
-                  <li className="nav-item" role="presentation">
-                    <button
-                      className={`nav-link ${importMode === 'sparql' ? 'active' : ''}`}
-                      onClick={() => setImportMode('sparql')}
-                      type="button"
-                    >
-                      SPARQL Endpoint
-                    </button>
-                  </li>
                 </ul>
+
+                {/* Source Adapter Tab */}
+                {importMode === 'source' && (() => {
+                  const selectedSourceAdapter = getPhysicalObjectSourceAdapter(selectedSourceType);
+                  if (!selectedSourceAdapter) {
+                    return (
+                      <div className="alert alert-danger mb-0">
+                        Selected source adapter is not available.
+                      </div>
+                    );
+                  }
+
+                  const SourceImportForm = selectedSourceAdapter.ImportForm;
+
+                  return (
+                    <div>
+                      <div className="mb-3">
+                        <label htmlFor="sourceTypeSelect" className="form-label">Source Type</label>
+                        <select
+                          id="sourceTypeSelect"
+                          className="form-select"
+                          value={selectedSourceType}
+                          onChange={(e) => updateSelectedSourceType(e.target.value as PhysicalObjectSourceType)}
+                          disabled={sourceImportLoading}
+                        >
+                          {physicalObjectSourceAdapters.map((adapter) => (
+                            <option key={adapter.sourceType} value={adapter.sourceType}>
+                              {adapter.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <p className="text-muted small">{selectedSourceAdapter.description}</p>
+
+                      <SourceImportForm
+                        state={sourceFormState}
+                        onChange={setSourceFormState}
+                        disabled={sourceImportLoading}
+                      />
+
+                      <button
+                        className="btn btn-primary mt-3"
+                        onClick={importFromSelectedSource}
+                        disabled={sourceImportLoading}
+                      >
+                        {sourceImportLoading ? '⏳ Importing...' : `Import from ${selectedSourceAdapter.label}`}
+                      </button>
+
+                      <div className="alert alert-info mt-3 small mb-0">
+                        The selected source adapter prepares a source-specific request, and the backend transforms it into <code>physicalObjectMetadata</code>.
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* File Upload Tab */}
                 {importMode === 'file' && (
@@ -966,105 +1076,7 @@ export default function EditProject() {
                   <div className="form-text">Supported: JSON-LD, Turtle, RDF/XML, N-Triples</div>
                 </div>
                 <div className="alert alert-info">
-                  Upload an RDF file to import Dublin Core metadata. All fields will be saved to the HDT metadata document.
-                </div>
-              </div>
-            )}
-
-            {/* SPARQL Endpoint Tab */}
-            {importMode === 'sparql' && (
-              <div>
-                <div className="mb-3">
-                  <label htmlFor="sparqlEndpoint" className="form-label">API Endpoint URL</label>
-                  <input
-                    type="url"
-                    id="sparqlEndpoint"
-                    className="form-control"
-                    placeholder="https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query"
-                    value={sparqlEndpoint}
-                    onChange={(e) => setSparqlEndpoint(e.target.value)}
-                  />
-                  <div className="form-text">
-                    Default: https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="sparqlQuery" className="form-label">Query Payload (JSON)</label>
-                  <textarea
-                    id="sparqlQuery"
-                    className="form-control font-monospace"
-                    rows={12}
-                    placeholder={`{\n  "query": "PREFIX htdo: <http://heritage-digital-twin-ontology/> PREFIX void: <http://rdfs.org/ns/void#> SELECT distinct ?s ?p ?o { graph ?ng { values ?dt {<https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345>} ?dt a void:Dataset; void:subset ?ng . ?s ?p ?o} }",\n  "tripleStoreIds": [\n    "69088495d17ed4f51ab8f6a8",\n    "69088509d17ed4f51ab8f6a9",\n    "690885c3d17ed4f51ab8f6aa"\n  ],\n  "executorTripleStoreId": "68fa3ad9f20fe43d497686b3"\n}`}
-                    value={sparqlQuery}
-                    onChange={(e) => setSparqlQuery(e.target.value)}
-                  />
-                  <div className="form-text">
-                    JSON object with query, tripleStoreIds, and executorTripleStoreId fields
-                  </div>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => {
-                    try {
-                      setSparqlLoading(true);
-
-                      if (!projectId) {
-                        throw new Error('Missing projectId');
-                      }
-                      
-                      // Use default values if fields are empty
-                      const endpoint = sparqlEndpoint.trim() || DEFAULT_ECHOES_ENDPOINT;
-                      const payloadRaw = sparqlQuery.trim() || DEFAULT_ECHOES_QUERY;
-
-                      let queryPayload: Record<string, unknown>;
-                      try {
-                        queryPayload = JSON.parse(payloadRaw);
-                      } catch {
-                        throw new Error('Query payload must be valid JSON');
-                      }
-
-                      const sourceUri =
-                        typeof queryPayload.sourceUri === 'string' && queryPayload.sourceUri.trim().length > 0
-                          ? queryPayload.sourceUri.trim()
-                          : endpoint;
-
-                      const importedDoc = await importPhysicalObjectMetadataViaBackend(
-                        projectId,
-                        'echoes',
-                        sourceUri,
-                        {
-                          endpoint,
-                          queryPayload
-                        }
-                      );
-
-                      const dublinCore = importedDoc?.physicalObjectMetadata?.dublinCore || {};
-                      const quadCount = importedDoc?.physicalObjectMetadata?.sourceRecord?.tripleCount;
-
-                      setShowImportModal(false);
-                      setHasHdt(true);
-                      
-                      if (dublinCore.title) {
-                        setName(dublinCore.title);
-                      }
-                      
-                      const tripleMessage = typeof quadCount === 'number'
-                        ? `${quadCount} RDF triples`
-                        : 'metadata';
-                      alert(`✅ Successfully imported ${tripleMessage} from SPARQL endpoint!\n\nDublin Core metadata has been saved.`);
-                    } catch (err: any) {
-                      console.error('SPARQL import error:', err);
-                      alert('Error importing from SPARQL: ' + (err?.message || String(err)));
-                    } finally {
-                      setSparqlLoading(false);
-                    }
-                  }}
-                  disabled={sparqlLoading}
-                >
-                  {sparqlLoading ? '⏳ Loading...' : '🔍 Query & Import'}
-                </button>
-                <div className="alert alert-info mt-3 small">
-                  <strong>Echoes KB Manager API:</strong> Provide the query endpoint URL and a JSON payload with your SPARQL query, tripleStoreIds, and executorTripleStoreId. Results must be SPARQL JSON format.
+                  Upload an RDF file to import Dublin Core metadata via the generic <code>other</code> source path.
                 </div>
               </div>
             )}
