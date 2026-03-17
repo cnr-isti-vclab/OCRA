@@ -22,9 +22,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1.4142136"
-     inkscape:cx="609.8796"
-     inkscape:cy="47.376154"
-     inkscape:window-width="1920"
+     inkscape:cx="559.32145"
+     inkscape:cy="423.2034"
+     inkscape:window-width="1728"
      inkscape:window-height="1011"
      inkscape:window-x="0"
      inkscape:window-y="0"
@@ -64,7 +64,9 @@
      height="900"
      fill="#f8f9fb"
      rx="12"
-     id="rect2" />
+     id="rect2"
+     x="0"
+     y="16" />
   <!-- ── Title ─────────────────────────────────────────────── -->
   <text
      x="600"
@@ -147,13 +149,13 @@
   <text
      x="80"
      y="178"
-     font-size="12"
+     font-size="12px"
      fill="#1e40af"
      id="text8"><tspan
        font-weight="700"
        id="tspan7">shapes</tspan><tspan
        fill="#374151"
-       id="tspan8"> · array of { type, data[] }</tspan></text>
+       id="tspan8">· array of { Shapes }</tspan></text>
   <text
      x="102"
      y="196"
@@ -289,14 +291,14 @@
      id="text19">one or more shapes per element</text>
   <!-- ── annotationData ────────────────────────────────────── -->
   <rect
-     x="650"
-     y="100"
-     width="490"
-     height="295"
-     rx="10"
+     x="649.97101"
+     y="115.97097"
+     width="490.05807"
+     height="278.08749"
+     rx="10.001185"
      fill="#ffffff"
      stroke="#10b981"
-     stroke-width="2"
+     stroke-width="1.94194"
      id="rect19" />
   <rect
      x="650"
@@ -351,77 +353,87 @@
        id="tspan24"> · string  (short title, non-empty)</tspan></text>
   <text
      x="670"
-     y="198"
-     font-size="12"
+     y="214"
+     font-size="12px"
      fill="#065f46"
      id="text26"><tspan
+   style="font-weight:bold"
+   id="tspan1">content</tspan>· <tspan
+   style="fill:#374151;fill-opacity:1"
+   id="tspan2">any</tspan></text>
+  <text
+     x="668.39789"
+     y="194.84547"
+     font-size="12px"
+     fill="#065f46"
+     id="text26-6"><tspan
        font-weight="700"
-       id="tspan25">description</tspan><tspan
+       id="tspan25-7">description</tspan><tspan
        fill="#374151"
-       id="tspan26"> · string  (free text)</tspan></text>
+       id="tspan26-5">· string (free text)</tspan></text>
   <text
      x="670"
-     y="218"
-     font-size="12"
+     y="234"
+     font-size="12px"
      fill="#065f46"
      id="text28"><tspan
        font-weight="700"
        id="tspan27">class</tspan><tspan
        fill="#374151"
-       id="tspan28"> · string | null  (e.g. damage, restoration…)</tspan></text>
+       id="tspan28">· string | null (e.g. damage, restoration…)</tspan></text>
   <text
      x="670"
-     y="238"
-     font-size="12"
+     y="254"
+     font-size="12px"
      fill="#065f46"
      id="text30"><tspan
        font-weight="700"
        id="tspan29">privateToScene</tspan><tspan
        fill="#374151"
-       id="tspan30"> · sceneId | null</tspan></text>
+       id="tspan30">· sceneId | null</tspan></text>
   <text
      x="692"
-     y="255"
-     font-size="11"
+     y="271"
+     font-size="11px"
      fill="#6b7280"
      font-style="italic"
      id="text31">null → global, linkable to any geometry</text>
   <text
      x="692"
-     y="270"
-     font-size="11"
+     y="286"
+     font-size="11px"
      fill="#6b7280"
      font-style="italic"
      id="text32">sceneId → scene-private, link only to geometry in that scene</text>
   <line
      x1="670"
-     y1="281"
+     y1="297"
      x2="1120"
-     y2="281"
+     y2="297"
      stroke="#e2e8f0"
      stroke-width="1"
-     stroke-dasharray="4,3"
+     stroke-dasharray="4, 3"
      id="line32" />
   <text
      x="670"
-     y="298"
-     font-size="11"
+     y="314"
+     font-size="11px"
      fill="#94a3b8"
      font-weight="600"
      id="text33">createdAt · createdBy · updatedAt · updatedBy</text>
   <line
      x1="670"
-     y1="309"
+     y1="325"
      x2="1120"
-     y2="309"
+     y2="325"
      stroke="#e2e8f0"
      stroke-width="1"
-     stroke-dasharray="4,3"
+     stroke-dasharray="4, 3"
      id="line33" />
   <!-- mutable badge -->
   <rect
      x="670"
-     y="318"
+     y="334"
      width="200"
      height="18"
      rx="4"
@@ -429,16 +441,16 @@
      id="rect33" />
   <text
      x="770"
-     y="331"
+     y="347"
      text-anchor="middle"
-     font-size="10"
+     font-size="10px"
      fill="#15803d"
      font-weight="600"
      id="text34">mutable: label, description, class</text>
   <!-- immutable badge -->
   <rect
      x="880"
-     y="318"
+     y="334"
      width="170"
      height="18"
      rx="4"
@@ -446,9 +458,9 @@
      id="rect34" />
   <text
      x="965"
-     y="331"
+     y="347"
      text-anchor="middle"
-     font-size="10"
+     font-size="10px"
      fill="#15803d"
      font-weight="600"
      id="text35">privateToScene: immutable</text>
@@ -466,12 +478,12 @@
      marker-end="url(#arrowBlue)"
      id="line35" />
   <text
-     x="360"
-     y="465"
-     font-size="11"
+     x="531.38702"
+     y="156.72272"
+     font-size="11px"
      fill="#3b82f6"
      font-style="italic"
-     transform="rotate(-27,360,465)"
+     transform="rotate(32.699373)"
      id="text36">annotationGeometryId</text>
   <line
      x1="895"
@@ -484,12 +496,12 @@
      marker-end="url(#arrowGreen)"
      id="line36" />
   <text
-     x="820"
-     y="455"
-     font-size="11"
+     x="400.10602"
+     y="797.05511"
+     font-size="11px"
      fill="#10b981"
      font-style="italic"
-     transform="rotate(27,820,455)"
+     transform="rotate(-31.743518)"
      id="text37">annotationDataId</text>
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ROW 2 — annotationLink (centre)                                    -->
