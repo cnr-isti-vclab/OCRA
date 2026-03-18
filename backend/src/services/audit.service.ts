@@ -1,24 +1,71 @@
 import { MongoClient, Db, Collection } from 'mongodb';
 
 let client: MongoClient | null = null;
-let db: Db | null = null;
-let col: Collection | null = null;
+let auditDb: Db | null = null;
+let auditCollection: Collection | null = null;
+let contentDb: Db | null = null;
 
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://mongodb:27017';
-const MONGO_DB = process.env.MONGO_DB || 'ocra_audit';
-const MONGO_COLLECTION = process.env.MONGO_COLLECTION || 'audit';
+const MONGO_AUDIT_DB = process.env.MONGO_AUDIT_DB || process.env.MONGO_DB || 'ocra_audit';
+const MONGO_AUDIT_COLLECTION = process.env.MONGO_AUDIT_COLLECTION || process.env.MONGO_COLLECTION || 'audit';
+const MONGO_CONTENT_DB = process.env.MONGO_CONTENT_DB || 'ocra_content';
 
-export async function connect() {
-  if (client && db && col) return { client, db, col };
+async function resetMongoClient() {
+  if (client) {
+    try {
+      await client.close();
+    } catch {
+      // Ignore close errors while resetting a broken client.
+    }
+  }
+
+  client = null;
+  auditDb = null;
+  auditCollection = null;
+  contentDb = null;
+}
+
+async function getMongoClient() {
+  if (client) {
+    try {
+      await client.db('admin').command({ ping: 1 });
+      return client;
+    } catch {
+      await resetMongoClient();
+    }
+  }
+
   client = new MongoClient(MONGO_URL, { serverSelectionTimeoutMS: 5000 });
   await client.connect();
-  db = client.db(MONGO_DB);
-  col = db.collection(MONGO_COLLECTION);
-  // Ensure indexes (ts descending for fast recent queries)
-  await col.createIndex({ ts: -1 });
-  await col.createIndex({ userSub: 1, ts: -1 });
-  await col.createIndex({ 'resource.type': 1, 'resource.id': 1 });
-  return { client, db, col };
+  return client;
+}
+
+export async function connect() {
+  const mongoClient = await getMongoClient();
+
+  if (!auditDb) {
+    auditDb = mongoClient.db(MONGO_AUDIT_DB);
+  }
+
+  if (!auditCollection) {
+    auditCollection = auditDb.collection(MONGO_AUDIT_COLLECTION);
+    // Ensure indexes (ts descending for fast recent queries)
+    await auditCollection.createIndex({ ts: -1 });
+    await auditCollection.createIndex({ userSub: 1, ts: -1 });
+    await auditCollection.createIndex({ 'resource.type': 1, 'resource.id': 1 });
+  }
+
+  return { client: mongoClient, db: auditDb, col: auditCollection };
+}
+
+export async function connectContent() {
+  const mongoClient = await getMongoClient();
+
+  if (!contentDb) {
+    contentDb = mongoClient.db(MONGO_CONTENT_DB);
+  }
+
+  return { client: mongoClient, db: contentDb };
 }
 
 export async function getCollection() {
@@ -128,12 +175,7 @@ export async function logEvent(event: any) {
 }
 
 export async function closeAuditConnection() {
-  if (client) {
-    await client.close();
-    client = null;
-    db = null;
-    col = null;
-  }
+  await resetMongoClient();
 }
 
 export default { logEvent, closeAuditConnection };

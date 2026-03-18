@@ -10,7 +10,7 @@
  * FIXED: All functions now return consistent format - no more json.value.value nonsense!
  */
 
-import { connect } from './audit.service.js';
+import { connectContent } from './audit.service.js';
 import { ObjectId } from 'mongodb';
 import type {
   HDTDocument,
@@ -34,7 +34,7 @@ const COLLECTION_NAME = 'hdt_collection';
  * Get MongoDB collection for HDT documents
  */
 async function getCollection() {
-  const { db } = await connect();
+  const { db } = await connectContent();
   if (!db) {
     throw new Error('MongoDB not connected');
   }
@@ -411,9 +411,9 @@ export async function removeDigitalAsset(
   }
 
   const updatedAssets = doc.digitalAssets.filter((asset: any) => asset.id !== assetId);
-  const updatedScenes = doc.scenes.map(scene => ({
+  const updatedScenes = doc.scenes.map((scene: HDTScene) => ({
     ...scene,
-    assets: scene.assets.filter(ref => ref.assetId !== assetId)
+    assets: scene.assets.filter((ref: SceneAssetReference) => ref.assetId !== assetId)
   }));
 
   const result = await collection.findOneAndUpdate(
@@ -499,7 +499,7 @@ export async function updateScene(
     return null;
   }
 
-  const sceneIndex = doc.scenes.findIndex(scene => scene.id === sceneId);
+  const sceneIndex = doc.scenes.findIndex((scene: HDTScene) => scene.id === sceneId);
   if (sceneIndex === -1) {
     return null;
   }
@@ -546,10 +546,10 @@ export async function removeScene(
     return null;
   }
 
-  const updatedScenes = doc.scenes.filter(scene => scene.id !== sceneId);
+  const updatedScenes = doc.scenes.filter((scene: HDTScene) => scene.id !== sceneId);
 
   // If we removed the default scene, make the first remaining scene default
-  const hadDefault = doc.scenes.find(s => s.id === sceneId)?.isDefault;
+  const hadDefault = doc.scenes.find((scene: HDTScene) => scene.id === sceneId)?.isDefault;
   if (hadDefault && updatedScenes.length > 0) {
     updatedScenes[0].isDefault = true;
   }
@@ -596,14 +596,14 @@ export async function addAssetToScene(
     return null;
   }
 
-  const sceneIndex = doc.scenes.findIndex(scene => scene.id === sceneId);
+  const sceneIndex = doc.scenes.findIndex((scene: HDTScene) => scene.id === sceneId);
   if (sceneIndex === -1) {
     return null;
   }
 
   // Check if asset already exists in scene
   const existingAssetIndex = doc.scenes[sceneIndex].assets.findIndex(
-    ref => ref.assetId === assetReference.assetId
+    (ref: SceneAssetReference) => ref.assetId === assetReference.assetId
   );
   if (existingAssetIndex !== -1) {
     return null; // Asset already in scene
@@ -652,12 +652,12 @@ export async function updateAssetInScene(
     return null;
   }
 
-  const sceneIndex = doc.scenes.findIndex(scene => scene.id === sceneId);
+  const sceneIndex = doc.scenes.findIndex((scene: HDTScene) => scene.id === sceneId);
   if (sceneIndex === -1) {
     return null;
   }
 
-  const assetIndex = doc.scenes[sceneIndex].assets.findIndex(ref => ref.assetId === assetId);
+  const assetIndex = doc.scenes[sceneIndex].assets.findIndex((ref: SceneAssetReference) => ref.assetId === assetId);
   if (assetIndex === -1) {
     return null;
   }
@@ -706,13 +706,13 @@ export async function removeAssetFromScene(
     return null;
   }
 
-  const sceneIndex = doc.scenes.findIndex(scene => scene.id === sceneId);
+  const sceneIndex = doc.scenes.findIndex((scene: HDTScene) => scene.id === sceneId);
   if (sceneIndex === -1) {
     return null;
   }
 
   doc.scenes[sceneIndex].assets = doc.scenes[sceneIndex].assets.filter(
-    ref => ref.assetId !== assetId
+    (ref: SceneAssetReference) => ref.assetId !== assetId
   );
   doc.scenes[sceneIndex].updatedAt = new Date();
 

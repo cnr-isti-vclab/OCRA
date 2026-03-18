@@ -23,6 +23,7 @@ services:
     volumes:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -38,6 +39,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public}
       MONGO_URL: mongodb://ocra-mongodb:27017
+      MONGO_AUDIT_DB: ${MONGO_AUDIT_DB:-ocra_audit}
+      MONGO_CONTENT_DB: ${MONGO_CONTENT_DB:-ocra_content}
       PORT: 3002
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://localhost:5173,http://localhost:5174}
