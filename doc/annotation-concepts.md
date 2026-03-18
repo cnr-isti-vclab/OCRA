@@ -147,10 +147,11 @@ All coordinates are expressed in the 3D reference space of the entity identified
 
 - `content: Object` The annotation content payload, with arbitrary structure and semantics defined an onthology. To be better defined.
 
-- `privateToScene: string | null`  
-  Scene-scope constraint for this data record.  
-  - If `null`: the record is **global** and may be associated with geometry in any scene or asset context.  
-  - If set to a `sceneId`: the record is **scene-private** and may only be associated with geometry that belongs to that specific scene context (see the scene consistency invariant in `annotationLink`).
+- `visibilityType: "scene" | "asset"`  
+  Indicates whether this data record is visible in a scene or asset context. This field controls the visibility scope of the annotation data and must be consistent with the reference type of any geometry it is linked to.
+  
+- `visibilityId: string`  
+  Identifier of the target `HDTScene` or `DigitalAsset`, depending on `referenceType`. This field determines the id of the scene or asset context in which this annotation data is visible, and must be consistent with the reference id of any geometry it is linked to.
 
 - `createdAt: ISO 8601 timestamp`  
 - `createdBy: user id`  
