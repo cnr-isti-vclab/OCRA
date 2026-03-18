@@ -10,7 +10,6 @@ import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
-import { connect } from './services/audit.service.js';
 import { requestLogger } from './middleware/logging.middleware.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { swaggerSpec } from './config/swagger.js';

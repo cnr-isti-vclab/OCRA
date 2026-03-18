@@ -10,8 +10,16 @@
  * FIXED: All functions now return consistent format - no more json.value.value nonsense!
  */
 
-import { connectContent } from './audit.service.js';
 import { ObjectId } from 'mongodb';
+import {
+  deleteHdtByProjectId,
+  findHdtById,
+  findHdtByProjectId,
+  getHdtCollection,
+  insertHdtDocument,
+  listHdtProjectIds,
+  updateHdtByProjectId,
+} from '../repositories/hdt.repository.js';
 import type {
   HDTDocument,
   DigitalAsset,
@@ -24,21 +32,8 @@ import type {
 import fs from 'fs/promises';
 import path from 'path';
 
-// ==========================================
-// MONGODB COLLECTION ACCESS
-// ==========================================
-
-const COLLECTION_NAME = 'hdt_collection';
-
-/**
- * Get MongoDB collection for HDT documents
- */
 async function getCollection() {
-  const { db } = await connectContent();
-  if (!db) {
-    throw new Error('MongoDB not connected');
-  }
-  return db.collection<HDTDocument>(COLLECTION_NAME);
+  return getHdtCollection();
 }
 
 // ==========================================
@@ -81,9 +76,7 @@ function createSuccessResponse(document: HDTDocument): { value: HDTDocument } {
  * @returns HDT document or null if not found
  */
 export async function getHDTDocument(projectId: string): Promise<HDTDocument | null> {
-  const collection = await getCollection();
-  const doc = await collection.findOne({ projectId });
-  return doc;
+  return findHdtByProjectId(projectId);
 }
 
 /**
@@ -99,10 +92,8 @@ export async function createHDTDocument(
   userId?: string,
   initialData?: Partial<PhysicalObjectMetadata>
 ): Promise<HDTDocument> {
-  const collection = await getCollection();
-
   // Check if document already exists
-  const existing = await collection.findOne({ projectId });
+  const existing = await findHdtByProjectId(projectId);
   if (existing) {
     throw new Error(`HDT document already exists for project: ${projectId}`);
   }
@@ -140,7 +131,7 @@ export async function createHDTDocument(
     updatedBy: userId
   };
 
-  const result = await collection.insertOne(newDocument as any);
+  const result = await insertHdtDocument(newDocument);
 
   // ✅ STANDARDIZED: Return consistent format
   return {
@@ -162,8 +153,6 @@ export async function updateHDTMetadata(
   metadataUpdate: Partial<PhysicalObjectMetadata>,
   userId?: string
 ): Promise<HDTDocument | null> {
-  const collection = await getCollection();
-
   const updateDoc: any = {
     $set: {
       updatedAt: new Date(),
@@ -179,11 +168,7 @@ export async function updateHDTMetadata(
 
   console.log('HDT SERVICE: updateDoc to MongoDB:', JSON.stringify(updateDoc, null, 2));
 
-  const result = await collection.findOneAndUpdate(
-    { projectId },
-    updateDoc,
-    { returnDocument: 'after' }
-  );
+  const result = await updateHdtByProjectId(projectId, updateDoc);
 
   console.log('HDT SERVICE: MongoDB result:', result ? 'Document updated' : 'No document found');
 
@@ -198,8 +183,7 @@ export async function updateHDTMetadata(
  * @returns True if deleted, false if not found
  */
 export async function deleteHDTDocument(projectId: string): Promise<boolean> {
-  const collection = await getCollection();
-  const result = await collection.deleteOne({ projectId });
+  const result = await deleteHdtByProjectId(projectId);
   return result.deletedCount > 0;
 }
 
@@ -220,8 +204,6 @@ export async function addDigitalAsset(
   asset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'>,
   userId: string
 ): Promise<HDTDocument | null> {
-  const collection = await getCollection();
-
   const assetId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date();
 
@@ -243,7 +225,7 @@ export async function addDigitalAsset(
 
   console.log(`🔧 [HDT Service] Adding asset ${assetId} to project ${projectId}`);
 
-  const existing = await collection.findOne({ projectId });
+  const existing = await findHdtByProjectId(projectId);
 
   if (!existing) {
     // Create new HDT document with first asset and default scene
@@ -280,8 +262,8 @@ export async function addDigitalAsset(
       updatedBy: userId
     };
 
-    const insertResult = await collection.insertOne(newDoc as any);
-    const created = await collection.findOne({ _id: insertResult.insertedId });
+    await insertHdtDocument(newDoc);
+    const created = await findHdtByProjectId(projectId);
     console.log(`✅ Created new HDT document for project ${projectId} with first asset and default scene`);
     console.log(`   - Asset ID: ${newAsset.id}`);
     console.log(`   - Scene: ${defaultScene.label}, Assets in scene: ${defaultScene.assets.length}`);
@@ -333,11 +315,7 @@ export async function addDigitalAsset(
     console.log(`✅ Creating new default scene for existing project`);
   }
 
-  const result = await collection.findOneAndUpdate(
-    { projectId },
-    updateOps,
-    { returnDocument: 'after' }
-  );
+  const result = await updateHdtByProjectId(projectId, updateOps);
 
   // ✅ STANDARDIZED: Extract updated document from MongoDB response
   const doc = standardizeResponse(result);
@@ -366,8 +344,6 @@ export async function updateDigitalAsset(
   updates: Partial<Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'>>,
   userId: string
 ): Promise<HDTDocument | null> {
-  const collection = await getCollection();
-
   const setOps: Record<string, any> = {
     updatedAt: new Date(),
     updatedBy: userId,
@@ -380,6 +356,7 @@ export async function updateDigitalAsset(
   }
 console.log("[updateDigitalAsset] projectId", projectId, "assetId", assetId, "updates", updates);
 
+  const collection = await getHdtCollection();
   const result = await collection.findOneAndUpdate(
     { projectId, "digitalAssets.id": assetId },
     { $set: setOps },
@@ -403,9 +380,7 @@ export async function removeDigitalAsset(
   assetId: string,
   userId: string
 ): Promise<HDTDocument | null> {
-  const collection = await getCollection();
-
-  const doc = await collection.findOne({ projectId });
+  const doc = await findHdtByProjectId(projectId);
   if (!doc) {
     return null;
   }
@@ -416,18 +391,14 @@ export async function removeDigitalAsset(
     assets: scene.assets.filter((ref: SceneAssetReference) => ref.assetId !== assetId)
   }));
 
-  const result = await collection.findOneAndUpdate(
-    { projectId },
-    {
-      $set: {
-        digitalAssets: updatedAssets,
-        scenes: updatedScenes,
-        updatedAt: new Date(),
-        updatedBy: userId
-      }
-    },
-    { returnDocument: 'after' }
-  );
+  const result = await updateHdtByProjectId(projectId, {
+    $set: {
+      digitalAssets: updatedAssets,
+      scenes: updatedScenes,
+      updatedAt: new Date(),
+      updatedBy: userId
+    }
+  });
 
   // ✅ STANDARDIZED: Extract document from MongoDB response
   return standardizeResponse(result);
