@@ -1,5 +1,36 @@
 # Annotations in 3D Models
 
+## Workflows
+
+Before deepening into Annotations, we propose the following workflows showing how user can interact with the framework (these concepts will be moved to a separate dedicated document).
+Workflows will highlight how to handle user concurrency, showing how the framework manages concurrent access to the same data, considering the type of user and the type of data.
+
+The basic idea is to simply avoid to have multiple users editing the same data at the same time. 
+When user edits contents the user locks the data and no other user can modify it.
+There are two types of data: project level data (HDTs, scenes, assets) and annotation data.
+Project level data can be edited only by root users. Annotation data can be edited by users with `edit` or `root` access to a scene.
+
+### Workflow 1: Root user creates, modifies or deletes project level data
+- During the creation or modification of an HDT, a scene, or an asset by user with root privileges, no other user can access the data neither to read nor to write.
+- On editing a project level data, the data is locked for reading and writing for all users. 
+
+### Workflow 2: User creates, modifies or deletes annotations
+- Users with `edit` or  `root` access to a scene can create, modify or delete annotations in that scene.
+- When a scene is edited by a user, no other user can access the same scene for editing.
+- When an asset is edited by a user, no other user can access the same asset for editing.
+- To permit a higher concurrency level, we propose to add a static `editable` flag associated to scene asset entries. We thus can have multiple scenes, containing the same assets.
+- These scenes can be edited concurrently by multiple users, but only on the editable asset entries.
+- If multiple scenes have the same asset marked as editable, the first scene that is opened in `edit` mode will have the exclusive right to edit the scene and the editable asset entries. 
+- If a scene is edited by a user, no other user can access the same scene for editing.
+
+### Workflow 3: User views scenes
+- Users with `view` or  `edit` or  `root` access to a scene can view the scene.
+- Multiple viewers can view the same scene at the same time
+- If a scene is edited by a user, other user can still view the scene. When a viewer loads the scene, it will load the version of the scene  with the last saved modifications. During the editing session, the other viewers will not see the modifications.  
+- When a user saves the modifications, the new version of the scene will be visible to the viewers only after they reload the scene. 
+- To avoid loaded scene unconsistencies we propose to lock the scene when a user after editing starts to save and unlock it after the save operation is completed. 
+- Loading a scene requires that the scene is not locked by a save operation.
+
 ## Overview
 
 This document defines the core concepts for the annotation system. It introduces a decomposed, relational data model.
@@ -32,7 +63,6 @@ The entities are stored in the following collections:
 
 All the collection entries have a `projectId` field, that identifies the project they belong to. This allows querying the collections for a specific project.
 Without the project id, it would be impossible to distinguish between annotations of different projects. 
-<span style="color:red">FIXME Should we consider to add to the annotation links also a sceneId field?</span>
 
 ### API levels
 The collections are accessed through a two-level API. 
@@ -158,16 +188,8 @@ All coordinates are expressed in the 3D reference space of the entity identified
 - `updatedAt: ISO 8601 timestamp`  
 - `updatedBy: user id`
 
-#### `privateToScene` semantics
-
-| `privateToScene` | Scope | Reusability |
-| --- | --- | --- |
-| `null` | Global | May be linked to geometry in any scene or asset |
-| `sceneId` | Scene-private | May only be linked to geometry referencing that scene, or to an asset contained in that scene |
-
 #### Invariants
 - `projectId` must be a valid, existing project identifier.
-- If `privateToScene` is not null, it must be a valid existing `sceneId` at the time of creation.
 - `label` must be a non-empty string.
 
 #### JSON example
@@ -179,7 +201,9 @@ All coordinates are expressed in the 3D reference space of the entity identified
     "label": "Lacuna",
     "description": "Small loss of material on the lower left area.",
     "class": "damage",
-    "privateToScene": "scene_id_main",
+    "content": {},
+    "visibilityType": "scene",
+    "visibilityId": "scene_id_xyz",
     "createdAt": "2026-03-11T10:00:00.000Z",
     "createdBy": "user-id-1",
     "updatedAt": "2026-03-11T10:00:00.000Z",
@@ -196,6 +220,7 @@ All coordinates are expressed in the 3D reference space of the entity identified
 It carries no semantic content of its own. Its role is to make the geometry–data association explicit, auditable, and independently manageable.
 
 `annotationLink` is **immutable after creation**: no update operation is defined. To modify an association, the existing link must be deleted and a new one created.
+
 
 #### Fields
 
@@ -226,15 +251,18 @@ It carries no semantic content of its own. Its role is to make the geometry–da
   The pair (`annotationGeometry`, `annotationData`) must be unique within the system. A geometry element may not be linked to the same annotation data record more than once.
 
 4. **Scene consistency**  
-   If `annotationData.privateToScene` is not null, the following constraint must hold based on the `referenceType` of the referenced `annotationGeometry`:
+   Only certain combinations of `annotationGeometry.referenceType`, `annotationGeometry.referenceId`, `annotationData.visibilityType` and `annotationData.visibilityId` are allowed. 
+   In this table scene consistency conditions are represented within the Consistency column.
 
-   - If `annotationGeometry.referenceType == "scene"`:  
-     `annotationData.privateToScene` must equal `annotationGeometry.referenceId`.
+<a id="annotationlink-scene-consistency-table"></a>AnnotationLink scene consistency table:
+| Geometry<br>referenceType | Data<br>visibilityType | Consistency | Visibility |
+| --- | --- | --- | --- |
+| `"scene"` | `"scene"` | `referenceId` must equal `visibilityId` | single scene |
+| `"scene"` | `"asset"` | `referenceId` must be the id of a scene that contains the asset<br>referenced by `visibilityId` | single scene<br>active asset |
+| `"asset"` | `"scene"` | `referenceId` must be the id of an asset contained in the scene<br>referenced by `visibilityId` | single scene<br>active asset |
+| `"asset"` | `"asset"` | `referenceId` must equal `visibilityId` | multiple scenes<br>single asset |
 
-   - If `annotationGeometry.referenceType == "asset"`:  
-     `annotationData.privateToScene` must be the `id` of a scene that contains the asset identified by `annotationGeometry.referenceId`.  
 
-   This ensures that a scene-private data record is never associated with geometry that belongs to an unrelated scene context.
 
 #### JSON example
 
@@ -309,8 +337,10 @@ A link is visible in a scene if its referenced `annotationGeometry` satisfies ei
 - `referenceType == "scene"` and `referenceId == sceneId`
 - `referenceType == "asset"` and `referenceId` identifies an asset contained in the scene
 
+Previous conditions must be in sync with the scene consistency conditions described in the `annotationLink` section.
+
 This query is resolved from the scene annotation index or by rebuilding it from the geometry store when needed. It should retrieve all the geometry annotations that are visible in the given scene, the associated links and the data annotations.
-<span style="color:red">FIXME We could consider to add to the annotation links also a sceneId field to directly retrieve the links for a scene?</span>
+
 
 ---
 
@@ -524,6 +554,8 @@ Updates the `referenceType` and `referenceId` fields of an existing `annotationG
 - `true` if the element was updated.
 - `false` if the element does not exist.
 
+This is a low level operation. It does not check system consistency in particular it does not check AnnotationLink DB consistency, see [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
+
 ---
 
 #### `deleteAnnotationGeometry(geometryId) : boolean`
@@ -554,14 +586,15 @@ In practice, this operation is typically invoked as part of an `annotationLink` 
 
 ### `annotationData` operations
 
-#### `createAnnotationData(projectId, label, description, class, privateToScene) : string`
+#### `createAnnotationData(projectId, label, description, class, visibilityType, visibilityId) : string`
 
 Creates a new `annotationData` element. Return the annotationData id
 
 **Pre-conditions:**
 - `projectId` must reference an existing project.
 - `label` must be a non-empty string.
-- If `privateToScene` is not null, it must be a valid existing `sceneId`.
+- If `visibilityType` is "scene", `visibilityId` must be a valid existing `sceneId`.
+- If `visibilityType` is "asset", `visibilityId` must be a valid existing `assetId`.
 
 **Post-conditions:**
 - `id` is contained into the AnnotationData DB.
@@ -579,13 +612,9 @@ Creates a new `annotationData` element. Return the annotationData id
 
 #### `updateAnnotationData(dataId, label, description, class, content) : boolean` 
 
-<span style="color:red">FIXME update content?</span> 
-
 Updates one or more mutable fields of an `annotationData` element.
 
-**Permitted fields:** `label`, `description`, `class`.
-
-**Immutable fields:** `id` . To change the scene scope, the element must be deleted and a new one created.
+**Permitted fields:** `label`, `description`, `class`, `content` changing these fields does not affect the system consistency.
 
 **Pre-conditions:**
 - `dataId` must reference an existing `annotationData`.
@@ -600,6 +629,33 @@ Updates one or more mutable fields of an `annotationData` element.
 - `true` if the element was updated.
 - `false` if the element does not exist.
 
+---
+
+#### `updateAnnotationDataVisibility(dataId, newVisibilityType, newVisibilityId) : boolean`
+Updates the `visibilityType` and `visibilityId` fields of an existing `annotationData` element.
+
+**Invariants:**
+- `projectId` must be a valid, existing project identifier.
+- `id` is globally unique and immutable.
+- `dataId` must reference an existing `annotationData`.
+
+**Pre-conditions:**
+- `newVisibilityType` must be `"scene"` or `"asset"`.
+- `newVisibilityId` must be a valid, existing identifier of an `HDTScene` or `DigitalAsset` respectively. 
+- `newVisibilityType` and `newVisibilityId` can change if they keep referencing content within the same scene. If  `newVisibilityType` is `"scene"`, `newVisibilityId` must be of the id of the current scene . If `newVisibilityType` is `"asset"`, `newVisibilityId` must be a valid, existing identifier of a `DigitalAsset`, and the asset must be present in the current scene.
+
+**Post-conditions:**
+- `visibilityType` and `visibilityId` are updated
+
+**System actions:**
+1. Update `visibilityType` and `visibilityId`.
+2. Update `updatedAt`, `updatedBy`.
+
+**Returns:**
+- `true` if the element was updated.
+- `false` if the element does not exist.
+
+This is a low level operation. It does not check system consistency in particular it does not check AnnotationLink DB consistency, see [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
 ---
 
 #### `deleteAnnotationData(dataId) : boolean` 
@@ -635,12 +691,8 @@ Creates a new `annotationLink` associating one `annotationGeometry` element with
 2. `annotationGeometryId` must reference an existing `annotationGeometry` belonging to the same project.
 3. `annotationDataId` must reference an existing `annotationData` belonging to the same project.
 3. The pair (`annotationGeometryId`, `annotationDataId`) must not already exist as a link.
-4. **Scene consistency**: if `annotationData.privateToScene` is not null:
-   - Resolve the referenced `annotationGeometry`.
-   - If `annotationGeometry.referenceType == "scene"`:  
-     `annotationData.privateToScene` must equal `annotationGeometry.referenceId`.
-   - If `annotationGeometry.referenceType == "asset"`:  
-     `annotationData.privateToScene` must be a valid `sceneId` of a scene that contains the asset identified by `annotationGeometry.referenceId`.
+4. **Scene consistency**: 
+- must satisfy the same scene consistency constraints defined in the [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
 
 **Post-conditions:**
 - `linkId` is contained into the AnnotationLink DB.
@@ -847,7 +899,7 @@ Verifies all invariants for a given `annotationLink`:
 
 1. Referential integrity of `annotationGeometry` and `annotationData`.
 2. Uniqueness of the (`annotationGeometry`, `annotationData`) pair.
-3. Scene consistency constraint on `annotationData.privateToScene`.
+3. Scene consistency constraint on annotationData and annotationGeometry, see [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
 
 Returns a validation report listing any violated constraints.
 
@@ -867,7 +919,7 @@ Deletes all `annotationGeometry` elements not referenced by any `annotationLink`
 
 #### `deleteOrphanedData()`
 
-Deletes all `annotationData` elements not referenced by any `annotationLink`. Both global (`privateToScene == null`) and scene-private (`privateToScene != null`) unreferenced records are eligible for deletion.
+Deletes all `annotationData` elements not referenced by any `annotationLink`. 
 
 ---
 
