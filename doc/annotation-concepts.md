@@ -29,7 +29,7 @@ When an annotation is edited the operation has impact on a limited set of scenes
 ## Note on concurrency
 ⚠️ These concepts could be moved to `data-model.md`.
 
-To guarantee higher concurrency each scene is constitued by 
+To guarantee higher concurrency each scene is constituted by 
 - editable assets
 - background assets
 
@@ -63,13 +63,13 @@ There are two types of data: project level data (HDTs, scenes, assets) and annot
 - If the scene asset is marked as editable, the asset annotations can be edited.
 - The annotations of these assets can be edited in multiple scenes, but only one user can edit the annotations of a specific asset at a time.
 - If multiple scenes have the same asset marked as editable, the first scene that is opened in `edit` mode will have the exclusive right to edit the editable asset annotations. 
-- If a scene contain an asset that is currently edited, other scenes with the same asset marked as editable, cannot be opened in `edit` mode
+- If a scene contains an asset that is currently edited, other scenes with the same asset marked as editable, cannot be opened in `edit` mode
 - When a user open in `edit` mode a scene, that scene and all the scenes containing one of the editable assets of that scene are locked for editing for all users.
 
 ### Workflow 3: User views scenes
 - All users can view a scene.
 - A scene can be loaded only if it's not under Project level operations (workflow 1).
-- To avoid loading scene unconsistencies we propose to lock the scene when a user after editing starts to save and unlock it after the save operation is completed. 
+- To avoid loading scene inconsistencies we propose to lock the scene when a user after editing starts to save and unlock it after the save operation is completed. 
 - Multiple users can view the same scene at the same time
 - If the annotations of a scene are edited by a user, other user can still view the scene. 
 - When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
@@ -895,7 +895,7 @@ Deletes the `annotationLink` only. It keeps the annotationLink DB consistent, bu
 
 ### Delete operations
 
-#### `deleteannotationLinkDeep(linkId) : boolean`
+#### `deleteAnnotationLinkDeep(linkId) : boolean`
 
 Deletes the `annotationLink` and performs conditional cleanup of the associated `annotationGeometry` and `annotationData`, based on whether they are no longer referenced by any other link.
 
@@ -992,8 +992,8 @@ Removes all annotations associated with a given project.
 
 **System actions:**
 
-1. Find all `Annotation` using `getAnnotationsForProject(projectId)`.
-2. For each such annotation, invoke `deleteAnnotationLinkDeep(annotation.link.id)`.
+1. Find all `annotationLink` using `getAnnotationLinksForProject(projectId)`.
+2. For each such link, invoke `deleteAnnotationLinkDeep(link.id)`.
 
 **Returns:**
 - `true` if the element was deleted.
