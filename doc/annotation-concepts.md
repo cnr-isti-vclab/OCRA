@@ -113,7 +113,7 @@ The Low-Level DB Operations allow to modify the single entities, while the High-
 #### Shape types (examples)
 
 A Shape defines a 3D geometric primitive. 
-Each shape contain a label that is used to identify the shape in the 3d scene. 
+Each shape contain a type that is used to identify the shape in the 3d scene. 
 Each shape contain shape specific data. 
 Currently supported shape types:
 
@@ -160,7 +160,7 @@ All coordinates are expressed relative to the annotationGeometry 3D reference sp
     "projectId": "proj_xyz987",
     "shapes": [
         {
-            "type": "polygon",
+            "type": "ShapePolygon",
             "vertices": [
                 [0.42, 0.31, 0.12],
                 [0.44, 0.31, 0.12],
@@ -169,10 +169,18 @@ All coordinates are expressed relative to the annotationGeometry 3D reference sp
             ]
         },
         {
-            "type": "points",
+            "type": "ShapePoints",
             "vertices": [
                 [0.43, 0.32, 0.12],
                 [0.435, 0.315, 0.12]
+            ]
+        },
+        {
+            "type": "ShapePolyline",
+            "vertices": [
+                [0.41, 0.30, 0.12],
+                [0.45, 0.35, 0.12],
+                [0.46, 0.36, 0.12]
             ]
         }
     ],
@@ -324,7 +332,7 @@ Querying for annotations begins by retrieving annotationLink records. The associ
         "projectId": "proj_xyz987",
         "shapes": [
             {
-                "type": "polygon",
+                "type": "ShapePolygon",
                 "vertices": [
                     [0.42, 0.31, 0.12],
                     [0.44, 0.31, 0.12],
@@ -504,9 +512,9 @@ These conditions must align with the scene consistency rules defined in the `ann
 Returns all `annotation` records that reference the given asset.
 Each annotation is composed of an `annotationLink`, `annotationData` and `annotationGeometry` record.
 
-An annotation references the given asset if **either** of the following conditions are satisfied:
-- `annotationGeometryBelongsToScene(geometryId, sceneId, sceneAssetIds)` is true
-- `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds)` is true
+Get all annotationGeometry and annotationData records that reference the given asset.
+Get the links referencing that geometry and data.
+Return the annotations.
 
 This is a global lookup across all scenes.
 
@@ -527,7 +535,7 @@ It retrieves all geometry annotations visible in the specified scene.
 Returns all `annotationData` elements visible in a given scene.
 
 A data element is visible in a scene if `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds)` is true.
-It retrieves all geometry annotations visible in the specified scene.
+It retrieves all annotationData visible in the specified scene.
 
 ---
 
@@ -688,34 +696,6 @@ Updates the `shapes` field of an existing `annotationGeometry` element.
 
 ---
 
-#### `updateAnnotationGeometryReference(geometryId, newReferenceType, newReferenceId) : boolean`
-Updates the `referenceType` and `referenceId` fields of an existing `annotationGeometry` element.
-
-**Invariants:**
-- `projectId` must be a valid, existing project identifier.
-- `id` is globally unique and immutable.
-- `geometryId` must reference an existing `annotationGeometry`.
-
-**Pre-conditions:**
-- `newReferenceType` must be `"scene"` or `"asset"`.
-- `newReferenceId` must be a valid, existing identifier of an `HDTScene` or `DigitalAsset` respectively. 
-- `newReferenceType` and `newReferenceId` can change if they keep referencing content within the same scene. If  `newReferenceType` is `"scene"`, `newReferenceId` must be of the id of the current scene . If `newReferenceType` is `"asset"`, `newReferenceId` must be a valid, existing identifier of a `DigitalAsset`, and the asset must be present in the current scene.
-
-**Post-conditions:**
-- `referenceType` and `referenceId` are updated
-
-**System actions:**
-1. Update `referenceType` and `referenceId`.
-2. Update `updatedAt`, `updatedBy`.
-
-**Returns:**
-- `true` if the element was updated.
-- `false` if the element does not exist.
-
-This is a low level operation. It does not check system consistency in particular it does not check annotationLink DB consistency, see [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
-
----
-
 #### `deleteAnnotationGeometry(geometryId) : boolean`
 
 Deletes an `annotationGeometry` element from the store. It keeps the annotationGeometry DB valid, but it does not ensure the system consistency. 
@@ -789,7 +769,7 @@ Updates one or more mutable fields of an `annotationData` element.
 
 ---
 
-#### `updateAnnotationDataVisibility(dataId, newVisibilityType, newVisibilityId) : boolean`
+#### `updateAnnotationDataVisibility(projectId, dataId, newVisibilityType, newVisibilityId) : boolean`
 Updates the `visibilityType` and `visibilityId` fields of an existing `annotationData` element.
 
 **Invariants:**
