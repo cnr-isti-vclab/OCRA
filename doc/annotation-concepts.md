@@ -13,18 +13,22 @@ The model separates three concepts:
 - **Association** — `annotationLink`: the explicit, immutable link between **a spatial anchor and a semantic content** record.
 
 
-<a id="annotationlink-scene-consistency-table"></a>annotationLink scene consistency table, considering the relative position of the geometry and data to a scene or an asset
-| Geometry<br>relative to | Data<br>relative to | Consistency | Visibility |
-| --- | --- | --- | --- |
-| `"scene"` | `"scene"` | `geometry scene id` == ` data scene id` | single scene |
-| `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>active asset |
-| `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>active asset |
-| `"asset"` | `"asset"` | `geometry asset id` == ` data asset id` | multiple scenes<br>single asset |
+## Basic Concepts
+- An asset has its own unique ID, its own reference system, and a digital representation that must specify its type (2D, 3D) and provide methods for drawing itself (and selecting areas, etc.).
+- A scene has its own unique ID, its own reference system, and refers to two sets of assets, positioned in this reference system. The first set is made up of "editable" assets (i.e., assets that can have annotation modifications), the second of the others.
+- An asset can be shared between multiple scenes.
+- An annotation geometry is a geometric region, expressed either in the reference of a scene or in the reference of an asset.
+- An annotation data is a semantic description, which is either relative to an asset or a scene. If relative to an asset, it is visible in all scenes containing it; if relative to a scene, it is visible only in that scene.
+- An annotation link is a relationship between annotation geometry and annotation data.
+- The operations allowed by Ocra are scene structuring, viewing, and editing.
+- Structure consists of creating/destroying scenes, adding/removing assets from scenes or making them editable or not, positioning assets, etc.
+- Viewing consists of exploring assets and their annotations.
+- Editing consists of adding/removing/modifying annotation geometry, annotation data, and annotation links.
+- Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations.
+- Concurrency Rule 2: I can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
+- Concurrency Rule 3: I can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
+- The above concurrency rules should be implemented with database locks (to protect concurrent access) and checks for operation feasibility. Once the operation is started, there should be no concurrent access, since multiple writes to the same structure are prevented by the rules and invariants must be maintained.
 
-
-The `annotationLink` permits to express annotations as a many-to-many relationship between geometry element and data element. 
-A single geometry element can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry elements. The `annotationLink` entity makes each association explicit, queryable, and independently manageable.
-When an annotation is edited the operation has impact on a limited set of scenes: the specified scene or the scenes that contain the specified asset. 
 
 ## Note on concurrency
 ⚠️ These concepts could be moved to `data-model.md`.
@@ -38,7 +42,6 @@ In the scene description each assets has an `editable` boolean flag to mark it a
 
 In a scene only the asset marked as `editable` can be edited.
 
-
 ## Workflows
 ⚠️ These concepts could be moved to `workflow.md`
 
@@ -50,12 +53,12 @@ When the user start an edit session on some contents, these contents are locked 
 
 There are two types of data: project level data (HDTs, scenes, assets) and annotation data.
 
-### Workflow 1: Project level data (HDTs, scenes, assets) creation, modification and deletion
+### Concurrency Rule 1, scene structuting: project level data (HDTs, scenes, assets) creation, modification and deletion
 - Project level data can be edited only by `Admin` or `Creator` or `Project Manager`.
 - During the creation or modification of an HDT, scene or asset properties, no other user can access the data neither to read nor to write.
 - On editing a project level data, the data is locked for reading and writing for all users. 
 
-### Workflow 2: Annotation creation, modification and deletion
+### Concurrency Rule 2, annotation editing: scene and asset annotations creation, modification and deletion
 - `Editor` or user with higher privileges can create, modify or delete annotations in a scene.
 - When scene annotations are edited by a user, no other user can edit the same scene annotations.
 - When asset annotations are edited by a user, no other user can edit the same asset annotations.
@@ -66,10 +69,10 @@ There are two types of data: project level data (HDTs, scenes, assets) and annot
 - If a scene contains an asset that is currently edited, other scenes with the same asset marked as editable, cannot be opened in `edit` mode
 - When a user open in `edit` mode a scene, that scene and all the scenes containing one of the editable assets of that scene are locked for editing for all users.
 
-### Workflow 3: User views scenes
+### Concurrency Rule 3, scene viewing
 - All users can view a scene.
-- A scene can be loaded only if it's not under Project level operations (workflow 1).
-- To avoid loading scene inconsistencies we propose to lock the scene when a user after editing starts to save and unlock it after the save operation is completed. 
+- A scene can be loaded only if it's not under scene structuring operations (Concurrency Rule 1).
+- To avoid loading scene inconsistencies we propose to lock the scene before start saving and unlock it after the save operation is completed. 
 - Multiple users can view the same scene at the same time
 - If the annotations of a scene are edited by a user, other user can still view the scene. 
 - When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
@@ -85,13 +88,24 @@ There are two types of data: project level data (HDTs, scenes, assets) and annot
 | `annotationData` | Standalone semantic content relative to a scene or an asset |
 | `annotationLink` | Immutable join entity associating one geometry node with one data record |
 
-The entities are stored in the following collections:
-
-- `annotationGeometry`
-- `annotationData`
-- `annotationLink`
+The entities are stored in the corresponding collections.
 
 ![Diagram illustrating the data model and relationships](media/annotation-model.svg)
+
+
+<a id="annotationlink-scene-consistency-table"></a>AnnotationLink scene consistency table, considering the relative position of the geometry and data to a scene or an asset
+| Geometry<br>relative to | Data<br>relative to | Consistency | Visibility |
+| --- | --- | --- | --- |
+| `"scene"` | `"scene"` | `geometry scene id` == ` data scene id` | single scene |
+| `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>active asset |
+| `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>active asset |
+| `"asset"` | `"asset"` | `geometry asset id` == ` data asset id` | multiple scenes<br>single asset |
+
+
+The `annotationLink` permits to express annotations as a many-to-many relationship between geometry element and data element. 
+A single geometry element can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry elements. A single `annotationLink` entity expresses a one-to-one association between a geometry element and a data element.
+When an annotation is edited the operation has impact on a limited set of scenes: the specified scene or the scenes that contain the specified asset. 
+
 
 ### Project-based collections
 
