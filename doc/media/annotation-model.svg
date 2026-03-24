@@ -22,14 +22,15 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1"
-     inkscape:cx="451"
-     inkscape:cy="635.5"
+     inkscape:cx="581.5"
+     inkscape:cy="393.5"
      inkscape:window-width="1728"
      inkscape:window-height="1011"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg83" />
+     inkscape:current-layer="svg83"
+     showgrid="false" />
   <!-- ── Defs / Markers ───────────────────────────────────── -->
   <defs
      id="defs83">
@@ -136,142 +137,25 @@
      stroke="#93c5fd"
      stroke-width="1"
      id="line5" />
-  <text
-     x="82.349609"
-     y="158"
-     font-size="12px"
-     fill="#1e40af"
-     id="text6"><tspan
-       font-weight="700"
-       id="tspan5">id</tspan><tspan
-       fill="#374151"
-       id="tspan6">· unique within project</tspan></text>
-  <text
-     x="82.220703"
-     y="174.132"
-     font-size="12px"
-     fill="#1e40af"
-     id="text6-6"><tspan
-       font-weight="700"
-       id="tspan5-7">projectId</tspan><tspan
-       fill="#374151"
-       id="tspan6-5">· uniqueprojectId</tspan></text>
-  <text
-     x="82.613281"
-     y="192"
-     font-size="12px"
-     fill="#1e40af"
-     id="text8"><tspan
-       font-weight="700"
-       id="tspan7">shapes</tspan><tspan
-       fill="#374151"
-       id="tspan8">· array of { Shapes }</tspan></text>
-  <text
-     x="102"
-     y="210"
-     font-size="11px"
-     fill="#6b7280"
-     font-style="italic"
-     id="text9">type: &quot;ShapePoints&quot; | &quot;ShapePolyline&quot; | &quot;ShapePolygon&quot;</text>
-  <text
-     x="102"
-     y="226"
-     font-size="11px"
-     fill="#6b7280"
-     font-style="italic"
-     id="text10">data: array of [x, y, z] — cardinality per type</text>
-  <text
-     x="82.220703"
-     y="246"
-     font-size="12px"
-     fill="#1e40af"
-     id="text11"><tspan
-       font-weight="700"
-       id="tspan10">referenceType</tspan><tspan
-       fill="#374151"
-       id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
-  <text
-     x="82.220703"
-     y="266"
-     font-size="12px"
-     fill="#1e40af"
-     id="text13"><tspan
-   style="font-weight:bold"
-   id="tspan3">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
   <line
      x1="80"
-     y1="277"
+     y1="263"
      x2="530"
-     y2="277"
+     y2="263"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
      id="line13" />
-  <text
-     x="80"
-     y="294"
-     font-size="11px"
-     fill="#94a3b8"
-     font-weight="600"
-     id="text14">createdAt · createdBy · updatedAt · updatedBy</text>
   <line
      x1="80"
-     y1="305"
+     y1="287"
      x2="530"
-     y2="305"
+     y2="287"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
      id="line14" />
   <!-- shape badges -->
-  <rect
-     x="80"
-     y="314"
-     width="106"
-     height="18"
-     rx="4"
-     fill="#eff6ff"
-     id="rect14" />
-  <text
-     x="133"
-     y="327"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text15">ShapePoints ≥ 1</text>
-  <rect
-     x="194"
-     y="314"
-     width="118"
-     height="18"
-     rx="4"
-     fill="#eff6ff"
-     id="rect15" />
-  <text
-     x="253"
-     y="327"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text16">ShapePolyline ≥ 2</text>
-  <rect
-     x="320"
-     y="314"
-     width="118"
-     height="18"
-     rx="4"
-     fill="#eff6ff"
-     id="rect16" />
-  <text
-     x="379"
-     y="327"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text17">ShapePolygon ≥ 3</text>
   <!-- immutability badge -->
   <!-- multi-shape note -->
   <!-- ── annotationData ────────────────────────────────────── -->
@@ -788,14 +672,14 @@
      text-anchor="middle"
      font-size="11"
      fill="#374151"
-     id="text63">geom&apos;s scene contains data&apos;s asset</text>
+     id="text63">geom's scene contains data's asset</text>
   <text
      x="1020"
      y="830"
      text-anchor="middle"
-     font-size="11"
+     font-size="11px"
      fill="#374151"
-     id="text64">single scene · active asset</text>
+     id="text64">single scene · single asset</text>
   <!-- Row 3: asset / scene -->
   <rect
      x="60"
@@ -826,14 +710,14 @@
      text-anchor="middle"
      font-size="11"
      fill="#374151"
-     id="text69">geom&apos;s asset is in data&apos;s scene</text>
+     id="text69">geom's asset is in data's scene</text>
   <text
      x="1020"
      y="853"
      text-anchor="middle"
-     font-size="11"
+     font-size="11px"
      fill="#374151"
-     id="text70">single scene · active asset</text>
+     id="text70">single scene · single asset</text>
   <!-- Row 4: asset / asset -->
   <rect
      x="60"
@@ -898,4 +782,88 @@
    id="tspan3-1">visibilityId</tspan>· <tspan
    style="fill:#374151;fill-opacity:1"
    id="tspan9">id of target HDTScene or DigitalAsset</tspan></text>
+  <text
+     x="85.164383"
+     y="157.132"
+     font-size="12px"
+     fill="#1e40af"
+     id="text6"><tspan
+       font-weight="700"
+       id="tspan5">id</tspan><tspan
+       fill="#374151"
+       id="tspan6">· unique within project</tspan></text>
+  <text
+     x="85.035477"
+     y="173.26401"
+     font-size="12px"
+     fill="#1e40af"
+     id="text6-6"><tspan
+       font-weight="700"
+       id="tspan5-7">projectId</tspan><tspan
+       fill="#374151"
+       id="tspan6-5">· uniqueprojectId</tspan></text>
+  <text
+     x="85.428055"
+     y="191.132"
+     font-size="12px"
+     fill="#1e40af"
+     id="text8"><tspan
+       font-weight="700"
+       id="tspan7">shapes</tspan><tspan
+       fill="#374151"
+       id="tspan8">· array of { Shapes }</tspan></text>
+  <text
+     x="104.81477"
+     y="209.132"
+     font-size="11px"
+     fill="#6b7280"
+     font-style="italic"
+     id="text9">Shape is a: &quot;ShapePoints&quot; | &quot;ShapePolyline&quot; | &quot;ShapePolygon&quot;</text>
+  <text
+     x="85.035477"
+     y="231.13199"
+     font-size="12px"
+     fill="#1e40af"
+     id="text11"><tspan
+       font-weight="700"
+       id="tspan10">referenceType</tspan><tspan
+       fill="#374151"
+       id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
+  <text
+     x="85.035477"
+     y="251.13199"
+     font-size="12px"
+     fill="#1e40af"
+     id="text13"><tspan
+   style="font-weight:bold"
+   id="tspan3">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
+  <text
+     x="82.814774"
+     y="279.13199"
+     font-size="11px"
+     fill="#94a3b8"
+     font-weight="600"
+     id="text14">createdAt · createdBy · updatedAt · updatedBy</text>
+  <rect
+     x="79.51326"
+     y="299.4249"
+     width="303.31726"
+     height="18"
+     rx="11.445935"
+     fill="#eff6ff"
+     id="rect14-6"
+     style="stroke-width:1.69159" />
+  <text
+     xml:space="preserve"
+     style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
+     x="88.608078"
+     y="311.82843"
+     id="text18"><tspan
+       sodipodi:role="line"
+       id="tspan18"
+       x="88.608078"
+       y="311.82843"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1">Immutable after creation:  <tspan
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif';fill:#666666"
+   id="tspan19">referenceId referenceType</tspan></tspan></text>
 </svg>
