@@ -2,16 +2,22 @@
 
 ## Introduction
 
-This document defines the core concepts for the annotation system. It introduces a decomposed, relational data model.
-
-Each annotation is expressed as a relation (`annotationLink`) between a placement (`annotationGeometry`) and a semantic content (`annotationData`).
+This document defines the core concepts of the annotation system. It introduces a decomposed, relational data model in which spatial anchors, semantic content, and their associations are represented as independent entities.
 
 The model separates three concepts:
 
-- **Spatial placement** — `annotationGeometry`: the 3D shape that anchors the annotation in space. An `annotationGeometry` is always relative to a scene or an asset.
-- **Semantic content** — `annotationData`: the information conveyed by the annotation. An `annotationData` is always relative to a scene or an asset.
-- **Association** — `annotationLink`: the explicit, immutable link between **a spatial anchor and a semantic content** record.
+**Spatial placement** — `annotationGeometry`
+The 3D shape that anchors an annotation in space. An `annotationGeometry` is expressed in the reference frame of a specific scene or asset, meaning its coordinates and spatial properties are defined relative to that scene’s or asset’s coordinate system.
+It represents only spatial information and may exist independently of any semantic content or links.
 
+**Semantic content** — `annotationData`
+The information conveyed by an annotation. An `annotationData` defines the semantic payload of the annotation and its visibility scope. It can be defined either for a single scene, meaning it is visible only within that scene, or for a specific asset, meaning it is visible in every scene in which that asset appears.
+It represents only semantic information and may exist independently of any spatial placement or links.
+
+**Association** — `annotationLink`
+The explicit association between a spatial anchor (`annotationGeometry`) and a semantic content record (`annotationData`). The relation expressed by `annotationLink` is many-to-many: a single `annotationGeometry` may be associated with multiple `annotationData` records, and a single `annotationData` may be associated with multiple `annotationGeometry` records.
+
+In this model, annotationGeometry and annotationData are independent resources whose relationships are defined exclusively through annotationLink.
 
 ## Basic Concepts
 - An asset has its own unique ID, its own reference system, and a digital representation that must specify its type (2D, 3D) and provide methods for drawing itself (and selecting areas, etc.).
