@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   viewBox="0 0 1200 900"
+   viewBox="0 0 1200 940"
    width="1200"
-   height="900"
+   height="940"
    font-family="'Segoe UI', Helvetica, Arial, sans-serif"
    version="1.1"
    id="svg83"
@@ -22,14 +22,15 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1"
-     inkscape:cx="451.49999"
-     inkscape:cy="395.49999"
+     inkscape:cx="581.5"
+     inkscape:cy="393.5"
      inkscape:window-width="1728"
      inkscape:window-height="1011"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg83" />
+     inkscape:current-layer="svg83"
+     showgrid="false" />
   <!-- ── Defs / Markers ───────────────────────────────────── -->
   <defs
      id="defs83">
@@ -61,7 +62,7 @@
   <!-- ── Background ────────────────────────────────────────── -->
   <rect
      width="1200"
-     height="900"
+     height="924"
      fill="#f8f9fb"
      rx="12"
      id="rect2"
@@ -136,167 +137,27 @@
      stroke="#93c5fd"
      stroke-width="1"
      id="line5" />
-  <text
-     x="82.349609"
-     y="158"
-     font-size="12px"
-     fill="#1e40af"
-     id="text6"><tspan
-       font-weight="700"
-       id="tspan5">id</tspan><tspan
-       fill="#374151"
-       id="tspan6">· unique within project</tspan></text>
-  <text
-     x="82.220703"
-     y="174.132"
-     font-size="12px"
-     fill="#1e40af"
-     id="text6-6"><tspan
-       font-weight="700"
-       id="tspan5-7">projectId</tspan><tspan
-       fill="#374151"
-       id="tspan6-5">· uniqueprojectId</tspan></text>
-  <text
-     x="82.613281"
-     y="192"
-     font-size="12px"
-     fill="#1e40af"
-     id="text8"><tspan
-       font-weight="700"
-       id="tspan7">shapes</tspan><tspan
-       fill="#374151"
-       id="tspan8">· array of { Shapes }</tspan></text>
-  <text
-     x="102"
-     y="210"
-     font-size="11px"
-     fill="#6b7280"
-     font-style="italic"
-     id="text9">type: &quot;points&quot; | &quot;polyline&quot; | &quot;polygon&quot;</text>
-  <text
-     x="102"
-     y="226"
-     font-size="11px"
-     fill="#6b7280"
-     font-style="italic"
-     id="text10">data: array of [x, y, z] — cardinality per type</text>
-  <text
-     x="82.220703"
-     y="246"
-     font-size="12px"
-     fill="#1e40af"
-     id="text11"><tspan
-       font-weight="700"
-       id="tspan10">referenceType</tspan><tspan
-       fill="#374151"
-       id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
-  <text
-     x="82.220703"
-     y="266"
-     font-size="12px"
-     fill="#1e40af"
-     id="text13"><tspan
-   style="font-weight:bold"
-   id="tspan3">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
   <line
      x1="80"
-     y1="277"
+     y1="263"
      x2="530"
-     y2="277"
+     y2="263"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
      id="line13" />
-  <text
-     x="80"
-     y="294"
-     font-size="11px"
-     fill="#94a3b8"
-     font-weight="600"
-     id="text14">createdAt · createdBy · updatedAt · updatedBy</text>
   <line
      x1="80"
-     y1="305"
+     y1="287"
      x2="530"
-     y2="305"
+     y2="287"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
      id="line14" />
   <!-- shape badges -->
-  <rect
-     x="80"
-     y="314"
-     width="106"
-     height="18"
-     rx="4"
-     fill="#eff6ff"
-     id="rect14" />
-  <text
-     x="133"
-     y="327"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text15">points ≥ 1 coord</text>
-  <rect
-     x="194"
-     y="314"
-     width="118"
-     height="18"
-     rx="4"
-     fill="#eff6ff"
-     id="rect15" />
-  <text
-     x="253"
-     y="327"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text16">polyline ≥ 2 coords</text>
-  <rect
-     x="320"
-     y="314"
-     width="118"
-     height="18"
-     rx="4"
-     fill="#eff6ff"
-     id="rect16" />
-  <text
-     x="379"
-     y="327"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text17">polygon ≥ 3 coords</text>
   <!-- immutability badge -->
-  <rect
-     x="80"
-     y="339"
-     width="210"
-     height="18"
-     rx="4"
-     fill="#dbeafe"
-     id="rect17" />
-  <text
-     x="181"
-     y="352"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#1d4ed8"
-     font-weight="600"
-     id="text18">mutable: referenceType, referenceId</text>
   <!-- multi-shape note -->
-  <text
-     x="302"
-     y="352"
-     font-size="10px"
-     fill="#6b7280"
-     font-style="italic"
-     id="text19">one or more shapes per element</text>
   <!-- ── annotationData ────────────────────────────────────── -->
   <rect
      x="649.97101"
@@ -436,23 +297,6 @@
      stroke-dasharray="4, 3"
      id="line33" />
   <!-- mutable badge -->
-  <rect
-     x="659"
-     y="352"
-     width="279"
-     height="18"
-     rx="5.5799999"
-     fill="#dcfce7"
-     id="rect33"
-     style="stroke-width:1.1811" />
-  <text
-     x="799"
-     y="365"
-     text-anchor="middle"
-     font-size="10px"
-     fill="#15803d"
-     font-weight="600"
-     id="text34">mutable: label, description, class, visibilityType, visibilityId</text>
   <!-- immutable badge -->
   <text
      x="965"
@@ -482,7 +326,7 @@
      fill="#3b82f6"
      font-style="italic"
      transform="rotate(32.699373)"
-     id="text36">annotationGeometryId</text>
+     id="text36">annotationGeometry ref</text>
   <line
      x1="895"
      y1="395"
@@ -500,7 +344,7 @@
      fill="#10b981"
      font-style="italic"
      transform="rotate(-31.743518)"
-     id="text37">annotationDataId</text>
+     id="text37">annotationData ref</text>
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ROW 2 — annotationLink (centre)                                    -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -564,9 +408,9 @@
      fill="#93c5fd"
      id="text42"><tspan
        font-weight="700"
-       id="tspan41">annotationGeometryId</tspan><tspan
+       id="tspan41">annotationGeometry</tspan><tspan
        fill="#cbd5e1"
-       id="tspan42"> → ref annotationGeometry.id</tspan></text>
+       id="tspan42"> · ref to annotationGeometry.id</tspan></text>
   <text
      x="370"
      y="607"
@@ -574,9 +418,9 @@
      fill="#93c5fd"
      id="text44"><tspan
        font-weight="700"
-       id="tspan43">annotationDataId</tspan><tspan
+       id="tspan43">annotationData</tspan><tspan
        fill="#cbd5e1"
-       id="tspan44"> → ref annotationData.id</tspan></text>
+       id="tspan44"> · ref to annotationData.id</tspan></text>
   <line
      x1="370"
      y1="618"
@@ -588,10 +432,10 @@
   <text
      x="370"
      y="635"
-     font-size="11"
+     font-size="11px"
      fill="#94a3b8"
      font-weight="600"
-     id="text45">createdAt · createdBy · updatedAt · updatedBy</text>
+     id="text45">createdAt · createdBy</text>
   <line
      x1="370"
      y1="646"
@@ -644,11 +488,11 @@
        sodipodi:role="line"
        id="tspan65"
        x="370"
-       y="693">scene consistency: if annotationData.privateToScene is set, it must match the scene</tspan><tspan
+       y="693">scene consistency: geometry.referenceType × data.visibilityType combinations</tspan><tspan
        sodipodi:role="line"
        id="tspan66"
        x="370"
-       y="706.75">context of the linked geometry</tspan></text>
+       y="706.75">must satisfy the rules in the Visibility Rules table below</tspan></text>
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ROW 3 — Visibility table                                           -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -656,7 +500,7 @@
      x="60"
      y="740"
      width="1080"
-     height="135"
+     height="175"
      rx="8"
      fill="#ffffff"
      stroke="#e2e8f0"
@@ -685,7 +529,7 @@
      font-weight="700"
      fill="#ffffff"
      letter-spacing="0.4"
-     id="text50">Visibility Rules — referenceType × referenceData (on annotationGeometry)</text>
+     id="text50">Visibility Rules — geometry.referenceType × data.visibilityType</text>
   <!-- header row -->
   <line
      x1="60"
@@ -702,15 +546,15 @@
      font-size="11"
      font-weight="700"
      fill="#374151"
-     id="text51">referenceType</text>
+     id="text51">geometry.referenceType</text>
   <text
-     x="410"
+     x="425"
      y="787"
      text-anchor="middle"
      font-size="11"
      font-weight="700"
      fill="#374151"
-     id="text52">referenceData</text>
+     id="text52">data.visibilityType</text>
   <text
      x="720"
      y="787"
@@ -718,7 +562,7 @@
      font-size="11"
      font-weight="700"
      fill="#374151"
-     id="text53">Inclusion in scene annotation index</text>
+     id="text53">Consistency constraint</text>
   <text
      x="1020"
      y="787"
@@ -726,7 +570,7 @@
      font-size="11"
      font-weight="700"
      fill="#374151"
-     id="text54">Visible in</text>
+     id="text54">Visibility</text>
   <line
      x1="60"
      y1="792"
@@ -740,7 +584,7 @@
      x1="310"
      y1="772"
      x2="310"
-     y2="875"
+     y2="884"
      stroke="#e5e7eb"
      stroke-width="1"
      id="line55" />
@@ -748,7 +592,7 @@
      x1="540"
      y1="772"
      x2="540"
-     y2="875"
+     y2="884"
      stroke="#e5e7eb"
      stroke-width="1"
      id="line56" />
@@ -756,100 +600,178 @@
      x1="900"
      y1="772"
      x2="900"
-     y2="875"
+     y2="884"
      stroke="#e5e7eb"
      stroke-width="1"
      id="line57" />
-  <!-- Row "scene" -->
+  <!-- Row 1: scene / scene -->
   <rect
      x="60"
      y="792"
      width="1080"
-     height="26"
+     height="23"
      fill="#f0f9ff"
      id="rect57" />
   <text
      x="190"
-     y="809"
+     y="807"
      text-anchor="middle"
      font-size="11"
      fill="#0369a1"
      font-weight="600"
      id="text57">&quot;scene&quot;</text>
   <text
-     x="410"
-     y="809"
+     x="425"
+     y="807"
      text-anchor="middle"
      font-size="11"
-     fill="#374151"
-     id="text58">sceneId</text>
+     fill="#0369a1"
+     font-weight="600"
+     id="text58">&quot;scene&quot;</text>
   <text
      x="720"
-     y="809"
+     y="807"
      text-anchor="middle"
      font-size="11"
      fill="#374151"
-     id="text59">sceneId == currentScene.id</text>
+     id="text59">geom.referenceId == data.visibilityId</text>
   <text
      x="1020"
-     y="809"
+     y="807"
      text-anchor="middle"
      font-size="11"
      fill="#374151"
-     id="text60">that scene only</text>
-  <!-- Row "asset" -->
+     id="text60">single scene</text>
+  <!-- Row 2: scene / asset -->
   <rect
      x="60"
-     y="818"
+     y="815"
      width="1080"
-     height="26"
-     fill="#f0fdf4"
-     id="rect60" />
+     height="23"
+     fill="#f8f9fb"
+     id="rect58" />
   <text
      x="190"
-     y="835"
+     y="830"
+     text-anchor="middle"
+     font-size="11"
+     fill="#0369a1"
+     font-weight="600"
+     id="text61">&quot;scene&quot;</text>
+  <text
+     x="425"
+     y="830"
      text-anchor="middle"
      font-size="11"
      fill="#15803d"
      font-weight="600"
-     id="text61">&quot;asset&quot;</text>
-  <text
-     x="410"
-     y="835"
-     text-anchor="middle"
-     font-size="11"
-     fill="#374151"
-     id="text62">assetId</text>
+     id="text62">&quot;asset&quot;</text>
   <text
      x="720"
-     y="835"
+     y="830"
      text-anchor="middle"
      font-size="11"
      fill="#374151"
-     id="text63">asset assetId is present in currentScene</text>
+     id="text63">geom's scene contains data's asset</text>
   <text
      x="1020"
-     y="835"
+     y="830"
+     text-anchor="middle"
+     font-size="11px"
+     fill="#374151"
+     id="text64">single scene · single asset</text>
+  <!-- Row 3: asset / scene -->
+  <rect
+     x="60"
+     y="838"
+     width="1080"
+     height="23"
+     fill="#f8f9fb"
+     id="rect59" />
+  <text
+     x="190"
+     y="853"
+     text-anchor="middle"
+     font-size="11"
+     fill="#15803d"
+     font-weight="600"
+     id="text67">&quot;asset&quot;</text>
+  <text
+     x="425"
+     y="853"
+     text-anchor="middle"
+     font-size="11"
+     fill="#0369a1"
+     font-weight="600"
+     id="text68">&quot;scene&quot;</text>
+  <text
+     x="720"
+     y="853"
      text-anchor="middle"
      font-size="11"
      fill="#374151"
-     id="text64">all scenes containing that asset</text>
+     id="text69">geom's asset is in data's scene</text>
+  <text
+     x="1020"
+     y="853"
+     text-anchor="middle"
+     font-size="11px"
+     fill="#374151"
+     id="text70">single scene · single asset</text>
+  <!-- Row 4: asset / asset -->
+  <rect
+     x="60"
+     y="861"
+     width="1080"
+     height="23"
+     fill="#f0fdf4"
+     id="rect60" />
+  <text
+     x="190"
+     y="876"
+     text-anchor="middle"
+     font-size="11"
+     fill="#15803d"
+     font-weight="600"
+     id="text71">&quot;asset&quot;</text>
+  <text
+     x="425"
+     y="876"
+     text-anchor="middle"
+     font-size="11"
+     fill="#15803d"
+     font-weight="600"
+     id="text72">&quot;asset&quot;</text>
+  <text
+     x="720"
+     y="876"
+     text-anchor="middle"
+     font-size="11"
+     fill="#374151"
+     id="text73">geom.referenceId == data.visibilityId</text>
+  <text
+     x="1020"
+     y="876"
+     text-anchor="middle"
+     font-size="11"
+     fill="#374151"
+     id="text74">all scenes with that asset</text>
   <line
      x1="60"
-     y1="844"
+     y1="884"
      x2="1140"
-     y2="844"
+     y2="884"
      stroke="#e5e7eb"
      stroke-width="1"
      id="line64" />
   <text
      x="600"
-     y="862"
+     y="898"
      text-anchor="middle"
      font-size="11"
      fill="#6b7280"
      font-style="italic"
-     id="text65">Scene annotation index is derived · ground truth is the annotationGeometry store · index is always rebuildable from project-level stores</text>
+     id="text65">Valid only when both annotationGeometryBelongsToScene AND annotationDataBelongsToScene hold · ground truth is annotationGeometry and annotationData stores</text>
   <text
      x="668.2207"
      y="296.17999"
@@ -860,4 +782,88 @@
    id="tspan3-1">visibilityId</tspan>· <tspan
    style="fill:#374151;fill-opacity:1"
    id="tspan9">id of target HDTScene or DigitalAsset</tspan></text>
+  <text
+     x="85.164383"
+     y="157.132"
+     font-size="12px"
+     fill="#1e40af"
+     id="text6"><tspan
+       font-weight="700"
+       id="tspan5">id</tspan><tspan
+       fill="#374151"
+       id="tspan6">· unique within project</tspan></text>
+  <text
+     x="85.035477"
+     y="173.26401"
+     font-size="12px"
+     fill="#1e40af"
+     id="text6-6"><tspan
+       font-weight="700"
+       id="tspan5-7">projectId</tspan><tspan
+       fill="#374151"
+       id="tspan6-5">· uniqueprojectId</tspan></text>
+  <text
+     x="85.428055"
+     y="191.132"
+     font-size="12px"
+     fill="#1e40af"
+     id="text8"><tspan
+       font-weight="700"
+       id="tspan7">shapes</tspan><tspan
+       fill="#374151"
+       id="tspan8">· array of { Shapes }</tspan></text>
+  <text
+     x="104.81477"
+     y="209.132"
+     font-size="11px"
+     fill="#6b7280"
+     font-style="italic"
+     id="text9">Shape is a: &quot;ShapePoints&quot; | &quot;ShapePolyline&quot; | &quot;ShapePolygon&quot;</text>
+  <text
+     x="85.035477"
+     y="231.13199"
+     font-size="12px"
+     fill="#1e40af"
+     id="text11"><tspan
+       font-weight="700"
+       id="tspan10">referenceType</tspan><tspan
+       fill="#374151"
+       id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
+  <text
+     x="85.035477"
+     y="251.13199"
+     font-size="12px"
+     fill="#1e40af"
+     id="text13"><tspan
+   style="font-weight:bold"
+   id="tspan3">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
+  <text
+     x="82.814774"
+     y="279.13199"
+     font-size="11px"
+     fill="#94a3b8"
+     font-weight="600"
+     id="text14">createdAt · createdBy · updatedAt · updatedBy</text>
+  <rect
+     x="79.51326"
+     y="299.4249"
+     width="303.31726"
+     height="18"
+     rx="11.445935"
+     fill="#eff6ff"
+     id="rect14-6"
+     style="stroke-width:1.69159" />
+  <text
+     xml:space="preserve"
+     style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
+     x="88.608078"
+     y="311.82843"
+     id="text18"><tspan
+       sodipodi:role="line"
+       id="tspan18"
+       x="88.608078"
+       y="311.82843"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1">Immutable after creation:  <tspan
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif';fill:#666666"
+   id="tspan19">referenceId referenceType</tspan></tspan></text>
 </svg>
