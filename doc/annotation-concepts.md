@@ -379,35 +379,6 @@ Querying for annotations begins by retrieving annotationLink records. The associ
 }
 ```
 
-## Scene Annotation Index
-<span style="color:red">FIXME Consider removing the Scene Annotation Index</span>. Is it needed, or is better to build the annotation list on the fly?
-
-### Purpose and derivation
-
-The scene annotation index is a derived data structure that enables fast retrieval of the annotations visible in a given scene. It is not a ground truth: it can always be rebuilt from the project-level stores of `annotationGeometry`, `annotationData`, and `annotationLink`.
-
-Evaluate if needed: it can speed up the retrieval of annotations visible in a given scene, but it adds complexity to the system updates.
-
-A geometry element (and any associated link) is visible in a scene according to the following rule:
-
-| `referenceType` | `referenceId` | Condition for inclusion in scene index |
-| --- | --- | --- |
-| `"scene"` | `sceneId` | `sceneId == currentScene.id` |
-| `"asset"` | `assetId` | The asset `assetId` is present in `currentScene` |
-
-### Index maintenance
-
-- When an `annotationGeometry` is **created**, its id must be added to the index of the affected scene(s).
-- When an `annotationGeometry` is **deleted**, its id must be removed from the index of the affected scene(s).
-- When an `annotationLink` is created or deleted, the scene annotation index is not directly modified: the index is based on geometry presence, not on link presence.
-- When a **scene is deleted**, its scene annotation index is removed entirely. All `annotationGeometry` elements with `referenceType == "scene"` and `referenceId == deletedScene.id` must be handled according to the deletion policy described in the operations section.
-
-### Index rebuild
-
-The index for a given scene can be rebuilt at any time by scanning all `annotationGeometry` records and applying the visibility rules above. This operation is idempotent and can be used to recover from inconsistent states.
-
----
-
 ## Queries
 
 ### Load
@@ -443,11 +414,9 @@ Called after editing is finished. It unlocks the scene and the contained editabl
 
 DB queries provide functions to retrieve data from the databases and to support high-level operations.
 
-<span style="color:red">FIXME if annotationLink IDs are unique within the DB the linkId is enough, otherwise the projectId is a necessary parameter</span>
-
 ### Helper functions
 
-#### `annotationGeometryBelongsToScene(geometryId, sceneId, sceneAssetIds[]): boolean`
+#### `annotationGeometryBelongsToScene(projectId, geometryId, sceneId, sceneAssetIds[]): boolean`
 
 Returns `true` if one of the following conditions is satisfied:
 - `referenceType == "scene"` and `referenceId == sceneId`
@@ -455,19 +424,17 @@ Returns `true` if one of the following conditions is satisfied:
 
 ---
 
-#### `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds[]): boolean`
+#### `annotationDataBelongsToScene(projectId, dataId, sceneId, sceneAssetIds[]): boolean`
 
 Returns `true` if one of the following conditions is satisfied:
 - `visibilityType == "scene"` and `visibilityId == sceneId`
 - `visibilityType == "asset"` and `visibilityId` identifies an asset contained in the scene
 
----
-
 ### Read operations: return annotationLinks
 
 These functions return an `annotationLink` object and are executed just searching the `annotationLink` collection.
 
-#### `getAnnotationLink(linkId): annotationLink`
+#### `getAnnotationLink(projectId, linkId): annotationLink`
 
 Returns a single `annotationLink` identified by `linkId`
 
@@ -479,19 +446,19 @@ Returns all `annotationLink` records associated with a given project. This is a 
 
 ---
 
-#### `getAnnotationLinksForGeometry(geometryId): annotationLink[]`
+#### `getAnnotationLinksForGeometry(projectId, geometryId): annotationLink[]`
 
 Returns all `annotationLink` records that reference a given `annotationGeometry`. Useful for determining whether a geometry element is orphaned or still in use.
 
 ---
 
-#### `getAnnotationLinksForData(dataId): annotationLink[]`
+#### `getAnnotationLinksForData(projectId, dataId): annotationLink[]`
 
 Returns all `annotationLink` records that reference a given `annotationData`. Useful for determining whether a data record is orphaned or still in use.
 
 ---
 
-#### `getAnnotationLinkAuditInfo(linkId) : {createdAt, createdBy}`
+#### `getAnnotationLinkAuditInfo(projectId, linkId) : {createdAt, createdBy}`
 
 Returns the audit fields for a given `annotationLink` element: `createdAt`, `createdBy`.
 
@@ -502,13 +469,13 @@ Returns the audit fields for a given `annotationLink` element: `createdAt`, `cre
 
 These functions directly return a complete `Annotation` object, composed of an `annotationLink`, `annotationData` and `annotationGeometry` record. 
 
-#### `getAnnotation(linkId): Annotation`
+#### `getAnnotation(projectId, linkId): Annotation`
 
 Returns a single `Annotation` identified by `linkId`
 
 ---
 
-#### `getAnnotationsForScene(sceneId, sceneAssetIds[]): Annotation[]`
+#### `getAnnotationsForScene(projectId, sceneId, sceneAssetIds[]): Annotation[]`
 
 Returns all `Annotation` records visible in a given scene.
 Each annotation is composed of an `annotationLink`, `annotationData` and `annotationGeometry` record.
@@ -521,91 +488,100 @@ These conditions must align with the scene consistency rules defined in the `ann
  
 ---
 
-#### `getAnnotationsForAsset(assetId): Annotation[]`
+#### `getAnnotationGeometriesForScene(projectId, sceneId, sceneAssetIds[]) : annotationGeometry[]`
 
-Returns all `annotation` records that reference the given asset.
-Each annotation is composed of an `annotationLink`, `annotationData` and `annotationGeometry` record.
+Returns all `annotationGeometry` elements belonging to a given scene.
 
-Get all annotationGeometry and annotationData records that reference the given asset.
-Get the links referencing that geometry and data.
-Return the annotations.
+A geometry element belongs to a scene if `annotationGeometryBelongsToScene(geometryId, sceneId, sceneAssetIds)` is true.
+
+It retrieves all geometry annotations belonging to the specified scene.
+
+---
+
+#### `getAnnotationDataForScene(projectId, sceneId, sceneAssetIds[]) : annotationData[]`
+
+Returns all `annotationData` elements belonging to a given scene.
+
+A data element belongs to a scene if `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds)` is true.
+It retrieves all annotationData belonging to the specified scene.
+
+---
+
+#### `getAnnotationGeometriesForAsset(projectId, assetId): annotationGeometry[]`
+
+Returns all `annotationGeometry` elements belonging to a given asset.
+
+A geometry element belongs to an asset if `referenceType == "asset"` and `referenceId == assetId`.
+
+It retrieves all geometry annotations belonging to the specified asset.
+
+#### `getAnnotationDataForAsset(projectId, assetId): annotationData[]`
+
+Returns all `annotationData` elements belonging to a given asset.
+
+A data element belongs to an asset if `visibilityType == "asset"` and `visibilityId == assetId`.
+
+It retrieves all data annotations belonging to the specified asset.
+
+#### `getAnnotationsForAsset(projectId, assetId): Annotation[]`
+
+Returns all `Annotation` records that reference the given asset.
+
+Could be implemented as:
+- geometry = `getAnnotationGeometriesForAsset(projectId, assetId)`
+- data = `getAnnotationDataForAsset(projectId, assetId)`
+- links = find all the links that reference the given geometry or data records
+- return assembled annotations made of `annotationLink`, `annotationData` and `annotationGeometry`
 
 This is a global lookup across all scenes.
 
 ---
 
-#### `getAnnotationGeometriesForScene(sceneId, sceneAssetIds[]) : annotationGeometry[]`
-
-Returns all `annotationGeometry` elements visible in a given scene.
-
-A geometry element is visible in a scene if `annotationGeometryBelongsToScene(geometryId, sceneId, sceneAssetIds)` is true.
-
-It retrieves all geometry annotations visible in the specified scene.
-
----
-
-#### `getAnnotationDataForScene(sceneId, sceneAssetIds[]) : annotationData[]`
-
-Returns all `annotationData` elements visible in a given scene.
-
-A data element is visible in a scene if `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds)` is true.
-It retrieves all annotationData visible in the specified scene.
-
----
-
-#### `getAnnotationGeometry(geometryId) : annotationGeometry`
+#### `getAnnotationGeometry(projectId, geometryId) : annotationGeometry`
 
 Returns a single `annotationGeometry` element by identifier.
 
 ---
 
-#### `getAnnotationData(dataId) : annotationData`
+#### `getAnnotationData(projectId, dataId) : annotationData`
 
 Returns a single `annotationData` element by identifier.
 
 ---
 
 
-#### `getAnnotationDataAuditInfo(dataId) : {createdAt, createdBy, updatedAt, updatedBy}`
+#### `getAnnotationDataAuditInfo(projectId, dataId) : {createdAt, createdBy, updatedAt, updatedBy}`
 
 Returns the audit fields for a given `annotationData` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Intended for provenance and workflow tracking.
 
 ---
 
-#### `getAnnotationGeometryAuditInfo(geometryId) : {createdAt, createdBy, updatedAt, updatedBy}`
+#### `getAnnotationGeometryAuditInfo(projectId, geometryId) : {createdAt, createdBy, updatedAt, updatedBy}`
 
 Returns the audit fields for a given `annotationGeometry` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
 
 ---
 
-#### `getAnnotationsByShapeType(shapeType, sceneId?, sceneAssetIds[]) : Annotation[]`
-
-<span style="color:red">FIXME Consider removing this function. Need to evaluate the type of each Shape Array element to perform this operation</span>
-
-Returns all `Annotation` records whose referenced `annotationGeometry` contains at least one shape of a specified `type` Optionally filtered to a specific scene. Useful for retrieving all point-based annotations or all area annotations within a context. 
-
----
-
-#### `getAnnotationsByClass(class, sceneId?, sceneAssetIds[]) : Annotation[]`
+#### `getAnnotationsByClass(projectId, class, sceneId?, sceneAssetIds[]) : Annotation[]`
 
 Returns all `Annotation` records whose associated `annotationData.class` matches the given value. Optionally filtered to a specific scene.
 
 ---
 
-#### `getAnnotationsByLabel(label, sceneId?, sceneAssetIds[]) : Annotation[]`
+#### `getAnnotationsByLabel(projectId, label, sceneId?, sceneAssetIds[]) : Annotation[]`
 
 Returns all `Annotation` records whose associated `annotationData.label` matches or contains the given string. Optionally filtered to a specific scene.
 
 ---
 
 
-#### `searchAnnotations(query, sceneId?, sceneAssetIds[]) : Annotation[]`
+#### `searchAnnotations(projectId, query, sceneId?, sceneAssetIds[]) : Annotation[]`
 
 Full-text search over `annotationData.label` and `annotationData.description`. Returns matching `Annotation` records. Optionally scoped to a scene.
 
 ---
 
-#### `countAnnotationsByClass(sceneId?, sceneAssetIds[])`
+#### `countAnnotationsByClass(projectId, sceneId?, sceneAssetIds[])`
 
 Returns a frequency map of annotation counts grouped by `annotationData.class`. Optionally scoped to a scene. Useful for dashboards, statistics, and annotation coverage reports.
 
@@ -613,19 +589,19 @@ Returns a frequency map of annotation counts grouped by `annotationData.class`. 
 
 ### Diagnostic operations
 
-#### `getAnnotationOrphanedLinks()`
+#### `getAnnotationOrphanedLinks(projectId): annotationLink[]`
 
 Returns all `annotationLink` elements whose `annotationGeometry` or `annotationData` references do not exist. Intended for diagnostic and cleanup purposes.
 
 ---
 
-#### `getAnnotationOrphanedGeometries()`
+#### `getAnnotationOrphanedGeometries(projectId): annotationGeometry[]`
 
 Returns all `annotationGeometry` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
 
 ---
 
-#### `getAnnotationOrphanedData()`
+#### `getAnnotationOrphanedData(projectId): annotationData[]`
 
 Returns all `annotationData` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
 
@@ -675,7 +651,6 @@ Creates a new `annotationGeometry` element. Return the annotationGeometry id
 1. Generate a new unique `id`.
 2. Set `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
 3. Persist the element to the geometry store.
-4. Add the new `id` to the scene annotation index of the affected scene(s).
 
 **Returns:**
 - `id` if the element was created.
@@ -1044,12 +1019,6 @@ Removes all annotations associated with a given asset.
 
 ### Maintenance operations
 
-#### `rebuildSceneAnnotationIndex(sceneId)`
-
-Reconstructs the scene annotation index for a given scene from the ground truth geometry store by applying the visibility rules. Idempotent. Used after bulk operations, crashes, or data migrations to ensure index correctness.
-
----
-
 #### `validateLink(linkId)`
 
 Verifies all invariants for a given `annotationLink`:
@@ -1070,7 +1039,7 @@ Runs `validateLink` on every `annotationLink` record in the system. Returns a li
 
 #### `deleteOrphanedGeometries()`
 
-Deletes all `annotationGeometry` elements not referenced by any `annotationLink`. Updates affected scene annotation indexes. Safe to invoke during maintenance windows after bulk deletions.
+Deletes all `annotationGeometry` elements not referenced by any `annotationLink`. 
 
 ---
 
@@ -1125,7 +1094,6 @@ Imports a structured set of annotation records (geometry, data, links) into the 
 - Finding all geometry elements associated with a given data record
 - Identifying orphaned geometries and data after bulk deletions
 - Validating referential integrity and invariants after import or migration
-- Rebuilding scene annotation indexes after a crash or migration
 - Exporting all annotations for a scene for external reporting
 
 ---
