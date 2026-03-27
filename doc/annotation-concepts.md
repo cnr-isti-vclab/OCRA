@@ -19,24 +19,8 @@ The explicit association between a spatial anchor (`annotationGeometry`) and a s
 
 In this model, annotationGeometry and annotationData are independent resources whose relationships are defined exclusively through annotationLink.
 
-## Basic Concepts
-- An asset has its own unique ID, its own reference system, and a digital representation that must specify its type (2D, 3D) and provide methods for drawing itself (and selecting areas, etc.).
-- A scene has its own unique ID, its own reference system, and refers to two sets of assets, positioned in this reference system. The first set is made up of "editable" assets (i.e., assets that can have annotation modifications), the second of the others.
-- An asset can be shared between multiple scenes.
-- An annotation geometry is a geometric region, expressed either in the reference of a scene or in the reference of an asset.
-- An annotation data is a semantic description, which is either relative to an asset or a scene. If relative to an asset, it is visible in all scenes containing it; if relative to a scene, it is visible only in that scene.
-- An annotation link is a relationship between annotation geometry and annotation data.
-- The operations allowed by Ocra are scene structuring, viewing, and editing.
-- Structure consists of creating/destroying scenes, adding/removing assets from scenes or making them editable or not, positioning assets, etc.
-- Viewing consists of exploring assets and their annotations.
-- Editing consists of adding/removing/modifying annotation geometry, annotation data, and annotation links.
-- Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations.
-- Concurrency Rule 2: I can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
-- Concurrency Rule 3: I can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
-- The above concurrency rules should be implemented with database locks (to protect concurrent access) and checks for operation feasibility. Once the operation is started, there should be no concurrent access, since multiple writes to the same structure are prevented by the rules and invariants must be maintained.
 
-
-## Note on concurrency
+## Note on data-model update
 ⚠️ These concepts could be moved to `data-model.md`.
 
 To guarantee higher concurrency each scene is constituted by 
@@ -48,41 +32,68 @@ In the scene description each assets has an `editable` boolean flag to mark it a
 
 In a scene only the asset marked as `editable` can be edited.
 
+## Basic Concepts
+⚠️ These concepts could be moved to `data-model.md`.
+
+- An asset has its own unique ID, its own reference system, and a digital representation that must specify its type (2D, 3D) and provide methods for drawing itself (and selecting areas, etc.).
+- A scene has its own unique ID, its own reference system, and refers to two sets of assets, positioned in this reference system. The first set is made up of "editable" assets (i.e., assets that can have annotation modifications), the second of the others.
+- An asset can be shared between multiple scenes.
+---
+- An annotation geometry is a geometric region, expressed either in the reference of a scene or in the reference of an asset.
+- An annotation data is a semantic description, which is either relative to an asset or a scene. If relative to an asset, it is visible in all scenes containing it; if relative to a scene, it is visible only in that scene.
+- An annotation link is a relationship between annotation geometry and annotation data.
+---
+- The operations allowed by Ocra are scene structuring, viewing, and editing.
+- Structure consists of creating/destroying scenes, adding/removing assets from scenes or making them editable or not, positioning assets, etc.
+- Viewing consists of exploring assets and their annotations.
+- Editing consists of adding/removing/modifying annotation geometry, annotation data, and annotation links.
+---
+- Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations are permitted.
+- Concurrency Rule 2: One can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
+- Concurrency Rule 3: One can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
+- The above concurrency rules should be implemented with database locks (to protect concurrent access) and checks for operation feasibility. Once the operation is started, there should be no concurrent access, since multiple writes to the same structure are prevented by the rules and invariants must be maintained.
+
+
+
 ## Workflows
 ⚠️ These concepts could be moved to `workflow.md`
 
-Before deepening into Annotations, we propose the following workflows showing how user can interact with the framework.
-The presented workflows allows to perform the main operations without a fine-grained concurrency management.
+The following workflows explain how user can interact with the framework.
+They perform the main operations without a fine-grained concurrency management.
 
-The basic idea is to simply avoid situations where multiple users are editing the same contents at the same time. 
-When the user start an edit session on some contents, these contents are locked and no other user can modify them.
+They avoid situations where multiple users are editing the same contents at the same time. 
+When the user starts an edit session on some contents, the sessions that could modify the same contents are not permitted.
 
-There are two types of data: project level data (HDTs, scenes, assets) and annotation data.
+Implementation note: 
+- OCRA mantains the list of active sessions. 
+- Before starting a session OCRA verifies if it can be started.
+- When a user starts a session, it is added to the list of active sessions. 
+- When a user ends a session, it is removed from the list of active sessions. 
+- TODO think about session management for `Admin` user
 
-### Concurrency Rule 1, scene structuting: project level data (HDTs, scenes, assets) creation, modification and deletion
+### Workflow 1, scene structuring: project level data (HDTs, scenes, assets) creation, modification and deletion
 - Project level data can be edited only by `Admin` or `Creator` or `Project Manager`.
-- During the creation or modification of an HDT, scene or asset properties, no other user can access the data neither to read nor to write.
-- On editing a project level data, the data is locked for reading and writing for all users. 
+- Concurrency Rule 1: during the creation or modification of an HDT, scene or asset properties, no other user can access the data neither to read nor to write.
 
-### Concurrency Rule 2, annotation editing: scene and asset annotations creation, modification and deletion
+### Workflow 2, annotation editing: annotations creation, modification and deletion
 - `Editor` or user with higher privileges can create, modify or delete annotations in a scene.
-- When scene annotations are edited by a user, no other user can edit the same scene annotations.
-- When asset annotations are edited by a user, no other user can edit the same asset annotations.
-- To permit a higher concurrency level, we propose to add a static `editable` flag associated to scene asset entries. We thus can have multiple scenes, containing the same assets.
-- If the scene asset is marked as editable, the asset annotations can be edited.
-- The annotations of these assets can be edited in multiple scenes, but only one user can edit the annotations of a specific asset at a time.
-- If multiple scenes have the same asset marked as editable, the first scene that is opened in `edit` mode will have the exclusive right to edit the editable asset annotations. 
-- If a scene contains an asset that is currently edited, other scenes with the same asset marked as editable, cannot be opened in `edit` mode
-- When a user open in `edit` mode a scene, that scene and all the scenes containing one of the editable assets of that scene are locked for editing for all users.
+- Concurrency Rule 1: editing is not permitted when structuring operations are in progress.
+- Concurrency Rule 3: One can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
+  - When scene annotations are edited by a user, no other user can edit the same scene annotations.
+  - When asset annotations are edited by a user, no other user can edit the same asset annotations.
+- If the scene asset is marked as editable user can create/update/delete annotations geometry, data and links referencing these asset.
+- Background assets are only displayed with their annotations, but their annotations cannot be edited, and they cannot be referenced by new annotations.
 
-### Concurrency Rule 3, scene viewing
+### Workflow 3, scene viewing
 - All users can view a scene.
-- A scene can be loaded only if it's not under scene structuring operations (Concurrency Rule 1).
-- To avoid loading scene inconsistencies we propose to lock the scene before start saving and unlock it after the save operation is completed. 
-- Multiple users can view the same scene at the same time
-- If the annotations of a scene are edited by a user, other user can still view the scene. 
-- When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
-- After a scene is loaded for viewing, the changes made by other users will not be visible until the scene is reloaded.   
+- Concurrency Rule 1: viewing is not permitted when structuring operations are in progress.
+- Concurrency Rule 2: One can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
+  - Multiple users can view the same scene at the same time
+  - If the annotations of a scene are edited by a user, other user can still view the scene. 
+  - When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
+  - After a scene is loaded for viewing, the changes made by other users will not be visible until the scene is reloaded.   
+
+
 
 ## Overview
 
