@@ -20,17 +20,15 @@ The explicit association between a spatial anchor (`annotationGeometry`) and a s
 In this model, annotationGeometry and annotationData are independent resources whose relationships are defined exclusively through annotationLink.
 
 
-## Note on data-model update
+## UPDATE TO DATA MODEL  
 ⚠️ These concepts could be moved to `data-model.md`.
 
-To guarantee higher concurrency each scene is constituted by 
-- editable assets
-- background assets
+Each scene is composed of assets, which are classified into two categories:
 
-While the editable assets can be edited, the background assets serve as context and can be only viewed.
-In the scene description each assets has an `editable` boolean flag to mark it as editable.
+- Editable assets: assets visible in the scene for which the user is allowed to view, create, remove, and modify annotations.
+- Background assets: assets visible in the scene for which annotations can only be viewed.
 
-In a scene only the asset marked as `editable` can be edited.
+This distinction allows scenes to restrict editing operations to a specific subset of assets, while the remaining assets serve only as visual context. It also enables concurrent editing of multiple scenes, provided that those scenes do not share editable assets.
 
 ## Basic Concepts
 ⚠️ These concepts could be moved to `data-model.md`.
@@ -114,8 +112,8 @@ The entities are stored in the corresponding collections.
 | Geometry<br>relative to | Data<br>relative to | Consistency | Visibility |
 | --- | --- | --- | --- |
 | `"scene"` | `"scene"` | `geometry scene id` == ` data scene id` | single scene |
-| `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>active asset |
-| `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>active asset |
+| `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>single asset |
+| `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>single asset |
 | `"asset"` | `"asset"` | `geometry asset id` == ` data asset id` | multiple scenes<br>single asset |
 
 
