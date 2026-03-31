@@ -67,11 +67,12 @@ Implementation note:
 - Before starting a session OCRA verifies if it can be started.
 - When a user starts a session, it is added to the list of active sessions. 
 - When a user ends a session, it is removed from the list of active sessions. 
-- TODO think about session management for `Admin` user
+- ⚠️ TODO think about session management for `Admin` user
 
 ### Workflow 1, scene structuring: project level data (HDTs, scenes, assets) creation, modification and deletion
 - Project level data can be edited only by `Admin` or `Creator` or `Project Manager`.
 - Concurrency Rule 1: during the creation or modification of an HDT, scene or asset properties, no other user can access the data neither to read nor to write.
+- ⚠️ TODO detail workflow
 
 ### Workflow 2, annotation editing: annotations creation, modification and deletion
 - `Editor` or user with higher privileges can create, modify or delete annotations in a scene.
@@ -81,6 +82,7 @@ Implementation note:
   - When asset annotations are edited by a user, no other user can edit the same asset annotations.
 - If the scene asset is marked as editable user can create/update/delete annotations geometry, data and links referencing these asset.
 - Background assets are only displayed with their annotations, but their annotations cannot be edited, and they cannot be referenced by new annotations.
+- ⚠️ TODO detail workflow
 
 ### Workflow 3, scene viewing
 - All users can view a scene.
@@ -90,8 +92,7 @@ Implementation note:
   - If the annotations of a scene are edited by a user, other user can still view the scene. 
   - When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
   - After a scene is loaded for viewing, the changes made by other users will not be visible until the scene is reloaded.   
-
-
+- ⚠️ TODO detail workflow
 
 ## Overview
 
@@ -109,20 +110,17 @@ The entities are stored in the corresponding collections.
 
 
 <a id="annotationlink-scene-consistency-table"></a>AnnotationLink scene consistency table, considering the relative position of the geometry and data to a scene or an asset
-| Geometry<br>relative to | Data<br>relative to | Consistency | Visibility |
+| Geometry<br>referenceType | Data<br>visibilityType | Consistency | Visibility |
 | --- | --- | --- | --- |
-| `"scene"` | `"scene"` | `geometry scene id` == ` data scene id` | single scene |
+| `"scene"` | `"scene"` | `geometry.referenceId` == `data.visibilityId` | single scene |
 | `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>single asset |
 | `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>single asset |
-| `"asset"` | `"asset"` | `geometry asset id` == ` data asset id` | multiple scenes<br>single asset |
+| `"asset"` | `"asset"` | `geometry.referenceId` == `data.visibilityId` | multiple scenes<br>single asset |
 
 
 The `annotationLink` permits to express annotations as a many-to-many relationship between geometry element and data element. 
 A single geometry element can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry elements. A single `annotationLink` entity expresses a one-to-one association between a geometry element and a data element.
 When an annotation is edited the operation has impact on a limited set of scenes: the specified scene or the scenes that contain the specified asset. 
-
-
-### Project-based collections
 
 All the collection entries have a `projectId` field, that identifies the project they belong to. This allows querying the collections for a specific project.
 Without the project id, it would be impossible to distinguish between annotations of different projects. 
