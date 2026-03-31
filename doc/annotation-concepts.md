@@ -436,12 +436,14 @@ A data element belongs to a scene if it is visible for the scene or one of the a
 
 ---
 
-
 ### Read operations on annotationLink
 
 #### `getAnnotationLink(projectId, linkId): annotationLink`
 
 Returns a single `annotationLink` identified by `linkId`
+
+**Post conditions:**
+1. The returned annotationLink belongs to the project
 
 ---
 
@@ -449,11 +451,18 @@ Returns a single `annotationLink` identified by `linkId`
 
 Returns all `annotationLink` records associated with a given project. This is a full scan of the project-level annotation stores.
 
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+
 ---
 
 #### `getAnnotationLinksForGeometry(projectId, geometryId): annotationLink[]`
 
 Returns all `annotationLink` records that reference a given `annotationGeometry`. 
+
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference the annotationGeometry element
 
 ---
 
@@ -461,6 +470,9 @@ Returns all `annotationLink` records that reference a given `annotationGeometry`
 
 Returns all `annotationLink` records that reference a given `annotationData`. 
 
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference the annotationData element
 ---
 
 #### `getAnnotationLinksForAsset(projectId, assetId): annotationLink[]`
@@ -472,6 +484,9 @@ Returns all `annotationLink` records that reference a given `assetId`.
 2. Get all annotationData elements that reference the asset.
 3. Get all annotationLink elements that reference the collected geometry or data.
 
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference either an annotationGeometry or an annotationData element that references the asset.
 ---
 
 #### `getAnnotationLinksForScene(projectId, sceneId): annotationLink[]`
@@ -483,16 +498,28 @@ Returns all `annotationLink` records that reference a given `sceneId`.
 2. Get all annotationData elements that reference the scene.
 3. Get all annotationLink elements that reference the collected geometry or data.
 
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference either an annotationGeometry or an annotationData element that references the scene.
 ---
 
 #### `getAnnotationLinksForSceneAssets(projectId, sceneId, sceneAssetIds[]): annotationLink[]`
 
 Returns all `annotationLink` records that reference a given `sceneId` or one of the assets in the scene. 
 
+It can be used to query editable and background annotationLink for a scene, just passing as parameters the corresponding editable or background asset id arrays.
+
 **System actions:**
 1. Get all annotationGeometry elements that reference the scene or one of the assets in the scene.
-2. Get all annotationData elements that reference the scene or one of the assets in the scene.
-3. Get all annotationLink elements that reference the collected geometry or data.
+2. For each annotationGeometry element, get all annotationLink elements that reference it.
+3. Keep only the annotationLink that reference an annotationData element that is visible in the scene or in one of the assets in the scene.
+
+**Post conditions:**
+The returned link may reference only one of these combinations:
+- geometry references the scene, data visible in the scene
+- geometry references the scene, data visible in one of the sceneAssetIds
+- geometry references one of the sceneAssetIds, data visible in the scene
+- geometry references one of the sceneAssetIds, data visible in the same asset
 
 ---
 
