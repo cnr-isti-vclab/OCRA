@@ -57,6 +57,9 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[0].y, 0]);
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[1].y, 0]);
     geometry.push([anno.data?._markerCorners[0].x, anno.data?._markerCorners[1].y, 0]);
+  } else if (anno.type === 'freehand') {
+    annoType = 'line';
+    geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
   } else {
     console.log('Unknown annotation type:', anno.type);
   }
@@ -314,7 +317,7 @@ const OpenLIMEViewer = forwardRef<
               type: 'rti',
               normals: false,
               visible: i == 0,
-              zindex: selectedAssets.length-i, // THe top layer is the front one
+              zindex: selectedAssets.length - i, // THe top layer is the front one
             };
             if (pixelSizeInMM != null) {
               layerOptions.pixelSize = pixelSizeInMM;
@@ -339,6 +342,7 @@ const OpenLIMEViewer = forwardRef<
               { label: 'Polyline', fill: 'none', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'none', strokeSelected: '#ffd700' },
               { label: 'Polygon', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
               { label: 'Rect', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
+              { label: 'Freehand', fill: 'rgba(255, 140, 0, 0.45)', stroke: '#ff8c00', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
             ],
             defaultAnnotationClass: 0,
             showVertexHandles: true,
@@ -393,23 +397,23 @@ const OpenLIMEViewer = forwardRef<
           if (!uiRef.current) {
             console.log("Create new OpenLIME.UIBasic");
             const lensLayer = new OpenLIME.Layer({
-                type: "lens",
-                layers: [],
-                camera: viewer.camera,
-                radius: 300,
-                borderEnable: true,
-                borderColor: [0.5, 0.5, 0.5, 1],
-                borderWidth: 5,
-                visible: false,
-                zindex: selectedAssets.length + 1, // Ensure lens is always on top
+              type: "lens",
+              layers: [],
+              camera: viewer.camera,
+              radius: 300,
+              borderEnable: true,
+              borderColor: [0.5, 0.5, 0.5, 1],
+              borderWidth: 5,
+              visible: false,
+              zindex: selectedAssets.length + 1, // Ensure lens is always on top
             });
             viewer.addLayer('lens', lensLayer);
 
             // Create a lens controller for focus and context exploration when lenses are enabled.
             const controllerLens = new OpenLIME.ControllerFocusContext({
-                lensLayer: lensLayer,
-                camera: viewer.camera,
-                canvas: viewer.canvas,
+              lensLayer: lensLayer,
+              camera: viewer.camera,
+              canvas: viewer.canvas,
             });
             viewer.pointerManager.onEvent(controllerLens);
             lensLayer.controllers.push(controllerLens);
@@ -465,13 +469,14 @@ const OpenLIMEViewer = forwardRef<
             });
 
             // ── Marker selector panel ────────────────────────────────────────
-            type MarkerType = 'disk' | 'polyline' | 'polygon' | 'rect';
+            type MarkerType = 'disk' | 'polyline' | 'polygon' | 'rect' | 'freehand';
             const markerType: MarkerType = 'disk';
             const markerConfigs = {
               'disk': { type: 'disk', opts: { radius: 14 }, classIdx: 0 },
               'polyline': { type: 'polyline', opts: { closed: false, vertexRadius: 5 }, classIdx: 1 },
               'polygon': { type: 'polyline', opts: { closed: true, vertexRadius: 5 }, classIdx: 2 },
-              'rect': { type: 'rect', opts: { vertexRadius: 6 }, classIdx: 3 },
+              'rect': { type: 'rect', opts: { vertexRadius: 5 }, classIdx: 3 },
+              'freehand': { type: 'freehand', opts: { vertexRadius: 5 }, classIdx: 4 },
             };
 
             function setMarker(key: MarkerType) {
@@ -492,8 +497,10 @@ const OpenLIMEViewer = forwardRef<
                 markerType = 'polygon';
               } else if (e.key === '3') {
                 markerType = 'rect';
+              } else if (e.key === '4') {
+                markerType = 'freehand';
               } else {
-                console.log('Pressed', e.key, 'Annotation mode: 0=disk, 1=polyline, 2=polygon, 3=rect');
+                console.log('Pressed', e.key, 'Annotation mode: 0=disk, 1=polyline, 2=polygon, 3=rect, 4=freehand');
               }
               if (markerType) {
                 setMarker(markerType);
