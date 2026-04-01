@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-export type PhysicalObjectSourceType = 'echoes' | 'arco' | 'wikidata';
+export type PhysicalObjectSourceType = 'echoes' | 'arco' | 'wikidata' | 'file';
 
 export interface PhysicalObjectMetadataRecord {
   sourceUri?: string;

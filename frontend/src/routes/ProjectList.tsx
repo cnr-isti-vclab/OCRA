@@ -54,6 +54,15 @@ export default function Projects() {
   // Map of projectId to has3DAssets boolean
   const [has3DAssetsMap, setHas3DAssetsMap] = useState<Record<string, boolean>>({});
   const [has2DAssetsMap, setHas2DAssetsMap] = useState<Record<string, boolean>>({});
+  // Map of projectId to HDT document existence
+  const [hasHdtMap, setHasHdtMap] = useState<Record<string, boolean>>({});
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [newProjectPublic, setNewProjectPublic] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,7 +70,7 @@ export default function Projects() {
       try {
         setLoading(true);
         const sessionId = localStorage.getItem('oauth_session_id');
-        
+
         if (!sessionId) {
           throw new Error('No session found');
         }
@@ -105,9 +114,25 @@ export default function Projects() {
     fetchData();
   }, []);
 
-  // Create a new project and open the edit page
+  const openCreateProjectModal = () => {
+    setCreateError(null);
+    setNewProjectName('');
+    setNewProjectDescription('');
+    setNewProjectPublic(false);
+    setShowCreateModal(true);
+  };
+
+  // Create a new project. HC1 metadata initialization is done explicitly afterward.
   const createNewProject = async () => {
     try {
+      setCreatingProject(true);
+      setCreateError(null);
+
+      const trimmedName = newProjectName.trim();
+      if (!trimmedName) {
+        throw new Error('Project name is required');
+      }
+
       const sessionId = localStorage.getItem('oauth_session_id');
       const response = await fetch(`${getApiBase()}/api/projects`, {
         method: 'POST',
@@ -117,9 +142,9 @@ export default function Projects() {
           'Authorization': `Bearer ${sessionId}`
         },
         body: JSON.stringify({
-          name: `New Project ${new Date().toISOString()}`,
-          description: 'Draft project created from UI',
-          public: false
+          name: trimmedName,
+          description: newProjectDescription.trim() || undefined,
+          public: newProjectPublic
         })
       });
 
@@ -131,13 +156,16 @@ export default function Projects() {
       const data = await response.json();
       const created = data.project || data;
       if (created && created.id) {
+        setShowCreateModal(false);
         navigate(`/projects/${created.id}/edit`);
       } else {
         throw new Error('Project created but response missing id');
       }
     } catch (e: any) {
       console.error('Create project failed:', e);
-      alert(`Failed to create project: ${e?.message || String(e)}`);
+      setCreateError(e?.message || String(e));
+    } finally {
+      setCreatingProject(false);
     }
   };
 
@@ -175,10 +203,11 @@ export default function Projects() {
   // Fetch HDT metadata to check for 3D assets
   useEffect(() => {
     if (projects.length === 0) return;
-    
+
     const fetchAssetStatus = async () => {
       const newMap2D: Record<string, boolean> = {};
       const newMap3D: Record<string, boolean> = {};
+      const newHdtMap: Record<string, boolean> = {};
       await Promise.all(projects.map(async (project) => {
         try {
           const res = await fetch(`${getApiBase()}/api/projects/${project.id}/hdt`, {
@@ -186,7 +215,8 @@ export default function Projects() {
           });
           if (res.ok) {
             const hdtData = await res.json();
-            // Check if there are digital assets of type '3d-model' or 'rti'
+            newHdtMap[project.id] = true;
+            // Check if there are digital assets of type '3d-model'
             const has3DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === '3d-model') || false;
             const has2DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'rti') || false;
             newMap3D[project.id] = has3DAssets;
@@ -194,14 +224,17 @@ export default function Projects() {
           } else {
             newMap3D[project.id] = false;
             newMap2D[project.id] = false;
+            newHdtMap[project.id] = false;
           }
         } catch {
           newMap3D[project.id] = false;
           newMap2D[project.id] = false;
+          newHdtMap[project.id] = false;
         }
       }));
       setHas3DAssetsMap(newMap3D);
       setHas2DAssetsMap(newMap2D);
+      setHasHdtMap(newHdtMap);
     };
     fetchAssetStatus();
   }, [projects]);
@@ -240,7 +273,7 @@ export default function Projects() {
         </p>
         <div>
           {(user?.sys_creator || user?.sys_admin) && (
-            <button className="btn btn-success btn-sm" onClick={createNewProject}>➕ Create New Project</button>
+            <button className="btn btn-success btn-sm" onClick={openCreateProjectModal}>➕ Create New Project</button>
           )}
         </div>
       </div>
@@ -264,8 +297,8 @@ export default function Projects() {
                     <div className="col-8">
                       <h5 className="mb-2 fw-bold">{project.name}</h5>
                       {project.description && (
-                        <p 
-                          className="text-muted small mb-0" 
+                        <p
+                          className="text-muted small mb-0"
                           style={{
                             display: '-webkit-box',
                             WebkitLineClamp: 3,
@@ -279,7 +312,7 @@ export default function Projects() {
                         </p>
                       )}
                     </div>
-                    
+
                     {/* Right Column - Manager & Badge */}
                     <div className="col-4 text-end">
                       {project.manager ? (
@@ -332,12 +365,22 @@ export default function Projects() {
                         2D
                       </button>
                     )}
-                    <Link
-                      to={`/projects/${project.id}/hdt`}
-                      className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
-                    >
-                      HDT
-                    </Link>
+                    {hasHdtMap[project.id] === false && managerMap[project.id] ? (
+                      <Link
+                        to={`/projects/${project.id}/edit`}
+                        className="btn btn-outline-warning btn-sm d-flex align-items-center justify-content-center gap-1"
+                        title="Initialize metadata before opening the HDT editor"
+                      >
+                        Setup HDT
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/projects/${project.id}/hdt`}
+                        className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
+                      >
+                        HDT
+                      </Link>
+                    )}
                     {managerMap[project.id] && (
                       <Link
                         to={`/projects/${project.id}/edit`}
@@ -352,6 +395,93 @@ export default function Projects() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Create New Project</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => !creatingProject && setShowCreateModal(false)}
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body">
+                {createError && (
+                  <div className="alert alert-danger">{createError}</div>
+                )}
+
+                <div className="mb-3">
+                  <label htmlFor="newProjectName" className="form-label">Project Name</label>
+                  <input
+                    id="newProjectName"
+                    type="text"
+                    className="form-control"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Enter project name"
+                    disabled={creatingProject}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label htmlFor="newProjectDescription" className="form-label">Description</label>
+                  <textarea
+                    id="newProjectDescription"
+                    rows={3}
+                    className="form-control"
+                    value={newProjectDescription}
+                    onChange={(e) => setNewProjectDescription(e.target.value)}
+                    placeholder="Optional project description"
+                    disabled={creatingProject}
+                  ></textarea>
+                </div>
+
+                <div className="form-check mb-4">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="newProjectPublic"
+                    checked={newProjectPublic}
+                    onChange={(e) => setNewProjectPublic(e.target.checked)}
+                    disabled={creatingProject}
+                  />
+                  <label className="form-check-label" htmlFor="newProjectPublic">
+                    Public Project
+                  </label>
+                </div>
+
+                <div className="alert alert-light border mb-0">
+                  <strong>Next step:</strong> after creation, the project starts with no imported HC1 metadata.
+                  Open project settings and choose a source adapter (ECHOES, ARCO, Wikidata, ...).
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={creatingProject}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={createNewProject}
+                  disabled={creatingProject}
+                >
+                  {creatingProject ? 'Creating...' : 'Create Project'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {/* Future Enhancements box removed */}

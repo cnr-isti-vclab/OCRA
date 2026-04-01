@@ -227,20 +227,20 @@ export default function UserAdmin() {
         <div className="card-header bg-light">
           <h2 className="h6 mb-0 text-secondary">All Users ({users.length})</h2>
         </div>
+        <div className="d-flex align-items-center justify-content-between p-2">
+          <div>
+            <div className="btn-group" role="group" aria-label="Creator filter">
+              <button type="button" className={`btn btn-sm ${filterCreator === 'all' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('all')}>All</button>
+              <button type="button" className={`btn btn-sm ${filterCreator === 'creators' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('creators')}>Creators</button>
+              <button type="button" className={`btn btn-sm ${filterCreator === 'non-creators' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('non-creators')}>Non-creators</button>
+            </div>
+          </div>
+          <div className="text-muted small">Showing {displayedUsers.length} of {users.length}</div>
+        </div>
         {displayedUsers.length === 0 ? (
           <div className="card-body text-center text-muted">No users found.</div>
         ) : (
           <div className="table-responsive">
-            <div className="d-flex align-items-center justify-content-between p-2">
-              <div>
-                <div className="btn-group" role="group" aria-label="Creator filter">
-                  <button type="button" className={`btn btn-sm ${filterCreator === 'all' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('all')}>All</button>
-                  <button type="button" className={`btn btn-sm ${filterCreator === 'creators' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('creators')}>Creators</button>
-                  <button type="button" className={`btn btn-sm ${filterCreator === 'non-creators' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setFilterCreator('non-creators')}>Non-creators</button>
-                </div>
-              </div>
-              <div className="text-muted small">Showing {displayedUsers.length} of {users.length}</div>
-            </div>
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light">
                 <tr>

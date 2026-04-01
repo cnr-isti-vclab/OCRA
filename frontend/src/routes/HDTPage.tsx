@@ -1,14 +1,7 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
-import {
-  getPhysicalObjectSourceAdapter,
-  isKnownPhysicalObjectSourceType,
-  physicalObjectSourceAdapters,
-  type PhysicalObjectMetadataRecord,
-  type PhysicalObjectSourceType,
-} from '../features/physical-object-sources';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -50,49 +43,6 @@ interface DublinCoreMetadata {
   rights?: string;
 }
 
-interface CidocCrmMetadata {
-  objectType?: string;
-  temporalCoverage?: {
-    timeSpanBegin?: string;
-    timeSpanEnd?: string;
-    period?: string;
-    century?: string;
-  };
-  spatialCoverage?: {
-    placeName?: string;
-    coordinates?: {
-      latitude: number;
-      longitude: number;
-      elevation?: number;
-    };
-    geonames?: string;
-  };
-  material?: string[];
-  technique?: string[];
-  condition?: string;
-  conservationHistory?: string;
-  culturalContext?: string[];
-  styleOrPeriod?: string[];
-}
-
-interface GettyAATTerms {
-  materials?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-  techniques?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-  objectTypes?: Array<{
-    term: string;
-    aatId: string;
-    uri: string;
-  }>;
-}
-
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
 
 export interface DigitalAsset {
@@ -131,9 +81,9 @@ interface HDTMetadata {
     sourceUri?: string;
     sourceType?: 'echoes' | 'wikidata' | 'arco' | 'other';
     dublinCore: DublinCoreMetadata;
-    cidocCrm: CidocCrmMetadata;
+    cidocCrm?: Record<string, unknown>;
   };
-  gettyAAT: GettyAATTerms;
+  gettyAAT?: Record<string, unknown>;
 
   digitalAssets?: DigitalAsset[];
   scenes?: SceneConfig[];
@@ -150,15 +100,10 @@ export default function HDTPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [metadata, setMetadata] = useState<HDTMetadata | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes' | 'cidoc-crm'>('dublin-core');
-  const [selectedSourceType, setSelectedSourceType] = useState<PhysicalObjectSourceType>('echoes');
-  const [sourceFormState, setSourceFormState] = useState<any>(() => {
-    const initialAdapter = getPhysicalObjectSourceAdapter('echoes');
-    return initialAdapter ? initialAdapter.createInitialState() : {};
-  });
-  const [importingPhysicalObject, setImportingPhysicalObject] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
 
   // Digital Assets state
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
@@ -185,33 +130,10 @@ export default function HDTPage() {
   const [dcRights, setDcRights] = useState('');
   const [dcSource, setDcSource] = useState('');
 
-  // Form state for CIDOC-CRM
-  const [objectType, setObjectType] = useState('');
-  const [timeSpanBegin, setTimeSpanBegin] = useState('');
-  const [timeSpanEnd, setTimeSpanEnd] = useState('');
-  const [period, setPeriod] = useState('');
-  const [century, setCentury] = useState('');
-  const [placeName, setPlaceName] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
-  const [material, setMaterial] = useState('');
-  const [technique, setTechnique] = useState('');
-  const [condition, setCondition] = useState('');
-  const [culturalContext, setCulturalContext] = useState('');
-  const [styleOrPeriod, setStyleOrPeriod] = useState('');
-
   useEffect(() => {
     fetchProjectAndMetadata();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
-
-  const updateSelectedSourceType = (nextSourceType: PhysicalObjectSourceType) => {
-    setSelectedSourceType(nextSourceType);
-    const adapter = getPhysicalObjectSourceAdapter(nextSourceType);
-    if (adapter) {
-      setSourceFormState(adapter.createInitialState());
-    }
-  };
 
   // HELPERS
 
@@ -443,15 +365,10 @@ export default function HDTPage() {
         setMetadata(metadataData);
         populateFormFromMetadata(metadataData);
 
-        const sourceType = metadataData?.physicalObjectMetadata?.sourceType;
-        if (isKnownPhysicalObjectSourceType(sourceType)) {
-          updateSelectedSourceType(sourceType);
-        }
-
         setDigitalAssets(Array.isArray(metadataData.digitalAssets) ? metadataData.digitalAssets : []);
         setScenes(Array.isArray(metadataData.scenes) ? metadataData.scenes : []);
       } else if (metadataResponse.status === 404) {
-        console.log('No HDT metadata found. HC1 remains empty until imported from a source.');
+        console.log('No HDT metadata found, will create on first save');
         setMetadata(null);
         setDigitalAssets([]);
         setScenes([]);
@@ -472,7 +389,6 @@ export default function HDTPage() {
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
     const dublinCore = meta.physicalObjectMetadata?.dublinCore;
-    const cidocCrm = meta.physicalObjectMetadata?.cidocCrm;
 
     // Dublin Core
     if (dublinCore) {
@@ -487,70 +403,91 @@ export default function HDTPage() {
       setDcRights(dublinCore.rights || '');
       setDcSource(dublinCore.source || '');
     }
-
-    // CIDOC-CRM
-    if (cidocCrm) {
-      setObjectType(cidocCrm.objectType || '');
-      setTimeSpanBegin(cidocCrm.temporalCoverage?.timeSpanBegin || '');
-      setTimeSpanEnd(cidocCrm.temporalCoverage?.timeSpanEnd || '');
-      setPeriod(cidocCrm.temporalCoverage?.period || '');
-      setCentury(cidocCrm.temporalCoverage?.century || '');
-      setPlaceName(cidocCrm.spatialCoverage?.placeName || '');
-      setLatitude(cidocCrm.spatialCoverage?.coordinates?.latitude?.toString() || '');
-      setLongitude(cidocCrm.spatialCoverage?.coordinates?.longitude?.toString() || '');
-      setMaterial((cidocCrm.material || []).join(', '));
-      setTechnique((cidocCrm.technique || []).join(', '));
-      setCondition(cidocCrm.condition || '');
-      setCulturalContext((cidocCrm.culturalContext || []).join(', '));
-      setStyleOrPeriod((cidocCrm.styleOrPeriod || []).join(', '));
-    }
   };
 
-  const importPhysicalObjectMetadata = async () => {
+  // Manual save function (called by Save button)
+  const handleManualSave = async () => {
+    await autoSaveMetadata();
+    setSuccessMessage('✅ Metadata saved successfully!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  // Auto-save metadata function
+  const autoSaveMetadata = useCallback(async () => {
     if (!projectId) return;
 
-    const adapter = getPhysicalObjectSourceAdapter(selectedSourceType);
-    if (!adapter) {
-      setError(`Unsupported source type: ${selectedSourceType}`);
-      return;
-    }
-
     try {
-      setImportingPhysicalObject(true);
+      setSaving(true);
       setError(null);
-      setSuccessMessage(null);
 
-      const importRequest = adapter.buildImportRequest(projectId, sourceFormState);
-      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/physical-object/import`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(importRequest),
-      });
+      const metadataPayload: Partial<HDTMetadata> = {
+        physicalObjectMetadata: {
+          sourceUri:
+            metadata?.physicalObjectMetadata?.sourceUri || `urn:ocra:project:${projectId}`,
+          sourceType:
+            metadata?.physicalObjectMetadata?.sourceType || 'other',
+          dublinCore: {
+            title: dcTitle || undefined,
+            description: dcDescription || undefined,
+            creator: dcCreator ? dcCreator.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            subject: dcSubject ? dcSubject.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            date: dcDate || undefined,
+            type: dcType ? dcType.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            language: dcLanguage ? dcLanguage.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+            coverage: dcCoverage || undefined,
+            rights: dcRights || undefined,
+            source: dcSource || undefined,
+          },
+          cidocCrm: metadata?.physicalObjectMetadata?.cidocCrm,
+        },
+        gettyAAT: {},
+        digitalAssets: digitalAssets.length > 0 ? digitalAssets : undefined,
+        scenes: scenes.length > 0 ? scenes : undefined,
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to import physical object metadata');
+      if (!metadata) {
+        const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metadataPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to create metadata');
+        }
+
+        const newMetadata = await response.json();
+        setMetadata(newMetadata);
+      } else {
+        const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metadataPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to update metadata');
+        }
+
+        const updatedMetadata = await response.json();
+        setMetadata(updatedMetadata);
       }
-
-      const importedMetadata: HDTMetadata = await response.json();
-      setMetadata(importedMetadata);
-      setDigitalAssets(Array.isArray(importedMetadata.digitalAssets) ? importedMetadata.digitalAssets : []);
-      setScenes(Array.isArray(importedMetadata.scenes) ? importedMetadata.scenes : []);
-
-      const importedSourceType = importedMetadata?.physicalObjectMetadata?.sourceType;
-      if (isKnownPhysicalObjectSourceType(importedSourceType)) {
-        updateSelectedSourceType(importedSourceType);
-      }
-
-      setSuccessMessage(`HC1 metadata imported from ${adapter.label}`);
     } catch (e: any) {
-      console.error('Failed to import physical object metadata:', e);
+      console.error('Failed to save metadata:', e);
       setError(e?.message ?? String(e));
     } finally {
-      setImportingPhysicalObject(false);
+      setSaving(false);
     }
-  };
+  }, [
+    projectId,
+    dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, dcCoverage, dcRights, dcSource,
+    digitalAssets, scenes,
+    metadata,
+  ]);
 
   if (loading) {
     return (
@@ -727,19 +664,6 @@ export default function HDTPage() {
     }
   };
 
-  const selectedSourceAdapter = getPhysicalObjectSourceAdapter(selectedSourceType);
-  const importedPhysicalObjectMetadata =
-    (metadata?.physicalObjectMetadata as unknown as PhysicalObjectMetadataRecord | undefined) || null;
-  const importedSourceAdapter = getPhysicalObjectSourceAdapter(importedPhysicalObjectMetadata?.sourceType);
-  const ontologyMapping = importedSourceAdapter
-    ? importedSourceAdapter.mapToHdtOntology(importedPhysicalObjectMetadata)
-    : {
-      classId: 'HC1' as const,
-      sourceType: String(importedPhysicalObjectMetadata?.sourceType || 'unmapped'),
-      triples: [],
-      notes: ['No source adapter is registered for this metadata source.'],
-    };
-
   return (
     <div className="container py-4">
       {/* Header */}
@@ -803,7 +727,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('assets')}
                 type="button"
               >
-                Digital Asset - HC2 Heritage Digital Twin
+                HC2 Digital Asset
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -815,125 +739,168 @@ export default function HDTPage() {
                 🎬 Scenes
               </button>
             </li>
-            <li className="nav-item" role="presentation">
-              <button
-                className={`nav-link ${activeTab === 'cidoc-crm' ? 'active' : ''}`}
-                onClick={() => setActiveTab('cidoc-crm')}
-                type="button"
-              >
-                🏛️ CIDOC-CRM
-              </button>
-            </li>
           </ul>
         </div>
 
         <div className="card-body">
-          {/* HC1 Import/Read-only Tab */}
+          {/* Dublin Core Tab */}
           {activeTab === 'dublin-core' && (
             <div>
               <h5 className="mb-3">HC1 Heritage Entity</h5>
               <p className="text-muted small mb-4">
-                HC1 metadata is imported from known source types and is read-only inside OCRA.
+                Basic descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836).
               </p>
 
-              <div className="row g-4">
-                <div className="col-lg-5">
-                  <div className="border rounded p-3 h-100">
-                    <h6 className="mb-3">Import Metadata Source</h6>
+              <div className="mb-3">
+                <label htmlFor="dc-title" className="form-label">Title</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="dc-title"
+                  value={dcTitle}
+                  onChange={(e) => setDcTitle(e.target.value)}
+                  placeholder="Heritage Digital Twin title"
+                />
+                <small className="form-text text-muted">dc:title</small>
+              </div>
 
-                    <div className="mb-3">
-                      <label htmlFor="physical-object-source" className="form-label">Source Type</label>
-                      <select
-                        id="physical-object-source"
-                        className="form-select"
-                        value={selectedSourceType}
-                        onChange={(e) => updateSelectedSourceType(e.target.value as PhysicalObjectSourceType)}
-                        disabled={importingPhysicalObject}
-                      >
-                        {physicalObjectSourceAdapters.map((adapter) => (
-                          <option key={adapter.sourceType} value={adapter.sourceType}>
-                            {adapter.label}{adapter.status === 'placeholder' ? ' (placeholder)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+              <div className="mb-3">
+                <label htmlFor="dc-description" className="form-label">Description</label>
+                <textarea
+                  className="form-control"
+                  id="dc-description"
+                  rows={4}
+                  value={dcDescription}
+                  onChange={(e) => setDcDescription(e.target.value)}
+                  placeholder="Detailed description of the heritage object"
+                ></textarea>
+                <small className="form-text text-muted">dc:description</small>
+              </div>
 
-                    {selectedSourceAdapter ? (
-                      <>
-                        <p className="text-muted small">{selectedSourceAdapter.description}</p>
-                        <selectedSourceAdapter.ImportForm
-                          state={sourceFormState}
-                          onChange={setSourceFormState}
-                          disabled={importingPhysicalObject}
-                        />
-                        <button
-                          className="btn btn-primary mt-3"
-                          onClick={importPhysicalObjectMetadata}
-                          disabled={importingPhysicalObject}
-                        >
-                          {importingPhysicalObject ? 'Importing...' : `Import from ${selectedSourceAdapter.label}`}
-                        </button>
-                      </>
-                    ) : (
-                      <div className="alert alert-danger mb-0">Selected source adapter is not available.</div>
-                    )}
-                  </div>
+              <div className="row">
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="dc-creator" className="form-label">Creator(s)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="dc-creator"
+                    value={dcCreator}
+                    onChange={(e) => setDcCreator(e.target.value)}
+                    placeholder="Artist, sculptor, architect (comma-separated)"
+                  />
+                  <small className="form-text text-muted">dc:creator (comma-separated)</small>
                 </div>
 
-                <div className="col-lg-7">
-                  <div className="border rounded p-3 mb-3">
-                    <h6 className="mb-3">Imported HC1 Metadata (Read-only)</h6>
-
-                    {!importedPhysicalObjectMetadata ? (
-                      <div className="alert alert-secondary mb-0">
-                        No HC1 metadata imported yet.
-                      </div>
-                    ) : importedSourceAdapter ? (
-                      <importedSourceAdapter.MetadataView metadata={importedPhysicalObjectMetadata} />
-                    ) : (
-                      <div className="border rounded p-3 bg-light">
-                        <pre className="mb-0 small">{JSON.stringify(importedPhysicalObjectMetadata, null, 2)}</pre>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border rounded p-3">
-                    <h6 className="mb-3">HC1 Ontology Mapping Preview</h6>
-
-                    {ontologyMapping.triples.length > 0 ? (
-                      <div className="table-responsive">
-                        <table className="table table-sm align-middle mb-0">
-                          <thead>
-                            <tr>
-                              <th>Predicate</th>
-                              <th>Value</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {ontologyMapping.triples.map((triple, index) => (
-                              <tr key={`${triple.predicate}-${index}`}>
-                                <td><code>{triple.predicate}</code></td>
-                                <td>{triple.value}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="alert alert-secondary mb-0">
-                        No ontology mapping is available yet for this source.
-                      </div>
-                    )}
-
-                    {ontologyMapping.notes && ontologyMapping.notes.length > 0 && (
-                      <ul className="small text-muted mb-0 mt-3">
-                        {ontologyMapping.notes.map((note, index) => (
-                          <li key={`note-${index}`}>{note}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="dc-date" className="form-label">Date</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="dc-date"
+                    value={dcDate}
+                    onChange={(e) => setDcDate(e.target.value)}
+                    placeholder="e.g., 1924, 1924-05, 1924-05-15"
+                  />
+                  <small className="form-text text-muted">dc:date (flexible format: year, year-month, or ISO 8601 date)</small>
                 </div>
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="dc-subject" className="form-label">Subject / Keywords</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="dc-subject"
+                  value={dcSubject}
+                  onChange={(e) => setDcSubject(e.target.value)}
+                  placeholder="sculpture, renaissance, marble, religious art (comma-separated)"
+                />
+                <small className="form-text text-muted">dc:subject (comma-separated keywords)</small>
+              </div>
+
+              <div className="row">
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="dc-type" className="form-label">Type(s)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="dc-type"
+                    value={dcType}
+                    onChange={(e) => setDcType(e.target.value)}
+                    placeholder="3D Model, Sculpture, Artifact (comma-separated)"
+                  />
+                  <small className="form-text text-muted">dc:type (comma-separated)</small>
+                </div>
+
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="dc-language" className="form-label">Language(s)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="dc-language"
+                    value={dcLanguage}
+                    onChange={(e) => setDcLanguage(e.target.value)}
+                    placeholder="en, it, la (comma-separated ISO 639 codes)"
+                  />
+                  <small className="form-text text-muted">dc:language (ISO 639 codes)</small>
+                </div>
+              </div>
+
+              <div className="row">
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="dc-coverage" className="form-label">Coverage</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="dc-coverage"
+                    value={dcCoverage}
+                    onChange={(e) => setDcCoverage(e.target.value)}
+                    placeholder="Spatial or temporal coverage"
+                  />
+                  <small className="form-text text-muted">dc:coverage</small>
+                </div>
+
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="dc-source" className="form-label">Source</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="dc-source"
+                    value={dcSource}
+                    onChange={(e) => setDcSource(e.target.value)}
+                    placeholder="Original source or reference"
+                  />
+                  <small className="form-text text-muted">dc:source</small>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="dc-rights" className="form-label">Rights Statement</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="dc-rights"
+                  value={dcRights}
+                  onChange={(e) => setDcRights(e.target.value)}
+                  placeholder="Copyright statement or rights information"
+                />
+                <small className="form-text text-muted">dc:rights</small>
+              </div>
+
+              {/* Save Button for Dublin Core */}
+              <div className="d-flex gap-2 mt-4">
+                <button
+                  onClick={handleManualSave}
+                  disabled={saving}
+                  className="btn btn-success"
+                >
+                  {saving ? '💾 Saving...' : '💾 Save Heritage Entity Metadata'}
+                </button>
+                {successMessage && (
+                  <div className="alert alert-success mb-0 py-2 px-3" role="alert">
+                    {successMessage}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1492,27 +1459,6 @@ export default function HDTPage() {
             </div>
           )}
 
-          {/* CIDOC-CRM Tab */}
-          {activeTab === 'cidoc-crm' && (
-            <div>
-              <h5 className="mb-3">CIDOC-CRM Cultural Heritage Properties (Read-only)</h5>
-              <p className="text-muted small mb-4">
-                CIDOC-CRM data is derived from imported source metadata and is not editable in OCRA.
-              </p>
-
-              {!importedPhysicalObjectMetadata ? (
-                <div className="alert alert-secondary mb-0">
-                  No CIDOC-CRM metadata available yet.
-                </div>
-              ) : (
-                <div className="border rounded p-3 bg-light">
-                  <pre className="mb-0 small">
-                    {JSON.stringify(importedPhysicalObjectMetadata.cidocCrm || {}, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -1521,7 +1467,7 @@ export default function HDTPage() {
             {metadata?.updatedAt ? (
               <>Last updated: {new Date(metadata.updatedAt).toLocaleString()}</>
             ) : (
-              <>No HC1 metadata imported yet</>
+              <>No metadata saved yet</>
             )}
           </div>
         </div>
