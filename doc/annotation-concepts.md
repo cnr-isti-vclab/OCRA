@@ -19,70 +19,80 @@ The explicit association between a spatial anchor (`annotationGeometry`) and a s
 
 In this model, annotationGeometry and annotationData are independent resources whose relationships are defined exclusively through annotationLink.
 
+
+## UPDATE TO DATA MODEL  
+⚠️ These concepts could be moved to `data-model.md`.
+
+Each scene is composed of assets, which are classified into two categories:
+
+- Editable assets: assets visible in the scene for which the user is allowed to view, create, remove, and modify annotations.
+- Background assets: assets visible in the scene for which annotations can only be viewed.
+
+This distinction allows scenes to restrict editing operations to a specific subset of assets, while the remaining assets serve only as visual context. It also enables concurrent editing of multiple scenes, provided that those scenes do not share editable assets.
+
 ## Basic Concepts
+⚠️ These concepts could be moved to `data-model.md`.
+
 - An asset has its own unique ID, its own reference system, and a digital representation that must specify its type (2D, 3D) and provide methods for drawing itself (and selecting areas, etc.).
 - A scene has its own unique ID, its own reference system, and refers to two sets of assets, positioned in this reference system. The first set is made up of "editable" assets (i.e., assets that can have annotation modifications), the second of the others.
 - An asset can be shared between multiple scenes.
+---
 - An annotation geometry is a geometric region, expressed either in the reference of a scene or in the reference of an asset.
 - An annotation data is a semantic description, which is either relative to an asset or a scene. If relative to an asset, it is visible in all scenes containing it; if relative to a scene, it is visible only in that scene.
 - An annotation link is a relationship between annotation geometry and annotation data.
+---
 - The operations allowed by Ocra are scene structuring, viewing, and editing.
 - Structure consists of creating/destroying scenes, adding/removing assets from scenes or making them editable or not, positioning assets, etc.
 - Viewing consists of exploring assets and their annotations.
 - Editing consists of adding/removing/modifying annotation geometry, annotation data, and annotation links.
-- Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations.
-- Concurrency Rule 2: I can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
-- Concurrency Rule 3: I can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
+---
+- Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations are permitted.
+- Concurrency Rule 2: One can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
+- Concurrency Rule 3: One can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
 - The above concurrency rules should be implemented with database locks (to protect concurrent access) and checks for operation feasibility. Once the operation is started, there should be no concurrent access, since multiple writes to the same structure are prevented by the rules and invariants must be maintained.
 
 
-## Note on concurrency
-⚠️ These concepts could be moved to `data-model.md`.
-
-To guarantee higher concurrency each scene is constituted by 
-- editable assets
-- background assets
-
-While the editable assets can be edited, the background assets serve as context and can be only viewed.
-In the scene description each assets has an `editable` boolean flag to mark it as editable.
-
-In a scene only the asset marked as `editable` can be edited.
 
 ## Workflows
 ⚠️ These concepts could be moved to `workflow.md`
 
-Before deepening into Annotations, we propose the following workflows showing how user can interact with the framework.
-The presented workflows allows to perform the main operations without a fine-grained concurrency management.
+The following workflows explain how user can interact with the framework.
+They perform the main operations without a fine-grained concurrency management.
 
-The basic idea is to simply avoid situations where multiple users are editing the same contents at the same time. 
-When the user start an edit session on some contents, these contents are locked and no other user can modify them.
+They avoid situations where multiple users are editing the same contents at the same time. 
+When the user starts an edit session on some contents, the sessions that could modify the same contents are not permitted.
 
-There are two types of data: project level data (HDTs, scenes, assets) and annotation data.
+Implementation note: 
+- OCRA mantains the list of active sessions. 
+- Before starting a session OCRA verifies if it can be started.
+- When a user starts a session, it is added to the list of active sessions. 
+- When a user ends a session, it is removed from the list of active sessions. 
+- ⚠️ TODO think about session management for `Admin` user
 
-### Concurrency Rule 1, scene structuting: project level data (HDTs, scenes, assets) creation, modification and deletion
+### Workflow 1, scene structuring: project level data (HDTs, scenes, assets) creation, modification and deletion
 - Project level data can be edited only by `Admin` or `Creator` or `Project Manager`.
-- During the creation or modification of an HDT, scene or asset properties, no other user can access the data neither to read nor to write.
-- On editing a project level data, the data is locked for reading and writing for all users. 
+- Concurrency Rule 1: during the creation or modification of an HDT, scene or asset properties, no other user can access the data neither to read nor to write.
+- ⚠️ TODO detail workflow
 
-### Concurrency Rule 2, annotation editing: scene and asset annotations creation, modification and deletion
+### Workflow 2, annotation editing: annotations creation, modification and deletion
 - `Editor` or user with higher privileges can create, modify or delete annotations in a scene.
-- When scene annotations are edited by a user, no other user can edit the same scene annotations.
-- When asset annotations are edited by a user, no other user can edit the same asset annotations.
-- To permit a higher concurrency level, we propose to add a static `editable` flag associated to scene asset entries. We thus can have multiple scenes, containing the same assets.
-- If the scene asset is marked as editable, the asset annotations can be edited.
-- The annotations of these assets can be edited in multiple scenes, but only one user can edit the annotations of a specific asset at a time.
-- If multiple scenes have the same asset marked as editable, the first scene that is opened in `edit` mode will have the exclusive right to edit the editable asset annotations. 
-- If a scene contains an asset that is currently edited, other scenes with the same asset marked as editable, cannot be opened in `edit` mode
-- When a user open in `edit` mode a scene, that scene and all the scenes containing one of the editable assets of that scene are locked for editing for all users.
+- Concurrency Rule 1: editing is not permitted when structuring operations are in progress.
+- Concurrency Rule 3: One can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
+  - When scene annotations are edited by a user, no other user can edit the same scene annotations.
+  - When asset annotations are edited by a user, no other user can edit the same asset annotations.
+- If the scene asset is marked as editable user can create/update/delete annotations geometry, data and links referencing these asset.
+- Background assets are only displayed with their annotations, but their annotations cannot be edited, and they cannot be referenced by new annotations.
+- ⚠️ TODO detail workflow
 
-### Concurrency Rule 3, scene viewing
+### Workflow 3, scene viewing
 - All users can view a scene.
-- A scene can be loaded only if it's not under scene structuring operations (Concurrency Rule 1).
-- To avoid loading scene inconsistencies we propose to lock the scene before start saving and unlock it after the save operation is completed. 
-- Multiple users can view the same scene at the same time
-- If the annotations of a scene are edited by a user, other user can still view the scene. 
-- When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
-- After a scene is loaded for viewing, the changes made by other users will not be visible until the scene is reloaded.   
+- Concurrency Rule 1: viewing is not permitted when structuring operations are in progress.
+- Concurrency Rule 2: One can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
+  - Multiple users can view the same scene at the same time
+  - If the annotations of a scene are edited by a user, other user can still view the scene. 
+  - When a user loads the scene, it will load the version of the scene  with the last saved modifications. 
+  - After a scene is loaded for viewing, the changes made by other users will not be visible until the scene is reloaded.   
+- ⚠️ TODO detail workflow
 
 ## Overview
 
@@ -100,20 +110,17 @@ The entities are stored in the corresponding collections.
 
 
 <a id="annotationlink-scene-consistency-table"></a>AnnotationLink scene consistency table, considering the relative position of the geometry and data to a scene or an asset
-| Geometry<br>relative to | Data<br>relative to | Consistency | Visibility |
+| Geometry<br>referenceType | Data<br>visibilityType | Consistency | Visibility |
 | --- | --- | --- | --- |
-| `"scene"` | `"scene"` | `geometry scene id` == ` data scene id` | single scene |
-| `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>active asset |
-| `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>active asset |
-| `"asset"` | `"asset"` | `geometry asset id` == ` data asset id` | multiple scenes<br>single asset |
+| `"scene"` | `"scene"` | `geometry.referenceId` == `data.visibilityId` | single scene |
+| `"scene"` | `"asset"` | `geometry scene contains data asset` | single scene<br>single asset |
+| `"asset"` | `"scene"` | `geometry asset is contained in data scene` | single scene<br>single asset |
+| `"asset"` | `"asset"` | `geometry.referenceId` == `data.visibilityId` | multiple scenes<br>single asset |
 
 
 The `annotationLink` permits to express annotations as a many-to-many relationship between geometry element and data element. 
 A single geometry element can be associated with multiple annotation data records; a single annotation data record can be applied to multiple geometry elements. A single `annotationLink` entity expresses a one-to-one association between a geometry element and a data element.
 When an annotation is edited the operation has impact on a limited set of scenes: the specified scene or the scenes that contain the specified asset. 
-
-
-### Project-based collections
 
 All the collection entries have a `projectId` field, that identifies the project they belong to. This allows querying the collections for a specific project.
 Without the project id, it would be impossible to distinguish between annotations of different projects. 
@@ -329,65 +336,9 @@ It carries no semantic content of its own. Its role is to make the geometry–da
 ```
 ---
 
-### Annotation
-
-An `annotation` is a composite entity that groups together an `annotationLink`, an `annotationData` record, and an `annotationGeometry` record.
-
-Querying for annotations begins by retrieving annotationLink records. The associated `annotationData` and `annotationGeometry` records are then fetched and bundled together into a single `Annotation` object
-
-#### JSON example
-
-```json
-{
-    "link": {
-      "id": "link_ghi789",
-      "projectId": "proj_xyz987",
-      "annotationGeometry": "geom_abc123",
-      "annotationData": "data_def456",
-      "createdAt": "2026-03-11T10:00:00.000Z",
-      "createdBy": "user-id-1"
-    },
-    "geometry": {
-        "id": "geom_abc123",
-        "projectId": "proj_xyz987",
-        "shapes": [
-            {
-                "type": "ShapePolygon",
-                "vertices": [
-                    [0.42, 0.31, 0.12],
-                    [0.44, 0.31, 0.12],
-                    [0.44, 0.33, 0.12],
-                    [0.42, 0.33, 0.12]
-                ]
-            }
-        ],
-        "referenceType": "scene",
-        "referenceId": "scene_id_main",
-        "createdAt": "2026-03-11T10:00:00.000Z",
-        "createdBy": "user-id-1",
-        "updatedAt": "2026-03-11T10:00:00.000Z",
-        "updatedBy": "user-id-1"
-    },
-    "data": {
-        "id": "data_def456",
-        "projectId": "proj_xyz987",
-        "label": "Lacuna",
-        "description": "Small loss of material on the lower left area.",
-        "class": "damage",
-        "content": {},
-        "visibilityType": "scene",
-        "visibilityId": "scene_id_main",
-        "createdAt": "2026-03-11T10:00:00.000Z",
-        "createdBy": "user-id-1",
-        "updatedAt": "2026-03-11T10:00:00.000Z",
-        "updatedBy": "user-id-1"
-    }
-}
-```
-
 ## Queries
 
-### Load
+### Start/stop reading/editing
 
 #### `startReading(projectId, sceneId): boolean`
 
@@ -395,12 +346,11 @@ Call this function to see if the scene can be read (there are no locks on the sc
 
 Returns `true` if the user is allowed to read the scene, `false` otherwise.
 
-It is used to check if the user is allowed to read the scene before loading it.
 A scene can be locked for reading if there are Project level edit operations (e.g. HDT publish) in progress.
 
 #### `stopReading(projectId, sceneId): void`
 
-Called after reading is finished. Currently do nothing (but it could be used to unlock the scene if it was locked for reading) 
+Called after reading is finished.
 
 #### `startEditing(projectId, sceneId): boolean`
 
@@ -410,39 +360,88 @@ Returns `true` if the user is allowed to edit the scene, `false` otherwise.
 
 If it return true, it locks the scene and the contained editable assets. Their annotations cannot be edited by other users until the scene is unlocked. 
 
-It is used to check if the user is allowed to edit the scene before loading it.
-A scene can be locked for editing if there are Project level operations (e.g. HDT publish) in progress or if other users are editing the annotations of the scene or the annotations of assets which are part of the scene and are marked as `editable`.
+A scene can be locked for editing if there are Project level operations (e.g. HDT publish) in progress 
+or if other users are editing the annotations of the scene or the annotations of assets which are part of the scene which are editable.
 
 
 #### `stopEditing(projectId, sceneId): void`
 
 Called after editing is finished. It unlocks the scene and the contained editable assets. 
 
-DB queries provide functions to retrieve data from the databases and to support high-level operations.
+---
 
-### Helper functions
+### Read operations on annotationGeometry
 
-#### `annotationGeometryBelongsToScene(projectId, geometryId, sceneId, sceneAssetIds[]): boolean`
+#### `getAnnotationGeometry(projectId, geometryId): annotationGeometry`
 
-Returns `true` if one of the following conditions is satisfied:
-- `referenceType == "scene"` and `referenceId == sceneId`
-- `referenceType == "asset"` and `referenceId` identifies an asset contained in the scene
+Returns a single `annotationGeometry` element identified by `geometryId`
 
 ---
 
-#### `annotationDataBelongsToScene(projectId, dataId, sceneId, sceneAssetIds[]): boolean`
+#### `getAnnotationGeometriesForAsset(projectId, assetId): annotationGeometry[]`
 
-Returns `true` if one of the following conditions is satisfied:
-- `visibilityType == "scene"` and `visibilityId == sceneId`
-- `visibilityType == "asset"` and `visibilityId` identifies an asset contained in the scene
+Returns all `annotationGeometry` elements referencing a given asset.
 
-### Read operations: return annotationLinks
+A geometry element references an asset if `referenceType == "asset"` and `referenceId == assetId`.
 
-These functions return an `annotationLink` object and are executed just searching the `annotationLink` collection.
+---
+
+#### `getAnnotationGeometriesForScene(projectId, sceneId) : annotationGeometry[]`
+
+Returns all `annotationGeometry` elements referencing a given scene.
+
+A geometry element references a scene if `referenceType == "scene"` and `referenceId == sceneId`.
+
+---
+
+#### `getAnnotationGeometriesForSceneAssets(projectId, sceneId, sceneAssetIds[]) : annotationGeometry[]`
+
+Returns all `annotationGeometry` elements belonging to a given scene.
+
+A geometry element belongs to a scene if it references the scene or one of the assets in the scene.
+
+---
+
+### Read operations on annotationData
+
+#### `getAnnotationData(projectId, dataId): annotationData`
+
+Returns a single `annotationData` element identified by `dataId`
+
+---
+
+#### `getAnnotationDataForAsset(projectId, assetId): annotationData[]`
+
+Returns all `annotationData` elements visible for a given asset.
+
+A data element is visible for an asset if `visibilityType == "asset"` and `visibilityId == assetId`.
+
+---
+
+#### `getAnnotationDataForScene(projectId, sceneId, sceneAssetIds[]) : annotationData[]`
+
+Returns all `annotationData` elements visible within a given scene.
+
+A data element is visible within a scene if `visibilityType == "scene"` and `visibilityId == sceneId`.
+
+---
+
+#### `getAnnotationDataForSceneAssets(projectId, sceneId, sceneAssetIds[]) : annotationData[]`
+
+Returns all `annotationData` elements belonging to a given scene.
+
+A data element belongs to a scene if it is visible for the scene or one of the assets in the scene.
+
+---
+
+### Read operations on annotationLink
 
 #### `getAnnotationLink(projectId, linkId): annotationLink`
 
 Returns a single `annotationLink` identified by `linkId`
+
+**Post conditions:**
+1. The returned annotationLink belongs to the project
 
 ---
 
@@ -450,188 +449,83 @@ Returns a single `annotationLink` identified by `linkId`
 
 Returns all `annotationLink` records associated with a given project. This is a full scan of the project-level annotation stores.
 
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+
 ---
 
 #### `getAnnotationLinksForGeometry(projectId, geometryId): annotationLink[]`
 
-Returns all `annotationLink` records that reference a given `annotationGeometry`. Useful for determining whether a geometry element is orphaned or still in use.
+Returns all `annotationLink` records that reference a given `annotationGeometry`. 
+
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference the annotationGeometry element
 
 ---
 
 #### `getAnnotationLinksForData(projectId, dataId): annotationLink[]`
 
-Returns all `annotationLink` records that reference a given `annotationData`. Useful for determining whether a data record is orphaned or still in use.
+Returns all `annotationLink` records that reference a given `annotationData`. 
 
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference the annotationData element
 ---
 
-#### `getAnnotationLinkAuditInfo(projectId, linkId) : {createdAt, createdBy}`
+#### `getAnnotationLinksForAsset(projectId, assetId): annotationLink[]`
 
-Returns the audit fields for a given `annotationLink` element: `createdAt`, `createdBy`.
+Returns all `annotationLink` records that reference a given `assetId`. 
 
+**System actions:**
+1. Get all annotationGeometry elements that reference the asset.
+2. Get all annotationData elements that reference the asset.
+3. Get all annotationLink elements that reference the collected geometry or data.
+
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference either an annotationGeometry or an annotationData element that references the asset.
 ---
 
+#### `getAnnotationLinksForScene(projectId, sceneId): annotationLink[]`
 
-### Read operations: return Annotation
+Returns all `annotationLink` records that reference a given `sceneId`. 
 
-These functions directly return a complete `Annotation` object, composed of an `annotationLink`, `annotationData` and `annotationGeometry` record. 
+**System actions:**
+1. Get all annotationGeometry elements that reference the scene.
+2. Get all annotationData elements that reference the scene.
+3. Get all annotationLink elements that reference the collected geometry or data.
 
-#### `getAnnotation(projectId, linkId): Annotation`
-
-Returns a single `Annotation` identified by `linkId`
-
+**Post conditions:**
+1. All returned annotationLinks belong to the project
+2. All returned annotationLinks reference either an annotationGeometry or an annotationData element that references the scene.
 ---
 
-#### `getAnnotationsForScene(projectId, sceneId, sceneAssetIds[]): Annotation[]`
+#### `getAnnotationLinksForSceneAssets(projectId, sceneId, sceneAssetIds[]): annotationLink[]`
 
-Returns all `Annotation` records visible in a given scene.
-Each annotation is composed of an `annotationLink`, `annotationData` and `annotationGeometry` record.
+Returns all `annotationLink` records that reference a given `sceneId` or one of the assets in the scene. 
 
-An annotation is visible in a scene if **both** of the following conditions are satisfied:
-- `annotationGeometryBelongsToScene(geometryId, sceneId, sceneAssetIds)` is true
-- `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds)` is true
+It can be used to query editable and background annotationLink for a scene, just passing as parameters the corresponding editable or background asset id arrays.
 
-These conditions must align with the scene consistency rules defined in the `annotationLink` section.
- 
----
+**System actions:**
+1. Get all annotationGeometry elements that reference the scene or one of the assets in the scene.
+2. For each annotationGeometry element, get all annotationLink elements that reference it.
+3. Keep only the annotationLink that reference an annotationData element that is visible in the scene or in one of the assets in the scene.
 
-#### `getAnnotationGeometriesForScene(projectId, sceneId, sceneAssetIds[]) : annotationGeometry[]`
-
-Returns all `annotationGeometry` elements belonging to a given scene.
-
-A geometry element belongs to a scene if `annotationGeometryBelongsToScene(geometryId, sceneId, sceneAssetIds)` is true.
-
-It retrieves all geometry annotations belonging to the specified scene.
-
----
-
-#### `getAnnotationDataForScene(projectId, sceneId, sceneAssetIds[]) : annotationData[]`
-
-Returns all `annotationData` elements belonging to a given scene.
-
-A data element belongs to a scene if `annotationDataBelongsToScene(dataId, sceneId, sceneAssetIds)` is true.
-It retrieves all annotationData belonging to the specified scene.
-
----
-
-#### `getAnnotationGeometriesForAsset(projectId, assetId): annotationGeometry[]`
-
-Returns all `annotationGeometry` elements belonging to a given asset.
-
-A geometry element belongs to an asset if `referenceType == "asset"` and `referenceId == assetId`.
-
-It retrieves all geometry annotations belonging to the specified asset.
-
-#### `getAnnotationDataForAsset(projectId, assetId): annotationData[]`
-
-Returns all `annotationData` elements belonging to a given asset.
-
-A data element belongs to an asset if `visibilityType == "asset"` and `visibilityId == assetId`.
-
-It retrieves all data annotations belonging to the specified asset.
-
-#### `getAnnotationsForAsset(projectId, assetId): Annotation[]`
-
-Returns all `Annotation` records that reference the given asset.
-
-Could be implemented as:
-- geometry = `getAnnotationGeometriesForAsset(projectId, assetId)`
-- data = `getAnnotationDataForAsset(projectId, assetId)`
-- links = find all the links that reference the given geometry or data records
-- return assembled annotations made of `annotationLink`, `annotationData` and `annotationGeometry`
-
-This is a global lookup across all scenes.
-
----
-
-#### `getAnnotationGeometry(projectId, geometryId) : annotationGeometry`
-
-Returns a single `annotationGeometry` element by identifier.
-
----
-
-#### `getAnnotationData(projectId, dataId) : annotationData`
-
-Returns a single `annotationData` element by identifier.
-
----
-
-
-#### `getAnnotationDataAuditInfo(projectId, dataId) : {createdAt, createdBy, updatedAt, updatedBy}`
-
-Returns the audit fields for a given `annotationData` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Intended for provenance and workflow tracking.
-
----
-
-#### `getAnnotationGeometryAuditInfo(projectId, geometryId) : {createdAt, createdBy, updatedAt, updatedBy}`
-
-Returns the audit fields for a given `annotationGeometry` element: `createdAt`, `createdBy`, `updatedAt`, `updatedBy`.
-
----
-
-#### `getAnnotationsByClass(projectId, class, sceneId?, sceneAssetIds[]) : Annotation[]`
-
-Returns all `Annotation` records whose associated `annotationData.class` matches the given value. Optionally filtered to a specific scene.
-
----
-
-#### `getAnnotationsByLabel(projectId, label, sceneId?, sceneAssetIds[]) : Annotation[]`
-
-Returns all `Annotation` records whose associated `annotationData.label` matches or contains the given string. Optionally filtered to a specific scene.
-
----
-
-
-#### `searchAnnotations(projectId, query, sceneId?, sceneAssetIds[]) : Annotation[]`
-
-Full-text search over `annotationData.label` and `annotationData.description`. Returns matching `Annotation` records. Optionally scoped to a scene.
-
----
-
-#### `countAnnotationsByClass(projectId, sceneId?, sceneAssetIds[])`
-
-Returns a frequency map of annotation counts grouped by `annotationData.class`. Optionally scoped to a scene. Useful for dashboards, statistics, and annotation coverage reports.
-
----
-
-### Diagnostic operations
-
-#### `getAnnotationOrphanedLinks(projectId): annotationLink[]`
-
-Returns all `annotationLink` elements whose `annotationGeometry` or `annotationData` references do not exist. Intended for diagnostic and cleanup purposes.
-
----
-
-#### `getAnnotationOrphanedGeometries(projectId): annotationGeometry[]`
-
-Returns all `annotationGeometry` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
-
----
-
-#### `getAnnotationOrphanedData(projectId): annotationData[]`
-
-Returns all `annotationData` elements that are not referenced by any `annotationLink`. Intended for diagnostic and cleanup purposes.
+**Post conditions:**
+The returned link may reference only one of these combinations:
+- geometry references the scene, data visible in the scene
+- geometry references the scene, data visible in one of the sceneAssetIds
+- geometry references one of the sceneAssetIds, data visible in the scene
+- geometry references one of the sceneAssetIds, data visible in the same asset
 
 ---
 
 ## Low-level DB Operations
 
-There are 3 collections for annotations:
-
-1. annotationGeometry collection
-2. annotationData collection
-3. annotationLink collection
-
-The basic low-level supported operations are:
-
-- Create
-- Read
-- Update
-- Delete
-
 Low-level operations interact with a single DB and keep it consistent with itself. They do not interact with other DBs, possibly breaking the system consistency.
 
 While high-level operations interact with other DBs and keep the system consistent.
-For high-level operations, see the high-level operations section. 
 
 Operations outside of the Annotation management service (on projects, scenes, assets, etc.) are not considered here, but must be performed in order to keep the system consistent (e.g. when an asset is deleted, all annotationGeometry elements with referenceType == "asset" and referenceId == deletedAsset.id must be deleted).
 
@@ -664,14 +558,14 @@ Creates a new `annotationGeometry` element. Return the annotationGeometry id
 
 ---
 
-#### `updateAnnotationGeometryShapes(geometryId, newShapes) : boolean`
+#### `updateAnnotationGeometryShapes(projectId, geometryId, newShapes) : boolean`
 Updates the `shapes` field of an existing `annotationGeometry` element.
 
 `shapes`: the update operation replace the old shape array with the new one. 
 
 **Invariants:**
 - `projectId` must be a valid, existing project identifier.
-- `id` is globally unique and immutable.
+- `geometryId` is globally unique and immutable.
 
 **Pre-conditions:**
 - `geometryId` must reference an existing `annotationGeometry`.
@@ -691,7 +585,7 @@ Updates the `shapes` field of an existing `annotationGeometry` element.
 
 ---
 
-#### `deleteAnnotationGeometry(geometryId) : boolean`
+#### `deleteAnnotationGeometry(projectId, geometryId) : boolean`
 
 Deletes an `annotationGeometry` element from the store. It keeps the annotationGeometry DB valid, but it does not ensure the system consistency. 
 
@@ -723,9 +617,11 @@ In practice, this operation is typically invoked as part of an `annotationLink` 
 
 Creates a new `annotationData` element. Return the annotationData id
 
-**Pre-conditions:**
+**Invariants:**
 - `projectId` must reference an existing project.
 - `label` must be a non-empty string.
+
+**Pre-conditions:**
 - If `visibilityType` is "scene", `visibilityId` must be a valid existing `sceneId`.
 - If `visibilityType` is "asset", `visibilityId` must be a valid existing `assetId`.
 
@@ -743,16 +639,15 @@ Creates a new `annotationData` element. Return the annotationData id
 
 ---
 
-#### `updateAnnotationData(dataId, label, description, class, content) : boolean` 
+#### `updateAnnotationData(projectId, dataId, label, description, class, content) : boolean` 
 
 Updates one or more mutable fields of an `annotationData` element.
 
 **Permitted fields:** `label`, `description`, `class`, `content` changing these fields does not affect the system consistency.
 
-**Pre-conditions:**
+**Invariants:**
+- `projectId` must reference an existing project.
 - `dataId` must reference an existing `annotationData`.
-- If `label` is included in the patch, it must be a non-empty string.
-
 
 **System actions:**
 1. Apply the patch to the permitted fields only.
@@ -792,11 +687,14 @@ This is a low level operation. It does not check system consistency in particula
 
 ---
 
-#### `deleteAnnotationData(dataId) : boolean` 
+#### `deleteAnnotationData(projectId, dataId) : boolean` 
 
 Deletes an `annotationData` element from the store. It keeps the annotationData DB consistent, but it does not ensure the system consistency. 
 
 As with `deleteAnnotationGeometry`, this is a low-level operation. All `annotationLink` records referencing this data element must have been resolved before invocation.
+
+**Invariants:**
+- `projectId` must be a valid, existing project identifier.
 
 **Pre-conditions:**
 - `dataId` must reference an existing `annotationData`.
@@ -819,13 +717,14 @@ As with `deleteAnnotationGeometry`, this is a low-level operation. All `annotati
 
 Creates a new `annotationLink` associating one `annotationGeometry` element with one `annotationData` record. Return the annotationLink id or null if it already exists.
 
-**Pre-conditions (all must hold):**
-
+**Invariants:**
 1. `projectId` must reference an existing project.
 2. `annotationGeometryId` must reference an existing `annotationGeometry` belonging to the same project.
 3. `annotationDataId` must reference an existing `annotationData` belonging to the same project.
-3. The pair (`annotationGeometryId`, `annotationDataId`) must not already exist as a link.
-4. **Scene consistency**: 
+
+**Pre-conditions (all must hold):**
+1. The pair (`annotationGeometryId`, `annotationDataId`) must not already exist as a link.
+2. **Scene consistency**: 
 - must satisfy the same scene consistency constraints defined in the [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
 
 **Post-conditions:**
@@ -849,9 +748,12 @@ Creates a new `annotationLink` associating one `annotationGeometry` element with
 To change an association, delete the existing link and create a new one.
 
 ---
-#### `deleteAnnotationLink(linkId) : boolean`
+#### `deleteAnnotationLink(projectId, linkId) : boolean`
 
 Deletes the `annotationLink` only. It keeps the annotationLink DB consistent, but it does not ensure the system consistency: dangling references may remain.  
+
+**Invariants:**
+- `projectId` must reference an existing project.
 
 **Pre-conditions:**
 - `linkId` must reference an existing `annotationLink`.
@@ -870,9 +772,12 @@ Deletes the `annotationLink` only. It keeps the annotationLink DB consistent, bu
 
 ### Delete operations
 
-#### `deleteAnnotationLinkDeep(linkId) : boolean`
+#### `deleteAnnotationLinkDeep(projectId, linkId) : boolean`
 
 Deletes the `annotationLink` and performs conditional cleanup of the associated `annotationGeometry` and `annotationData`, based on whether they are no longer referenced by any other link.
+
+**Invariants:**
+- `projectId` must reference an existing project.
 
 **Pre-conditions:**
 - `linkId` must reference an existing `annotationLink`.
@@ -887,11 +792,11 @@ Deletes the `annotationLink` and performs conditional cleanup of the associated 
 2. Delete the `annotationLink` record.
 3. **Geometry cleanup:**
    - `getAnnotationLinksForGeometry(geometryId)`
-   - If no links remain: invoke `deleteAnnotationGeometry(geometryId)`.
+   - If no links remain: invoke `deleteAnnotationGeometry(projectId, geometryId)`.
    - Otherwise: leave the geometry in place.
 4. **Data cleanup:**
    - `getAnnotationLinksForData(dataId)`
-   - If no links remain: invoke `deleteAnnotationData(dataId)`.
+   - If no links remain: invoke `deleteAnnotationData(projectId, dataId)`.
    - Otherwise: leave the data in place.
 
 **Returns:**
@@ -900,10 +805,13 @@ Deletes the `annotationLink` and performs conditional cleanup of the associated 
 
 ---
 
-#### `deleteAnnotationGeometryDeep(geometryId)   : boolean`
+#### `deleteAnnotationGeometryDeep(projectId, geometryId)   : boolean`
 
 Deletes the `annotationGeometry` and the associated `annotationLink` records if they exist. 
 If the links are deleted, the associated `annotationData` is also deleted if it is no longer referenced by any other link.
+
+**Invariants:**
+- `projectId` must reference an existing project.
 
 **Pre-conditions:**
 - `geometryId` must reference an existing `annotationGeometry`.
@@ -915,10 +823,10 @@ If the links are deleted, the associated `annotationData` is also deleted if it 
 
 **System actions:**
 
-1. **Retrieve links:** `links = getAnnotationLinksForGeometry(geometryId)`
-2. **If no links exist:** invoke `deleteAnnotationGeometry(geometryId)`
+1. **Retrieve links:** `links = getAnnotationLinksForGeometry(projectId, geometryId)`
+2. **If no links exist:** invoke `deleteAnnotationGeometry(projectId, geometryId)`
 3. **Otherwise, cascade delete links:** For each `link` in `links`:
-   - Invoke `deleteAnnotationLinkDeep(link.id)` (This inherently cleans up the base geometry on the final iteration, and removes any orphaned data).
+   - Invoke `deleteAnnotationLinkDeep(projectId, link.id)` (This inherently cleans up the base geometry on the final iteration, and removes any orphaned data).
 
 **Returns:**
 - `true` if the element was deleted.
@@ -926,10 +834,13 @@ If the links are deleted, the associated `annotationData` is also deleted if it 
 
 ---
 
-#### `deleteAnnotationDataDeep(dataId)   : boolean`
+#### `deleteAnnotationDataDeep(projectId, dataId)   : boolean`
 
 Deletes the `annotationData` and the associated `annotationLink` records if they exist. 
 If the links are deleted, the associated `annotationGeometry` is also deleted if it is no longer referenced by any other link.
+
+**Invariants:**
+- `projectId` must reference an existing project.
 
 **Pre-conditions:**
 - `dataId` must reference an existing `annotationData`.
@@ -941,10 +852,10 @@ If the links are deleted, the associated `annotationGeometry` is also deleted if
 
 **System actions:**
 
-1. **Retrieve links:** `links = getAnnotationLinksForData(dataId)`
-2. **If no links exist:** invoke `deleteAnnotationData(dataId)`
+1. **Retrieve links:** `links = getAnnotationLinksForData(projectId, dataId)`
+2. **If no links exist:** invoke `deleteAnnotationData(projectId, dataId)`
 3. **Otherwise, cascade delete links:** For each `link` in `links`:
-   - Invoke `deleteAnnotationLinkDeep(link.id)` (This inherently cleans up the base data on the final iteration, and removes any orphaned geometry).
+   - Invoke `deleteAnnotationLinkDeep(projectId, link.id)` (This inherently cleans up the base data on the final iteration, and removes any orphaned geometry).
 
 **Returns:**
 - `true` if the element was deleted.
@@ -968,7 +879,7 @@ Removes all annotations associated with a given project.
 **System actions:**
 
 1. Find all `annotationLink` using `getAnnotationLinksForProject(projectId)`.
-2. For each such link, invoke `deleteAnnotationLinkDeep(link.id)`.
+2. For each such link, invoke `deleteAnnotationLinkDeep(projectId, link.id)`.
 
 **Returns:**
 - `true` if the element was deleted.
@@ -976,9 +887,12 @@ Removes all annotations associated with a given project.
 
 ---
 
-#### `removeAnnotationsWithScene(sceneId) : boolean`
+#### `removeAnnotationsWithScene(projectId, sceneId) : boolean`
 
 Removes all annotations natively anchored or scoped to the scene. This is a destructive operation that also affects annotations sharing an asset if their geometry or data is strictly scene-specific.
+
+**Invariants:**
+- `projectId` must reference an existing project.
 
 **Pre-conditions:**
 - `sceneId` must reference an existing scene.
@@ -989,8 +903,8 @@ Removes all annotations natively anchored or scoped to the scene. This is a dest
 
 **System actions:**
 
-1. Find all `annotationGeometry` referencing the scene using `getAnnotationGeometriesForScene(sceneId, [])`. For each, invoke `deleteAnnotationGeometryDeep`.
-2. Find all `annotationData` referencing the scene using `getAnnotationDataForScene(sceneId, [])`. For each, invoke `deleteAnnotationDataDeep`.
+1. Find all `annotationGeometry` referencing the scene using `getAnnotationGeometriesForScene(projectId, sceneId, [])`. For each, invoke `deleteAnnotationGeometryDeep`.
+2. Find all `annotationData` referencing the scene using `getAnnotationDataForScene(projectId, sceneId, [])`. For each, invoke `deleteAnnotationDataDeep`.
 
 **Returns:**
 - `true` if the element was deleted.
@@ -998,9 +912,12 @@ Removes all annotations natively anchored or scoped to the scene. This is a dest
 
 ---
 
-#### `removeAnnotationsWithAsset(assetId) : boolean`
+#### `removeAnnotationsWithAsset(projectId, assetId) : boolean`
 
 Removes all annotations associated with a given asset.
+
+**Invariants:**
+- `projectId` must reference an existing project.
 
 **Pre-conditions:**
 - `assetId` must reference an existing asset.
@@ -1011,8 +928,8 @@ Removes all annotations associated with a given asset.
 
 **System actions:**
 
-1. Find all `Annotations` using `getAnnotationsForAsset(assetId)`.
-2. For each such annotation, invoke `deleteAnnotationLinkDeep(annotation.link.id)`.
+1. Find all `annotationLink` using `getAnnotationLinksForAsset(projectId, assetId)`.
+2. For each such annotation, invoke `deleteAnnotationLinkDeep(projectId, annotation.link.id)`.
 3. Find all orphaned `annotationGeometry` referencing `assetId` and delete them (via `deleteAnnotationGeometry`).
 4. Find all orphaned `annotationData` referencing `assetId` and delete them (via `deleteAnnotationData`).
 
