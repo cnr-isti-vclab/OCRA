@@ -28,6 +28,7 @@
     "mongo:init": "bash scripts/bootstrap-mongo.sh"
   },
   "workspaces": [
+    "shared",
     "frontend",
     "backend"
   ],

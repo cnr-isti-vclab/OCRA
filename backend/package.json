@@ -21,6 +21,7 @@
     "test:quick": "tsx ./scripts/test-log-audit.ts && tsx ./scripts/test-get-users-stats.ts"
   },
   "dependencies": {
+    "shared": "*",
     "@prisma/client": "^5.18.0",
     "@types/n3": "^1.26.1",
     "cors": "^2.8.5",

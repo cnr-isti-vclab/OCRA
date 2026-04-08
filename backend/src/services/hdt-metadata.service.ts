@@ -26,9 +26,8 @@ import type {
   HDTScene,
   SceneAssetReference,
   PhysicalObjectMetadata,
-  SceneDescription,
-  ModelDefinition
 } from '../types/index.js';
+import type { SceneDescription, ModelDefinition } from 'shared/scene-types';
 import fs from 'fs/promises';
 import path from 'path';
 

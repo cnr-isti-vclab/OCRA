@@ -5,7 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
 import { LoadingProgress } from 'three-presenter';
 import { getApiBase } from '../config/oauth';
-import type { SceneDescription, Annotation } from '../../../shared/scene-types';
+import type { SceneDescription, Annotation } from 'shared/scene-types';
 
 interface Project {
   id: string;
