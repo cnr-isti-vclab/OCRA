@@ -135,7 +135,7 @@ export async function createHDTDocument(
 
   // ✅ STANDARDIZED: Return consistent format
   return {
-    _id: result.insertedId.toString(),
+    _id: result.insertedId,
     ...newDocument
   } as HDTDocument;
 }

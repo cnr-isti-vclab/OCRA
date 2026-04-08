@@ -1,4 +1,5 @@
 // Shared type definitions for API contracts
+import type { ObjectId } from 'mongodb';
 
 export interface User {
   id: string; // Internal DB user ID
@@ -328,7 +329,7 @@ export interface HDTScene {
  * Links to a Project in PostgreSQL via projectId
  */
 export interface HDTDocument {
-  _id?: string;               // MongoDB ObjectId (optional, auto-generated)
+  _id?: ObjectId;             // MongoDB ObjectId (optional, auto-generated)
   projectId: string;          // Link to PostgreSQL project
 
   // Physical object metadata and source provenance
