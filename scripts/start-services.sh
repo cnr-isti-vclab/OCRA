@@ -26,20 +26,34 @@ fi
 
 # MongoDB (bare metal)
 MONGO_NAME="bare-ocra-mongo"
+recreate_mongo=0
+
 if docker ps -a --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
+  mongo_cmd="$(docker inspect --format '{{json .Config.Cmd}}' ${MONGO_NAME})"
+  if [[ "${mongo_cmd}" != *"--replSet"* ]]; then
+    echo "  - Recreating ${MONGO_NAME} with replica set enabled..."
+    docker rm -f ${MONGO_NAME} >/dev/null
+    recreate_mongo=1
+  fi
+
+  if [[ ${recreate_mongo} -eq 0 ]]; then
   if ! docker ps --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
     echo "  - Starting existing ${MONGO_NAME}..."
     docker start ${MONGO_NAME} >/dev/null
   else
     echo "  - ${MONGO_NAME} already running"
   fi
-else
+  fi
+fi
+
+if ! docker ps -a --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
   echo "  - Creating ${MONGO_NAME}..."
   docker run -d \
     --name ${MONGO_NAME} \
     -p 27017:27017 \
     -v ocra-mongo-data:/data/db \
-    mongo:7
+    mongo:7 \
+    --replSet rs0 --bind_ip_all
 fi
 
   echo "  - Bootstrapping MongoDB databases and collections..."

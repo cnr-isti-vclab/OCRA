@@ -42,3 +42,6 @@ Authoritative domain documentation is in `doc/`. Ignore `doc/outdated_docs/` —
 - **Minimize code**: always prefer the smallest correct implementation. Warn before writing large amounts of new code and suggest leaner alternatives. Actively flag dead code, unused imports, and leftover files for removal.
 - **No duplication**: before adding a utility, service, or component, check whether an equivalent already exists.
 - **Testing**: Vitest + Supertest; integration tests live in `backend/src/test/`.
+- **MongoDB topology**: MongoDB is expected to run as a single-node replica set named `rs0` in both Docker Compose and bare-metal local setups.
+- **MongoDB connection strings**: use `MONGO_URL=mongodb://mongodb:27017/?replicaSet=rs0` for Docker Compose and `MONGO_URL=mongodb://localhost:27017/?replicaSet=rs0` for bare-metal local development.
+- **MongoDB bootstrap**: if MongoDB is recreated or volumes are reset, re-run the bootstrap flow so replica set initialization and collection/index setup are applied (`scripts/bootstrap-mongo.sh` or the higher-level startup scripts).

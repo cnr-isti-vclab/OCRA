@@ -79,7 +79,7 @@ POSTGRES_PASSWORD=<STRONG_PASSWORD>
 DATABASE_URL=postgresql://postgres:<STRONG_PASSWORD>@postgres:5432/ocra_production
 
 # MongoDB
-MONGODB_URI=mongodb://mongodb:27017/ocra-audit
+MONGODB_URI=mongodb://mongodb:27017/?replicaSet=rs0
 
 # Keycloak (placeholder - uses H2 database)
 KEYCLOAK_ADMIN=admin

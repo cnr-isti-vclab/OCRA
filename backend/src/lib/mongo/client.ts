@@ -4,7 +4,7 @@ let client: MongoClient | null = null;
 let auditDb: Db | null = null;
 let contentDb: Db | null = null;
 
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://mongodb:27017';
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://mongodb:27017/?replicaSet=rs0';
 const MONGO_AUDIT_DB = process.env.MONGO_AUDIT_DB || process.env.MONGO_DB || 'ocra_audit';
 const MONGO_CONTENT_DB = process.env.MONGO_CONTENT_DB || 'ocra_content';
 

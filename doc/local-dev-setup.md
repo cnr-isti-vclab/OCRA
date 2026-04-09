@@ -57,7 +57,7 @@ DIRECT_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
 SYS_ADMIN_EMAIL=admin@ocra.it
 
 # MongoDB for audit logs
-MONGO_URL=mongodb://localhost:27017
+MONGO_URL=mongodb://localhost:27017/?replicaSet=rs0
 MONGO_DB=ocra_audit
 MONGO_COLLECTION=audit
 
@@ -109,7 +109,7 @@ npm run services:stop
 
 This will create or start:
 - `bare-ocra-postgres` with `ocra_user:ocra_pass@localhost:5432/ocra`
-- `bare-ocra-mongo` at `localhost:27017`
+- `bare-ocra-mongo` at `localhost:27017` with single-node replica set `rs0`
 - `bare-keycloak` at `localhost:8081`
 
 ### 3.3 Manual PostgreSQL setup (alternative)
@@ -140,12 +140,13 @@ docker run -d \
   --name bare-ocra-mongo \
   -p 27017:27017 \
   -v ocra-mongo-data:/data/db \
-  mongo:7
+   mongo:7 \
+   --replSet rs0 --bind_ip_all
 
 npm run mongo:init
 ```
 
-The `mongo:init` step is idempotent. Run it again if the container already existed before the annotation collections were introduced.
+The `mongo:init` step is idempotent. It also initializes the single-node replica set `rs0`, so run it again if the container already existed before replica set support was introduced.
 
 ### 3.5 Manual Keycloak setup (alternative)
 

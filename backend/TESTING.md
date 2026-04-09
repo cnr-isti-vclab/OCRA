@@ -43,7 +43,7 @@ PORT=3001
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/oauth_demo_test"
 
 # MongoDB Test Database (for audit logs)
-MONGODB_URL="mongodb://localhost:27017/ocra_audit_test"
+MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0"
 
 # Other required variables
 KEYCLOAK_URL=http://localhost:8080
