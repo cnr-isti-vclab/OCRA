@@ -90,6 +90,12 @@ SYS_ADMIN_EMAIL=admin@isti.cnr.it
 CORS_ORIGINS=https://ocra.isti.cnr.it
 NODE_ENV=production
 
+If the MongoDB volume already exists, rerun the bootstrap after deployment to ensure `ocra_audit`, `ocra_content`, and the annotation collections exist:
+
+```bash
+npm run mongo:init
+```
+
 # Frontend
 PROVIDER_URL=https://ocra.isti.cnr.it/auth
 REALM=demo

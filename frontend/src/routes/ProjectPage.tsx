@@ -6,12 +6,12 @@ import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presente
 import { LoadingProgress } from 'three-presenter';
 import { OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer.tsx';
 import { getApiBase } from '../config/oauth';
-import type { SceneDescription } from '../../../shared/scene-types';
 import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import AnnotationPanel from './components/AnnotationPanel';
+import type { SceneDescription, Annotation } from 'shared/scene-types';
 
 interface Project {
   id: string;

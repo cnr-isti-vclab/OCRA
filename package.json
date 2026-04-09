@@ -24,9 +24,11 @@
     "test:ui": "cd backend && npm run test:ui",
     "test:coverage": "cd backend && npm run test:coverage",
     "services:start": "bash scripts/start-services.sh",
-    "services:stop": "bash scripts/stop-services.sh"
+    "services:stop": "bash scripts/stop-services.sh",
+    "mongo:init": "bash scripts/bootstrap-mongo.sh"
   },
   "workspaces": [
+    "shared",
     "frontend",
     "backend"
   ],

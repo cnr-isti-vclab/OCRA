@@ -8,7 +8,7 @@ import express from 'express';
 type Request = express.Request;
 type Response = express.Response;
 
-import { connect } from '../services/audit.service.js';
+import { getMongoClient } from '../lib/mongo/client.js';
 
 /**
  * Basic health check
@@ -22,7 +22,7 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
  */
 export async function mongoHealth(req: Request, res: Response): Promise<void> {
   try {
-    const { client } = await connect();
+    const client = await getMongoClient();
     if (!client) {
       res.status(503).json({ success: false, mongo: { connected: false } });
       return;

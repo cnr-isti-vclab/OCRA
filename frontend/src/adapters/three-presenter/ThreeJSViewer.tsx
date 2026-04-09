@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from 'three-presenter';
 import type { SceneDescription } from 'three-presenter';
-import type { Annotation } from '../../../../shared/scene-types';
+import type { Annotation } from 'shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
 
 export interface ThreeJSViewerRef {

@@ -10,12 +10,14 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /v
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
+COPY shared/package.json shared/package.json
 
 # 2) Install dependencies from the workspace root
 RUN npm ci
 
 # 3) Copy sources
 COPY backend ./backend
+COPY shared ./shared
 COPY media ./media
 
 # 4) Build backend + generate Prisma client using the ROOT schema

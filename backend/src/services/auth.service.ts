@@ -5,8 +5,6 @@
  */
 
 import { logAuditEvent } from '../../db.js';
-import { connect } from './audit.service.js';
-import { getPrismaClient } from '../../db.js';
 
 /**
  * Log a login event

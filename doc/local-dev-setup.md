@@ -141,7 +141,11 @@ docker run -d \
   -p 27017:27017 \
   -v ocra-mongo-data:/data/db \
   mongo:7
+
+npm run mongo:init
 ```
+
+The `mongo:init` step is idempotent. Run it again if the container already existed before the annotation collections were introduced.
 
 ### 3.5 Manual Keycloak setup (alternative)
 

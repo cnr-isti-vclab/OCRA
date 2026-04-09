@@ -42,6 +42,9 @@ else
     mongo:7
 fi
 
+  echo "  - Bootstrapping MongoDB databases and collections..."
+  bash "$(dirname "$0")/bootstrap-mongo.sh" "${MONGO_NAME}"
+
 # Keycloak (bare metal) 
 KEYCLOAK_NAME="bare-keycloak"
 if docker ps -a --format '{{.Names}}' | grep -q "^${KEYCLOAK_NAME}$"; then
