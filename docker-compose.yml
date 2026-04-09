@@ -19,7 +19,7 @@ services:
     image: mongo:7
     container_name: ocra-mongodb
     hostname: ocra-mongodb
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    command: ["sh", "/docker/mongo-start.sh"]
     environment:
       MONGO_INITDB_DATABASE: ocra_audit
       MONGO_REPLICA_SET_NAME: rs0
@@ -27,7 +27,8 @@ services:
     volumes:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
-      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - ./docker/mongo-init.js:/docker/mongo-init.js:ro
+      - ./docker/mongo-start.sh:/docker/mongo-start.sh:ro
     networks:
       default:
         aliases:

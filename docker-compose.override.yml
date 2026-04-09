@@ -9,6 +9,8 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME: http://localhost:8081
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     ports:
       - "8081:8080"
     volumes:
@@ -31,6 +33,7 @@ services:
       - "3002:3002"
       - "5555:5555"
     environment:
+      NODE_ENV: development
       # In Docker, backend must reach Keycloak via internal service name
       ISSUER: http://keycloak:8080/realms/demo
     volumes:
