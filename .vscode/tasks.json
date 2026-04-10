@@ -22,7 +22,7 @@
     {
       "label": "Docker: Build and Start (Development)",
       "type": "shell",
-      "command": "if (Test-Path docker-compose.override.yml) { docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d } else { Write-Host 'Note: docker-compose.override.yml not found. Starting in production mode.' -ForegroundColor Yellow; docker compose up --build -d }",
+      "command": "docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d",
       "problemMatcher": [],
       "presentation": {
         "echo": true,
