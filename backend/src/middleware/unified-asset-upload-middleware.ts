@@ -7,6 +7,11 @@ import fsp from 'fs/promises';
 import extract from 'extract-zip';
 import type { Request } from 'express';
 import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-static-paths.js';
+import {
+  collectObjPackagingWarnings,
+  selectPrimary3DModelFile,
+  type DetectedArchiveFile
+} from '../services/model-archive-utils.js';
 
 /**
  * Extended Request interface to include asset processing results
@@ -16,11 +21,9 @@ export interface AssetProcessingRequest extends Request {
     type: 'rti' | '3d' | '3d-direct';
     extractedPath?: string; // For ZIP files, path where content was extracted
     originalFile: Express.Multer.File;
-    detectedFiles?: Array<{
-      name: string;
-      path: string;
-      type: '3d-model' | 'rti-info' | 'texture' | 'other';
-    }>;
+    detectedFiles?: DetectedArchiveFile[];
+    primaryModelFile?: DetectedArchiveFile;
+    warnings?: string[];
   };
 }
 
@@ -54,9 +57,9 @@ function isTextureFile(filename: string): boolean {
  */
 async function analyzeZipContents(extractedPath: string): Promise<{
   type: 'rti' | '3d';
-  files: Array<{ name: string; path: string; type: '3d-model' | 'rti-info' | 'texture' | 'other' }>;
+  files: DetectedArchiveFile[];
 }> {
-  const files: Array<{ name: string; path: string; type: '3d-model' | 'rti-info' | 'texture' | 'other' }> = [];
+  const files: DetectedArchiveFile[] = [];
   
   // Recursively scan extracted directory
   async function scanDirectory(dirPath: string, relativePath: string = '') {
@@ -64,7 +67,7 @@ async function analyzeZipContents(extractedPath: string): Promise<{
     
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
-      const relativeFilePath = path.join(relativePath, entry.name);
+      const relativeFilePath = path.posix.join(relativePath.replace(/\\/g, '/'), entry.name);
       
       if (entry.isDirectory()) {
         // Recursive scan for subdirectories
@@ -228,12 +231,27 @@ export const unifiedAssetUploadMiddleware = [
           
           // Analyze contents
           const analysis = await analyzeZipContents(extractedPath);
+          const warnings: string[] = [];
+          let primaryModelFile: DetectedArchiveFile | undefined;
+
+          if (analysis.type === '3d') {
+            const selectedPrimary = selectPrimary3DModelFile(analysis.files);
+            if (!selectedPrimary) {
+              throw new Error('ZIP archive analysis failed: no 3D model entry point could be selected');
+            }
+            primaryModelFile = selectedPrimary;
+
+            const objWarnings = await collectObjPackagingWarnings(analysis.files, primaryModelFile);
+            warnings.push(...objWarnings);
+          }
           
           assetReq.assetProcessing = {
             type: analysis.type,
             extractedPath,
             originalFile: file,
-            detectedFiles: analysis.files
+            detectedFiles: analysis.files,
+            primaryModelFile,
+            warnings
           };
           
           console.log(`📦 [UnifiedUpload] ZIP analysis for project ${projectId}:`, {

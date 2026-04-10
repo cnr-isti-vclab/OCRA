@@ -14,6 +14,7 @@ import {
 } from '../utils/project-static-paths.js';
 import { getPrismaClient } from '../../db.js';
 import { getHDTDocument, updateDigitalAsset } from '../services/hdt-metadata.service.js';
+import { selectPrimary3DModelFile } from '../services/model-archive-utils.js';
 
 /**
  * Build the public base URL for assets.
@@ -160,7 +161,7 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
     }
 
     const { assetProcessing } = assetReq;
-    const { type, originalFile, extractedPath, detectedFiles } = assetProcessing;
+    const { type, originalFile, extractedPath, detectedFiles, primaryModelFile, warnings = [] } = assetProcessing;
 
     // Authorization: uploads are manager-only (sys_admin allowed).
     const isManager = await checkIsManagerOfProject(currentUserSub, projectId);
@@ -197,10 +198,10 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
 
     switch (type) {
       case '3d-direct':
-        return await handle3DDirectUpload(req, projectId, assetId, originalFile, currentUserSub, res, cleanupPaths);
+        return await handle3DDirectUpload(req, projectId, assetId, originalFile, currentUserSub, res, cleanupPaths, warnings);
 
       case '3d':
-        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, currentUserSub, res, cleanupPaths);
+        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, currentUserSub, res, cleanupPaths, primaryModelFile, warnings);
 
       case 'rti':
         return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, currentUserSub, res, cleanupPaths);
@@ -233,7 +234,8 @@ async function handle3DDirectUpload(
   file: Express.Multer.File,
   userId: string,
   res: Response,
-  cleanupPaths: string[]
+  cleanupPaths: string[],
+  warnings: string[] = []
 ): Promise<Response> {
   const targetDir = projectModel3dAssetDir(projectId, assetId);
   await fsp.mkdir(targetDir, { recursive: true });
@@ -241,6 +243,11 @@ async function handle3DDirectUpload(
   const safeFileName = path.posix.basename(file.originalname.replace(/\\/g, '/'));
   if (!safeFileName) {
     throw new Error('Invalid uploaded filename');
+  }
+  if (path.extname(safeFileName).toLowerCase() === '.obj') {
+    warnings.push(
+      `Direct OBJ upload detected for "${safeFileName}". If the model needs external materials/textures, upload a ZIP containing .obj + .mtl + texture files.`
+    );
   }
 
   const targetPath = path.join(targetDir, safeFileName);
@@ -281,6 +288,7 @@ async function handle3DDirectUpload(
       entrySize: st.size,
       entryPointUrl,
       entryPoint,
+      warnings,
       storageDir: targetDir,
     }
   });
@@ -291,7 +299,7 @@ async function handle3DDirectUpload(
  * Storage:
  *   project_files/<projectId>/3d-model/<assetId>/(all extracted files)
  * Public entry point:
- *   the first detected 3D model file (can be improved later with better heuristics)
+ *   a deterministic primary model selected from detected 3D files
  */
 async function handle3DFromZipUpload(
   req: any,
@@ -301,7 +309,9 @@ async function handle3DFromZipUpload(
   detectedFiles: Array<{ name: string; path: string; type: string }>,
   userId: string,
   res: Response,
-  cleanupPaths: string[]
+  cleanupPaths: string[],
+  primaryModelFile: { name: string; path: string; type: string } | undefined,
+  warnings: string[] = []
 ): Promise<Response> {
   const targetDir = projectModel3dAssetDir(projectId, assetId);
   await fsp.mkdir(targetDir, { recursive: true });
@@ -309,7 +319,9 @@ async function handle3DFromZipUpload(
   await fse.copy(extractedPath, targetDir);
 
   const modelFiles = detectedFiles.filter(f => f.type === '3d-model');
-  const mainModelFile = modelFiles[0];
+  const mainModelFile = primaryModelFile || selectPrimary3DModelFile(
+    modelFiles.map((f) => ({ name: f.name, path: f.path, type: '3d-model' as const }))
+  );
   if (!mainModelFile) {
     throw new Error('No 3D model files found in ZIP archive');
   }
@@ -346,6 +358,7 @@ async function handle3DFromZipUpload(
       entrySize: totalSize,
       entryPointUrl,
       entryPoint,
+      warnings,
       storageDir: targetDir,
       additionalFiles: detectedFiles.map(f => ({ name: f.name, type: f.type })),
     }
