@@ -26,8 +26,9 @@ export default defineConfig({
         assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
-            if (id.includes('three/examples')) return 'three-examples';
-            if (id.includes('three')) return 'three-core';
+            // Keep Three.js core + addons/examples together to avoid circular
+            // chunk init order issues (three-examples <-> three-core).
+            if (id.includes('/three/') || id.includes('/three-presenter/')) return 'three-vendor';
             if (id.includes('react')) return 'react-vendor';
             if (id.includes('bootstrap')) return 'bootstrap-vendor';
             // put other node_modules into a general vendor chunk

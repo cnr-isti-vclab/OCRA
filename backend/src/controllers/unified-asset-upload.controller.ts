@@ -6,12 +6,15 @@ import type { AssetProcessingRequest } from '../middleware/unified-asset-upload-
 import path from 'path';
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
+import { RoleEnum } from '@prisma/client';
 import {
   ensureProjectSkeleton,
   projectModel3dAssetDir,
   projectRtiAssetDir
 } from '../utils/project-static-paths.js';
-import { updateDigitalAsset } from '../services/hdt-metadata.service.js';
+import { getPrismaClient } from '../../db.js';
+import { getHDTDocument, updateDigitalAsset } from '../services/hdt-metadata.service.js';
+import { selectPrimary3DModelFile } from '../services/model-archive-utils.js';
 
 /**
  * Build the public base URL for assets.
@@ -37,6 +40,64 @@ function getPublicBaseUrl(req: any): string {
   const protocol = req.secure ? 'https' : 'http';
   const host = req.get('Host') || 'localhost:3002';
   return `${protocol}://${host}`;
+}
+
+/**
+ * Encode each path segment while preserving "/" separators.
+ * Example: "models/statue obj.obj" -> "models/statue%20obj.obj"
+ */
+function encodePathPreservingSlashes(p: string): string {
+  return p
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+/**
+ * Normalize and validate relative entrypoint paths coming from ZIP archives.
+ * Rejects absolute or parent-traversal paths.
+ */
+function normalizeRelativeAssetPath(rawPath: string): string {
+  const normalizedSeparators = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const normalized = path.posix.normalize(normalizedSeparators);
+
+  if (!normalized || normalized === '.') {
+    throw new Error('Invalid empty entry point path in archive');
+  }
+  if (normalized === '..' || normalized.startsWith('../')) {
+    throw new Error(`Invalid entry point path "${rawPath}": path traversal is not allowed`);
+  }
+  if (path.posix.isAbsolute(normalized)) {
+    throw new Error(`Invalid entry point path "${rawPath}": absolute paths are not allowed`);
+  }
+
+  return normalized;
+}
+
+/**
+ * Check whether the authenticated user is manager of a project (or sysadmin).
+ */
+async function checkIsManagerOfProject(userSub: string, projectId: string): Promise<boolean> {
+  const prisma = getPrismaClient();
+  const user = await prisma.user.findUnique({
+    where: { sub: userSub },
+    select: { id: true, sys_admin: true }
+  });
+
+  if (!user) return false;
+  if (user.sys_admin) return true;
+
+  const role = await prisma.projectRole.findFirst({
+    where: {
+      projectId,
+      userId: user.id,
+      role: RoleEnum.manager
+    },
+    select: { id: true }
+  });
+
+  return !!role;
 }
 
 /**
@@ -94,11 +155,38 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
       return res.status(400).json({ error: 'assetId is required.' });
     }
 
-    // Extract userId from authenticated request (consistent with other controllers)
-    const userId = (req as any).user?.sub || 'system';
+    const currentUserSub = (req as any).user?.sub;
+    if (!currentUserSub) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
 
     const { assetProcessing } = assetReq;
-    const { type, originalFile, extractedPath, detectedFiles } = assetProcessing;
+    const { type, originalFile, extractedPath, detectedFiles, primaryModelFile, warnings = [] } = assetProcessing;
+
+    // Authorization: uploads are manager-only (sys_admin allowed).
+    const isManager = await checkIsManagerOfProject(currentUserSub, projectId);
+    if (!isManager) {
+      return res.status(403).json({ error: 'Only project managers can upload files.' });
+    }
+
+    // Consistency: ensure asset exists before writing files, to avoid orphaned files.
+    const hdtDoc = await getHDTDocument(projectId);
+    if (!hdtDoc) {
+      return res.status(404).json({ error: 'HDT document not found for this project.' });
+    }
+
+    const existingAsset = (hdtDoc.digitalAssets || []).find((a: any) => a.id === assetId);
+    if (!existingAsset) {
+      return res.status(404).json({ error: `Asset "${assetId}" not found in HDT document.` });
+    }
+
+    // Enforce coherence between upload kind and declared HDT asset type.
+    const expectedType = type === 'rti' ? 'rti' : '3d-model';
+    if (existingAsset.type !== expectedType) {
+      return res.status(409).json({
+        error: `Asset type mismatch: upload is "${expectedType}" but asset "${assetId}" is "${existingAsset.type}".`
+      });
+    }
 
     console.log(`🚀 [UnifiedUpload] Processing ${type} upload for project ${projectId}, asset ${assetId}`);
 
@@ -110,13 +198,13 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
 
     switch (type) {
       case '3d-direct':
-        return await handle3DDirectUpload(req, projectId, assetId, originalFile, userId, res, cleanupPaths);
+        return await handle3DDirectUpload(req, projectId, assetId, originalFile, currentUserSub, res, cleanupPaths, warnings);
 
       case '3d':
-        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, userId, res, cleanupPaths);
+        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, currentUserSub, res, cleanupPaths, primaryModelFile, warnings);
 
       case 'rti':
-        return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, userId, res, cleanupPaths);
+        return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, currentUserSub, res, cleanupPaths);
 
       default:
         return res.status(400).json({ error: `Unsupported upload type: ${type}` });
@@ -146,12 +234,23 @@ async function handle3DDirectUpload(
   file: Express.Multer.File,
   userId: string,
   res: Response,
-  cleanupPaths: string[]
+  cleanupPaths: string[],
+  warnings: string[] = []
 ): Promise<Response> {
   const targetDir = projectModel3dAssetDir(projectId, assetId);
   await fsp.mkdir(targetDir, { recursive: true });
 
-  const targetPath = path.join(targetDir, file.originalname);
+  const safeFileName = path.posix.basename(file.originalname.replace(/\\/g, '/'));
+  if (!safeFileName) {
+    throw new Error('Invalid uploaded filename');
+  }
+  if (path.extname(safeFileName).toLowerCase() === '.obj') {
+    warnings.push(
+      `Direct OBJ upload detected for "${safeFileName}". If the model needs external materials/textures, upload a ZIP containing .obj + .mtl + texture files.`
+    );
+  }
+
+  const targetPath = path.join(targetDir, safeFileName);
   await fsp.rename(file.path, targetPath);
 
   // Remove from cleanup list since it has been moved
@@ -161,19 +260,22 @@ async function handle3DDirectUpload(
   const st = await fsp.stat(targetPath);
 
   const baseUrl = getPublicBaseUrl(req);
-  const entryPoint = `/assets/projects/${encodeURIComponent(projectId)}/3d-model/${encodeURIComponent(assetId)}/${encodeURIComponent(file.originalname)}`;
+  const entryPoint = `/assets/projects/${encodeURIComponent(projectId)}/3d-model/${encodeURIComponent(assetId)}/${encodeURIComponent(safeFileName)}`;
   const entryPointUrl = `${baseUrl}${entryPoint}`;
 
   console.log(`✅ [UnifiedUpload] Direct 3D model uploaded: ${entryPointUrl}`);
 
   // Update HDT digital asset metadata (entryPointUrl is the new contract)
-  await updateDigitalAsset(projectId, assetId, {
+  const updatedDoc = await updateDigitalAsset(projectId, assetId, {
     type: '3d-model',
     mimeType: file.mimetype,
     entrySize: st.size,
     entryPointUrl,
     entryPoint
   }, userId);
+  if (!updatedDoc) {
+    throw new Error(`Failed to persist upload metadata for asset "${assetId}"`);
+  }
 
   return res.status(201).json({
     success: true,
@@ -181,11 +283,12 @@ async function handle3DDirectUpload(
       projectId,
       assetId,
       type: '3d-model',
-      fileName: file.originalname,
+      fileName: safeFileName,
       mimeType: file.mimetype,
       entrySize: st.size,
       entryPointUrl,
       entryPoint,
+      warnings,
       storageDir: targetDir,
     }
   });
@@ -196,7 +299,7 @@ async function handle3DDirectUpload(
  * Storage:
  *   project_files/<projectId>/3d-model/<assetId>/(all extracted files)
  * Public entry point:
- *   the first detected 3D model file (can be improved later with better heuristics)
+ *   a deterministic primary model selected from detected 3D files
  */
 async function handle3DFromZipUpload(
   req: any,
@@ -206,7 +309,9 @@ async function handle3DFromZipUpload(
   detectedFiles: Array<{ name: string; path: string; type: string }>,
   userId: string,
   res: Response,
-  cleanupPaths: string[]
+  cleanupPaths: string[],
+  primaryModelFile: { name: string; path: string; type: string } | undefined,
+  warnings: string[] = []
 ): Promise<Response> {
   const targetDir = projectModel3dAssetDir(projectId, assetId);
   await fsp.mkdir(targetDir, { recursive: true });
@@ -214,26 +319,34 @@ async function handle3DFromZipUpload(
   await fse.copy(extractedPath, targetDir);
 
   const modelFiles = detectedFiles.filter(f => f.type === '3d-model');
-  const mainModelFile = modelFiles[0];
+  const mainModelFile = primaryModelFile || selectPrimary3DModelFile(
+    modelFiles.map((f) => ({ name: f.name, path: f.path, type: '3d-model' as const }))
+  );
   if (!mainModelFile) {
     throw new Error('No 3D model files found in ZIP archive');
   }
+
+  const normalizedEntryPointPath = normalizeRelativeAssetPath(mainModelFile.name);
+  const encodedEntryPointPath = encodePathPreservingSlashes(normalizedEntryPointPath);
 
   // Compute total size AFTER extraction (stable and matches what we store)
   const totalSize = await getDirectorySizeBytes(targetDir);
 
   const baseUrl = getPublicBaseUrl(req);
-  const entryPoint = `/assets/projects/${encodeURIComponent(projectId)}/3d-model/${encodeURIComponent(assetId)}/${encodeURIComponent(mainModelFile.name)}`;
+  const entryPoint = `/assets/projects/${encodeURIComponent(projectId)}/3d-model/${encodeURIComponent(assetId)}/${encodedEntryPointPath}`;
   const entryPointUrl = `${baseUrl}${entryPoint}`;
 
   console.log(`✅ [UnifiedUpload] 3D ZIP processed, entry: ${entryPointUrl}`);
 
-  await updateDigitalAsset(projectId, assetId, {
+  const updatedDoc = await updateDigitalAsset(projectId, assetId, {
     type: '3d-model',
     entrySize: totalSize,
     entryPointUrl,
     entryPoint
   }, userId);
+  if (!updatedDoc) {
+    throw new Error(`Failed to persist upload metadata for asset "${assetId}"`);
+  }
 
   return res.status(201).json({
     success: true,
@@ -241,10 +354,11 @@ async function handle3DFromZipUpload(
       projectId,
       assetId,
       type: '3d-model',
-      fileName: mainModelFile.name,
+      fileName: normalizedEntryPointPath,
       entrySize: totalSize,
       entryPointUrl,
       entryPoint,
+      warnings,
       storageDir: targetDir,
       additionalFiles: detectedFiles.map(f => ({ name: f.name, type: f.type })),
     }
@@ -289,13 +403,16 @@ async function handleRTIUpload(
 
   console.log(`✅ [UnifiedUpload] RTI ZIP processed, entry: ${entryPointUrl}`);
 
-  await updateDigitalAsset(projectId, assetId, {
+  const updatedDoc = await updateDigitalAsset(projectId, assetId, {
     metadata: {
       rtiType: 'hsh',
       rtiLayout: 'deepzoom',
       zipName: originalFile.originalname
     }
   }, userId);
+  if (!updatedDoc) {
+    throw new Error(`Failed to persist upload metadata for asset "${assetId}"`);
+  }
 
   return res.status(201).json({
     success: true,
