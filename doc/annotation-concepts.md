@@ -20,21 +20,11 @@ The explicit association between a spatial anchor (`annotationGeometry`) and a s
 In this model, annotationGeometry and annotationData are independent resources whose relationships are defined exclusively through annotationLink.
 
 
-## UPDATE TO DATA MODEL  
-⚠️ These concepts could be moved to `data-model.md`.
-
-Each scene is composed of assets, which are classified into two categories:
-
-- Editable assets: assets visible in the scene for which the user is allowed to view, create, remove, and modify annotations.
-- Background assets: assets visible in the scene for which annotations can only be viewed.
-
-This distinction allows scenes to restrict editing operations to a specific subset of assets, while the remaining assets serve only as visual context. It also enables concurrent editing of multiple scenes, provided that those scenes do not share editable assets.
-
 ## Basic Concepts
 ⚠️ These concepts could be moved to `data-model.md`.
 
 - An asset has its own unique ID, its own reference system, and a digital representation that must specify its type (2D, 3D) and provide methods for drawing itself (and selecting areas, etc.).
-- A scene has its own unique ID, its own reference system, and refers to two sets of assets, positioned in this reference system. The first set is made up of "editable" assets (i.e., assets that can have annotation modifications), the second of the others.
+- A scene has its own unique ID, its own reference system, and refers to a set of assets, positioned in this reference system. 
 - An asset can be shared between multiple scenes.
 ---
 - An annotation geometry is a geometric region, expressed either in the reference of a scene or in the reference of an asset.
@@ -42,14 +32,14 @@ This distinction allows scenes to restrict editing operations to a specific subs
 - An annotation link is a relationship between annotation geometry and annotation data.
 ---
 - The operations allowed by Ocra are scene structuring, viewing, and editing.
-- Structure consists of creating/destroying scenes, adding/removing assets from scenes or making them editable or not, positioning assets, etc.
+- Structure consists of creating/destroying scenes, adding/removing assets from scenes, positioning assets, etc.
 - Viewing consists of exploring assets and their annotations.
 - Editing consists of adding/removing/modifying annotation geometry, annotation data, and annotation links.
 ---
 - Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations are permitted.
 - Concurrency Rule 2: One can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
-- Concurrency Rule 3: One can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
-- The above concurrency rules should be implemented with database locks (to protect concurrent access) and checks for operation feasibility. Once the operation is started, there should be no concurrent access, since multiple writes to the same structure are prevented by the rules and invariants must be maintained.
+- Concurrency Rule 3 (Optimistic Concurrency): Multiple users can access and edit scene annotations concurrently. However, concurrent edits are resolved optimistically: an editing operation is committed only if the underlying data has not been modified by another user in the meantime. 
+- The above concurrency rules rely on a stateless architecture for annotations. Rather than structural database locks for annotations, conflicts are resolved at commit time and "Social Locks" (temporary visual indicators) are used to warn editors of parallel activities.
 
 
 
@@ -77,11 +67,9 @@ Implementation note:
 ### Workflow 2, annotation editing: annotations creation, modification and deletion
 - `Editor` or user with higher privileges can create, modify or delete annotations in a scene.
 - Concurrency Rule 1: editing is not permitted when structuring operations are in progress.
-- Concurrency Rule 3: One can edit a scene only if the editable assets it contains are not currently being edited. Therefore: only one active editor for the scene and blocking all editing of scenes containing editable assets present in this scene.
-  - When scene annotations are edited by a user, no other user can edit the same scene annotations.
-  - When asset annotations are edited by a user, no other user can edit the same asset annotations.
-- If the scene asset is marked as editable user can create/update/delete annotations geometry, data and links referencing these asset.
-- Background assets are only displayed with their annotations, but their annotations cannot be edited, and they cannot be referenced by new annotations.
+- Concurrency Rule 3 (Optimistic Concurrency): Users can edit scene or asset annotations concurrently.
+  - When starting to edit an annotation, a lightweight "Social Lock" can be broadcasted via `notifyEditingStart` to warn other users with a visual cue.
+  - Upon saving an update or deletion, the system verifies the version/timestamp of the target database records via `expectedUpdatedAt`. If they were modified or deleted by someone else in the meantime, the operation is rejected to prevent data loss. The `expectedUpdatedAt` value passed to the functions is the value that has been read from the database when the user started editing. On editing success, the `expectedUpdatedAt` value is updated with the new `updatedAt` value returned by the database.
 - ⚠️ TODO detail workflow
 
 ### Workflow 3, scene viewing
@@ -352,21 +340,17 @@ A scene can be locked for reading if there are Project level edit operations (e.
 
 Called after reading is finished.
 
-#### `startEditing(projectId, sceneId): boolean`
+#### `notifyEditingStart(projectId, sceneId, targetId?): void`
 
-Call this function to see if the scene can be edited (there are no locks on the scene).
+Call this function to inform the system that the user has begun an editing session on a specific scene, asset, or annotation (`targetId`).
 
-Returns `true` if the user is allowed to edit the scene, `false` otherwise.
+This does NOT enforce a database lock. Instead, it maintains a lightweight presence layer (a "Social Lock") used by the frontend to display warnings to other active users (e.g., showing a padlock icon to indicate potential parallel editing).
 
-If it return true, it locks the scene and the contained editable assets. Their annotations cannot be edited by other users until the scene is unlocked. 
+This notification might have a Time-To-Live (TTL) so it expires automatically if the user disconnects.
 
-A scene can be locked for editing if there are Project level operations (e.g. HDT publish) in progress 
-or if other users are editing the annotations of the scene or the annotations of assets which are part of the scene which are editable.
+#### `notifyEditingStop(projectId, sceneId, targetId?): void`
 
-
-#### `stopEditing(projectId, sceneId): void`
-
-Called after editing is finished. It unlocks the scene and the contained editable assets. 
+Called after editing is finished or aborted. It drops the "Social Lock" and informs other viewers that the local editing session has ended. 
 
 ---
 
@@ -505,8 +489,6 @@ Returns all `annotationLink` records that reference a given `sceneId`.
 
 Returns all `annotationLink` records that reference a given `sceneId` or one of the assets in the scene. 
 
-It can be used to query editable and background annotationLink for a scene, just passing as parameters the corresponding editable or background asset id arrays.
-
 **System actions:**
 1. Get all annotationGeometry elements that reference the scene or one of the assets in the scene.
 2. For each annotationGeometry element, get all annotationLink elements that reference it.
@@ -558,9 +540,10 @@ Creates a new `annotationGeometry` element. Return the annotationGeometry id
 
 ---
 
-#### `updateAnnotationGeometryShapes(projectId, geometryId, newShapes) : boolean`
+#### `updateAnnotationGeometryShapes(projectId, geometryId, expectedUpdatedAt, newShapes) : string | false`
 Updates the `shapes` field of an existing `annotationGeometry` element.
 
+`expectedUpdatedAt`: the timestamp of the geometry when the user began editing. If this does not match the current DB timestamp, the update is rejected (Optimistic Concurrency Check).
 `shapes`: the update operation replace the old shape array with the new one. 
 
 **Invariants:**
@@ -576,16 +559,17 @@ Updates the `shapes` field of an existing `annotationGeometry` element.
 
 
 **System actions:**
-1. Update `shapes`.
-2. Update `updatedAt`, `updatedBy`.
+1. Verify `expectedUpdatedAt` against the database. If mismatch, reject.
+2. Update `shapes`.
+3. Update `updatedAt`, `updatedBy`.
 
 **Returns:**
-- `true` if the element was updated.
-- `false` if the element does not exist.
+- The new `updatedAt` string if the element was updated successfully.
+- `false` if the element does not exist or if validation failed.
 
 ---
 
-#### `deleteAnnotationGeometry(projectId, geometryId) : boolean`
+#### `deleteAnnotationGeometry(projectId, geometryId, expectedUpdatedAt) : boolean`
 
 Deletes an `annotationGeometry` element from the store. It keeps the annotationGeometry DB valid, but it does not ensure the system consistency. 
 
@@ -603,11 +587,12 @@ In practice, this operation is typically invoked as part of an `annotationLink` 
 - `id` is not contained into the annotationGeometry DB.
 
 **System actions:**
-1. Remove the element from the geometry store.
+1. Verify `expectedUpdatedAt` against the database. If mismatch, reject.
+2. Remove the element from the geometry store.
 
 **Returns:**
 - `true` if the element was deleted.
-- `false` if the element does not exist.
+- `false` if the element does not exist or validation failed.
 
 ---
 
@@ -639,9 +624,11 @@ Creates a new `annotationData` element. Return the annotationData id
 
 ---
 
-#### `updateAnnotationData(projectId, dataId, label, description, class, content) : boolean` 
+#### `updateAnnotationData(projectId, dataId, expectedUpdatedAt, label, description, class, content) : string | false` 
 
 Updates one or more mutable fields of an `annotationData` element.
+
+`expectedUpdatedAt`: the timestamp of the data when the user began editing. If this does not match the current DB timestamp, the update is rejected (Optimistic Concurrency Check).
 
 **Permitted fields:** `label`, `description`, `class`, `content` changing these fields does not affect the system consistency.
 
@@ -650,16 +637,17 @@ Updates one or more mutable fields of an `annotationData` element.
 - `dataId` must reference an existing `annotationData`.
 
 **System actions:**
-1. Apply the patch to the permitted fields only.
-2. Update `updatedAt`, `updatedBy`.
+1. Verify `expectedUpdatedAt` against the database. If mismatch, reject.
+2. Apply the patch to the permitted fields only.
+3. Update `updatedAt`, `updatedBy`.
 
 **Returns:**
-- `true` if the element was updated.
-- `false` if the element does not exist.
+- The new `updatedAt` string if the element was updated successfully.
+- `false` if the element does not exist or validation failed.
 
 ---
 
-#### `updateAnnotationDataVisibility(projectId, dataId, newVisibilityType, newVisibilityId) : boolean`
+#### `updateAnnotationDataVisibility(projectId, dataId, expectedUpdatedAt, newVisibilityType, newVisibilityId) : string | false`
 Updates the `visibilityType` and `visibilityId` fields of an existing `annotationData` element.
 
 **Invariants:**
@@ -676,18 +664,19 @@ Updates the `visibilityType` and `visibilityId` fields of an existing `annotatio
 - `visibilityType` and `visibilityId` are updated
 
 **System actions:**
-1. Update `visibilityType` and `visibilityId`.
-2. Update `updatedAt`, `updatedBy`.
+1. Verify `expectedUpdatedAt` against the database. If mismatch, reject.
+2. Update `visibilityType` and `visibilityId`.
+3. Update `updatedAt`, `updatedBy`.
 
 **Returns:**
-- `true` if the element was updated.
-- `false` if the element does not exist.
+- The new `updatedAt` string if the element was updated successfully.
+- `false` if the element does not exist or validation failed.
 
 This is a low level operation. It does not check system consistency in particular it does not check annotationLink DB consistency, see [annotationLink scene consistency table](#annotationlink-scene-consistency-table).
 
 ---
 
-#### `deleteAnnotationData(projectId, dataId) : boolean` 
+#### `deleteAnnotationData(projectId, dataId, expectedUpdatedAt) : boolean` 
 
 Deletes an `annotationData` element from the store. It keeps the annotationData DB consistent, but it does not ensure the system consistency. 
 
@@ -703,11 +692,12 @@ As with `deleteAnnotationGeometry`, this is a low-level operation. All `annotati
 - `dataId` is not contained into the annotationData DB.
 
 **System actions:**
-1. Remove the element from the data store.
+1. Verify `expectedUpdatedAt` against the database. If mismatch, reject.
+2. Remove the element from the data store.
 
 **Returns:**
 - `true` if the element was deleted.
-- `false` if the element does not exist.
+- `false` if the element does not exist or validation failed.
 
 ---
 
@@ -772,7 +762,7 @@ Deletes the `annotationLink` only. It keeps the annotationLink DB consistent, bu
 
 ### Delete operations
 
-#### `deleteAnnotationLinkDeep(projectId, linkId) : boolean`
+#### `deleteAnnotationLinkDeep(projectId, linkId, expectedGeometryUpdatedAt, expectedDataUpdatedAt) : boolean`
 
 Deletes the `annotationLink` and performs conditional cleanup of the associated `annotationGeometry` and `annotationData`, based on whether they are no longer referenced by any other link.
 
@@ -792,20 +782,20 @@ Deletes the `annotationLink` and performs conditional cleanup of the associated 
 2. Delete the `annotationLink` record.
 3. **Geometry cleanup:**
    - `getAnnotationLinksForGeometry(geometryId)`
-   - If no links remain: invoke `deleteAnnotationGeometry(projectId, geometryId)`.
+   - If no links remain: invoke `deleteAnnotationGeometry(projectId, geometryId, expectedGeometryUpdatedAt)`.
    - Otherwise: leave the geometry in place.
 4. **Data cleanup:**
    - `getAnnotationLinksForData(dataId)`
-   - If no links remain: invoke `deleteAnnotationData(projectId, dataId)`.
+   - If no links remain: invoke `deleteAnnotationData(projectId, dataId, expectedDataUpdatedAt)`.
    - Otherwise: leave the data in place.
 
 **Returns:**
 - `true` if the element was deleted.
-- `false` if the element does not exist.
+- `false` if the element does not exist or validation failed.
 
 ---
 
-#### `deleteAnnotationGeometryDeep(projectId, geometryId)   : boolean`
+#### `deleteAnnotationGeometryDeep(projectId, geometryId, expectedGeometryUpdatedAt)   : boolean`
 
 Deletes the `annotationGeometry` and the associated `annotationLink` records if they exist. 
 If the links are deleted, the associated `annotationData` is also deleted if it is no longer referenced by any other link.
@@ -823,18 +813,19 @@ If the links are deleted, the associated `annotationData` is also deleted if it 
 
 **System actions:**
 
-1. **Retrieve links:** `links = getAnnotationLinksForGeometry(projectId, geometryId)`
-2. **If no links exist:** invoke `deleteAnnotationGeometry(projectId, geometryId)`
-3. **Otherwise, cascade delete links:** For each `link` in `links`:
-   - Invoke `deleteAnnotationLinkDeep(projectId, link.id)` (This inherently cleans up the base geometry on the final iteration, and removes any orphaned data).
+1. **Verify Geometry timestamp:** verify `expectedGeometryUpdatedAt` to ensure no conflict before cascading.
+2. **Retrieve links:** `links = getAnnotationLinksForGeometry(projectId, geometryId)`
+3. **If no links exist:** invoke `deleteAnnotationGeometry(projectId, geometryId, expectedGeometryUpdatedAt)`
+4. **Otherwise, cascade delete links:** For each `link` in `links`:
+   - Invoke `deleteAnnotationLinkDeep(projectId, link.id, expectedGeometryUpdatedAt, null)` (This inherently cleans up the base geometry on the final iteration, and removes any orphaned data).
 
 **Returns:**
 - `true` if the element was deleted.
-- `false` if the element does not exist.
+- `false` if the element does not exist or validation failed.
 
 ---
 
-#### `deleteAnnotationDataDeep(projectId, dataId)   : boolean`
+#### `deleteAnnotationDataDeep(projectId, dataId, expectedDataUpdatedAt)   : boolean`
 
 Deletes the `annotationData` and the associated `annotationLink` records if they exist. 
 If the links are deleted, the associated `annotationGeometry` is also deleted if it is no longer referenced by any other link.
@@ -852,14 +843,15 @@ If the links are deleted, the associated `annotationGeometry` is also deleted if
 
 **System actions:**
 
-1. **Retrieve links:** `links = getAnnotationLinksForData(projectId, dataId)`
-2. **If no links exist:** invoke `deleteAnnotationData(projectId, dataId)`
-3. **Otherwise, cascade delete links:** For each `link` in `links`:
-   - Invoke `deleteAnnotationLinkDeep(projectId, link.id)` (This inherently cleans up the base data on the final iteration, and removes any orphaned geometry).
+1. **Verify Data timestamp:** verify `expectedDataUpdatedAt` to ensure no conflict before cascading.
+2. **Retrieve links:** `links = getAnnotationLinksForData(projectId, dataId)`
+3. **If no links exist:** invoke `deleteAnnotationData(projectId, dataId, expectedDataUpdatedAt)`
+4. **Otherwise, cascade delete links:** For each `link` in `links`:
+   - Invoke `deleteAnnotationLinkDeep(projectId, link.id, null, expectedDataUpdatedAt)` (This inherently cleans up the base data on the final iteration, and removes any orphaned geometry).
 
 **Returns:**
 - `true` if the element was deleted.
-- `false` if the element does not exist.
+- `false` if the element does not exist or validation failed.
 
 ---
 
