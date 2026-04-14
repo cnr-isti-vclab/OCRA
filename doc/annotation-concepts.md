@@ -19,7 +19,6 @@ The explicit association between a spatial anchor (`annotationGeometry`) and a s
 
 In this model, annotationGeometry and annotationData are independent resources whose relationships are defined exclusively through annotationLink.
 
-<FIXME>
 In order to simplify the collaborative model, `annotationGeometry.referenceType`, `annotationGeometry.referenceId`, `annotationData.visibilityType`, and `annotationData.visibilityId` must be considered immutable after creation.
 
 At the annotation-service level, the relevant concept is `erasable`, not true deletion. An `annotationGeometry` or `annotationData` starts in the `non-erasable` state. Marking it as `erasable` does not delete it: it only means that the entity may disappear from the visible annotation model once it is no longer referenced by any `annotationLink`.
@@ -27,7 +26,6 @@ At the annotation-service level, the relevant concept is `erasable`, not true de
 While at least one `annotationLink` points to an entity, both `erasable` and `non-erasable` entities remain visible. When the last incoming link is removed, an `erasable` entity disappears from normal queries and lists, while a `non-erasable` entity remains visible as a standalone annotation resource.
 
 Editor-side, `erasable` entities may still be displayed with a distinct visual style. Physical removal from MongoDB remains a lower-level concern and does not define the high-level semantics.
-</FIXME>
 
 
 ## Basic Concepts
@@ -40,26 +38,20 @@ Editor-side, `erasable` entities may still be displayed with a distinct visual s
 - An annotation geometry is a geometric region, expressed either in the reference of a scene or in the reference of an asset.
 - An annotation data is a semantic description, which is either relative to an asset or a scene. If relative to an asset, it is visible in all scenes containing it; if relative to a scene, it is visible only in that scene.
 - An annotation link is a relationship between annotation geometry and annotation data.
-<FIXME>
 - The scope of an annotation geometry or annotation data should not be changed in place. Moving an annotation to another scene or asset should be modeled as creating new entities and updating links accordingly.
-</FIXME>
 ---
 - The operations allowed by Ocra are scene structuring, viewing, and editing.
 - Structure consists of creating/destroying scenes, adding/removing assets from scenes, positioning assets, etc.
 - Viewing consists of exploring assets and their annotations.
 - Editing consists of adding/removing/modifying annotation geometry, annotation data, and annotation links.
-<FIXME>
 - At this abstraction level, removal of `annotationGeometry` and `annotationData` should be modeled through the `erasable` / `non-erasable` state plus link reachability, rather than through immediate true delete operations.
-</FIXME>
 ---
 - Concurrency Rule 1: When a structuring operation is in progress, everything else is blocked until the end. No other structuring/editing/viewing operations are permitted.
 - Concurrency Rule 2: One can always view every scene when a structuring operation is not in progress, regardless of other editing/viewing operations. A local copy is loaded and displayed.
 - Concurrency Rule 3 (Optimistic Concurrency): Multiple users can access and edit scene annotations concurrently. However, concurrent edits are resolved optimistically: an editing operation is committed only if the underlying data has not been modified by another user in the meantime. 
-<FIXME>
 - Concurrency Rule 4: `update` and changes to the `erasable` / `non-erasable` state should all use the same `expectedUpdatedAt` optimistic check. No operation type has automatic priority over the others.
 - Concurrency Rule 5: the strategy is optimistic, so conflicts should be resolved only by comparing the local copy with the current DB state at save time. In particular, both `updatedAt` and the persisted `erasable` state (for example `erasableAt`) are part of the state that must be validated before applying an `update` or changing erasability.
 - Concurrency Rule 6: the social messaging layer may be used to communicate collaborative events, but it must not be essential for correctness. The model must still work correctly even if those messages are delayed or absent.
-</FIXME>
 - The above concurrency rules rely on a stateless architecture for annotations. Rather than structural database locks for annotations, conflicts are resolved at commit time and "Social Locks" (temporary visual indicators) are used to warn editors of parallel activities.
 
 
@@ -93,13 +85,11 @@ Implementation note:
   - When starting to edit an annotation, a lightweight "Social Lock" can be broadcasted via `notifyEditingStart` to warn other users with a visual cue.
   - Upon saving an update or changing the erasability state, the system performs a conditional write using `expectedUpdatedAt` in the database filter. The value of `expectedUpdatedAt` is the `updatedAt` timestamp read when editing began. If the stored record no longer matches that timestamp, the write is not applied and the operation fails, preventing stale data from overwriting newer changes. If the write succeeds, the client replaces its local `expectedUpdatedAt` value with the new `updatedAt` returned by the database.
   - At implementation level, each collection entry may also carry a per-document `version` field used for optimistic concurrency. Create and update operations write that field atomically, while timestamps remain server-assigned so all clients observe a coherent time source.
-<FIXME>
 - Proposed wording: annotation editing should be described as creation, modification, marking an entity as `erasable`, and restoring it to `non-erasable`.
 - When attempting to save, the client should first compare the local copy with the current DB state. If the target entity has become `erasable` in the meantime, the UI may ask whether to stop or continue on the current state. Continuing means issuing a new intentional operation against the current version, not blindly replaying the stale one.
 - Implementation note: with an OCC approach, MongoDB can perform these checks atomically by expressing the expected version and persisted erasability state in the update filter, so validation and write happen as an atomic operation.
 - In update-vs-erasable conflicts, neither operation should automatically win if it is based on a stale `expectedUpdatedAt`: the stale operation should fail and the user should decide the next step.
 - Social or presence messages may help communicate events early, but they are optional and must not be required for the model to function.
-</FIXME>
 - ⚠️ TODO detail workflow
 
 ### Workflow 3, scene viewing
@@ -122,9 +112,7 @@ Implementation note:
 | `annotationData` | Standalone semantic content relative to a scene or an asset |
 | `annotationLink` | Immutable join entity associating one geometry node with one data record |
 
-<FIXME>
 `annotationGeometry` and `annotationData` may be in either `non-erasable` or `erasable` state. At high level, an entity is visible if it still has at least one incoming `annotationLink`, or if it is still `non-erasable`. An `erasable` entity disappears from normal reads only after the last incoming link is removed.
-</FIXME>
 
 The entities are stored in the corresponding collections.
 
@@ -153,9 +141,7 @@ Without the project id, it would be impossible to distinguish between annotation
 The collections are accessed through a two-level API. 
 The Low-Level DB Operations allow to modify the single entities, while the High-Level API provides a higher-level interface to manage annotations as a whole, keeping the integrity of the associations.
 
-<FIXME>
 At this level of abstraction, the API should model annotation state and visibility semantics (`non-erasable` / `erasable`, plus link reachability) rather than the physical CRUD lifecycle of MongoDB documents. Physical deletion and garbage collection belong to a lower layer.
-</FIXME>
 
 ---
 
@@ -197,10 +183,8 @@ All coordinates are expressed relative to the annotationGeometry 3D reference sp
 - `version: integer`  
   Monotonic document version used for optimistic concurrency on this `annotationGeometry`. It is written as part of the create operation and incremented as part of each successful update in the same atomic write.
 
-<FIXME>
 - `erasableAt: ISO 8601 timestamp | null`
 - `erasableBy: user id | null`
-</FIXME>
 
 - `createdAt: ISO 8601 timestamp`  
 - `createdBy: user id`  
@@ -213,7 +197,7 @@ All coordinates are expressed relative to the annotationGeometry 3D reference sp
 - `projectId` must be a valid, existing project identifier.
 - `referenceType` must be `"scene"` or `"asset"`.
 - `referenceId` must be a valid, existing identifier of an `HDTScene` or `DigitalAsset` at the time of creation.
-- <FIXME>`referenceType` and `referenceId` are immutable after creation.</FIXME>
+- `referenceType` and `referenceId` are immutable after creation.
 - `shapes` must be a non-empty array of valid shapes.
 
 #### JSON example
@@ -292,10 +276,8 @@ All coordinates are expressed relative to the annotationGeometry 3D reference sp
 - `version: integer`  
   Monotonic document version used for optimistic concurrency on this `annotationData`. It is written as part of the create operation and incremented as part of each successful update in the same atomic write.
 
-<FIXME>
 - `erasableAt: ISO 8601 timestamp | null`
 - `erasableBy: user id | null`
-</FIXME>
 
 - `createdAt: ISO 8601 timestamp`  
 - `createdBy: user id`  
@@ -339,9 +321,7 @@ It carries no semantic content of its own. Its role is to make the geometry–da
 
 For the same reason, `annotationLink` does not need its own `version` field at this level: there is no update path to protect with optimistic concurrency, only create and delete.
 
-<FIXME>
 `annotationLink` removal at this abstraction level should remain a true delete. `annotationLink` represents only the current existence of a relation; it does not need its own `erasable` lifecycle.
-</FIXME>
 
 
 #### Fields
@@ -394,9 +374,7 @@ For the same reason, `annotationLink` does not need its own `version` field at t
 
 ### Start/stop reading/editing
 
-<FIXME>
 Editor-oriented read operations may need an optional `includeErasable` behavior, so that `erasable` entities can still be displayed and styled differently even when they would otherwise disappear from normal lists.
-</FIXME>
 
 #### `startReading(projectId, sceneId): boolean`
 
@@ -635,7 +613,6 @@ Updates the `shapes` field of an existing `annotationGeometry` element.
 - The new `updatedAt` string if the element was updated successfully.
 - `false` if the element does not exist or if validation failed.
 
-<FIXME>
 ---
 
 #### `markAnnotationGeometryErasable(projectId, geometryId, expectedUpdatedAt) : string | false`
@@ -676,7 +653,6 @@ Restores an `annotationGeometry` to the `non-erasable` state.
 **Returns:**
 - The new `updatedAt` string if the element was restored to non-erasable successfully.
 - `false` if the element does not exist or validation failed.
-</FIXME>
 
 ---
 
@@ -762,7 +738,6 @@ Updates one or more mutable fields of an `annotationData` element.
 
 If an annotation data record must move to a different scope, the system must create a new `annotationData`, update the links accordingly, and eventually mark the old record as `erasable` if appropriate.
 
-<FIXME>
 ---
 
 #### `markAnnotationDataErasable(projectId, dataId, expectedUpdatedAt) : string | false`
@@ -803,7 +778,6 @@ Restores an `annotationData` element to the `non-erasable` state.
 **Returns:**
 - The new `updatedAt` string if the element was restored to non-erasable successfully.
 - `false` if the element does not exist or validation failed.
-</FIXME>
 
 ---
 
@@ -893,7 +867,6 @@ Deletes the `annotationLink` only. It keeps the annotationLink DB consistent, bu
 
 ### Delete operations
 
-<FIXME>
 At the annotation-service level, high-level delete operations should not be modeled as deep-delete APIs.
 
 Proposed rule:
@@ -905,28 +878,27 @@ Proposed rule:
 - any higher-level workflow may orchestrate multiple single-collection operations, but the API should not expose `delete...Deep` operations that mix link removal, orphan detection, and physical deletion in one call.
 
 `annotationLink` removal should stay as a true delete.
-</FIXME>
 
 
-## Maintenance operations
+## Removal operations
+
+These are high-level destructive operations on the annotation model. At this level they remove the relevant `annotationLink` records and leave any physical orphan cleanup to lower-level cleanup logic.
 
 #### `removeAnnotationsWithProject(projectId) : boolean`
 
-Removes all annotation records associated with a given project from the annotation collections.
+Removes all annotation relations associated with a given project.
 
 **Pre-conditions:**
 - `projectId` must reference an existing project.
 
 **Post-conditions:**
 - All `annotationLink` records associated with the project are removed.
-- All `annotationGeometry` records associated with the project are removed.
-- All `annotationData` records associated with the project are removed.
+- Any physical deletion of now-unreferenced `annotationGeometry` or `annotationData` records is delegated to lower-level cleanup logic.
 
 **System actions:**
 
-1. Remove all `annotationLink` records with the given `projectId`.
-2. Remove all `annotationGeometry` records with the given `projectId`.
-3. Remove all `annotationData` records with the given `projectId`.
+1. Find all `annotationLink` records associated with the project using `getAnnotationLinksForProject(projectId)`.
+2. For each such link, invoke `deleteAnnotationLink(projectId, link.id)`.
 
 **Returns:**
 - `true` if the element was deleted.
@@ -936,7 +908,7 @@ Removes all annotation records associated with a given project from the annotati
 
 #### `removeAnnotationsWithScene(projectId, sceneId) : boolean`
 
-Removes all annotation records associated with a given scene from the annotation collections.
+Removes the annotation relations associated with a given scene.
 
 **Invariants:**
 - `projectId` must reference an existing project.
@@ -946,14 +918,13 @@ Removes all annotation records associated with a given scene from the annotation
 
 **Post-conditions:**
 - Matching `annotationLink` records are removed.
-- Matching `annotationGeometry` records associated with the scene are removed.
-- Matching `annotationData` records associated with the scene are removed.
+- Geometry and data visibility after link removal follows the `non-erasable` / `erasable` semantics described above.
+- Any physical deletion of now-unreferenced `annotationGeometry` or `annotationData` records is delegated to lower-level cleanup logic.
 
 **System actions:**
 
-1. Remove all `annotationLink` records associated with the scene.
-2. Remove all `annotationGeometry` records associated with the scene.
-3. Remove all `annotationData` records associated with the scene.
+1. Find all `annotationLink` records visible in the scene using `getAnnotationLinksForScene(projectId, sceneId)`.
+2. For each such link, invoke `deleteAnnotationLink(projectId, link.id)`.
 
 **Returns:**
 - `true` if the element was deleted.
@@ -963,7 +934,7 @@ Removes all annotation records associated with a given scene from the annotation
 
 #### `removeAnnotationsWithAsset(projectId, assetId) : boolean`
 
-Removes all annotation records associated with a given asset from the annotation collections.
+Removes the annotation relations associated with a given asset.
 
 **Invariants:**
 - `projectId` must reference an existing project.
@@ -973,20 +944,21 @@ Removes all annotation records associated with a given asset from the annotation
 
 **Post-conditions:**
 - Matching `annotationLink` records are removed.
-- Matching `annotationGeometry` records associated with the asset are removed.
-- Matching `annotationData` records associated with the asset are removed.
+- Geometry and data visibility after link removal follows the `non-erasable` / `erasable` semantics described above.
+- Any physical deletion of now-unreferenced `annotationGeometry` or `annotationData` records is delegated to lower-level cleanup logic.
 
 **System actions:**
 
-1. Remove all `annotationLink` records associated with the asset.
-2. Remove all `annotationGeometry` records associated with the asset.
-3. Remove all `annotationData` records associated with the asset.
+1. Find all `annotationLink` records associated with the asset using `getAnnotationLinksForAsset(projectId, assetId)`.
+2. For each such link, invoke `deleteAnnotationLink(projectId, link.id)`.
 
 **Returns:**
 - `true` if the element was deleted.
 - `false` if the element does not exist.
 
 ---
+
+### Maintenance operations
 
 #### `validateLink(linkId)`
 
@@ -1008,34 +980,34 @@ Runs `validateLink` on every `annotationLink` record in the system. Returns a li
 
 #### `deleteOrphanedGeometries()`
 
-Deletes all `annotationGeometry` elements not referenced by any `annotationLink`. 
+Private lower-level cleanup operation. Deletes `annotationGeometry` elements not referenced by any `annotationLink`. It is not part of the high-level annotation-service API.
 
 ---
 
 #### `deleteOrphanedData()`
 
-Deletes all `annotationData` elements not referenced by any `annotationLink`. 
+Private lower-level cleanup operation. Deletes `annotationData` elements not referenced by any `annotationLink`. It is not part of the high-level annotation-service API.
 
 ---
 
-#### `onSceneDeletion(sceneId)`
+#### `onSceneDeletion(projectId, sceneId)`
 
 Handles all cascading cleanup when a scene is deleted.
 
 **Sequence:**
-1. Invoke `removeAnnotationsWithScene(sceneId)`.
+1. Invoke `removeAnnotationsWithScene(projectId, sceneId)`.
 2. Delegate any physical deletion of orphaned documents to lower-level cleanup logic.
 
 
 ---
 
-#### `onAssetDeletion(assetId)`
+#### `onAssetDeletion(projectId, assetId)`
 
 Handles all cascading cleanup when a digital asset is deleted.
 
 **Sequence:**
 
-1. Invoke `removeAnnotationsWithAsset(assetId)`.
+1. Invoke `removeAnnotationsWithAsset(projectId, assetId)`.
 2. Delegate any physical deletion of orphaned documents to lower-level cleanup logic.
 
 ---
