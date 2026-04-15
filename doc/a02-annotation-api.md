@@ -744,7 +744,6 @@ All errors are non-destructive. No partial writes occur. The database remains in
 - **Physical deletion is private**: `deleteAnnotationGeometryById` and `deleteAnnotationDataById` are repository-level operations exposed only to garbage collection and superuser maintenance, not to the public annotation-service API.
 - **Server-assigned timestamps**: all `createdAt` and `updatedAt` fields are set by the server to ensure a coherent time source across distributed clients.
 - **Project-scoped isolation**: all operations require `projectId`, which is indexed on every collection. This prevents cross-project data leakage and supports efficient per-project queries.
-- **Lazy index creation**: each repository ensures its indexes on first collection access using a module-level boolean flag, following the same pattern as `hdt.repository.ts`.
 
 ---
 
