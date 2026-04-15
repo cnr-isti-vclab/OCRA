@@ -46,6 +46,8 @@ The Service Layer (`services/`) contains all business logic and orchestration. I
 
 These operations manage reading sessions and Social Lock notifications. They are not required for data consistency but support presence indicators and access control for structuring operations.
 
+As a general rule, session-end notifications are best-effort only. If a client disconnects or crashes before sending the corresponding stop signal, the backend must rely on TTL-based expiration or equivalent cleanup logic to prevent stale presence indicators.”
+
 #### `startReading(projectId, sceneId): boolean`
 
 Verifies whether the calling user is permitted to read the given scene.
@@ -821,11 +823,15 @@ Release Social Lock.
 
 **Responses:** `204 No Content` on success; `401` if not authenticated.
 
+> **Note:** this release request is not guaranteed to be sent in all cases. If a browser crashes, a tab is closed abruptly, or the client disconnects before calling this endpoint, the Social Lock expires automatically via its TTL (time-to-live) mechanism, preventing stale indicators from persisting indefinitely.
+
 ---
 
 #### `GET /api/projects/:projectId/annotations/events` — SSE stream
 
 Real-time annotation event stream (Server-Sent Events). The frontend subscribes once per open scene and receives push notifications for all annotation mutations performed by other users.
+
+> **Reminder:** as noted in the Session and Presence API, presence-related session-end signals are best-effort only. The frontend must not assume that every end-of-session event will be observed on the SSE channel; stale reading/editing indicators must be cleared through TTL-based expiration or equivalent cleanup logic.
 
 **Required request header:**
 ```
