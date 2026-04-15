@@ -22,9 +22,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1"
-     inkscape:cx="583.5"
-     inkscape:cy="420.5"
-     inkscape:window-width="1728"
+     inkscape:cx="717.49998"
+     inkscape:cy="275.99999"
+     inkscape:window-width="1920"
      inkscape:window-height="1011"
      inkscape:window-x="0"
      inkscape:window-y="0"
@@ -286,7 +286,7 @@
      font-size="11px"
      fill="#94a3b8"
      font-weight="600"
-     id="text33">createdAt · createdBy · updatedAt · updatedBy · erasedAt · erasedBy</text>
+     id="text33">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
   <line
      x1="670"
      y1="355"
@@ -310,31 +310,31 @@
   <!-- ARROWS  geometry → link   and   data → link                        -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <line
-     x1="305"
-     y1="395"
-     x2="490"
-     y2="510"
+     x1="305.21957"
+     y1="395.16122"
+     x2="451.86105"
+     y2="486.07675"
      stroke="#3b82f6"
      stroke-width="1.8"
-     stroke-dasharray="6,3"
+     stroke-dasharray="6, 3"
      marker-end="url(#arrowBlue)"
      id="line35" />
   <text
-     x="531.38702"
-     y="156.72272"
+     x="516.48914"
+     y="152.02684"
      font-size="11px"
      fill="#3b82f6"
      font-style="italic"
      transform="rotate(32.699373)"
      id="text36">annotationGeometry ref</text>
   <line
-     x1="895"
-     y1="395"
-     x2="710"
-     y2="510"
+     x1="894.7804"
+     y1="395.16122"
+     x2="748.13898"
+     y2="486.07675"
      stroke="#10b981"
      stroke-width="1.8"
-     stroke-dasharray="6,3"
+     stroke-dasharray="6, 3"
      marker-end="url(#arrowGreen)"
      id="line36" />
   <text
@@ -350,13 +350,13 @@
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <rect
      x="350"
-     y="510"
+     y="489"
      width="500"
-     height="210"
+     height="231"
      rx="10"
      fill="#1e3a5f"
      stroke="#0f2944"
-     stroke-width="2"
+     stroke-width="2.00001"
      id="rect37"
      ry="10" />
   <rect
@@ -376,51 +376,59 @@
      id="rect39" />
   <text
      x="600"
-     y="533"
+     y="515"
      text-anchor="middle"
-     font-size="14"
+     font-size="14px"
      font-weight="700"
      fill="#ffffff"
      letter-spacing="0.5"
      id="text39">annotationLink</text>
   <line
      x1="350"
-     y1="546"
+     y1="528"
      x2="850"
-     y2="546"
+     y2="528"
      stroke="#2d5a8e"
      stroke-width="1"
      id="line39" />
   <text
      x="370"
-     y="567"
-     font-size="12"
+     y="547"
+     font-size="12px"
      fill="#93c5fd"
      id="text40"><tspan
        font-weight="700"
        id="tspan39">id</tspan><tspan
        fill="#cbd5e1"
-       id="tspan40"> · unique within project</tspan></text>
+       id="tspan40">· unique within project</tspan></text>
   <text
-     x="370"
-     y="587"
-     font-size="12"
+     x="370.45703"
+     y="587.04883"
+     font-size="12px"
      fill="#93c5fd"
      id="text42"><tspan
        font-weight="700"
        id="tspan41">annotationGeometry</tspan><tspan
        fill="#cbd5e1"
-       id="tspan42"> · ref to annotationGeometry.id</tspan></text>
+       id="tspan42">· ref to annotationGeometry.id</tspan></text>
   <text
-     x="370"
+     x="370.45703"
      y="607"
-     font-size="12"
+     font-size="12px"
      fill="#93c5fd"
      id="text44"><tspan
        font-weight="700"
        id="tspan43">annotationData</tspan><tspan
        fill="#cbd5e1"
-       id="tspan44"> · ref to annotationData.id</tspan></text>
+       id="tspan44">· ref to annotationData.id</tspan></text>
+  <text
+     x="370.07031"
+     y="566.97461"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text44-6"><tspan
+   style="font-weight:bold"
+   id="tspan14">projectId</tspan>·unique projectIdd</text>
   <line
      x1="370"
      y1="618"
@@ -851,7 +859,7 @@
      font-size="11px"
      fill="#94a3b8"
      font-weight="600"
-     id="text14">createdAt · createdBy · updatedAt · updatedBy · erasedAt · erasedBy</text>
+     id="text14">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
   <rect
      x="79.51326"
      y="329.4249"
