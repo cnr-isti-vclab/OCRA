@@ -2,9 +2,12 @@
 
 ## Introduction
 
-This document defines the Annotation API for OCRA. The backend API provides all operations required to manage the lifecycle of annotation entities (`annotationGeometry`, `annotationData`, `annotationLink`) and to integrate annotation editing into the broader scene and project workflows.
+This document defines the Annotation API for OCRA. It is described along two complementary dimensions:
 
-The backend API is organized into **three levels**, each with a single, well-defined responsibility:
+- **Backend API**: internal operations used by backend components to manage the lifecycle of annotation entities (`annotationGeometry`, `annotationData`, `annotationLink`) and to integrate annotation logic into broader project workflows.
+- **REST API (Frontend)**: authenticated HTTP endpoints that expose selected backend operations to the frontend.
+
+The backend API is implemented across **three technical layers**, each with a single, well-defined responsibility:
 
 - **Mongo Infrastructure** (`lib/mongo/`) manages the MongoDB client lifecycle — creating and reusing the `MongoClient`, handling connection details and reconnects, and exposing the two application databases (`getAuditDb()`, `getContentDb()`). No other layer should instantiate a `MongoClient` directly.
 - **Repository Layer** (`repositories/`) encapsulates all access to individual MongoDB collections. Each repository translates domain operations into concrete MongoDB queries, handles CRUD, aggregations, indexes, and lookups, and hides all database and collection details from the layer above.
@@ -23,14 +26,26 @@ The backend uses two dedicated MongoDB databases, both hosted in the same contai
 
 The split is logical, not physical: no extra infrastructure is required. It provides a clear ownership boundary, separate backup and retention strategies, and a foundation for future per-concern replica or shard policies.
 
-### API Levels in This Document
+### API Organization in This Document
 
-The operations defined below are organized across four API levels:
+This document is organized primarily as a content index, in the same order in which the sections appear:
 
-- **High-Level Operations** map to the Service layer: they orchestrate multiple repositories to guarantee full system consistency, including referential integrity across collections and cascading cleanup when scenes or assets are deleted.
-- **Low-Level DB Operations** map directly to the Repository layer: they interact with a single collection and maintain its internal consistency, but do not enforce cross-collection invariants. Callers are responsible for system-wide consistency.
-- **Mongo Infrastructure** maps to `lib/mongo/`: it manages the MongoDB client lifecycle, connection reuse, reconnect logic, and access to the application databases.
-- **HTTP API (Frontend)** maps to the controller/route layer: it exposes selected service operations as authenticated REST endpoints under `/api/projects/:projectId/...`, using JSON request/response payloads consistent with the rest of the backend.
+- **Backend API / Annotation editing**: the main service-layer operations for validation, import/export, scene-aware reads, and per-entity mutations.
+- **Repository Layer**: the low-level MongoDB operations for `annotationGeometry`, `annotationData`, and `annotationLink`.
+- **Mongo Infrastructure**: the shared MongoDB client and database-access utilities.
+- **REST API (Frontend)**: the authenticated HTTP endpoints exposed to frontend clients.
+- **Project Structuring Backend API**: backend-only operations for reading-session coordination, Social Lock presence, and destructive cleanup after project, scene, or asset deletion.
+
+Two cross-cutting distinctions still matter throughout the document:
+
+- **Exposure surface**: some APIs are backend-only, while others are exposed as REST endpoints for the frontend.
+- **Backend functional area**: backend operations belong either to annotation editing or to project structuring.
+
+Within the backend API, the technical layering remains explicit:
+
+- **Service Layer**: orchestration and business rules across collections.
+- **Repository Layer**: single-collection MongoDB access.
+- **Mongo Infrastructure**: MongoDB client lifecycle and database access.
 
 All operations that mutate `annotationGeometry` or `annotationData` use **optimistic concurrency control** (OCC): a conditional write based on `expectedVersion` ensures that a stale client cannot silently overwrite a more recent state. `updatedAt` remains available for audit and debugging, but it is not the OCC token. See [Collaborative Annotation Editing](collaborative-annotation-editing.md) for the full concurrency model.
 
@@ -38,122 +53,15 @@ All timestamps are server-assigned. All identifiers are treated as opaque string
 
 ---
 
-## Service Layer
+## Backend API
+
+The backend API is the internal annotation API used by OCRA services and controllers. It is divided functionally into **project structuring** and **annotation editing**, and implemented technically across the Service, Repository, and Mongo Infrastructure layers.
+
+### Service Layer
 
 The Service Layer (`services/`) contains all business logic and orchestration. It calls repositories, enforces cross-collection invariants, validates pre-conditions, manages session locks, and exposes meaningful operations to controllers. This is the layer that guarantees system-wide consistency.
 
-### Session and Presence API
-
-These operations manage reading sessions and Social Lock notifications. They are not required for data consistency but support presence indicators and access control for structuring operations.
-
-As a general rule, session-end notifications are best-effort only. If a client disconnects or crashes before sending the corresponding stop signal, the backend must rely on TTL-based expiration or equivalent cleanup logic to prevent stale presence indicators.”
-
-#### `startReading(projectId, sceneId): boolean`
-
-Verifies whether the calling user is permitted to read the given scene.
-
-Returns `true` if reading is allowed (no exclusive structuring lock is held), `false` otherwise.
-
-A scene is locked for reading only when a project-level structuring operation (e.g. HDT publish) is in progress.
-
----
-
-#### `stopReading(projectId, sceneId): void`
-
-Signals that the reading session has ended. Must be called when the user leaves the scene or closes the viewer.
-
----
-
-#### `notifyEditingStart(projectId, sceneId, targetId?): void`
-
-Broadcasts a lightweight Social Lock notification indicating that the calling user has begun editing a specific entity (`targetId` may identify an `annotationGeometry`, `annotationData`, or a generic scene/asset).
-
-This call does **not** acquire a database lock. It only updates the presence layer so that other connected clients can display a visual warning.
-
-The notification has a TTL and expires automatically if the user disconnects without calling `notifyEditingStop`.
-
----
-
-#### `notifyEditingStop(projectId, sceneId, targetId?): void`
-
-Signals the end of an editing session and releases the Social Lock. Other clients stop showing the visual warning for the affected entity.
-
----
-
-### High-Level Orchestration
-
-High-level operations orchestrate multiple repositories to maintain full system consistency. They are the appropriate entry point for application-level workflows that touch more than one collection.
-
-#### Removal Operations
-
-These operations remove annotation records associated with a deleted context (project, scene, or asset) and ensure that no scoped annotation survives after that context has been removed.
-
-> **Important:** these are destructive structural-cleanup operations, intended only for deletion of the owning project/scene/asset context.
-
-##### `deleteAnnotationsForDeletedProject(projectId): boolean`
-
-Removes all annotation records associated with a given project.
-
-**System actions:**
-1. Retrieve all links via `findAnnotationLinksByProjectId(projectId)` and remove them.
-2. Remove all `annotationGeometry` and `annotationData` records belonging to the project.
-3. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
-
-**Returns:** `true` on success; `false` if the project does not exist.
-
----
-
-##### `deleteAnnotationsScopedToDeletedScene(projectId, sceneId): boolean`
-
-Removes all annotation records scoped to a given scene, together with any links that reference them.
-
-**System actions:**
-1. Collect geometry ids via `findAnnotationGeometriesByReference(projectId, "scene", sceneId)`.
-2. Collect data ids via `findAnnotationDataByVisibility(projectId, "scene", sceneId)`.
-3. Retrieve matching links via `findAnnotationLinksByGeometryIds` and `findAnnotationLinksByDataIds`.
-4. Invoke `deleteAnnotationLinkById` for each matching link.
-5. Physically remove the `annotationGeometry` and `annotationData` records scoped to the deleted scene.
-6. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
-
-**Returns:** `true` on success; `false` if the scene does not exist.
-
----
-
-##### `deleteAnnotationsScopedToDeletedAsset(projectId, assetId): boolean`
-
-Removes all annotation records scoped to a given digital asset, together with any links that reference them.
-
-**System actions:**
-1. Collect geometry ids via `findAnnotationGeometriesByReference(projectId, "asset", assetId)`.
-2. Collect data ids via `findAnnotationDataByVisibility(projectId, "asset", assetId)`.
-3. Retrieve matching links via `findAnnotationLinksByGeometryIds` and `findAnnotationLinksByDataIds`.
-4. Invoke `deleteAnnotationLinkById` for each matching link.
-5. Physically remove the `annotationGeometry` and `annotationData` records scoped to the deleted asset.
-6. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
-
-**Returns:** `true` on success; `false` if the asset does not exist.
-
----
-
-#### Cascade Handlers
-
-These operations are invoked automatically when scenes or assets are deleted from the project structure. They ensure the annotation store is fully consistent before the structuring lock is released, with no scene-scoped or asset-scoped annotation left behind.
-
-##### `onSceneDeletion(projectId, sceneId): void`
-
-**Sequence:**
-1. Invoke `deleteAnnotationsScopedToDeletedScene(projectId, sceneId)`.
-2. Verify that no scene-scoped geometry, data, or link remains for the deleted scene.
-
----
-
-##### `onAssetDeletion(projectId, assetId): void`
-
-**Sequence:**
-1. Invoke `deleteAnnotationsScopedToDeletedAsset(projectId, assetId)`.
-2. Verify that no asset-scoped geometry, data, or link remains for the deleted asset.
-
----
+**Annotation Editing Backend API.** These operations implement annotation-editing workflows. They cover scene-aware reads, per-entity mutations, and import/export flows used by editors and other annotation-aware services.
 
 #### Maintenance Operations
 
@@ -207,7 +115,7 @@ Supported formats: `json` (default), `csv`.
 
 ##### `importAnnotations(projectId, payload, sceneId?): ImportSummary`
 
-Imports a structured set of annotation records (geometry, data, links), validating all invariants before persisting any document. Optionally scopes the import to a specific scene.
+Imports a structured set of annotation records (geometry, data, links), validating all invariants before persisting any document. The import may optionally be scoped to a specific scene.
 
 | Field | Description |
 | --- | --- |
@@ -218,7 +126,7 @@ Imports a structured set of annotation records (geometry, data, links), validati
 
 ---
 
-### Scene-Aware Read Queries
+#### Scene-Aware Read Queries
 
 All read operations return only `non-erasable` entities and `erasable` entities that still have at least one incoming `annotationLink`, unless `includeErasable: true` is passed. Editor-oriented reads should pass this flag to allow display and restoration of pending-erasure entities.
 
@@ -226,7 +134,7 @@ When `includeErasable: true` is enabled, these queries may also surface `erasabl
 
 These queries are implemented at the service layer because they cross multiple repositories.
 
-#### `annotationGeometry` Reads
+**`annotationGeometry` Reads**
 
 ##### `getAnnotationGeometry(projectId, geometryId): annotationGeometry`
 
@@ -257,7 +165,7 @@ Returns all `annotationGeometry` elements that reference either the scene itself
 
 ---
 
-#### `annotationData` Reads
+**`annotationData` Reads**
 
 ##### `getAnnotationData(projectId, dataId): annotationData`
 
@@ -288,7 +196,7 @@ Returns all `annotationData` elements visible within a given scene (scoped to th
 
 ---
 
-#### `annotationLink` Reads
+**`annotationLink` Reads**
 
 ##### `getAnnotationLink(projectId, linkId): annotationLink`
 
@@ -349,11 +257,11 @@ Returns all `annotationLink` records visible within a given scene, including lin
 
 ---
 
-### Per-Entity Mutations
+#### Per-Entity Mutations
 
 These operations create, update, or change the erasability state of individual annotation entities. Each mutating write is conditional on `expectedVersion` for OCC. Pre-conditions are validated at the service layer before the repository is called.
 
-#### `annotationGeometry` Mutations
+**`annotationGeometry` Mutations**
 
 ##### `createAnnotationGeometry(projectId, shapes, referenceType, referenceId): string | null`
 
@@ -409,7 +317,7 @@ Restores an `annotationGeometry` to the `non-erasable` state.
 
 ---
 
-#### `annotationData` Mutations
+**`annotationData` Mutations**
 
 ##### `createAnnotationData(projectId, label, description, class, content, visibilityType, visibilityId): string | null`
 
@@ -459,7 +367,7 @@ Restores an `annotationData` to the `non-erasable` state.
 
 ---
 
-#### `annotationLink` Mutations
+**`annotationLink` Mutations**
 
 ##### `createAnnotationLink(projectId, annotationGeometryId, annotationDataId): string | null`
 
@@ -487,9 +395,9 @@ Deletes an `annotationLink`. True delete — no `erasable` lifecycle. Does not c
 
 ---
 
-## Repository Layer
+### Repository Layer
 
-The Repository Layer (`repositories/`) encapsulates all direct access to MongoDB collections. Each function translates a domain operation into a concrete MongoDB driver call. There is no business logic here: pre-condition validation and cross-collection consistency are the responsibility of the Service Layer above.
+The Repository Layer (`repositories/`) encapsulates all direct access to MongoDB collections. Each function translates a domain operation into a concrete MongoDB driver call. There is no business logic here: pre-condition validation and cross-collection consistency remain the responsibility of the Service Layer above.
 
 The three annotation repositories follow the same conventions as the existing `hdt.repository.ts`: indexes are ensured lazily on first collection access via a module-level flag; the `getContentDb()` infrastructure function is used in every repository.
 
@@ -691,9 +599,9 @@ Returns the `annotation_link` collection, ensuring indexes are created on first 
 
 ---
 
-## Mongo Infrastructure
+### Mongo Infrastructure
 
-The Mongo Infrastructure (`lib/mongo/client.ts`) manages the MongoDB client lifecycle. It is the single entry point for obtaining database handles — no other module should instantiate a `MongoClient` directly.
+The Mongo Infrastructure (`lib/mongo/client.ts`) manages the MongoDB client lifecycle. It is the single entry point for obtaining database handles; no other module should instantiate a `MongoClient` directly.
 
 ```typescript
 // lib/mongo/client.ts
@@ -746,16 +654,16 @@ All errors are non-destructive. No partial writes occur. The database remains in
 
 - **Atomicity**: every conditional write (OCC check + field update + version increment + timestamp) is executed as a single MongoDB `findOneAndUpdate` atomic operation.
 - **Layer separation**: the Service Layer owns all business logic; the Repository Layer owns all MongoDB access. No layer crosses its boundary.
-- **No deep-delete operations**: the high-level API does not expose operations that mix link removal, orphan detection, and physical deletion in a single call. These concerns are separated across layers.
-- **Physical deletion is private**: `deleteAnnotationGeometryById` and `deleteAnnotationDataById` are repository-level operations exposed only to garbage collection and superuser maintenance, not to the public annotation-service API.
+- **No deep-delete operations in annotation editing**: ordinary annotation editing operations do not mix link removal, orphan detection, and physical deletion in a single call. Structural cleanup triggered by project structuring is documented separately.
+- **Physical deletion is tightly scoped**: `deleteAnnotationGeometryById` and `deleteAnnotationDataById` remain repository-level operations used only by structural cleanup, garbage collection, and superuser maintenance, not by normal frontend editing flows.
 - **Server-assigned timestamps**: all `createdAt` and `updatedAt` fields are set by the server to ensure a coherent time source across distributed clients.
 - **Project-scoped isolation**: all operations require `projectId`, which is indexed on every collection. This prevents cross-project data leakage and supports efficient per-project queries.
 
 ---
 
-## HTTP API (Frontend)
+## REST API (Frontend)
 
-The HTTP layer exposes the Service Layer to the frontend via a RESTful JSON API, consistent with the existing OCRA conventions (`/api/projects/:projectId/...`, session-cookie auth, `{ success: true, data }` envelope). Annotation routes are defined in `backend/src/routes/annotation.routes.ts` and mounted under `/api/projects`.
+The REST API exposes selected backend operations to the frontend via authenticated JSON endpoints, consistent with the existing OCRA conventions (`/api/projects/:projectId/...`, session-cookie auth, `{ success: true, data }` envelope). Annotation routes are defined in `backend/src/routes/annotation.routes.ts` and mounted under `/api/projects`.
 
 **Authentication:** every endpoint requires a valid session cookie (`session_id`) or a `Bearer <token>` in the `Authorization` header, validated by the `requireAuth` middleware.
 
@@ -862,7 +770,7 @@ event: social-lock.released
 data: {"targetId":"geo-xyz","userId":"user-123"}
 ```
 
-**Event types:** `annotation-geometry.created`, `annotation-geometry.updated`, `annotation-geometry.erasable`, `annotation-geometry.nonerausable`, `annotation-data.created`, `annotation-data.updated`, `annotation-data.erasable`, `annotation-data.nonerasable`, `annotation-link.created`, `annotation-link.deleted`, `social-lock.acquired`, `social-lock.released`.
+**Event types:** `annotation-geometry.created`, `annotation-geometry.updated`, `annotation-geometry.erasable`, `annotation-geometry.nonerasable`, `annotation-data.created`, `annotation-data.updated`, `annotation-data.erasable`, `annotation-data.nonerasable`, `annotation-link.created`, `annotation-link.deleted`, `social-lock.acquired`, `social-lock.released`.
 
 The connection is kept open; the client must reconnect on network loss (standard EventSource retry behaviour).
 
@@ -1201,3 +1109,120 @@ This is the primary endpoint called by the frontend viewer on scene load. It is 
 | `404 Not Found` | Entity does not exist or does not belong to the project |
 | `409 Conflict` | OCC mismatch, duplicate link pair, or scene consistency violation |
 | `500 Internal Server Error` | Unhandled server error |
+
+---
+
+## Project Structuring Backend API
+
+This section documents backend-only structuring operations separately from the main annotation editing flow. These operations are not part of the ordinary frontend annotation-editing contract, but they are still implemented in the Service Layer and are required to coordinate structuring activity and guarantee cleanup after structural deletion.
+
+### Session and Presence API
+
+These operations manage reading sessions and Social Lock notifications. They are not required for data consistency, but they support presence indicators and access control for structuring workflows.
+
+As a general rule, session-end notifications are best-effort only. If a client disconnects or crashes before sending the corresponding stop signal, the backend must rely on TTL-based expiration or equivalent cleanup logic to prevent stale presence indicators.
+
+#### `startReading(projectId, sceneId): boolean`
+
+Verifies whether the calling user is permitted to read the given scene.
+
+Returns `true` if reading is allowed (no exclusive structuring lock is held), `false` otherwise.
+
+A scene is locked for reading only when a project-level structuring operation (e.g. HDT publish) is in progress.
+
+---
+
+#### `stopReading(projectId, sceneId): void`
+
+Signals that the reading session has ended. Must be called when the user leaves the scene or closes the viewer.
+
+---
+
+#### `notifyEditingStart(projectId, sceneId, targetId?): void`
+
+Broadcasts a lightweight Social Lock notification indicating that the calling user has begun editing a specific entity (`targetId` may identify an `annotationGeometry`, `annotationData`, or a generic scene/asset).
+
+This call does **not** acquire a database lock. It only updates the presence layer so that other connected clients can display a visual warning.
+
+The notification has a TTL and expires automatically if the user disconnects without calling `notifyEditingStop`.
+
+---
+
+#### `notifyEditingStop(projectId, sceneId, targetId?): void`
+
+Signals the end of an editing session and releases the Social Lock. Other clients stop showing the visual warning for the affected entity.
+
+---
+
+### Structuring Cleanup Operations
+
+These operations orchestrate multiple repositories to maintain full system consistency when the project structure changes. They are the entry point for destructive cleanup triggered by project-, scene-, or asset-level deletion.
+
+**Removal Operations.**
+
+These operations remove annotation records associated with a deleted context (project, scene, or asset) and ensure that no scoped annotation survives once that context has been removed.
+
+> **Important:** these are destructive structural-cleanup operations, intended only for deletion of the owning project/scene/asset context.
+
+#### `deleteAnnotationsForDeletedProject(projectId): boolean`
+
+Removes all annotation records associated with a given project.
+
+**System actions:**
+1. Retrieve all links via `findAnnotationLinksByProjectId(projectId)` and remove them.
+2. Remove all `annotationGeometry` and `annotationData` records belonging to the project.
+3. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
+
+**Returns:** `true` on success; `false` if the project does not exist.
+
+---
+
+#### `deleteAnnotationsScopedToDeletedScene(projectId, sceneId): boolean`
+
+Removes all annotation records scoped to a given scene, together with any links that reference them.
+
+**System actions:**
+1. Collect geometry ids via `findAnnotationGeometriesByReference(projectId, "scene", sceneId)`.
+2. Collect data ids via `findAnnotationDataByVisibility(projectId, "scene", sceneId)`.
+3. Retrieve matching links via `findAnnotationLinksByGeometryIds` and `findAnnotationLinksByDataIds`.
+4. Invoke `deleteAnnotationLinkById` for each matching link.
+5. Physically remove the `annotationGeometry` and `annotationData` records scoped to the deleted scene.
+6. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
+
+**Returns:** `true` on success; `false` if the scene does not exist.
+
+---
+
+#### `deleteAnnotationsScopedToDeletedAsset(projectId, assetId): boolean`
+
+Removes all annotation records scoped to a given digital asset, together with any links that reference them.
+
+**System actions:**
+1. Collect geometry ids via `findAnnotationGeometriesByReference(projectId, "asset", assetId)`.
+2. Collect data ids via `findAnnotationDataByVisibility(projectId, "asset", assetId)`.
+3. Retrieve matching links via `findAnnotationLinksByGeometryIds` and `findAnnotationLinksByDataIds`.
+4. Invoke `deleteAnnotationLinkById` for each matching link.
+5. Physically remove the `annotationGeometry` and `annotationData` records scoped to the deleted asset.
+6. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
+
+**Returns:** `true` on success; `false` if the asset does not exist.
+
+---
+
+**Cascade Handlers.**
+
+These operations are invoked automatically when scenes or assets are deleted from the project structure. They ensure the annotation store is fully consistent before the structuring lock is released, with no scene-scoped or asset-scoped annotation left behind.
+
+#### `onSceneDeletion(projectId, sceneId): void`
+
+**Sequence:**
+1. Invoke `deleteAnnotationsScopedToDeletedScene(projectId, sceneId)`.
+2. Verify that no scene-scoped geometry, data, or link remains for the deleted scene.
+
+---
+
+#### `onAssetDeletion(projectId, assetId): void`
+
+**Sequence:**
+1. Invoke `deleteAnnotationsScopedToDeletedAsset(projectId, assetId)`.
+2. Verify that no asset-scoped geometry, data, or link remains for the deleted asset.
