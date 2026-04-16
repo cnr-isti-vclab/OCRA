@@ -218,6 +218,8 @@ Imports a structured set of annotation records (geometry, data, links), validati
 
 All read operations return only `non-erasable` entities and `erasable` entities that still have at least one incoming `annotationLink`, unless `includeErasable: true` is passed. Editor-oriented reads should pass this flag to allow display and restoration of pending-erasure entities.
 
+When `includeErasable: true` is enabled, these queries may also surface `erasable` entities that no longer have incoming links but are still physically present in the database because garbage collection has not run yet. This visibility is temporary: once a fully detached `erasable` entity is physically removed by maintenance, it disappears from query results entirely. The flag does not preserve or resurrect entities after deletion.
+
 These queries are implemented at the service layer because they cross multiple repositories.
 
 #### `annotationGeometry` Reads

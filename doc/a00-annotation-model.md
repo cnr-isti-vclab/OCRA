@@ -317,6 +317,8 @@ The table below summarises how erasability and link reachability together determ
 1. An entity marked as `erasable` is not necessarily invisible immediately — it remains visible as long as at least one link still points to it.
 2. An entity with zero incoming links is not necessarily invisible — if it is `non-erasable`, it remains available as a standalone annotation resource.
 
+An `erasable` entity with zero incoming links is therefore in a transient state: it is already excluded from normal reads, but it may still exist physically in the database until a maintenance or garbage-collection routine removes it. After that physical removal, it disappears completely from all model-level visibility.
+
 Frontend read operations may opt in to include `erasable` entities via an `includeErasable` flag, so that editors can inspect, display with a distinct visual style, or restore them.
 
 ## Versioning and Audit Fields
