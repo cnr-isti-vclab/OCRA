@@ -17,7 +17,9 @@ This page is the index for technical documentation in `doc/`.
 ## Domain and Use Cases
 
 - [OCRA Use Case](./ocra-use-case.md)
-- [Annotation Concepts](./annotation-concepts.md)
+- [00 Annotation Model](./00-annotation-model.md)
+- [01 Collaborative Annotation Editing](./collaborative-annotation-editing.md)
+- [02 Annotation API](./annotation-api.md)
 
 ## Archived / Outdated
 

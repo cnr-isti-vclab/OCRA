@@ -86,46 +86,50 @@ High-level operations orchestrate multiple repositories to maintain full system 
 
 #### Removal Operations
 
-These operations remove `annotationLink` records associated with a deleted context (project, scene, or asset) and delegate physical orphan cleanup to garbage collection.
+These operations remove annotation records associated with a deleted context (project, scene, or asset) and ensure that no scoped annotation survives after that context has been removed.
 
-##### `removeAnnotationsWithProject(projectId): boolean`
+> **Important:** these are destructive structural-cleanup operations, intended only for deletion of the owning project/scene/asset context.
 
-Removes all annotation links associated with a given project.
+##### `deleteAnnotationsForDeletedProject(projectId): boolean`
+
+Removes all annotation records associated with a given project.
 
 **System actions:**
-1. Retrieve all links via `findAnnotationLinksByProjectId(projectId)`.
-2. Invoke `deleteAnnotationLinkById` for each link.
-3. Delegate physical cleanup of orphaned geometry and data to garbage collection.
+1. Retrieve all links via `findAnnotationLinksByProjectId(projectId)` and remove them.
+2. Remove all `annotationGeometry` and `annotationData` records belonging to the project.
+3. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
 
 **Returns:** `true` on success; `false` if the project does not exist.
 
 ---
 
-##### `removeAnnotationsWithScene(projectId, sceneId): boolean`
+##### `deleteAnnotationsScopedToDeletedScene(projectId, sceneId): boolean`
 
-Removes all annotation links visible in a given scene.
+Removes all annotation records scoped to a given scene, together with any links that reference them.
 
 **System actions:**
 1. Collect geometry ids via `findAnnotationGeometriesByReference(projectId, "scene", sceneId)`.
 2. Collect data ids via `findAnnotationDataByVisibility(projectId, "scene", sceneId)`.
 3. Retrieve matching links via `findAnnotationLinksByGeometryIds` and `findAnnotationLinksByDataIds`.
-4. Invoke `deleteAnnotationLinkById` for each link.
-5. Delegate physical cleanup of now-orphaned documents to garbage collection.
+4. Invoke `deleteAnnotationLinkById` for each matching link.
+5. Physically remove the `annotationGeometry` and `annotationData` records scoped to the deleted scene.
+6. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
 
 **Returns:** `true` on success; `false` if the scene does not exist.
 
 ---
 
-##### `removeAnnotationsWithAsset(projectId, assetId): boolean`
+##### `deleteAnnotationsScopedToDeletedAsset(projectId, assetId): boolean`
 
-Removes all annotation links associated with a given digital asset.
+Removes all annotation records scoped to a given digital asset, together with any links that reference them.
 
 **System actions:**
 1. Collect geometry ids via `findAnnotationGeometriesByReference(projectId, "asset", assetId)`.
 2. Collect data ids via `findAnnotationDataByVisibility(projectId, "asset", assetId)`.
 3. Retrieve matching links via `findAnnotationLinksByGeometryIds` and `findAnnotationLinksByDataIds`.
-4. Invoke `deleteAnnotationLinkById` for each link.
-5. Delegate physical cleanup of now-orphaned documents to garbage collection.
+4. Invoke `deleteAnnotationLinkById` for each matching link.
+5. Physically remove the `annotationGeometry` and `annotationData` records scoped to the deleted asset.
+6. Optionally run a final maintenance pass to verify that no residual orphaned documents remain.
 
 **Returns:** `true` on success; `false` if the asset does not exist.
 
@@ -133,21 +137,21 @@ Removes all annotation links associated with a given digital asset.
 
 #### Cascade Handlers
 
-These operations are invoked automatically when scenes or assets are deleted from the project structure. They ensure the annotation store is fully consistent before the structuring lock is released.
+These operations are invoked automatically when scenes or assets are deleted from the project structure. They ensure the annotation store is fully consistent before the structuring lock is released, with no scene-scoped or asset-scoped annotation left behind.
 
 ##### `onSceneDeletion(projectId, sceneId): void`
 
 **Sequence:**
-1. Invoke `removeAnnotationsWithScene(projectId, sceneId)`.
-2. Delegate orphaned document cleanup to garbage collection.
+1. Invoke `deleteAnnotationsScopedToDeletedScene(projectId, sceneId)`.
+2. Verify that no scene-scoped geometry, data, or link remains for the deleted scene.
 
 ---
 
 ##### `onAssetDeletion(projectId, assetId): void`
 
 **Sequence:**
-1. Invoke `removeAnnotationsWithAsset(projectId, assetId)`.
-2. Delegate orphaned document cleanup to garbage collection.
+1. Invoke `deleteAnnotationsScopedToDeletedAsset(projectId, assetId)`.
+2. Verify that no asset-scoped geometry, data, or link remains for the deleted asset.
 
 ---
 
