@@ -444,7 +444,7 @@ Returns the `annotation_geometry` collection, ensuring indexes are created on fi
 
 ---
 
-#### `insertAnnotationGeometry(doc: Omit<AnnotationGeometryDocument, '_id'>): Promise<string>`
+#### `insertAnnotationGeometry(doc: AnnotationGeometryDocument): Promise<string>`
 
 `collection.insertOne(doc)`. Returns the inserted `id`.
 
@@ -503,7 +503,7 @@ Returns the `annotation_data` collection, ensuring indexes are created on first 
 
 ---
 
-#### `insertAnnotationData(doc: Omit<AnnotationDataDocument, '_id'>): Promise<string>`
+#### `insertAnnotationData(doc: AnnotationDataDocument): Promise<string>`
 
 `collection.insertOne(doc)`. Returns the inserted `id`.
 
@@ -581,7 +581,7 @@ Returns the `annotation_link` collection, ensuring indexes are created on first 
 
 ---
 
-#### `insertAnnotationLink(doc: Omit<AnnotationLinkDocument, '_id'>): Promise<string>`
+#### `insertAnnotationLink(doc: AnnotationLinkDocument): Promise<string>`
 
 `collection.insertOne(doc)`. Returns the inserted `id`. The unique index on (`annotationGeometry`, `annotationData`) causes MongoDB to reject duplicate pairs at the driver level if the service-layer check is bypassed.
 

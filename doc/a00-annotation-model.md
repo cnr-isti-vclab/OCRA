@@ -23,7 +23,7 @@ The annotation model follows these principles:
 - **Independence**: geometry and semantic content are stored and managed independently. Either can exist without the other.
 - **Explicit associations**: relationships between geometry and data are first-class entities that can be individually created, queried, and deleted.
 - **Immutable scope**: spatial and semantic scopes are fixed at creation time and cannot be changed in place.
-- **Erasability over deletion**: the lifecycle model uses a `non-erasable` / `erasable` state transition rather than immediate physical removal, preserving audit trails and enabling safe collaborative editing.
+- **Erasability over deletion**: the lifecycle model normally uses a `non-erasable` / `erasable` state transition rather than immediate physical removal, preserving audit trails and enabling safe collaborative editing.
 - **Stateless concurrency**: visibility and consistency are determined at read time from the stored state, not from server-held locks or sessions.
 
 ## Entity Overview
@@ -318,6 +318,8 @@ The table below summarises how erasability and link reachability together determ
 2. An entity with zero incoming links is not necessarily invisible — if it is `non-erasable`, it remains available as a standalone annotation resource.
 
 An `erasable` entity with zero incoming links is therefore in a transient state: it is already excluded from normal reads, but it may still exist physically in the database until a maintenance or garbage-collection routine removes it. After that physical removal, it disappears completely from all model-level visibility.
+
+This lifecycle rule applies to ordinary annotation editing. Project-structuring operations are an explicit exception: if a scene, asset, or project is structurally deleted, any annotation records whose scope depends on that deleted context must be physically removed as part of the same structural cleanup, because they no longer have a valid meaning in the model.
 
 Frontend read operations may opt in to include `erasable` entities via an `includeErasable` flag, so that editors can inspect, display with a distinct visual style, or restore them.
 

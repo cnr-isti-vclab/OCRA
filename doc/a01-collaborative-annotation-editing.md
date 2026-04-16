@@ -9,8 +9,9 @@ This document defines the concurrency model and collaborative editing strategy f
 - The distinction between **structuring** and **editing** operations and their different concurrency requirements.
 - The **optimistic concurrency control** (OCC) strategy adopted for annotation editing, including conflict detection and resolution.
 - The **Social Lock** mechanism used to reduce conflict probability while preserving architectural simplicity.
-- The **real-time synchronisation** layer that keeps concurrent clients aware of remote changes. 
-**FIXME** It is only an informational notification, not a locking mechanism. It could be usable for live updates or notifications, but it does not enforce consistency (e.g. passive users can refresh the changed annotations). It uses the same channel as the Social Lock, but it is a separate concept. 
+- The **real-time synchronisation** layer that keeps concurrent clients aware of remote changes.
+
+Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same channel as the Social Lock, while remaining a separate concept.
 
 For annotation editing, the model is intentionally stateless: there are no long-lived database locks, no server-side session ownership of records, and no heartbeat infrastructure. Consistency is guaranteed at commit time through atomic conditional writes. This does not apply to structuring operations, which follow a different concurrency model.
 
@@ -30,7 +31,7 @@ Because structuring operations may invalidate annotations (e.g. deleting a scene
 
 ### Annotation Editing Operations
 
-Annotation editing operations act on `annotationGeometry`, `annotationData`, and `annotationLink` records. They may create them, update them, or change whether they are erasable. They do not alter the project structure and are generally safe to execute concurrently.
+Annotation editing operations act on `annotationGeometry`, `annotationData`, and `annotationLink` records. `annotationGeometry` and `annotationData` may be created, updated, or transitioned between `non-erasable` and `erasable`. `annotationLink` is immutable after creation, so it can only be created or deleted. These operations do not alter the project structure and are generally safe to execute concurrently.
 
 Annotation editing uses **optimistic concurrency control**: multiple users may work on the same scene's annotations simultaneously. Conflicts are detected only at save time, not preventively locked up front.
 
@@ -38,7 +39,7 @@ Annotation editing uses **optimistic concurrency control**: multiple users may w
 
 Viewing is the act of loading a scene and exploring its current annotations without modifying anything.
 
-**Concurrency Rule 2 — Unrestricted viewing**: any user may view any scene at any time, as long as no structuring operation is in progress. Concurrent edits by other users do not block viewing. A loaded scene reflects the saved state at load time; changes made after loading are not visible until the scene is reloaded.
+**Concurrency Rule 2 — Unrestricted viewing**: any user may view any scene at any time, as long as no structuring operation is in progress. Concurrent edits by other users do not block viewing. A loaded scene starts as a snapshot of the saved state at load time; later remote changes are not applied automatically, but the viewer may explicitly refresh the changed annotations when notified.
 
 ---
 
@@ -69,7 +70,7 @@ Every mutable annotation entity (`annotationGeometry` and `annotationData`) carr
 1. **Read**: the client loads the entity and records its current `version` value as `expectedVersion`.
 2. **Edit**: the user modifies the entity locally. No lock is acquired.
 3. **Save**: the client sends the update to the backend, including `expectedVersion`.
-4. **Conditional write**: the backend performs a MongoDB update with the filter `{ _id: entityId, version: expectedVersion }`. If the document has been modified in the meantime (i.e. `version` no longer matches), the update finds no document and is rejected.
+4. **Conditional write**: the backend performs a MongoDB update with the filter `{ id: entityId, version: expectedVersion }`. If the document has been modified in the meantime (i.e. `version` no longer matches), the update finds no document and is rejected.
 5. **Success path**: if the write succeeds, the backend returns the new `version`. The client stores this as the new `expectedVersion` for the next save.
 6. **Conflict path**: if the write fails because `expectedVersion` is stale and no longer matches the current `version`, the client is notified and must decide how to proceed (see [Conflict Resolution](#conflict-resolution) below).
 
@@ -146,12 +147,12 @@ The backend emits mutation events whenever a create, update, or erasability-stat
 When a client receives a notification that annotation data in the current scene has changed, the recommended behaviour depends on the user's current mode:
 
 **Viewing mode (passive viewer):**
-The user receives a non-intrusive notification — e.g. *"An annotation has been updated by another user."* — with an option to refresh the scene or the specific annotation. If the user accepts the notification, the frontend fetches the updated annotation and re-renders it in the background. If the user ignores the notification, they can continue exploring the scene, but they are aware that some annotations may be stale until they choose to refresh.
+The user receives a non-intrusive notification — e.g. *"An annotation has been updated by another user."* — with an option to refresh the scene or the specific annotation. If the user accepts the notification, the frontend fetches the updated annotation and re-renders it in the background. If the user ignores the notification, the scene remains on its previous snapshot and some annotations may stay stale until the user explicitly refreshes or reloads.
 
 **Editing mode (active editor):**
 If the notification concerns an annotation that the user is actively editing, the frontend should immediately surface a non-blocking warning — e.g. *"The annotation you are editing has just been modified by another user."* The user can then:
 
-- **Reload and discard**: : fetch the current state from the server, discard the local draft, and show the updated annotation.
+- **Reload and discard**: fetch the current state from the server, discard the local draft, and show the updated annotation.
 - **Proceed with the current version**: let the user review their change against the latest saved state and explicitly re-submit, issuing a new intentional operation against the new `expectedVersion`.
 
 ### Relationship to Social Locks
@@ -211,7 +212,7 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 1. The user calls `startReading(projectId, sceneId)` to verify access (rejected only if a structuring lock is held).
 2. The scene and all its annotations are loaded as a local snapshot.
 3. The user explores the scene freely. No locking is involved.
-4. Remote changes made after the snapshot was taken are not visible until the scene is reloaded.
+4. Remote changes made after the snapshot was taken are not applied automatically. They become visible only if the user explicitly refreshes the changed annotations after a notification, or reloads the scene.
 5. The user calls `stopReading(projectId, sceneId)` when done.
 
 ---
