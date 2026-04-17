@@ -18,3 +18,6 @@ Numérisation 3D par scanner 3D Artec EVA et/ou Spider par IMA Solutions SARL
 
 brown_photostudio_02_4k.exr
 (https://polyhaven.com/a/brown_photostudio_02) by Poly Haven is licensed under Creative Commons CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.
+
+
+"Socrates (.obj)" (https://skfb.ly/o7GzI) by RomarovArt is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).

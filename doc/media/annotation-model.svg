@@ -22,9 +22,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1"
-     inkscape:cx="581.5"
-     inkscape:cy="393.5"
-     inkscape:window-width="1728"
+     inkscape:cx="717.49998"
+     inkscape:cy="275.99999"
+     inkscape:window-width="1920"
      inkscape:window-height="1011"
      inkscape:window-x="0"
      inkscape:window-y="0"
@@ -66,8 +66,8 @@
      fill="#f8f9fb"
      rx="12"
      id="rect2"
-     x="0"
-     y="16" />
+     x="4.5795468e-06"
+     y="9.6360426" />
   <!-- ── Title ─────────────────────────────────────────────── -->
   <text
      x="600"
@@ -139,18 +139,18 @@
      id="line5" />
   <line
      x1="80"
-     y1="263"
+     y1="293"
      x2="530"
-     y2="263"
+     y2="293"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
      id="line13" />
   <line
      x1="80"
-     y1="287"
+     y1="317"
      x2="530"
-     y2="287"
+     y2="317"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
@@ -273,25 +273,25 @@
        id="tspan28">· string | null (e.g. damage, restoration…)</tspan></text>
   <line
      x1="670"
-     y1="315"
+     y1="327"
      x2="1120"
-     y2="315"
+     y2="327"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
      id="line32" />
   <text
      x="670"
-     y="332"
+     y="344"
      font-size="11px"
      fill="#94a3b8"
      font-weight="600"
-     id="text33">createdAt · createdBy · updatedAt · updatedBy</text>
+     id="text33">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
   <line
      x1="670"
-     y1="343"
+     y1="355"
      x2="1120"
-     y2="343"
+     y2="355"
      stroke="#e2e8f0"
      stroke-width="1"
      stroke-dasharray="4, 3"
@@ -310,31 +310,31 @@
   <!-- ARROWS  geometry → link   and   data → link                        -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <line
-     x1="305"
-     y1="395"
-     x2="490"
-     y2="510"
+     x1="305.21957"
+     y1="395.16122"
+     x2="451.86105"
+     y2="486.07675"
      stroke="#3b82f6"
      stroke-width="1.8"
-     stroke-dasharray="6,3"
+     stroke-dasharray="6, 3"
      marker-end="url(#arrowBlue)"
      id="line35" />
   <text
-     x="531.38702"
-     y="156.72272"
+     x="516.48914"
+     y="152.02684"
      font-size="11px"
      fill="#3b82f6"
      font-style="italic"
      transform="rotate(32.699373)"
      id="text36">annotationGeometry ref</text>
   <line
-     x1="895"
-     y1="395"
-     x2="710"
-     y2="510"
+     x1="894.7804"
+     y1="395.16122"
+     x2="748.13898"
+     y2="486.07675"
      stroke="#10b981"
      stroke-width="1.8"
-     stroke-dasharray="6,3"
+     stroke-dasharray="6, 3"
      marker-end="url(#arrowGreen)"
      id="line36" />
   <text
@@ -350,13 +350,13 @@
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <rect
      x="350"
-     y="510"
+     y="489"
      width="500"
-     height="210"
+     height="231"
      rx="10"
      fill="#1e3a5f"
      stroke="#0f2944"
-     stroke-width="2"
+     stroke-width="2.00001"
      id="rect37"
      ry="10" />
   <rect
@@ -376,51 +376,59 @@
      id="rect39" />
   <text
      x="600"
-     y="533"
+     y="515"
      text-anchor="middle"
-     font-size="14"
+     font-size="14px"
      font-weight="700"
      fill="#ffffff"
      letter-spacing="0.5"
      id="text39">annotationLink</text>
   <line
      x1="350"
-     y1="546"
+     y1="528"
      x2="850"
-     y2="546"
+     y2="528"
      stroke="#2d5a8e"
      stroke-width="1"
      id="line39" />
   <text
      x="370"
-     y="567"
-     font-size="12"
+     y="547"
+     font-size="12px"
      fill="#93c5fd"
      id="text40"><tspan
        font-weight="700"
        id="tspan39">id</tspan><tspan
        fill="#cbd5e1"
-       id="tspan40"> · unique within project</tspan></text>
+       id="tspan40">· unique within project</tspan></text>
   <text
-     x="370"
-     y="587"
-     font-size="12"
+     x="370.45703"
+     y="587.04883"
+     font-size="12px"
      fill="#93c5fd"
      id="text42"><tspan
        font-weight="700"
        id="tspan41">annotationGeometry</tspan><tspan
        fill="#cbd5e1"
-       id="tspan42"> · ref to annotationGeometry.id</tspan></text>
+       id="tspan42">· ref to annotationGeometry.id</tspan></text>
   <text
-     x="370"
+     x="370.45703"
      y="607"
-     font-size="12"
+     font-size="12px"
      fill="#93c5fd"
      id="text44"><tspan
        font-weight="700"
        id="tspan43">annotationData</tspan><tspan
        fill="#cbd5e1"
-       id="tspan44"> · ref to annotationData.id</tspan></text>
+       id="tspan44">· ref to annotationData.id</tspan></text>
+  <text
+     x="370.07031"
+     y="566.97461"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text44-6"><tspan
+   style="font-weight:bold"
+   id="tspan14">projectId</tspan>·unique projectIdd</text>
   <line
      x1="370"
      y1="618"
@@ -765,14 +773,6 @@
      stroke-width="1"
      id="line64" />
   <text
-     x="600"
-     y="898"
-     text-anchor="middle"
-     font-size="11"
-     fill="#6b7280"
-     font-style="italic"
-     id="text65">Valid only when both annotationGeometryBelongsToScene AND annotationDataBelongsToScene hold · ground truth is annotationGeometry and annotationData stores</text>
-  <text
      x="668.2207"
      y="296.17999"
      font-size="12px"
@@ -782,6 +782,14 @@
    id="tspan3-1">visibilityId</tspan>· <tspan
    style="fill:#374151;fill-opacity:1"
    id="tspan9">id of target HDTScene or DigitalAsset</tspan></text>
+  <text
+     x="669.58936"
+     y="317.93735"
+     font-size="12px"
+     fill="#1e40af"
+     id="text13-6-3"><tspan
+   style="font-weight:bold;fill:#065f46;fill-opacity:1"
+   id="tspan3-1-6">version</tspan>·</text>
   <text
      x="85.164383"
      y="157.132"
@@ -830,6 +838,14 @@
        fill="#374151"
        id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
   <text
+     x="83.215881"
+     y="274.64447"
+     font-size="12px"
+     fill="#1e40af"
+     id="text11-2"><tspan
+       style="font-weight:bold"
+       id="tspan13">version</tspan></text>
+  <text
      x="85.035477"
      y="251.13199"
      font-size="12px"
@@ -839,14 +855,14 @@
    id="tspan3">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
   <text
      x="82.814774"
-     y="279.13199"
+     y="309.13199"
      font-size="11px"
      fill="#94a3b8"
      font-weight="600"
-     id="text14">createdAt · createdBy · updatedAt · updatedBy</text>
+     id="text14">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
   <rect
      x="79.51326"
-     y="299.4249"
+     y="329.4249"
      width="303.31726"
      height="18"
      rx="11.445935"
@@ -857,13 +873,37 @@
      xml:space="preserve"
      style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
      x="88.608078"
-     y="311.82843"
+     y="341.82843"
      id="text18"><tspan
        sodipodi:role="line"
        id="tspan18"
        x="88.608078"
-       y="311.82843"
+       y="341.82843"
        style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1">Immutable after creation:  <tspan
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif';fill:#666666"
    id="tspan19">referenceId referenceType</tspan></tspan></text>
+  <rect
+     x="667"
+     y="365"
+     width="303.31726"
+     height="18"
+     rx="11.445935"
+     fill="#eff6ff"
+     id="rect14-6-6"
+     style="fill:#12c483;fill-opacity:0.166799;stroke-width:1.69159" />
+  <text
+     xml:space="preserve"
+     style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
+     x="676.09479"
+     y="377.40353"
+     id="text18-7"><tspan
+       sodipodi:role="line"
+       id="tspan18-5"
+       x="676.09479"
+       y="377.40353"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1"><tspan
+   style="fill:#065f46;fill-opacity:1"
+   id="tspan12">Immutable after creation: </tspan> <tspan
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif';fill:#666666"
+   id="tspan19-3">visibilityId visibilityType</tspan></tspan></text>
 </svg>

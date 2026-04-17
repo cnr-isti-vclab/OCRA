@@ -1,0 +1,23 @@
+# Generated material for Socrates.obj
+# Texture paths are relative to this .mtl file location.
+
+newmtl Socrates
+Ns 80.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+d 1.000000
+illum 2
+
+# Base color (albedo)
+map_Kd ../textures/1001_Base_Color.png
+
+# Ambient occlusion
+map_Ka ../textures/1001_Mixed_AO.png
+
+# Normal map (OpenGL)
+norm ../textures/1001_Normal_OpenGL.png
+map_bump ../textures/1001_Normal_OpenGL.png
+
+# Roughness map (non-standard in classic MTL, included for compatibility)
+map_Ns ../textures/1001_Roughness.png

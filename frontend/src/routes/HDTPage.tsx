@@ -103,6 +103,7 @@ export default function HDTPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
 
   // Digital Assets state
@@ -568,6 +569,7 @@ export default function HDTPage() {
     try {
       setError(null);
       setSuccessMessage(null);
+      setWarningMessages([]);
       setUploading(true);
       setUploadProgress(0);
 
@@ -623,6 +625,9 @@ export default function HDTPage() {
       console.log('🔄 [UnifiedUpload] Backend response:', uploadJson);
 
       const responseData = uploadJson.value || uploadJson;
+      const uploadWarnings = Array.isArray(responseData.warnings)
+        ? responseData.warnings.filter((w: unknown): w is string => typeof w === 'string' && w.trim().length > 0)
+        : [];
 
       // 4) Update asset with complete data (entrySize, entryPointUrl, etc.)
       const updatePayload: Record<string, any> = {
@@ -655,6 +660,7 @@ export default function HDTPage() {
 
       const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset "${file.name}" uploaded and saved successfully!`);
+      setWarningMessages(uploadWarnings);
     } catch (err: any) {
       console.error('[UnifiedUpload] Error:', err);
       setError(err?.message || 'Failed to upload asset');
@@ -703,6 +709,23 @@ export default function HDTPage() {
             type="button"
             className="btn-close"
             onClick={() => setError(null)}
+            aria-label="Close"
+          ></button>
+        </div>
+      )}
+
+      {warningMessages.length > 0 && (
+        <div className="alert alert-warning alert-dismissible fade show" role="alert">
+          <strong>Warnings:</strong>
+          <ul className="mb-0 mt-2">
+            {warningMessages.map((warning, idx) => (
+              <li key={`${idx}-${warning}`}>{warning}</li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setWarningMessages([])}
             aria-label="Close"
           ></button>
         </div>
@@ -1075,13 +1098,22 @@ export default function HDTPage() {
                     if (!file) return;
 
                     const isZip = file.name.toLowerCase().endsWith('.zip');
+                    const isDirectObj = file.name.toLowerCase().endsWith('.obj') && !isZip;
                     const is3DFile = ['.ply', '.obj', '.gltf', '.glb', '.fbx', '.dae', '.x3d', '.stl', '.3ds']
                       .some(ext => file.name.toLowerCase().endsWith(ext));
 
                     if (!isZip && !is3DFile) {
                       setError('Please select a 3D model file or ZIP archive.');
+                      setWarningMessages([]);
                       (e.target as HTMLInputElement).value = '';
                       return;
+                    }
+                    if (isDirectObj) {
+                      setWarningMessages([
+                        `Direct OBJ upload selected ("${file.name}"). If this model requires external materials/textures, upload a ZIP containing .obj + .mtl + texture files.`
+                      ]);
+                    } else {
+                      setWarningMessages([]);
                     }
                     // asset label by default is the filename with extension
                     const assetLabel = file.name;
