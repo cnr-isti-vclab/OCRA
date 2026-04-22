@@ -1,0 +1,4 @@
+[submodule "frontend/openlime"]
+	path = frontend/openlime
+	url = https://github.com/cnr-isti-vclab/openlime.git
+	branch = ocra-integration
