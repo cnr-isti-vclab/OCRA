@@ -26,3 +26,5 @@ media/LargeModels/
 project_files
 prisma
 
+/doc/Deliverables
+/tmp/slides
