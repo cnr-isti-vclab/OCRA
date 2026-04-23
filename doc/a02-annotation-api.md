@@ -103,6 +103,23 @@ Returns the count of deleted documents.
 
 ---
 
+##### `deleteErasableAnnotationsForProject(projectId): { deletedLinks: number, deletedGeometries: number, deletedData: number }`
+
+Physically removes all annotation records in the project that are already in an `erasable` state and are now eligible for permanent cleanup.
+
+**System actions:**
+1. Delete all `annotationLink` documents in the project whose `erasableAt` is not `null`.
+2. Run `deleteOrphanedGeometries(projectId)`.
+3. Run `deleteOrphanedData(projectId)`.
+
+This order is required: `annotationLink` cleanup must happen first, so that `annotationGeometry` and `annotationData` orphan detection is evaluated only after all erasable links have been physically removed.
+
+**Returns:** a structured count of deleted links, geometries, and data records.
+
+> This is a maintenance operation, not a user-facing endpoint.
+
+---
+
 #### Import and Export
 
 ##### `exportAnnotationsForScene(projectId, sceneId, format?): ExportDocument`
@@ -627,6 +644,12 @@ Returns the `annotation_link` collection, ensuring indexes are created on first 
 #### `deleteAnnotationLinksByProjectId(projectId: string): Promise<number>`
 
 `collection.deleteMany({ projectId })`. Returns the count of deleted documents. Used during project-level removal.
+
+---
+
+#### `deleteErasableAnnotationLinksByProjectId(projectId: string): Promise<number>`
+
+`collection.deleteMany({ projectId, erasableAt: { $ne: null } })`. Returns the count of deleted documents. Used by project-level maintenance cleanup before orphaned geometry/data are removed.
 
 ---
 
