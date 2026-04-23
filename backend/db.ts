@@ -241,10 +241,12 @@ export async function deleteUserSession(sessionId: string): Promise<boolean> {
   const db = getPrismaClient();
   
   try {
-    await db.session.delete({
+    const result = await db.session.deleteMany({
       where: { id: sessionId },
     });
-    return true;
+
+    // Treat logout as idempotent: a repeated delete should not surface as an error.
+    return result.count > 0;
   } catch (error) {
     console.error('Failed to delete session:', error);
     return false;
