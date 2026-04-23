@@ -362,6 +362,8 @@ For mutable entities (`annotationGeometry`, `annotationData`, and `annotationLin
 - `erasableAt` and `erasableBy` are set atomically when an entity is marked as `erasable`, and cleared atomically when it is restored to `non-erasable`. Both transitions also increment `version` and update `updatedAt`/`updatedBy`.
 - All timestamps are server-assigned to guarantee a coherent time source across clients.
 
-For `annotationLink`, the only allowed updates are those erasable-state transitions. The referenced `annotationGeometry` and `annotationData` ids never change after creation.
+For `annotationLink`, the only allowed updates are those erasable-state transitions. Its `geometryId` and `dataId` values never change after creation.
+
+When a link restore also restores the referenced geometry and data, the three per-document updates must be grouped in one transaction so the logical undelete cannot leave a partially restored relation.
 
 This design supports optimistic concurrency control (OCC) without long-lived database locks. The conditional MongoDB update filter uses `version`, not `updatedAt`, as the concurrency token. This avoids coupling correctness to timestamp precision, clock skew, or clock-dependent ordering.

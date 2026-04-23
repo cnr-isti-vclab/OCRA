@@ -90,6 +90,8 @@ Physical deletion of `annotationGeometry` and `annotationData` is **never trigge
 
 Physical deletion of `annotationLink` is likewise **not part of the normal editing workflow**. Ordinary link removal is expressed by marking the link as `erasable`, leaving its referenced `annotationGeometry` and `annotationData` unchanged. Restoring a link to `non-erasable` is also an OCC-protected operation and restores the referenced geometry and data to `non-erasable` as part of the same logical undelete flow.
 
+Because link restore touches multiple documents, that undelete flow must run inside a short MongoDB transaction. This avoids partial restores while still preserving the stateless optimistic model: there are no long-lived locks or server-held edit sessions.
+
 No operation type has automatic priority over the others. A stale `markErasable` request fails in the same way as a stale `update` request.
 
 The OCC check also captures the entity's erasability state as part of the validation. This means that if Entity A was `non-erasable` when User 1 began editing and is `erasable` when User 1 attempts to save, the save is rejected — the `version` will have changed when the erasable state was set. The client learns about the state change and can decide the next step.
@@ -205,7 +207,7 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 4. On save: the backend handles the operation according to its type.  
    - **Create**: the backend inserts a new document with its initial `version`; no `expectedVersion` check is needed.  
    - **Update / change erasability**: the backend performs a conditional write using `expectedVersion`. If the write succeeds, it returns the new `version`; otherwise it returns a conflict error and the client shows a resolution dialog.
-   - **Link restore**: if an `annotationLink` is restored to `non-erasable`, the backend also restores the referenced `annotationGeometry` and `annotationData` to `non-erasable` as part of the same logical operation.
+   - **Link restore**: if an `annotationLink` is restored to `non-erasable`, the backend also restores the referenced `annotationGeometry` and `annotationData` to `non-erasable` as part of the same logical operation, executed inside one short transaction.
 5. The user sends `notifyEditingStop(projectId, sceneId, targetId?)` to release the Social Lock.
 
 ### Workflow 3: Scene Viewing

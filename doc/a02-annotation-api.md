@@ -138,25 +138,25 @@ These queries are implemented at the service layer because they cross multiple r
 
 **`annotationGeometry` Reads**
 
-##### `getAnnotationGeometry(projectId, geometryId): annotationGeometry`
+##### `getAnnotationGeometry(projectId, geometryId, includeErasable?): annotationGeometry`
 
 Returns a single `annotationGeometry` element identified by `geometryId`.
 
 ---
 
-##### `getAnnotationGeometriesForScene(projectId, sceneId): annotationGeometry[]`
+##### `getAnnotationGeometriesForScene(projectId, sceneId, includeErasable?): annotationGeometry[]`
 
 Returns all `annotationGeometry` elements whose `referenceType == "scene"` and `referenceId == sceneId`.
 
 ---
 
-##### `getAnnotationGeometriesForAsset(projectId, assetId): annotationGeometry[]`
+##### `getAnnotationGeometriesForAsset(projectId, assetId, includeErasable?): annotationGeometry[]`
 
 Returns all `annotationGeometry` elements whose `referenceType == "asset"` and `referenceId == assetId`.
 
 ---
 
-##### `getAnnotationGeometriesForSceneAssets(projectId, sceneId, sceneAssetIds[]): annotationGeometry[]`
+##### `getAnnotationGeometriesForSceneAssets(projectId, sceneId, sceneAssetIds[], includeErasable?): annotationGeometry[]`
 
 Returns all `annotationGeometry` elements that reference either the scene itself or any of the assets currently present in the scene.
 
@@ -169,25 +169,25 @@ Returns all `annotationGeometry` elements that reference either the scene itself
 
 **`annotationData` Reads**
 
-##### `getAnnotationData(projectId, dataId): annotationData`
+##### `getAnnotationData(projectId, dataId, includeErasable?): annotationData`
 
 Returns a single `annotationData` element identified by `dataId`.
 
 ---
 
-##### `getAnnotationDataForScene(projectId, sceneId): annotationData[]`
+##### `getAnnotationDataForScene(projectId, sceneId, includeErasable?): annotationData[]`
 
 Returns all `annotationData` elements whose `visibilityType == "scene"` and `visibilityId == sceneId`.
 
 ---
 
-##### `getAnnotationDataForAsset(projectId, assetId): annotationData[]`
+##### `getAnnotationDataForAsset(projectId, assetId, includeErasable?): annotationData[]`
 
 Returns all `annotationData` elements whose `visibilityType == "asset"` and `visibilityId == assetId`.
 
 ---
 
-##### `getAnnotationDataForSceneAssets(projectId, sceneId, sceneAssetIds[]): annotationData[]`
+##### `getAnnotationDataForSceneAssets(projectId, sceneId, sceneAssetIds[], includeErasable?): annotationData[]`
 
 Returns all `annotationData` elements visible within a given scene (scoped to the scene itself or any of its assets).
 
@@ -200,31 +200,31 @@ Returns all `annotationData` elements visible within a given scene (scoped to th
 
 **`annotationLink` Reads**
 
-##### `getAnnotationLink(projectId, linkId): annotationLink`
+##### `getAnnotationLink(projectId, linkId, includeErasable?): annotationLink`
 
 Returns a single `annotationLink` identified by `linkId`.
 
 ---
 
-##### `getAnnotationLinksForProject(projectId): annotationLink[]`
+##### `getAnnotationLinksForProject(projectId, includeErasable?): annotationLink[]`
 
 Returns all `annotationLink` records associated with the given project. Used for full project exports and integrity audits.
 
 ---
 
-##### `getAnnotationLinksForGeometry(projectId, geometryId): annotationLink[]`
+##### `getAnnotationLinksForGeometry(projectId, geometryId, includeErasable?): annotationLink[]`
 
 Returns all links referencing a specific `annotationGeometry`.
 
 ---
 
-##### `getAnnotationLinksForData(projectId, dataId): annotationLink[]`
+##### `getAnnotationLinksForData(projectId, dataId, includeErasable?): annotationLink[]`
 
 Returns all links referencing a specific `annotationData`.
 
 ---
 
-##### `getAnnotationLinksForScene(projectId, sceneId): annotationLink[]`
+##### `getAnnotationLinksForScene(projectId, sceneId, includeErasable?): annotationLink[]`
 
 Returns all `annotationLink` records that reference the given scene (through geometry or data).
 
@@ -235,7 +235,7 @@ Returns all `annotationLink` records that reference the given scene (through geo
 
 ---
 
-##### `getAnnotationLinksForAsset(projectId, assetId): annotationLink[]`
+##### `getAnnotationLinksForAsset(projectId, assetId, includeErasable?): annotationLink[]`
 
 Returns all `annotationLink` records that reference the given asset (through geometry or data).
 
@@ -246,7 +246,7 @@ Returns all `annotationLink` records that reference the given asset (through geo
 
 ---
 
-##### `getAnnotationLinksForSceneAssets(projectId, sceneId, sceneAssetIds[]): annotationLink[]`
+##### `getAnnotationLinksForSceneAssets(projectId, sceneId, sceneAssetIds[], includeErasable?): annotationLink[]`
 
 Returns all `annotationLink` records visible within a given scene, including links involving assets present in the scene.
 
