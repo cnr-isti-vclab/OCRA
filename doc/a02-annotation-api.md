@@ -47,7 +47,7 @@ Within the backend API, the technical layering remains explicit:
 - **Repository Layer**: single-collection MongoDB access.
 - **Mongo Infrastructure**: MongoDB client lifecycle and database access.
 
-All operations that mutate `annotationGeometry` or `annotationData` use **optimistic concurrency control** (OCC): a conditional write based on `expectedVersion` ensures that a stale client cannot silently overwrite a more recent state. `updatedAt` remains available for audit and debugging, but it is not the OCC token. See [Collaborative Annotation Editing](collaborative-annotation-editing.md) for the full concurrency model.
+All operations that mutate `annotationGeometry`, `annotationData`, or `annotationLink` use **optimistic concurrency control** (OCC): a conditional write based on `expectedVersion` ensures that a stale client cannot silently overwrite a more recent state. `updatedAt` remains available for audit and debugging, but it is not the OCC token. See [Collaborative Annotation Editing](collaborative-annotation-editing.md) for the full concurrency model.
 
 All timestamps are server-assigned. All identifiers are treated as opaque strings. All operations are scoped to a `projectId`.
 
@@ -70,7 +70,7 @@ The Service Layer (`services/`) contains all business logic and orchestration. I
 Verifies all invariants for a given `annotationLink`:
 
 1. Referential integrity: both referenced entities exist and belong to the same project.
-2. Uniqueness: the (`annotationGeometry`, `annotationData`) pair is not duplicated.
+2. Uniqueness: the (`geometryId`, `dataId`) pair is not duplicated.
 3. Scene consistency: the geometry–data scope combination satisfies the [scene consistency rules](annotation-model.md#scene-consistency-rules).
 
 Returns a structured `ValidationReport` listing any violated constraints.
@@ -128,9 +128,11 @@ Imports a structured set of annotation records (geometry, data, links), validati
 
 #### Scene-Aware Read Queries
 
-All read operations return only `non-erasable` entities and `erasable` entities that still have at least one incoming `annotationLink`, unless `includeErasable: true` is passed. Editor-oriented reads should pass this flag to allow display and restoration of pending-erasure entities.
+All read operations return only `non-erasable` `annotationLink` records by default. For `annotationGeometry` and `annotationData`, normal reads return `non-erasable` entities and `erasable` entities that still have at least one incoming non-erasable `annotationLink`, unless `includeErasable: true` is passed. Editor-oriented reads should pass this flag to allow display and restoration of pending-erasure entities.
 
 When `includeErasable: true` is enabled, these queries may also surface `erasable` entities that no longer have incoming links but are still physically present in the database because garbage collection has not run yet. This visibility is temporary: once a fully detached `erasable` entity is physically removed by maintenance, it disappears from query results entirely. The flag does not preserve or resurrect entities after deletion.
+
+For visibility purposes, only non-erasable links count toward reachability. Having only incoming links that are themselves `erasable` is equivalent to having zero incoming links.
 
 These queries are implemented at the service layer because they cross multiple repositories.
 
@@ -369,29 +371,51 @@ Restores an `annotationData` to the `non-erasable` state.
 
 **`annotationLink` Mutations**
 
-##### `createAnnotationLink(projectId, annotationGeometryId, annotationDataId): string | null`
+##### `createAnnotationLink(projectId, geometryId, dataId): string | null`
 
 Creates a new `annotationLink` associating one geometry element with one data record.
 
 **Pre-conditions:**
-1. `annotationGeometryId` must reference an existing `annotationGeometry` in the project.
-2. `annotationDataId` must reference an existing `annotationData` in the project.
+1. `geometryId` must reference an existing `annotationGeometry` in the project.
+2. `dataId` must reference an existing `annotationData` in the project.
 3. The pair must not already exist (verified via `findAnnotationLinkByPair`).
 4. The geometry and data scopes must satisfy the [scene consistency rules](annotation-model.md#scene-consistency-rules).
 
-**System actions:** generate a new unique `id`; call `insertAnnotationLink` with server-assigned `createdAt`/`createdBy`. The unique index on (`annotationGeometry`, `annotationData`) provides a secondary safety net at the MongoDB level.
+**System actions:** generate a new unique `id`; call `insertAnnotationLink` with `geometryId`, `dataId`, `version = 0`, `erasableAt = null`, `erasableBy = null`, and server-assigned `createdAt`/`createdBy` and `updatedAt`/`updatedBy`. The unique index on (`projectId`, `geometryId`, `dataId`) provides a secondary safety net at the MongoDB level.
 
 **Returns:** `linkId` on success; `null` if any constraint is violated.
 
 ---
 
-##### `deleteAnnotationLink(projectId, linkId): boolean`
+##### `markAnnotationLinkErasable(projectId, linkId, expectedVersion): number | false`
 
-Deletes an `annotationLink`. True delete — no `erasable` lifecycle. Does not cascade to geometry or data.
+Transitions an `annotationLink` to the `erasable` state.
 
-**System actions:** call `deleteAnnotationLinkById(projectId, linkId)`.
+**Pre-conditions:** `annotationLink` must exist and `annotationLink.erasableAt` must be `null`.
 
-**Returns:** `true` on success; `false` if the link does not exist.
+**System actions:** call `conditionalUpdateAnnotationLink` with filter `{ id, version: expectedVersion }` and update `{ $set: { erasableAt, erasableBy, updatedAt, updatedBy }, $inc: { version: 1 } }`.
+
+**Returns:** the new `version` on success; `false` on OCC mismatch or not found.
+
+---
+
+##### `markAnnotationLinkNonErasable(projectId, linkId, expectedVersion): { linkVersion, geometryVersion, dataVersion } | false`
+
+Restores an `annotationLink` to the `non-erasable` state. As part of the same logical operation, the referenced `annotationGeometry` and `annotationData` are also restored to `non-erasable`.
+
+**Pre-conditions:**
+1. `annotationLink` must exist.
+2. `annotationLink.erasableAt` must not be `null`.
+3. The referenced `annotationGeometry` and `annotationData` must still exist.
+
+**System actions:**
+1. Start a MongoDB transaction.
+2. Conditionally update the link with `{ id, version: expectedVersion }`, clearing `erasableAt` / `erasableBy`, incrementing `version`, and updating `updatedAt` / `updatedBy`.
+3. For the referenced `annotationGeometry`, if it is currently `erasable`, clear `erasableAt` / `erasableBy`, increment `version`, and update `updatedAt` / `updatedBy`.
+4. For the referenced `annotationData`, if it is currently `erasable`, clear `erasableAt` / `erasableBy`, increment `version`, and update `updatedAt` / `updatedBy`.
+5. Commit the transaction.
+
+**Returns:** the new versions of link, geometry, and data on success; `false` on OCC mismatch, missing link, or missing referenced entities.
 
 ---
 
@@ -527,9 +551,10 @@ Returns the `annotation_data` collection, ensuring indexes are created on first 
 
 **Suggested indexes:**
 - `{ projectId: 1 }`
-- `{ projectId: 1, annotationGeometry: 1 }`
-- `{ projectId: 1, annotationData: 1 }`
-- `{ annotationGeometry: 1, annotationData: 1 }` — **unique**, enforces pair uniqueness at the MongoDB level as a secondary safety net behind the service-layer check.
+- `{ projectId: 1, geometryId: 1 }`
+- `{ projectId: 1, dataId: 1 }`
+- `{ projectId: 1, erasableAt: 1 }`
+- `{ projectId: 1, geometryId: 1, dataId: 1 }` — **unique**, enforces pair uniqueness within a project at the MongoDB level as a secondary safety net behind the service-layer check.
 
 ---
 
@@ -553,43 +578,49 @@ Returns the `annotation_link` collection, ensuring indexes are created on first 
 
 #### `findAnnotationLinksByGeometryId(projectId: string, geometryId: string): Promise<AnnotationLinkDocument[]>`
 
-`collection.find({ projectId, annotationGeometry: geometryId }).toArray()`.
+`collection.find({ projectId, geometryId }).toArray()`.
 
 ---
 
 #### `findAnnotationLinksByDataId(projectId: string, dataId: string): Promise<AnnotationLinkDocument[]>`
 
-`collection.find({ projectId, annotationData: dataId }).toArray()`.
+`collection.find({ projectId, dataId }).toArray()`.
 
 ---
 
 #### `findAnnotationLinksByGeometryIds(projectId: string, geometryIds: string[]): Promise<AnnotationLinkDocument[]>`
 
-`collection.find({ projectId, annotationGeometry: { $in: geometryIds } }).toArray()`. Batch variant used by scene-level and removal queries.
+`collection.find({ projectId, geometryId: { $in: geometryIds } }).toArray()`. Batch variant used by scene-level and removal queries.
 
 ---
 
 #### `findAnnotationLinksByDataIds(projectId: string, dataIds: string[]): Promise<AnnotationLinkDocument[]>`
 
-`collection.find({ projectId, annotationData: { $in: dataIds } }).toArray()`. Batch variant.
+`collection.find({ projectId, dataId: { $in: dataIds } }).toArray()`. Batch variant.
 
 ---
 
 #### `findAnnotationLinkByPair(projectId: string, geometryId: string, dataId: string): Promise<AnnotationLinkDocument | null>`
 
-`collection.findOne({ projectId, annotationGeometry: geometryId, annotationData: dataId })`. Used to check pair uniqueness before insertion.
+`collection.findOne({ projectId, geometryId, dataId })`. Used to check pair uniqueness before insertion.
 
 ---
 
 #### `insertAnnotationLink(doc: AnnotationLinkDocument): Promise<string>`
 
-`collection.insertOne(doc)`. Returns the inserted `id`. The unique index on (`annotationGeometry`, `annotationData`) causes MongoDB to reject duplicate pairs at the driver level if the service-layer check is bypassed.
+`collection.insertOne(doc)`. Returns the inserted `id`. The unique index on (`projectId`, `geometryId`, `dataId`) causes MongoDB to reject duplicate pairs at the driver level if the service-layer check is bypassed.
+
+---
+
+#### `conditionalUpdateAnnotationLink(id: string, expectedVersion: number, update: UpdateFilter<AnnotationLinkDocument>): Promise<AnnotationLinkDocument | null>`
+
+`collection.findOneAndUpdate({ id, version: expectedVersion }, update, { returnDocument: 'after' })`. Returns the updated document if the OCC condition matched; `null` otherwise.
 
 ---
 
 #### `deleteAnnotationLinkById(projectId: string, id: string): Promise<boolean>`
 
-`collection.deleteOne({ projectId, id })`. Returns `true` if a document was deleted.
+`collection.deleteOne({ projectId, id })`. Returns `true` if a document was deleted. Called only by structural cleanup, garbage collection, or superuser maintenance — never by the normal annotation editing API.
 
 ---
 
@@ -644,6 +675,7 @@ Closes the active `MongoClient` and resets all cached `Db` references. Called du
 | Referenced entity does not exist | Operation returns `false` / `null`; no write is applied |
 | Scene consistency violated | `createAnnotationLink` returns `null` with a constraint error |
 | Duplicate link pair | `createAnnotationLink` returns `null` with a uniqueness error |
+| `annotationLink` restore cannot find referenced geometry or data | Operation returns `false`; transaction is aborted |
 | Structuring lock held | `startReading` returns `false`; all API operations blocked |
 
 All errors are non-destructive. No partial writes occur. The database remains in a valid state after any rejected operation.
@@ -652,10 +684,11 @@ All errors are non-destructive. No partial writes occur. The database remains in
 
 ## API Design Principles
 
-- **Atomicity**: every conditional write (OCC check + field update + version increment + timestamp) is executed as a single MongoDB `findOneAndUpdate` atomic operation.
+- **Atomicity**: every single-document conditional write (OCC check + field update + version increment + timestamp) is executed as a single MongoDB `findOneAndUpdate` atomic operation.
+- **Transactional restore for link undelete**: restoring an `annotationLink` and restoring its referenced `annotationGeometry` and `annotationData` to `non-erasable` are executed in one MongoDB transaction, so the logical undelete does not leave a partially restored graph.
 - **Layer separation**: the Service Layer owns all business logic; the Repository Layer owns all MongoDB access. No layer crosses its boundary.
 - **No deep-delete operations in annotation editing**: ordinary annotation editing operations do not mix link removal, orphan detection, and physical deletion in a single call. Structural cleanup triggered by project structuring is documented separately.
-- **Physical deletion is tightly scoped**: `deleteAnnotationGeometryById` and `deleteAnnotationDataById` remain repository-level operations used only by structural cleanup, garbage collection, and superuser maintenance, not by normal frontend editing flows.
+- **Physical deletion is tightly scoped**: `deleteAnnotationGeometryById`, `deleteAnnotationDataById`, and `deleteAnnotationLinkById` remain repository-level operations used only by structural cleanup, garbage collection, and superuser maintenance, not by normal frontend editing flows.
 - **Server-assigned timestamps**: all `createdAt` and `updatedAt` fields are set by the server to ensure a coherent time source across distributed clients.
 - **Project-scoped isolation**: all operations require `projectId`, which is indexed on every collection. This prevents cross-project data leakage and supports efficient per-project queries.
 
@@ -758,10 +791,13 @@ event: annotation-geometry.updated
 data: {"geometryId":"geo-xyz","updatedAt":"2026-04-14T10:00:00.000Z","version":3}
 
 event: annotation-link.created
-data: {"linkId":"lnk-abc","geometryId":"geo-xyz","dataId":"dat-999"}
+data: {"linkId":"lnk-abc","geometryId":"geo-xyz","dataId":"dat-999","version":0}
 
-event: annotation-link.deleted
-data: {"linkId":"lnk-abc"}
+event: annotation-link.erasable
+data: {"linkId":"lnk-abc","geometryId":"geo-xyz","dataId":"dat-999","version":3}
+
+event: annotation-link.nonerasable
+data: {"linkId":"lnk-abc","geometryId":"geo-xyz","dataId":"dat-999","version":4,"geometryVersion":7,"dataVersion":5}
 
 event: social-lock.acquired
 data: {"targetId":"geo-xyz","userId":"user-123","displayName":"Anna Bianchi"}
@@ -770,7 +806,7 @@ event: social-lock.released
 data: {"targetId":"geo-xyz","userId":"user-123"}
 ```
 
-**Event types:** `annotation-geometry.created`, `annotation-geometry.updated`, `annotation-geometry.erasable`, `annotation-geometry.nonerasable`, `annotation-data.created`, `annotation-data.updated`, `annotation-data.erasable`, `annotation-data.nonerasable`, `annotation-link.created`, `annotation-link.deleted`, `social-lock.acquired`, `social-lock.released`.
+**Event types:** `annotation-geometry.created`, `annotation-geometry.updated`, `annotation-geometry.erasable`, `annotation-geometry.nonerasable`, `annotation-data.created`, `annotation-data.updated`, `annotation-data.erasable`, `annotation-data.nonerasable`, `annotation-link.created`, `annotation-link.erasable`, `annotation-link.nonerasable`, `social-lock.acquired`, `social-lock.released`.
 
 The connection is kept open; the client must reconnect on network loss (standard EventSource retry behaviour).
 
@@ -1010,6 +1046,7 @@ List all annotation links for the project.
 | --- | --- | --- |
 | `geometryId` | string | Filter links referencing this geometry |
 | `dataId` | string | Filter links referencing this data record |
+| `includeErasable` | boolean | Include erasable links |
 
 **Response:** `200 { "success": true, "links": [...] }`
 
@@ -1024,6 +1061,7 @@ Return all links visible within a given scene (links whose geometry and data are
 | Name | Type | Description |
 | --- | --- | --- |
 | `assetIds` | `string[]` (repeated) | Asset IDs currently in the scene |
+| `includeErasable` | boolean | Include erasable links |
 
 **Response:** `200 { "success": true, "links": [...] }`
 
@@ -1032,6 +1070,8 @@ Return all links visible within a given scene (links whose geometry and data are
 #### `GET /api/projects/:projectId/annotations/links/:linkId`
 
 Get a single annotation link.
+
+**Query parameters:** `includeErasable=true|false`.
 
 **Responses:** `200 { "success": true, "link": {...} }`; `404` if not found.
 
@@ -1044,8 +1084,8 @@ Create a new annotation link.
 **Request body:**
 ```json
 {
-  "annotationGeometryId": "geo-xyz",
-  "annotationDataId": "dat-999"
+  "geometryId": "geo-xyz",
+  "dataId": "dat-999"
 }
 ```
 
@@ -1061,11 +1101,36 @@ Create a new annotation link.
 
 ---
 
-#### `DELETE /api/projects/:projectId/annotations/links/:linkId`
+#### `PATCH /api/projects/:projectId/annotations/links/:linkId/erasable`
 
-Delete an annotation link. True delete — no OCC required; no cascade to geometry or data.
+Mark an annotation link as erasable. This affects only the link itself; it does not change the erasable state of the referenced geometry or data.
 
-**Responses:** `200 { "success": true }`; `404` if the link does not exist; `401` not authenticated.
+**Request body:**
+```json
+{ "expectedVersion": 3 }
+```
+
+**Responses:** `200 { "success": true, "version": 4, "updatedAt": "..." }`; `409` on OCC conflict; `404` if the link does not exist; `401` not authenticated.
+
+---
+
+#### `PATCH /api/projects/:projectId/annotations/links/:linkId/nonerasable`
+
+Restore an annotation link to non-erasable state. As part of the same logical operation, the referenced geometry and data are also restored to non-erasable state.
+
+**Request body:**
+```json
+{ "expectedVersion": 3 }
+```
+
+**Responses:**
+
+| Status | Meaning |
+| --- | --- |
+| `200` | `{ "success": true, "linkVersion": 4, "geometryVersion": 7, "dataVersion": 5, "updatedAt": "..." }` |
+| `404` | Link, geometry, or data not found |
+| `409` | OCC conflict — `expectedVersion` does not match the stored value |
+| `401` | Not authenticated |
 
 ---
 

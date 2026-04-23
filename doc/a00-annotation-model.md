@@ -21,7 +21,7 @@ This separation allows OCRA to represent annotations as composable, reusable str
 The annotation model follows these principles:
 
 - **Independence**: geometry and semantic content are stored and managed independently. Either can exist without the other.
-- **Explicit associations**: relationships between geometry and data are first-class entities that can be individually created, queried, and deleted.
+- **Explicit associations**: relationships between geometry and data are first-class entities that can be individually created, queried, soft-removed, and restored.
 - **Immutable scope**: spatial and semantic scopes are fixed at creation time and cannot be changed in place.
 - **Erasability over deletion**: the lifecycle model normally uses a `non-erasable` / `erasable` state transition rather than immediate physical removal, preserving audit trails and enabling safe collaborative editing.
 - **Stateless concurrency**: visibility and consistency are determined at read time from the stored state, not from server-held locks or sessions.
@@ -32,9 +32,9 @@ The annotation model follows these principles:
 | --- | --- |
 | `annotationGeometry` | Standalone 3D geometric shapes relative to a scene or an asset |
 | `annotationData` | Standalone semantic content relative to a scene or an asset |
-| `annotationLink` | Immutable join entity associating one geometry element with one data record |
+| `annotationLink` | Join entity associating one geometry element with one data record |
 
-`annotationGeometry` and `annotationData` may be in either `non-erasable` or `erasable` state. At the model level, an entity remains visible if at least one incoming `annotationLink` still points to it, or if the entity is still `non-erasable`. An `erasable` entity disappears from normal reads only after the last incoming link is removed.
+All three entities may be in either `non-erasable` or `erasable` state. At the model level, an `annotationGeometry` or `annotationData` entity remains visible if at least one incoming non-erasable `annotationLink` still points to it, or if the entity itself is still `non-erasable`. An `erasable` entity disappears from normal reads only after the last incoming non-erasable link is removed.
 
 Each mutable collection maintains a per-document `version` field used as the optimistic concurrency token. `createdAt`, `updatedAt`, and `updatedBy` are assigned server-side for auditability and debugging.
 
@@ -58,7 +58,7 @@ The separation between geometry, data, and link provides several operational ben
 - The same geometry may carry multiple semantic interpretations (e.g. different annotation perspectives from different scholars).
 - Geometry and data can evolve independently: adjusting the spatial position of an anchor does not affect the semantic content, and vice versa.
 - Collaboration conflicts are reduced because many concurrent edits touch different documents in different collections.
-- Deletion is safe and reversible: marking entities as `erasable` and removing links never leaves the system in an inconsistent state.
+- Deletion is safe and reversible: marking entities and links as `erasable` never leaves the system in an inconsistent state and enables an `undelete` flow.
 
 ### Notes on Scenes and Assets
 
@@ -141,10 +141,10 @@ Grouping different shapes within the same geometry allows for flexible represent
 
 - it starts as `non-erasable`
 - it may later be marked as `erasable`
-- it remains visible while at least one `annotationLink` still references it
+- it remains visible while at least one non-erasable `annotationLink` still references it
 - once it is `erasable` and unreferenced, it disappears from normal reads
 
-Marking an entity as `erasable` communicates a soft-removal intent without irreversible side effects, and the entity can be restored to `non-erasable` at any time while links remain. 
+Marking an entity as `erasable` communicates a soft-removal intent without irreversible side effects, and the entity can be restored to `non-erasable` at any time before physical cleanup. 
 Frontend read operations can include `erasable` entities in their results, allowing editors to inspect, display with a distinct visual style, or restore them as needed.
 
 ### JSON Example
@@ -222,10 +222,10 @@ Frontend read operations can include `erasable` entities in their results, allow
 
 - it starts as `non-erasable`
 - it may later be marked as `erasable`
-- it remains visible while at least one `annotationLink` still references it
+- it remains visible while at least one non-erasable `annotationLink` still references it
 - once it is both `erasable` and unreferenced, it disappears from normal reads
 
-Marking an entity as `erasable` communicates a soft-removal intent without irreversible side effects, and the entity can be restored to `non-erasable` at any time while links remain. 
+Marking an entity as `erasable` communicates a soft-removal intent without irreversible side effects, and the entity can be restored to `non-erasable` at any time before physical cleanup. 
 Frontend read operations can include `erasable` entities in their results, allowing editors to inspect, display with a distinct visual style, or restore them as needed.
 
 ### JSON Example
@@ -254,7 +254,7 @@ Frontend read operations can include `erasable` entities in their results, allow
 
 ### Purpose
 
-`annotationLink` is a first-class join entity connecting exactly one geometry element and exactly one data record. It carries no semantic content of its own. Its responsibility is to make the geometry–data association explicit, auditable, and independently manageable.
+`annotationLink` is a first-class join entity connecting exactly one geometry element and exactly one data record. It carries no semantic content of its own. Its responsibility is to make the geometry–data association explicit, auditable, independently manageable, and reversible for undo/undelete scenarios.
 
 ### Fields
 
@@ -262,26 +262,45 @@ Frontend read operations can include `erasable` entities in their results, allow
 | --- | --- | --- |
 | `id` | `string` | Unique identifier. Immutable. |
 | `projectId` | `string` | Identifier of the project this link belongs to. |
-| `annotationGeometry` | `string` | Identifier of the referenced `annotationGeometry`. |
-| `annotationData` | `string` | Identifier of the referenced `annotationData`. |
+| `geometryId` | `string` | Identifier of the referenced `annotationGeometry`. Immutable after creation. |
+| `dataId` | `string` | Identifier of the referenced `annotationData`. Immutable after creation. |
+| `version` | `integer` | Monotonic document version for optimistic concurrency. Incremented atomically on each erasable-state transition. |
+| `erasableAt` | `ISO 8601 timestamp \| null` | Timestamp at which the link was marked as erasable; `null` if non-erasable. |
+| `erasableBy` | `user id \| null` | User who marked the link as erasable; `null` if non-erasable. |
 | `createdAt` | `ISO 8601 timestamp` | Server-assigned creation timestamp. Immutable. |
 | `createdBy` | `user id` | User who created the link. Immutable. |
+| `updatedAt` | `ISO 8601 timestamp` | Server-assigned last-modification timestamp for audit and debugging. |
+| `updatedBy` | `user id` | User who last modified the link, for audit and debugging. |
 
 ### Invariants
 
 1. `projectId` must identify an existing project.
-2. `annotationGeometry` must reference an existing geometry record in the same project.
-3. `annotationData` must reference an existing data record in the same project.
-4. The pair (`annotationGeometry`, `annotationData`) must be unique within the project.
+2. `geometryId` must reference an existing geometry record in the same project.
+3. `dataId` must reference an existing data record in the same project.
+4. The pair (`geometryId`, `dataId`) must be unique within the project.
 5. The geometry scope and data visibility must satisfy the [scene consistency rules](#scene-consistency-rules).
 
 ### Mutability Rules
 
-`annotationLink` is **immutable after creation**. No update operation is defined.
+`annotationLink` is **structurally immutable after creation**. No update operation is defined for its endpoints.
 
-To change an association, the existing link must be deleted and a new link must be created. Because there is no update path, `annotationLink` does not require a `version` field for optimistic concurrency.
+To change an association, the existing link must be marked as `erasable` and a new link must be created. The only allowed in-place state transitions are between `non-erasable` and `erasable`, which require a `version` field for optimistic concurrency.
 
-Link removal is a **true delete** at all abstraction levels. A link represents only the current existence of a relation and therefore does not need its own `erasable` lifecycle.
+### Lifecycle Semantics
+
+`annotationLink` follows the same erasability model as the other first-class annotation entities:
+
+- it starts as `non-erasable`
+- it may later be marked as `erasable`
+- when it becomes `erasable`, the referenced `annotationGeometry` and `annotationData` remain unchanged
+- while it is `erasable`, it is excluded from normal reads and no longer contributes to the reachability of its referenced `annotationGeometry` and `annotationData`
+- it may later be restored to `non-erasable` to implement an `undelete`
+
+Marking an `annotationLink` as `erasable` affects only the link itself: it does not change the erasable state of the referenced `annotationGeometry` or `annotationData`.
+
+Restoring an `annotationLink` to `non-erasable` also restores its referenced `annotationGeometry` and `annotationData` to `non-erasable`. This gives OCRA at least one safe undo level for relation deletion: restoring the link reactivates the relation itself and the directly referenced endpoints needed to make it visible again.
+
+The endpoints of a link remain immutable: restoration never rewrites `annotationGeometry` or `annotationData` references, it only clears the `erasable` state where needed.
 
 ### JSON Example
 
@@ -289,10 +308,15 @@ Link removal is a **true delete** at all abstraction levels. A link represents o
 {
   "id": "link_ghi789",
   "projectId": "proj_xyz987",
-  "annotationGeometry": "geom_abc123",
-  "annotationData": "data_def456",
+  "geometryId": "geom_abc123",
+  "dataId": "data_def456",
+  "version": 0,
+  "erasableAt": null,
+  "erasableBy": null,
   "createdAt": "2026-03-11T10:00:00.000Z",
-  "createdBy": "user-id-1"
+  "createdBy": "user-id-1",
+  "updatedAt": "2026-03-11T10:00:00.000Z",
+  "updatedBy": "user-id-1"
 }
 ```
 
@@ -301,12 +325,12 @@ Link removal is a **true delete** at all abstraction levels. A link represents o
 Annotation visibility in OCRA is not a simple property of a single record. It emerges from the combination of:
 
 - the entity's **erasable state** (`non-erasable` or `erasable`)
-- the entity's **link reachability** (whether any `annotationLink` still points to it)
+- the entity's **link reachability** (whether any non-erasable `annotationLink` still points to it)
 - the **scope** (`referenceType`/`referenceId` or `visibilityType`/`visibilityId`)
 
 The table below summarises how erasability and link reachability together determine whether an entity appears in normal (non-editor) reads:
 
-| Erasable state | Incoming links | Visible in normal reads? |
+| Erasable state | Incoming non-erasable links | Visible in normal reads? |
 | --- | --- | --- |
 | `non-erasable` | Any (including zero) | Yes |
 | `erasable` | At least one | Yes |
@@ -314,10 +338,14 @@ The table below summarises how erasability and link reachability together determ
 
 **Two important consequences:**
 
-1. An entity marked as `erasable` is not necessarily invisible immediately — it remains visible as long as at least one link still points to it.
+1. An entity marked as `erasable` is not necessarily invisible immediately — it remains visible as long as at least one non-erasable link still points to it.
 2. An entity with zero incoming links is not necessarily invisible — if it is `non-erasable`, it remains available as a standalone annotation resource.
 
 An `erasable` entity with zero incoming links is therefore in a transient state: it is already excluded from normal reads, but it may still exist physically in the database until a maintenance or garbage-collection routine removes it. After that physical removal, it disappears completely from all model-level visibility.
+
+`annotationLink` itself follows the same inclusion rule: a link marked as `erasable` is excluded from normal reads and is ignored when evaluating the reachability of `annotationGeometry` and `annotationData`. Marking the link as `erasable` leaves the referenced entities unchanged. If that link is later restored, the referenced geometry and data are restored to `non-erasable` as part of the same logical undelete flow.
+
+For visibility purposes, only non-erasable links count toward reachability. Having only incoming `annotationLink` records that are themselves `erasable` is equivalent to having zero incoming links.
 
 This lifecycle rule applies to ordinary annotation editing. Project-structuring operations are an explicit exception: if a scene, asset, or project is structurally deleted, any annotation records whose scope depends on that deleted context must be physically removed as part of the same structural cleanup, because they no longer have a valid meaning in the model.
 
@@ -325,7 +353,7 @@ Frontend read operations may opt in to include `erasable` entities via an `inclu
 
 ## Versioning and Audit Fields
 
-For mutable entities (`annotationGeometry` and `annotationData`), the model guarantees:
+For mutable entities (`annotationGeometry`, `annotationData`, and `annotationLink`), the model guarantees:
 
 - `version` is initialised to zero during creation.
 - `version` is incremented as part of every successful update in the same atomic write and is the only token used by the OCC check.
@@ -333,5 +361,7 @@ For mutable entities (`annotationGeometry` and `annotationData`), the model guar
 - `createdAt` and `createdBy` are immutable after creation.
 - `erasableAt` and `erasableBy` are set atomically when an entity is marked as `erasable`, and cleared atomically when it is restored to `non-erasable`. Both transitions also increment `version` and update `updatedAt`/`updatedBy`.
 - All timestamps are server-assigned to guarantee a coherent time source across clients.
+
+For `annotationLink`, the only allowed updates are those erasable-state transitions. The referenced `annotationGeometry` and `annotationData` ids never change after creation.
 
 This design supports optimistic concurrency control (OCC) without long-lived database locks. The conditional MongoDB update filter uses `version`, not `updatedAt`, as the concurrency token. This avoids coupling correctness to timestamp precision, clock skew, or clock-dependent ordering.

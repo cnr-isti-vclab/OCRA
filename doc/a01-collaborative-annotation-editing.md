@@ -31,7 +31,7 @@ Because structuring operations may invalidate annotations (e.g. deleting a scene
 
 ### Annotation Editing Operations
 
-Annotation editing operations act on `annotationGeometry`, `annotationData`, and `annotationLink` records. `annotationGeometry` and `annotationData` may be created, updated, or transitioned between `non-erasable` and `erasable`. `annotationLink` is immutable after creation, so it can only be created or deleted. These operations do not alter the project structure and are generally safe to execute concurrently.
+Annotation editing operations act on `annotationGeometry`, `annotationData`, and `annotationLink` records. `annotationGeometry` and `annotationData` may be created, updated, or transitioned between `non-erasable` and `erasable`. `annotationLink` keeps its two endpoints (`geometryId` and `dataId`) immutable after creation, but it also participates in the same `non-erasable` / `erasable` lifecycle and OCC model. 
 
 Annotation editing uses **optimistic concurrency control**: multiple users may work on the same scene's annotations simultaneously. Conflicts are detected only at save time, not preventively locked up front.
 
@@ -65,7 +65,7 @@ The **optimistic approach** shines in this scenario: it imposes zero blocking co
 
 ### How It Works
 
-Every mutable annotation entity (`annotationGeometry` and `annotationData`) carries a `version` integer and an `updatedAt` server-assigned timestamp. The OCC check works as follows:
+Every mutable annotation entity (`annotationGeometry`, `annotationData`, and `annotationLink`) carries a `version` integer and an `updatedAt` server-assigned timestamp. The OCC check works as follows:
 
 1. **Read**: the client loads the entity and records its current `version` value as `expectedVersion`.
 2. **Edit**: the user modifies the entity locally. No lock is acquired.
@@ -78,15 +78,17 @@ The `version` integer is updated atomically in the same write operation as the m
 
 ### Scope of the OCC Check
 
-The OCC check applies to all mutating operations on `annotationGeometry` and `annotationData`:
+The OCC check applies to all mutating operations on `annotationGeometry`, `annotationData`, and `annotationLink`:
 
 - `update` (modifying fields)
 - `markErasable` (transitioning to `erasable` state)
 - `markNonErasable` (restoring to `non-erasable` state)
 
+For `annotationLink`, only the erasability transitions are allowed. Its `geometryId` and `dataId` references remain immutable after creation.
+
 Physical deletion of `annotationGeometry` and `annotationData` is **never triggered by a user action** through the annotation API. It is performed exclusively by garbage collection routines or superuser maintenance operations, both of which operate outside the normal editing workflow.
 
-`annotationLink` is different: it has no mutable fields and no `erasable` lifecycle, so there is no OCC check for its creation. Its removal is a direct true delete, performed immediately when a link association must be dissolved.
+Physical deletion of `annotationLink` is likewise **not part of the normal editing workflow**. Ordinary link removal is expressed by marking the link as `erasable`, leaving its referenced `annotationGeometry` and `annotationData` unchanged. Restoring a link to `non-erasable` is also an OCC-protected operation and restores the referenced geometry and data to `non-erasable` as part of the same logical undelete flow.
 
 No operation type has automatic priority over the others. A stale `markErasable` request fails in the same way as a stale `update` request.
 
@@ -94,7 +96,7 @@ The OCC check also captures the entity's erasability state as part of the valida
 
 ### Creation
 
-Creation operations have no concurrency conflict: new records have globally unique identifiers generated at save time. A user can work locally for any amount of time building a new annotation without risking a conflict with other users. The insert either succeeds (if the id does not yet exist) or fails cleanly (if a duplicate id is detected, which in practice cannot happen with properly generated IDs).
+Creation operations have no concurrency conflict: new records have globally unique identifiers generated at save time. A user can work locally for any amount of time building a new annotation without risking a conflict with other users. The insert either succeeds (if the id does not yet exist) or fails cleanly (if a duplicate id is detected, which in practice cannot happen with properly generated IDs). This applies equally to newly created `annotationGeometry`, `annotationData`, and `annotationLink` records.
 
 ### Conflict Resolution
 
@@ -138,7 +140,7 @@ Beyond Social Locks, OCRA provides mechanisms to keep all connected clients awar
 
 ### Notification Channels
 
-The backend emits mutation events whenever a create, update, or erasability-state change is committed successfully. These events are delivered via **Server-Sent Events (SSE)**: a standard HTTP mechanism in which the server keeps a response stream open and pushes lightweight text events to the client as they occur. SSE is unidirectional (server → client), requires no special protocol beyond HTTP, and is natively supported by all modern browsers.
+The backend emits mutation events whenever a create, update, or erasability-state change is committed successfully. This includes `annotationLink` transitions to `erasable` and back to `non-erasable`. These events are delivered via **Server-Sent Events (SSE)**: a standard HTTP mechanism in which the server keeps a response stream open and pushes lightweight text events to the client as they occur. SSE is unidirectional (server → client), requires no special protocol beyond HTTP, and is natively supported by all modern browsers.
 
 > **Note:** the SSE endpoint must be served with `Cache-Control: no-cache` and must not be intercepted by any HTTP cache or reverse-proxy buffer. Caching the response stream would prevent events from reaching the client in real time.
 
@@ -172,7 +174,7 @@ The decomposed annotation model — separate collections for `annotationGeometry
 
 If User A is adjusting the spatial anchor (`annotationGeometry`) of an annotation while User B is fixing a typo in the label (`annotationData`) of the same annotation, these are two different documents in two different collections. Both saves will succeed without any conflict. The `annotationLink` continues to connect the new geometry to the updated data.
 
-Conflicts only arise when two users attempt to modify the **same document** at the **same time** — a genuinely rare event given the typical team size and editing duration.
+Conflicts only arise when two users attempt to modify the **same document** at the **same time** — including the same `annotationLink` erasability transition — a genuinely rare event given the typical team size and editing duration.
 
 ---
 
@@ -194,14 +196,16 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 **Actors**: Editor or any user with higher privileges  
 **Precondition**: No structuring operation is in progress.
 
-1. The user loads the scene. Active annotations are fetched, including `version` for each entity. `updatedAt` is returned for audit and debugging.
+1. The user loads the scene. Active annotations are fetched, including `version` for each mutable entity. `updatedAt` is returned for audit and debugging.
 2. *(Optional)* The user sends `notifyEditingStart(projectId, sceneId, targetId?)` to broadcast a Social Lock.
 3. The user creates or modifies annotations locally.  
    - **Create**: new IDs are generated; no conflict possible.  
    - **Update / change erasability**: the user records `expectedVersion` at load time.
+
 4. On save: the backend handles the operation according to its type.  
    - **Create**: the backend inserts a new document with its initial `version`; no `expectedVersion` check is needed.  
    - **Update / change erasability**: the backend performs a conditional write using `expectedVersion`. If the write succeeds, it returns the new `version`; otherwise it returns a conflict error and the client shows a resolution dialog.
+   - **Link restore**: if an `annotationLink` is restored to `non-erasable`, the backend also restores the referenced `annotationGeometry` and `annotationData` to `non-erasable` as part of the same logical operation.
 5. The user sends `notifyEditingStop(projectId, sceneId, targetId?)` to release the Social Lock.
 
 ### Workflow 3: Scene Viewing
@@ -224,6 +228,6 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 | 1 | While a structuring operation is in progress, all other operations (read, view, edit) are blocked. |
 | 2 | Any user may view any scene whenever no structuring operation is in progress, regardless of concurrent edits. |
 | 3 | Multiple users may edit annotations in the same scene concurrently (optimistic strategy). |
-| 4 | All mutating operations (`update`, `markErasable`, `markNonErasable`) use the same `expectedVersion` OCC check. No operation type has automatic priority. |
+| 4 | All mutating operations (`update`, `markErasable`, `markNonErasable`) use the same `expectedVersion` OCC check. For `annotationLink`, the mutating operations are its erasability transitions only. No operation type has automatic priority. |
 | 5 | Both the `version` value and the persisted `erasableAt` state are validated atomically before any write is applied. |
 | 6 | Social Lock messages are best-effort informational only. The model is correct even if those messages are delayed or absent. |
