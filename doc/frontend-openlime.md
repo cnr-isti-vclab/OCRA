@@ -46,16 +46,20 @@ From this moment on, you can start the development server normally (e.g., `npm r
 ## 2. Pushing Changes to OpenLIME
 If you need to make changes not to the OCRA interface but to the **OpenLIME source code** located inside `frontend/openlime`:
 
-1. Make the desired change in the source files (`src/`) inside `frontend/openlime`.
-2. Do a local build to test it immediately in OCRA: `npm run rollup`.
-3. Once you verify it works, you must **commit the submodule changes**:
+1. Enter the submodule and switch to a local branch that tracks the remote integration branch. After `git submodule update`, the submodule is typically in **detached HEAD**, so create or switch to the tracking branch before editing:
    ```bash
    cd frontend/openlime
+   git switch ocra-integration || git switch -c ocra-integration --track origin/ocra-integration
+   ```
+2. Make the desired change in the source files (`src/`) inside `frontend/openlime`.
+3. Do a local build to test it immediately in OCRA: `npm run rollup`.
+4. Once you verify it works, you must **commit the submodule changes**:
+   ```bash
    git add modified-file-name
    git commit -m "fix(ocra): fix render issue..."
    git push origin ocra-integration
    ```
-4. After doing this, if you check the project's root status, you will notice that Git marks the file repository pointer `frontend/openlime` as modified. Commit this in the main OCRA repo:
+5. After doing this, if you check the project's root status, you will notice that Git marks the file repository pointer `frontend/openlime` as modified. Commit this in the main OCRA repo:
    ```bash
    cd ../..
    git add frontend/openlime
