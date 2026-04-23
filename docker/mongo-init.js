@@ -23,11 +23,11 @@ void contentDb.annotation_data.createIndex({ projectId: 1, privateToScene: 1 });
 
 void contentDb.annotation_link.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_link.createIndex(
-  { projectId: 1, annotationGeometry: 1, annotationData: 1 },
+  { projectId: 1, geometryId: 1, dataId: 1 },
   { unique: true }
 );
-void contentDb.annotation_link.createIndex({ projectId: 1, annotationGeometry: 1 });
-void contentDb.annotation_link.createIndex({ projectId: 1, annotationData: 1 });
+void contentDb.annotation_link.createIndex({ projectId: 1, geometryId: 1 });
+void contentDb.annotation_link.createIndex({ projectId: 1, dataId: 1 });
 
 void contentDb.hdt_collection.createIndex({ projectId: 1 }, { unique: true });
 

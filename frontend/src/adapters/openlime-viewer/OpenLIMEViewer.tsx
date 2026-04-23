@@ -439,7 +439,7 @@ const OpenLIMEViewer = forwardRef<
           if (uiRef.current) {
             uiRef.current.actions.zoomin.display = true;
             uiRef.current.actions.zoomout.display = true;
-            uiRef.current.actions.light.active = true;
+            uiRef.current.toggleLightController(true);
             // Show pencil tool but don't activate it by default
             // This allows single-click selection to work
             uiRef.current.actions.pencil.display = true;
