@@ -1,5 +1,24 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+
+vi.mock('../middleware/auth.js', () => ({
+  requireAuth: vi.fn((req, _res, next) => {
+    req.user = {
+      id: 'user-1',
+      sub: 'user-1-sub',
+      email: 'annotator@example.com',
+      username: 'annotator',
+      sys_admin: false,
+    };
+    req.sessionId = 'test-session';
+    next();
+  }),
+  requireAdmin: vi.fn((_req, _res, next) => next()),
+}));
+
+vi.mock('../../db.js', () => ({
+  getPrismaClient: vi.fn(),
+}));
 
 vi.mock('../services/annotation.service.js', () => ({
   createAnnotationData: vi.fn(),
@@ -23,19 +42,30 @@ vi.mock('../services/annotation.service.js', () => ({
   updateAnnotationGeometryShapes: vi.fn(),
 }));
 
+import { getPrismaClient } from '../../db.js';
 import { createApp } from '../app.js';
 import * as annotationService from '../services/annotation.service.js';
-import {
-  authHeader,
-  cleanupTestDB,
-  createTestProject,
-  createTestUser,
-  ensurePrisma,
-  setupTestDB,
-  teardownTestDB,
-} from './helpers.js';
 
 const app = createApp();
+const prismaMock = {
+  user: {
+    findUnique: vi.fn(),
+  },
+  projectRole: {
+    findFirst: vi.fn(),
+  },
+};
+const user = {
+  id: 'user-1',
+  sub: 'user-1-sub',
+  email: 'annotator@example.com',
+  username: 'annotator',
+  sys_admin: false,
+};
+const project = {
+  id: 'project-1',
+  name: 'Annotation Project',
+};
 
 const shapePayload = {
   type: 'ShapePoints',
@@ -96,24 +126,15 @@ function buildLink(projectId: string, linkId = 'al_test') {
 }
 
 describe.sequential('Annotation controller edge cases', () => {
-  let user: any;
-  let project: any;
-
-  beforeAll(async () => {
-    await setupTestDB();
-  });
-
-  afterAll(async () => {
-    await cleanupTestDB();
-    await teardownTestDB();
-  });
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.resetAllMocks();
-    await cleanupTestDB();
-    user = await createTestUser({ sys_creator: true });
-    project = await createTestProject(user.id, { name: `Annotation Project ${Date.now()}` });
-    await ensurePrisma();
+    vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+    prismaMock.user.findUnique.mockResolvedValue(user);
+    prismaMock.projectRole.findFirst.mockResolvedValue({
+      projectId: project.id,
+      userId: user.id,
+      role: 'manager',
+    });
   });
 
   it('returns 404 when updating a missing geometry', async () => {
@@ -121,7 +142,6 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .put(`/api/projects/${project.id}/annotations/geometry/ag_missing`)
-      .set(authHeader(user))
       .send({ expectedVersion: 0, shapes: [shapePayload] })
       .expect(404);
 
@@ -135,7 +155,6 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .put(`/api/projects/${project.id}/annotations/geometry/ag_test`)
-      .set(authHeader(user))
       .send({ expectedVersion: 3, shapes: [shapePayload] })
       .expect(409);
 
@@ -148,7 +167,6 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/links`)
-      .set(authHeader(user))
       .send({ geometryId: 'ag_missing', dataId: 'ad_test' })
       .expect(404);
 
@@ -163,7 +181,6 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/links`)
-      .set(authHeader(user))
       .send({ geometryId: 'ag_test', dataId: 'ad_test' })
       .expect(409);
 
@@ -176,7 +193,6 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .patch(`/api/projects/${project.id}/annotations/links/al_test/nonerasable`)
-      .set(authHeader(user))
       .send({ expectedVersion: 4 })
       .expect(409);
 
