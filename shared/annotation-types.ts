@@ -1,92 +1,54 @@
 /**
  * Shared annotation domain types.
  *
- * These types model the persisted OCRA annotation system described in
- * doc/a00-annotation-model.md. They are distinct from the viewer-oriented
- * annotation types in scene-types.ts.
+ * These types are derived from the canonical Zod schemas in
+ * annotation-schema.ts. They model the persisted OCRA annotation system
+ * described in doc/a00-annotation-model.md and remain distinct from the
+ * viewer-oriented annotation types in scene-types.ts.
  */
+import type { z } from 'zod';
+import {
+  annotationAuditFieldsSchema,
+  annotationDataSchema,
+  annotationErasableFieldsSchema,
+  annotationGeometrySchema,
+  annotationLinkSchema,
+  annotationScopeTypeSchema,
+  annotationShapePointsSchema,
+  annotationShapePolygonSchema,
+  annotationShapePolylineSchema,
+  annotationShapeSchema,
+  annotationVersionedFieldsSchema,
+  annotationVertex3DSchema,
+  resolvedAnnotationSchema,
+} from './annotation-schema.ts';
 
-export type AnnotationScopeType = 'scene' | 'asset';
+export type AnnotationScopeType = z.infer<typeof annotationScopeTypeSchema>;
 
-export type AnnotationVertex3D = [number, number, number];
+export type AnnotationVertex3D = z.infer<typeof annotationVertex3DSchema>;
 
-export interface AnnotationShapePoints {
-  type: 'ShapePoints';
-  vertices: AnnotationVertex3D[];
-}
+export type AnnotationShapePoints = z.infer<typeof annotationShapePointsSchema>;
 
-export interface AnnotationShapePolyline {
-  type: 'ShapePolyline';
-  vertices: AnnotationVertex3D[];
-}
+export type AnnotationShapePolyline = z.infer<typeof annotationShapePolylineSchema>;
 
-export interface AnnotationShapePolygon {
-  type: 'ShapePolygon';
-  vertices: AnnotationVertex3D[];
-}
+export type AnnotationShapePolygon = z.infer<typeof annotationShapePolygonSchema>;
 
-export type AnnotationShape =
-  | AnnotationShapePoints
-  | AnnotationShapePolyline
-  | AnnotationShapePolygon;
+export type AnnotationShape = z.infer<typeof annotationShapeSchema>;
 
-export interface AnnotationAuditFields {
-  createdAt: string;
-  createdBy: string;
-  updatedAt: string;
-  updatedBy: string;
-}
+export type AnnotationAuditFields = z.infer<typeof annotationAuditFieldsSchema>;
 
-export interface AnnotationVersionedFields {
-  version: number;
-}
+export type AnnotationVersionedFields = z.infer<typeof annotationVersionedFieldsSchema>;
 
-export interface AnnotationErasableFields {
-  erasableAt: string | null;
-  erasableBy: string | null;
-}
+export type AnnotationErasableFields = z.infer<typeof annotationErasableFieldsSchema>;
 
-export interface AnnotationGeometry
-  extends AnnotationAuditFields,
-    AnnotationVersionedFields,
-    AnnotationErasableFields {
-  id: string;
-  projectId: string;
-  shapes: AnnotationShape[];
-  referenceType: AnnotationScopeType;
-  referenceId: string;
-}
+export type AnnotationGeometry = z.infer<typeof annotationGeometrySchema>;
 
-export interface AnnotationData
-  extends AnnotationAuditFields,
-    AnnotationVersionedFields,
-    AnnotationErasableFields {
-  id: string;
-  projectId: string;
-  label: string;
-  description: string;
-  class: string | null;
-  content: Record<string, any>;
-  visibilityType: AnnotationScopeType;
-  visibilityId: string;
-}
+export type AnnotationData = z.infer<typeof annotationDataSchema>;
 
-export interface AnnotationLink
-  extends AnnotationAuditFields,
-    AnnotationVersionedFields,
-    AnnotationErasableFields {
-  id: string;
-  projectId: string;
-  geometryId: string;
-  dataId: string;
-}
+export type AnnotationLink = z.infer<typeof annotationLinkSchema>;
 
 /**
  * Convenience aggregate for read models or frontend composition.
  * This is not a first-class persisted entity in the annotation model.
  */
-export interface ResolvedAnnotation {
-  geometry: AnnotationGeometry;
-  data: AnnotationData;
-  link: AnnotationLink;
-}
+export type ResolvedAnnotation = z.infer<typeof resolvedAnnotationSchema>;
