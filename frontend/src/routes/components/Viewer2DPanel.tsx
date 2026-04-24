@@ -136,10 +136,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       isProgrammaticSelectionRef.current += echoCount;
 
       // Clear existing selection, then apply the context selection.
-      annotationManager.deselectAll();
-      selectedAnnotationIds.forEach(id => {
-        annotationManager.setSelected(id, true);
-      });
+      if (selectedAnnotationIds.length > 0) {
+        annotationManager._mode = 'edit';
+        annotationManager.deselectAll();
+        selectedAnnotationIds.forEach(id => {
+          annotationManager.setSelected(id, true);
+        });
+      }
     }, [selectedAnnotationIds, ref]);
 
     return (
