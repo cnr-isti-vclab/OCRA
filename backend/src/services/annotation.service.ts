@@ -2,12 +2,16 @@ import { getPrismaClient } from '../../db.js';
 import { getMongoClient } from '../lib/mongo/client.js';
 import {
   findAnnotationDataById,
+  findAnnotationDataByVisibility,
+  findAnnotationDataByVisibilityIds,
   getAnnotationDataCollection,
   insertAnnotationData,
   conditionalUpdateAnnotationData,
 } from '../repositories/annotation-data.repository.js';
 import {
   findAnnotationGeometryById,
+  findAnnotationGeometriesByReference,
+  findAnnotationGeometriesByReferenceIds,
   getAnnotationGeometryCollection,
   insertAnnotationGeometry,
   conditionalUpdateAnnotationGeometry,
@@ -15,6 +19,10 @@ import {
 import {
   findAnnotationLinkById,
   findAnnotationLinkByPair,
+  findAnnotationLinksByDataId,
+  findAnnotationLinksByDataIds,
+  findAnnotationLinksByGeometryId,
+  findAnnotationLinksByGeometryIds,
   getAnnotationLinkCollection,
   insertAnnotationLink,
   conditionalUpdateAnnotationLink,
@@ -33,6 +41,9 @@ import {
 } from 'shared/annotation-schema';
 import type {
   AnnotationData,
+  AnnotationGeometry,
+  AnnotationLink,
+  ResolvedAnnotation,
   AnnotationScopeType,
   AnnotationShape,
 } from 'shared/annotation-types';
@@ -140,6 +151,45 @@ function buildUpdateAuditFields(userId: string, timestamp: string) {
   };
 }
 
+function dedupeById<T extends { id: string }>(documents: T[]) {
+  return Array.from(new Map(documents.map((document) => [document.id, document])).values());
+}
+
+function isLinkVisible(link: AnnotationLinkDocument, includeErasable: boolean) {
+  return includeErasable || link.erasableAt === null;
+}
+
+function isEntityVisible<T extends { erasableAt: string | null }>(
+  document: T,
+  includeErasable: boolean,
+  hasIncomingNonErasableLink: boolean,
+) {
+  return includeErasable || document.erasableAt === null || hasIncomingNonErasableLink;
+}
+
+function getSceneAssetIds(hdtDocument: HDTDocument, sceneId: string) {
+  const scene = hdtDocument.scenes.find((entry) => entry.id === sceneId);
+  return scene ? scene.assets.map((asset) => asset.assetId) : null;
+}
+
+async function getIncomingVisibleLinksForGeometry(
+  projectId: string,
+  geometryId: string,
+  includeErasable: boolean,
+) {
+  const links = await findAnnotationLinksByGeometryId(projectId, geometryId);
+  return links.filter((link) => isLinkVisible(link, includeErasable));
+}
+
+async function getIncomingVisibleLinksForData(
+  projectId: string,
+  dataId: string,
+  includeErasable: boolean,
+) {
+  const links = await findAnnotationLinksByDataId(projectId, dataId);
+  return links.filter((link) => isLinkVisible(link, includeErasable));
+}
+
 async function getValidatedProjectHdt(projectId: string) {
   if (!isNonEmptyString(projectId)) {
     return null;
@@ -150,6 +200,193 @@ async function getValidatedProjectHdt(projectId: string) {
   }
 
   return getHDTDocument(projectId);
+}
+
+export async function getAnnotationGeometry(
+  projectId: string,
+  geometryId: string,
+  includeErasable = false,
+): Promise<AnnotationGeometry | null> {
+  if (!isNonEmptyString(geometryId)) {
+    return null;
+  }
+
+  const geometry = await findAnnotationGeometryById(geometryId);
+  if (!geometry || geometry.projectId !== projectId) {
+    return null;
+  }
+
+  const visibleLinks = await getIncomingVisibleLinksForGeometry(projectId, geometryId, includeErasable);
+  return isEntityVisible(geometry, includeErasable, visibleLinks.some((link) => link.erasableAt === null))
+    ? geometry
+    : null;
+}
+
+export async function getAnnotationData(
+  projectId: string,
+  dataId: string,
+  includeErasable = false,
+): Promise<AnnotationData | null> {
+  if (!isNonEmptyString(dataId)) {
+    return null;
+  }
+
+  const data = await findAnnotationDataById(dataId);
+  if (!data || data.projectId !== projectId) {
+    return null;
+  }
+
+  const visibleLinks = await getIncomingVisibleLinksForData(projectId, dataId, includeErasable);
+  return isEntityVisible(data, includeErasable, visibleLinks.some((link) => link.erasableAt === null))
+    ? data
+    : null;
+}
+
+export async function getAnnotationLink(
+  projectId: string,
+  linkId: string,
+  includeErasable = false,
+): Promise<AnnotationLink | null> {
+  if (!isNonEmptyString(linkId)) {
+    return null;
+  }
+
+  const link = await findAnnotationLinkById(linkId);
+  if (!link || link.projectId !== projectId || !isLinkVisible(link, includeErasable)) {
+    return null;
+  }
+
+  return link;
+}
+
+export async function getAnnotationGeometriesForSceneAssets(
+  projectId: string,
+  sceneId: string,
+  includeErasable = false,
+): Promise<AnnotationGeometry[]> {
+  const hdtDocument = await getValidatedProjectHdt(projectId);
+  if (!hdtDocument || !hasScene(hdtDocument, sceneId)) {
+    return [];
+  }
+
+  const sceneAssetIds = getSceneAssetIds(hdtDocument, sceneId) ?? [];
+  const [sceneGeometries, assetGeometries] = await Promise.all([
+    findAnnotationGeometriesByReference(projectId, 'scene', sceneId),
+    sceneAssetIds.length > 0
+      ? findAnnotationGeometriesByReferenceIds(projectId, 'asset', sceneAssetIds)
+      : Promise.resolve([]),
+  ]);
+
+  const geometries = dedupeById([...sceneGeometries, ...assetGeometries]);
+  const visibleLinks = await Promise.all(
+    geometries.map(async (geometry) => ({
+      geometry,
+      links: await getIncomingVisibleLinksForGeometry(projectId, geometry.id, includeErasable),
+    })),
+  );
+
+  return visibleLinks
+    .filter(({ geometry, links }) =>
+      isEntityVisible(geometry, includeErasable, links.some((link) => link.erasableAt === null)),
+    )
+    .map(({ geometry }) => geometry);
+}
+
+export async function getAnnotationDataForSceneAssets(
+  projectId: string,
+  sceneId: string,
+  includeErasable = false,
+): Promise<AnnotationData[]> {
+  const hdtDocument = await getValidatedProjectHdt(projectId);
+  if (!hdtDocument || !hasScene(hdtDocument, sceneId)) {
+    return [];
+  }
+
+  const sceneAssetIds = getSceneAssetIds(hdtDocument, sceneId) ?? [];
+  const [sceneData, assetData] = await Promise.all([
+    findAnnotationDataByVisibility(projectId, 'scene', sceneId),
+    sceneAssetIds.length > 0
+      ? findAnnotationDataByVisibilityIds(projectId, 'asset', sceneAssetIds)
+      : Promise.resolve([]),
+  ]);
+
+  const dataRecords = dedupeById([...sceneData, ...assetData]);
+  const visibleLinks = await Promise.all(
+    dataRecords.map(async (data) => ({
+      data,
+      links: await getIncomingVisibleLinksForData(projectId, data.id, includeErasable),
+    })),
+  );
+
+  return visibleLinks
+    .filter(({ data, links }) =>
+      isEntityVisible(data, includeErasable, links.some((link) => link.erasableAt === null)),
+    )
+    .map(({ data }) => data);
+}
+
+export async function getResolvedAnnotationsForScene(
+  projectId: string,
+  sceneId: string,
+  includeErasable = false,
+): Promise<ResolvedAnnotation[]> {
+  const hdtDocument = await getValidatedProjectHdt(projectId);
+  if (!hdtDocument || !hasScene(hdtDocument, sceneId)) {
+    return [];
+  }
+
+  const sceneAssetIds = getSceneAssetIds(hdtDocument, sceneId) ?? [];
+  const [geometries, dataRecords] = await Promise.all([
+    getAnnotationGeometriesForSceneAssets(projectId, sceneId, includeErasable),
+    getAnnotationDataForSceneAssets(projectId, sceneId, includeErasable),
+  ]);
+
+  const geometryIds = geometries.map((geometry) => geometry.id);
+  const dataIds = dataRecords.map((data) => data.id);
+
+  const [linksByGeometry, linksByData] = await Promise.all([
+    geometryIds.length > 0
+      ? findAnnotationLinksByGeometryIds(projectId, geometryIds)
+      : Promise.resolve([]),
+    dataIds.length > 0
+      ? findAnnotationLinksByDataIds(projectId, dataIds)
+      : Promise.resolve([]),
+  ]);
+
+  const visibleLinks = dedupeById([...linksByGeometry, ...linksByData]).filter((link) => {
+    if (!isLinkVisible(link, includeErasable)) {
+      return false;
+    }
+
+    const geometry = geometries.find((entry) => entry.id === link.geometryId);
+    const data = dataRecords.find((entry) => entry.id === link.dataId);
+    if (!geometry || !data) {
+      return false;
+    }
+
+    const geometryVisibleInScene = geometry.referenceType === 'scene'
+      ? geometry.referenceId === sceneId
+      : sceneAssetIds.includes(geometry.referenceId);
+    const dataVisibleInScene = data.visibilityType === 'scene'
+      ? data.visibilityId === sceneId
+      : sceneAssetIds.includes(data.visibilityId);
+
+    return geometryVisibleInScene && dataVisibleInScene && areLinkScopesCompatible(hdtDocument, geometry, data);
+  });
+
+  const geometryMap = new Map(geometries.map((geometry) => [geometry.id, geometry]));
+  const dataMap = new Map(dataRecords.map((data) => [data.id, data]));
+
+  return visibleLinks.flatMap((link) => {
+    const geometry = geometryMap.get(link.geometryId);
+    const data = dataMap.get(link.dataId);
+
+    if (!geometry || !data) {
+      return [];
+    }
+
+    return [{ geometry, data, link } satisfies ResolvedAnnotation];
+  });
 }
 
 export async function createAnnotationGeometry(
