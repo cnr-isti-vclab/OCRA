@@ -82,6 +82,13 @@ export function createApp(): Express {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'OCRA API Documentation',
+    swaggerOptions: {
+      persistAuthorization: true,
+      requestInterceptor: (request: { credentials?: string }) => {
+        request.credentials = 'include';
+        return request;
+      },
+    },
   }));
 
   // Swagger JSON spec

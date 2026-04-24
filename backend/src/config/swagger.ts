@@ -57,7 +57,13 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         sessionAuth: {
           type: 'apiKey',
           in: 'cookie',
-          name: 'connect.sid',
+          name: 'session_id',
+          description: 'Session cookie set after login',
+        },
+        sessionCookie: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'session_id',
           description: 'Session cookie set after login',
         },
         bearerAuth: {
