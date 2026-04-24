@@ -85,7 +85,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
           MONGODB_URI: mongodb://localhost:27017/ocra_audit_test
         run: |
-          npm test -- src/test/comprehensive-workflow.e2e.test.ts
+          npm test -- src/test/comprehensive-workflow.e2e.test.ts src/test/annotation.controller.test.ts src/test/annotation.service.test.ts src/test/annotation.repository.occ.test.ts
       
       - name: Test Summary
         if: always()
@@ -93,5 +93,5 @@ jobs:
           echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tests:** 56 comprehensive E2E tests" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests:** comprehensive E2E workflow plus focused annotation controller/service/repository OCC edge cases" >> $GITHUB_STEP_SUMMARY
           echo "- **Duration:** ~1.3-1.5 seconds" >> $GITHUB_STEP_SUMMARY

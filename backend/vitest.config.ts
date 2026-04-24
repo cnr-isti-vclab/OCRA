@@ -22,6 +22,7 @@ export default defineConfig({
         singleFork: true, // All tests run in one process, one after another
       },
     },
+    fileParallelism: false,
     
     // Pattern per trovare i test
     include: ['**/*.{test,spec}.{js,ts}'],
