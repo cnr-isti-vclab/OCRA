@@ -54,9 +54,11 @@ ensureCollection(contentDb, 'annotation_link');
 
 void contentDb.annotation_geometry.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_geometry.createIndex({ projectId: 1, referenceType: 1, referenceId: 1 });
+void contentDb.annotation_geometry.createIndex({ projectId: 1, erasableAt: 1 });
 
 void contentDb.annotation_data.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_data.createIndex({ projectId: 1, visibilityType: 1, visibilityId: 1 });
+void contentDb.annotation_data.createIndex({ projectId: 1, erasableAt: 1 });
 
 void contentDb.annotation_link.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_link.createIndex(
@@ -65,6 +67,7 @@ void contentDb.annotation_link.createIndex(
 );
 void contentDb.annotation_link.createIndex({ projectId: 1, geometryId: 1 });
 void contentDb.annotation_link.createIndex({ projectId: 1, dataId: 1 });
+void contentDb.annotation_link.createIndex({ projectId: 1, erasableAt: 1 });
 
 void contentDb.hdt_collection.createIndex({ projectId: 1 }, { unique: true });
 
