@@ -4,7 +4,7 @@
  * Acts as the single source of truth for annotation data
  */
 
-import { Annotation, SceneDescription } from '../../../shared/scene-types';
+import { ViewerAnnotation, SceneDescription } from '../../../shared/scene-types';
 import { getApiBase } from '../config/oauth';
 
 export class AnnotationService {
@@ -20,7 +20,7 @@ export class AnnotationService {
    * Create a new annotation and save it to the backend.
    * currentScene is the scene description with the new annotation added.
    */
-  async createAnnotation(annotation: Annotation, currentScene: SceneDescription): Promise<Annotation> {
+  async createAnnotation(annotation: ViewerAnnotation, currentScene: SceneDescription): Promise<ViewerAnnotation> {
     try {
       const response = await fetch(
         `${getApiBase()}/api/projects/${this.projectId}/hdt/scenes/${this.selectedSceneId}`,
@@ -49,9 +49,9 @@ export class AnnotationService {
    * Update an existing annotation
    */
   async updateAnnotation(
-    annotation: Annotation,
+    annotation: ViewerAnnotation,
     currentScene: SceneDescription
-  ): Promise<Annotation> {
+  ): Promise<ViewerAnnotation> {
     try {
       const response = await fetch(
         `${getApiBase()}/api/projects/${this.projectId}/hdt/scenes/${this.selectedSceneId}`,
@@ -114,9 +114,9 @@ export class AnnotationService {
    */
   async updateAnnotationGeometry(
     id: string,
-    geometry: Annotation['geometry'],
+    geometry: ViewerAnnotation['geometry'],
     currentScene: SceneDescription
-  ): Promise<Annotation> {
+  ): Promise<ViewerAnnotation> {
     console.log('AnnotationService: updateAnnotationGeometry(): Updating  ', id, ' scene annotations ', currentScene.annotations)
     const annotation = currentScene.annotations?.find(a => a.id === id);
     if (!annotation) {
@@ -126,7 +126,7 @@ export class AnnotationService {
       console.log(`Service info: updateAnnotationGeometry(): Found annotation ${id}`);
     }
 
-    const updatedAnnotation: Annotation = {
+    const updatedAnnotation: ViewerAnnotation = {
       ...annotation,
       geometry
     };
@@ -139,16 +139,16 @@ export class AnnotationService {
    */
   async updateAnnotationData(
     id: string,
-    data: Partial<Omit<Annotation, 'id' | 'geometry'>>,
+    data: Partial<Omit<ViewerAnnotation, 'id' | 'geometry'>>,
     currentScene: SceneDescription
-  ): Promise<Annotation> {
+  ): Promise<ViewerAnnotation> {
     const annotation = currentScene.annotations?.find(a => a.id === id);
     if (!annotation) {
       console.error(`Service error: updateAnnotationData(): Annotation ${id} not found in`, currentScene.annotations);
       throw new Error(`Annotation ${id} not found`);
     }
 
-    const updatedAnnotation: Annotation = {
+    const updatedAnnotation: ViewerAnnotation = {
       ...annotation,
       ...data
     };

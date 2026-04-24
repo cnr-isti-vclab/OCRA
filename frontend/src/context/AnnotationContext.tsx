@@ -5,20 +5,20 @@
  */
 
 import React, { createContext, useContext, useCallback, useState, useEffect } from 'react';
-import type { Annotation, SceneDescription } from '../../../shared/scene-types';
+import type { ViewerAnnotation, SceneDescription } from '../../../shared/scene-types';
 import { AnnotationService } from '../services/AnnotationService';
 
 interface AnnotationContextType {
-  annotations: Annotation[];
+  annotations: ViewerAnnotation[];
   selectedAnnotationIds: string[];
   isLoading: boolean;
   error: string | null;
 
   // Annotation CRUD operations
-  createAnnotation: (annotation: Annotation) => Promise<void>;
-  updateAnnotation: (annotation: Annotation) => Promise<void>;
-  updateAnnotationGeometry: (id: string, geometry: Annotation['geometry']) => Promise<void>;
-  updateAnnotationData: (id: string, data: Partial<Omit<Annotation, 'id' | 'geometry'>>) => Promise<void>;
+  createAnnotation: (annotation: ViewerAnnotation) => Promise<void>;
+  updateAnnotation: (annotation: ViewerAnnotation) => Promise<void>;
+  updateAnnotationGeometry: (id: string, geometry: ViewerAnnotation['geometry']) => Promise<void>;
+  updateAnnotationData: (id: string, data: Partial<Omit<ViewerAnnotation, 'id' | 'geometry'>>) => Promise<void>;
   deleteAnnotations: (ids: string[]) => Promise<void>;
 
   // Selection operations
@@ -49,7 +49,7 @@ export function AnnotationProvider({
   sceneDesc,
   user
 }: AnnotationProviderProps) {
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [annotations, setAnnotations] = useState<ViewerAnnotation[]>([]);
   const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export function AnnotationProvider({
    * Create a new annotation
    */
   const createAnnotation = useCallback(
-    async (annotation: Annotation) => {
+    async (annotation: ViewerAnnotation) => {
       annotation.createdBy = user.username;
       if (!sceneDesc || !annotationService) return;
 
@@ -106,7 +106,7 @@ export function AnnotationProvider({
    * Update an existing annotation
    */
   const updateAnnotation = useCallback(
-    async (annotation: Annotation) => {
+    async (annotation: ViewerAnnotation) => {
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);
@@ -139,7 +139,7 @@ export function AnnotationProvider({
    * Update only the geometry of an annotation
    */
   const updateAnnotationGeometry = useCallback(
-    async (id: string, geometry: Annotation['geometry']) => {
+    async (id: string, geometry: ViewerAnnotation['geometry']) => {
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);
@@ -168,7 +168,7 @@ export function AnnotationProvider({
    * Update only the data/metadata of an annotation
    */
   const updateAnnotationData = useCallback(
-    async (id: string, data: Partial<Omit<Annotation, 'id' | 'geometry'>>) => {
+    async (id: string, data: Partial<Omit<ViewerAnnotation, 'id' | 'geometry'>>) => {
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);

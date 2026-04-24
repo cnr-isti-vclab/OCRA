@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { Annotation } from '../../../../shared/scene-types';
+import type { ViewerAnnotation } from '../../../../shared/scene-types';
 import { useAnnotations } from '../../context/AnnotationContext';
 
 interface AnnotationPanelProps {
@@ -27,9 +27,9 @@ function EditAnnotationModal({
   onSave,
   onCancel
 }: {
-  annotation: Annotation | null;
+  annotation: ViewerAnnotation | null;
   isOpen: boolean;
-  onSave: (annotation: Annotation) => void;
+  onSave: (annotation: ViewerAnnotation) => void;
   onCancel: () => void;
 }) {
   const [editedLabel, setEditedLabel] = useState('');
@@ -46,7 +46,7 @@ function EditAnnotationModal({
   if (!isOpen || !annotation) return null;
 
   const handleSave = () => {
-    const updated: Annotation = {
+    const updated: ViewerAnnotation = {
       ...annotation,
       label: editedLabel,
       description: editedDescription
@@ -150,7 +150,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     clearSelection
   } = useAnnotations();
 
-  const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
+  const [editingAnnotation, setEditingAnnotation] = useState<ViewerAnnotation | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [expandedGeomIds, setExpandedGeomIds] = useState<Set<string>>(new Set());
   const annotationListRef = useRef<HTMLDivElement>(null);
@@ -218,7 +218,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   /**
    * Handle edit modal save
    */
-  const handleEditSave = async (annotation: Annotation) => {
+  const handleEditSave = async (annotation: ViewerAnnotation) => {
     try {
       await updateAnnotationData(annotation.id, {
         label: annotation.label,
@@ -269,7 +269,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       ) : (
         <div className="flex-grow-1 overflow-auto" ref={annotationListRef}>
           <div className="list-group">
-            {annotations.map((annotation: Annotation) => {
+            {annotations.map((annotation: ViewerAnnotation) => {
               const isSelected = selectedAnnotationIds.includes(annotation.id);
               return (
                 <div

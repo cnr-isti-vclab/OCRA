@@ -11,7 +11,7 @@ import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import AnnotationPanel from './components/AnnotationPanel';
-import type { SceneDescription, Annotation } from 'shared/scene-types';
+import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
 
 interface Project {
   id: string;
