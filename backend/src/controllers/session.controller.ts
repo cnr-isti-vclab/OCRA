@@ -125,7 +125,7 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
     const success = await removeSession(sessionId);
     
     if (!success) {
-      res.status(404).json({ error: 'Session not found' });
+      res.status(200).json({ success: true, message: 'Session already deleted' });
       return;
     }
 

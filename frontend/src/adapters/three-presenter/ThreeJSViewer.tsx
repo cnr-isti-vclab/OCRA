@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from 'three-presenter';
 import type { SceneDescription } from 'three-presenter';
 import type { Annotation } from 'shared/scene-types';
@@ -17,6 +17,7 @@ export interface ThreeJSViewerRef {
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
   getAnnotationManager: () => AnnotationManager;
+  renderAnnotations: (annotations: Annotation[]) => void;
   // Efficient environment setters (no scene reload)
   setBackgroundColor: (color: string) => void;
   setGroundVisible: (visible: boolean) => void;
@@ -39,6 +40,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     const uiRef = useRef<DefaultUI | null>(null);
     const isFirstLoadRef = useRef<boolean>(true);
     const prevSceneRef = useRef<SceneDescription | null>(null);
+    const onReadyRef = useRef(onReady);
+
+    // Keep onReady ref up-to-date without affecting presenter lifecycle
+    useEffect(() => {
+      onReadyRef.current = onReady;
+    }, [onReady]);
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
@@ -73,6 +80,10 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         }
         return presenterRef.current.getAnnotationManager();
       },
+      renderAnnotations: (annotations: Annotation[]) => {
+        if (!presenterRef.current) return;
+        presenterRef.current.getAnnotationManager().render(annotations);
+      },
       setBackgroundColor: (color: string) => {
         presenterRef.current?.setBackgroundColor(color);
       },
@@ -104,8 +115,8 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       }*/);
 
       // Notify parent that presenter is ready
-      if (onReady) {
-        onReady();
+      if (onReadyRef.current) {
+        onReadyRef.current();
       }
 
       return () => {
@@ -113,7 +124,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         uiRef.current?.dispose();
         presenterRef.current?.dispose();
       };
-    }, [onReady]);
+    }, []);
 
     // Update callbacks when they change (without recreating presenter)
     useEffect(() => {
@@ -124,12 +135,35 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       }
     }, [onLoadProgress, onLoadComplete, onLoadError]);
 
-    // Load/reload scene when sceneDesc changes
+    // Filter sceneDesc to exclude annotations (3D viewer doesn't need them for model loading)
+    const filteredSceneDesc = useMemo(() => {
+      if (!sceneDesc) return null;
+      
+      function is3dmodel(model: any): boolean {
+        const lower = (model.file as string).toLowerCase();
+        const is3d = (lower.endsWith('.ply') ||
+                      lower.endsWith('.obj') ||
+                      lower.endsWith('.glb') ||
+                      lower.endsWith('.gltf') ||
+                      lower.endsWith('.nxs') ||
+                      lower.endsWith('.nxz'));
+        return is3d;
+      }
+      // Create a copy without annotations to prevent unnecessary reloads when annotations change
+      const filtered = { ...sceneDesc };
+      // Remove any models that don't have 3D file extensions, 
+      // it should be done at the API level but just in case to prevent loading issues
+      filtered.models = sceneDesc.models.filter(a => is3dmodel(a)); 
+      delete filtered.annotations;
+      return filtered;
+    }, [sceneDesc?.models, sceneDesc?.environment, sceneDesc?.projectId, sceneDesc?.enableControls, sceneDesc?.rotationUnits]);
+
+    // Load/reload scene when filteredSceneDesc changes
     useEffect(() => {
-      if (!sceneDesc || !presenterRef.current) return;
+      if (!filteredSceneDesc || !presenterRef.current) return;
 
       // 🔍 DEBUG: Logga la scene description ricevuta
-      console.log('🎭 [ThreeJSViewer] Scene description received:', JSON.stringify(sceneDesc, null, 2));
+      console.log('🎭 [ThreeJSViewer] Scene description received (models only):', JSON.stringify(filteredSceneDesc, null, 2));
 
       const prevScene = prevSceneRef.current;
 
@@ -138,7 +172,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
 
       if (!isFirstLoadRef.current && prevScene) {
         // Check if model file paths changed (which requires reloading the models)
-        const currentFiles = (sceneDesc.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
+        const currentFiles = (filteredSceneDesc.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
         const previousFiles = (prevScene.models || []).map(m => `${m.id}:${m.file}`).sort().join('|');
         const filesChanged = currentFiles !== previousFiles;
 
@@ -153,7 +187,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
           console.log('🔄 Loading scene (model files changed)');
         }
 
-        presenterRef.current.loadScene(sceneDesc, false)
+        presenterRef.current.loadScene(filteredSceneDesc, false)
           .then(() => {
             // Show UI buttons after scene is loaded (they're hidden by default)
             if (presenterRef.current && uiRef.current) {
@@ -176,8 +210,8 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       }
 
       // Store current scene for next comparison
-      prevSceneRef.current = sceneDesc;
-    }, [sceneDesc]);
+      prevSceneRef.current = filteredSceneDesc;
+    }, [filteredSceneDesc]);
 
     return <div ref={mountRef} style={{ width, height, position: 'relative' }} />;
   }

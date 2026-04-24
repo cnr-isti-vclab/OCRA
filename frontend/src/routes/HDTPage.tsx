@@ -45,7 +45,7 @@ interface DublinCoreMetadata {
 
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
 
-interface DigitalAsset {
+export interface DigitalAsset {
   id: string;
   type: AssetType;
   label?: string;

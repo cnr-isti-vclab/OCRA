@@ -34,6 +34,8 @@ export interface Annotation {
   createdAt?: string;
   /** Optional user who created it */
   createdBy?: string;
+  /** Optional description for the annotation */
+  description?: string;
 }
 
 /**

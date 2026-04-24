@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./types.ts",
-    "./scene-types": "./scene-types.ts"
+    "./scene-types": "./scene-types.ts",
+    "./annotation-types": "./annotation-types.ts"
   }
 }
