@@ -21,7 +21,7 @@ import {
   annotationVersionedFieldsSchema,
   annotationVertex3DSchema,
   resolvedAnnotationSchema,
-} from './annotation-schema.ts';
+} from './annotation-schema';
 
 export type AnnotationScopeType = z.infer<typeof annotationScopeTypeSchema>;
 
