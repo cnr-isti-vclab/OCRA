@@ -157,6 +157,30 @@ function buildUpdateAuditFields(userId: string, timestamp: string) {
   };
 }
 
+async function markLinkedAnnotationLinksErasable(
+  projectId: string,
+  filters: { geometryId?: string; dataId?: string },
+  userId: string,
+  timestamp: string,
+) {
+  const collection = await getAnnotationLinkCollection();
+  await collection.updateMany(
+    {
+      projectId,
+      erasableAt: null,
+      ...filters,
+    },
+    {
+      $set: {
+        erasableAt: timestamp,
+        erasableBy: userId,
+        ...buildUpdateAuditFields(userId, timestamp),
+      },
+      $inc: { version: 1 },
+    },
+  );
+}
+
 function dedupeById<T extends { id: string }>(documents: T[]) {
   return Array.from(new Map(documents.map((document) => [document.id, document])).values());
 }
@@ -606,7 +630,12 @@ export async function markAnnotationGeometryErasable(
     $inc: { version: 1 },
   });
 
-  return result.ok ? result.nextVersion : false;
+  if (!result.ok) {
+    return false;
+  }
+
+  await markLinkedAnnotationLinksErasable(projectId, { geometryId }, userId, timestamp);
+  return result.nextVersion;
 }
 
 export async function markAnnotationGeometryNonErasable(
@@ -793,7 +822,12 @@ export async function markAnnotationDataErasable(
     $inc: { version: 1 },
   });
 
-  return result.ok ? result.nextVersion : false;
+  if (!result.ok) {
+    return false;
+  }
+
+  await markLinkedAnnotationLinksErasable(projectId, { dataId }, userId, timestamp);
+  return result.nextVersion;
 }
 
 export async function markAnnotationDataNonErasable(

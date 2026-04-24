@@ -19,8 +19,8 @@ const router = express.Router();
  *     tags:
  *       - Authentication
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: userSub

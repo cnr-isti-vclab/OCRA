@@ -67,8 +67,8 @@ router.post('/', createUserSession);
  *     tags:
  *       - Session
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     responses:
  *       200:
  *         description: Current user information
@@ -135,8 +135,8 @@ router.get('/current', getCurrentUser);
  *     tags:
  *       - Session
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: sessionId
@@ -205,8 +205,8 @@ router.get('/:sessionId', getUserSession);
  *     tags:
  *       - Session
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: sessionId

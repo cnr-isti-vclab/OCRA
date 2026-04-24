@@ -47,11 +47,21 @@ vi.mock('../services/hdt-metadata.service.js', () => ({
 }));
 
 import { getPrismaClient } from '../../db.js';
+import { conditionalUpdateAnnotationData } from '../repositories/annotation-data.repository.js';
 import { findAnnotationDataById } from '../repositories/annotation-data.repository.js';
+import { conditionalUpdateAnnotationGeometry } from '../repositories/annotation-geometry.repository.js';
 import { findAnnotationGeometryById } from '../repositories/annotation-geometry.repository.js';
-import { findAnnotationLinkByPair, insertAnnotationLink } from '../repositories/annotation-link.repository.js';
+import {
+  findAnnotationLinkByPair,
+  getAnnotationLinkCollection,
+  insertAnnotationLink,
+} from '../repositories/annotation-link.repository.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
-import { createAnnotationLink } from '../services/annotation.service.js';
+import {
+  createAnnotationLink,
+  markAnnotationDataErasable,
+  markAnnotationGeometryErasable,
+} from '../services/annotation.service.js';
 
 describe('annotation.service createAnnotationLink edge cases', () => {
   const prismaMock = {
@@ -139,5 +149,99 @@ describe('annotation.service createAnnotationLink edge cases', () => {
     vi.mocked(insertAnnotationLink).mockRejectedValue({ code: 11000 });
 
     await expect(createAnnotationLink('project-1', 'ag_1', 'ad_3', 'user-1')).resolves.toBeNull();
+  });
+});
+
+describe('annotation.service erasable cascades', () => {
+  const updateMany = vi.fn();
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ updateMany } as never);
+  });
+
+  it('marks links erasable when annotation data becomes erasable', async () => {
+    vi.mocked(findAnnotationDataById).mockResolvedValue({
+      id: 'ad_1',
+      projectId: 'project-1',
+      label: 'Label',
+      description: 'Description',
+      class: null,
+      content: {},
+      visibilityType: 'scene',
+      visibilityId: 'scene-1',
+      version: 2,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    } as never);
+    vi.mocked(conditionalUpdateAnnotationData).mockResolvedValue({
+      ok: true,
+      code: 'updated',
+      expectedVersion: 2,
+      nextVersion: 3,
+      document: {
+        id: 'ad_1',
+        projectId: 'project-1',
+      },
+    } as never);
+
+    await expect(markAnnotationDataErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toBe(3);
+    expect(updateMany).toHaveBeenCalledWith(
+      { projectId: 'project-1', erasableAt: null, dataId: 'ad_1' },
+      {
+        $set: {
+          erasableAt: expect.any(String),
+          erasableBy: 'user-2',
+          updatedAt: expect.any(String),
+          updatedBy: 'user-2',
+        },
+        $inc: { version: 1 },
+      },
+    );
+  });
+
+  it('marks links erasable when annotation geometry becomes erasable', async () => {
+    vi.mocked(findAnnotationGeometryById).mockResolvedValue({
+      id: 'ag_1',
+      projectId: 'project-1',
+      shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+      referenceType: 'scene',
+      referenceId: 'scene-1',
+      version: 4,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    } as never);
+    vi.mocked(conditionalUpdateAnnotationGeometry).mockResolvedValue({
+      ok: true,
+      code: 'updated',
+      expectedVersion: 4,
+      nextVersion: 5,
+      document: {
+        id: 'ag_1',
+        projectId: 'project-1',
+      },
+    } as never);
+
+    await expect(markAnnotationGeometryErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toBe(5);
+    expect(updateMany).toHaveBeenCalledWith(
+      { projectId: 'project-1', erasableAt: null, geometryId: 'ag_1' },
+      {
+        $set: {
+          erasableAt: expect.any(String),
+          erasableBy: 'user-2',
+          updatedAt: expect.any(String),
+          updatedBy: 'user-2',
+        },
+        $inc: { version: 1 },
+      },
+    );
   });
 });

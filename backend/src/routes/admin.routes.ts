@@ -14,8 +14,8 @@ const router = express.Router();
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: query
  *         name: limit
@@ -51,8 +51,8 @@ router.get('/audit', requireAuth, requireAdmin, getRecentAuditEvents);
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     requestBody:
  *       required: true
  *       content:
@@ -101,8 +101,8 @@ router.post('/users', requireAuth, requireAdmin, createUser);
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     requestBody:
  *       required: true
  *       content:
@@ -172,8 +172,8 @@ router.post('/users/batch', requireAuth, requireAdmin, batchCreateUsers);
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: userId

@@ -16,9 +16,9 @@ OCRA (Open Collaborative Research Archive) Backend API provides comprehensive en
 
 ## Authentication
 
-Most endpoints require authentication via session cookies or bearer tokens:
+Most endpoints require authentication via a session id, passed either as a cookie or in the Authorization header:
 - **Session Cookie**: Set automatically after login, used for browser-based clients
-- **Bearer Token**: Include in Authorization header as \`Bearer <token>\` for API clients
+- **Session Bearer**: Include the session id in the Authorization header as \`Bearer <session_id>\` for API clients
 
 ## Rate Limiting
 
@@ -54,23 +54,16 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
     ],
     components: {
       securitySchemes: {
-        sessionAuth: {
-          type: 'apiKey',
-          in: 'cookie',
-          name: 'session_id',
-          description: 'Session cookie set after login',
-        },
         sessionCookie: {
           type: 'apiKey',
           in: 'cookie',
           name: 'session_id',
           description: 'Session cookie set after login',
         },
-        bearerAuth: {
+        sessionBearer: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Bearer token for API authentication',
+          description: 'Session id forwarded in the Authorization header as Bearer <session_id>',
         },
       },
       schemas: {

@@ -33,8 +33,8 @@ const router = Router();
  *     tags:
  *       - Annotations
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -73,8 +73,8 @@ router.get('/:projectId/annotations/for-scene/:sceneId', requireAuth, getAnnotat
  *     tags:
  *       - Annotation Geometry
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -114,8 +114,8 @@ router.get('/:projectId/annotations/geometry/for-scene/:sceneId', requireAuth, g
  *     tags:
  *       - Annotation Geometry
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -155,8 +155,14 @@ router.get('/:projectId/annotations/geometry/:geometryId', requireAuth, getAnnot
  *     tags:
  *       - Annotation Geometry
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -200,8 +206,19 @@ router.post('/:projectId/annotations/geometry', requireAuth, createAnnotationGeo
  *     tags:
  *       - Annotation Geometry
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: geometryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -235,8 +252,19 @@ router.put('/:projectId/annotations/geometry/:geometryId', requireAuth, updateAn
  *     tags:
  *       - Annotation Geometry
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: geometryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -264,8 +292,19 @@ router.patch('/:projectId/annotations/geometry/:geometryId/erasable', requireAut
  *     tags:
  *       - Annotation Geometry
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: geometryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -294,8 +333,8 @@ router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', require
  *     tags:
  *       - Annotation Data
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -324,8 +363,8 @@ router.get('/:projectId/annotations/data/for-scene/:sceneId', requireAuth, getAn
  *     tags:
  *       - Annotation Data
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -356,8 +395,14 @@ router.get('/:projectId/annotations/data/:dataId', requireAuth, getAnnotationDat
  *     tags:
  *       - Annotation Data
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -398,8 +443,19 @@ router.post('/:projectId/annotations/data', requireAuth, createAnnotationDataHan
  *     tags:
  *       - Annotation Data
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: dataId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -439,8 +495,19 @@ router.put('/:projectId/annotations/data/:dataId', requireAuth, updateAnnotation
  *     tags:
  *       - Annotation Data
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: dataId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -468,8 +535,19 @@ router.patch('/:projectId/annotations/data/:dataId/erasable', requireAuth, markA
  *     tags:
  *       - Annotation Data
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: dataId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -498,8 +576,8 @@ router.patch('/:projectId/annotations/data/:dataId/nonerasable', requireAuth, ma
  *     tags:
  *       - Annotation Links
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -531,8 +609,8 @@ router.get('/:projectId/annotations/links', requireAuth, getAnnotationLinksHandl
  *     tags:
  *       - Annotation Links
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -561,8 +639,8 @@ router.get('/:projectId/annotations/links/for-scene/:sceneId', requireAuth, getA
  *     tags:
  *       - Annotation Links
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -593,8 +671,14 @@ router.get('/:projectId/annotations/links/:linkId', requireAuth, getAnnotationLi
  *     tags:
  *       - Annotation Links
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -626,8 +710,19 @@ router.post('/:projectId/annotations/links', requireAuth, createAnnotationLinkHa
  *     tags:
  *       - Annotation Links
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: linkId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -655,8 +750,19 @@ router.patch('/:projectId/annotations/links/:linkId/erasable', requireAuth, mark
  *     tags:
  *       - Annotation Links
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: linkId
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:

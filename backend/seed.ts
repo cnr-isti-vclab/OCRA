@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import fs from 'fs/promises';
 import path from 'path';
 import { PrismaClient, RoleEnum } from '@prisma/client';
@@ -5,6 +7,11 @@ import { getAuditDb, getContentDb, closeMongoClient } from './src/lib/mongo/clie
 import { ensureProjectSkeleton, projectModel3dAssetDir, projectModel3dDir } from './src/utils/project-static-paths.js';
 
 const prisma = new PrismaClient();
+
+function getUnexpectedSeedArg() {
+  const candidate = process.argv[2]?.trim();
+  return candidate && candidate.length > 0 ? candidate : null;
+}
 
 const MODEL_FILE_NAME = 'Galassi-Allegoria_della_disperazione-Scan2014.glb';
 const MODEL_SOURCE_PATH = `/app/media/Example-Galassi/${MODEL_FILE_NAME}`;
@@ -437,6 +444,19 @@ async function seedProjectFiles(projectId: string) {
 }
 
 async function main() {
+  const unexpectedArg = getUnexpectedSeedArg();
+  if (unexpectedArg) {
+    console.error(
+      [
+        'This script seeds the full demo dataset and does not accept a projectId.',
+        `Received argument: ${unexpectedArg}`,
+        'To create a single complete test annotation, run:',
+        'npm run seed:annotation -- <projectId>',
+      ].join('\n'),
+    );
+    process.exit(1);
+  }
+
   console.log('🌱 Starting OCRA full demo seed...');
   console.log('   Keycloak users are imported separately from keycloak/realm-export/demo-realm.json');
   console.log('');

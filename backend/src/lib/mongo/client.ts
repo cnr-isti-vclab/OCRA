@@ -4,8 +4,27 @@ let client: MongoClient | null = null;
 let auditDb: Db | null = null;
 let contentDb: Db | null = null;
 
+function normalizeMongoUrl(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl);
+    const isHostLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    const hasDirectConnection = parsed.searchParams.has('directConnection');
+
+    if (isHostLocal && !hasDirectConnection) {
+      parsed.searchParams.set('directConnection', 'true');
+      return parsed.toString();
+    }
+
+    return rawUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
 function getMongoUrl() {
-  return process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://mongodb:27017/?replicaSet=rs0';
+  return normalizeMongoUrl(
+    process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://mongodb:27017/?replicaSet=rs0',
+  );
 }
 
 const MONGO_AUDIT_DB = process.env.MONGO_AUDIT_DB || process.env.MONGO_DB || 'ocra_audit';
