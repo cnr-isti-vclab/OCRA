@@ -23,14 +23,6 @@ function isLocalhostDatabaseUrl(databaseUrl: string | undefined) {
   return databaseUrl.includes('@localhost:5432/') || databaseUrl.includes('@127.0.0.1:5432/');
 }
 
-function isRepoLocalCliDatabaseUrl(databaseUrl: string | undefined) {
-  if (!databaseUrl) {
-    return false;
-  }
-
-  return databaseUrl.includes('ocra_user:ocra_pass@localhost:5432/ocra');
-}
-
 function setDockerHostFallbackEnv() {
   process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public';
   process.env.DIRECT_URL = 'postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public';
@@ -43,12 +35,6 @@ function isPrismaConnectionError(error: unknown) {
 
 async function ensureReachableDatabaseConfig() {
   const currentDatabaseUrl = process.env.DATABASE_URL;
-
-  if (isRepoLocalCliDatabaseUrl(currentDatabaseUrl)) {
-    setDockerHostFallbackEnv();
-    console.warn('Using local Docker PostgreSQL defaults instead of backend/.env local credentials.');
-    return;
-  }
 
   if (!isLocalhostDatabaseUrl(currentDatabaseUrl)) {
     return;

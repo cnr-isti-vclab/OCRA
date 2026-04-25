@@ -45,12 +45,23 @@ function ensureCollection(database, name) {
   }
 }
 
+function dropIndexIfExists(collection, name) {
+  const indexes = collection.getIndexes();
+  if (Object.prototype.hasOwnProperty.call(indexes, name)) {
+    void collection.dropIndex(name);
+  }
+}
+
 ensureCollection(auditDb, 'audit');
 
 ensureCollection(contentDb, 'hdt_collection');
 ensureCollection(contentDb, 'annotation_geometry');
 ensureCollection(contentDb, 'annotation_data');
 ensureCollection(contentDb, 'annotation_link');
+
+dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationGeometry_1_annotationData_1');
+dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationGeometry_1');
+dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationData_1');
 
 void contentDb.annotation_geometry.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_geometry.createIndex({ projectId: 1, referenceType: 1, referenceId: 1 });

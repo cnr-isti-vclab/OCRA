@@ -29,10 +29,28 @@ const ANNOTATION_LINK_INDEXES = [
   },
 ] as const;
 
+const LEGACY_ANNOTATION_LINK_INDEX_NAMES = [
+  'projectId_1_annotationGeometry_1_annotationData_1',
+  'projectId_1_annotationGeometry_1',
+  'projectId_1_annotationData_1',
+] as const;
+
+async function dropLegacyAnnotationLinkIndexes(collection: Collection<AnnotationLinkDocument>) {
+  const indexes = await collection.indexes();
+  const existingIndexNames = new Set(indexes.map((index) => index.name));
+
+  for (const indexName of LEGACY_ANNOTATION_LINK_INDEX_NAMES) {
+    if (existingIndexNames.has(indexName)) {
+      await collection.dropIndex(indexName);
+    }
+  }
+}
+
 export async function getAnnotationLinkCollection(): Promise<Collection<AnnotationLinkDocument>> {
   const collection = await getAnnotationCollection<AnnotationLinkDocument>(
     ANNOTATION_LINK_COLLECTION_NAME,
   );
+  await dropLegacyAnnotationLinkIndexes(collection);
   await ensureAnnotationIndexes(
     ANNOTATION_LINK_COLLECTION_NAME,
     collection,

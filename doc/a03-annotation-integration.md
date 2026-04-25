@@ -1,16 +1,191 @@
-# Annotation Frontend Integration Guide
+# Annotation Integration Guide
 
 ## Purpose
 
-This document explains how a frontend module should interact with the OCRA annotation backend through the implemented REST API.
+This document has two goals:
 
-It focuses on:
+- explain the two supported development modes for OCRA
+- explain how the frontend should interact with the annotation backend
 
-- scene loading
-- create/update/erase/restore workflows
-- OCC handling
-- error handling
-- practical response-shape handling in the frontend
+The first part is operational and focuses on local development, database reset, and database population.
+
+The second part keeps the frontend integration notes for annotations.
+
+## Development Modes
+
+For development, OCRA can be used in two ways:
+
+- non-bare: the full stack runs through Docker Compose
+- bare: PostgreSQL, MongoDB, and Keycloak run through the local helper services, while frontend and backend run directly from the workspace
+
+### Non-Bare Development
+
+Use Docker Compose when you want the whole application stack managed inside containers.
+
+Start the development stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+```
+
+Stop it:
+
+```bash
+docker compose down
+```
+
+This mode is the simplest one when you want backend, frontend, PostgreSQL, MongoDB, and Keycloak all aligned inside the same containerized environment.
+
+### Bare Development
+
+Use the bare mode when you want databases and Keycloak managed by helper services, but backend and frontend executed directly from the local workspace.
+
+Start the local services:
+
+```bash
+npm run services:start
+```
+
+Start backend and frontend from the workspace:
+
+```bash
+npm run dev:backend
+npm run dev:frontend
+```
+
+Stop the local services when done:
+
+```bash
+npm run services:stop
+```
+
+This mode gives you faster iteration on backend and frontend code while keeping PostgreSQL, MongoDB, and Keycloak available through the local service containers.
+
+## Resetting OCRA Databases
+
+The commands below reset both PostgreSQL and MongoDB for development.
+
+### Reset Non-Bare Databases
+
+Use this when you want to wipe the Docker Compose PostgreSQL and MongoDB state and recreate them from scratch.
+
+```bash
+docker compose down -v
+docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+npm run db:migrate:compose
+npm run mongo:init
+docker compose down
+```
+
+What this does:
+
+- removes Compose containers and volumes
+- recreates PostgreSQL and MongoDB
+- reapplies the Prisma schema for the Compose database
+- reinitializes MongoDB collections and replica set
+- shuts the stack down again so you can restart it cleanly when needed
+
+### Reset Bare Databases
+
+Use this when you want to wipe the bare PostgreSQL and MongoDB state and recreate the local service containers from scratch.
+
+```bash
+npm run services:stop
+docker rm -f bare-ocra-postgres bare-ocra-mongo bare-keycloak 2>/dev/null || true
+docker volume rm ocra-postgres-data ocra-mongo-data 2>/dev/null || true
+bash scripts/start-services.sh
+npm run db:migrate:bare
+npm run services:stop
+```
+
+What this does:
+
+- stops the bare local services
+- removes the bare PostgreSQL, MongoDB, and Keycloak containers
+- removes the named PostgreSQL and MongoDB volumes
+- recreates the local service containers
+- reapplies the Prisma schema for the bare database
+- leaves the services stopped at the end
+
+If MongoDB already exists but only needs to be reinitialized, you can also run:
+
+```bash
+npm run mongo:init -- bare-ocra-mongo
+```
+
+## Populating the Databases
+
+There are two different population steps to keep in mind:
+
+- base demo seed: users, vocabulary, at least one demo project, project files, HDT document, and audit trail
+- annotation seed: geometry/data/link demo annotations for a specific project
+
+### Base Demo Seed
+
+The base seed is driven by:
+
+```bash
+cd backend
+npm run seed
+```
+
+What it populates:
+
+- PostgreSQL users and roles
+- PostgreSQL vocabulary data
+- at least one demo project in PostgreSQL
+- project files under `project_files/`
+- HDT content in MongoDB
+- audit data in MongoDB
+
+In Compose development, some of this may already happen during container startup depending on the environment. If you want an explicit and repeatable population step, run the seed manually.
+
+For non-bare:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+docker compose exec backend npm run seed
+```
+
+For bare:
+
+```bash
+npm run services:start
+cd backend
+npm run seed
+```
+
+### Annotation Seed for a Specific Project
+
+The annotation seed is driven by:
+
+```bash
+cd backend
+npm run seed:annotation -- <projectId>
+```
+
+This script writes annotation documents into MongoDB for the selected project. In the current test dataset it creates:
+
+- 2 geometries
+- 1 annotation data record
+- 2 links
+
+Use it after the base seed, once you have a valid `projectId`.
+
+For non-bare:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+docker compose exec backend npm run seed:annotation -- <projectId>
+```
+
+For bare:
+
+```bash
+npm run services:start
+cd backend
+npm run seed:annotation -- <projectId>
+```
 
 ## Recommended Frontend Model
 

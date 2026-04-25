@@ -2,11 +2,14 @@ import 'dotenv/config';
 
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { PrismaClient, RoleEnum } from '@prisma/client';
 import { getAuditDb, getContentDb, closeMongoClient } from './src/lib/mongo/client.js';
 import { ensureProjectSkeleton, projectModel3dAssetDir, projectModel3dDir } from './src/utils/project-static-paths.js';
 
 const prisma = new PrismaClient();
+const BACKEND_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(BACKEND_DIR, '..');
 
 function getUnexpectedSeedArg() {
   const candidate = process.argv[2]?.trim();
@@ -14,7 +17,7 @@ function getUnexpectedSeedArg() {
 }
 
 const MODEL_FILE_NAME = 'Galassi-Allegoria_della_disperazione-Scan2014.glb';
-const MODEL_SOURCE_PATH = `/app/media/Example-Galassi/${MODEL_FILE_NAME}`;
+const MODEL_SOURCE_PATH = path.join(REPO_ROOT, 'media', 'Example-Galassi', MODEL_FILE_NAME);
 
 const DEMO_USERS = [
   {
