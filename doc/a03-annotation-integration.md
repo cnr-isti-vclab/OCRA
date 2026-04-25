@@ -705,3 +705,189 @@ Track versions independently for:
 - link
 
 Do not assume one global annotation version.
+
+## End-to-End Examples
+
+This section shows one complete frontend flow using the currently implemented SSE connection and social-lock APIs.
+
+### End-to-End Geometry Edit Flow
+
+Scenario:
+
+- the user opens the annotation UI for one scene
+- the frontend opens the SSE stream
+- the user starts editing one geometry
+- the frontend announces the social lock
+- the frontend saves the geometry with OCC
+- the frontend clears the social lock
+
+Example:
+
+```ts
+import { AnnotationEventsService } from '../src/services/AnnotationEventsService'
+
+async function editGeometryExample(
+  projectId: string,
+  sceneId: string,
+  geometryId: string,
+  expectedVersion: number,
+  shapes: unknown[],
+) {
+  const events = new AnnotationEventsService(projectId, sceneId)
+
+  const streamReady = new Promise<void>((resolve) => {
+    events.connect({
+      onConnectionStateChange: (state) => {
+        console.log('annotation realtime state:', state)
+        if (state === 'connected') {
+          resolve()
+        }
+      },
+      onMutation: async (event) => {
+        console.log('remote mutation received:', event)
+        await reloadSceneBundle(projectId, sceneId)
+      },
+      onReconnect: async () => {
+        console.log('annotation stream reconnected, refreshing scene bundle')
+        await reloadSceneBundle(projectId, sceneId)
+      },
+    })
+  })
+
+  await streamReady
+
+  await events.notifyEditingStart({
+    resourceType: 'geometry',
+    resourceId: geometryId,
+    activity: 'editing',
+  })
+
+  try {
+    const response = await fetch(
+      `/api/projects/${projectId}/annotations/geometry/${geometryId}`,
+      {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expectedVersion,
+          shapes,
+        }),
+      },
+    )
+
+    if (response.status === 409) {
+      await reloadSceneBundle(projectId, sceneId)
+      throw new Error('OCC conflict while saving geometry')
+    }
+
+    if (!response.ok) {
+      throw new Error('Failed to save geometry')
+    }
+
+    const payload = await response.json()
+    console.log('geometry saved with next version:', payload.version)
+  } finally {
+    await events.notifyEditingStop({
+      resourceType: 'geometry',
+      resourceId: geometryId,
+      activity: 'editing',
+    })
+
+    events.disconnect()
+  }
+}
+```
+
+What happens on the backend during this flow:
+
+1. the SSE stream is opened with `GET /api/projects/{projectId}/annotations/events?sceneId={sceneId}`
+2. the backend returns `annotation.connected` with one `streamId`
+3. `notifyEditingStart(...)` calls `POST /api/projects/{projectId}/annotations/events/social-lock/start`
+4. other connected clients receive `annotation.social_lock.started`
+5. the geometry update is saved through the normal REST mutation route with OCC
+6. after a successful commit, connected clients receive `annotation.mutated`
+7. `notifyEditingStop(...)` calls `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
+8. other connected clients receive `annotation.social_lock.stopped`
+
+### Minimal EventSource Example Without the Service Wrapper
+
+If the frontend team prefers to integrate incrementally, this is the smallest direct browser example:
+
+```ts
+const url = new URL(`/api/projects/${projectId}/annotations/events`, window.location.origin)
+url.searchParams.set('sceneId', sceneId)
+
+const source = new EventSource(url.toString(), { withCredentials: true })
+
+let streamId: string | null = null
+
+source.addEventListener('annotation.connected', (event) => {
+  const payload = JSON.parse(event.data)
+  streamId = payload.streamId
+  console.log('active social locks on connect:', payload.activeSocialLocks)
+})
+
+source.addEventListener('annotation.social_lock.started', (event) => {
+  const payload = JSON.parse(event.data)
+  console.log('show social-lock cue for', payload.resourceType, payload.resourceId)
+})
+
+source.addEventListener('annotation.social_lock.stopped', (event) => {
+  const payload = JSON.parse(event.data)
+  console.log('remove social-lock cue for', payload.resourceType, payload.resourceId)
+})
+
+source.addEventListener('annotation.mutated', async (event) => {
+  const payload = JSON.parse(event.data)
+  console.log('remote committed change:', payload.mutation)
+  await reloadSceneBundle(projectId, sceneId)
+})
+
+source.onerror = () => {
+  console.log('annotation stream interrupted; EventSource will retry automatically')
+}
+
+async function notifyEditingStart(resourceType: 'geometry' | 'data' | 'link', resourceId: string) {
+  if (!streamId) return
+
+  await fetch(`/api/projects/${projectId}/annotations/events/social-lock/start`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sceneId,
+      streamId,
+      resourceType,
+      resourceId,
+      activity: 'editing',
+    }),
+  })
+}
+
+async function notifyEditingStop(resourceType: 'geometry' | 'data' | 'link', resourceId: string) {
+  if (!streamId) return
+
+  await fetch(`/api/projects/${projectId}/annotations/events/social-lock/stop`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sceneId,
+      streamId,
+      resourceType,
+      resourceId,
+      activity: 'editing',
+    }),
+  })
+}
+```
+
+### Recommended UI Behaviour in the End-to-End Flow
+
+- Connect once when entering the scene annotation view.
+- Wait for `annotation.connected` before attempting `notifyEditingStart`.
+- Send social-lock start only when the user actually begins editing a concrete entity.
+- Always clear the lock in `finally`, even if the save fails.
+- Treat `annotation.mutated` as informational: refresh the scene or entity, but do not bypass OCC.
+- After reconnect, refresh the scene because some events may have been missed while the connection was down.
