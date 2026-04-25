@@ -48,13 +48,7 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Failed to create session"
- *                 message:
- *                   type: string
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post('/', createUserSession);
 
@@ -121,7 +115,19 @@ router.post('/', createUserSession);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Failed to get current user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 
 router.get('/current', getCurrentUser);
@@ -192,7 +198,19 @@ router.get('/current', getCurrentUser);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Session ID required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Failed to get session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/:sessionId', getUserSession);
 
@@ -234,23 +252,13 @@ router.get('/:sessionId', getUserSession);
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Session ID required"
- *       404:
- *         description: Session not found
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Failed to delete session
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Session not found"
- *       401:
- *         description: Not authenticated
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.delete('/:sessionId', deleteUserSession);
 

@@ -27,6 +27,8 @@ import { RoleEnum } from '@prisma/client';
 import { getPrismaClient } from '../../db.js';
 import { getValidSession } from '../../db.js';
 import { auditBestEffort } from '../utils/audit.js';
+import { API_ERROR_CODES } from '../lib/api-error-codes.js';
+import { sendApiError } from '../lib/api-error.js';
 
 import type { User } from '../types/index.js';
 
@@ -39,6 +41,10 @@ import {
 } from '../utils/project-static-paths.js';
 
 import { getHDTDocument } from '../services/hdt-metadata.service.js'
+
+function sendProjectError(req: Request, res: Response, status: number, code: keyof typeof API_ERROR_CODES.project, error: string, details?: unknown) {
+  return sendApiError(req, res, { status, code: API_ERROR_CODES.project[code], error, details });
+}
 
 /**
  * Helper: Check if a user is manager of a project (or sysadmin)
@@ -149,11 +155,19 @@ async function getCurrentUser(req: Request): Promise<User | null> {
 export async function isManagerOfProject(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    return sendApiError(req, res, {
+      status: 400,
+      code: API_ERROR_CODES.project.idRequired,
+      error: 'Project ID is required',
+    });
   }
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return sendApiError(req, res, {
+      status: 401,
+      code: API_ERROR_CODES.project.authenticationRequired,
+      error: 'Authentication required',
+    });
   }
   const db = getPrismaClient();
   const result = await checkIsManagerOfProject(db, currentUser, projectId);
@@ -203,7 +217,11 @@ export const upload = multer({ storage });
 export async function getProjectScene(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    return sendApiError(req, res, {
+      status: 400,
+      code: API_ERROR_CODES.project.idRequired,
+      error: 'Project ID is required',
+    });
   }
 
   const scenePath = path.join(projectModel3dDir(projectId), 'scene.json');
@@ -222,9 +240,11 @@ export async function getProjectScene(req: Request, res: Response) {
     const sceneData = fs.readFileSync(scenePath, 'utf-8');
     res.json(JSON.parse(sceneData));
   } catch (error) {
-    res.status(500).json({
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.project.sceneReadFailed,
       error: 'Failed to read scene',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -238,18 +258,30 @@ export async function getProjectScene(req: Request, res: Response) {
 export async function updateProjectScene(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    return sendApiError(req, res, {
+      status: 400,
+      code: API_ERROR_CODES.project.idRequired,
+      error: 'Project ID is required',
+    });
   }
 
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return sendApiError(req, res, {
+      status: 401,
+      code: API_ERROR_CODES.project.authenticationRequired,
+      error: 'Authentication required',
+    });
   }
 
   const db = getPrismaClient();
   const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
   if (!isManager) {
-    return res.status(403).json({ error: 'Only project managers can update the scene' });
+    return sendApiError(req, res, {
+      status: 403,
+      code: API_ERROR_CODES.project.managerRequired,
+      error: 'Only project managers can update the scene',
+    });
   }
 
   try {
@@ -262,9 +294,11 @@ export async function updateProjectScene(req: Request, res: Response) {
 
     res.json({ success: true, scene: sceneData });
   } catch (error) {
-    res.status(500).json({
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.project.sceneUpdateFailed,
       error: 'Failed to update scene',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -276,7 +310,11 @@ export async function updateProjectScene(req: Request, res: Response) {
 export async function listProjectFiles(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    return sendApiError(req, res, {
+      status: 400,
+      code: API_ERROR_CODES.project.idRequired,
+      error: 'Project ID is required',
+    });
   }
 
   try {
@@ -284,7 +322,11 @@ export async function listProjectFiles(req: Request, res: Response) {
     const db = getPrismaClient();
     const project = await db.project.findUnique({ where: { id: projectId } });
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      return sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.project.notFound,
+        error: 'Project not found',
+      });
     }
 
     const hdtDoc = await getHDTDocument(projectId);
@@ -302,9 +344,11 @@ export async function listProjectFiles(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Error listing project files:', error);
-    res.status(500).json({
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.project.filesListFailed,
       error: 'Failed to list project assets',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -320,12 +364,12 @@ export async function listProjectFiles(req: Request, res: Response) {
 export async function uploadProjectFile(req: Request, res: Response) {
   const { projectId } = req.params;
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    return sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
   }
 
   const currentUser = await getCurrentUser(req);
   if (!currentUser) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
   }
 
   const db = getPrismaClient();
@@ -339,7 +383,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
       success: false,
       payload: { projectId, error: 'Unauthorized: not project manager' },
     });
-    return res.status(403).json({ error: 'Only the project manager can upload files' });
+    return sendProjectError(req, res, 403, 'fileUploadManagerRequired', 'Only the project manager can upload files');
   }
 
   const file = (req as any).file as Express.Multer.File | undefined;
@@ -351,7 +395,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
       success: false,
       payload: { projectId, error: 'No file uploaded' },
     });
-    return res.status(400).json({ error: 'No file uploaded' });
+    return sendProjectError(req, res, 400, 'fileUploadNoFile', 'No file uploaded');
   }
 
   const assetIdRaw = (req as any).body?.assetId;
@@ -359,7 +403,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
   if (!assetId) {
     // Remove tmp file to avoid clutter
     try { await fse.remove(file.path); } catch { }
-    return res.status(400).json({ error: 'assetId is required' });
+    return sendProjectError(req, res, 400, 'fileUploadAssetIdRequired', 'assetId is required');
   }
 
   // Audit success (best-effort)
@@ -445,10 +489,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
     });
   } catch (sceneErr: any) {
     console.warn('Failed to finalize upload or update scene.json:', sceneErr?.message ?? String(sceneErr));
-    res.status(500).json({
-      error: 'Failed to finalize upload',
-      message: sceneErr?.message ?? String(sceneErr),
-    });
+    sendProjectError(req, res, 500, 'fileFinalizeFailed', 'Failed to finalize upload', sceneErr?.message ?? String(sceneErr));
   }
 }
 
@@ -465,7 +506,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
 export async function downloadProjectFile(req: Request, res: Response) {
   const { projectId } = req.params as { projectId?: string };
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    return sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
   }
 
   const paramsAny = req.params as any;
@@ -476,7 +517,7 @@ export async function downloadProjectFile(req: Request, res: Response) {
   if (assetId && filename) {
     const filePath = path.join(projectModel3dAssetDir(projectId, assetId), filename);
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found' });
+      return sendProjectError(req, res, 404, 'fileNotFound', 'File not found');
     }
     return res.download(filePath);
   }
@@ -484,13 +525,13 @@ export async function downloadProjectFile(req: Request, res: Response) {
   // Case B: old route only provides "filename" (Express will map it to req.params.filename)
   const oldFilename = paramsAny.filename || paramsAny[0];
   if (!oldFilename) {
-    return res.status(400).json({ error: 'Filename is required' });
+    return sendProjectError(req, res, 400, 'fileNameRequired', 'Filename is required');
   }
 
   // Search in 3d-model/*/oldFilename
   const model3dDir = projectModel3dDir(projectId);
   if (!fs.existsSync(model3dDir)) {
-    return res.status(404).json({ error: 'File not found' });
+    return sendProjectError(req, res, 404, 'fileNotFound', 'File not found');
   }
 
   const entries = fs.readdirSync(model3dDir, { withFileTypes: true }).filter(d => d.isDirectory());
@@ -501,7 +542,7 @@ export async function downloadProjectFile(req: Request, res: Response) {
     }
   }
 
-  return res.status(404).json({ error: 'File not found' });
+  return sendProjectError(req, res, 404, 'fileNotFound', 'File not found');
 }
 
 /**
@@ -518,18 +559,18 @@ export async function deleteProjectFile(req: Request, res: Response) {
   try {
     const { projectId } = req.params as { projectId?: string };
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
     }
 
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const db = getPrismaClient();
     const isManager = await checkIsManagerOfProject(db, currentUser, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can delete files' });
+      return sendProjectError(req, res, 403, 'fileDeleteManagerRequired', 'Only project managers can delete files');
     }
 
     const paramsAny = req.params as any;
@@ -540,7 +581,7 @@ export async function deleteProjectFile(req: Request, res: Response) {
     if (assetId && filename) {
       const filePath = path.join(projectModel3dAssetDir(projectId, assetId), filename);
       if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'File not found' });
+        return sendProjectError(req, res, 404, 'fileNotFound', 'File not found');
       }
       fs.unlinkSync(filePath);
       console.log(`🗑️ Deleted file: ${filePath}`);
@@ -550,12 +591,12 @@ export async function deleteProjectFile(req: Request, res: Response) {
     // Case B: old route (filename only)
     const oldFilename = paramsAny.filename || paramsAny[0];
     if (!oldFilename) {
-      return res.status(400).json({ error: 'Filename is required' });
+      return sendProjectError(req, res, 400, 'fileNameRequired', 'Filename is required');
     }
 
     const model3dDir = projectModel3dDir(projectId);
     if (!fs.existsSync(model3dDir)) {
-      return res.status(404).json({ error: 'File not found' });
+      return sendProjectError(req, res, 404, 'fileNotFound', 'File not found');
     }
 
     const entries = fs.readdirSync(model3dDir, { withFileTypes: true }).filter(d => d.isDirectory());
@@ -568,13 +609,10 @@ export async function deleteProjectFile(req: Request, res: Response) {
       }
     }
 
-    return res.status(404).json({ error: 'File not found' });
+    return sendProjectError(req, res, 404, 'fileNotFound', 'File not found');
   } catch (error: any) {
     console.error('Error deleting file:', error);
-    res.status(500).json({
-      error: 'Failed to delete file',
-      message: error?.message || String(error),
-    });
+    sendProjectError(req, res, 500, 'fileDeleteFailed', 'Failed to delete file', error?.message || String(error));
   }
 }
 
@@ -679,10 +717,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     res.json({ success: true, projects: projectsWithManagers });
   } catch (error) {
     console.error('❌ [getAllProjects] Error occurred:', error);
-    res.status(500).json({
-      error: 'Failed to fetch projects',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    sendProjectError(req, res, 500, 'fetchProjectsFailed', 'Failed to fetch projects', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -694,7 +729,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
     const { projectId } = req.params;
 
     if (!projectId) {
-      res.status(400).json({ error: 'Project ID is required' });
+      sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
       return;
     }
 
@@ -731,7 +766,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
     });
 
     if (!project) {
-      res.status(404).json({ error: 'Project not found' });
+      sendProjectError(req, res, 404, 'notFound', 'Project not found');
       return;
     }
 
@@ -755,10 +790,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
     res.json({ success: true, project: projectWithManager });
   } catch (error) {
     console.error('Error fetching project:', error);
-    res.status(500).json({
-      error: 'Failed to fetch project',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    sendProjectError(req, res, 500, 'fetchProjectFailed', 'Failed to fetch project', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -770,7 +802,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     const { name, description, public: isPublic } = req.body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      res.status(400).json({ error: 'Project name is required and must be a non-empty string' });
+      sendProjectError(req, res, 400, 'nameRequired', 'Project name is required and must be a non-empty string');
       return;
     }
 
@@ -778,18 +810,18 @@ export async function createProject(req: Request, res: Response): Promise<void> 
 
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
       return;
     }
     if (!currentUser.sys_admin && !currentUser.sys_creator) {
-      res.status(403).json({ error: 'Insufficient permissions to create projects' });
+      sendProjectError(req, res, 403, 'createPermissionDenied', 'Insufficient permissions to create projects');
       return;
     }
 
     const trimmedName = name.trim();
     const existingProject = await db.project.findFirst({ where: { name: trimmedName } });
     if (existingProject) {
-      res.status(409).json({ error: 'A project with this name already exists' });
+      sendProjectError(req, res, 409, 'nameConflict', 'A project with this name already exists');
       return;
     }
 
@@ -873,10 +905,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     res.status(201).json({ success: true, project: projectWithManager });
   } catch (error) {
     console.error('Error creating project:', error);
-    res.status(500).json({
-      error: 'Failed to create project',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    sendProjectError(req, res, 500, 'createFailed', 'Failed to create project', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -902,14 +931,14 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
   try {
     const { projectId } = req.params;
     if (!projectId) {
-      res.status(400).json({ error: 'Project ID is required' });
+      sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
       return;
     }
 
     // Authentication
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
       return;
     }
 
@@ -920,9 +949,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     );
 
     if (forbiddenInBody.length > 0) {
-      res.status(400).json({
-        error: `Forbidden field(s) in request body: ${forbiddenInBody.join(', ')}`,
-      });
+      sendProjectError(req, res, 400, 'forbiddenBodyFields', `Forbidden field(s) in request body: ${forbiddenInBody.join(', ')}`);
       return;
     }
 
@@ -934,7 +961,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     }
 
     if (Object.keys(auditPatch).length === 0) {
-      res.status(400).json({ error: 'Empty update: provide at least one updatable field' });
+      sendProjectError(req, res, 400, 'emptyUpdate', 'Empty update: provide at least one updatable field');
       return;
     }
 
@@ -944,7 +971,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     });
 
     if (!existingProject) {
-      res.status(404).json({ error: 'Project not found' });
+      sendProjectError(req, res, 404, 'notFound', 'Project not found');
       return;
     }
 
@@ -964,7 +991,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         },
       });
 
-      res.status(403).json({ error: 'Only project managers can update the project' });
+      sendProjectError(req, res, 403, 'updateManagerRequired', 'Only project managers can update the project');
       return;
     }
 
@@ -973,7 +1000,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 
     if (auditPatch.name !== undefined) {
       if (typeof auditPatch.name !== 'string' || auditPatch.name.trim().length === 0) {
-        res.status(400).json({ error: 'If provided, name must be a non-empty string' });
+        sendProjectError(req, res, 400, 'invalidName', 'If provided, name must be a non-empty string');
         return;
       }
 
@@ -986,7 +1013,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       });
 
       if (conflict) {
-        res.status(409).json({ error: 'A project with this name already exists' });
+        sendProjectError(req, res, 409, 'nameConflict', 'A project with this name already exists');
         return;
       }
 
@@ -995,7 +1022,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 
     if (auditPatch.description !== undefined) {
       if (auditPatch.description !== null && typeof auditPatch.description !== 'string') {
-        res.status(400).json({ error: 'If provided, description must be a string or null' });
+        sendProjectError(req, res, 400, 'invalidDescription', 'If provided, description must be a string or null');
         return;
       }
       data.description = auditPatch.description ?? '';
@@ -1022,7 +1049,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     // Optional manager reassignment
     if (auditPatch.managerId !== undefined) {
       if (auditPatch.managerId !== null && typeof auditPatch.managerId !== 'string') {
-        res.status(400).json({ error: 'If provided, managerId must be a string or null' });
+        sendProjectError(req, res, 400, 'invalidManagerId', 'If provided, managerId must be a string or null');
         return;
       }
 
@@ -1036,7 +1063,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         });
 
         if (!managerUser) {
-          res.status(400).json({ error: 'Selected manager user not found' });
+          sendProjectError(req, res, 400, 'selectedManagerNotFound', 'Selected manager user not found');
           return;
         }
 
@@ -1066,10 +1093,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     res.json({ success: true, project: updatedProject });
   } catch (error) {
     console.error('Error updating project:', error);
-    res.status(500).json({
-      error: 'Failed to update project',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    sendProjectError(req, res, 500, 'updateFailed', 'Failed to update project', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -1093,14 +1117,14 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
   try {
     const { projectId } = req.params;
     if (!projectId) {
-      res.status(400).json({ error: 'Project ID is required' });
+      sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
       return;
     }
 
     // Authentication
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
       return;
     }
 
@@ -1118,7 +1142,7 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
     });
 
     if (!projectBefore) {
-      res.status(404).json({ error: 'Project not found' });
+      sendProjectError(req, res, 404, 'notFound', 'Project not found');
       return;
     }
 
@@ -1132,7 +1156,7 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
         success: false,
         payload: { projectId, error: 'Unauthorized: not project manager' },
       });
-      res.status(403).json({ error: 'Only project managers can delete the project' });
+      sendProjectError(req, res, 403, 'deleteManagerRequired', 'Only project managers can delete the project');
       return;
     }
 
@@ -1156,9 +1180,6 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting project:', error);
-    res.status(500).json({
-      error: 'Failed to delete project',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    sendProjectError(req, res, 500, 'deleteFailed', 'Failed to delete project', error instanceof Error ? error.message : 'Unknown error');
   }
 }

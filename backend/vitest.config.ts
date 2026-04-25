@@ -17,11 +17,7 @@ export default defineConfig({
     // Run tests SEQUENTIALLY to avoid database conflicts
     // Integration tests share the same database, so parallel execution causes issues
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true, // All tests run in one process, one after another
-      },
-    },
+    singleFork: true, // All tests run in one process, one after another
     fileParallelism: false,
     
     // Pattern per trovare i test

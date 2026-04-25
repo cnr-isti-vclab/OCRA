@@ -26,6 +26,8 @@
  */
 
 import { Request, Response } from 'express';
+import { API_ERROR_CODES } from '../lib/api-error-codes.js';
+import { sendApiError } from '../lib/api-error.js';
 import {
   getHDTDocument,
   createHDTDocument,
@@ -223,6 +225,22 @@ function mergePhysicalObjectMetadata(
   };
 }
 
+function sendHdtError(
+  req: Request,
+  res: Response,
+  status: number,
+  code: keyof typeof API_ERROR_CODES.hdt,
+  error: string,
+  details?: unknown,
+) {
+  sendApiError(req, res, {
+    status,
+    code: API_ERROR_CODES.hdt[code],
+    error,
+    details,
+  });
+}
+
 // ============================================================================
 // HDT DOCUMENT ENDPOINTS
 // ============================================================================
@@ -236,22 +254,19 @@ export async function getHDTMetadataHandler(req: Request, res: Response) {
     const { projectId } = req.params;
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
     }
 
     const document = await getHDTDocument(projectId);
 
     if (!document) {
-      return res.status(404).json({ error: 'HDT document not found for this project' });
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT document not found for this project');
     }
 
     res.json(document);
   } catch (error: any) {
     console.error('Error fetching HDT document:', error);
-    res.status(500).json({
-      error: 'Failed to fetch HDT document',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'fetchFailed', 'Failed to fetch HDT document', error?.message || String(error));
   }
 }
 
@@ -265,26 +280,30 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     const currentUser = getCurrentUser(req);
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
     }
 
     // Check if user is manager of the project
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can create HDT document' });
+      return sendHdtError(req, res, 403, 'managerRequired', 'Only project managers can create HDT document');
     }
 
     // Check if document already exists
     const existing = await getHDTDocument(projectId);
     if (existing) {
-      return res.status(409).json({
-        error: 'HDT document already exists for this project',
-        document: existing
-      });
+      return sendHdtError(
+        req,
+        res,
+        409,
+        'alreadyExists',
+        'HDT document already exists for this project',
+        { document: existing },
+      );
     }
 
     // Get project details to initialize metadata
@@ -299,7 +318,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     });
 
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      return sendHdtError(req, res, 404, 'projectNotFound', 'Project not found');
     }
 
     // Use provided metadata from request body, or fallback to project defaults.
@@ -310,9 +329,13 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     try {
       metadataPatch = extractPhysicalObjectMetadataPatch(req.body);
     } catch (error: any) {
-      return res.status(400).json({
-        error: error?.message || 'Invalid physical object metadata payload'
-      });
+      return sendHdtError(
+        req,
+        res,
+        400,
+        'invalidPhysicalObjectMetadataPayload',
+        error?.message || 'Invalid physical object metadata payload',
+      );
     }
 
     const defaultMetadata = defaultPhysicalObjectMetadata(projectId, {
@@ -330,10 +353,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     res.status(201).json(document);
   } catch (error: any) {
     console.error('Error creating HDT document:', error);
-    res.status(500).json({
-      error: 'Failed to create HDT document',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'createFailed', 'Failed to create HDT document', error?.message || String(error));
   }
 }
 
@@ -351,34 +371,38 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
     console.log('HDT UPDATE: metadataUpdates:', JSON.stringify(rawBody, null, 2));
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can update HDT metadata' });
+      return sendHdtError(req, res, 403, 'managerRequired', 'Only project managers can update HDT metadata');
     }
 
     const existingDocument = await getHDTDocument(projectId);
     if (!existingDocument) {
-      return res.status(404).json({ error: 'HDT metadata not found for this project' });
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
     }
 
     let metadataPatch: Partial<PhysicalObjectMetadata>;
     try {
       metadataPatch = extractPhysicalObjectMetadataPatch(rawBody);
     } catch (error: any) {
-      return res.status(400).json({
-        error: error?.message || 'Invalid physical object metadata payload'
-      });
+      return sendHdtError(
+        req,
+        res,
+        400,
+        'invalidPhysicalObjectMetadataPayload',
+        error?.message || 'Invalid physical object metadata payload',
+      );
     }
 
     if (Object.keys(metadataPatch).length === 0) {
-      return res.status(400).json({ error: 'No physicalObjectMetadata fields provided' });
+      return sendHdtError(req, res, 400, 'noPhysicalObjectMetadataFields', 'No physicalObjectMetadata fields provided');
     }
 
     const mergedCurrent = mergePhysicalObjectMetadata(
@@ -389,16 +413,13 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
     const updatedMetadata = await updateHDTMetadata(projectId, normalizedUpdate, currentUser.sub);
 
     if (!updatedMetadata) {
-      return res.status(404).json({ error: 'HDT metadata not found for this project' });
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
     }
 
     res.json(updatedMetadata);
   } catch (error: any) {
     console.error('Error updating HDT metadata:', error);
-    res.status(500).json({
-      error: 'Failed to update HDT metadata',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'updateFailed', 'Failed to update HDT metadata', error?.message || String(error));
   }
 }
 
@@ -412,20 +433,20 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
     const currentUser = getCurrentUser(req);
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can import physical object metadata' });
+      return sendHdtError(req, res, 403, 'managerRequired', 'Only project managers can import physical object metadata');
     }
 
     if (!isRecord(req.body)) {
-      return res.status(400).json({ error: 'Request body must be a JSON object' });
+      return sendHdtError(req, res, 400, 'bodyMustBeObject', 'Request body must be a JSON object');
     }
 
     const sourceUri =
@@ -434,7 +455,7 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
         : '';
 
     if (!sourceUri) {
-      return res.status(400).json({ error: 'sourceUri is required' });
+      return sendHdtError(req, res, 400, 'sourceUriRequired', 'sourceUri is required');
     }
 
     const sourceType = normalizePhysicalObjectSourceType(req.body.sourceType);
@@ -470,7 +491,7 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
       });
 
       if (!project) {
-        return res.status(404).json({ error: 'Project not found' });
+        return sendHdtError(req, res, 404, 'projectNotFound', 'Project not found');
       }
 
       const defaults = defaultPhysicalObjectMetadata(projectId, {
@@ -491,7 +512,7 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
     const updatedDocument = await updateHDTMetadata(projectId, normalizedUpdate, currentUser.sub);
 
     if (!updatedDocument) {
-      return res.status(404).json({ error: 'HDT metadata not found for this project' });
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
     }
 
     return res.status(200).json(updatedDocument);
@@ -500,16 +521,13 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
 
     const message = error?.message || 'Failed to import physical object metadata';
     if (typeof message === 'string' && message.toLowerCase().includes('not implemented')) {
-      return res.status(501).json({ error: message });
+      return sendHdtError(req, res, 501, 'importNotImplemented', message);
     }
     if (typeof message === 'string' && message.toLowerCase().includes('source')) {
-      return res.status(400).json({ error: message });
+      return sendHdtError(req, res, 400, 'importSourceError', message);
     }
 
-    return res.status(500).json({
-      error: 'Failed to import physical object metadata',
-      message
-    });
+    return sendHdtError(req, res, 500, 'importFailed', 'Failed to import physical object metadata', message);
   }
 }
 
@@ -523,31 +541,28 @@ export async function deleteHDTMetadataHandler(req: Request, res: Response) {
     const currentUser = getCurrentUser(req);
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can delete HDT document' });
+      return sendHdtError(req, res, 403, 'managerRequired', 'Only project managers can delete HDT document');
     }
 
     const deleted = await deleteHDTDocument(projectId);
 
     if (!deleted) {
-      return res.status(404).json({ error: 'HDT document not found for this project' });
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT document not found for this project');
     }
 
     res.json({ message: 'HDT document deleted successfully' });
   } catch (error: any) {
     console.error('Error deleting HDT document:', error);
-    res.status(500).json({
-      error: 'Failed to delete HDT document',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'deleteFailed', 'Failed to delete HDT document', error?.message || String(error));
   }
 }
 
@@ -595,21 +610,21 @@ export async function addAssetHandler(req: Request, res: Response) {
 
     // Validate only the required fields that frontend must provide
     if (!normalizedAsset.type || typeof normalizedAsset.type !== 'string') {
-      return res.status(400).json({ error: 'Asset "type" is required' });
+      return sendHdtError(req, res, 400, 'assetInvalidType', 'Asset "type" is required');
     }
     if (!normalizedAsset.label || typeof normalizedAsset.label !== 'string') {
-      return res.status(400).json({ error: 'Asset "label" is required' });
+      return sendHdtError(req, res, 400, 'assetInvalidLabel', 'Asset "label" is required');
     }
 
     // Optional validation: if provided, these should be valid
     if (normalizedAsset.entryPointUrl !== undefined && typeof normalizedAsset.entryPointUrl !== 'string') {
-      return res.status(400).json({ error: 'Asset "entryPointUrl" must be a string if provided' });
+      return sendHdtError(req, res, 400, 'assetInvalidEntryPointUrl', 'Asset "entryPointUrl" must be a string if provided');
     }
     if (normalizedAsset.entryPoint !== undefined && typeof normalizedAsset.entryPoint !== 'string') {
-      return res.status(400).json({ error: 'Asset "entryPoint" must be a string if provided' });
+      return sendHdtError(req, res, 400, 'assetInvalidEntryPoint', 'Asset "entryPoint" must be a string if provided');
     }
     if (normalizedAsset.mimeType !== undefined && typeof normalizedAsset.mimeType !== 'string') {
-      return res.status(400).json({ error: 'Asset "mimeType" must be a string if provided' });
+      return sendHdtError(req, res, 400, 'assetInvalidMimeType', 'Asset "mimeType" must be a string if provided');
     }
 
     if (!currentUser) {
@@ -625,7 +640,7 @@ export async function addAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
@@ -645,7 +660,7 @@ export async function addAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(403).json({ error: 'Only project managers can add assets' });
+      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can add assets');
     }
 
     const updatedDoc = await addDigitalAsset(projectId, normalizedAsset, currentUser.sub);
@@ -666,7 +681,7 @@ export async function addAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'assetDocumentNotFound', 'HDT document not found');
     }
 
     // Audit success (best-effort).
@@ -710,10 +725,7 @@ export async function addAssetHandler(req: Request, res: Response) {
     });
 
     console.error('Error adding asset:', error);
-    return res.status(500).json({
-      error: 'Failed to add asset',
-      message: error?.message || String(error)
-    });
+    return sendHdtError(req, res, 500, 'assetCreateFailed', 'Failed to add asset', error?.message || String(error));
   }
 }
 
@@ -742,7 +754,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
@@ -762,7 +774,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(403).json({ error: 'Only project managers can update assets' });
+      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can update assets');
     }
 
     const updatedDoc = await updateDigitalAsset(projectId, assetId, updates, currentUser.sub);
@@ -782,7 +794,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(404).json({ error: 'HDT document or asset not found' });
+      return sendHdtError(req, res, 404, 'assetOrDocumentNotFound', 'HDT document or asset not found');
     }
 
     // Audit success (best-effort).
@@ -816,10 +828,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
     });
 
     console.error('Error updating asset:', error);
-    return res.status(500).json({
-      error: 'Failed to update asset',
-      message: error?.message || String(error)
-    });
+    return sendHdtError(req, res, 500, 'assetUpdateFailed', 'Failed to update asset', error?.message || String(error));
   }
 }
 
@@ -854,7 +863,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
@@ -872,7 +881,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(403).json({ error: 'Only project managers can remove assets' });
+      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can remove assets');
     }
 
     // 1) Retrieve current HDT document to inspect the asset before removal
@@ -891,7 +900,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'assetDocumentNotFound', 'HDT document not found');
     }
 
     const asset = Array.isArray((hdtDoc as any).digitalAssets)
@@ -912,7 +921,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(404).json({ error: 'Asset not found in HDT document' });
+      return sendHdtError(req, res, 404, 'assetNotFound', 'Asset not found in HDT document');
     }
 
     console.log('🗑️ [removeAssetHandler] Deleting asset:', {
@@ -962,7 +971,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return res.status(404).json({ error: 'HDT document not found after removal' });
+      return sendHdtError(req, res, 404, 'assetDocumentMissingAfterRemoval', 'HDT document not found after removal');
     }
 
     // 4) Remove asset directory from filesystem if it exists
@@ -1075,10 +1084,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
       stack: error.stack
     });
 
-    return res.status(500).json({
-      error: 'Failed to remove asset',
-      message: error?.message || String(error)
-    });
+    return sendHdtError(req, res, 500, 'assetDeleteFailed', 'Failed to remove asset', error?.message || String(error));
   }
 }
 
@@ -1099,10 +1105,7 @@ export async function listScenesHandler(req: Request, res: Response) {
     res.json(scenes);
   } catch (error: any) {
     console.error('Error listing scenes:', error);
-    res.status(500).json({
-      error: 'Failed to list scenes',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'listScenesFailed', 'Failed to list scenes', error?.message || String(error));
   }
 }
 
@@ -1118,17 +1121,17 @@ export async function createSceneHandler(req: Request, res: Response) {
     const sceneData = req.body;
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers or editors can create scenes' });
+      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can create scenes');
     }
 
     const updatedDoc = await addScene(projectId, sceneData, currentUser.sub);
     if (!updatedDoc) {
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
 
     const newScene = updatedDoc.scenes[updatedDoc.scenes.length - 1];
@@ -1139,10 +1142,7 @@ export async function createSceneHandler(req: Request, res: Response) {
     res.status(201).json(updatedDoc);
   } catch (error: any) {
     console.error('Error creating scene:', error);
-    res.status(500).json({
-      error: 'Failed to create scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneCreateFailed', 'Failed to create scene', error?.message || String(error));
   }
 }
 
@@ -1158,17 +1158,17 @@ export async function updateSceneHandler(req: Request, res: Response) {
     const updates = req.body;
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers or editors can update scenes' });
+      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can update scenes');
     }
 
     const updatedDoc = await updateScene(projectId, sceneId, updates, currentUser.sub);
     if (!updatedDoc) {
-      return res.status(404).json({ error: 'HDT document or scene not found' });
+      return sendHdtError(req, res, 404, 'sceneOrDocumentNotFound', 'HDT document or scene not found');
     }
 
     await generateSceneFile(projectId, sceneId);
@@ -1176,10 +1176,7 @@ export async function updateSceneHandler(req: Request, res: Response) {
     res.json(updatedDoc);
   } catch (error: any) {
     console.error('Error updating scene:', error);
-    res.status(500).json({
-      error: 'Failed to update scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneUpdateFailed', 'Failed to update scene', error?.message || String(error));
   }
 }
 
@@ -1197,26 +1194,23 @@ export async function deleteSceneHandler(req: Request, res: Response) {
     const currentUser = getCurrentUser(req);
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers or editors can delete scenes' });
+      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can delete scenes');
     }
 
     const updatedDoc = await removeScene(projectId, sceneId, currentUser.sub);
     if (!updatedDoc) {
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
 
     res.json(updatedDoc);
   } catch (error: any) {
     console.error('Error deleting scene:', error);
-    res.status(500).json({
-      error: 'Failed to delete scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneDeleteFailed', 'Failed to delete scene', error?.message || String(error));
   }
 }
 
@@ -1236,17 +1230,17 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
     const assetReference = req.body;
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers or editors can modify scenes' });
+      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can modify scenes');
     }
 
     const updatedDoc = await addAssetToScene(projectId, sceneId, assetReference, currentUser.sub);
     if (!updatedDoc) {
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
 
     await generateSceneFile(projectId, sceneId);
@@ -1254,10 +1248,7 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
     res.status(201).json(updatedDoc);
   } catch (error: any) {
     console.error('Error adding asset to scene:', error);
-    res.status(500).json({
-      error: 'Failed to add asset to scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneModifyFailed', 'Failed to add asset to scene', error?.message || String(error));
   }
 }
 
@@ -1272,17 +1263,17 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
     const updates = req.body;
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers or editors can modify scenes' });
+      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can modify scenes');
     }
 
     const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updates, currentUser.sub);
     if (!updatedDoc) {
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
 
     await generateSceneFile(projectId, sceneId);
@@ -1290,10 +1281,7 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
     res.json(updatedDoc);
   } catch (error: any) {
     console.error('Error updating asset in scene:', error);
-    res.status(500).json({
-      error: 'Failed to update asset in scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneModifyFailed', 'Failed to update asset in scene', error?.message || String(error));
   }
 }
 
@@ -1307,17 +1295,17 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
     const currentUser = getCurrentUser(req);
 
     if (!currentUser) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers or editors can modify scenes' });
+      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can modify scenes');
     }
 
     const updatedDoc = await removeAssetFromScene(projectId, sceneId, assetId, currentUser.sub);
     if (!updatedDoc) {
-      return res.status(404).json({ error: 'HDT document not found' });
+      return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
 
     await generateSceneFile(projectId, sceneId);
@@ -1325,10 +1313,7 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
     res.json(updatedDoc);
   } catch (error: any) {
     console.error('Error removing asset from scene:', error);
-    res.status(500).json({
-      error: 'Failed to remove asset from scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneModifyFailed', 'Failed to remove asset from scene', error?.message || String(error));
   }
 }
 
@@ -1362,12 +1347,12 @@ export async function getSceneFileHandler(req: Request, res: Response) {
       // Trova la scena default reale
       const doc = await getHDTDocument(projectId);
       if (!doc) {
-        return res.status(404).json({ error: 'Project not found' });
+        return sendHdtError(req, res, 404, 'projectNotFound', 'Project not found');
       }
 
       const defaultScene = doc.scenes?.find((s: any) => s.isDefault === true);
       if (!defaultScene) {
-        return res.status(404).json({ error: 'No default scene found' });
+        return sendHdtError(req, res, 404, 'defaultSceneNotFound', 'No default scene found');
       }
 
       targetSceneId = defaultScene.id;
@@ -1379,13 +1364,10 @@ export async function getSceneFileHandler(req: Request, res: Response) {
       return res.json(sceneDesc);
     }
 
-    return res.status(404).json({ error: 'Scene not found in database' });
+    return sendHdtError(req, res, 404, 'sceneNotFound', 'Scene not found in database');
   } catch (error: any) {
     console.error('Error serving scene file:', error);
-    res.status(500).json({
-      error: 'Failed to serve scene file',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneModifyFailed', 'Failed to serve scene file', error?.message || String(error));
   }
 }
 
@@ -1403,12 +1385,12 @@ export async function exportSceneFileHandler(req: Request, res: Response) {
     const { projectId, sceneId } = req.params;
 
     if (!projectId || !sceneId) {
-      return res.status(400).json({ error: 'Project ID and Scene ID are required' });
+      return sendHdtError(req, res, 400, 'projectAndSceneIdRequired', 'Project ID and Scene ID are required');
     }
 
     const sceneDesc = await generateSceneFile(projectId, sceneId);
     if (!sceneDesc) {
-      return res.status(404).json({ error: 'Scene not found' });
+      return sendHdtError(req, res, 404, 'sceneNotFound', 'Scene not found');
     }
 
     res.setHeader('Content-Type', 'application/json');
@@ -1416,9 +1398,6 @@ export async function exportSceneFileHandler(req: Request, res: Response) {
     res.json(sceneDesc);
   } catch (error: any) {
     console.error('Error exporting scene:', error);
-    res.status(500).json({
-      error: 'Failed to export scene',
-      message: error?.message || String(error)
-    });
+    sendHdtError(req, res, 500, 'sceneModifyFailed', 'Failed to export scene', error?.message || String(error));
   }
 }

@@ -93,7 +93,6 @@ describe('Projects API Integration Tests', () => {
       const projectData = {
         name: 'New Project',
         description: 'Project description',
-        createdById: testUser.id,
       };
 
       const response = await request(app)
@@ -102,10 +101,11 @@ describe('Projects API Integration Tests', () => {
         .send(projectData)
         .expect(201);
 
-      expect(response.body).toHaveProperty('id');
-      expect(response.body).toHaveProperty('name', 'New Project');
-      expect(response.body).toHaveProperty('description', 'Project description');
-      expect(response.body).toHaveProperty('createdById', testUser.id);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.id');
+      expect(response.body).toHaveProperty('project.name', 'New Project');
+      expect(response.body).toHaveProperty('project.description', 'Project description');
+      expect(response.body).toHaveProperty('project.manager.id', testUser.id);
     });
 
     it('should validate required fields', async () => {
@@ -116,11 +116,10 @@ describe('Projects API Integration Tests', () => {
         .expect(400);
     });
 
-    it('should handle duplicate project names', async () => {
+    it('should reject duplicate project names', async () => {
       const projectData = {
         name: 'Duplicate Project',
         description: 'First',
-        createdById: testUser.id,
       };
 
       await request(app)
@@ -135,11 +134,13 @@ describe('Projects API Integration Tests', () => {
         description: 'Second',
       };
 
-      await request(app)
+      const response = await request(app)
         .post('/api/projects')
         .set(authHeader(testUser))
         .send(secondProject)
-        .expect(201);
+        .expect(409);
+
+      expect(response.body).toHaveProperty('code', 'project.name_conflict');
     });
   });
 
@@ -155,9 +156,10 @@ describe('Projects API Integration Tests', () => {
         .set(authHeader(testUser))
         .expect(200);
 
-      expect(response.body).toHaveProperty('id', project.id);
-      expect(response.body).toHaveProperty('name', 'Specific Project');
-      expect(response.body).toHaveProperty('description', 'Test description');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.id', project.id);
+      expect(response.body).toHaveProperty('project.name', 'Specific Project');
+      expect(response.body).toHaveProperty('project.description', 'Test description');
     });
 
     it('should return 404 for non-existent project', async () => {
@@ -167,7 +169,7 @@ describe('Projects API Integration Tests', () => {
         .expect(404);
     });
 
-    it('should include members list', async () => {
+    it('should include manager information', async () => {
       const project = await createTestProject(testUser.id);
       
       // Add member
@@ -185,8 +187,9 @@ describe('Projects API Integration Tests', () => {
         .set(authHeader(testUser))
         .expect(200);
 
-      expect(response.body).toHaveProperty('members');
-      expect(Array.isArray(response.body.members)).toBe(true);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.manager');
+      expect(response.body.project.manager).not.toBeNull();
     });
   });
 
@@ -208,8 +211,9 @@ describe('Projects API Integration Tests', () => {
         .send(updates)
         .expect(200);
 
-      expect(response.body).toHaveProperty('name', 'Updated Name');
-      expect(response.body).toHaveProperty('description', 'Updated description');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.name', 'Updated Name');
+      expect(response.body).toHaveProperty('project.description', 'Updated description');
     });
 
     it('should allow partial updates', async () => {
@@ -224,8 +228,9 @@ describe('Projects API Integration Tests', () => {
         .send({ description: 'New description only' })
         .expect(200);
 
-      expect(response.body).toHaveProperty('name', 'Project Name');
-      expect(response.body).toHaveProperty('description', 'New description only');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.name', 'Project Name');
+      expect(response.body).toHaveProperty('project.description', 'New description only');
     });
 
     it('should return 404 for non-existent project', async () => {
@@ -244,7 +249,7 @@ describe('Projects API Integration Tests', () => {
       await request(app)
         .delete(`/api/projects/${project.id}`)
         .set(authHeader(testUser))
-        .expect(204);
+        .expect(200);
 
       // Verify project is deleted
       await request(app)
@@ -275,7 +280,7 @@ describe('Projects API Integration Tests', () => {
       await request(app)
         .delete(`/api/projects/${project.id}`)
         .set(authHeader(testUser))
-        .expect(204);
+        .expect(200);
 
       // Verify members are also deleted
       const members = await prisma.projectRole.findMany({

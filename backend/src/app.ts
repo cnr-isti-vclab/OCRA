@@ -7,6 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
@@ -26,6 +27,7 @@ declare global {
       cookies?: Record<string, string>;
       user?: import('./types/index.js').User;
       sessionId?: string;
+      requestId?: string;
     }
   }
 }
@@ -56,6 +58,13 @@ export function createApp(): Express {
 
   // Basic middleware
   app.use(express.json());
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const headerRequestId = typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : null;
+    req.requestId = headerRequestId || randomUUID();
+    res.setHeader('X-Request-Id', req.requestId);
+    next();
+  });
 
   // (mongo debug route removed)
 

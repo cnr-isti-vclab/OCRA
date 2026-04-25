@@ -274,10 +274,28 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           }
         },
         Error: {
+          allOf: [
+            { $ref: '#/components/schemas/ApiErrorResponse' },
+          ],
+        },
+        ApiErrorResponse: {
           type: 'object',
+          required: ['success', 'error', 'code', 'status', 'timestamp'],
           properties: {
+            success: { type: 'boolean', example: false },
             error: { type: 'string', example: 'An error occurred' },
-            details: { type: 'string', example: 'Additional error information' },
+            code: { type: 'string', example: 'common.internal_error' },
+            status: { type: 'integer', example: 500 },
+            requestId: { type: 'string', example: '0d16a4d4-5d6f-4d80-a511-8e883eff2d73' },
+            details: {
+              oneOf: [
+                { type: 'string', example: 'Additional error information' },
+                { type: 'object', additionalProperties: true },
+              ],
+            },
+            timestamp: { type: 'string', format: 'date-time', example: '2026-04-25T10:30:00.000Z' },
+            path: { type: 'string', example: '/api/sessions/current' },
+            method: { type: 'string', example: 'GET' },
           },
         },
         AnnotationVertex3D: {

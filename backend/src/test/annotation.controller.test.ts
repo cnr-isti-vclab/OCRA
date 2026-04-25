@@ -148,7 +148,10 @@ describe.sequential('Annotation controller edge cases', () => {
       .send({ expectedVersion: 0, shapes: [shapePayload] })
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Annotation geometry not found' });
+    expect(response.body.error).toBe('Annotation geometry not found');
+    expect(response.body.code).toBe('annotation.geometry.not_found');
+    expect(response.body.status).toBe(404);
+    expect(response.body.success).toBe(false);
     expect(annotationService.updateAnnotationGeometryShapes).toHaveBeenCalledWith(
       project.id,
       'ag_missing',
@@ -169,7 +172,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .send({ expectedVersion: 3, shapes: [shapePayload] })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Geometry version conflict' });
+    expect(response.body.error).toBe('Geometry version conflict');
+    expect(response.body.code).toBe('annotation.geometry.version_conflict');
   });
 
   it('returns 404 when creating a link for missing referenced entities', async () => {
@@ -183,7 +187,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .send({ geometryId: 'ag_missing', dataId: 'ad_test' })
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Referenced geometry not found' });
+    expect(response.body.error).toBe('Referenced geometry not found');
+    expect(response.body.code).toBe('annotation.geometry.not_found');
   });
 
   it('returns 409 when creating a duplicate link pair', async () => {
@@ -197,7 +202,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .send({ geometryId: 'ag_test', dataId: 'ad_test' })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Link pair already exists' });
+    expect(response.body.error).toBe('Link pair already exists');
+    expect(response.body.code).toBe('annotation.link.duplicate_pair');
   });
 
   it('returns 409 when creating a scope-incompatible link', async () => {
@@ -211,7 +217,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .send({ geometryId: 'ag_test', dataId: 'ad_test' })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Geometry and annotation data scopes are incompatible' });
+    expect(response.body.error).toBe('Geometry and annotation data scopes are incompatible');
+    expect(response.body.code).toBe('annotation.link.scope_incompatible');
   });
 
   it('returns 409 when restoring a link while geometry is still erasable', async () => {
@@ -225,7 +232,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .send({ expectedVersion: 4 })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Linked geometry is still erasable' });
+    expect(response.body.error).toBe('Linked geometry is still erasable');
+    expect(response.body.code).toBe('annotation.link.geometry_still_erasable');
   });
 
   it('returns 404 when the requested scene bundle does not exist', async () => {
@@ -238,7 +246,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .get(`/api/projects/${project.id}/annotations/for-scene/scene-missing`)
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Scene not found' });
+    expect(response.body.error).toBe('Scene not found');
+    expect(response.body.code).toBe('annotation.scene.not_found');
   });
 
   it('returns 404 when scene geometries are requested for a missing scene', async () => {
@@ -251,7 +260,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .get(`/api/projects/${project.id}/annotations/geometry/for-scene/scene-missing`)
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Scene not found' });
+    expect(response.body.error).toBe('Scene not found');
+    expect(response.body.code).toBe('annotation.scene.not_found');
   });
 
   it('returns 404 when scene data are requested for a missing scene', async () => {
@@ -264,7 +274,8 @@ describe.sequential('Annotation controller edge cases', () => {
       .get(`/api/projects/${project.id}/annotations/data/for-scene/scene-missing`)
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Scene not found' });
+    expect(response.body.error).toBe('Scene not found');
+    expect(response.body.code).toBe('annotation.scene.not_found');
   });
 
   it('returns 404 when scene links are requested for a missing scene', async () => {
@@ -277,6 +288,19 @@ describe.sequential('Annotation controller edge cases', () => {
       .get(`/api/projects/${project.id}/annotations/links/for-scene/scene-missing`)
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Scene not found' });
+    expect(response.body.error).toBe('Scene not found');
+    expect(response.body.code).toBe('annotation.scene.not_found');
+  });
+
+  it('returns the uniform error envelope for unmatched routes', async () => {
+    const response = await request(app)
+      .get('/api/route-that-does-not-exist')
+      .expect(404);
+
+    expect(response.body.error).toBe('Not found');
+    expect(response.body.code).toBe('common.route_not_found');
+    expect(response.body.status).toBe(404);
+    expect(response.body.success).toBe(false);
+    expect(response.body.requestId).toBeTruthy();
   });
 });

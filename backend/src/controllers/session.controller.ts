@@ -5,6 +5,8 @@
  */
 
 import express from 'express';
+import { API_ERROR_CODES } from '../lib/api-error-codes.js';
+import { sendApiError } from '../lib/api-error.js';
 import { createSession, getSession, removeSession } from '../services/session.service.js';
 import { auditBestEffort } from '../utils/audit.js';
 import { logLogin, logLogout } from '../services/auth.service.js';
@@ -69,9 +71,11 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
       );
     }
     
-    res.status(500).json({ 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.session.createFailed,
       error: 'Failed to create session',
-      message: (error as Error).message 
+      details: (error as Error).message,
     });
   }
 }
@@ -84,14 +88,22 @@ export async function getUserSession(req: Request, res: Response): Promise<void>
     const { sessionId } = req.params;
     
     if (!sessionId) {
-      res.status(400).json({ error: 'Session ID required' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.session.idRequired,
+        error: 'Session ID required',
+      });
       return;
     }
 
     const session = await getSession(sessionId);
     
     if (!session) {
-      res.status(404).json({ error: 'Session not found or expired' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.session.notFound,
+        error: 'Session not found or expired',
+      });
       return;
     }
 
@@ -100,9 +112,11 @@ export async function getUserSession(req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     console.error('Failed to get session:', error);
-    res.status(500).json({ 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.session.getFailed,
       error: 'Failed to get session',
-      message: (error as Error).message 
+      details: (error as Error).message,
     });
   }
 }
@@ -115,7 +129,11 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
     const { sessionId } = req.params;
     
     if (!sessionId) {
-      res.status(400).json({ error: 'Session ID required' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.session.idRequired,
+        error: 'Session ID required',
+      });
       return;
     }
 
@@ -163,9 +181,11 @@ export async function deleteUserSession(req: Request, res: Response): Promise<vo
       );
     }
     
-    res.status(500).json({ 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.session.deleteFailed,
       error: 'Failed to delete session',
-      message: (error as Error).message 
+      details: (error as Error).message,
     });
   }
 }
@@ -180,14 +200,22 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
                      req.query.sessionId as string;
 
     if (!sessionId) {
-      res.status(401).json({ error: 'No session provided' });
+      sendApiError(req, res, {
+        status: 401,
+        code: API_ERROR_CODES.session.noSessionProvided,
+        error: 'No session provided',
+      });
       return;
     }
 
     const session = await getSession(sessionId);
     
     if (!session) {
-      res.status(401).json({ error: 'Invalid session' });
+      sendApiError(req, res, {
+        status: 401,
+        code: API_ERROR_CODES.session.invalid,
+        error: 'Invalid session',
+      });
       return;
     }
 
@@ -221,7 +249,11 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
     });
 
     if (!user) {
-      res.status(404).json({ error: 'User not found' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.session.userNotFound,
+        error: 'User not found',
+      });
       return;
     }
 
@@ -248,9 +280,11 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     console.error('Failed to get current user:', error);
-    res.status(500).json({ 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.session.currentUserFailed,
       error: 'Failed to get current user',
-      message: (error as Error).message 
+      details: (error as Error).message,
     });
   }
 }

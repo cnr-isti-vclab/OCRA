@@ -116,8 +116,8 @@ describe('Users API Integration Tests', () => {
         .expect(200);
 
       expect(response.body.length).toBeGreaterThanOrEqual(1);
-      expect(response.body[0]).toHaveProperty('projectsCreated');
-      expect(response.body[0]).toHaveProperty('projectsAsMember');
+      expect(response.body[0]).toHaveProperty('managedProjectsCount');
+      expect(response.body[0]).toHaveProperty('lastLoginAt');
     });
   });
 
@@ -161,10 +161,11 @@ describe('Users API Integration Tests', () => {
       const response = await request(app)
         .put(`/api/users/${user.id}/admin`)
         .set(authHeader(admin))
-        .send({ isAdmin: true })
+        .send({ sys_admin: true })
         .expect(200);
 
       expect(response.body).toHaveProperty('isAdmin', true);
+      expect(response.body).toHaveProperty('user.sys_admin', true);
     });
 
     it('should validate isAdmin is boolean', async () => {
@@ -183,7 +184,7 @@ describe('Users API Integration Tests', () => {
       await request(app)
         .put('/api/users/non-existent-id/admin')
         .set(authHeader(admin))
-        .send({ isAdmin: true })
+        .send({ sys_admin: true })
         .expect(404);
     });
   });

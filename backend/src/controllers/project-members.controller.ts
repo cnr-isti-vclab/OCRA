@@ -7,6 +7,8 @@
 import { Request, Response } from 'express';
 import { getPrismaClient } from '../../db.js';
 import { RoleEnum } from '@prisma/client';
+import { API_ERROR_CODES } from '../lib/api-error-codes.js';
+import { sendApiError } from '../lib/api-error.js';
 import type { User } from '../types/index.js';
 import { auditBestEffort } from '../utils/audit.js';
 
@@ -76,13 +78,21 @@ export async function listProjectMembers(req: Request, res: Response): Promise<v
     const { projectId } = req.params;
     
     if (!projectId) {
-      res.status(400).json({ error: 'Project ID is required' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.projectMember.projectIdRequired,
+        error: 'Project ID is required',
+      });
       return;
     }
     
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendApiError(req, res, {
+        status: 401,
+        code: API_ERROR_CODES.projectMember.authenticationRequired,
+        error: 'Authentication required',
+      });
       return;
     }
     
@@ -91,7 +101,11 @@ export async function listProjectMembers(req: Request, res: Response): Promise<v
     // Verify project exists
     const project = await db.project.findUnique({ where: { id: projectId } });
     if (!project) {
-      res.status(404).json({ error: 'Project not found' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.projectMember.projectNotFound,
+        error: 'Project not found',
+      });
       return;
     }
     
@@ -139,9 +153,11 @@ export async function listProjectMembers(req: Request, res: Response): Promise<v
     
   } catch (error) {
     console.error('Error listing project members:', error);
-    res.status(500).json({ 
-      error: 'Failed to list project members', 
-      message: error instanceof Error ? error.message : 'Unknown error' 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.projectMember.listFailed,
+      error: 'Failed to list project members',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -157,23 +173,39 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     const { userId, email, role } = req.body;
     
     if (!projectId) {
-      res.status(400).json({ error: 'Project ID is required' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.projectMember.projectIdRequired,
+        error: 'Project ID is required',
+      });
       return;
     }
     
     if (!role || !['manager', 'editor', 'viewer'].includes(role)) {
-      res.status(400).json({ error: 'Valid role is required (manager, editor, or viewer)' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.projectMember.invalidRole,
+        error: 'Valid role is required (manager, editor, or viewer)',
+      });
       return;
     }
     
     if (!userId && !email) {
-      res.status(400).json({ error: 'Either userId or email is required' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.projectMember.userIdOrEmailRequired,
+        error: 'Either userId or email is required',
+      });
       return;
     }
     
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendApiError(req, res, {
+        status: 401,
+        code: API_ERROR_CODES.projectMember.authenticationRequired,
+        error: 'Authentication required',
+      });
       return;
     }
     
@@ -182,7 +214,11 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     // Verify project exists
     const project = await db.project.findUnique({ where: { id: projectId } });
     if (!project) {
-      res.status(404).json({ error: 'Project not found' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.projectMember.projectNotFound,
+        error: 'Project not found',
+      });
       return;
     }
     
@@ -198,7 +234,11 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
         payload: { projectId, targetUserId: userId, targetEmail: email, role, error: 'Unauthorized' }
       });
       
-      res.status(403).json({ error: 'Only project managers and admins can manage project members' });
+      sendApiError(req, res, {
+        status: 403,
+        code: API_ERROR_CODES.projectMember.managerRequired,
+        error: 'Only project managers and admins can manage project members',
+      });
       return;
     }
     
@@ -211,7 +251,11 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     }
     
     if (!targetUser) {
-      res.status(404).json({ error: 'User not found' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.projectMember.userNotFound,
+        error: 'User not found',
+      });
       return;
     }
     
@@ -274,9 +318,11 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
     
   } catch (error) {
     console.error('Error adding project member:', error);
-    res.status(500).json({ 
-      error: 'Failed to add project member', 
-      message: error instanceof Error ? error.message : 'Unknown error' 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.projectMember.addFailed,
+      error: 'Failed to add project member',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
@@ -290,13 +336,21 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
     const { projectId, userId } = req.params;
     
     if (!projectId || !userId) {
-      res.status(400).json({ error: 'Project ID and User ID are required' });
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.projectMember.projectAndUserIdRequired,
+        error: 'Project ID and User ID are required',
+      });
       return;
     }
     
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
-      res.status(401).json({ error: 'Authentication required' });
+      sendApiError(req, res, {
+        status: 401,
+        code: API_ERROR_CODES.projectMember.authenticationRequired,
+        error: 'Authentication required',
+      });
       return;
     }
     
@@ -305,7 +359,11 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
     // Verify project exists
     const project = await db.project.findUnique({ where: { id: projectId } });
     if (!project) {
-      res.status(404).json({ error: 'Project not found' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.projectMember.projectNotFound,
+        error: 'Project not found',
+      });
       return;
     }
     
@@ -321,7 +379,11 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
         payload: { projectId, targetUserId: userId, error: 'Unauthorized' }
       });
       
-      res.status(403).json({ error: 'Only project managers and admins can manage project members' });
+      sendApiError(req, res, {
+        status: 403,
+        code: API_ERROR_CODES.projectMember.managerRequired,
+        error: 'Only project managers and admins can manage project members',
+      });
       return;
     }
     
@@ -339,7 +401,11 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
     });
     
     if (!existingRole) {
-      res.status(404).json({ error: 'User is not a member of this project' });
+      sendApiError(req, res, {
+        status: 404,
+        code: API_ERROR_CODES.projectMember.notAMember,
+        error: 'User is not a member of this project',
+      });
       return;
     }
     
@@ -376,9 +442,11 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
     
   } catch (error) {
     console.error('Error removing project member:', error);
-    res.status(500).json({ 
-      error: 'Failed to remove project member', 
-      message: error instanceof Error ? error.message : 'Unknown error' 
+    sendApiError(req, res, {
+      status: 500,
+      code: API_ERROR_CODES.projectMember.removeFailed,
+      error: 'Failed to remove project member',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
