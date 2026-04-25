@@ -4,15 +4,19 @@
  * Handles synchronization between UI, viewers, and backend
  */
 
-import React, { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import React, { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
 import type { ViewerAnnotation, SceneDescription } from '../../../shared/scene-types';
+import type { AnnotationEventResourceType, AnnotationMutationEvent } from 'shared/annotation-events';
 import { AnnotationService } from '../services/AnnotationService';
+import { AnnotationEventsService, type AnnotationRealtimeState } from '../services/AnnotationEventsService';
 
 interface AnnotationContextType {
   annotations: ViewerAnnotation[];
   selectedAnnotationIds: string[];
   isLoading: boolean;
   error: string | null;
+  realtimeState: AnnotationRealtimeState;
+  lastRemoteMutation: AnnotationMutationEvent | null;
 
   // Annotation CRUD operations
   createAnnotation: (annotation: ViewerAnnotation) => Promise<void>;
@@ -26,6 +30,9 @@ interface AnnotationContextType {
   setSelectedAnnotationIds: (ids: string[]) => void;
   clearSelection: () => void;
 
+  notifyEditingStart: (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => Promise<boolean>;
+  notifyEditingStop: (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => Promise<boolean>;
+
 }
 
 const AnnotationContext = createContext<AnnotationContextType | undefined>(undefined);
@@ -36,6 +43,7 @@ interface AnnotationProviderProps {
   selectedSceneId: string;
   sceneDesc: SceneDescription | null;
   user: any;
+  reloadScene?: () => Promise<void>;
 }
 
 /**
@@ -47,19 +55,68 @@ export function AnnotationProvider({
   projectId,
   selectedSceneId,
   sceneDesc,
-  user
+  user,
+  reloadScene,
 }: AnnotationProviderProps) {
   const [annotations, setAnnotations] = useState<ViewerAnnotation[]>([]);
   const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [annotationService, setAnnotationService] = useState<AnnotationService | null>(null);
+  const [realtimeState, setRealtimeState] = useState<AnnotationRealtimeState>('idle');
+  const [lastRemoteMutation, setLastRemoteMutation] = useState<AnnotationMutationEvent | null>(null);
+  const annotationEventsRef = useRef<AnnotationEventsService | null>(null);
+  const pendingReloadRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize or update AnnotationService when projectId or selectedSceneId changes
   useEffect(() => {
     const service = new AnnotationService(projectId, selectedSceneId);
     setAnnotationService(service);
   }, [projectId, selectedSceneId]);
+
+  const scheduleSceneReload = useCallback(() => {
+    if (!reloadScene || pendingReloadRef.current) {
+      return;
+    }
+
+    pendingReloadRef.current = setTimeout(async () => {
+      pendingReloadRef.current = null;
+      try {
+        await reloadScene();
+      } catch (reloadError) {
+        console.error('Failed to refresh scene after annotation realtime event:', reloadError);
+      }
+    }, 250);
+  }, [reloadScene]);
+
+  useEffect(() => {
+    if (!projectId || !selectedSceneId) {
+      annotationEventsRef.current?.disconnect();
+      annotationEventsRef.current = null;
+      return;
+    }
+
+    const service = new AnnotationEventsService(projectId, selectedSceneId);
+    annotationEventsRef.current = service;
+    service.connect({
+      onConnectionStateChange: setRealtimeState,
+      onMutation: (event) => {
+        setLastRemoteMutation(event);
+        scheduleSceneReload();
+      },
+      onReconnect: () => {
+        scheduleSceneReload();
+      },
+    });
+
+    return () => {
+      service.disconnect();
+      if (pendingReloadRef.current) {
+        clearTimeout(pendingReloadRef.current);
+        pendingReloadRef.current = null;
+      }
+    };
+  }, [projectId, selectedSceneId, scheduleSceneReload]);
 
   // Load annotations from sceneDesc whenever it or the selected scene changes
   useEffect(() => {
@@ -250,11 +307,27 @@ export function AnnotationProvider({
     setSelectedAnnotationIds([]);
   }, []);
 
+  const notifyEditingStart = useCallback(
+    async (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => {
+      return await annotationEventsRef.current?.notifyEditingStart(input) ?? false;
+    },
+    [],
+  );
+
+  const notifyEditingStop = useCallback(
+    async (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => {
+      return await annotationEventsRef.current?.notifyEditingStop(input) ?? false;
+    },
+    [],
+  );
+
   const value: AnnotationContextType = {
     annotations,
     selectedAnnotationIds,
     isLoading,
     error,
+    realtimeState,
+    lastRemoteMutation,
     createAnnotation,
     updateAnnotation,
     updateAnnotationGeometry,
@@ -263,6 +336,8 @@ export function AnnotationProvider({
     selectAnnotation,
     setSelectedAnnotationIds,
     clearSelection,
+    notifyEditingStart,
+    notifyEditingStop,
   };
 
   return (

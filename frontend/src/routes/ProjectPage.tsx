@@ -1,5 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
@@ -76,6 +76,39 @@ export default function ProjectPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
+
+  const loadSelectedScene = useCallback(async () => {
+    if (!projectId || !selectedSceneId) return;
+
+    try {
+      const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
+        credentials: 'include'
+      });
+
+      if (sceneRes.ok) {
+        const scene = await sceneRes.json();
+        console.log('📥 Scene loaded from backend:', scene.environment);
+        if (!scene.projectId) {
+          scene.projectId = projectId;
+        }
+        setSceneDesc(scene);
+
+        setShowGround(scene.environment?.showGround ?? false);
+        setBackgroundColor(scene.environment?.background || '#404040');
+        setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
+
+        const initialVisibility: Record<string, boolean> = {};
+        if (scene.models) {
+          scene.models.forEach((model: any) => {
+            initialVisibility[model.id] = model.visible !== false;
+          });
+        }
+        setMeshVisibility(initialVisibility);
+      }
+    } catch (err) {
+      console.error('Failed to load selected scene:', err);
+    }
+  }, [projectId, selectedSceneId]);
 
   // Ensure HDT document and default scene exist before updating
   const ensureHDTDocument = async (projectId: string): Promise<boolean> => {
@@ -587,45 +620,8 @@ export default function ProjectPage() {
 
   // Reload scene when selected scene changes
   useEffect(() => {
-    const loadSelectedScene = async () => {
-      if (!projectId || !selectedSceneId) return;
-
-      try {
-        // Use endpoint that always regenerates from MongoDB (source of truth)
-        const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
-          credentials: 'include'
-        });
-
-        if (sceneRes.ok) {
-          const scene = await sceneRes.json();
-          console.log('📥 Scene loaded from backend:', scene.environment);
-          // Add projectId to scene if not present
-          if (!scene.projectId) {
-            scene.projectId = projectId;
-          }
-          setSceneDesc(scene);
-
-          // Initialize local environment settings from scene
-          setShowGround(scene.environment?.showGround ?? false);
-          setBackgroundColor(scene.environment?.background || '#404040');
-          setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
-
-          // Initialize visibility state for all models
-          const initialVisibility: Record<string, boolean> = {};
-          if (scene.models) {
-            scene.models.forEach((model: any) => {
-              initialVisibility[model.id] = model.visible !== false;
-            });
-          }
-          setMeshVisibility(initialVisibility);
-        }
-      } catch (err) {
-        console.error('Failed to load selected scene:', err);
-      }
-    };
-
     loadSelectedScene();
-  }, [projectId, selectedSceneId]);
+  }, [loadSelectedScene]);
 
   // Show/hide annotation button based on active tab
   useEffect(() => {
@@ -652,6 +648,7 @@ export default function ProjectPage() {
       selectedSceneId={selectedSceneId || ''}
       sceneDesc={sceneDesc}
       user={user}
+      reloadScene={loadSelectedScene}
     >
       {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
 

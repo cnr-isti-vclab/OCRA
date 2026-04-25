@@ -245,6 +245,251 @@ Recommended usage:
 2. normalize arrays into id-keyed maps
 3. derive renderable annotation triples from `links`
 
+## Real-Time Connection via SSE
+
+The annotation backend now exposes one SSE stream for two kinds of informational events:
+
+- social-lock notifications
+- committed annotation mutation notifications
+
+This connection is informational only. It does not replace OCC and it does not change save semantics.
+
+### SSE Endpoint
+
+Open the stream with:
+
+```http
+GET /api/projects/{projectId}/annotations/events?sceneId={sceneId}
+```
+
+Notes:
+
+- the endpoint is authenticated exactly like the other annotation endpoints
+- `sceneId` is optional, but for the annotation UI the recommended mode is scene-scoped subscription
+- the response is `text/event-stream`
+- the backend serves it with `Cache-Control: no-cache, no-transform`
+- the backend also sends `retry: 5000`, so browser `EventSource` clients automatically retry after disconnects
+
+### Event Types
+
+The stream currently emits three event families:
+
+- `annotation.connected`
+- `annotation.social_lock.started` and `annotation.social_lock.stopped`
+- `annotation.mutated`
+
+The shared frontend/backend contract is defined in `shared/annotation-events.ts`.
+
+### Connection Handshake
+
+When the stream opens, the backend sends an initial `annotation.connected` event.
+
+Typical payload shape:
+
+```json
+{
+  "type": "annotation.connected",
+  "timestamp": "2026-04-25T12:00:00.000Z",
+  "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "projectId": "p1",
+  "sceneId": "scene-main",
+  "activeSocialLocks": []
+}
+```
+
+Frontend implication:
+
+- store `streamId`
+- use it later when sending `notifyEditingStart` / `notifyEditingStop`
+- initialize local social-lock indicators from `activeSocialLocks`
+
+### Recommended Frontend Connection Pattern
+
+The current frontend implementation uses a small dedicated service:
+
+- `frontend/src/services/AnnotationEventsService.ts`
+
+Its responsibilities are:
+
+- open one `EventSource` per active project/scene annotation view
+- track connection state: `idle`, `connecting`, `connected`, `reconnecting`, `error`
+- remember the backend-assigned `streamId`
+- expose helper methods for social-lock start/stop notifications
+- trigger a controlled scene reload after remote committed mutations or after reconnect
+
+Minimal usage example:
+
+```ts
+const events = new AnnotationEventsService(projectId, sceneId)
+
+events.connect({
+  onConnectionStateChange: state => {
+    console.log('annotation realtime state', state)
+  },
+  onMutation: event => {
+    console.log('remote committed mutation', event)
+    reloadScene()
+  },
+  onReconnect: () => {
+    reloadScene()
+  },
+})
+
+return () => events.disconnect()
+```
+
+Recommended behaviour:
+
+1. open the SSE connection when the annotation view for a scene becomes active
+2. keep one connection per open scene view, not one per annotation
+3. on `annotation.mutated`, refresh the affected entity or reload the current scene bundle
+4. on reconnect, perform a safe refresh because some events may have been missed while offline
+
+### Keep-Alive and Reconnect Semantics
+
+The backend sends lightweight SSE keep-alive comments to reduce the chance of the HTTP stream being closed by intermediaries.
+
+Important distinction:
+
+- the keep-alive helps preserve the connection
+- the automatic reconnect is handled by the browser `EventSource`, using the `retry` value sent by the server
+
+So the frontend should treat reconnect as normal and should refresh the scene or the affected entities after reconnect.
+
+## Social Lock Usage
+
+The social lock is implemented as a separate write API paired with the SSE stream.
+
+It is best-effort and informational only. If the notification fails or is never sent, the annotation system must still continue to function correctly through OCC.
+
+### Social-Lock Start
+
+```http
+POST /api/projects/{projectId}/annotations/events/social-lock/start
+```
+
+Request body:
+
+```json
+{
+  "sceneId": "scene-main",
+  "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "resourceType": "geometry",
+  "resourceId": "ag_123",
+  "activity": "editing"
+}
+```
+
+### Social-Lock Stop
+
+```http
+POST /api/projects/{projectId}/annotations/events/social-lock/stop
+```
+
+Request body:
+
+```json
+{
+  "sceneId": "scene-main",
+  "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "resourceType": "geometry",
+  "resourceId": "ag_123",
+  "activity": "editing"
+}
+```
+
+Current contract notes:
+
+- `sceneId` and `streamId` are required
+- `resourceType` and `resourceId` should be sent together when the lock targets one entity
+- valid `resourceType` values are `geometry`, `data`, `link`
+- `activity` is optional descriptive metadata
+
+### Recommended Social-Lock Workflow
+
+Use social lock around editing intent, not around viewing.
+
+Recommended flow:
+
+1. open the SSE connection and wait for `annotation.connected`
+2. when the user starts editing one concrete entity, call `notifyEditingStart(...)`
+3. while the user edits, show incoming social-lock state from other sessions in the UI
+4. when the user saves, cancels, closes the editor, or leaves the scene, call `notifyEditingStop(...)`
+5. if the tab disconnects abruptly, rely on stream closure cleanup on the backend rather than trying to guarantee one last stop message
+
+Minimal usage example:
+
+```ts
+await events.notifyEditingStart({
+  resourceType: 'geometry',
+  resourceId: geometryId,
+  activity: 'editing',
+})
+
+try {
+  await saveGeometryChanges()
+} finally {
+  await events.notifyEditingStop({
+    resourceType: 'geometry',
+    resourceId: geometryId,
+    activity: 'editing',
+  })
+}
+```
+
+### How to React to Social-Lock Events
+
+When the frontend receives `annotation.social_lock.started`:
+
+- show a lightweight cue for the target entity if `resourceType` and `resourceId` are present
+- otherwise show a scene-level editing-presence indication
+- never block editing or saving because of this event
+
+When the frontend receives `annotation.social_lock.stopped`:
+
+- remove the corresponding visual indicator
+
+When the frontend first receives `annotation.connected`:
+
+- reconcile the UI with `activeSocialLocks` in case other sessions were already editing before this client connected
+
+## Mutation Notifications
+
+The backend now emits `annotation.mutated` after successful committed operations on:
+
+- geometry create/update/erasable/restore
+- data create/update/erasable/restore
+- link create/erasable/restore
+
+Typical payload shape:
+
+```json
+{
+  "type": "annotation.mutated",
+  "timestamp": "2026-04-25T12:01:00.000Z",
+  "projectId": "p1",
+  "sceneId": "scene-main",
+  "sessionId": "session-123",
+  "userId": "u1",
+  "username": "annotator",
+  "mutation": "geometry.updated",
+  "entity": {
+    "kind": "geometry",
+    "id": "ag_123",
+    "version": 4,
+    "referenceType": "scene",
+    "referenceId": "scene-main",
+    "erasable": false
+  }
+}
+```
+
+Recommended frontend behaviour:
+
+- if the entity is not currently being edited locally, reload that entity or reload the scene bundle
+- if the entity is currently being edited locally, show a non-blocking remote-change warning
+- after reconnect, reload the scene because one or more mutation events may have been missed
+
 ## Create Flows
 
 ### Create Geometry

@@ -42,9 +42,17 @@ vi.mock('../services/annotation.service.js', () => ({
   updateAnnotationGeometryShapes: vi.fn(),
 }));
 
+vi.mock('../lib/annotation-events.js', () => ({
+  publishAnnotationMutation: vi.fn(),
+  publishAnnotationSocialLockStart: vi.fn(),
+  publishAnnotationSocialLockStop: vi.fn(),
+  subscribeToAnnotationEvents: vi.fn(),
+}));
+
 import { getPrismaClient } from '../../db.js';
 import { createApp } from '../app.js';
 import * as annotationService from '../services/annotation.service.js';
+import * as annotationEvents from '../lib/annotation-events.js';
 
 const app = createApp();
 const prismaMock = {
@@ -302,5 +310,100 @@ describe.sequential('Annotation controller edge cases', () => {
     expect(response.body.status).toBe(404);
     expect(response.body.success).toBe(false);
     expect(response.body.requestId).toBeTruthy();
+  });
+
+  it('opens the annotation SSE endpoint with an optional sceneId', async () => {
+    const streamId = '11111111-1111-4111-8111-111111111111';
+    vi.mocked(annotationEvents.subscribeToAnnotationEvents).mockImplementation(({ response }) => {
+      response.status(200);
+      response.setHeader('Content-Type', 'text/event-stream');
+      response.end();
+
+      return {
+        streamId,
+        close: vi.fn(),
+      };
+    });
+
+    const response = await request(app)
+      .get(`/api/projects/${project.id}/annotations/events`)
+      .query({ sceneId: 'scene-1' })
+      .expect(200);
+
+    expect(annotationEvents.subscribeToAnnotationEvents).toHaveBeenCalledTimes(1);
+    expect(annotationEvents.subscribeToAnnotationEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: project.id,
+        sceneId: 'scene-1',
+        sessionId: 'test-session',
+        userId: user.id,
+        username: 'annotator',
+      }),
+    );
+    expect(response.headers['content-type']).toContain('text/event-stream');
+  });
+
+  it('accepts social-lock start notifications for a live stream', async () => {
+    const streamId = '11111111-1111-4111-8111-111111111111';
+    vi.mocked(annotationEvents.publishAnnotationSocialLockStart).mockReturnValue({
+      ok: true,
+      value: {
+        type: 'annotation.social_lock.started',
+        timestamp: '2026-04-25T12:00:00.000Z',
+        streamId,
+        projectId: project.id,
+        sceneId: 'scene-1',
+        sessionId: 'test-session',
+        userId: user.id,
+        username: 'annotator',
+        resourceType: 'geometry',
+        resourceId: 'ag-1',
+        activity: 'editing',
+        startedAt: '2026-04-25T12:00:00.000Z',
+      },
+    });
+
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/annotations/events/social-lock/start`)
+      .send({ sceneId: 'scene-1', streamId, resourceType: 'geometry', resourceId: 'ag-1', activity: 'editing' })
+      .expect(202);
+
+    expect(response.body.success).toBe(true);
+    expect(response.body.event.type).toBe('annotation.social_lock.started');
+    expect(annotationEvents.publishAnnotationSocialLockStart).toHaveBeenCalledWith({
+      projectId: project.id,
+      sceneId: 'scene-1',
+      streamId,
+      sessionId: 'test-session',
+      userId: user.id,
+      username: 'annotator',
+      resourceType: 'geometry',
+      resourceId: 'ag-1',
+      activity: 'editing',
+    });
+  });
+
+  it('rejects invalid social-lock payloads before touching the broker', async () => {
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/annotations/events/social-lock/start`)
+      .send({ sceneId: 'scene-1', streamId: '11111111-1111-4111-8111-111111111111', resourceType: 'geometry' })
+      .expect(400);
+
+    expect(response.body.error).toContain('sceneId and streamId are required');
+    expect(annotationEvents.publishAnnotationSocialLockStart).not.toHaveBeenCalled();
+  });
+
+  it('maps missing streams on social-lock stop to 404', async () => {
+    vi.mocked(annotationEvents.publishAnnotationSocialLockStop).mockReturnValue({
+      ok: false,
+      code: 'stream_not_found',
+    });
+
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/annotations/events/social-lock/stop`)
+      .send({ sceneId: 'scene-1', streamId: '11111111-1111-4111-8111-111111111111' })
+      .expect(404);
+
+    expect(response.body.code).toBe('stream_not_found');
   });
 });

@@ -3,7 +3,14 @@ import { RoleEnum } from '@prisma/client';
 import { getPrismaClient } from '../../db.js';
 import { sendApiError } from '../lib/api-error.js';
 import type { ApiErrorPayload } from '../lib/api-error.js';
+import {
+  publishAnnotationMutation,
+  publishAnnotationSocialLockStart,
+  publishAnnotationSocialLockStop,
+  subscribeToAnnotationEvents,
+} from '../lib/annotation-events.js';
 import type { User } from '../types/index.js';
+import type { AnnotationMutationEvent, AnnotationSocialLockRequest } from 'shared/annotation-events';
 import {
   createAnnotationData,
   createAnnotationGeometry,
@@ -129,6 +136,175 @@ function sendMappedError(
   sendApiError(req, res, mapped);
 }
 
+function getActorUsername(user: User) {
+  return user.username || user.email || user.sub || user.id || 'unknown-user';
+}
+
+function getSceneIdForScope(referenceType: string | null | undefined, referenceId: string | null | undefined) {
+  return referenceType === 'scene' && typeof referenceId === 'string' ? referenceId : null;
+}
+
+function publishMutationIfPossible(
+  req: Request,
+  currentUser: User,
+  event: Omit<AnnotationMutationEvent, 'sessionId' | 'userId' | 'username' | 'timestamp'>,
+) {
+  if (!req.sessionId || !currentUser.id) {
+    return;
+  }
+
+  publishAnnotationMutation({
+    ...event,
+    timestamp: new Date().toISOString(),
+    sessionId: req.sessionId,
+    userId: currentUser.id,
+    username: getActorUsername(currentUser),
+  });
+}
+
+function parseSocialLockPayload(body: unknown) {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const sceneId = typeof body.sceneId === 'string' ? body.sceneId : null;
+  const streamId = typeof body.streamId === 'string' ? body.streamId : null;
+  const resourceType =
+    body.resourceType === 'geometry' || body.resourceType === 'data' || body.resourceType === 'link'
+      ? body.resourceType
+      : undefined;
+  const resourceId = typeof body.resourceId === 'string' ? body.resourceId : undefined;
+  const activity = typeof body.activity === 'string' ? body.activity : undefined;
+
+  if (!sceneId || !streamId) {
+    return null;
+  }
+
+  if ((resourceType && !resourceId) || (!resourceType && resourceId)) {
+    return null;
+  }
+
+  return {
+    sceneId,
+    streamId,
+    resourceType,
+    resourceId,
+    activity,
+  } satisfies AnnotationSocialLockRequest;
+}
+
+export async function subscribeAnnotationEventsHandler(req: Request, res: Response) {
+  try {
+    const { projectId } = req.params;
+    const sceneId = typeof req.query.sceneId === 'string' ? req.query.sceneId : null;
+    const currentUser = await requireProjectRole(req, res, projectId, [
+      RoleEnum.viewer,
+      RoleEnum.editor,
+      RoleEnum.manager,
+    ]);
+    if (!currentUser?.id || !req.sessionId) return;
+
+    const subscription = subscribeToAnnotationEvents({
+      projectId,
+      sceneId,
+      sessionId: req.sessionId,
+      userId: currentUser.id,
+      username: getActorUsername(currentUser),
+      response: res,
+    });
+
+    let closed = false;
+    const cleanup = () => {
+      if (closed) {
+        return;
+      }
+
+      closed = true;
+      subscription.close();
+    };
+
+    req.on('close', cleanup);
+    req.on('aborted', cleanup);
+  } catch (error: any) {
+    console.error('Failed to subscribe to annotation events:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to subscribe to annotation events', message: error?.message });
+    }
+  }
+}
+
+export async function notifyAnnotationSocialLockStartHandler(req: Request, res: Response) {
+  try {
+    const { projectId } = req.params;
+    const currentUser = await requireProjectRole(req, res, projectId, [RoleEnum.editor, RoleEnum.manager]);
+    if (!currentUser?.id || !req.sessionId) return;
+
+    const payload = parseSocialLockPayload(req.body);
+    if (!payload) {
+      res.status(400).json({ error: 'sceneId and streamId are required; resourceType/resourceId must be paired' });
+      return;
+    }
+
+    const result = publishAnnotationSocialLockStart({
+      projectId,
+      sceneId: payload.sceneId,
+      streamId: payload.streamId,
+      sessionId: req.sessionId,
+      userId: currentUser.id,
+      username: getActorUsername(currentUser),
+      resourceType: payload.resourceType ?? null,
+      resourceId: payload.resourceId ?? null,
+      activity: payload.activity ?? null,
+    });
+    if (!result.ok) {
+      const status = result.code === 'stream_not_found' ? 404 : 409;
+      res.status(status).json({ error: 'Annotation event stream is not available', code: result.code });
+      return;
+    }
+
+    res.status(202).json({ success: true, event: result.value });
+  } catch (error: any) {
+    console.error('Failed to publish social lock start:', error);
+    res.status(500).json({ error: 'Failed to publish social lock start', message: error?.message });
+  }
+}
+
+export async function notifyAnnotationSocialLockStopHandler(req: Request, res: Response) {
+  try {
+    const { projectId } = req.params;
+    const currentUser = await requireProjectRole(req, res, projectId, [RoleEnum.editor, RoleEnum.manager]);
+    if (!currentUser?.id || !req.sessionId) return;
+
+    const payload = parseSocialLockPayload(req.body);
+    if (!payload) {
+      res.status(400).json({ error: 'sceneId and streamId are required; resourceType/resourceId must be paired' });
+      return;
+    }
+
+    const result = publishAnnotationSocialLockStop({
+      projectId,
+      sceneId: payload.sceneId,
+      streamId: payload.streamId,
+      sessionId: req.sessionId,
+      userId: currentUser.id,
+      username: getActorUsername(currentUser),
+      resourceType: payload.resourceType ?? null,
+      resourceId: payload.resourceId ?? null,
+      activity: payload.activity ?? null,
+    });
+    if (!result.ok) {
+      const status = result.code === 'stream_not_found' ? 404 : 409;
+      res.status(status).json({ error: 'Annotation social lock is not available', code: result.code });
+      return;
+    }
+
+    res.status(202).json({ success: true, event: result.value });
+  } catch (error: any) {
+    console.error('Failed to publish social lock stop:', error);
+    res.status(500).json({ error: 'Failed to publish social lock stop', message: error?.message });
+  }
+}
+
 export async function getAnnotationsForSceneHandler(req: Request, res: Response) {
   try {
     const { projectId, sceneId } = req.params;
@@ -243,6 +419,20 @@ export async function createAnnotationGeometryHandler(req: Request, res: Respons
     }
 
     const geometry = await getAnnotationGeometry(projectId, createResult.value, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
+      mutation: 'geometry.created',
+      entity: {
+        kind: 'geometry',
+        id: createResult.value,
+        version: geometry?.version ?? null,
+        referenceType: geometry?.referenceType ?? referenceTypeResult.data,
+        referenceId: geometry?.referenceId ?? referenceId,
+        erasable: geometry ? geometry.erasableAt !== null : null,
+      },
+    });
     res.status(201).json({ success: true, geometry });
   } catch (error: any) {
     console.error('Failed to create geometry:', error);
@@ -275,6 +465,20 @@ export async function updateAnnotationGeometryHandler(req: Request, res: Respons
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
+      mutation: 'geometry.updated',
+      entity: {
+        kind: 'geometry',
+        id: geometryId,
+        version: updateResult.value,
+        referenceType: geometry?.referenceType ?? null,
+        referenceId: geometry?.referenceId ?? null,
+        erasable: geometry ? geometry.erasableAt !== null : null,
+      },
+    });
     res.json({ success: true, version: updateResult.value, updatedAt: geometry?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to update geometry:', error);
@@ -307,6 +511,20 @@ export async function markAnnotationGeometryErasableHandler(req: Request, res: R
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
+      mutation: 'geometry.erasable',
+      entity: {
+        kind: 'geometry',
+        id: geometryId,
+        version: transitionResult.value,
+        referenceType: geometry?.referenceType ?? null,
+        referenceId: geometry?.referenceId ?? null,
+        erasable: true,
+      },
+    });
     res.json({ success: true, version: transitionResult.value, updatedAt: geometry?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to mark geometry erasable:', error);
@@ -339,6 +557,20 @@ export async function markAnnotationGeometryNonErasableHandler(req: Request, res
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
+      mutation: 'geometry.restored',
+      entity: {
+        kind: 'geometry',
+        id: geometryId,
+        version: restoreResult.value,
+        referenceType: geometry?.referenceType ?? null,
+        referenceId: geometry?.referenceId ?? null,
+        erasable: false,
+      },
+    });
     res.json({ success: true, version: restoreResult.value, updatedAt: geometry?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore geometry:', error);
@@ -439,6 +671,20 @@ export async function createAnnotationDataHandler(req: Request, res: Response) {
     }
 
     const datum = await getAnnotationData(projectId, createResult.value, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
+      mutation: 'data.created',
+      entity: {
+        kind: 'data',
+        id: createResult.value,
+        version: datum?.version ?? null,
+        referenceType: datum?.visibilityType ?? visibilityTypeResult.data,
+        referenceId: datum?.visibilityId ?? visibilityId,
+        erasable: datum ? datum.erasableAt !== null : null,
+      },
+    });
     res.status(201).json({ success: true, datum });
   } catch (error: any) {
     console.error('Failed to create annotation data:', error);
@@ -487,6 +733,20 @@ export async function updateAnnotationDataHandler(req: Request, res: Response) {
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
+      mutation: 'data.updated',
+      entity: {
+        kind: 'data',
+        id: dataId,
+        version: updateResult.value,
+        referenceType: datum?.visibilityType ?? null,
+        referenceId: datum?.visibilityId ?? null,
+        erasable: datum ? datum.erasableAt !== null : null,
+      },
+    });
     res.json({ success: true, version: updateResult.value, updatedAt: datum?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to update annotation data:', error);
@@ -519,6 +779,20 @@ export async function markAnnotationDataErasableHandler(req: Request, res: Respo
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
+      mutation: 'data.erasable',
+      entity: {
+        kind: 'data',
+        id: dataId,
+        version: transitionResult.value,
+        referenceType: datum?.visibilityType ?? null,
+        referenceId: datum?.visibilityId ?? null,
+        erasable: true,
+      },
+    });
     res.json({ success: true, version: transitionResult.value, updatedAt: datum?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to mark annotation data erasable:', error);
@@ -551,6 +825,20 @@ export async function markAnnotationDataNonErasableHandler(req: Request, res: Re
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
+      mutation: 'data.restored',
+      entity: {
+        kind: 'data',
+        id: dataId,
+        version: restoreResult.value,
+        referenceType: datum?.visibilityType ?? null,
+        referenceId: datum?.visibilityId ?? null,
+        erasable: false,
+      },
+    });
     res.json({ success: true, version: restoreResult.value, updatedAt: datum?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore annotation data:', error);
@@ -662,6 +950,20 @@ export async function createAnnotationLinkHandler(req: Request, res: Response) {
     }
 
     const link = await getAnnotationLink(projectId, createResult.value, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: null,
+      mutation: 'link.created',
+      entity: {
+        kind: 'link',
+        id: createResult.value,
+        version: link?.version ?? null,
+        geometryId: link?.geometryId ?? geometryId,
+        dataId: link?.dataId ?? dataId,
+        erasable: link ? link.erasableAt !== null : null,
+      },
+    });
     res.status(201).json({ success: true, link });
   } catch (error: any) {
     console.error('Failed to create annotation link:', error);
@@ -694,6 +996,20 @@ export async function markAnnotationLinkErasableHandler(req: Request, res: Respo
     }
 
     const link = await getAnnotationLink(projectId, linkId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: null,
+      mutation: 'link.erasable',
+      entity: {
+        kind: 'link',
+        id: linkId,
+        version: transitionResult.value,
+        geometryId: link?.geometryId ?? null,
+        dataId: link?.dataId ?? null,
+        erasable: true,
+      },
+    });
     res.json({ success: true, version: transitionResult.value, updatedAt: link?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to mark annotation link erasable:', error);
@@ -730,6 +1046,20 @@ export async function markAnnotationLinkNonErasableHandler(req: Request, res: Re
     }
 
     const link = await getAnnotationLink(projectId, linkId, true);
+    publishMutationIfPossible(req, currentUser, {
+      type: 'annotation.mutated',
+      projectId,
+      sceneId: null,
+      mutation: 'link.restored',
+      entity: {
+        kind: 'link',
+        id: linkId,
+        version: link?.version ?? null,
+        geometryId: link?.geometryId ?? null,
+        dataId: link?.dataId ?? null,
+        erasable: false,
+      },
+    });
     res.json({ success: true, ...restoreResult.value, updatedAt: link?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore annotation link:', error);

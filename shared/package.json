@@ -9,6 +9,7 @@
     ".": "./types.ts",
     "./scene-types": "./scene-types.ts",
     "./annotation-types": "./annotation-types.ts",
+    "./annotation-events": "./annotation-events.ts",
     "./annotation-schema": "./annotation-schema.ts"
   }
 }

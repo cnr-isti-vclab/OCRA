@@ -369,6 +369,180 @@ Permissions:
 - Read routes: viewer, editor, manager
 - Mutation routes: editor, manager
 
+### Real-Time Event Routes
+
+- `GET /api/projects/{projectId}/annotations/events`
+- `POST /api/projects/{projectId}/annotations/events/social-lock/start`
+- `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
+
+These routes implement the informational real-time layer for annotations.
+
+Important design note:
+
+- this layer does not enforce consistency
+- OCC remains the authoritative correctness mechanism for writes
+- if the stream disconnects or notifications are missed, ordinary annotation reads and writes still behave correctly
+
+#### `GET /api/projects/{projectId}/annotations/events`
+
+Opens a Server-Sent Events stream (`text/event-stream`) for annotation notifications.
+
+Supported query params:
+
+- `sceneId` optional scene scope filter
+
+Transport headers set by the backend:
+
+- `Content-Type: text/event-stream`
+- `Cache-Control: no-cache, no-transform`
+- `Connection: keep-alive`
+- `X-Accel-Buffering: no`
+
+The backend also sends:
+
+- `retry: 5000`
+- lightweight keep-alive comments to reduce accidental connection drops through intermediaries
+
+Event families currently emitted:
+
+- `annotation.connected`
+- `annotation.social_lock.started`
+- `annotation.social_lock.stopped`
+- `annotation.mutated`
+
+The initial handshake event is `annotation.connected`, which returns a backend-generated `streamId` and any already active social locks visible in the chosen scope.
+
+Implemented payload types are defined in `shared/annotation-events.ts`.
+
+#### `POST /api/projects/{projectId}/annotations/events/social-lock/start`
+
+Broadcasts an informational editing-start notification to SSE subscribers.
+
+Required request fields:
+
+- `sceneId`
+- `streamId`
+
+Optional request fields:
+
+- `resourceType` one of `geometry`, `data`, `link`
+- `resourceId`
+- `activity`
+
+Validation notes:
+
+- `resourceType` and `resourceId` must be paired when targeting one entity
+- the referenced `streamId` must belong to the authenticated session
+- if the SSE stream was opened with a concrete scene scope, the social-lock scene must match that scope
+
+Possible responses:
+
+- `202` social-lock accepted and broadcast
+- `400` invalid payload
+- `404` referenced stream not found
+- `409` stream scope mismatch
+
+#### `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
+
+Clears a previously announced informational social lock.
+
+Required request fields:
+
+- `sceneId`
+- `streamId`
+
+Optional request fields:
+
+- `resourceType` one of `geometry`, `data`, `link`
+- `resourceId`
+- `activity`
+
+Possible responses:
+
+- `202` social-lock removal accepted and broadcast
+- `400` invalid payload
+- `404` referenced stream not found
+- `409` social lock not found or stream scope mismatch
+
+### Real-Time Event Payloads
+
+#### `annotation.connected`
+
+Typical payload:
+
+```json
+{
+	"type": "annotation.connected",
+	"timestamp": "2026-04-25T12:00:00.000Z",
+	"streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+	"projectId": "p1",
+	"sceneId": "scene-main",
+	"activeSocialLocks": []
+}
+```
+
+#### `annotation.social_lock.started` / `annotation.social_lock.stopped`
+
+Typical payload:
+
+```json
+{
+	"type": "annotation.social_lock.started",
+	"timestamp": "2026-04-25T12:01:00.000Z",
+	"streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+	"projectId": "p1",
+	"sceneId": "scene-main",
+	"sessionId": "session-123",
+	"userId": "u1",
+	"username": "annotator",
+	"resourceType": "geometry",
+	"resourceId": "ag_123",
+	"activity": "editing",
+	"startedAt": "2026-04-25T12:01:00.000Z"
+}
+```
+
+#### `annotation.mutated`
+
+This event is emitted after successful committed annotation mutations.
+
+Implemented mutation kinds:
+
+- `geometry.created`
+- `geometry.updated`
+- `geometry.erasable`
+- `geometry.restored`
+- `data.created`
+- `data.updated`
+- `data.erasable`
+- `data.restored`
+- `link.created`
+- `link.erasable`
+- `link.restored`
+
+Typical payload:
+
+```json
+{
+	"type": "annotation.mutated",
+	"timestamp": "2026-04-25T12:02:00.000Z",
+	"projectId": "p1",
+	"sceneId": "scene-main",
+	"sessionId": "session-123",
+	"userId": "u1",
+	"username": "annotator",
+	"mutation": "geometry.updated",
+	"entity": {
+		"kind": "geometry",
+		"id": "ag_123",
+		"version": 4,
+		"referenceType": "scene",
+		"referenceId": "scene-main",
+		"erasable": false
+	}
+}
+```
+
 ### Scene Bundle Routes
 
 - `GET /api/projects/{projectId}/annotations/for-scene/{sceneId}`
@@ -435,4 +609,9 @@ The following items were documented in earlier versions of this file but are not
 - `getAnnotationDataForAsset`
 - `getAnnotationLinksForScene`
 - `getAnnotationLinksForAsset`
-- session/social-lock/structuring APIs such as `startReading`, `stopReading`, `notifyEditingStart`, `notifyEditingStop`, `startStructuring`
+- session/structuring APIs such as `startReading`, `stopReading`, `startStructuring`
+
+The old conceptual names `notifyEditingStart` and `notifyEditingStop` are now implemented as REST endpoints under:
+
+- `POST /api/projects/{projectId}/annotations/events/social-lock/start`
+- `POST /api/projects/{projectId}/annotations/events/social-lock/stop`

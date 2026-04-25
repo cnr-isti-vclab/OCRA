@@ -18,6 +18,9 @@ import {
   markAnnotationGeometryNonErasableHandler,
   markAnnotationLinkErasableHandler,
   markAnnotationLinkNonErasableHandler,
+  notifyAnnotationSocialLockStartHandler,
+  notifyAnnotationSocialLockStopHandler,
+  subscribeAnnotationEventsHandler,
   updateAnnotationDataHandler,
   updateAnnotationGeometryHandler,
 } from '../controllers/annotation.controller.js';
@@ -66,6 +69,143 @@ const router = Router();
  *         description: Scene not found
  */
 router.get('/:projectId/annotations/for-scene/:sceneId', requireAuth, getAnnotationsForSceneHandler);
+/**
+ * @openapi
+ * /api/projects/{projectId}/annotations/events:
+ *   get:
+ *     summary: Subscribe to annotation SSE events
+ *     description: Opens a Server-Sent Events stream for social-lock and committed annotation mutation notifications.
+ *     tags:
+ *       - Annotations
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: sceneId
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Optional scene scope. When omitted, project-wide annotation events are streamed.
+ *     responses:
+ *       200:
+ *         description: SSE stream established
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: |
+ *                 retry: 5000
+ *
+ *                 event: annotation.connected
+ *                 data: {"type":"annotation.connected","streamId":"9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15"}
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Project access denied
+ */
+router.get('/:projectId/annotations/events', requireAuth, subscribeAnnotationEventsHandler);
+/**
+ * @openapi
+ * /api/projects/{projectId}/annotations/events/social-lock/start:
+ *   post:
+ *     summary: Broadcast social-lock start
+ *     description: Sends an informational editing-start notification to active annotation SSE subscribers.
+ *     tags:
+ *       - Annotations
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sceneId, streamId]
+ *             properties:
+ *               sceneId:
+ *                 type: string
+ *               streamId:
+ *                 type: string
+ *                 format: uuid
+ *               resourceType:
+ *                 type: string
+ *                 enum: [geometry, data, link]
+ *               resourceId:
+ *                 type: string
+ *               activity:
+ *                 type: string
+ *     responses:
+ *       202:
+ *         description: Social-lock notification accepted
+ *       400:
+ *         description: Invalid payload
+ *       404:
+ *         description: Referenced SSE stream not found
+ *       409:
+ *         description: Stream scope mismatch
+ */
+router.post('/:projectId/annotations/events/social-lock/start', requireAuth, notifyAnnotationSocialLockStartHandler);
+/**
+ * @openapi
+ * /api/projects/{projectId}/annotations/events/social-lock/stop:
+ *   post:
+ *     summary: Broadcast social-lock stop
+ *     description: Clears a previously announced informational social-lock and notifies active subscribers.
+ *     tags:
+ *       - Annotations
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sceneId, streamId]
+ *             properties:
+ *               sceneId:
+ *                 type: string
+ *               streamId:
+ *                 type: string
+ *                 format: uuid
+ *               resourceType:
+ *                 type: string
+ *                 enum: [geometry, data, link]
+ *               resourceId:
+ *                 type: string
+ *               activity:
+ *                 type: string
+ *     responses:
+ *       202:
+ *         description: Social-lock removal accepted
+ *       400:
+ *         description: Invalid payload
+ *       404:
+ *         description: Referenced SSE stream not found
+ *       409:
+ *         description: Social-lock not found or stream scope mismatch
+ */
+router.post('/:projectId/annotations/events/social-lock/stop', requireAuth, notifyAnnotationSocialLockStopHandler);
 
 /**
  * @openapi
