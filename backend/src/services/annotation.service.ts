@@ -1,4 +1,5 @@
 import { getPrismaClient } from '../../db.js';
+import type { ClientSession } from 'mongodb';
 import { getMongoClient } from '../lib/mongo/client.js';
 import {
   findAnnotationDataById,
@@ -158,13 +159,14 @@ function buildUpdateAuditFields(userId: string, timestamp: string) {
 }
 
 async function markLinkedAnnotationLinksErasable(
+  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
   projectId: string,
   filters: { geometryId?: string; dataId?: string },
   userId: string,
   timestamp: string,
+  session?: ClientSession,
 ) {
-  const collection = await getAnnotationLinkCollection();
-  await collection.updateMany(
+  await linkCollection.updateMany(
     {
       projectId,
       erasableAt: null,
@@ -178,7 +180,112 @@ async function markLinkedAnnotationLinksErasable(
       },
       $inc: { version: 1 },
     },
+    session ? { session } : undefined,
   );
+}
+
+async function markLinksNonErasableByIds(
+  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
+  projectId: string,
+  linkIds: string[],
+  userId: string,
+  timestamp: string,
+  session?: ClientSession,
+) {
+  if (linkIds.length === 0) {
+    return;
+  }
+
+  await linkCollection.updateMany(
+    {
+      projectId,
+      id: { $in: linkIds },
+      erasableAt: { $ne: null },
+    },
+    {
+      $set: {
+        erasableAt: null,
+        erasableBy: null,
+        ...buildUpdateAuditFields(userId, timestamp),
+      },
+      $inc: { version: 1 },
+    },
+    session ? { session } : undefined,
+  );
+}
+
+async function markLinkedAnnotationLinksNonErasableForGeometry(
+  dataCollection: Awaited<ReturnType<typeof getAnnotationDataCollection>>,
+  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
+  projectId: string,
+  geometryId: string,
+  userId: string,
+  timestamp: string,
+  session?: ClientSession,
+) {
+  const links = await linkCollection.find({ projectId, geometryId }, session ? { session } : undefined).toArray();
+  const erasableLinks = links.filter((link) => link.erasableAt !== null);
+  if (erasableLinks.length === 0) {
+    return;
+  }
+
+  const dataIds = Array.from(new Set(erasableLinks.map((link) => link.dataId)));
+  const nonErasableData = await dataCollection
+    .find({
+      projectId,
+      id: { $in: dataIds },
+      erasableAt: null,
+    }, session ? { session } : undefined)
+    .toArray();
+  const nonErasableDataIds = new Set(nonErasableData.map((data) => data.id));
+
+  const eligibleLinkIds = erasableLinks
+    .filter((link) => nonErasableDataIds.has(link.dataId))
+    .map((link) => link.id);
+
+  await markLinksNonErasableByIds(linkCollection, projectId, eligibleLinkIds, userId, timestamp, session);
+}
+
+async function markLinkedAnnotationLinksNonErasableForData(
+  geometryCollection: Awaited<ReturnType<typeof getAnnotationGeometryCollection>>,
+  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
+  projectId: string,
+  dataId: string,
+  userId: string,
+  timestamp: string,
+  session?: ClientSession,
+) {
+  const links = await linkCollection.find({ projectId, dataId }, session ? { session } : undefined).toArray();
+  const erasableLinks = links.filter((link) => link.erasableAt !== null);
+  if (erasableLinks.length === 0) {
+    return;
+  }
+
+  const geometryIds = Array.from(new Set(erasableLinks.map((link) => link.geometryId)));
+  const nonErasableGeometries = await geometryCollection
+    .find({
+      projectId,
+      id: { $in: geometryIds },
+      erasableAt: null,
+    }, session ? { session } : undefined)
+    .toArray();
+  const nonErasableGeometryIds = new Set(nonErasableGeometries.map((geometry) => geometry.id));
+
+  const eligibleLinkIds = erasableLinks
+    .filter((link) => nonErasableGeometryIds.has(link.geometryId))
+    .map((link) => link.id);
+
+  await markLinksNonErasableByIds(linkCollection, projectId, eligibleLinkIds, userId, timestamp, session);
+}
+
+async function getAnnotationCollections() {
+  const [geometryCollection, dataCollection, linkCollection] = await Promise.all([
+    getAnnotationGeometryCollection(),
+    getAnnotationDataCollection(),
+    getAnnotationLinkCollection(),
+  ]);
+
+  return { geometryCollection, dataCollection, linkCollection };
 }
 
 function dedupeById<T extends { id: string }>(documents: T[]) {
@@ -603,39 +710,63 @@ export async function markAnnotationGeometryErasable(
     return false;
   }
 
-  const existing = await findAnnotationGeometryById(geometryId);
-  if (!existing || existing.projectId !== projectId || existing.erasableAt !== null) {
-    return false;
+  const client = await getMongoClient();
+  const session = client.startSession();
+
+  try {
+    let nextVersion: number | false = false;
+
+    await session.withTransaction(async () => {
+      const timestamp = getTimestamp();
+      const { geometryCollection, linkCollection } = await getAnnotationCollections();
+      const existing = await geometryCollection.findOne({ projectId, id: geometryId }, { session });
+      if (!existing || existing.erasableAt !== null) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const candidate = {
+        ...existing,
+        erasableAt: timestamp,
+        erasableBy: userId,
+        version: nextVersionCandidate(existing),
+        ...buildUpdateAuditFields(userId, timestamp),
+      };
+
+      if (!validateSchema(annotationGeometrySchema.safeParse(candidate))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const updatedResult = await geometryCollection.findOneAndUpdate(
+        { projectId, id: geometryId, version: expectedVersion },
+        {
+          $set: {
+            erasableAt: timestamp,
+            erasableBy: userId,
+            ...buildUpdateAuditFields(userId, timestamp),
+          },
+          $inc: { version: 1 },
+        },
+        { returnDocument: 'after', session },
+      );
+      const updated = updatedResult.value;
+      if (!updated || !validateSchema(annotationGeometrySchema.safeParse(updated))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      await markLinkedAnnotationLinksErasable(linkCollection, projectId, { geometryId }, userId, timestamp, session);
+      nextVersion = updated.version;
+    });
+
+    return nextVersion;
+  } catch (error) {
+    if (error instanceof AnnotationServiceAbort) {
+      return false;
+    }
+
+    throw error;
+  } finally {
+    await session.endSession();
   }
-
-  const timestamp = getTimestamp();
-  const candidate = {
-    ...existing,
-    erasableAt: timestamp,
-    erasableBy: userId,
-    version: nextVersionCandidate(existing),
-    ...buildUpdateAuditFields(userId, timestamp),
-  };
-
-  if (!validateSchema(annotationGeometrySchema.safeParse(candidate))) {
-    return false;
-  }
-
-  const result = await conditionalUpdateAnnotationGeometry(geometryId, expectedVersion, {
-    $set: {
-      erasableAt: timestamp,
-      erasableBy: userId,
-      ...buildUpdateAuditFields(userId, timestamp),
-    },
-    $inc: { version: 1 },
-  });
-
-  if (!result.ok) {
-    return false;
-  }
-
-  await markLinkedAnnotationLinksErasable(projectId, { geometryId }, userId, timestamp);
-  return result.nextVersion;
 }
 
 export async function markAnnotationGeometryNonErasable(
@@ -648,34 +779,71 @@ export async function markAnnotationGeometryNonErasable(
     return false;
   }
 
-  const existing = await findAnnotationGeometryById(geometryId);
-  if (!existing || existing.projectId !== projectId || existing.erasableAt === null) {
-    return false;
+  const client = await getMongoClient();
+  const session = client.startSession();
+
+  try {
+    let nextVersion: number | false = false;
+
+    await session.withTransaction(async () => {
+      const timestamp = getTimestamp();
+      const { geometryCollection, dataCollection, linkCollection } = await getAnnotationCollections();
+      const existing = await geometryCollection.findOne({ projectId, id: geometryId }, { session });
+      if (!existing || existing.erasableAt === null) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const candidate = {
+        ...existing,
+        erasableAt: null,
+        erasableBy: null,
+        version: nextVersionCandidate(existing),
+        ...buildUpdateAuditFields(userId, timestamp),
+      };
+
+      if (!validateSchema(annotationGeometrySchema.safeParse(candidate))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const updatedResult = await geometryCollection.findOneAndUpdate(
+        { projectId, id: geometryId, version: expectedVersion },
+        {
+          $set: {
+            erasableAt: null,
+            erasableBy: null,
+            ...buildUpdateAuditFields(userId, timestamp),
+          },
+          $inc: { version: 1 },
+        },
+        { returnDocument: 'after', session },
+      );
+      const updated = updatedResult.value;
+      if (!updated || !validateSchema(annotationGeometrySchema.safeParse(updated))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      await markLinkedAnnotationLinksNonErasableForGeometry(
+        dataCollection,
+        linkCollection,
+        projectId,
+        geometryId,
+        userId,
+        timestamp,
+        session,
+      );
+      nextVersion = updated.version;
+    });
+
+    return nextVersion;
+  } catch (error) {
+    if (error instanceof AnnotationServiceAbort) {
+      return false;
+    }
+
+    throw error;
+  } finally {
+    await session.endSession();
   }
-
-  const timestamp = getTimestamp();
-  const candidate = {
-    ...existing,
-    erasableAt: null,
-    erasableBy: null,
-    version: nextVersionCandidate(existing),
-    ...buildUpdateAuditFields(userId, timestamp),
-  };
-
-  if (!validateSchema(annotationGeometrySchema.safeParse(candidate))) {
-    return false;
-  }
-
-  const result = await conditionalUpdateAnnotationGeometry(geometryId, expectedVersion, {
-    $set: {
-      erasableAt: null,
-      erasableBy: null,
-      ...buildUpdateAuditFields(userId, timestamp),
-    },
-    $inc: { version: 1 },
-  });
-
-  return result.ok ? result.nextVersion : false;
 }
 
 export async function createAnnotationData(
@@ -795,39 +963,63 @@ export async function markAnnotationDataErasable(
     return false;
   }
 
-  const existing = await findAnnotationDataById(dataId);
-  if (!existing || existing.projectId !== projectId || existing.erasableAt !== null) {
-    return false;
+  const client = await getMongoClient();
+  const session = client.startSession();
+
+  try {
+    let nextVersion: number | false = false;
+
+    await session.withTransaction(async () => {
+      const timestamp = getTimestamp();
+      const { dataCollection, linkCollection } = await getAnnotationCollections();
+      const existing = await dataCollection.findOne({ projectId, id: dataId }, { session });
+      if (!existing || existing.erasableAt !== null) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const candidate = {
+        ...existing,
+        erasableAt: timestamp,
+        erasableBy: userId,
+        version: nextVersionCandidate(existing),
+        ...buildUpdateAuditFields(userId, timestamp),
+      };
+
+      if (!validateSchema(annotationDataSchema.safeParse(candidate))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const updatedResult = await dataCollection.findOneAndUpdate(
+        { projectId, id: dataId, version: expectedVersion },
+        {
+          $set: {
+            erasableAt: timestamp,
+            erasableBy: userId,
+            ...buildUpdateAuditFields(userId, timestamp),
+          },
+          $inc: { version: 1 },
+        },
+        { returnDocument: 'after', session },
+      );
+      const updated = updatedResult.value;
+      if (!updated || !validateSchema(annotationDataSchema.safeParse(updated))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      await markLinkedAnnotationLinksErasable(linkCollection, projectId, { dataId }, userId, timestamp, session);
+      nextVersion = updated.version;
+    });
+
+    return nextVersion;
+  } catch (error) {
+    if (error instanceof AnnotationServiceAbort) {
+      return false;
+    }
+
+    throw error;
+  } finally {
+    await session.endSession();
   }
-
-  const timestamp = getTimestamp();
-  const candidate = {
-    ...existing,
-    erasableAt: timestamp,
-    erasableBy: userId,
-    version: nextVersionCandidate(existing),
-    ...buildUpdateAuditFields(userId, timestamp),
-  };
-
-  if (!validateSchema(annotationDataSchema.safeParse(candidate))) {
-    return false;
-  }
-
-  const result = await conditionalUpdateAnnotationData(dataId, expectedVersion, {
-    $set: {
-      erasableAt: timestamp,
-      erasableBy: userId,
-      ...buildUpdateAuditFields(userId, timestamp),
-    },
-    $inc: { version: 1 },
-  });
-
-  if (!result.ok) {
-    return false;
-  }
-
-  await markLinkedAnnotationLinksErasable(projectId, { dataId }, userId, timestamp);
-  return result.nextVersion;
 }
 
 export async function markAnnotationDataNonErasable(
@@ -840,34 +1032,71 @@ export async function markAnnotationDataNonErasable(
     return false;
   }
 
-  const existing = await findAnnotationDataById(dataId);
-  if (!existing || existing.projectId !== projectId || existing.erasableAt === null) {
-    return false;
+  const client = await getMongoClient();
+  const session = client.startSession();
+
+  try {
+    let nextVersion: number | false = false;
+
+    await session.withTransaction(async () => {
+      const timestamp = getTimestamp();
+      const { geometryCollection, dataCollection, linkCollection } = await getAnnotationCollections();
+      const existing = await dataCollection.findOne({ projectId, id: dataId }, { session });
+      if (!existing || existing.erasableAt === null) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const candidate = {
+        ...existing,
+        erasableAt: null,
+        erasableBy: null,
+        version: nextVersionCandidate(existing),
+        ...buildUpdateAuditFields(userId, timestamp),
+      };
+
+      if (!validateSchema(annotationDataSchema.safeParse(candidate))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      const updatedResult = await dataCollection.findOneAndUpdate(
+        { projectId, id: dataId, version: expectedVersion },
+        {
+          $set: {
+            erasableAt: null,
+            erasableBy: null,
+            ...buildUpdateAuditFields(userId, timestamp),
+          },
+          $inc: { version: 1 },
+        },
+        { returnDocument: 'after', session },
+      );
+      const updated = updatedResult.value;
+      if (!updated || !validateSchema(annotationDataSchema.safeParse(updated))) {
+        throw new AnnotationServiceAbort();
+      }
+
+      await markLinkedAnnotationLinksNonErasableForData(
+        geometryCollection,
+        linkCollection,
+        projectId,
+        dataId,
+        userId,
+        timestamp,
+        session,
+      );
+      nextVersion = updated.version;
+    });
+
+    return nextVersion;
+  } catch (error) {
+    if (error instanceof AnnotationServiceAbort) {
+      return false;
+    }
+
+    throw error;
+  } finally {
+    await session.endSession();
   }
-
-  const timestamp = getTimestamp();
-  const candidate = {
-    ...existing,
-    erasableAt: null,
-    erasableBy: null,
-    version: nextVersionCandidate(existing),
-    ...buildUpdateAuditFields(userId, timestamp),
-  };
-
-  if (!validateSchema(annotationDataSchema.safeParse(candidate))) {
-    return false;
-  }
-
-  const result = await conditionalUpdateAnnotationData(dataId, expectedVersion, {
-    $set: {
-      erasableAt: null,
-      erasableBy: null,
-      ...buildUpdateAuditFields(userId, timestamp),
-    },
-    $inc: { version: 1 },
-  });
-
-  return result.ok ? result.nextVersion : false;
 }
 
 export async function createAnnotationLink(
@@ -1008,6 +1237,10 @@ export async function markAnnotationLinkNonErasable(
         throw new AnnotationServiceAbort();
       }
 
+      if (geometry.erasableAt !== null || data.erasableAt !== null) {
+        throw new AnnotationServiceAbort();
+      }
+
       const updatedLinkResult = await linkCollection.findOneAndUpdate(
         { projectId, id: linkId, version: expectedVersion },
         {
@@ -1026,56 +1259,10 @@ export async function markAnnotationLinkNonErasable(
         throw new AnnotationServiceAbort();
       }
 
-      let geometryVersion = geometry.version;
-      if (geometry.erasableAt !== null) {
-        const updatedGeometryResult = await geometryCollection.findOneAndUpdate(
-          { projectId, id: geometry.id, version: geometry.version },
-          {
-            $set: {
-              erasableAt: null,
-              erasableBy: null,
-              ...buildUpdateAuditFields(userId, timestamp),
-            },
-            $inc: { version: 1 },
-          },
-          { returnDocument: 'after', session },
-        );
-
-        const updatedGeometry = updatedGeometryResult.value;
-        if (!updatedGeometry || !validateSchema(annotationGeometrySchema.safeParse(updatedGeometry))) {
-          throw new AnnotationServiceAbort();
-        }
-
-        geometryVersion = updatedGeometry.version;
-      }
-
-      let dataVersion = data.version;
-      if (data.erasableAt !== null) {
-        const updatedDataResult = await dataCollection.findOneAndUpdate(
-          { projectId, id: data.id, version: data.version },
-          {
-            $set: {
-              erasableAt: null,
-              erasableBy: null,
-              ...buildUpdateAuditFields(userId, timestamp),
-            },
-            $inc: { version: 1 },
-          },
-          { returnDocument: 'after', session },
-        );
-
-        const updatedData = updatedDataResult.value;
-        if (!updatedData || !validateSchema(annotationDataSchema.safeParse(updatedData))) {
-          throw new AnnotationServiceAbort();
-        }
-
-        dataVersion = updatedData.version;
-      }
-
       restoreResult = {
         linkVersion: updatedLink.version,
-        geometryVersion,
-        dataVersion,
+        geometryVersion: geometry.version,
+        dataVersion: data.version,
       };
     });
 

@@ -9,6 +9,12 @@ interface AnnotationTarget {
   scopeId: string;
 }
 
+interface SeededAnnotationSet {
+  geometries: unknown[];
+  data: unknown;
+  links: unknown[];
+}
+
 function isLocalhostDatabaseUrl(databaseUrl: string | undefined) {
   if (!databaseUrl) {
     return false;
@@ -115,6 +121,133 @@ async function resolveActorUserId(projectId: string, prisma: PrismaClient) {
   };
 }
 
+async function clearProjectAnnotations(projectId: string) {
+  const [geometryRepoModule, dataRepoModule, linkRepoModule] = await Promise.all([
+    import('../src/repositories/annotation-geometry.repository.js'),
+    import('../src/repositories/annotation-data.repository.js'),
+    import('../src/repositories/annotation-link.repository.js'),
+  ]);
+
+  const [geometryCollection, dataCollection, linkCollection] = await Promise.all([
+    geometryRepoModule.getAnnotationGeometryCollection(),
+    dataRepoModule.getAnnotationDataCollection(),
+    linkRepoModule.getAnnotationLinkCollection(),
+  ]);
+
+  const [deletedLinks, deletedData, deletedGeometries] = await Promise.all([
+    linkCollection.deleteMany({ projectId }),
+    dataCollection.deleteMany({ projectId }),
+    geometryCollection.deleteMany({ projectId }),
+  ]);
+
+  return {
+    links: deletedLinks.deletedCount ?? 0,
+    data: deletedData.deletedCount ?? 0,
+    geometries: deletedGeometries.deletedCount ?? 0,
+  };
+}
+
+function buildGeometryShapes(): AnnotationShape[][] {
+  return [
+    [
+      {
+        type: 'ShapePoints',
+        vertices: [[0, 0, 0]],
+      },
+    ],
+    [
+      {
+        type: 'ShapePoints',
+        vertices: [[1.5, 0.5, 0.25]],
+      },
+    ],
+  ];
+}
+
+async function createAnnotationSet(
+  projectId: string,
+  target: AnnotationTarget,
+  actorUserId: string,
+  annotationServiceModule: {
+    createAnnotationData: typeof import('../src/services/annotation.service.js').createAnnotationData;
+    createAnnotationGeometry: typeof import('../src/services/annotation.service.js').createAnnotationGeometry;
+    createAnnotationLink: typeof import('../src/services/annotation.service.js').createAnnotationLink;
+    getAnnotationData: typeof import('../src/services/annotation.service.js').getAnnotationData;
+    getAnnotationGeometry: typeof import('../src/services/annotation.service.js').getAnnotationGeometry;
+    getAnnotationLink: typeof import('../src/services/annotation.service.js').getAnnotationLink;
+  },
+): Promise<SeededAnnotationSet> {
+  const {
+    createAnnotationData,
+    createAnnotationGeometry,
+    createAnnotationLink,
+    getAnnotationData,
+    getAnnotationGeometry,
+    getAnnotationLink,
+  } = annotationServiceModule;
+
+  const timestamp = new Date().toISOString();
+  const geometryShapeSets = buildGeometryShapes();
+
+  const geometryIds: string[] = [];
+  for (const [index, shapes] of geometryShapeSets.entries()) {
+    const geometryId = await createAnnotationGeometry(
+      projectId,
+      shapes,
+      target.scopeType,
+      target.scopeId,
+      actorUserId,
+    );
+
+    if (!geometryId) {
+      throw new Error(`Failed to create annotation geometry ${index + 1}.`);
+    }
+
+    geometryIds.push(geometryId);
+  }
+
+  const dataId = await createAnnotationData(
+    projectId,
+    `Shared test annotation ${timestamp}`,
+    'Generated for Swagger/API manual testing with two geometries linked to the same data annotation.',
+    'test-annotation-shared-data',
+    {
+      generatedBy: 'backend/scripts/create-test-annotation.ts',
+      generatedAt: timestamp,
+      note: 'Manual REST API dataset: 2 geometry annotations, 1 data annotation, 2 links.',
+      linkedGeometryCount: geometryIds.length,
+    },
+    target.scopeType,
+    target.scopeId,
+    actorUserId,
+  );
+  if (!dataId) {
+    throw new Error('Failed to create shared annotation data.');
+  }
+
+  const linkIds: string[] = [];
+  for (const geometryId of geometryIds) {
+    const linkId = await createAnnotationLink(projectId, geometryId, dataId, actorUserId);
+    if (!linkId) {
+      throw new Error(`Failed to create annotation link for geometry ${geometryId}.`);
+    }
+
+    linkIds.push(linkId);
+  }
+
+  const [geometries, data, links] = await Promise.all([
+    Promise.all(geometryIds.map((geometryId) => getAnnotationGeometry(projectId, geometryId, true))),
+    getAnnotationData(projectId, dataId, true),
+    Promise.all(linkIds.map((linkId) => getAnnotationLink(projectId, linkId, true))),
+  ]);
+
+  return {
+    geometries,
+    data,
+    links,
+  };
+}
+
 async function main() {
   await ensureReachableDatabaseConfig();
 
@@ -127,14 +260,6 @@ async function main() {
 
   const { getPrismaClient } = dbModule;
   const { closeMongoClient } = mongoClientModule;
-  const {
-    createAnnotationData,
-    createAnnotationGeometry,
-    createAnnotationLink,
-    getAnnotationData,
-    getAnnotationGeometry,
-    getAnnotationLink,
-  } = annotationServiceModule;
   const { getHDTDocument } = hdtServiceModule;
   const prisma = getPrismaClient();
 
@@ -182,53 +307,8 @@ async function main() {
     return;
   }
 
-  const timestamp = new Date().toISOString();
-  const shapes: AnnotationShape[] = [
-    {
-      type: 'ShapePoints',
-      vertices: [[0, 0, 0]],
-    },
-  ];
-
-  const geometryId = await createAnnotationGeometry(
-    projectId,
-    shapes,
-    target.scopeType,
-    target.scopeId,
-    actor.userId,
-  );
-  if (!geometryId) {
-    throw new Error('Failed to create annotation geometry.');
-  }
-
-  const dataId = await createAnnotationData(
-    projectId,
-    `Test annotation ${timestamp}`,
-    'Generated for Swagger/API manual testing.',
-    'test-annotation',
-    {
-      generatedBy: 'backend/scripts/create-test-annotation.ts',
-      generatedAt: timestamp,
-      note: 'Complete annotation seed for manual REST API testing.',
-    },
-    target.scopeType,
-    target.scopeId,
-    actor.userId,
-  );
-  if (!dataId) {
-    throw new Error('Failed to create annotation data.');
-  }
-
-  const linkId = await createAnnotationLink(projectId, geometryId, dataId, actor.userId);
-  if (!linkId) {
-    throw new Error('Failed to create annotation link.');
-  }
-
-  const [geometry, data, link] = await Promise.all([
-    getAnnotationGeometry(projectId, geometryId, true),
-    getAnnotationData(projectId, dataId, true),
-    getAnnotationLink(projectId, linkId, true),
-  ]);
+  const deleted = await clearProjectAnnotations(projectId);
+  const seeded = await createAnnotationSet(projectId, target, actor.userId, annotationServiceModule);
 
   console.log(
     JSON.stringify(
@@ -239,9 +319,15 @@ async function main() {
         scopeType: target.scopeType,
         scopeId: target.scopeId,
         createdBy: actor.userId,
-        geometry,
-        data,
-        link,
+        removedExistingAnnotations: deleted,
+        summary: {
+          geometryCount: seeded.geometries.length,
+          dataCount: seeded.data ? 1 : 0,
+          linkCount: seeded.links.length,
+        },
+        geometries: seeded.geometries,
+        data: seeded.data,
+        links: seeded.links,
       },
       null,
       2,
