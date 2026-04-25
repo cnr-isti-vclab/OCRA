@@ -298,9 +298,20 @@ To change an association, the existing link must be marked as `erasable` and a n
 
 Marking an `annotationLink` as `erasable` affects only the link itself: it does not change the erasable state of the referenced `annotationGeometry` or `annotationData`.
 
-Restoring an `annotationLink` to `non-erasable` also restores its referenced `annotationGeometry` and `annotationData` to `non-erasable`. This gives OCRA at least one safe undo level for relation deletion: restoring the link reactivates the relation itself and the directly referenced endpoints needed to make it visible again.
+Restoring an `annotationLink` to `non-erasable` restores only the link itself. The operation succeeds only if the referenced `annotationGeometry` and `annotationData` still exist and are already both `non-erasable`.
 
-The endpoints of a link remain immutable: restoration never rewrites `annotationGeometry` or `annotationData` references, it only clears the `erasable` state where needed.
+The endpoints of a link remain immutable: restoration never rewrites `annotationGeometry` or `annotationData` references, and in the current implementation it does not change endpoint erasability either.
+
+### Cascade Rules for Erasability
+
+The current implementation applies the following cascade rules:
+
+- If an `annotationGeometry` is marked as `erasable`, all currently non-erasable `annotationLink` records connected to that geometry are marked as `erasable` in the same MongoDB transaction.
+- If an `annotationData` record is marked as `erasable`, all currently non-erasable `annotationLink` records connected to that data record are marked as `erasable` in the same MongoDB transaction.
+- If an `annotationGeometry` is restored to `non-erasable`, a connected link is restored to `non-erasable` only if the linked `annotationData` is already non-erasable.
+- If an `annotationData` record is restored to `non-erasable`, a connected link is restored to `non-erasable` only if the linked `annotationGeometry` is already non-erasable.
+
+In other words, a link may be non-erasable only when both of its endpoints are non-erasable. Direct link restore does not restore endpoints.
 
 ### JSON Example
 
@@ -343,7 +354,7 @@ The table below summarises how erasability and link reachability together determ
 
 An `erasable` entity with zero incoming links is therefore in a transient state: it is already excluded from normal reads, but it may still exist physically in the database until a maintenance or garbage-collection routine removes it. After that physical removal, it disappears completely from all model-level visibility.
 
-`annotationLink` itself follows the same inclusion rule: a link marked as `erasable` is excluded from normal reads and is ignored when evaluating the reachability of `annotationGeometry` and `annotationData`. Marking the link as `erasable` leaves the referenced entities unchanged. If that link is later restored, the referenced geometry and data are restored to `non-erasable` as part of the same logical undelete flow.
+`annotationLink` itself follows the same inclusion rule: a link marked as `erasable` is excluded from normal reads and is ignored when evaluating the reachability of `annotationGeometry` and `annotationData`. Marking the link as `erasable` leaves the referenced entities unchanged. If that link is later restored, only the link becomes `non-erasable` again, and only if both endpoints are already non-erasable.
 
 For visibility purposes, only non-erasable links count toward reachability. Having only incoming `annotationLink` records that are themselves `erasable` is equivalent to having zero incoming links.
 
@@ -364,6 +375,6 @@ For mutable entities (`annotationGeometry`, `annotationData`, and `annotationLin
 
 For `annotationLink`, the only allowed updates are those erasable-state transitions. Its `geometryId` and `dataId` values never change after creation.
 
-When a link restore also restores the referenced geometry and data, the three per-document updates must be grouped in one transaction so the logical undelete cannot leave a partially restored relation.
+Geometry and data restore operations use transactions because they may update both the endpoint document and a set of connected links. Link restore also uses a transaction, but in the current implementation the transaction is used to verify endpoint state and restore the link atomically with those checks; it does not update geometry or data.
 
 This design supports optimistic concurrency control (OCC) without long-lived database locks. The conditional MongoDB update filter uses `version`, not `updatedAt`, as the concurrency token. This avoids coupling correctness to timestamp precision, clock skew, or clock-dependent ordering.

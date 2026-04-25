@@ -11,6 +11,8 @@ This document defines the concurrency model and collaborative editing strategy f
 - The **Social Lock** mechanism used to reduce conflict probability while preserving architectural simplicity.
 - The **real-time synchronisation** layer that keeps concurrent clients aware of remote changes.
 
+The OCC and annotation mutation rules described here match the current implementation. The sections about Social Lock, read-session coordination, and real-time synchronisation are forward-looking architecture notes and are not yet implemented as backend API surface.
+
 Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same channel as the Social Lock, while remaining a separate concept.
 
 For annotation editing, the model is intentionally stateless: there are no long-lived database locks, no server-side session ownership of records, and no heartbeat infrastructure. Consistency is guaranteed at commit time through atomic conditional writes. This does not apply to structuring operations, which follow a different concurrency model.
@@ -88,9 +90,9 @@ For `annotationLink`, only the erasability transitions are allowed. Its `geometr
 
 Physical deletion of `annotationGeometry` and `annotationData` is **never triggered by a user action** through the annotation API. It is performed exclusively by garbage collection routines or superuser maintenance operations, both of which operate outside the normal editing workflow.
 
-Physical deletion of `annotationLink` is likewise **not part of the normal editing workflow**. Ordinary link removal is expressed by marking the link as `erasable`, leaving its referenced `annotationGeometry` and `annotationData` unchanged. Restoring a link to `non-erasable` is also an OCC-protected operation and restores the referenced geometry and data to `non-erasable` as part of the same logical undelete flow.
+Physical deletion of `annotationLink` is likewise **not part of the normal editing workflow**. Ordinary link removal is expressed by marking the link as `erasable`, leaving its referenced `annotationGeometry` and `annotationData` unchanged. Restoring a link to `non-erasable` is also an OCC-protected operation, but in the current implementation it restores only the link itself and succeeds only if the referenced geometry and data already exist and are already non-erasable.
 
-Because link restore touches multiple documents, that undelete flow must run inside a short MongoDB transaction. This avoids partial restores while still preserving the stateless optimistic model: there are no long-lived locks or server-held edit sessions.
+Link restore still runs inside a short MongoDB transaction. In the current implementation the transaction is used to verify endpoint existence and non-erasable state and to restore the link atomically with those checks.
 
 No operation type has automatic priority over the others. A stale `markErasable` request fails in the same way as a stale `update` request.
 
@@ -207,7 +209,7 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 4. On save: the backend handles the operation according to its type.  
    - **Create**: the backend inserts a new document with its initial `version`; no `expectedVersion` check is needed.  
    - **Update / change erasability**: the backend performs a conditional write using `expectedVersion`. If the write succeeds, it returns the new `version`; otherwise it returns a conflict error and the client shows a resolution dialog.
-   - **Link restore**: if an `annotationLink` is restored to `non-erasable`, the backend also restores the referenced `annotationGeometry` and `annotationData` to `non-erasable` as part of the same logical operation, executed inside one short transaction.
+   - **Link restore**: if an `annotationLink` is restored to `non-erasable`, the backend restores only the link itself. The operation succeeds only if the referenced `annotationGeometry` and `annotationData` are both already non-erasable, and the check plus restore are executed inside one short transaction.
 5. The user sends `notifyEditingStop(projectId, sceneId, targetId?)` to release the Social Lock.
 
 ### Workflow 3: Scene Viewing
