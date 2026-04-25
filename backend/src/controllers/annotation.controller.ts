@@ -1037,8 +1037,6 @@ export async function markAnnotationLinkNonErasableHandler(req: Request, res: Re
         already_non_erasable: { status: 409, code: 'annotation.link.already_non_erasable', error: 'Annotation link is already non-erasable' },
         geometry_not_found: { status: 409, code: 'annotation.link.geometry_missing', error: 'Linked geometry no longer exists' },
         data_not_found: { status: 409, code: 'annotation.link.data_missing', error: 'Linked annotation data no longer exists' },
-        geometry_still_erasable: { status: 409, code: 'annotation.link.geometry_still_erasable', error: 'Linked geometry is still erasable' },
-        data_still_erasable: { status: 409, code: 'annotation.link.data_still_erasable', error: 'Linked annotation data is still erasable' },
         version_conflict: { status: 409, code: 'annotation.link.version_conflict', error: 'Annotation link version conflict' },
         invalid_link_document: { status: 400, code: 'annotation.link.invalid_document', error: 'Annotation link restore produced an invalid document' },
       });

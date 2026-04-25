@@ -517,6 +517,21 @@ describe('annotation.service link restore semantics', () => {
         updatedAt: '2026-04-24T10:00:00.000Z',
         updatedBy: 'user-1',
       }),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        value: {
+          id: 'al_1',
+          projectId: 'project-1',
+          geometryId: 'ag_1',
+          dataId: 'ad_1',
+          version: 8,
+          erasableAt: null,
+          erasableBy: null,
+          createdAt: '2026-04-24T10:00:00.000Z',
+          createdBy: 'user-1',
+          updatedAt: '2026-04-25T10:00:00.000Z',
+          updatedBy: 'user-2',
+        },
+      }),
     };
     const dataCollection = {
       findOne: vi.fn().mockResolvedValue({
@@ -536,6 +551,7 @@ describe('annotation.service link restore semantics', () => {
         updatedAt: '2026-04-24T10:00:00.000Z',
         updatedBy: 'user-1',
       }),
+      findOneAndUpdate: vi.fn(),
     };
 
     vi.mocked(getMongoClient).mockResolvedValue({ startSession: () => session } as never);
@@ -552,9 +568,11 @@ describe('annotation.service link restore semantics', () => {
       },
     });
     expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(geometryCollection.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(dataCollection.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
-  it('rejects link restore when either endpoint is still erasable', async () => {
+  it('restores link, geometry, and data together when endpoints are still erasable', async () => {
     const session = {
       withTransaction: vi.fn(async (callback: () => Promise<void>) => callback()),
       endSession: vi.fn().mockResolvedValue(undefined),
@@ -573,7 +591,21 @@ describe('annotation.service link restore semantics', () => {
         updatedAt: '2026-04-24T10:00:00.000Z',
         updatedBy: 'user-1',
       }),
-      findOneAndUpdate: vi.fn(),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        value: {
+          id: 'al_1',
+          projectId: 'project-1',
+          geometryId: 'ag_1',
+          dataId: 'ad_1',
+          version: 8,
+          erasableAt: null,
+          erasableBy: null,
+          createdAt: '2026-04-24T10:00:00.000Z',
+          createdBy: 'user-1',
+          updatedAt: '2026-04-25T10:00:00.000Z',
+          updatedBy: 'user-2',
+        },
+      }),
     };
     const geometryCollection = {
       findOne: vi.fn().mockResolvedValue({
@@ -590,6 +622,22 @@ describe('annotation.service link restore semantics', () => {
         updatedAt: '2026-04-24T10:00:00.000Z',
         updatedBy: 'user-1',
       }),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        value: {
+          id: 'ag_1',
+          projectId: 'project-1',
+          shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+          referenceType: 'scene',
+          referenceId: 'scene-1',
+          version: 5,
+          erasableAt: null,
+          erasableBy: null,
+          createdAt: '2026-04-24T10:00:00.000Z',
+          createdBy: 'user-1',
+          updatedAt: '2026-04-25T10:00:00.000Z',
+          updatedBy: 'user-2',
+        },
+      }),
     };
     const dataCollection = {
       findOne: vi.fn().mockResolvedValue({
@@ -602,12 +650,31 @@ describe('annotation.service link restore semantics', () => {
         visibilityType: 'scene',
         visibilityId: 'scene-1',
         version: 3,
-        erasableAt: null,
-        erasableBy: null,
+        erasableAt: '2026-04-24T10:00:00.000Z',
+        erasableBy: 'user-1',
         createdAt: '2026-04-24T10:00:00.000Z',
         createdBy: 'user-1',
         updatedAt: '2026-04-24T10:00:00.000Z',
         updatedBy: 'user-1',
+      }),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        value: {
+          id: 'ad_1',
+          projectId: 'project-1',
+          label: 'Label',
+          description: 'Description',
+          class: null,
+          content: {},
+          visibilityType: 'scene',
+          visibilityId: 'scene-1',
+          version: 4,
+          erasableAt: null,
+          erasableBy: null,
+          createdAt: '2026-04-24T10:00:00.000Z',
+          createdBy: 'user-1',
+          updatedAt: '2026-04-25T10:00:00.000Z',
+          updatedBy: 'user-2',
+        },
       }),
     };
 
@@ -617,9 +684,15 @@ describe('annotation.service link restore semantics', () => {
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
 
     await expect(markAnnotationLinkNonErasable('project-1', 'al_1', 7, 'user-2')).resolves.toEqual({
-      ok: false,
-      code: 'geometry_still_erasable',
+      ok: true,
+      value: {
+        linkVersion: 8,
+        geometryVersion: 5,
+        dataVersion: 4,
+      },
     });
-    expect(linkCollection.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(geometryCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(dataCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
   });
 });

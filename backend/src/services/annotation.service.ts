@@ -143,8 +143,6 @@ export type MarkAnnotationLinkNonErasableErrorCode =
   | 'already_non_erasable'
   | 'geometry_not_found'
   | 'data_not_found'
-  | 'geometry_still_erasable'
-  | 'data_still_erasable'
   | 'version_conflict'
   | 'invalid_link_document';
 
@@ -1482,12 +1480,54 @@ export async function markAnnotationLinkNonErasable(
         throw new AnnotationServiceAbort(!geometry ? 'geometry_not_found' : 'data_not_found');
       }
 
-      if (geometry.erasableAt !== null) {
-        throw new AnnotationServiceAbort('geometry_still_erasable');
+      const updatedGeometryResult =
+        geometry.erasableAt === null
+          ? { value: geometry }
+          : await geometryCollection.findOneAndUpdate(
+              { projectId, id: link.geometryId, version: geometry.version },
+              {
+                $set: {
+                  erasableAt: null,
+                  erasableBy: null,
+                  ...buildUpdateAuditFields(userId, timestamp),
+                },
+                $inc: { version: 1 },
+              },
+              { returnDocument: 'after', session },
+            );
+
+      const updatedGeometry = updatedGeometryResult.value;
+      if (!updatedGeometry) {
+        throw new AnnotationServiceAbort('version_conflict');
       }
 
-      if (data.erasableAt !== null) {
-        throw new AnnotationServiceAbort('data_still_erasable');
+      if (!validateSchema(annotationGeometrySchema.safeParse(updatedGeometry))) {
+        throw new AnnotationServiceAbort('invalid_geometry_document');
+      }
+
+      const updatedDataResult =
+        data.erasableAt === null
+          ? { value: data }
+          : await dataCollection.findOneAndUpdate(
+              { projectId, id: link.dataId, version: data.version },
+              {
+                $set: {
+                  erasableAt: null,
+                  erasableBy: null,
+                  ...buildUpdateAuditFields(userId, timestamp),
+                },
+                $inc: { version: 1 },
+              },
+              { returnDocument: 'after', session },
+            );
+
+      const updatedData = updatedDataResult.value;
+      if (!updatedData) {
+        throw new AnnotationServiceAbort('version_conflict');
+      }
+
+      if (!validateSchema(annotationDataSchema.safeParse(updatedData))) {
+        throw new AnnotationServiceAbort('invalid_data_document');
       }
 
       const updatedLinkResult = await linkCollection.findOneAndUpdate(
@@ -1514,8 +1554,8 @@ export async function markAnnotationLinkNonErasable(
 
       restoreResult = {
         linkVersion: updatedLink.version,
-        geometryVersion: geometry.version,
-        dataVersion: data.version,
+        geometryVersion: updatedGeometry.version,
+        dataVersion: updatedData.version,
       };
     });
 

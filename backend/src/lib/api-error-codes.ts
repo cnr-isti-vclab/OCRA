@@ -145,8 +145,6 @@ export const API_ERROR_CODES = {
     linkAlreadyNonErasable: 'annotation.link.already_non_erasable',
     linkGeometryMissing: 'annotation.link.geometry_missing',
     linkDataMissing: 'annotation.link.data_missing',
-    linkGeometryStillErasable: 'annotation.link.geometry_still_erasable',
-    linkDataStillErasable: 'annotation.link.data_still_erasable',
     unhandledServiceError: 'annotation.unhandled_service_error',
   },
 } as const;

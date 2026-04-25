@@ -229,19 +229,42 @@ describe.sequential('Annotation controller edge cases', () => {
     expect(response.body.code).toBe('annotation.link.scope_incompatible');
   });
 
-  it('returns 409 when restoring a link while geometry is still erasable', async () => {
+  it('returns the restored link when a non-erasable transition succeeds', async () => {
     vi.mocked(annotationService.markAnnotationLinkNonErasable).mockResolvedValueOnce({
-      ok: false,
-      code: 'geometry_still_erasable',
+      ok: true,
+      value: {
+        linkVersion: 5,
+        geometryVersion: 7,
+        dataVersion: 9,
+      },
+    } as never);
+
+    vi.mocked(annotationService.getAnnotationLink).mockResolvedValueOnce({
+      ok: true,
+      value: {
+        id: 'al_test',
+        projectId: project.id,
+        geometryId: 'ag_test',
+        dataId: 'ad_test',
+        version: 5,
+        erasableAt: null,
+        erasableBy: null,
+        createdAt: '2026-04-24T10:00:00.000Z',
+        createdBy: user.id,
+        updatedAt: '2026-04-25T10:00:00.000Z',
+        updatedBy: user.id,
+      },
     } as never);
 
     const response = await request(app)
       .patch(`/api/projects/${project.id}/annotations/links/al_test/nonerasable`)
       .send({ expectedVersion: 4 })
-      .expect(409);
+      .expect(200);
 
-    expect(response.body.error).toBe('Linked geometry is still erasable');
-    expect(response.body.code).toBe('annotation.link.geometry_still_erasable');
+    expect(response.body.success).toBe(true);
+    expect(response.body.linkVersion).toBe(5);
+    expect(response.body.geometryVersion).toBe(7);
+    expect(response.body.dataVersion).toBe(9);
   });
 
   it('returns 404 when the requested scene bundle does not exist', async () => {

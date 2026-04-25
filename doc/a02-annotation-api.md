@@ -19,8 +19,6 @@ The current implementation lives mainly in:
 - `backend/src/controllers/annotation.controller.ts`
 - `backend/src/routes/annotation.routes.ts`
 
-This document intentionally excludes APIs that are only planned or were documented earlier but are not implemented anymore.
-
 ## General Guarantees
 
 ### Project Scoping
@@ -58,7 +56,7 @@ Implemented transaction-based operations:
 - `markAnnotationDataNonErasable(...)`
 - `markAnnotationLinkNonErasable(...)`
 
-Important detail: `markAnnotationLinkNonErasable(...)` runs in a transaction, but it does **not** restore geometry or data. It restores only the link after verifying that both endpoints still exist and are already non-erasable.
+Important detail: `markAnnotationLinkNonErasable(...)` runs in a transaction and restores the full resolved triple consistently: if the link becomes non-erasable, the linked geometry and data are also restored to non-erasable in the same transaction. The inverse operation does not cascade from link to endpoints: marking a link erasable leaves geometry and data unchanged.
 
 ## Repository Layer
 
