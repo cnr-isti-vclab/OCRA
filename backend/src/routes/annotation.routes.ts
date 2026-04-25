@@ -62,6 +62,8 @@ const router = Router();
  *         description: Authentication required
  *       403:
  *         description: Project access denied
+ *       404:
+ *         description: Scene not found
  */
 router.get('/:projectId/annotations/for-scene/:sceneId', requireAuth, getAnnotationsForSceneHandler);
 
@@ -104,6 +106,12 @@ router.get('/:projectId/annotations/for-scene/:sceneId', requireAuth, getAnnotat
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/AnnotationGeometry'
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Project access denied
+ *       404:
+ *         description: Scene not found
  */
 router.get('/:projectId/annotations/geometry/for-scene/:sceneId', requireAuth, getAnnotationGeometriesForSceneHandler);
 /**
@@ -196,6 +204,8 @@ router.get('/:projectId/annotations/geometry/:geometryId', requireAuth, getAnnot
  *         description: Invalid geometry payload
  *       404:
  *         description: Referenced scene or asset not found
+ *       409:
+ *         description: Generated geometry id already exists
  */
 router.post('/:projectId/annotations/geometry', requireAuth, createAnnotationGeometryHandler);
 /**
@@ -237,11 +247,11 @@ router.post('/:projectId/annotations/geometry', requireAuth, createAnnotationGeo
  *       200:
  *         description: Geometry updated
  *       400:
- *         description: Invalid geometry update payload
+ *         description: Invalid geometry update payload or semantically invalid geometry document
  *       404:
  *         description: Annotation geometry not found
  *       409:
- *         description: OCC conflict
+ *         description: Geometry version conflict
  */
 router.put('/:projectId/annotations/geometry/:geometryId', requireAuth, updateAnnotationGeometryHandler);
 /**
@@ -278,10 +288,12 @@ router.put('/:projectId/annotations/geometry/:geometryId', requireAuth, updateAn
  *     responses:
  *       200:
  *         description: Geometry marked erasable
+ *       400:
+ *         description: Missing expectedVersion or invalid transition result
  *       404:
  *         description: Annotation geometry not found
  *       409:
- *         description: OCC conflict
+ *         description: Geometry already erasable or version conflict
  */
 router.patch('/:projectId/annotations/geometry/:geometryId/erasable', requireAuth, markAnnotationGeometryErasableHandler);
 /**
@@ -318,10 +330,12 @@ router.patch('/:projectId/annotations/geometry/:geometryId/erasable', requireAut
  *     responses:
  *       200:
  *         description: Geometry restored
+ *       400:
+ *         description: Missing expectedVersion or invalid transition result
  *       404:
  *         description: Annotation geometry not found
  *       409:
- *         description: OCC conflict
+ *         description: Geometry already non-erasable or version conflict
  */
 router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', requireAuth, markAnnotationGeometryNonErasableHandler);
 
@@ -353,6 +367,12 @@ router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', require
  *     responses:
  *       200:
  *         description: Data visible in the scene
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Project access denied
+ *       404:
+ *         description: Scene not found
  */
 router.get('/:projectId/annotations/data/for-scene/:sceneId', requireAuth, getAnnotationDataForSceneHandler);
 /**
@@ -430,9 +450,11 @@ router.get('/:projectId/annotations/data/:dataId', requireAuth, getAnnotationDat
  *       201:
  *         description: Annotation data created
  *       400:
- *         description: Invalid annotation data payload
+ *         description: Invalid annotation data payload or semantically invalid annotation data document
  *       404:
  *         description: Referenced scene or asset not found
+ *       409:
+ *         description: Generated annotation data id already exists
  */
 router.post('/:projectId/annotations/data', requireAuth, createAnnotationDataHandler);
 /**
@@ -480,11 +502,11 @@ router.post('/:projectId/annotations/data', requireAuth, createAnnotationDataHan
  *       200:
  *         description: Annotation data updated
  *       400:
- *         description: Invalid payload or immutable fields included
+ *         description: Invalid payload, immutable fields included, or semantically invalid annotation data document
  *       404:
  *         description: Annotation data not found
  *       409:
- *         description: OCC conflict
+ *         description: Annotation data version conflict
  */
 router.put('/:projectId/annotations/data/:dataId', requireAuth, updateAnnotationDataHandler);
 /**
@@ -521,10 +543,12 @@ router.put('/:projectId/annotations/data/:dataId', requireAuth, updateAnnotation
  *     responses:
  *       200:
  *         description: Annotation data marked erasable
+ *       400:
+ *         description: Missing expectedVersion or invalid transition result
  *       404:
  *         description: Annotation data not found
  *       409:
- *         description: OCC conflict
+ *         description: Annotation data already erasable or version conflict
  */
 router.patch('/:projectId/annotations/data/:dataId/erasable', requireAuth, markAnnotationDataErasableHandler);
 /**
@@ -561,10 +585,12 @@ router.patch('/:projectId/annotations/data/:dataId/erasable', requireAuth, markA
  *     responses:
  *       200:
  *         description: Annotation data restored
+ *       400:
+ *         description: Missing expectedVersion or invalid transition result
  *       404:
  *         description: Annotation data not found
  *       409:
- *         description: OCC conflict
+ *         description: Annotation data already non-erasable or version conflict
  */
 router.patch('/:projectId/annotations/data/:dataId/nonerasable', requireAuth, markAnnotationDataNonErasableHandler);
 
@@ -629,6 +655,12 @@ router.get('/:projectId/annotations/links', requireAuth, getAnnotationLinksHandl
  *     responses:
  *       200:
  *         description: Links visible in the scene
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Project access denied
+ *       404:
+ *         description: Scene not found
  */
 router.get('/:projectId/annotations/links/for-scene/:sceneId', requireAuth, getAnnotationLinksForSceneHandler);
 /**
@@ -697,9 +729,9 @@ router.get('/:projectId/annotations/links/:linkId', requireAuth, getAnnotationLi
  *       400:
  *         description: Missing required fields
  *       404:
- *         description: Referenced geometry or data not found
+ *         description: Referenced geometry or annotation data not found
  *       409:
- *         description: Duplicate pair or scope consistency violation
+ *         description: Project annotation context unavailable, duplicate pair, or scope consistency violation
  */
 router.post('/:projectId/annotations/links', requireAuth, createAnnotationLinkHandler);
 /**
@@ -736,10 +768,12 @@ router.post('/:projectId/annotations/links', requireAuth, createAnnotationLinkHa
  *     responses:
  *       200:
  *         description: Annotation link marked erasable
+ *       400:
+ *         description: Missing expectedVersion or invalid transition result
  *       404:
  *         description: Annotation link not found
  *       409:
- *         description: OCC conflict
+ *         description: Annotation link already erasable or version conflict
  */
 router.patch('/:projectId/annotations/links/:linkId/erasable', requireAuth, markAnnotationLinkErasableHandler);
 /**
@@ -776,10 +810,12 @@ router.patch('/:projectId/annotations/links/:linkId/erasable', requireAuth, mark
  *     responses:
  *       200:
  *         description: Annotation link restored
+ *       400:
+ *         description: Missing expectedVersion or invalid transition result
  *       404:
  *         description: Annotation link not found
  *       409:
- *         description: OCC conflict
+ *         description: Link already non-erasable, linked endpoints missing, linked endpoints still erasable, or version conflict
  */
 router.patch('/:projectId/annotations/links/:linkId/nonerasable', requireAuth, markAnnotationLinkNonErasableHandler);
 

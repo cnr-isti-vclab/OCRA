@@ -105,6 +105,15 @@ function parseShapes(body: unknown): AnnotationShape[] | null {
   return shapes.length === body.shapes.length ? shapes : null;
 }
 
+function sendMappedError(
+  res: Response,
+  failure: { code: string },
+  mappings: Record<string, { status: number; error: string }>,
+) {
+  const mapped = mappings[failure.code] ?? { status: 500, error: 'Unhandled annotation service error' };
+  res.status(mapped.status).json({ error: mapped.error });
+}
+
 export async function getAnnotationsForSceneHandler(req: Request, res: Response) {
   try {
     const { projectId, sceneId } = req.params;
@@ -117,7 +126,15 @@ export async function getAnnotationsForSceneHandler(req: Request, res: Response)
     if (!currentUser) return;
 
     const result = await getAnnotationsForScene(projectId, sceneId, includeErasable);
-    res.json({ success: true, ...result });
+    if (!result.ok) {
+      sendMappedError(res, result, {
+        invalid_input: { status: 400, error: 'Invalid scene id' },
+        scene_not_found: { status: 404, error: 'Scene not found' },
+      });
+      return;
+    }
+
+    res.json({ success: true, ...result.value });
   } catch (error: any) {
     console.error('Failed to get annotations for scene:', error);
     res.status(500).json({ error: 'Failed to get annotations for scene', message: error?.message });
@@ -136,7 +153,15 @@ export async function getAnnotationGeometriesForSceneHandler(req: Request, res: 
     if (!currentUser) return;
 
     const geometries = await getAnnotationGeometriesForSceneAssets(projectId, sceneId, includeErasable);
-    res.json({ success: true, geometries });
+    if (!geometries.ok) {
+      sendMappedError(res, geometries, {
+        invalid_input: { status: 400, error: 'Invalid scene id' },
+        scene_not_found: { status: 404, error: 'Scene not found' },
+      });
+      return;
+    }
+
+    res.json({ success: true, geometries: geometries.value });
   } catch (error: any) {
     console.error('Failed to get geometries for scene:', error);
     res.status(500).json({ error: 'Failed to get geometries for scene', message: error?.message });
@@ -181,19 +206,24 @@ export async function createAnnotationGeometryHandler(req: Request, res: Respons
       return;
     }
 
-    const geometryId = await createAnnotationGeometry(
+    const createResult = await createAnnotationGeometry(
       projectId,
       shapes,
       referenceTypeResult.data,
       referenceId,
       currentUser.id,
     );
-    if (!geometryId) {
-      res.status(404).json({ error: 'Referenced scene or asset not found' });
+    if (!createResult.ok) {
+      sendMappedError(res, createResult, {
+        invalid_input: { status: 400, error: 'Invalid geometry payload' },
+        reference_not_found: { status: 404, error: 'Referenced scene or asset not found' },
+        invalid_geometry_document: { status: 400, error: 'Geometry payload is semantically invalid' },
+        duplicate_geometry: { status: 409, error: 'Generated geometry id already exists' },
+      });
       return;
     }
 
-    const geometry = await getAnnotationGeometry(projectId, geometryId, true);
+    const geometry = await getAnnotationGeometry(projectId, createResult.value, true);
     res.status(201).json({ success: true, geometry });
   } catch (error: any) {
     console.error('Failed to create geometry:', error);
@@ -214,20 +244,19 @@ export async function updateAnnotationGeometryHandler(req: Request, res: Respons
       return;
     }
 
-    const existing = await getAnnotationGeometry(projectId, geometryId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation geometry not found' });
-      return;
-    }
-
-    const version = await updateAnnotationGeometryShapes(projectId, geometryId, expectedVersion, shapes, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Geometry update conflict' });
+    const updateResult = await updateAnnotationGeometryShapes(projectId, geometryId, expectedVersion, shapes, currentUser.id);
+    if (!updateResult.ok) {
+      sendMappedError(res, updateResult, {
+        invalid_input: { status: 400, error: 'Invalid geometry update payload' },
+        geometry_not_found: { status: 404, error: 'Annotation geometry not found' },
+        version_conflict: { status: 409, error: 'Geometry version conflict' },
+        invalid_geometry_document: { status: 400, error: 'Updated geometry is semantically invalid' },
+      });
       return;
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
-    res.json({ success: true, version, updatedAt: geometry?.updatedAt ?? null });
+    res.json({ success: true, version: updateResult.value, updatedAt: geometry?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to update geometry:', error);
     res.status(500).json({ error: 'Failed to update geometry', message: error?.message });
@@ -246,20 +275,20 @@ export async function markAnnotationGeometryErasableHandler(req: Request, res: R
       return;
     }
 
-    const existing = await getAnnotationGeometry(projectId, geometryId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation geometry not found' });
-      return;
-    }
-
-    const version = await markAnnotationGeometryErasable(projectId, geometryId, expectedVersion, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Geometry erasable transition conflict' });
+    const transitionResult = await markAnnotationGeometryErasable(projectId, geometryId, expectedVersion, currentUser.id);
+    if (!transitionResult.ok) {
+      sendMappedError(res, transitionResult, {
+        invalid_input: { status: 400, error: 'expectedVersion is required' },
+        geometry_not_found: { status: 404, error: 'Annotation geometry not found' },
+        already_erasable: { status: 409, error: 'Annotation geometry is already erasable' },
+        version_conflict: { status: 409, error: 'Geometry version conflict' },
+        invalid_geometry_document: { status: 400, error: 'Geometry erasable transition produced an invalid document' },
+      });
       return;
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
-    res.json({ success: true, version, updatedAt: geometry?.updatedAt ?? null });
+    res.json({ success: true, version: transitionResult.value, updatedAt: geometry?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to mark geometry erasable:', error);
     res.status(500).json({ error: 'Failed to mark geometry erasable', message: error?.message });
@@ -278,20 +307,20 @@ export async function markAnnotationGeometryNonErasableHandler(req: Request, res
       return;
     }
 
-    const existing = await getAnnotationGeometry(projectId, geometryId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation geometry not found' });
-      return;
-    }
-
-    const version = await markAnnotationGeometryNonErasable(projectId, geometryId, expectedVersion, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Geometry restore conflict' });
+    const restoreResult = await markAnnotationGeometryNonErasable(projectId, geometryId, expectedVersion, currentUser.id);
+    if (!restoreResult.ok) {
+      sendMappedError(res, restoreResult, {
+        invalid_input: { status: 400, error: 'expectedVersion is required' },
+        geometry_not_found: { status: 404, error: 'Annotation geometry not found' },
+        already_non_erasable: { status: 409, error: 'Annotation geometry is already non-erasable' },
+        version_conflict: { status: 409, error: 'Geometry version conflict' },
+        invalid_geometry_document: { status: 400, error: 'Geometry restore produced an invalid document' },
+      });
       return;
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
-    res.json({ success: true, version, updatedAt: geometry?.updatedAt ?? null });
+    res.json({ success: true, version: restoreResult.value, updatedAt: geometry?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore geometry:', error);
     res.status(500).json({ error: 'Failed to restore geometry', message: error?.message });
@@ -310,7 +339,15 @@ export async function getAnnotationDataForSceneHandler(req: Request, res: Respon
     if (!currentUser) return;
 
     const data = await getAnnotationDataForSceneAssets(projectId, sceneId, includeErasable);
-    res.json({ success: true, data });
+    if (!data.ok) {
+      sendMappedError(res, data, {
+        invalid_input: { status: 400, error: 'Invalid scene id' },
+        scene_not_found: { status: 404, error: 'Scene not found' },
+      });
+      return;
+    }
+
+    res.json({ success: true, data: data.value });
   } catch (error: any) {
     console.error('Failed to get data for scene:', error);
     res.status(500).json({ error: 'Failed to get data for scene', message: error?.message });
@@ -358,7 +395,7 @@ export async function createAnnotationDataHandler(req: Request, res: Response) {
       return;
     }
 
-    const dataId = await createAnnotationData(
+    const createResult = await createAnnotationData(
       projectId,
       label,
       description,
@@ -368,12 +405,17 @@ export async function createAnnotationDataHandler(req: Request, res: Response) {
       visibilityId,
       currentUser.id,
     );
-    if (!dataId) {
-      res.status(404).json({ error: 'Referenced scene or asset not found' });
+    if (!createResult.ok) {
+      sendMappedError(res, createResult, {
+        invalid_input: { status: 400, error: 'Invalid annotation data payload' },
+        reference_not_found: { status: 404, error: 'Referenced scene or asset not found' },
+        invalid_data_document: { status: 400, error: 'Annotation data payload is semantically invalid' },
+        duplicate_data: { status: 409, error: 'Generated annotation data id already exists' },
+      });
       return;
     }
 
-    const datum = await getAnnotationData(projectId, dataId, true);
+    const datum = await getAnnotationData(projectId, createResult.value, true);
     res.status(201).json({ success: true, datum });
   } catch (error: any) {
     console.error('Failed to create annotation data:', error);
@@ -409,20 +451,20 @@ export async function updateAnnotationDataHandler(req: Request, res: Response) {
       return;
     }
 
-    const existing = await getAnnotationData(projectId, dataId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation data not found' });
-      return;
-    }
-
-    const version = await updateAnnotationData(projectId, dataId, expectedVersion, updates, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Annotation data update conflict' });
+    const updateResult = await updateAnnotationData(projectId, dataId, expectedVersion, updates, currentUser.id);
+    if (!updateResult.ok) {
+      sendMappedError(res, updateResult, {
+        invalid_input: { status: 400, error: 'Invalid annotation data payload' },
+        data_not_found: { status: 404, error: 'Annotation data not found' },
+        no_mutable_fields: { status: 400, error: 'No mutable fields provided' },
+        version_conflict: { status: 409, error: 'Annotation data version conflict' },
+        invalid_data_document: { status: 400, error: 'Updated annotation data is semantically invalid' },
+      });
       return;
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
-    res.json({ success: true, version, updatedAt: datum?.updatedAt ?? null });
+    res.json({ success: true, version: updateResult.value, updatedAt: datum?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to update annotation data:', error);
     res.status(500).json({ error: 'Failed to update annotation data', message: error?.message });
@@ -441,20 +483,20 @@ export async function markAnnotationDataErasableHandler(req: Request, res: Respo
       return;
     }
 
-    const existing = await getAnnotationData(projectId, dataId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation data not found' });
-      return;
-    }
-
-    const version = await markAnnotationDataErasable(projectId, dataId, expectedVersion, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Annotation data erasable transition conflict' });
+    const transitionResult = await markAnnotationDataErasable(projectId, dataId, expectedVersion, currentUser.id);
+    if (!transitionResult.ok) {
+      sendMappedError(res, transitionResult, {
+        invalid_input: { status: 400, error: 'expectedVersion is required' },
+        data_not_found: { status: 404, error: 'Annotation data not found' },
+        already_erasable: { status: 409, error: 'Annotation data is already erasable' },
+        version_conflict: { status: 409, error: 'Annotation data version conflict' },
+        invalid_data_document: { status: 400, error: 'Annotation data erasable transition produced an invalid document' },
+      });
       return;
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
-    res.json({ success: true, version, updatedAt: datum?.updatedAt ?? null });
+    res.json({ success: true, version: transitionResult.value, updatedAt: datum?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to mark annotation data erasable:', error);
     res.status(500).json({ error: 'Failed to mark annotation data erasable', message: error?.message });
@@ -473,20 +515,20 @@ export async function markAnnotationDataNonErasableHandler(req: Request, res: Re
       return;
     }
 
-    const existing = await getAnnotationData(projectId, dataId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation data not found' });
-      return;
-    }
-
-    const version = await markAnnotationDataNonErasable(projectId, dataId, expectedVersion, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Annotation data restore conflict' });
+    const restoreResult = await markAnnotationDataNonErasable(projectId, dataId, expectedVersion, currentUser.id);
+    if (!restoreResult.ok) {
+      sendMappedError(res, restoreResult, {
+        invalid_input: { status: 400, error: 'expectedVersion is required' },
+        data_not_found: { status: 404, error: 'Annotation data not found' },
+        already_non_erasable: { status: 409, error: 'Annotation data is already non-erasable' },
+        version_conflict: { status: 409, error: 'Annotation data version conflict' },
+        invalid_data_document: { status: 400, error: 'Annotation data restore produced an invalid document' },
+      });
       return;
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
-    res.json({ success: true, version, updatedAt: datum?.updatedAt ?? null });
+    res.json({ success: true, version: restoreResult.value, updatedAt: datum?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore annotation data:', error);
     res.status(500).json({ error: 'Failed to restore annotation data', message: error?.message });
@@ -526,7 +568,15 @@ export async function getAnnotationLinksForSceneHandler(req: Request, res: Respo
     if (!currentUser) return;
 
     const links = await getAnnotationLinksForSceneAssets(projectId, sceneId, includeErasable);
-    res.json({ success: true, links });
+    if (!links.ok) {
+      sendMappedError(res, links, {
+        invalid_input: { status: 400, error: 'Invalid scene id' },
+        scene_not_found: { status: 404, error: 'Scene not found' },
+      });
+      return;
+    }
+
+    res.json({ success: true, links: links.value });
   } catch (error: any) {
     console.error('Failed to get links for scene:', error);
     res.status(500).json({ error: 'Failed to get links for scene', message: error?.message });
@@ -570,22 +620,21 @@ export async function createAnnotationLinkHandler(req: Request, res: Response) {
       return;
     }
 
-    const [geometry, datum] = await Promise.all([
-      getAnnotationGeometry(projectId, geometryId, true),
-      getAnnotationData(projectId, dataId, true),
-    ]);
-    if (!geometry || !datum) {
-      res.status(404).json({ error: 'Referenced geometry or data not found' });
+    const createResult = await createAnnotationLink(projectId, geometryId, dataId, currentUser.id);
+    if (!createResult.ok) {
+      sendMappedError(res, createResult, {
+        invalid_input: { status: 400, error: 'geometryId and dataId are required' },
+        project_context_not_available: { status: 409, error: 'Project annotation context is not available' },
+        geometry_not_found: { status: 404, error: 'Referenced geometry not found' },
+        data_not_found: { status: 404, error: 'Referenced annotation data not found' },
+        duplicate_link_pair: { status: 409, error: 'Link pair already exists' },
+        scope_incompatible: { status: 409, error: 'Geometry and annotation data scopes are incompatible' },
+        invalid_link_document: { status: 400, error: 'Annotation link payload is semantically invalid' },
+      });
       return;
     }
 
-    const linkId = await createAnnotationLink(projectId, geometryId, dataId, currentUser.id);
-    if (!linkId) {
-      res.status(409).json({ error: 'Link pair already exists or violates scope consistency' });
-      return;
-    }
-
-    const link = await getAnnotationLink(projectId, linkId, true);
+    const link = await getAnnotationLink(projectId, createResult.value, true);
     res.status(201).json({ success: true, link });
   } catch (error: any) {
     console.error('Failed to create annotation link:', error);
@@ -605,20 +654,20 @@ export async function markAnnotationLinkErasableHandler(req: Request, res: Respo
       return;
     }
 
-    const existing = await getAnnotationLink(projectId, linkId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation link not found' });
-      return;
-    }
-
-    const version = await markAnnotationLinkErasable(projectId, linkId, expectedVersion, currentUser.id);
-    if (version === false) {
-      res.status(409).json({ error: 'Annotation link erasable transition conflict' });
+    const transitionResult = await markAnnotationLinkErasable(projectId, linkId, expectedVersion, currentUser.id);
+    if (!transitionResult.ok) {
+      sendMappedError(res, transitionResult, {
+        invalid_input: { status: 400, error: 'expectedVersion is required' },
+        link_not_found: { status: 404, error: 'Annotation link not found' },
+        already_erasable: { status: 409, error: 'Annotation link is already erasable' },
+        version_conflict: { status: 409, error: 'Annotation link version conflict' },
+        invalid_link_document: { status: 400, error: 'Annotation link erasable transition produced an invalid document' },
+      });
       return;
     }
 
     const link = await getAnnotationLink(projectId, linkId, true);
-    res.json({ success: true, version, updatedAt: link?.updatedAt ?? null });
+    res.json({ success: true, version: transitionResult.value, updatedAt: link?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to mark annotation link erasable:', error);
     res.status(500).json({ error: 'Failed to mark annotation link erasable', message: error?.message });
@@ -637,20 +686,24 @@ export async function markAnnotationLinkNonErasableHandler(req: Request, res: Re
       return;
     }
 
-    const existing = await getAnnotationLink(projectId, linkId, true);
-    if (!existing) {
-      res.status(404).json({ error: 'Annotation link not found' });
-      return;
-    }
-
     const restoreResult = await markAnnotationLinkNonErasable(projectId, linkId, expectedVersion, currentUser.id);
-    if (restoreResult === false) {
-      res.status(409).json({ error: 'Annotation link restore conflict' });
+    if (!restoreResult.ok) {
+      sendMappedError(res, restoreResult, {
+        invalid_input: { status: 400, error: 'expectedVersion is required' },
+        link_not_found: { status: 404, error: 'Annotation link not found' },
+        already_non_erasable: { status: 409, error: 'Annotation link is already non-erasable' },
+        geometry_not_found: { status: 409, error: 'Linked geometry no longer exists' },
+        data_not_found: { status: 409, error: 'Linked annotation data no longer exists' },
+        geometry_still_erasable: { status: 409, error: 'Linked geometry is still erasable' },
+        data_still_erasable: { status: 409, error: 'Linked annotation data is still erasable' },
+        version_conflict: { status: 409, error: 'Annotation link version conflict' },
+        invalid_link_document: { status: 400, error: 'Annotation link restore produced an invalid document' },
+      });
       return;
     }
 
     const link = await getAnnotationLink(projectId, linkId, true);
-    res.json({ success: true, ...restoreResult, updatedAt: link?.updatedAt ?? null });
+    res.json({ success: true, ...restoreResult.value, updatedAt: link?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore annotation link:', error);
     res.status(500).json({ error: 'Failed to restore annotation link', message: error?.message });

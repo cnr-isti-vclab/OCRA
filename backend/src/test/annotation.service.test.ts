@@ -63,6 +63,7 @@ import {
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
 import {
   createAnnotationLink,
+  getAnnotationsForScene,
   markAnnotationDataErasable,
   markAnnotationDataNonErasable,
   markAnnotationGeometryErasable,
@@ -131,7 +132,10 @@ describe('annotation.service createAnnotationLink edge cases', () => {
     } as never);
     vi.mocked(findAnnotationLinkByPair).mockResolvedValue({ id: 'existing-link' } as never);
 
-    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_1', 'user-1')).resolves.toBeNull();
+    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_1', 'user-1')).resolves.toEqual({
+      ok: false,
+      code: 'duplicate_link_pair',
+    });
     expect(insertAnnotationLink).not.toHaveBeenCalled();
   });
 
@@ -149,7 +153,10 @@ describe('annotation.service createAnnotationLink edge cases', () => {
     } as never);
     vi.mocked(findAnnotationLinkByPair).mockResolvedValue(null as never);
 
-    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_2', 'user-1')).resolves.toBeNull();
+    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_2', 'user-1')).resolves.toEqual({
+      ok: false,
+      code: 'scope_incompatible',
+    });
     expect(insertAnnotationLink).not.toHaveBeenCalled();
   });
 
@@ -168,7 +175,36 @@ describe('annotation.service createAnnotationLink edge cases', () => {
     vi.mocked(findAnnotationLinkByPair).mockResolvedValue(null as never);
     vi.mocked(insertAnnotationLink).mockRejectedValue({ code: 11000 });
 
-    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_3', 'user-1')).resolves.toBeNull();
+    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_3', 'user-1')).resolves.toEqual({
+      ok: false,
+      code: 'duplicate_link_pair',
+    });
+  });
+});
+
+describe('annotation.service scene lookups', () => {
+  const prismaMock = {
+    project: {
+      findUnique: vi.fn(),
+    },
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+    prismaMock.project.findUnique.mockResolvedValue({ id: 'project-1' });
+  });
+
+  it('returns scene_not_found when the requested scene is missing', async () => {
+    vi.mocked(getHDTDocument).mockResolvedValue({
+      scenes: [{ id: 'scene-1', assets: [] }],
+      digitalAssets: [],
+    } as never);
+
+    await expect(getAnnotationsForScene('project-1', 'scene-missing')).resolves.toEqual({
+      ok: false,
+      code: 'scene_not_found',
+    });
   });
 });
 
@@ -217,7 +253,10 @@ describe('annotation.service erasable cascades', () => {
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue({} as never);
     vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ updateMany } as never);
 
-    await expect(markAnnotationDataErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toBe(3);
+    await expect(markAnnotationDataErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toEqual({
+      ok: true,
+      value: 3,
+    });
     expect(updateMany).toHaveBeenCalledWith(
       { projectId: 'project-1', erasableAt: null, dataId: 'ad_1' },
       {
@@ -265,7 +304,10 @@ describe('annotation.service erasable cascades', () => {
     vi.mocked(getAnnotationDataCollection).mockResolvedValue({} as never);
     vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ updateMany } as never);
 
-    await expect(markAnnotationGeometryErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toBe(5);
+    await expect(markAnnotationGeometryErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toEqual({
+      ok: true,
+      value: 5,
+    });
     expect(updateMany).toHaveBeenCalledWith(
       { projectId: 'project-1', erasableAt: null, geometryId: 'ag_1' },
       {
@@ -321,7 +363,10 @@ describe('annotation.service erasable cascades', () => {
     vi.mocked(getAnnotationDataCollection).mockResolvedValue({ find: dataFind } as never);
     vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ find: linkFind, updateMany } as never);
 
-    await expect(markAnnotationGeometryNonErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toBe(5);
+    await expect(markAnnotationGeometryNonErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toEqual({
+      ok: true,
+      value: 5,
+    });
     expect(dataFind).toHaveBeenCalledWith({
       projectId: 'project-1',
       id: { $in: ['ad_ready', 'ad_still_erasable'] },
@@ -388,7 +433,10 @@ describe('annotation.service erasable cascades', () => {
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
     vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ find: linkFind, updateMany } as never);
 
-    await expect(markAnnotationDataNonErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toBe(3);
+    await expect(markAnnotationDataNonErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toEqual({
+      ok: true,
+      value: 3,
+    });
     expect(geometryFind).toHaveBeenCalledWith({
       projectId: 'project-1',
       id: { $in: ['ag_ready', 'ag_still_erasable'] },
@@ -496,9 +544,12 @@ describe('annotation.service link restore semantics', () => {
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
 
     await expect(markAnnotationLinkNonErasable('project-1', 'al_1', 7, 'user-2')).resolves.toEqual({
-      linkVersion: 8,
-      geometryVersion: 4,
-      dataVersion: 3,
+      ok: true,
+      value: {
+        linkVersion: 8,
+        geometryVersion: 4,
+        dataVersion: 3,
+      },
     });
     expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
   });
@@ -565,7 +616,10 @@ describe('annotation.service link restore semantics', () => {
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
 
-    await expect(markAnnotationLinkNonErasable('project-1', 'al_1', 7, 'user-2')).resolves.toBe(false);
+    await expect(markAnnotationLinkNonErasable('project-1', 'al_1', 7, 'user-2')).resolves.toEqual({
+      ok: false,
+      code: 'geometry_still_erasable',
+    });
     expect(linkCollection.findOneAndUpdate).not.toHaveBeenCalled();
   });
 });

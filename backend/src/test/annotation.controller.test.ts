@@ -138,7 +138,10 @@ describe.sequential('Annotation controller edge cases', () => {
   });
 
   it('returns 404 when updating a missing geometry', async () => {
-    vi.mocked(annotationService.getAnnotationGeometry).mockResolvedValueOnce(null as never);
+    vi.mocked(annotationService.updateAnnotationGeometryShapes).mockResolvedValueOnce({
+      ok: false,
+      code: 'geometry_not_found',
+    } as never);
 
     const response = await request(app)
       .put(`/api/projects/${project.id}/annotations/geometry/ag_missing`)
@@ -146,56 +149,134 @@ describe.sequential('Annotation controller edge cases', () => {
       .expect(404);
 
     expect(response.body).toEqual({ error: 'Annotation geometry not found' });
-    expect(annotationService.updateAnnotationGeometryShapes).not.toHaveBeenCalled();
+    expect(annotationService.updateAnnotationGeometryShapes).toHaveBeenCalledWith(
+      project.id,
+      'ag_missing',
+      0,
+      [shapePayload],
+      user.id,
+    );
   });
 
   it('returns 409 when geometry update hits an OCC conflict', async () => {
-    vi.mocked(annotationService.getAnnotationGeometry).mockResolvedValueOnce(buildGeometry(project.id) as never);
-    vi.mocked(annotationService.updateAnnotationGeometryShapes).mockResolvedValueOnce(false);
+    vi.mocked(annotationService.updateAnnotationGeometryShapes).mockResolvedValueOnce({
+      ok: false,
+      code: 'version_conflict',
+    } as never);
 
     const response = await request(app)
       .put(`/api/projects/${project.id}/annotations/geometry/ag_test`)
       .send({ expectedVersion: 3, shapes: [shapePayload] })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Geometry update conflict' });
+    expect(response.body).toEqual({ error: 'Geometry version conflict' });
   });
 
   it('returns 404 when creating a link for missing referenced entities', async () => {
-    vi.mocked(annotationService.getAnnotationGeometry).mockResolvedValueOnce(null as never);
-    vi.mocked(annotationService.getAnnotationData).mockResolvedValueOnce(buildData(project.id) as never);
+    vi.mocked(annotationService.createAnnotationLink).mockResolvedValueOnce({
+      ok: false,
+      code: 'geometry_not_found',
+    } as never);
 
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/links`)
       .send({ geometryId: 'ag_missing', dataId: 'ad_test' })
       .expect(404);
 
-    expect(response.body).toEqual({ error: 'Referenced geometry or data not found' });
-    expect(annotationService.createAnnotationLink).not.toHaveBeenCalled();
+    expect(response.body).toEqual({ error: 'Referenced geometry not found' });
   });
 
-  it('returns 409 when creating a duplicate or inconsistent link', async () => {
-    vi.mocked(annotationService.getAnnotationGeometry).mockResolvedValueOnce(buildGeometry(project.id) as never);
-    vi.mocked(annotationService.getAnnotationData).mockResolvedValueOnce(buildData(project.id) as never);
-    vi.mocked(annotationService.createAnnotationLink).mockResolvedValueOnce(null);
+  it('returns 409 when creating a duplicate link pair', async () => {
+    vi.mocked(annotationService.createAnnotationLink).mockResolvedValueOnce({
+      ok: false,
+      code: 'duplicate_link_pair',
+    } as never);
 
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/links`)
       .send({ geometryId: 'ag_test', dataId: 'ad_test' })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Link pair already exists or violates scope consistency' });
+    expect(response.body).toEqual({ error: 'Link pair already exists' });
   });
 
-  it('returns 409 when restoring a link hits a conflict', async () => {
-    vi.mocked(annotationService.getAnnotationLink).mockResolvedValue(buildLink(project.id) as never);
-    vi.mocked(annotationService.markAnnotationLinkNonErasable).mockResolvedValueOnce(false);
+  it('returns 409 when creating a scope-incompatible link', async () => {
+    vi.mocked(annotationService.createAnnotationLink).mockResolvedValueOnce({
+      ok: false,
+      code: 'scope_incompatible',
+    } as never);
+
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/annotations/links`)
+      .send({ geometryId: 'ag_test', dataId: 'ad_test' })
+      .expect(409);
+
+    expect(response.body).toEqual({ error: 'Geometry and annotation data scopes are incompatible' });
+  });
+
+  it('returns 409 when restoring a link while geometry is still erasable', async () => {
+    vi.mocked(annotationService.markAnnotationLinkNonErasable).mockResolvedValueOnce({
+      ok: false,
+      code: 'geometry_still_erasable',
+    } as never);
 
     const response = await request(app)
       .patch(`/api/projects/${project.id}/annotations/links/al_test/nonerasable`)
       .send({ expectedVersion: 4 })
       .expect(409);
 
-    expect(response.body).toEqual({ error: 'Annotation link restore conflict' });
+    expect(response.body).toEqual({ error: 'Linked geometry is still erasable' });
+  });
+
+  it('returns 404 when the requested scene bundle does not exist', async () => {
+    vi.mocked(annotationService.getAnnotationsForScene).mockResolvedValueOnce({
+      ok: false,
+      code: 'scene_not_found',
+    } as never);
+
+    const response = await request(app)
+      .get(`/api/projects/${project.id}/annotations/for-scene/scene-missing`)
+      .expect(404);
+
+    expect(response.body).toEqual({ error: 'Scene not found' });
+  });
+
+  it('returns 404 when scene geometries are requested for a missing scene', async () => {
+    vi.mocked(annotationService.getAnnotationGeometriesForSceneAssets).mockResolvedValueOnce({
+      ok: false,
+      code: 'scene_not_found',
+    } as never);
+
+    const response = await request(app)
+      .get(`/api/projects/${project.id}/annotations/geometry/for-scene/scene-missing`)
+      .expect(404);
+
+    expect(response.body).toEqual({ error: 'Scene not found' });
+  });
+
+  it('returns 404 when scene data are requested for a missing scene', async () => {
+    vi.mocked(annotationService.getAnnotationDataForSceneAssets).mockResolvedValueOnce({
+      ok: false,
+      code: 'scene_not_found',
+    } as never);
+
+    const response = await request(app)
+      .get(`/api/projects/${project.id}/annotations/data/for-scene/scene-missing`)
+      .expect(404);
+
+    expect(response.body).toEqual({ error: 'Scene not found' });
+  });
+
+  it('returns 404 when scene links are requested for a missing scene', async () => {
+    vi.mocked(annotationService.getAnnotationLinksForSceneAssets).mockResolvedValueOnce({
+      ok: false,
+      code: 'scene_not_found',
+    } as never);
+
+    const response = await request(app)
+      .get(`/api/projects/${project.id}/annotations/links/for-scene/scene-missing`)
+      .expect(404);
+
+    expect(response.body).toEqual({ error: 'Scene not found' });
   });
 });

@@ -191,7 +191,7 @@ async function createAnnotationSet(
 
   const geometryIds: string[] = [];
   for (const [index, shapes] of geometryShapeSets.entries()) {
-    const geometryId = await createAnnotationGeometry(
+    const geometryResult = await createAnnotationGeometry(
       projectId,
       shapes,
       target.scopeType,
@@ -199,14 +199,14 @@ async function createAnnotationSet(
       actorUserId,
     );
 
-    if (!geometryId) {
-      throw new Error(`Failed to create annotation geometry ${index + 1}.`);
+    if (!geometryResult.ok) {
+      throw new Error(`Failed to create annotation geometry ${index + 1}: ${geometryResult.code}.`);
     }
 
-    geometryIds.push(geometryId);
+    geometryIds.push(geometryResult.value);
   }
 
-  const dataId = await createAnnotationData(
+  const dataResult = await createAnnotationData(
     projectId,
     `Shared test annotation ${timestamp}`,
     'Generated for Swagger/API manual testing with two geometries linked to the same data annotation.',
@@ -221,18 +221,20 @@ async function createAnnotationSet(
     target.scopeId,
     actorUserId,
   );
-  if (!dataId) {
-    throw new Error('Failed to create shared annotation data.');
+  if (!dataResult.ok) {
+    throw new Error(`Failed to create shared annotation data: ${dataResult.code}.`);
   }
+
+  const dataId = dataResult.value;
 
   const linkIds: string[] = [];
   for (const geometryId of geometryIds) {
-    const linkId = await createAnnotationLink(projectId, geometryId, dataId, actorUserId);
-    if (!linkId) {
-      throw new Error(`Failed to create annotation link for geometry ${geometryId}.`);
+    const linkResult = await createAnnotationLink(projectId, geometryId, dataId, actorUserId);
+    if (!linkResult.ok) {
+      throw new Error(`Failed to create annotation link for geometry ${geometryId}: ${linkResult.code}.`);
     }
 
-    linkIds.push(linkId);
+    linkIds.push(linkResult.value);
   }
 
   const [geometries, data, links] = await Promise.all([
