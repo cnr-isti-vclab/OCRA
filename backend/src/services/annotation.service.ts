@@ -937,7 +937,11 @@ export async function markAnnotationGeometryErasable(
       nextVersion = updated.version;
     });
 
-    return okResult(nextVersion as number);
+    if (nextVersion === null) {
+      throw new Error('markAnnotationGeometryErasable transaction completed without a version');
+    }
+
+    return okResult(nextVersion);
   } catch (error) {
     if (error instanceof AnnotationServiceAbort) {
       return failResult(error.code as MarkAnnotationGeometryErasableErrorCode);
@@ -1022,7 +1026,11 @@ export async function markAnnotationGeometryNonErasable(
       nextVersion = updated.version;
     });
 
-    return okResult(nextVersion as number);
+    if (nextVersion === null) {
+      throw new Error('markAnnotationGeometryNonErasable transaction completed without a version');
+    }
+
+    return okResult(nextVersion);
   } catch (error) {
     if (error instanceof AnnotationServiceAbort) {
       return failResult(error.code as MarkAnnotationGeometryNonErasableErrorCode);
@@ -1210,7 +1218,11 @@ export async function markAnnotationDataErasable(
       nextVersion = updated.version;
     });
 
-    return okResult(nextVersion as number);
+    if (nextVersion === null) {
+      throw new Error('markAnnotationDataErasable transaction completed without a version');
+    }
+
+    return okResult(nextVersion);
   } catch (error) {
     if (error instanceof AnnotationServiceAbort) {
       return failResult(error.code as MarkAnnotationDataErasableErrorCode);
@@ -1295,7 +1307,11 @@ export async function markAnnotationDataNonErasable(
       nextVersion = updated.version;
     });
 
-    return okResult(nextVersion as number);
+    if (nextVersion === null) {
+      throw new Error('markAnnotationDataNonErasable transaction completed without a version');
+    }
+
+    return okResult(nextVersion);
   } catch (error) {
     if (error instanceof AnnotationServiceAbort) {
       return failResult(error.code as MarkAnnotationDataNonErasableErrorCode);
@@ -1503,7 +1519,11 @@ export async function markAnnotationLinkNonErasable(
       };
     });
 
-    return okResult(restoreResult as RestoreAnnotationLinkResult);
+    if (restoreResult === null) {
+      throw new Error('markAnnotationLinkNonErasable transaction completed without a restore result');
+    }
+
+    return okResult(restoreResult);
   } catch (error) {
     if (error instanceof AnnotationServiceAbort) {
       return failResult(error.code as MarkAnnotationLinkNonErasableErrorCode);
