@@ -1,6 +1,7 @@
 import type {
   AnnotationEventResourceType,
   AnnotationMutationEvent,
+  AnnotationSocialLockEvent,
   AnnotationSocialLockRequest,
   AnnotationStreamEvent,
 } from 'shared/annotation-events';
@@ -26,6 +27,112 @@ export class AnnotationEventsService {
   constructor(projectId: string, sceneId: string) {
     this.projectId = projectId;
     this.sceneId = sceneId;
+  }
+
+  private buildCurlCommand(url: string, payload: AnnotationSocialLockRequest) {
+    return `curl -X POST -H "Content-Type: application/json" -H "Cookie: session_id=<session_id>" ${url} -d '${JSON.stringify(payload)}'`;
+  }
+
+  private logConnectionInfo(streamId: string) {
+    const apiBase = getApiBase();
+    const eventsUrl = `${apiBase}/api/projects/${this.projectId}/annotations/events?sceneId=${encodeURIComponent(this.sceneId)}`;
+    const socialLockBaseUrl = `${apiBase}/api/projects/${this.projectId}/annotations/events/social-lock`;
+    const scopedPayload = {
+      sceneId: this.sceneId,
+      streamId,
+      resourceType: 'geometry',
+      resourceId: '<geometry-id>',
+      activity: 'external-debug',
+    } satisfies AnnotationSocialLockRequest;
+    const sceneWidePayload = {
+      sceneId: this.sceneId,
+      streamId,
+      activity: 'external-debug',
+    } satisfies AnnotationSocialLockRequest;
+    const socialLockStartUrl = `${socialLockBaseUrl}/start`;
+    const socialLockStopUrl = `${socialLockBaseUrl}/stop`;
+    const startSceneWideCurl = this.buildCurlCommand(socialLockStartUrl, sceneWidePayload);
+    const startScopedCurl = this.buildCurlCommand(socialLockStartUrl, scopedPayload);
+    const stopScopedCurl = this.buildCurlCommand(socialLockStopUrl, scopedPayload);
+
+    console.log('[Annotation SSE] Connected', {
+      apiBase,
+      projectId: this.projectId,
+      sceneId: this.sceneId,
+      streamId,
+      eventsUrl,
+      socialLockStartUrl,
+      socialLockStopUrl,
+      validResourceTypes: ['geometry', 'data', 'link'],
+      note: 'resourceType/resourceId are optional, but if one is present both must be present',
+      socialLockSceneWidePayloadExample: sceneWidePayload,
+      socialLockScopedPayloadExample: scopedPayload,
+      fetchExamples: {
+        startSceneWide: {
+          method: 'POST',
+          url: socialLockStartUrl,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sceneWidePayload),
+        },
+        startScoped: {
+          method: 'POST',
+          url: socialLockStartUrl,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scopedPayload),
+        },
+        stopScoped: {
+          method: 'POST',
+          url: socialLockStopUrl,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scopedPayload),
+        },
+      },
+      curlExamples: {
+        startSceneWide: startSceneWideCurl,
+        startScoped: startScopedCurl,
+        stopScoped: stopScopedCurl,
+      },
+    });
+
+    console.log('[Annotation SSE] Copy/paste curl startSceneWide');
+    console.log(startSceneWideCurl);
+    console.log('[Annotation SSE] Copy/paste curl startScoped');
+    console.log(startScopedCurl);
+    console.log('[Annotation SSE] Copy/paste curl stopScoped');
+    console.log(stopScopedCurl);
+  }
+
+  private logSocialLockEvent(event: AnnotationSocialLockEvent) {
+    console.log(`[Annotation SSE] ${event.type}`, {
+      projectId: event.projectId,
+      sceneId: event.sceneId,
+      streamId: event.streamId,
+      sessionId: event.sessionId,
+      userId: event.userId,
+      username: event.username,
+      resourceType: event.resourceType,
+      resourceId: event.resourceId,
+      activity: event.activity,
+      startedAt: event.startedAt,
+      timestamp: event.timestamp,
+      isCurrentStream: event.streamId === this.streamId,
+    });
+  }
+
+  private logMutationEvent(event: AnnotationMutationEvent) {
+    console.log('[Annotation SSE] annotation.mutated', {
+      projectId: event.projectId,
+      sceneId: event.sceneId,
+      sessionId: event.sessionId,
+      userId: event.userId,
+      username: event.username,
+      mutation: event.mutation,
+      entity: event.entity,
+      timestamp: event.timestamp,
+    });
   }
 
   connect(handlers: AnnotationEventsHandlers) {
@@ -65,13 +172,29 @@ export class AnnotationEventsService {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.connected') {
         this.streamId = parsed.streamId;
+        this.logConnectionInfo(parsed.streamId);
       }
     });
 
     source.addEventListener('annotation.mutated', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.mutated') {
+        this.logMutationEvent(parsed);
         this.handlers.onMutation?.(parsed);
+      }
+    });
+
+    source.addEventListener('annotation.social_lock.started', (event) => {
+      const parsed = this.parseEvent(event);
+      if (parsed?.type === 'annotation.social_lock.started') {
+        this.logSocialLockEvent(parsed);
+      }
+    });
+
+    source.addEventListener('annotation.social_lock.stopped', (event) => {
+      const parsed = this.parseEvent(event);
+      if (parsed?.type === 'annotation.social_lock.stopped') {
+        this.logSocialLockEvent(parsed);
       }
     });
   }

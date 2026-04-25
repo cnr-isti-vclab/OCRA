@@ -144,6 +144,8 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     annotations,
     selectedAnnotationIds,
     isLoading,
+    realtimeState,
+    lastRemoteMutation,
     deleteAnnotations,
     updateAnnotationData,
     selectAnnotation,
@@ -154,6 +156,26 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [expandedGeomIds, setExpandedGeomIds] = useState<Set<string>>(new Set());
   const annotationListRef = useRef<HTMLDivElement>(null);
+
+  const realtimeBadgeClass =
+    realtimeState === 'connected'
+      ? 'bg-success-subtle text-success'
+      : realtimeState === 'reconnecting' || realtimeState === 'connecting'
+        ? 'bg-warning-subtle text-warning'
+        : realtimeState === 'error'
+          ? 'bg-danger-subtle text-danger'
+          : 'bg-secondary-subtle text-secondary';
+
+  const realtimeLabel =
+    realtimeState === 'connected'
+      ? 'Realtime connected'
+      : realtimeState === 'reconnecting'
+        ? 'Realtime reconnecting'
+        : realtimeState === 'connecting'
+          ? 'Realtime connecting'
+          : realtimeState === 'error'
+            ? 'Realtime error'
+            : 'Realtime idle';
 
   const toggleGeom = (id: string) => {
     setExpandedGeomIds(prev => {
@@ -256,6 +278,23 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
             >
               <i className="bi bi-x-lg"></i>
             </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-3 p-2 border rounded bg-light-subtle">
+        <div className="d-flex justify-content-between align-items-center gap-2">
+          <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
+          {lastRemoteMutation && (
+            <span className="small text-muted text-end">
+              Last event: {lastRemoteMutation.mutation}
+            </span>
+          )}
+        </div>
+        {lastRemoteMutation && (
+          <div className="small text-muted mt-1">
+            Entity {lastRemoteMutation.entity.kind}:{' '}
+            <span className="font-monospace">{lastRemoteMutation.entity.id}</span>
           </div>
         )}
       </div>
