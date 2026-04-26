@@ -74,6 +74,8 @@ export async function cleanupTestDB() {
   try {
     // Use transaction for atomic cleanup
     await client.$transaction([
+      client.projectPresenceLease.deleteMany({}),
+      client.structuringLock.deleteMany({}),
       client.projectRole.deleteMany({}),
       client.project.deleteMany({}),
       client.session.deleteMany({}),
@@ -189,6 +191,13 @@ export function mockAuthMiddleware(user: any) {
  */
 export function authHeader(user: any): { 'X-Test-User-Id': string } {
   return { 'X-Test-User-Id': user.id };
+}
+
+export function authHeaders(user: any, sessionId = 'test-session-id'): { 'X-Test-User-Id': string; 'X-Test-Session-Id': string } {
+  return {
+    'X-Test-User-Id': user.id,
+    'X-Test-Session-Id': sessionId,
+  };
 }
 
 /**

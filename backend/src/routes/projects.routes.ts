@@ -20,6 +20,14 @@ import {
   getProjectScene,
   updateProjectScene
 } from '../controllers/projects.controller.js';
+import {
+  heartbeatPresence,
+  heartbeatStructuring,
+  startPresence,
+  startStructuring,
+  stopPresence,
+  stopStructuring,
+} from '../controllers/project-concurrency.controller.js';
 
 import { requireAuth } from '../middleware/auth.js';
 import { unifiedAssetUploadMiddleware } from '../middleware/unified-asset-upload-middleware.js';
@@ -30,6 +38,7 @@ import {
   addProjectMember,
   removeProjectMember
 } from '../controllers/project-members.controller.js';
+import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
 
 const router = express.Router();
 
@@ -278,6 +287,16 @@ router.put('/:projectId', requireAuth, updateProject);
  *         description: Project not found
  */
 router.delete('/:projectId', requireAuth, deleteProject);
+
+router.post('/:projectId/structuring/start', requireAuth, startStructuring);
+router.post('/:projectId/structuring/heartbeat', requireAuth, heartbeatStructuring);
+router.post('/:projectId/structuring/stop', requireAuth, stopStructuring);
+
+router.post('/:projectId/presence/start', requireAuth, startPresence);
+router.post('/:projectId/presence/heartbeat', requireAuth, heartbeatPresence);
+router.post('/:projectId/presence/stop', requireAuth, stopPresence);
+
+router.use('/:projectId', enforceStructuringLock);
 
 /* ============================================================================
  * PROJECT PERMISSIONS

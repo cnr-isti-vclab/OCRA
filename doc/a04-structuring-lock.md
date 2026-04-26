@@ -386,6 +386,14 @@ The first API surface should stay narrow and explicit.
 
 ## Team Migration Command
 
+When a developer is authoring a new committed Prisma migration for this model, use:
+
+```bash
+cd /home/<user>/git/OCRA/backend && npx prisma migrate dev --name add_structuring_lock_models --create-only
+```
+
+This creates the migration artifacts that can then be reviewed and committed.
+
 When the Prisma migration for `StructuringLock` and `ProjectPresenceLease` is committed to the repository, every team member must apply it to the local PostgreSQL database after pulling the updated branch.
 
 Recommended command:

@@ -67,6 +67,9 @@ function buildTestApp() {
 
 describe('uniform API error envelope', () => {
   const prismaMock = {
+    structuringLock: {
+      findUnique: vi.fn(),
+    },
     project: {
       findUnique: vi.fn(),
     },
@@ -81,6 +84,7 @@ describe('uniform API error envelope', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+    prismaMock.structuringLock.findUnique.mockResolvedValue(null);
   });
 
   it('returns a structured 401 envelope for current session without credentials', async () => {

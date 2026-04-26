@@ -36,9 +36,12 @@ import {
   exportSceneFileHandler
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
+import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
 
 const router = Router();
+
+router.use('/:projectId', enforceStructuringLock);
 
 /* ============================================================================
  * DIGITAL ASSETS (in HDT document) + RTI upload

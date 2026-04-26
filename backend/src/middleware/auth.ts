@@ -22,13 +22,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (process.env.NODE_ENV === 'test') {
       const testUserId = req.headers['x-test-user-id'] as string;
       if (testUserId) {
+        const testSessionIdHeader = req.headers['x-test-session-id'];
+        const testSessionId = typeof testSessionIdHeader === 'string' && testSessionIdHeader.trim()
+          ? testSessionIdHeader
+          : 'test-session';
         const db = await import('../../db.js');
         const prisma = db.getPrismaClient();
         const dbUser = await prisma.user.findUnique({ where: { id: testUserId } });
         
         if (dbUser) {
           req.user = dbUser as any;
-          req.sessionId = 'test-session';
+          req.sessionId = testSessionId;
           next();
           return;
         }

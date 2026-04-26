@@ -56,6 +56,9 @@ import * as annotationEvents from '../lib/annotation-events.js';
 
 const app = createApp();
 const prismaMock = {
+  structuringLock: {
+    findUnique: vi.fn(),
+  },
   user: {
     findUnique: vi.fn(),
   },
@@ -137,6 +140,7 @@ describe.sequential('Annotation controller edge cases', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+    prismaMock.structuringLock.findUnique.mockResolvedValue(null);
     prismaMock.user.findUnique.mockResolvedValue(user);
     prismaMock.projectRole.findFirst.mockResolvedValue({
       projectId: project.id,

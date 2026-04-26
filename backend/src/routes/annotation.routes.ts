@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
 import {
   createAnnotationDataHandler,
   createAnnotationGeometryHandler,
@@ -26,6 +27,8 @@ import {
 } from '../controllers/annotation.controller.js';
 
 const router = Router();
+
+router.use('/:projectId', enforceStructuringLock);
 
 /**
  * @openapi
