@@ -60,6 +60,9 @@ const prismaMock = {
   structuringLock: {
     findUnique: vi.fn(),
   },
+  project: {
+    findUnique: vi.fn(),
+  },
   user: {
     findUnique: vi.fn(),
   },
@@ -71,6 +74,7 @@ const prismaMock = {
 describe.sequential('Project concurrency controller SSE endpoints', () => {
   beforeEach(() => {
     vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+    prismaMock.project.findUnique.mockResolvedValue({ public: false });
     prismaMock.user.findUnique.mockResolvedValue({ id: 'user-1', sys_admin: false });
     prismaMock.projectRole.findFirst.mockResolvedValue({ id: 'role-1' });
     vi.mocked(requireOwnedStructuringLock).mockResolvedValue(true);

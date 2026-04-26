@@ -59,6 +59,9 @@ const prismaMock = {
   structuringLock: {
     findUnique: vi.fn(),
   },
+  project: {
+    findUnique: vi.fn(),
+  },
   user: {
     findUnique: vi.fn(),
   },
@@ -141,6 +144,7 @@ describe.sequential('Annotation controller edge cases', () => {
     vi.resetAllMocks();
     vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
     prismaMock.structuringLock.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue({ public: false });
     prismaMock.user.findUnique.mockResolvedValue(user);
     prismaMock.projectRole.findFirst.mockResolvedValue({
       projectId: project.id,
