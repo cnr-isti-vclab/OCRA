@@ -54,6 +54,16 @@ export async function findAnnotationGeometriesByReference(
   return collection.find({ projectId, referenceType, referenceId }).toArray();
 }
 
+export async function deleteAnnotationGeometriesByReference(
+  projectId: string,
+  referenceType: AnnotationScopeType,
+  referenceId: string,
+) {
+  const collection = await getAnnotationGeometryCollection();
+  const result = await collection.deleteMany({ projectId, referenceType, referenceId });
+  return result.deletedCount;
+}
+
 export async function findAnnotationGeometriesByReferenceIds(
   projectId: string,
   referenceType: AnnotationScopeType,

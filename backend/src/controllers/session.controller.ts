@@ -11,6 +11,7 @@ import { createSession, getSession, removeSession } from '../services/session.se
 import { auditBestEffort } from '../utils/audit.js';
 import { logLogin, logLogout } from '../services/auth.service.js';
 import { CreateSessionRequest } from '../types/index.js';
+import { USER_DISABLED_MESSAGE } from '../../db.js';
 
 type Request = express.Request;
 type Response = express.Response;
@@ -59,6 +60,16 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
     res.json({ sessionId });
   } catch (error) {
     console.error('Failed to create session:', error);
+
+    const message = (error as Error).message;
+    if (message.includes(USER_DISABLED_MESSAGE)) {
+      sendApiError(req, res, {
+        status: 403,
+        code: API_ERROR_CODES.session.userDisabled,
+        error: USER_DISABLED_MESSAGE,
+      });
+      return;
+    }
     
     // Log failed login if we have user info
     if (req.body.userProfile?.sub) {
@@ -75,7 +86,7 @@ export async function createUserSession(req: Request, res: Response): Promise<vo
       status: 500,
       code: API_ERROR_CODES.session.createFailed,
       error: 'Failed to create session',
-      details: (error as Error).message,
+      details: message,
     });
   }
 }

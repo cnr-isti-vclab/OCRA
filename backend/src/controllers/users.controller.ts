@@ -29,6 +29,10 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -68,6 +72,10 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -153,6 +161,10 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -218,6 +230,10 @@ export async function updateUserAdminStatus(req: Request, res: Response): Promis
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -255,6 +271,9 @@ export async function getUsersForDropdown(req: Request, res: Response): Promise<
     
     // Get basic user information for dropdowns
     const users = await db.user.findMany({
+      where: {
+        isActive: true,
+      },
       select: {
         id: true,
         email: true,

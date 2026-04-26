@@ -54,6 +54,16 @@ export async function findAnnotationDataByVisibility(
   return collection.find({ projectId, visibilityType, visibilityId }).toArray();
 }
 
+export async function deleteAnnotationDataByVisibility(
+  projectId: string,
+  visibilityType: AnnotationScopeType,
+  visibilityId: string,
+) {
+  const collection = await getAnnotationDataCollection();
+  const result = await collection.deleteMany({ projectId, visibilityType, visibilityId });
+  return result.deletedCount;
+}
+
 export async function findAnnotationDataByVisibilityIds(
   projectId: string,
   visibilityType: AnnotationScopeType,

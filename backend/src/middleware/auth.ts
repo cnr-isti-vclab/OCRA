@@ -30,7 +30,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         const prisma = db.getPrismaClient();
         const dbUser = await prisma.user.findUnique({ where: { id: testUserId } });
         
-        if (dbUser) {
+        if (dbUser?.isActive) {
           req.user = dbUser as any;
           req.sessionId = testSessionId;
           next();
@@ -79,7 +79,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const db = await import('../../db.js');
     const prisma = db.getPrismaClient();
     const dbUser = await prisma.user.findUnique({ where: { sub: session.user.sub } });
-    if (!dbUser) {
+    if (!dbUser || !dbUser.isActive) {
       res.status(401).json({ 
         error: 'Authentication required',
         message: 'User not found in database'

@@ -46,6 +46,10 @@ import {
   generateAllSceneFiles,
   getAvailableScenes
 } from '../services/hdt-metadata.service.js';
+import { requireOwnedExclusiveStructuringLock } from '../middleware/project-structuring-lock.js';
+import { findAnnotationGeometriesByReference, deleteAnnotationGeometriesByReference } from '../repositories/annotation-geometry.repository.js';
+import { findAnnotationDataByVisibility, deleteAnnotationDataByVisibility } from '../repositories/annotation-data.repository.js';
+import { deleteAnnotationLinksByDataIds, deleteAnnotationLinksByGeometryIds } from '../repositories/annotation-link.repository.js';
 import { getPrismaClient } from '../../db.js';
 import { auditBestEffort } from '../utils/audit.js';
 import {
@@ -239,6 +243,52 @@ function sendHdtError(
     error,
     details,
   });
+}
+
+async function ignoreMissingMongoNamespace<T>(operation: Promise<T>): Promise<T | null> {
+  try {
+    return await operation;
+  } catch (error: any) {
+    const message = error?.message || '';
+    if (error?.code === 26 || String(message).includes('ns does not exist')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function purgeSceneScopedAnnotations(projectId: string, sceneId: string) {
+  const [geometries, dataRecords] = await Promise.all([
+    ignoreMissingMongoNamespace(findAnnotationGeometriesByReference(projectId, 'scene', sceneId)),
+    ignoreMissingMongoNamespace(findAnnotationDataByVisibility(projectId, 'scene', sceneId)),
+  ]);
+
+  const geometryIds = (geometries ?? []).map((geometry: any) => geometry.id);
+  const dataIds = (dataRecords ?? []).map((data: any) => data.id);
+
+  await Promise.all([
+    ignoreMissingMongoNamespace(deleteAnnotationLinksByGeometryIds(projectId, geometryIds)),
+    ignoreMissingMongoNamespace(deleteAnnotationLinksByDataIds(projectId, dataIds)),
+    ignoreMissingMongoNamespace(deleteAnnotationGeometriesByReference(projectId, 'scene', sceneId)),
+    ignoreMissingMongoNamespace(deleteAnnotationDataByVisibility(projectId, 'scene', sceneId)),
+  ]);
+}
+
+async function purgeAssetScopedAnnotations(projectId: string, assetId: string) {
+  const [geometries, dataRecords] = await Promise.all([
+    ignoreMissingMongoNamespace(findAnnotationGeometriesByReference(projectId, 'asset', assetId)),
+    ignoreMissingMongoNamespace(findAnnotationDataByVisibility(projectId, 'asset', assetId)),
+  ]);
+
+  const geometryIds = (geometries ?? []).map((geometry: any) => geometry.id);
+  const dataIds = (dataRecords ?? []).map((data: any) => data.id);
+
+  await Promise.all([
+    ignoreMissingMongoNamespace(deleteAnnotationLinksByGeometryIds(projectId, geometryIds)),
+    ignoreMissingMongoNamespace(deleteAnnotationLinksByDataIds(projectId, dataIds)),
+    ignoreMissingMongoNamespace(deleteAnnotationGeometriesByReference(projectId, 'asset', assetId)),
+    ignoreMissingMongoNamespace(deleteAnnotationDataByVisibility(projectId, 'asset', assetId)),
+  ]);
 }
 
 // ============================================================================
@@ -884,6 +934,10 @@ export async function removeAssetHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can remove assets');
     }
 
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
     // 1) Retrieve current HDT document to inspect the asset before removal
     const hdtDoc = await getHDTDocument(projectId);
     if (!hdtDoc) {
@@ -923,6 +977,8 @@ export async function removeAssetHandler(req: Request, res: Response) {
 
       return sendHdtError(req, res, 404, 'assetNotFound', 'Asset not found in HDT document');
     }
+
+    await purgeAssetScopedAnnotations(projectId, assetId);
 
     console.log('🗑️ [removeAssetHandler] Deleting asset:', {
       projectId,
@@ -1201,6 +1257,12 @@ export async function deleteSceneHandler(req: Request, res: Response) {
     if (!isManager) {
       return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can delete scenes');
     }
+
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
+    await purgeSceneScopedAnnotations(projectId, sceneId);
 
     const updatedDoc = await removeScene(projectId, sceneId, currentUser.sub);
     if (!updatedDoc) {

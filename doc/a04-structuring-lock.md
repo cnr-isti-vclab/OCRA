@@ -358,6 +358,8 @@ Required cascade policy:
 
 Deleting a scene must not silently leave dangling annotations that still point to a scene identifier that no longer exists.
 
+The current implementation now applies this policy for `scene.delete`.
+
 #### `asset.delete`
 
 `asset.delete` must also run under the project-wide structuring lock.
@@ -373,6 +375,8 @@ Required cascade policy:
 
 Deleting an asset does not automatically imply deleting every scene that used it. Scene deletion should remain an explicit policy decision, unless the product later defines that an empty scene must be auto-removed.
 
+The current implementation now applies this policy for `asset.delete`.
+
 #### `user.disable`
 
 Administrative user removal should not be implemented as ordinary hard delete in production flows.
@@ -383,8 +387,11 @@ Recommended policy:
 - block new sessions and prevent further access
 - hide the user from normal active-user selection flows
 - optionally anonymise personal fields later if compliance requires it
+- a `sys_admin` user must never transition to disabled state
 
 In practice this should be modelled as user disable or soft delete, for example with fields such as `isActive`, `disabledAt`, `disabledBy`, and `disableReason`, rather than physically deleting the row.
+
+The current implementation now applies this policy as an administrative status transition rather than a hard delete. Disabling a user also invalidates their active backend sessions and removes any presence lease or structuring lock still owned by that user. A system administrator is explicitly protected from being disabled by this endpoint.
 
 ---
 

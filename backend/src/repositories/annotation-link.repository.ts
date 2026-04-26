@@ -143,6 +143,26 @@ export async function deleteAnnotationLinksByProjectId(projectId: string) {
   return result.deletedCount;
 }
 
+export async function deleteAnnotationLinksByGeometryIds(projectId: string, geometryIds: string[]) {
+  if (geometryIds.length === 0) {
+    return 0;
+  }
+
+  const collection = await getAnnotationLinkCollection();
+  const result = await collection.deleteMany({ projectId, geometryId: { $in: geometryIds } });
+  return result.deletedCount;
+}
+
+export async function deleteAnnotationLinksByDataIds(projectId: string, dataIds: string[]) {
+  if (dataIds.length === 0) {
+    return 0;
+  }
+
+  const collection = await getAnnotationLinkCollection();
+  const result = await collection.deleteMany({ projectId, dataId: { $in: dataIds } });
+  return result.deletedCount;
+}
+
 export async function deleteErasableAnnotationLinksByProjectId(projectId: string) {
   const collection = await getAnnotationLinkCollection();
   const result = await collection.deleteMany({ projectId, erasableAt: { $ne: null } });

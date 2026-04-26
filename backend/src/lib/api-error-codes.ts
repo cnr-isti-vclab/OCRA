@@ -15,6 +15,7 @@ export const API_ERROR_CODES = {
   },
   session: {
     createFailed: 'session.create_failed',
+    userDisabled: 'session.user_disabled',
     idRequired: 'session.id_required',
     notFound: 'session.not_found',
     noSessionProvided: 'session.no_session_provided',

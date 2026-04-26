@@ -123,6 +123,10 @@ export async function createTestUser(overrides: any = {}) {
       family_name: overrides.family_name || 'User',
       sys_admin: overrides.sys_admin || overrides.isAdmin || false,
       sys_creator: overrides.sys_creator || (overrides.canCreateProjects ?? true),
+      isActive: overrides.isActive ?? true,
+      disabledAt: overrides.disabledAt || null,
+      disabledBy: overrides.disabledBy || null,
+      disableReason: overrides.disableReason || null,
     },
   });
 }

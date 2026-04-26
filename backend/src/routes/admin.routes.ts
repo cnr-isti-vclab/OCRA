@@ -1,7 +1,7 @@
 import express from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getRecentAuditEvents } from '../controllers/admin.controller.js';
-import { createUser, updateUserPrivileges, batchCreateUsers } from '../controllers/admin-users.controller.js';
+import { createUser, updateUserPrivileges, updateUserStatus, batchCreateUsers } from '../controllers/admin-users.controller.js';
 
 const router = express.Router();
 
@@ -212,5 +212,7 @@ router.post('/users/batch', requireAuth, requireAdmin, batchCreateUsers);
  *         description: User not found
  */
 router.put('/users/:userId/privileges', requireAuth, requireAdmin, updateUserPrivileges);
+
+router.put('/users/:userId/status', requireAuth, requireAdmin, updateUserStatus);
 
 export default router;
