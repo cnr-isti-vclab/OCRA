@@ -5,6 +5,11 @@ This project supports two primary workflows:
 - Development: fast feedback, source bind-mounts, TypeScript runtime (tsx or nodemon), and Vite dev server for frontend.
 - Production: build artifacts (frontend `dist/` served by Nginx), compiled backend in `dist/`, and no host source mount.
 
+Canonical local ports are shared across bare and non-bare workflows:
+- frontend: `3001`
+- backend: `3002`
+- Keycloak: `8081`
+
 Quick start - Development
 -------------------------
 

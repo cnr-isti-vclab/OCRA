@@ -19,6 +19,13 @@ import type {
   FileResolverContext,
 } from "three-presenter";
 
+const CANONICAL_LOCAL_FRONTEND_ORIGIN = "http://localhost:3001";
+const LEGACY_LOCAL_FRONTEND_ORIGIN = "http://localhost:5173";
+
+function isLocalDevOrigin(origin: string) {
+  return origin === CANONICAL_LOCAL_FRONTEND_ORIGIN || origin === LEGACY_LOCAL_FRONTEND_ORIGIN;
+}
+
 /**
  * Get API base URL from configuration
  *
@@ -40,7 +47,7 @@ function getApiBase(): string {
   // Reverse-proxy deployments: same origin
   if (
     typeof window !== "undefined" &&
-    window.location.origin !== "http://localhost:5173"
+    !isLocalDevOrigin(window.location.origin)
   ) {
     return window.location.origin;
   }

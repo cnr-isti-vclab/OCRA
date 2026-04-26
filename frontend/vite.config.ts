@@ -1,14 +1,14 @@
 /**
  * Vite config for the React OAuth2 PKCE demo.
- * - Dev server runs on 5173 for local development.
- * - Preview runs on 3001 to align with Docker mapping.
+ * - Dev server runs on 3001 to align bare mode with Docker mapping.
+ * - Preview also runs on 3001.
  * Uses VITE_* env variables from .env during `npm run dev`.
  */
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
-    port: 5173,
+    port: 3001,
     host: true
   },
   preview: {

@@ -53,6 +53,8 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
+In bare mode the frontend should now be reached on `http://localhost:3001`, matching non-bare mode.
+
 Stop the local services when done:
 
 ```bash

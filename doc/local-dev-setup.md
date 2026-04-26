@@ -11,7 +11,7 @@ Guide to run **Keycloak**, **PostgreSQL**, **MongoDB**, backend and frontend loc
   - PostgreSQL: `5432`
   - MongoDB: `27017`
   - Backend: `3002`
-  - Frontend: `5173` (Vite)
+   - Frontend: `3001`
 
 Repository cloned to:
 
@@ -47,7 +47,7 @@ CLIENT_SECRET=
 
 # Backend
 PORT=3002
-CORS_ORIGINS=http://localhost:5173,http://localhost:3001,http://localhost:5174,http://localhost:5175
+CORS_ORIGINS=http://localhost:3001
 
 # PostgreSQL (REQUIRED for Prisma)
 DATABASE_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
@@ -368,8 +368,8 @@ The backend uses this path via `PROJECT_FILES_PATH` in `backend/.env`.
    - Check **Users** and **Clients** → **Import**
 3. Verify the client:
    - **Clients → react-oauth**
-   - Check that **Valid redirect URIs** includes `http://localhost:5173/*`
-   - Check that **Web origins** includes `http://localhost:5173`
+   - Check that **Valid redirect URIs** includes `http://localhost:3001/*`
+   - Check that **Web origins** includes `http://localhost:3001`
 
 Reference OIDC endpoints:
 
@@ -415,12 +415,14 @@ npm run dev:frontend
 
 This typically starts Vite on `http://localhost:5173`.
 
+Bare mode now uses the same frontend port as non-bare mode, so the expected dev URL is `http://localhost:3001`.
+
 Expected logs:
-- `Local: http://localhost:5173/`
-- `Network: http://192.168.x.x:5173/`
+- `Local: http://localhost:3001/`
+- `Network: http://192.168.x.x:3001/`
 - Hot reload ready
 
-Open `http://localhost:5173/` in the browser.
+Open `http://localhost:3001/` in the browser.
 
 ### 8.3 Why separate terminals?
 
@@ -576,7 +578,7 @@ lsof -i :5432  # PostgreSQL
 lsof -i :27017 # MongoDB
 lsof -i :8081  # Keycloak
 lsof -i :3002  # Backend
-lsof -i :5173  # Frontend
+lsof -i :3001  # Frontend
 ```
 
 ### 11.6 Project files permissions
