@@ -36,7 +36,18 @@ const LEGACY_ANNOTATION_LINK_INDEX_NAMES = [
 ] as const;
 
 async function dropLegacyAnnotationLinkIndexes(collection: Collection<AnnotationLinkDocument>) {
-  const indexes = await collection.indexes();
+  let indexes;
+
+  try {
+    indexes = await collection.indexes();
+  } catch (error: any) {
+    const message = error?.message || '';
+    if (error?.code === 26 || String(message).includes('ns does not exist')) {
+      return;
+    }
+    throw error;
+  }
+
   const existingIndexNames = new Set(indexes.map((index) => index.name));
 
   for (const indexName of LEGACY_ANNOTATION_LINK_INDEX_NAMES) {

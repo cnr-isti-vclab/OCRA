@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import fs from 'fs/promises';
 import request from 'supertest';
 import { StructuringLockState } from '@prisma/client';
 import { createApp } from '../app.js';
@@ -16,7 +17,13 @@ import {
   createTestProject,
   getTestPrisma,
   authHeader,
+  authHeaders,
 } from './helpers.js';
+import { insertHdtDocument, findHdtByProjectId } from '../repositories/hdt.repository.js';
+import { insertAnnotationGeometry, findAnnotationGeometriesByProjectId } from '../repositories/annotation-geometry.repository.js';
+import { insertAnnotationData, findAnnotationDataByProjectId } from '../repositories/annotation-data.repository.js';
+import { insertAnnotationLink, findAnnotationLinksByProjectId } from '../repositories/annotation-link.repository.js';
+import { ensureProjectSkeleton, projectModel3dAssetDir, projectRoot } from '../utils/project-static-paths.js';
 
 const app = createApp();
 
@@ -296,19 +303,143 @@ describe('Projects API Integration Tests', () => {
   });
 
   describe('DELETE /api/projects/:projectId', () => {
-    it('should delete project', async () => {
+    it('should require an owned exclusive structuring lock before deleting a project', async () => {
       const project = await createTestProject(testUser.id);
 
       await request(app)
         .delete(`/api/projects/${project.id}`)
+        .set(authHeaders(testUser, 'delete-without-lock'))
+        .expect(409);
+
+      await request(app)
+        .get(`/api/projects/${project.id}`)
         .set(authHeader(testUser))
         .expect(200);
+    });
 
-      // Verify project is deleted
+    it('should delete project and purge HDT, annotations and files when caller owns the exclusive lock', async () => {
+      const project = await createTestProject(testUser.id);
+      const prisma = await getTestPrisma();
+      const sessionHeaders = authHeaders(testUser, 'delete-project-session');
+
+      await prisma.structuringLock.create({
+        data: {
+          projectId: project.id,
+          ownerSessionId: 'delete-project-session',
+          ownerUserId: testUser.id,
+          state: StructuringLockState.exclusive,
+          operationType: 'project.delete',
+          operationContext: { projectId: project.id },
+          heartbeatExpiresAt: new Date(Date.now() + 60_000),
+        },
+      });
+
+      await insertHdtDocument({
+        projectId: project.id,
+        physicalObjectMetadata: {
+          title: 'Delete me',
+          dublinCore: {},
+          cidocCrm: {},
+        },
+        digitalAssets: [
+          {
+            id: 'asset-delete-1',
+            projectId: project.id,
+            type: '3d-model',
+            label: 'Asset delete 1',
+            entryPointUrl: '/assets/projects/test/3d-model/asset-delete-1/model.glb',
+            uploadedAt: new Date(),
+            uploadedBy: testUser.sub,
+          },
+        ],
+        scenes: [
+          {
+            id: 'scene-delete-1',
+            label: 'Scene delete 1',
+            description: '',
+            isDefault: true,
+            assets: [
+              {
+                assetId: 'asset-delete-1',
+                visible: true,
+                transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+              },
+            ],
+            createdAt: new Date(),
+            createdBy: testUser.sub,
+          },
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        updatedBy: testUser.sub,
+      } as any);
+
+      await insertAnnotationGeometry({
+        id: 'geom-delete-1',
+        projectId: project.id,
+        shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+        referenceType: 'scene',
+        referenceId: 'scene-delete-1',
+        version: 0,
+        erasableAt: null,
+        erasableBy: null,
+        createdAt: new Date().toISOString(),
+        createdBy: testUser.id,
+        updatedAt: new Date().toISOString(),
+        updatedBy: testUser.id,
+      } as any);
+
+      await insertAnnotationData({
+        id: 'data-delete-1',
+        projectId: project.id,
+        label: 'Delete note',
+        description: '',
+        class: null,
+        content: { text: 'delete me' },
+        visibilityType: 'asset',
+        visibilityId: 'asset-delete-1',
+        version: 0,
+        erasableAt: null,
+        erasableBy: null,
+        createdAt: new Date().toISOString(),
+        createdBy: testUser.id,
+        updatedAt: new Date().toISOString(),
+        updatedBy: testUser.id,
+      } as any);
+
+      await insertAnnotationLink({
+        id: 'link-delete-1',
+        projectId: project.id,
+        geometryId: 'geom-delete-1',
+        dataId: 'data-delete-1',
+        version: 0,
+        erasableAt: null,
+        erasableBy: null,
+        createdAt: new Date().toISOString(),
+        createdBy: testUser.id,
+        updatedAt: new Date().toISOString(),
+        updatedBy: testUser.id,
+      } as any);
+
+      ensureProjectSkeleton(project.id);
+      await fs.mkdir(projectModel3dAssetDir(project.id, 'asset-delete-1'), { recursive: true });
+      await fs.writeFile(`${projectModel3dAssetDir(project.id, 'asset-delete-1')}/model.glb`, 'mesh');
+
+      await request(app)
+        .delete(`/api/projects/${project.id}`)
+        .set(sessionHeaders)
+        .expect(200);
+
       await request(app)
         .get(`/api/projects/${project.id}`)
         .set(authHeader(testUser))
         .expect(404);
+
+      expect(await findHdtByProjectId(project.id)).toBeNull();
+      expect(await findAnnotationGeometriesByProjectId(project.id)).toEqual([]);
+      expect(await findAnnotationDataByProjectId(project.id)).toEqual([]);
+      expect(await findAnnotationLinksByProjectId(project.id)).toEqual([]);
+      await expect(fs.access(projectRoot(project.id))).rejects.toThrow();
     });
 
     it('should return 404 for non-existent project', async () => {
@@ -322,6 +453,17 @@ describe('Projects API Integration Tests', () => {
       const project = await createTestProject(testUser.id);
       
       const prisma = await getTestPrisma();
+      await prisma.structuringLock.create({
+        data: {
+          projectId: project.id,
+          ownerSessionId: 'delete-members-session',
+          ownerUserId: testUser.id,
+          state: StructuringLockState.exclusive,
+          operationType: 'project.delete',
+          operationContext: { projectId: project.id },
+          heartbeatExpiresAt: new Date(Date.now() + 60_000),
+        },
+      });
       await prisma.projectRole.create({
         data: {
           projectId: project.id,
@@ -332,7 +474,7 @@ describe('Projects API Integration Tests', () => {
 
       await request(app)
         .delete(`/api/projects/${project.id}`)
-        .set(authHeader(testUser))
+        .set(authHeaders(testUser, 'delete-members-session'))
         .expect(200);
 
       // Verify members are also deleted

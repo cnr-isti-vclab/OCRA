@@ -96,3 +96,9 @@ export async function deleteAnnotationGeometryById(id: string, expectedVersion: 
   const result = await collection.deleteOne({ id, version: expectedVersion });
   return result.deletedCount > 0;
 }
+
+export async function deleteAnnotationGeometriesByProjectId(projectId: string) {
+  const collection = await getAnnotationGeometryCollection();
+  const result = await collection.deleteMany({ projectId });
+  return result.deletedCount;
+}

@@ -96,3 +96,9 @@ export async function deleteAnnotationDataById(id: string, expectedVersion: numb
   const result = await collection.deleteOne({ id, version: expectedVersion });
   return result.deletedCount > 0;
 }
+
+export async function deleteAnnotationDataByProjectId(projectId: string) {
+  const collection = await getAnnotationDataCollection();
+  const result = await collection.deleteMany({ projectId });
+  return result.deletedCount;
+}

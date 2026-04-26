@@ -322,6 +322,70 @@ Examples:
 - uploading an asset file does not by itself require the lock
 - attaching that asset into a visible scene does require the lock
 
+### Destructive Operation Policy
+
+Destructive operations must be treated as structuring commits, not as ordinary CRUD.
+
+The caller must already own the project-wide structuring lock in `exclusive` state before the backend starts any irreversible deletion.
+
+#### `project.delete`
+
+`project.delete` is a hard delete of the whole project scope.
+
+Execution order:
+
+1. verify that the caller is authorised to delete the project
+2. verify that the caller owns the active `exclusive` structuring lock for that project
+3. delete all project-scoped annotations
+4. delete the HDT document for the project
+5. remove the project filesystem subtree under `project_files/<projectId>`
+6. delete the PostgreSQL `Project` row last so relational cascades remove roles, presence leases, and the structuring lock row itself
+
+This order is important because PostgreSQL `ON DELETE CASCADE` does not cover MongoDB documents or project files on disk.
+
+The current implementation now applies this policy for `project.delete`.
+
+#### `scene.delete`
+
+`scene.delete` must also run under the project-wide structuring lock.
+
+Required cascade policy:
+
+- remove the scene from the HDT document
+- remove all annotation geometries whose `referenceType=scene` and `referenceId=<sceneId>`
+- remove all annotation data whose `visibilityType=scene` and `visibilityId=<sceneId>`
+- remove all annotation links that become orphaned because one endpoint was removed
+
+Deleting a scene must not silently leave dangling annotations that still point to a scene identifier that no longer exists.
+
+#### `asset.delete`
+
+`asset.delete` must also run under the project-wide structuring lock.
+
+Required cascade policy:
+
+- remove the asset from the HDT digital asset pool
+- remove the asset reference from every scene that contains it
+- remove the asset files on disk
+- remove all annotation geometries whose `referenceType=asset` and `referenceId=<assetId>`
+- remove all annotation data whose `visibilityType=asset` and `visibilityId=<assetId>`
+- remove all annotation links that become orphaned because one endpoint was removed
+
+Deleting an asset does not automatically imply deleting every scene that used it. Scene deletion should remain an explicit policy decision, unless the product later defines that an empty scene must be auto-removed.
+
+#### `user.disable`
+
+Administrative user removal should not be implemented as ordinary hard delete in production flows.
+
+Recommended policy:
+
+- keep the user row for attribution, audit history, and authorship references
+- block new sessions and prevent further access
+- hide the user from normal active-user selection flows
+- optionally anonymise personal fields later if compliance requires it
+
+In practice this should be modelled as user disable or soft delete, for example with fields such as `isActive`, `disabledAt`, `disabledBy`, and `disableReason`, rather than physically deleting the row.
+
 ---
 
 ## Enforcement Model

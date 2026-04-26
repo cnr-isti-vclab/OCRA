@@ -40,10 +40,26 @@ import {
   projectTmpDir,
 } from '../utils/project-static-paths.js';
 
-import { getHDTDocument } from '../services/hdt-metadata.service.js'
+import { deleteHDTDocument, getHDTDocument } from '../services/hdt-metadata.service.js';
+import { deleteAnnotationGeometriesByProjectId } from '../repositories/annotation-geometry.repository.js';
+import { deleteAnnotationDataByProjectId } from '../repositories/annotation-data.repository.js';
+import { deleteAnnotationLinksByProjectId } from '../repositories/annotation-link.repository.js';
+import { requireOwnedExclusiveStructuringLock } from '../middleware/project-structuring-lock.js';
 
 function sendProjectError(req: Request, res: Response, status: number, code: keyof typeof API_ERROR_CODES.project, error: string, details?: unknown) {
   return sendApiError(req, res, { status, code: API_ERROR_CODES.project[code], error, details });
+}
+
+async function ignoreMissingMongoNamespace<T>(operation: Promise<T>): Promise<T | null> {
+  try {
+    return await operation;
+  } catch (error: any) {
+    const message = error?.message || '';
+    if (error?.code === 26 || String(message).includes('ns does not exist')) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -1210,7 +1226,19 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Delete project
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
+    await Promise.all([
+      ignoreMissingMongoNamespace(deleteAnnotationLinksByProjectId(projectId)),
+      ignoreMissingMongoNamespace(deleteAnnotationDataByProjectId(projectId)),
+      ignoreMissingMongoNamespace(deleteAnnotationGeometriesByProjectId(projectId)),
+      ignoreMissingMongoNamespace(deleteHDTDocument(projectId)),
+      fs.promises.rm(projectRoot(projectId), { recursive: true, force: true }),
+    ]);
+
+    // Delete project last so Prisma cascades remove members, lock and presence rows.
     await db.project.delete({
       where: { id: projectId },
     });
