@@ -224,7 +224,13 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  * /api/projects/{projectId}/hdt/assets/{assetId}:
  *   delete:
  *     summary: Remove a digital asset
- *     description: Removes a digital asset from the HDT document (and all scenes). For RTI assets, also removes files on disk (manager only).
+ *     description: |
+ *       Removes a digital asset from the HDT document and from all scenes. For RTI assets, this also removes files on disk.
+ *
+ *       **Important notes:**
+ *       - Only project managers can remove assets.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - HDT Assets
  *     security:
@@ -271,6 +277,28 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  *               error: Only project managers can remove assets
  *               code: hdt.asset_manager_required
  *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or asset not found
  *         content:
@@ -825,7 +853,13 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  * /api/projects/{projectId}/hdt/assets/{assetId}:
  *   delete:
  *     summary: Remove a digital asset
- *     description: Removes a digital asset from the HDT document (and all scenes). For RTI assets, also removes files on disk (manager only).
+ *     description: |
+ *       Removes a digital asset from the HDT document and from all scenes. For RTI assets, this also removes files on disk.
+ *
+ *       **Important notes:**
+ *       - Only project managers can remove assets.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - HDT Assets
  *     security:
@@ -872,6 +906,28 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  *               error: Only project managers can remove assets
  *               code: hdt.asset_manager_required
  *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or asset not found
  *         content:
@@ -1270,7 +1326,13 @@ router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
  * /api/projects/{projectId}/hdt/scenes/{sceneId}:
  *   delete:
  *     summary: Delete a scene
- *     description: Deletes a scene from the project's HDT document (manager only).
+ *     description: |
+ *       Deletes a scene from the project's HDT document.
+ *
+ *       **Important notes:**
+ *       - Only project managers or editors can delete scenes.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - Scenes
  *     security:
@@ -1317,6 +1379,28 @@ router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
  *               error: Only project managers or editors can delete scenes
  *               code: hdt.scene_editor_or_manager_required
  *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or scene not found
  *         content:

@@ -252,6 +252,9 @@ router.put('/:projectId', requireAuth, updateProject);
  *
  *       **Important notes:**
  *       - The project is identified **only** by `projectId` in the URL.
+ *       - The authenticated caller must be a project manager.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - Acquire the lock with `POST /api/projects/{projectId}/structuring/start` and keep it alive with `POST /api/projects/{projectId}/structuring/heartbeat` until the lock state becomes `exclusive`.
  *       - This operation is irreversible.
  *
  *       An audit event `project.delete` is generated containing:
@@ -283,13 +286,329 @@ router.put('/:projectId', requireAuth, updateProject);
  *         description: Authentication required
  *       403:
  *         description: Only project managers can delete the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: No active structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: Project not found
  */
 router.delete('/:projectId', requireAuth, deleteProject);
 
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/start:
+ *   post:
+ *     summary: Start structuring lock acquisition
+ *     description: |
+ *       Requests the project structuring lock for the authenticated session.
+ *
+ *       **Important notes:**
+ *       - Only project managers can start structuring.
+ *       - The lock may start in `draining` state while other presence leases are still active.
+ *       - Destructive operations guarded by the exclusive lock can proceed only after the state becomes `exclusive`.
+ *       - Use `POST /api/projects/{projectId}/structuring/heartbeat` to refresh the lease and observe the transition from `draining` to `exclusive`.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               operationType:
+ *                 type: string
+ *                 description: Optional semantic label for the protected operation, for example `project.delete` or `scene.delete`.
+ *               operationContext:
+ *                 type: object
+ *                 description: Optional JSON object with contextual details for the protected operation.
+ *     responses:
+ *       200:
+ *         description: Structuring lock acquired or resumed for the caller session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 state:
+ *                   type: string
+ *                   enum: [draining, exclusive]
+ *                 projectId:
+ *                   type: string
+ *                 ownerSessionId:
+ *                   type: string
+ *                 fencingToken:
+ *                   type: integer
+ *                 heartbeatExpiresAt:
+ *                   type: string
+ *                   format: date-time
+ *                 remainingPresenceCount:
+ *                   type: integer
+ *       400:
+ *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: Only project managers can start structuring
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       404:
+ *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: Another active structuring lock already exists for a different session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Another active structuring lock already exists
+ *               code: structuring.lock_already_active
+ *               status: 409
+ */
 router.post('/:projectId/structuring/start', requireAuth, startStructuring);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/heartbeat:
+ *   post:
+ *     summary: Refresh structuring lock ownership
+ *     description: |
+ *       Refreshes the structuring lock lease for the authenticated owner session.
+ *
+ *       **Important notes:**
+ *       - The caller must already own the project structuring lock.
+ *       - A successful heartbeat may promote the lock state from `draining` to `exclusive` once remaining presence leases leave the project.
+ *       - The `fencingToken` from `structuring/start` must be echoed back on every heartbeat.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fencingToken
+ *             properties:
+ *               fencingToken:
+ *                 type: integer
+ *                 description: Current fencing token returned by `structuring/start` or the previous heartbeat.
+ *     responses:
+ *       200:
+ *         description: Structuring lock heartbeat accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 state:
+ *                   type: string
+ *                   enum: [draining, exclusive]
+ *                 projectId:
+ *                   type: string
+ *                 fencingToken:
+ *                   type: integer
+ *                 heartbeatExpiresAt:
+ *                   type: string
+ *                   format: date-time
+ *                 remainingPresenceCount:
+ *                   type: integer
+ *       400:
+ *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: The caller does not own the active structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: Fencing token mismatch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock fencing token mismatch
+ *               code: structuring.fencing_token_mismatch
+ *               status: 409
+ *       410:
+ *         description: Structuring lock expired or missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock expired or missing
+ *               code: structuring.lock_missing
+ *               status: 410
+ */
 router.post('/:projectId/structuring/heartbeat', requireAuth, heartbeatStructuring);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/stop:
+ *   post:
+ *     summary: Release structuring lock ownership
+ *     description: |
+ *       Releases the active structuring lock owned by the authenticated session.
+ *
+ *       **Important notes:**
+ *       - The caller must already own the project structuring lock.
+ *       - The `fencingToken` from `structuring/start` must be echoed back when stopping the lock.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fencingToken
+ *             properties:
+ *               fencingToken:
+ *                 type: integer
+ *                 description: Current fencing token returned by `structuring/start` or the previous heartbeat.
+ *     responses:
+ *       200:
+ *         description: Structuring lock released successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 projectId:
+ *                   type: string
+ *                 releasedAt:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: The caller does not own the active structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: Fencing token mismatch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock fencing token mismatch
+ *               code: structuring.fencing_token_mismatch
+ *               status: 409
+ *       410:
+ *         description: Structuring lock expired or missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock expired or missing
+ *               code: structuring.lock_missing
+ *               status: 410
+ */
 router.post('/:projectId/structuring/stop', requireAuth, stopStructuring);
 
 router.post('/:projectId/presence/start', requireAuth, startPresence);
