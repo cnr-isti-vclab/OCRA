@@ -5,7 +5,7 @@ import type {
   AnnotationSocialLockRequest,
   AnnotationStreamEvent,
 } from 'shared/annotation-events';
-import { getApiBase } from '../config/oauth';
+import { appendStoredSessionId, getApiBase } from '../config/oauth';
 
 export type AnnotationRealtimeState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
@@ -160,6 +160,8 @@ export class AnnotationEventsService {
     if (this.sceneId) {
       url.searchParams.set('sceneId', this.sceneId);
     }
+
+    appendStoredSessionId(url);
 
     const source = new EventSource(url.toString(), { withCredentials: true });
     this.eventSource = source;

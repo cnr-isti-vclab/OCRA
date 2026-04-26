@@ -87,5 +87,18 @@ export function getApiBase(): string {
   return 'http://localhost:3002';
 }
 
+export function appendStoredSessionId(url: URL): URL {
+  if (typeof window === 'undefined') {
+    return url;
+  }
+
+  const sessionId = window.localStorage.getItem('oauth_session_id');
+  if (sessionId && !url.searchParams.has('session_id')) {
+    url.searchParams.set('session_id', sessionId);
+  }
+
+  return url;
+}
+
 // Backend API base URL with /api suffix - uses dynamic getApiBase()
 export const API_BASE = `${getApiBase()}/api`;

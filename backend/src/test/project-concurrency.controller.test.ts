@@ -53,6 +53,7 @@ import { createApp } from '../app.js';
 import { closeAnnotationEventConnectionsForProject } from '../lib/annotation-events.js';
 import * as structuringEvents from '../lib/structuring-events.js';
 import { requireOwnedStructuringLock } from '../middleware/project-structuring-lock.js';
+import { heartbeatStructuringLock, startStructuringLock } from '../services/project-concurrency.service.js';
 
 const app = createApp();
 const prismaMock = {
@@ -137,6 +138,43 @@ describe.sequential('Project concurrency controller SSE endpoints', () => {
       operationType: 'scene.delete',
       operationContext: { sceneId: 'scene-1' },
     });
+    expect(closeAnnotationEventConnectionsForProject).not.toHaveBeenCalled();
+  });
+
+  it('closes annotation streams when structuring starts directly in exclusive state', async () => {
+    vi.mocked(startStructuringLock).mockResolvedValue({
+      state: 'exclusive',
+      projectId: 'project-1',
+      ownerSessionId: 'test-session',
+      fencingToken: 7,
+      heartbeatExpiresAt: new Date('2026-04-26T12:00:15.000Z'),
+      remainingPresenceCount: 0,
+    } as never);
+
+    const response = await request(app)
+      .post('/api/projects/project-1/structuring/start')
+      .send({ operationType: 'project.delete' })
+      .expect(200);
+
+    expect(response.body.state).toBe('exclusive');
+    expect(closeAnnotationEventConnectionsForProject).toHaveBeenCalledWith('project-1', 'test-session');
+  });
+
+  it('closes annotation streams when heartbeat promotes structuring to exclusive', async () => {
+    vi.mocked(heartbeatStructuringLock).mockResolvedValue({
+      state: 'exclusive',
+      projectId: 'project-1',
+      fencingToken: 7,
+      heartbeatExpiresAt: new Date('2026-04-26T12:00:15.000Z'),
+      remainingPresenceCount: 0,
+    } as never);
+
+    const response = await request(app)
+      .post('/api/projects/project-1/structuring/heartbeat')
+      .send({ fencingToken: 7 })
+      .expect(200);
+
+    expect(response.body.state).toBe('exclusive');
     expect(closeAnnotationEventConnectionsForProject).toHaveBeenCalledWith('project-1', 'test-session');
   });
 

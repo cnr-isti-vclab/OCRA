@@ -3,7 +3,7 @@ import type {
   StructuringDrainRequest,
   StructuringStreamEvent,
 } from 'shared/structuring-events';
-import { getApiBase } from '../config/oauth';
+import { appendStoredSessionId, getApiBase } from '../config/oauth';
 
 export type StructuringRealtimeState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
@@ -30,8 +30,8 @@ export class StructuringEventsService {
     this.closedByClient = false;
     this.handlers.onConnectionStateChange?.(this.hasConnectedOnce ? 'reconnecting' : 'connecting');
 
-    const url = `${getApiBase()}/api/projects/${this.projectId}/structuring/events`;
-    const source = new EventSource(url, { withCredentials: true });
+    const url = appendStoredSessionId(new URL(`${getApiBase()}/api/projects/${this.projectId}/structuring/events`));
+    const source = new EventSource(url.toString(), { withCredentials: true });
     this.eventSource = source;
 
     source.onopen = () => {

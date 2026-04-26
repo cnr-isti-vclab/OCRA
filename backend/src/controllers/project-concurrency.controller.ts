@@ -21,11 +21,19 @@ import {
   stopStructuringLock,
 } from '../services/project-concurrency.service.js';
 
-async function userHasProjectRole(userId: string, projectId: string, allowedRoles: RoleEnum[]) {
+async function userHasProjectAccess(userId: string, projectId: string, allowedRoles: RoleEnum[]) {
   const prisma = getPrismaClient();
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return false;
   if (user.sys_admin) return true;
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { public: true },
+  });
+  if (project?.public) {
+    return true;
+  }
 
   const role = await prisma.projectRole.findFirst({
     where: {
@@ -53,7 +61,7 @@ async function requireProjectRole(
     return null;
   }
 
-  const allowed = await userHasProjectRole(req.user.id, projectId, allowedRoles);
+  const allowed = await userHasProjectAccess(req.user.id, projectId, allowedRoles);
   if (!allowed) {
     sendApiError(req, res, {
       status: 403,
@@ -302,8 +310,6 @@ export async function notifyStructuringDrainingStart(req: Request, res: Response
     });
   }
 
-  closeAnnotationEventConnectionsForProject(projectId, auth.sessionId);
-
   return res.status(202).json({ success: true, event: result.value });
 }
 
@@ -406,6 +412,9 @@ export async function startStructuring(req: Request, res: Response) {
       heartbeatExpiresAt: result.heartbeatExpiresAt,
       remainingPresenceCount: result.remainingPresenceCount,
     });
+    if (result.state === 'exclusive') {
+      closeAnnotationEventConnectionsForProject(projectId, auth.sessionId);
+    }
     publishProjectCatalogChanged(projectId, 'updated');
   } catch (error) {
     if (isKnownApiError(error)) {
@@ -462,6 +471,9 @@ export async function heartbeatStructuring(req: Request, res: Response) {
       heartbeatExpiresAt: result.heartbeatExpiresAt,
       remainingPresenceCount: result.remainingPresenceCount,
     });
+    if (result.state === 'exclusive') {
+      closeAnnotationEventConnectionsForProject(projectId, auth.sessionId);
+    }
   } catch (error) {
     if (isKnownApiError(error)) {
       return sendApiError(req, res, {

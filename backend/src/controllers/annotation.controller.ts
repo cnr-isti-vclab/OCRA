@@ -55,16 +55,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-async function userHasProjectRole(userSub: string, projectId: string, allowedRoles: RoleEnum[]) {
+async function userHasProjectAccess(userId: string, projectId: string, allowedRoles: RoleEnum[]) {
   const prisma = getPrismaClient();
-  const user = await prisma.user.findUnique({ where: { sub: userSub } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return false;
   if (user.sys_admin) return true;
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { public: true },
+  });
+  if (project?.public) {
+    return true;
+  }
 
   const role = await prisma.projectRole.findFirst({
     where: {
       projectId,
-      userId: user.id,
+      userId,
       role: { in: allowedRoles },
     },
   });
@@ -88,7 +96,16 @@ async function requireProjectRole(
     return null;
   }
 
-  const allowed = await userHasProjectRole(currentUser.sub, projectId, allowedRoles);
+  if (!currentUser.id) {
+    sendApiError(req, res, {
+      status: 401,
+      code: 'common.authentication_required',
+      error: 'Authentication required',
+    });
+    return null;
+  }
+
+  const allowed = await userHasProjectAccess(currentUser.id, projectId, allowedRoles);
   if (!allowed) {
     sendApiError(req, res, {
       status: 403,

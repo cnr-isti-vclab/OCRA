@@ -1,7 +1,7 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getApiBase } from '../config/oauth';
+import { appendStoredSessionId, getApiBase } from '../config/oauth';
 
 /**
  * PROJECTS COMPONENT
@@ -122,7 +122,10 @@ export default function Projects() {
   }, [fetchData]);
 
   useEffect(() => {
-    const source = new EventSource(`${getApiBase()}/api/projects/events`, { withCredentials: true });
+    const source = new EventSource(
+      appendStoredSessionId(new URL(`${getApiBase()}/api/projects/events`)).toString(),
+      { withCredentials: true },
+    );
 
     const handleCatalogChanged = () => {
       void fetchData({ showLoading: false });
