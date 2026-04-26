@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  closeAnnotationEventConnectionsForProject,
   publishAnnotationMutation,
   publishAnnotationSocialLockStart,
   resetAnnotationEventBrokerForTests,
@@ -24,6 +25,10 @@ function createMockResponse() {
       write: vi.fn((chunk: string) => {
         writes.push(chunk);
         return true;
+      }),
+      end: vi.fn(function end(this: any) {
+        (this as any).writableEnded = true;
+        return this;
       }),
     },
   };
@@ -166,5 +171,42 @@ describe.sequential('annotation event broker', () => {
     ownerSubscription.close();
 
     expect(watcherClient.writes.join('')).toContain('annotation.social_lock.stopped');
+  });
+
+  it('force-closes non-owner annotation streams for the locked project', () => {
+    const ownerClient = createMockResponse();
+    const watcherClient = createMockResponse();
+    const otherProjectClient = createMockResponse();
+
+    subscribeToAnnotationEvents({
+      projectId: 'project-1',
+      sceneId: 'scene-1',
+      sessionId: 'session-owner',
+      userId: 'user-1',
+      username: 'owner',
+      response: ownerClient.response as never,
+    });
+    subscribeToAnnotationEvents({
+      projectId: 'project-1',
+      sceneId: 'scene-1',
+      sessionId: 'session-watcher',
+      userId: 'user-2',
+      username: 'watcher',
+      response: watcherClient.response as never,
+    });
+    subscribeToAnnotationEvents({
+      projectId: 'project-2',
+      sceneId: 'scene-9',
+      sessionId: 'session-other',
+      userId: 'user-3',
+      username: 'other-project',
+      response: otherProjectClient.response as never,
+    });
+
+    closeAnnotationEventConnectionsForProject('project-1', 'session-owner');
+
+    expect(ownerClient.response.end).not.toHaveBeenCalled();
+    expect(watcherClient.response.end).toHaveBeenCalledTimes(1);
+    expect(otherProjectClient.response.end).not.toHaveBeenCalled();
   });
 });

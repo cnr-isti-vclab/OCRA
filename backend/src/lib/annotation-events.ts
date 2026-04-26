@@ -102,6 +102,10 @@ function closeAnnotationEventConnection(streamId: string) {
   clearInterval(connection.heartbeat);
   connections.delete(streamId);
 
+  if (!connection.response.writableEnded) {
+    connection.response.end();
+  }
+
   const stoppedLocks = Array.from(socialLocks.values()).filter((lock) => lock.streamId === streamId);
   for (const lock of stoppedLocks) {
     socialLocks.delete(createSocialLockKey(lock));
@@ -114,6 +118,16 @@ function closeAnnotationEventConnection(streamId: string) {
       lock.projectId,
       lock.sceneId,
     );
+  }
+}
+
+export function closeAnnotationEventConnectionsForProject(projectId: string, ownerSessionId: string) {
+  for (const connection of connections.values()) {
+    if (connection.projectId !== projectId || connection.sessionId === ownerSessionId) {
+      continue;
+    }
+
+    closeAnnotationEventConnection(connection.streamId);
   }
 }
 

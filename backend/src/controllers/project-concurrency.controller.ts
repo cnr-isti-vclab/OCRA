@@ -3,6 +3,7 @@ import { ProjectConcurrencyMode, RoleEnum } from '@prisma/client';
 import { getPrismaClient } from '../../db.js';
 import { sendApiError } from '../lib/api-error.js';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
+import { closeAnnotationEventConnectionsForProject } from '../lib/annotation-events.js';
 import {
   publishStructuringDrainingStart,
   publishStructuringDrainingStop,
@@ -300,6 +301,8 @@ export async function notifyStructuringDrainingStart(req: Request, res: Response
       details: { brokerCode: result.code },
     });
   }
+
+  closeAnnotationEventConnectionsForProject(projectId, auth.sessionId);
 
   return res.status(202).json({ success: true, event: result.value });
 }

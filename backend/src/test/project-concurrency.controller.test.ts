@@ -36,6 +36,10 @@ vi.mock('../lib/structuring-events.js', () => ({
   subscribeToStructuringEvents: vi.fn(),
 }));
 
+vi.mock('../lib/annotation-events.js', () => ({
+  closeAnnotationEventConnectionsForProject: vi.fn(),
+}));
+
 vi.mock('../middleware/project-structuring-lock.js', async () => {
   const actual = await vi.importActual<typeof import('../middleware/project-structuring-lock.js')>('../middleware/project-structuring-lock.js');
   return {
@@ -46,6 +50,7 @@ vi.mock('../middleware/project-structuring-lock.js', async () => {
 
 import { getPrismaClient } from '../../db.js';
 import { createApp } from '../app.js';
+import { closeAnnotationEventConnectionsForProject } from '../lib/annotation-events.js';
 import * as structuringEvents from '../lib/structuring-events.js';
 import { requireOwnedStructuringLock } from '../middleware/project-structuring-lock.js';
 
@@ -132,6 +137,7 @@ describe.sequential('Project concurrency controller SSE endpoints', () => {
       operationType: 'scene.delete',
       operationContext: { sceneId: 'scene-1' },
     });
+    expect(closeAnnotationEventConnectionsForProject).toHaveBeenCalledWith('project-1', 'test-session');
   });
 
   it('rejects invalid structuring draining payloads before touching the broker', async () => {
