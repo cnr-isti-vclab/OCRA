@@ -57,6 +57,33 @@ ensure_started() {
   fi
 }
 
+wait_for_postgres() {
+  local container_name="$1"
+
+  for _ in $(seq 1 30); do
+    if docker exec "${container_name}" pg_isready -U ocra_user -d ocra >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "❌ PostgreSQL did not become ready in time." >&2
+  exit 1
+}
+
+ensure_postgres_database() {
+  local container_name="$1"
+  local database_name="$2"
+
+  if docker exec "${container_name}" psql -U ocra_user -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${database_name}'" | grep -q 1; then
+    echo "  - PostgreSQL database ${database_name} already exists"
+    return 0
+  fi
+
+  echo "  - Creating PostgreSQL database ${database_name}..."
+  docker exec "${container_name}" psql -U ocra_user -d postgres -c "CREATE DATABASE ${database_name} OWNER ocra_user" >/dev/null
+}
+
 POSTGRES_NAME="bare-ocra-postgres"
 assert_port_available_for_container "${POSTGRES_NAME}" 5432 "bare PostgreSQL"
 
@@ -93,6 +120,10 @@ if ! container_exists "${POSTGRES_NAME}"; then
 else
   ensure_started "${POSTGRES_NAME}"
 fi
+
+echo "  - Waiting for PostgreSQL readiness..."
+wait_for_postgres "${POSTGRES_NAME}"
+ensure_postgres_database "${POSTGRES_NAME}" "ocra_test"
 
 MONGO_NAME="bare-ocra-mongo"
 assert_port_available_for_container "${MONGO_NAME}" 27017 "bare MongoDB"

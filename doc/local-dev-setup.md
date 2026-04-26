@@ -109,6 +109,7 @@ npm run services:stop
 
 This will create or start:
 - `bare-ocra-postgres` with `ocra_user:ocra_pass@localhost:5432/ocra`
+- PostgreSQL test database `ocra_test` owned by `ocra_user`
 - `bare-ocra-mongo` at `localhost:27017` with single-node replica set `rs0`
 - `bare-keycloak` at `localhost:8081`
 
