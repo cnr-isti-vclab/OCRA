@@ -9,6 +9,8 @@ import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 
 const STRUCTURING_LOCK_TTL_MS = 15_000;
 const PROJECT_PRESENCE_TTL_MS = 15_000;
+const SERIALIZABLE_TRANSACTION_MAX_RETRIES = 3;
+const SERIALIZABLE_TRANSACTION_ERROR_MESSAGE = /write conflict|deadlock|could not serialize|serialization failure/i;
 
 type JsonObject = Record<string, unknown>;
 
@@ -48,6 +50,39 @@ interface ActiveLockSnapshot {
   state: StructuringLockState;
   fencingToken: number;
   heartbeatExpiresAt: Date;
+}
+
+function isRetryableSerializableTransactionError(error: unknown) {
+  if (error instanceof ApiError) {
+    return false;
+  }
+
+  if (
+    typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && error.code === 'P2034'
+  ) {
+    return true;
+  }
+
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return SERIALIZABLE_TRANSACTION_ERROR_MESSAGE.test(message);
+}
+
+async function runSerializableTransactionWithRetry<T>(operation: () => Promise<T>) {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await operation();
+    } catch (error) {
+      attempt += 1;
+      if (!isRetryableSerializableTransactionError(error) || attempt >= SERIALIZABLE_TRANSACTION_MAX_RETRIES) {
+        throw error;
+      }
+    }
+  }
 }
 
 function buildPresenceLeaseKey(input: {
@@ -271,7 +306,7 @@ export async function startStructuringLock(input: StructuringStartInput) {
   await assertProjectManagerAccess(input.projectId, input.userId, input.isSysAdmin);
   const prisma = getPrismaClient();
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(() => prisma.$transaction(async (tx) => {
     const now = new Date();
     await deleteExpiredPresenceLeases(tx, input.projectId, now);
 
@@ -332,13 +367,13 @@ export async function startStructuringLock(input: StructuringStartInput) {
     return promoteStructuringLockIfReady(tx, input.projectId, input.sessionId, now);
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-  });
+  }));
 }
 
 export async function heartbeatStructuringLock(input: StructuringHeartbeatInput) {
   const prisma = getPrismaClient();
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(() => prisma.$transaction(async (tx) => {
     const now = new Date();
     await deleteExpiredPresenceLeases(tx, input.projectId, now);
 
@@ -382,13 +417,13 @@ export async function heartbeatStructuringLock(input: StructuringHeartbeatInput)
     return promoteStructuringLockIfReady(tx, input.projectId, input.sessionId, now);
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-  });
+  }));
 }
 
 export async function stopStructuringLock(input: StructuringStopInput) {
   const prisma = getPrismaClient();
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(() => prisma.$transaction(async (tx) => {
     const now = new Date();
     const lock = await tx.structuringLock.findUnique({
       where: { projectId: input.projectId },
@@ -437,14 +472,14 @@ export async function stopStructuringLock(input: StructuringStopInput) {
     };
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-  });
+  }));
 }
 
 export async function startProjectPresence(input: PresenceInput) {
   await assertProjectAccess(input.projectId, input.userId, input.isSysAdmin);
   const prisma = getPrismaClient();
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(() => prisma.$transaction(async (tx) => {
     const now = new Date();
     await deleteExpiredPresenceLeases(tx, input.projectId, now);
     await assertProjectNotLockedByOtherSession(tx, input.projectId, input.sessionId, now);
@@ -458,7 +493,7 @@ export async function startProjectPresence(input: PresenceInput) {
     };
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-  });
+  }));
 }
 
 export async function heartbeatProjectPresence(input: PresenceInput) {
@@ -469,7 +504,7 @@ export async function stopProjectPresence(input: PresenceInput) {
   await assertProjectAccess(input.projectId, input.userId, input.isSysAdmin);
   const prisma = getPrismaClient();
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(() => prisma.$transaction(async (tx) => {
     const now = new Date();
     await deleteExpiredPresenceLeases(tx, input.projectId, now);
 
@@ -496,7 +531,7 @@ export async function stopProjectPresence(input: PresenceInput) {
     };
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-  });
+  }));
 }
 
 export function isKnownApiError(error: unknown): error is ApiError {
