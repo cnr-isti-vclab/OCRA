@@ -469,7 +469,7 @@ The first API surface should stay narrow and explicit.
 
 ## Team Migration Command
 
-When a developer is authoring a new committed Prisma migration for this model, use:
+When a developer is authoring a new committed Prisma migration, use `prisma migrate dev --create-only` to generate the migration artifacts locally before review and commit. For example:
 
 ```bash
 cd /home/<user>/git/OCRA/backend && npx prisma migrate dev --name add_structuring_lock_models --create-only
@@ -477,7 +477,7 @@ cd /home/<user>/git/OCRA/backend && npx prisma migrate dev --name add_structurin
 
 This creates the migration artifacts that can then be reviewed and committed.
 
-When the Prisma migration for `StructuringLock` and `ProjectPresenceLease` is committed to the repository, every team member must apply it to the local PostgreSQL database after pulling the updated branch.
+When one or more Prisma migrations have already been committed to the repository, every team member must apply them to the local PostgreSQL database after pulling the updated branch.
 
 Recommended command:
 
@@ -490,7 +490,7 @@ This command:
 - applies all committed Prisma migrations to the local database
 - regenerates the Prisma client so that the new models are available in the backend code
 
-For OCRA this is the standard team-side command to run after a schema change has already been created and committed by whoever prepared the migration.
+For OCRA this is the standard team-side command to run after a schema change has already been created and committed by whoever prepared the migration. This is the path to use for any committed migration, including later schema changes such as user lifecycle fields, not only the initial structuring-lock models.
 
 ### Structuring Lock APIs
 
