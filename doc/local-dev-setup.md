@@ -295,6 +295,14 @@ This uses workspaces configuration to install dependencies for both `frontend` a
 
 **Important:** The PostgreSQL container automatically creates the `ocra` database when first started (via `POSTGRES_DB=ocra` environment variable). Prisma then creates the tables inside this existing database.
 
+When you pull a branch that contains committed Prisma migrations, use this team command from the repository backend folder:
+
+```bash
+cd /home/<user>/git/OCRA/backend && npx prisma migrate deploy && npx prisma generate
+```
+
+Use `migrate deploy` for shared committed migrations. Do not replace this with `db push` when the schema change is meant to be tracked and shared with the rest of the team.
+
 From the repo root (using npm workspace scripts):
 
 ```bash

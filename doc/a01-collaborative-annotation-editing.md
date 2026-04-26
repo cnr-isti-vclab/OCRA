@@ -13,6 +13,8 @@ This document defines the concurrency model and collaborative editing strategy f
 
 The OCC and annotation mutation rules described here match the current implementation. The sections about Social Lock, read-session coordination, and real-time synchronisation are forward-looking architecture notes and are not yet implemented as backend API surface.
 
+The dedicated design for project-wide exclusive structuring lock, persistent presence tracking, and future structuring APIs is documented separately in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
+
 Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same channel as the Social Lock, while remaining a separate concept.
 
 For annotation editing, the model is intentionally stateless: there are no long-lived database locks, no server-side session ownership of records, and no heartbeat infrastructure. Consistency is guaranteed at commit time through atomic conditional writes. This does not apply to structuring operations, which follow a different concurrency model.
@@ -26,6 +28,8 @@ OCRA distinguishes two fundamentally different categories of operations, each wi
 ### Structuring Operations
 
 Structuring operations modify the project's organizational structure: creating or deleting scenes, adding or removing digital assets from scenes, repositioning assets, and publishing HDT data. These operations can change the reference spaces and containment relationships on which annotation geometry and data depend.
+
+In the adopted design, project-wide structuring coordination is handled by a persistent exclusive lock plus project presence leases. The detailed model, state machine, invariants, and minimal API surface are documented in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
 
 Because structuring operations may invalidate annotations (e.g. deleting a scene that annotations reference), they require **exclusive access**: no other user may read or edit the project while a structuring operation is in progress.
 

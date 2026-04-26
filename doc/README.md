@@ -19,6 +19,7 @@ This page is the index for technical documentation in `doc/`.
 - [OCRA Use Case](./ocra-use-case.md)
 - [00 Annotation Model](./00-annotation-model.md)
 - [01 Collaborative Annotation Editing](./collaborative-annotation-editing.md)
+- [04 Structuring Lock and Project Presence](./a04-structuring-lock.md)
 - [02 Annotation API](./annotation-api.md)
 
 ## Archived / Outdated
