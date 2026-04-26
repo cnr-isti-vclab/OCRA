@@ -60,11 +60,6 @@ router.use('/:projectId', enforceStructuringLock);
  *       - sessionCookie: []
  *     parameters:
  *       - in: path
- *       - HDT
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
  *         name: projectId
  *         required: true
  *         schema:

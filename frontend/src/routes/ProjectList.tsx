@@ -1,5 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 
@@ -22,6 +22,7 @@ interface Project {
   name: string;
   description?: string;
   public: boolean;
+  activeStructuringLock?: boolean;
   createdAt: string;
   updatedAt: string;
   manager?: {
@@ -65,54 +66,79 @@ export default function Projects() {
   const [newProjectPublic, setNewProjectPublic] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
+  const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading ?? true;
+
+    try {
+      if (showLoading) {
         setLoading(true);
-        const sessionId = localStorage.getItem('oauth_session_id');
+      }
+      setError(null);
+      const sessionId = localStorage.getItem('oauth_session_id');
 
-        if (!sessionId) {
-          throw new Error('No session found');
-        }
+      if (!sessionId) {
+        throw new Error('No session found');
+      }
 
-        // Fetch current user information
-        const userResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
-          credentials: 'include', // Include session cookies
-          headers: {
-            'Authorization': `Bearer ${sessionId}`,
-            'Content-Type': 'application/json',
-          },
-        });
+      // Fetch current user information
+      const userResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          setUser(userData.user);
-        }
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        setUser(userData.user);
+      }
 
-        // Fetch projects
-        const response = await fetch(`${getApiBase()}/api/projects`, {
-          credentials: 'include', // Include session cookies
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      const response = await fetch(`${getApiBase()}/api/projects`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects: ${response.status}`);
-        }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
 
-        const data = await response.json();
-        setProjects(data.projects || data || []);
-      } catch (e: any) {
-        console.error('Failed to fetch data:', e);
-        setError(e?.message ?? String(e));
-      } finally {
+      const data = await response.json();
+      setProjects(data.projects || data || []);
+    } catch (e: any) {
+      console.error('Failed to fetch data:', e);
+      setError(e?.message ?? String(e));
+    } finally {
+      if (showLoading) {
         setLoading(false);
       }
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const source = new EventSource(`${getApiBase()}/api/projects/events`, { withCredentials: true });
+
+    const handleCatalogChanged = () => {
+      void fetchData({ showLoading: false });
     };
 
-    fetchData();
-  }, []);
+    source.addEventListener('project.catalog.changed', handleCatalogChanged);
+
+    source.onerror = () => {
+      console.debug('Project catalog SSE disconnected; browser will retry automatically.');
+    };
+
+    return () => {
+      source.removeEventListener('project.catalog.changed', handleCatalogChanged);
+      source.close();
+    };
+  }, [fetchData]);
 
   const openCreateProjectModal = () => {
     setCreateError(null);
@@ -209,6 +235,10 @@ export default function Projects() {
       const newMap3D: Record<string, boolean> = {};
       const newHdtMap: Record<string, boolean> = {};
       await Promise.all(projects.map(async (project) => {
+        if (project.activeStructuringLock) {
+          return;
+        }
+
         try {
           const res = await fetch(`${getApiBase()}/api/projects/${project.id}/hdt`, {
             credentials: 'include',
@@ -221,6 +251,10 @@ export default function Projects() {
             const has2DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'rti') || false;
             newMap3D[project.id] = has3DAssets;
             newMap2D[project.id] = has2DAssets;
+          } else if (res.status === 423) {
+            // Locked projects are handled by activeStructuringLock in the catalog state.
+            // Keep the last known asset availability instead of degrading to false.
+            return;
           } else {
             newMap3D[project.id] = false;
             newMap2D[project.id] = false;
@@ -232,9 +266,9 @@ export default function Projects() {
           newHdtMap[project.id] = false;
         }
       }));
-      setHas3DAssetsMap(newMap3D);
-      setHas2DAssetsMap(newMap2D);
-      setHasHdtMap(newHdtMap);
+      setHas3DAssetsMap((current) => ({ ...current, ...newMap3D }));
+      setHas2DAssetsMap((current) => ({ ...current, ...newMap2D }));
+      setHasHdtMap((current) => ({ ...current, ...newHdtMap }));
     };
     fetchAssetStatus();
   }, [projects]);
@@ -326,14 +360,17 @@ export default function Projects() {
                         </div>
                       )}
                       {!project.public && (
-                        <span className="badge bg-danger">Private</span>
+                        <span className="badge bg-danger ms-1">Private</span>
+                      )}
+                      {project.activeStructuringLock && (
+                        <span className="badge bg-warning text-dark ms-1">Lock</span>
                       )}
                     </div>
                   </div>
 
                   {/* Bottom Section - Action Buttons */}
                   <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }}>
-                    {has3DAssetsMap[project.id] ? (
+                    {has3DAssetsMap[project.id] && !project.activeStructuringLock ? (
                       <Link
                         to={`/projects/${project.id}`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -344,12 +381,12 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title="No 3D assets available"
+                        title={project.activeStructuringLock ? 'Project temporarily locked for structuring' : 'No 3D assets available'}
                       >
                         3D
                       </button>
                     )}
-                    {has2DAssetsMap[project.id] ? (
+                    {has2DAssetsMap[project.id] && !project.activeStructuringLock ? (
                       <Link
                         to={`/projects/${project.id}?mode=2d`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -360,12 +397,20 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title="No 2D assets available"
+                        title={project.activeStructuringLock ? 'Project temporarily locked for structuring' : 'No 2D assets available'}
                       >
                         2D
                       </button>
                     )}
-                    {hasHdtMap[project.id] === false && managerMap[project.id] ? (
+                    {project.activeStructuringLock ? (
+                      <button
+                        className="btn btn-secondary btn-sm d-flex align-items-center justify-content-center gap-1"
+                        disabled
+                        title="Project temporarily locked for structuring"
+                      >
+                        HDT
+                      </button>
+                    ) : hasHdtMap[project.id] === false && managerMap[project.id] ? (
                       <Link
                         to={`/projects/${project.id}/edit`}
                         className="btn btn-outline-warning btn-sm d-flex align-items-center justify-content-center gap-1"

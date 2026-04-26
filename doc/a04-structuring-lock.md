@@ -158,6 +158,8 @@ The lock has already been acquired by one session, but other presence leases may
 - new non-owner project access is rejected
 - existing non-owner sessions are expected to leave voluntarily or expire via heartbeat timeout
 
+This restriction is project-scoped. It does not disable the affected user globally and does not prevent that same user from opening or working on other projects for which no active structuring lock exists.
+
 ### `exclusive`
 
 The draining phase is complete. The lock owner is the only active session allowed to operate within the project scope until the lock is released or expires.
@@ -404,6 +406,8 @@ The intended enforcement rules are:
 1. if no active lock exists, normal project access is allowed
 2. if an active lock exists and the request session is the owner, access is allowed
 3. if an active lock exists and the request session is not the owner, project-scoped access is rejected
+
+The rejection is intentionally limited to the locked project scope. It must not be interpreted as a global suspension of the user session across the whole application.
 
 For the first implementation, `draining` and `exclusive` should both reject non-owner project access. This is simpler and avoids ambiguous intermediate behaviour.
 
@@ -698,6 +702,7 @@ The following files are intended as the starting point for frontend adoption:
 - `frontend/src/services/ProjectStructuringCoordinator.ts`
 - `frontend/src/services/StructuringEventsService.ts`
 - `frontend/src/services/StructuringDrainingNotifier.ts`
+- `frontend/src/hooks/useProjectStructuringAwareness.ts`
 
 This scaffold no longer relies on the annotation SSE channel for structuring notifications.
 
@@ -733,6 +738,8 @@ It provides a `runExclusiveOperation(...)` helper that:
 
 This lets the feature team plug one irreversible operation into a stable acquire-heartbeat-release flow instead of reimplementing it ad hoc inside page components.
 
+It also now exposes `acquireExclusiveLock(...)` for UI flows where the lock must be acquired explicitly first and the destructive action is enabled only after the state becomes `exclusive`.
+
 #### `StructuringEventsService`
 
 Dedicated SSE client for project-wide structuring notifications.
@@ -767,6 +774,43 @@ The intended adoption pattern is:
 3. when a privileged user wants to execute a structuring commit, reuse that same `StructuringEventsService` instance as the notification emitter
 4. wrap the irreversible backend call with `ProjectStructuringCoordinator.runExclusiveOperation(...)`
 5. during draining, surface a UI message to non-owner sessions and stop their project presence when the user leaves the page or accepts the prompt
+
+### Concrete Example Now Implemented
+
+The repository now contains one concrete end-to-end example that the frontend team can extend to other structuring operations.
+
+#### Manager Side: Project Delete in Settings
+
+File:
+
+- `frontend/src/routes/EditProject.tsx`
+
+Implemented behaviour:
+
+- a dedicated structuring control card is shown in the left column
+- the manager can toggle structuring on for the `project.delete` operation
+- the page acquires the lock, emits draining start, and waits until the lock becomes `exclusive`
+- the `Delete Project` button remains disabled until the exclusive lock is available
+- once the lock is exclusive, the delete confirmation modal can execute the real project deletion
+
+This is intentionally an example of the “manual pre-acquire” pattern, which is useful when the UI must make lock state visible before allowing the destructive action.
+
+#### Other User Side: Warning While Working in the Project
+
+File:
+
+- `frontend/src/routes/ProjectPage.tsx`
+
+Implemented behaviour:
+
+- the page registers project presence in `viewing` mode
+- the page subscribes to project-wide structuring SSE events
+- when another session starts structuring drain, the current user sees a warning banner
+- the banner explicitly states that only the current project is temporarily unavailable
+- the user is asked to save work and leave the locked project, while remaining free to continue working on other projects
+- a `Save and Leave This Project` action navigates the user back to the project list
+
+This demonstrates the intended user-facing contract for draining without forcing a large frontend refactor.
 
 Illustrative example:
 

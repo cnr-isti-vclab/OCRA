@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
 import { LoadingProgress } from 'three-presenter';
 import { OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer.tsx';
@@ -10,6 +11,7 @@ import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
+import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import AnnotationPanel from './components/AnnotationPanel';
 import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
 
@@ -37,6 +39,7 @@ interface HDTModelMeta {
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || '3d';
 
@@ -76,6 +79,16 @@ export default function ProjectPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
+  const {
+    activeDrainingEvent,
+    clearDrainingEvent,
+    presenceError,
+  } = useProjectStructuringAwareness({
+    projectId,
+    mode: 'viewing',
+    sceneId: selectedSceneId,
+    enabled: !!projectId,
+  });
 
   const loadSelectedScene = useCallback(async () => {
     if (!projectId || !selectedSceneId) return;
@@ -655,6 +668,37 @@ export default function ProjectPage() {
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
         {/* Project Header */}
         <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
+          {(activeDrainingEvent || presenceError) && (
+            <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <strong>Structuring in progress.</strong>{' '}
+                {activeDrainingEvent
+                  ? 'Another session is preparing a project-wide structuring operation. Save your work and leave this project before draining completes. Other projects remain available.'
+                  : presenceError}
+                {activeDrainingEvent?.operationType && (
+                  <div className="small mt-2 text-muted">
+                    Operation: {activeDrainingEvent.operationType}
+                  </div>
+                )}
+              </div>
+              <div className="d-flex gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => clearDrainingEvent()}
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-warning btn-sm"
+                  onClick={() => navigate('/projects')}
+                >
+                  Save and Leave This Project
+                </button>
+              </div>
+            </div>
+          )}
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center">
               <h1 className="h3 mb-0 me-3">{project.name}</h1>

@@ -1,7 +1,19 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
+import {
+  ProjectStructuringCoordinator,
+  type HeldStructuringLock,
+} from '../services/ProjectStructuringCoordinator';
+import { ProjectStructuringService } from '../services/ProjectStructuringService';
+import {
+  StructuringDrainingNotifier,
+} from '../services/StructuringDrainingNotifier';
+import {
+  StructuringEventsService,
+  type StructuringRealtimeState,
+} from '../services/StructuringEventsService';
 import {
   getPhysicalObjectSourceAdapter,
   physicalObjectSourceAdapters,
@@ -115,6 +127,24 @@ export default function EditProject() {
   
   // Delete confirmation state
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [structuringEnabled, setStructuringEnabled] = useState(false);
+  const [structuringStatus, setStructuringStatus] = useState<'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing'>('inactive');
+  const [structuringError, setStructuringError] = useState<string | null>(null);
+  const [structuringRealtimeState, setStructuringRealtimeState] = useState<StructuringRealtimeState>('idle');
+  const heldLockRef = useRef<HeldStructuringLock | null>(null);
+
+  const structuringService = useMemo(
+    () => (projectId ? new ProjectStructuringService(projectId) : null),
+    [projectId],
+  );
+  const structuringEvents = useMemo(
+    () => (projectId ? new StructuringEventsService(projectId) : null),
+    [projectId],
+  );
+  const structuringCoordinator = useMemo(
+    () => (projectId && structuringService ? new ProjectStructuringCoordinator(projectId, structuringService) : null),
+    [projectId, structuringService],
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -209,6 +239,34 @@ export default function EditProject() {
       fetchData();
     }
   }, [projectId]);
+
+  useEffect(() => {
+    if (!structuringEvents) {
+      setStructuringRealtimeState('idle');
+      return;
+    }
+
+    structuringEvents.connect({
+      onConnectionStateChange: setStructuringRealtimeState,
+    });
+
+    return () => {
+      structuringEvents.disconnect();
+    };
+  }, [structuringEvents]);
+
+  useEffect(() => {
+    return () => {
+      const heldLock = heldLockRef.current;
+      if (!heldLock) {
+        return;
+      }
+
+      void heldLock.release().catch((error) => {
+        console.debug('Structuring lock release failed during cleanup:', error);
+      });
+    };
+  }, []);
 
   // Helper function to get display name for users
   const getUserDisplayName = (user: SimpleUser): string => {
@@ -396,9 +454,78 @@ export default function EditProject() {
     setPendingManagerId('');
   };
 
+  const handleStructuringToggle = async (enabled: boolean) => {
+    if (!structuringCoordinator || !structuringEvents || !projectId) {
+      return;
+    }
+
+    setStructuringError(null);
+
+    if (!enabled) {
+      const heldLock = heldLockRef.current;
+      if (!heldLock) {
+        setStructuringEnabled(false);
+        setStructuringStatus('inactive');
+        return;
+      }
+
+      try {
+        setStructuringStatus('releasing');
+        await heldLock.release();
+        heldLockRef.current = null;
+        setStructuringEnabled(false);
+        setStructuringStatus('inactive');
+      } catch (error) {
+        console.error('Failed to release structuring lock:', error);
+        setStructuringError(error instanceof Error ? error.message : 'Failed to release structuring lock');
+        setStructuringEnabled(true);
+        setStructuringStatus('exclusive');
+      }
+      return;
+    }
+
+    if (structuringRealtimeState !== 'connected') {
+      setStructuringError('Structuring event channel is not connected yet. Please retry in a moment.');
+      setStructuringEnabled(false);
+      return;
+    }
+
+    try {
+      setStructuringEnabled(true);
+      setStructuringStatus('acquiring');
+      const drainingNotifier = new StructuringDrainingNotifier(structuringEvents);
+      const heldLock = await structuringCoordinator.acquireExclusiveLock(
+        {
+          operationType: 'project.delete',
+          operationContext: { projectId },
+          drainingNotifier,
+          onStateChange: (lock) => {
+            setStructuringStatus(lock.state === 'exclusive' ? 'exclusive' : 'draining');
+          },
+        },
+      );
+
+      heldLockRef.current = heldLock;
+      setStructuringStatus('exclusive');
+    } catch (error) {
+      console.error('Failed to acquire structuring lock:', error);
+      heldLockRef.current = null;
+      setStructuringEnabled(false);
+      setStructuringStatus('inactive');
+      setStructuringError(error instanceof Error ? error.message : 'Failed to acquire structuring lock');
+    }
+  };
+
   const handleDelete = async () => {
+    if (!heldLockRef.current) {
+      setStructuringError('Enable structuring and wait for the exclusive lock before deleting the project.');
+      setShowDeleteConfirmation(false);
+      return;
+    }
+
     try {
       setDeleting(true);
+      setStructuringError(null);
       const sessionId = localStorage.getItem('oauth_session_id');
 
       const response = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
@@ -415,6 +542,7 @@ export default function EditProject() {
         throw new Error(errorData.error || 'Failed to delete project');
       }
 
+      heldLockRef.current = null;
       // Success - navigate back to projects list
       navigate('/projects');
     } catch (e: any) {
@@ -502,8 +630,65 @@ export default function EditProject() {
 
   return (
     <div className="container py-5">
-  <h1 className="mb-4 text-dark">Edit Heritage Digital Twin Project</h1>
-      <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
+      <h1 className="mb-4 text-dark">Edit Heritage Digital Twin Project</h1>
+      <div className="row g-4 align-items-start">
+        <div className="col-lg-4">
+          <div className="card shadow-sm">
+            <div className="card-body">
+              <h2 className="h5 mb-3 text-dark">Structuring Example</h2>
+              <p className="text-muted small mb-3">
+                Use this toggle to acquire the project structuring lock before a destructive operation.
+                The Delete action is enabled only after the lock reaches exclusive state.
+              </p>
+
+              <div className="form-check form-switch mb-3">
+                <input
+                  id="structuringToggle"
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  checked={structuringEnabled}
+                  onChange={(e) => void handleStructuringToggle(e.target.checked)}
+                  disabled={deleting || structuringStatus === 'acquiring' || structuringStatus === 'releasing'}
+                />
+                <label htmlFor="structuringToggle" className="form-check-label fw-bold text-dark">
+                  Enable structuring for project delete
+                </label>
+              </div>
+
+              <div className="small mb-2">
+                <strong>Structuring channel:</strong> {structuringRealtimeState}
+              </div>
+              <div className="small mb-3">
+                <strong>Lock state:</strong>{' '}
+                {structuringStatus === 'inactive' && 'inactive'}
+                {structuringStatus === 'acquiring' && 'acquiring lock'}
+                {structuringStatus === 'draining' && 'draining other sessions'}
+                {structuringStatus === 'exclusive' && 'exclusive lock acquired'}
+                {structuringStatus === 'releasing' && 'releasing lock'}
+              </div>
+
+              {structuringStatus === 'draining' && (
+                <div className="alert alert-warning py-2 small">
+                  Structuring draining is active. Other project sessions are being asked to save their work and leave.
+                </div>
+              )}
+
+              {structuringStatus === 'exclusive' && (
+                <div className="alert alert-success py-2 small mb-3">
+                  Exclusive lock acquired. You can now open the delete confirmation and remove the project.
+                </div>
+              )}
+
+              {structuringError && (
+                <div className="alert alert-danger py-2 small mb-0">{structuringError}</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="col-lg-8">
+      <div className="card shadow-sm mb-4">
         <div className="card-body">
           {hasHdt === false && (
             <div className="alert alert-secondary">
@@ -616,18 +801,23 @@ export default function EditProject() {
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirmation(true)}
-                disabled={saving || deleting}
+                disabled={saving || deleting || structuringStatus !== 'exclusive'}
                 className="btn btn-danger fw-bold ms-auto"
               >
                 Delete Project
               </button>
             </div>
+            {structuringStatus !== 'exclusive' && (
+              <div className="form-text mt-2 text-danger">
+                Enable structuring and wait for the exclusive lock before deleting this project.
+              </div>
+            )}
           </form>
         </div>
       </div>
 
       {/* Project Members Management */}
-      <div className="card shadow-sm mb-4" style={{ maxWidth: 600 }}>
+      <div className="card shadow-sm mb-4">
         <div className="card-body">
           <h3 className="h5 mb-3 text-dark">Project Members</h3>
           
@@ -748,6 +938,8 @@ export default function EditProject() {
           </div>
         </div>
       </div>
+        </div>
+      </div>
 
       {/* Manager Change Confirmation Modal */}
       {showManagerConfirmation && (
@@ -833,7 +1025,7 @@ export default function EditProject() {
                 <button 
                   onClick={handleDelete} 
                   className="btn btn-danger"
-                  disabled={deleting}
+                  disabled={deleting || structuringStatus !== 'exclusive'}
                 >
                   {deleting ? 'Deleting...' : 'Delete Project'}
                 </button>

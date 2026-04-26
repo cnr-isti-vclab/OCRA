@@ -8,6 +8,7 @@ import {
   publishStructuringDrainingStop,
   subscribeToStructuringEvents,
 } from '../lib/structuring-events.js';
+import { publishProjectCatalogChanged } from '../lib/project-catalog-events.js';
 import { requireOwnedStructuringLock } from '../middleware/project-structuring-lock.js';
 import {
   heartbeatProjectPresence,
@@ -402,6 +403,7 @@ export async function startStructuring(req: Request, res: Response) {
       heartbeatExpiresAt: result.heartbeatExpiresAt,
       remainingPresenceCount: result.remainingPresenceCount,
     });
+    publishProjectCatalogChanged(projectId, 'updated');
   } catch (error) {
     if (isKnownApiError(error)) {
       return sendApiError(req, res, {
@@ -505,6 +507,7 @@ export async function stopStructuring(req: Request, res: Response) {
     });
 
     res.json({ success: true, ...result });
+    publishProjectCatalogChanged(projectId, 'updated');
   } catch (error) {
     if (isKnownApiError(error)) {
       return sendApiError(req, res, {

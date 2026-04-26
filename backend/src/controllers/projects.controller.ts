@@ -45,6 +45,10 @@ import { deleteAnnotationGeometriesByProjectId } from '../repositories/annotatio
 import { deleteAnnotationDataByProjectId } from '../repositories/annotation-data.repository.js';
 import { deleteAnnotationLinksByProjectId } from '../repositories/annotation-link.repository.js';
 import { requireOwnedExclusiveStructuringLock } from '../middleware/project-structuring-lock.js';
+import {
+  publishProjectCatalogChanged,
+  subscribeToProjectCatalogEvents,
+} from '../lib/project-catalog-events.js';
 
 function sendProjectError(req: Request, res: Response, status: number, code: keyof typeof API_ERROR_CODES.project, error: string, details?: unknown) {
   return sendApiError(req, res, { status, code: API_ERROR_CODES.project[code], error, details });
@@ -689,6 +693,12 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         public: true,
         createdAt: true,
         updatedAt: true,
+        structuringLock: {
+          select: {
+            releasedAt: true,
+            heartbeatExpiresAt: true,
+          },
+        },
         projectRoles: {
           where: { role: RoleEnum.manager },
           select: {
@@ -708,6 +718,8 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
       orderBy: { createdAt: 'desc' },
     });
 
+    const now = new Date();
+
     const projectsWithManagers = projects.map((project: any) => ({
       id: project.id,
       name: project.name,
@@ -715,6 +727,10 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
       public: project.public,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
+      activeStructuringLock:
+        !!project.structuringLock &&
+        !project.structuringLock.releasedAt &&
+        project.structuringLock.heartbeatExpiresAt > now,
       manager: project.projectRoles.length > 0
         ? {
           id: project.projectRoles[0].user.id,
@@ -734,6 +750,21 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
   } catch (error) {
     console.error('❌ [getAllProjects] Error occurred:', error);
     sendProjectError(req, res, 500, 'fetchProjectsFailed', 'Failed to fetch projects', error instanceof Error ? error.message : 'Unknown error');
+  }
+}
+
+export async function subscribeProjectCatalogEventsHandler(_req: Request, res: Response): Promise<void> {
+  try {
+    const subscription = subscribeToProjectCatalogEvents(res);
+
+    res.on('close', () => {
+      subscription.close();
+    });
+  } catch (error: any) {
+    console.error('Failed to subscribe to project catalog events:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to subscribe to project catalog events', message: error?.message });
+    }
   }
 }
 
@@ -917,6 +948,8 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         public: project.public,
       },
     });
+
+    publishProjectCatalogChanged(project.id, 'created');
 
     res.status(201).json({ success: true, project: projectWithManager });
   } catch (error) {
@@ -1156,6 +1189,8 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       },
     });
 
+    publishProjectCatalogChanged(projectId, 'updated');
+
     res.json({ success: true, project: updatedProject });
   } catch (error) {
     console.error('Error updating project:', error);
@@ -1255,6 +1290,8 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
         success: true,
       }
     });
+
+    publishProjectCatalogChanged(projectId, 'deleted');
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting project:', error);

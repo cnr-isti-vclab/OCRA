@@ -18,7 +18,8 @@ import {
   deleteProjectFile,
   isManagerOfProject,
   getProjectScene,
-  updateProjectScene
+  updateProjectScene,
+  subscribeProjectCatalogEventsHandler,
 } from '../controllers/projects.controller.js';
 import {
   heartbeatPresence,
@@ -83,6 +84,29 @@ const router = express.Router();
  *         description: Authentication required
  */
 router.get('/', getAllProjects);
+
+/**
+ * @openapi
+ * /api/projects/events:
+ *   get:
+ *     summary: Subscribe to project catalog SSE events
+ *     description: Opens a Server-Sent Events stream that notifies clients when the visible project catalog may have changed after project create, update, or delete operations.
+ *     tags:
+ *       - Projects
+ *     responses:
+ *       200:
+ *         description: SSE stream established
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: |
+ *                 retry: 5000
+ *
+ *                 event: project.catalog.changed
+ *                 data: {"type":"project.catalog.changed","projectId":"proj-123","changeType":"created"}
+ */
+router.get('/events', subscribeProjectCatalogEventsHandler);
 
 /**
  * @openapi

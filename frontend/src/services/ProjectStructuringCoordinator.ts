@@ -1,4 +1,5 @@
 import {
+  ProjectStructuringApiError,
   ProjectStructuringService,
   type StructuringLockResponse,
   type StructuringStartPayload,
@@ -30,6 +31,10 @@ export interface ExclusiveStructuringLease {
   heartbeatExpiresAt: string;
 }
 
+export interface HeldStructuringLock extends ExclusiveStructuringLease {
+  release: () => Promise<void>;
+}
+
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
@@ -46,6 +51,33 @@ export class ProjectStructuringCoordinator {
     options: RunExclusiveStructuringOptions,
     operation: (lease: ExclusiveStructuringLease) => Promise<T>,
   ): Promise<T> {
+    const heldLock = await this.acquireExclusiveLock(options);
+    let primaryError: unknown = null;
+
+    try {
+      return await operation({
+        projectId: heldLock.projectId,
+        fencingToken: heldLock.fencingToken,
+        state: 'exclusive',
+        heartbeatExpiresAt: heldLock.heartbeatExpiresAt,
+      });
+    } catch (error) {
+      primaryError = error;
+      throw error;
+    } finally {
+      try {
+        await heldLock.release();
+      } catch (error) {
+        if (primaryError) {
+          console.error('Failed to release structuring lock after operation error:', error);
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  async acquireExclusiveLock(options: RunExclusiveStructuringOptions): Promise<HeldStructuringLock> {
     const signal: StructuringDrainSignal = {
       projectId: this.projectId,
       operationType: options.operationType,
@@ -79,39 +111,26 @@ export class ProjectStructuringCoordinator {
     }
 
     const keepAlive = this.startHeartbeatLoop(lock.fencingToken, operationHeartbeatIntervalMs, options.onStateChange);
-    let primaryError: unknown = null;
 
-    try {
-      return await operation({
-        projectId: lock.projectId,
-        fencingToken: lock.fencingToken,
-        state: 'exclusive',
-        heartbeatExpiresAt: lock.heartbeatExpiresAt,
-      });
-    } catch (error) {
-      primaryError = error;
-      throw error;
-    } finally {
+    return {
+      projectId: lock.projectId,
+      fencingToken: lock.fencingToken,
+      state: 'exclusive',
+      heartbeatExpiresAt: lock.heartbeatExpiresAt,
+      release: async () => {
       keepAlive.stop();
 
-      if (notifierStarted && options.drainingNotifier?.notifyDrainingStop) {
-        try {
-          await options.drainingNotifier.notifyDrainingStop(signal);
-        } catch (error) {
-          console.error('Failed to emit structuring draining stop notification:', error);
+        if (notifierStarted && options.drainingNotifier?.notifyDrainingStop) {
+          try {
+            await options.drainingNotifier.notifyDrainingStop(signal);
+          } catch (error) {
+            console.error('Failed to emit structuring draining stop notification:', error);
+          }
         }
-      }
 
-      try {
         await this.structuringService.stopStructuring({ fencingToken: lock.fencingToken });
-      } catch (error) {
-        if (primaryError) {
-          console.error('Failed to release structuring lock after operation error:', error);
-        } else {
-          throw error;
-        }
-      }
-    }
+      },
+    };
   }
 
   private startHeartbeatLoop(
@@ -133,6 +152,14 @@ export class ProjectStructuringCoordinator {
           onStateChange?.(lock);
         })
         .catch((error) => {
+          if (
+            stopped ||
+            (error instanceof ProjectStructuringApiError &&
+              (error.status === 404 || error.status === 410))
+          ) {
+            return;
+          }
+
           console.error('Structuring heartbeat failed while operation was running:', error);
         })
         .finally(() => {
