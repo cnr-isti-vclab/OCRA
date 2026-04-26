@@ -36,6 +36,10 @@ const LEGACY_ANNOTATION_LINK_INDEX_NAMES = [
 ] as const;
 
 async function dropLegacyAnnotationLinkIndexes(collection: Collection<AnnotationLinkDocument>) {
+  if (typeof (collection as Collection<AnnotationLinkDocument> & { indexes?: unknown }).indexes !== 'function') {
+    return;
+  }
+
   let indexes;
 
   try {

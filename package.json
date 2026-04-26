@@ -18,6 +18,7 @@
     "db:migrate": "cd backend && npx prisma migrate dev",
     "db:migrate:bare": "cd backend && npx prisma migrate dev",
     "db:migrate:compose": "cd backend && DATABASE_URL='postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public' DIRECT_URL='postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public' npx prisma migrate dev",
+    "db:test:bootstrap": "bash scripts/bootstrap-test-db.sh",
     "db:generate": "cd backend && npx prisma generate",
     "db:studio": "cd backend && npx prisma studio",
     "db:reset": "cd backend && npx prisma migrate reset --force",

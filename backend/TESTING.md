@@ -56,6 +56,15 @@ KEYCLOAK_CLIENT_SECRET=your-secret-here
 
 When you use the standard bare services flow, `npm run services:start` now ensures that the PostgreSQL test database `ocra_test` exists alongside the main development database.
 
+If you want the same bootstrap path used by CI without starting the full bare stack, run:
+
+```bash
+# From the project root
+POSTGRES_ADMIN_PASSWORD=postgres npm run db:test:bootstrap
+```
+
+The script defaults to the CI/test credentials and can be customized with `POSTGRES_ADMIN_HOST`, `POSTGRES_ADMIN_PORT`, `POSTGRES_ADMIN_USER`, `POSTGRES_ADMIN_DB`, `POSTGRES_ADMIN_PASSWORD`, `TEST_DB_ROLE`, `TEST_DB_PASSWORD`, and `TEST_DB_NAME`.
+
 #### MongoDB Test Database
 
 MongoDB will automatically create the database on first connection, so no manual creation is needed.

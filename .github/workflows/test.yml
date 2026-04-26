@@ -22,6 +22,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public
     
     # Service containers for databases
     services:
@@ -68,29 +70,14 @@ jobs:
       
       - name: Create test role and database
         env:
-          PGPASSWORD: postgres
-        run: |
-          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-          DO $$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ocra_user') THEN
-              CREATE ROLE ocra_user LOGIN PASSWORD 'ocra_pass';
-            END IF;
-          END
-          $$;
-          SQL
-
-          if ! psql -h localhost -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'ocra_test'" | grep -q 1; then
-            psql -h localhost -U postgres -d postgres -c "CREATE DATABASE ocra_test OWNER ocra_user;"
-          fi
-
-          echo "✅ Test role and database ready"
+          POSTGRES_ADMIN_PASSWORD: postgres
+        run: bash scripts/bootstrap-test-db.sh
       
       - name: Apply Prisma migrations
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public
-          DATABASE_URL_TEST: postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          DATABASE_URL_TEST: ${{ env.TEST_DATABASE_URL }}
         run: |
           npx prisma migrate deploy --schema prisma/schema.prisma
 
@@ -102,8 +89,8 @@ jobs:
         working-directory: backend
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public
-          DATABASE_URL_TEST: postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          DATABASE_URL_TEST: ${{ env.TEST_DATABASE_URL }}
           MONGO_URL: mongodb://localhost:27017
           MONGO_AUDIT_DB: ocra_audit_test
           MONGO_CONTENT_DB: ocra_content_test

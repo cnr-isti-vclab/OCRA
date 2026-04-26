@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { StructuringLockState } from '@prisma/client';
 import request from 'supertest';
 import { createApp } from '../app.js';
 import {
@@ -44,6 +45,32 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   let sharedProject: any;
   
   let testHdtFile: any;
+
+  async function grantExclusiveDeleteLock(projectId: string, sessionId: string, userId: string) {
+    const prisma = await ensurePrisma();
+
+    await prisma.structuringLock.upsert({
+      where: { projectId },
+      update: {
+        ownerSessionId: sessionId,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.delete',
+        operationContext: { projectId },
+        releasedAt: null,
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+      create: {
+        projectId,
+        ownerSessionId: sessionId,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.delete',
+        operationContext: { projectId },
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+  }
 
   beforeAll(async () => {
     await setupTestDB();
@@ -674,6 +701,8 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   // ========================================
 
   it('Phase 7.1: Delete shared project', async () => {
+    await grantExclusiveDeleteLock(sharedProject.id, regularSessionId, regularUser.id);
+
     await request(app)
       .delete(`/api/projects/${sharedProject.id}`)
       .set('Cookie', `session_id=${regularSessionId}`)
@@ -703,6 +732,8 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   });
 
   it('Phase 7.4: Delete private project', async () => {
+    await grantExclusiveDeleteLock(privateProject.id, regularSessionId, regularUser.id);
+
     await request(app)
       .delete(`/api/projects/${privateProject.id}`)
       .set('Cookie', `session_id=${regularSessionId}`)
@@ -712,6 +743,8 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   });
 
   it('Phase 7.5: Delete public project', async () => {
+    await grantExclusiveDeleteLock(publicProject.id, regularSessionId, regularUser.id);
+
     await request(app)
       .delete(`/api/projects/${publicProject.id}`)
       .set('Cookie', `session_id=${regularSessionId}`)
