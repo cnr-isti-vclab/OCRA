@@ -23,6 +23,9 @@ import {
 import {
   heartbeatPresence,
   heartbeatStructuring,
+  notifyStructuringDrainingStart,
+  notifyStructuringDrainingStop,
+  subscribeStructuringEvents,
   startPresence,
   startStructuring,
   stopPresence,
@@ -316,6 +319,139 @@ router.put('/:projectId', requireAuth, updateProject);
  *         description: Project not found
  */
 router.delete('/:projectId', requireAuth, deleteProject);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/events:
+ *   get:
+ *     summary: Subscribe to project structuring SSE events
+ *     description: Opens a Server-Sent Events stream for project-wide structuring lifecycle notifications such as draining start and stop.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     responses:
+ *       200:
+ *         description: SSE stream established
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: |
+ *                 retry: 5000
+ *
+ *                 event: structuring.connected
+ *                 data: {"type":"structuring.connected","streamId":"9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15","projectId":"proj-123"}
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Project access denied
+ */
+router.get('/:projectId/structuring/events', requireAuth, subscribeStructuringEvents);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/events/draining/start:
+ *   post:
+ *     summary: Broadcast structuring draining start
+ *     description: Announces that the current lock owner has started draining the project before a structuring commit.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [streamId]
+ *             properties:
+ *               streamId:
+ *                 type: string
+ *                 format: uuid
+ *               operationType:
+ *                 type: string
+ *               operationContext:
+ *                 type: object
+ *     responses:
+ *       202:
+ *         description: Draining notification accepted
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Referenced structuring SSE stream not found
+ *       409:
+ *         description: No active structuring lock exists for the caller session
+ *       423:
+ *         description: The caller does not own the active structuring lock
+ */
+router.post('/:projectId/structuring/events/draining/start', requireAuth, notifyStructuringDrainingStart);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/events/draining/stop:
+ *   post:
+ *     summary: Broadcast structuring draining stop
+ *     description: Clears a previously announced project draining signal emitted by the active lock owner.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [streamId]
+ *             properties:
+ *               streamId:
+ *                 type: string
+ *                 format: uuid
+ *               operationType:
+ *                 type: string
+ *               operationContext:
+ *                 type: object
+ *     responses:
+ *       202:
+ *         description: Draining removal accepted
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Referenced structuring SSE stream not found
+ *       409:
+ *         description: Draining signal not found for the provided stream
+ *       423:
+ *         description: The caller does not own the active structuring lock
+ */
+router.post('/:projectId/structuring/events/draining/stop', requireAuth, notifyStructuringDrainingStop);
 
 /**
  * @openapi

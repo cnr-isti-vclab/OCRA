@@ -686,6 +686,142 @@ The stop operation should be idempotent.
 
 ---
 
+## Frontend Integration Scaffold
+
+The frontend now contains a minimal, low-intrusion scaffold that another team can adopt without refactoring the current project pages.
+
+### Available Frontend Building Blocks
+
+The following files are intended as the starting point for frontend adoption:
+
+- `frontend/src/services/ProjectStructuringService.ts`
+- `frontend/src/services/ProjectStructuringCoordinator.ts`
+- `frontend/src/services/StructuringEventsService.ts`
+- `frontend/src/services/StructuringDrainingNotifier.ts`
+
+This scaffold no longer relies on the annotation SSE channel for structuring notifications.
+
+### What Each Frontend Piece Is For
+
+#### `ProjectStructuringService`
+
+Thin REST client for the backend endpoints:
+
+- `presence/start`
+- `presence/heartbeat`
+- `presence/stop`
+- `structuring/start`
+- `structuring/heartbeat`
+- `structuring/stop`
+
+It also normalises backend API failures into a dedicated `ProjectStructuringApiError` carrying:
+
+- HTTP status
+- backend error code
+- optional details payload
+
+#### `ProjectStructuringCoordinator`
+
+Small orchestration layer for the session that wants to perform a structuring commit.
+
+It provides a `runExclusiveOperation(...)` helper that:
+
+1. starts structuring for the current project
+2. waits until the lock reaches `exclusive`
+3. keeps the lock alive with heartbeats while the operation is running
+4. releases the lock in a `finally` block
+
+This lets the feature team plug one irreversible operation into a stable acquire-heartbeat-release flow instead of reimplementing it ad hoc inside page components.
+
+#### `StructuringEventsService`
+
+Dedicated SSE client for project-wide structuring notifications.
+
+It connects to:
+
+- `GET /api/projects/:projectId/structuring/events`
+
+and can also publish draining lifecycle signals through:
+
+- `POST /api/projects/:projectId/structuring/events/draining/start`
+- `POST /api/projects/:projectId/structuring/events/draining/stop`
+
+It exposes callbacks for:
+
+- connection state changes
+- `structuring.draining.started`
+- `structuring.draining.stopped`
+
+#### `StructuringDrainingNotifier`
+
+Small adapter that plugs `StructuringEventsService` into `ProjectStructuringCoordinator`.
+
+The companion helper `isStructuringDrainingEvent(...)` allows UI code to recognise those events and display a banner, modal, or soft redirect prompt.
+
+### Recommended Frontend Usage Pattern
+
+The intended adoption pattern is:
+
+1. when a page enters a project, start or refresh project presence using `ProjectStructuringService`
+2. keep a project-wide SSE listener open with `new StructuringEventsService(projectId)` so the page can observe draining signals
+3. when a privileged user wants to execute a structuring commit, reuse that same `StructuringEventsService` instance as the notification emitter
+4. wrap the irreversible backend call with `ProjectStructuringCoordinator.runExclusiveOperation(...)`
+5. during draining, surface a UI message to non-owner sessions and stop their project presence when the user leaves the page or accepts the prompt
+
+Illustrative example:
+
+```ts
+const structuringEvents = new StructuringEventsService(projectId);
+structuringEvents.connect({
+  onDrainingStarted: (event) => {
+    if (isStructuringDrainingEvent(event)) {
+      // Show a banner or modal telling the user that the project is draining.
+    }
+  },
+});
+
+const structuringService = new ProjectStructuringService(projectId);
+const coordinator = new ProjectStructuringCoordinator(projectId, structuringService);
+const drainingNotifier = new StructuringDrainingNotifier(structuringEvents);
+
+await coordinator.runExclusiveOperation(
+  {
+    operationType: 'scene.delete',
+    operationContext: { sceneId },
+    drainingNotifier,
+  },
+  async () => {
+    await fetch(`/api/projects/${projectId}/hdt/scenes/${sceneId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+  },
+);
+```
+
+### Current Scope of the Dedicated Structuring SSE Channel
+
+The new dedicated channel is intentionally narrow.
+
+Today it covers:
+
+- `structuring.draining.started`
+- `structuring.draining.stopped`
+
+This is enough to support the first frontend adoption phase without coupling the feature to annotation SSE semantics.
+
+### Intended Next Backend Step
+
+If the UX later needs richer lifecycle feedback, the same channel can grow with additional events such as:
+
+- `structuring.exclusive.acquired`
+- `structuring.exclusive.released`
+- `structuring.lock.expired`
+
+The frontend entry points can remain `StructuringEventsService`, `ProjectStructuringService`, and `ProjectStructuringCoordinator`.
+
+---
+
 ## Recommended Initial Behaviour
 
 The first implementation should optimise for correctness and simplicity.

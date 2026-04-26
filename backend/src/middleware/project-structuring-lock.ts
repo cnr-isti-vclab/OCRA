@@ -41,10 +41,11 @@ function getRequestSessionId(req: Request) {
   return null;
 }
 
-export async function requireOwnedExclusiveStructuringLock(
+async function requireOwnedStructuringLockInternal(
   req: Request,
   res: Response,
   projectId: string,
+  requireExclusive: boolean,
 ): Promise<boolean> {
   try {
     const prisma = getPrismaClient();
@@ -68,12 +69,16 @@ export async function requireOwnedExclusiveStructuringLock(
     }
 
     const requestSessionId = getRequestSessionId(req);
+    const ownershipMismatch = !lock || lock.ownerSessionId !== requestSessionId;
+    const stateMismatch = requireExclusive && !!lock && lock.state !== StructuringLockState.exclusive;
 
-    if (!lock || lock.ownerSessionId !== requestSessionId || lock.state !== StructuringLockState.exclusive) {
+    if (ownershipMismatch || stateMismatch) {
       sendApiError(req, res, {
         status: 423,
         code: API_ERROR_CODES.structuring.ownerRequired,
-        error: 'This operation requires the caller to own the exclusive structuring lock',
+        error: requireExclusive
+          ? 'This operation requires the caller to own the exclusive structuring lock'
+          : 'This operation requires the caller to own the active structuring lock',
       });
       return false;
     }
@@ -88,6 +93,22 @@ export async function requireOwnedExclusiveStructuringLock(
     });
     return false;
   }
+}
+
+export async function requireOwnedStructuringLock(
+  req: Request,
+  res: Response,
+  projectId: string,
+): Promise<boolean> {
+  return requireOwnedStructuringLockInternal(req, res, projectId, false);
+}
+
+export async function requireOwnedExclusiveStructuringLock(
+  req: Request,
+  res: Response,
+  projectId: string,
+): Promise<boolean> {
+  return requireOwnedStructuringLockInternal(req, res, projectId, true);
 }
 
 export async function enforceStructuringLock(req: Request, res: Response, next: NextFunction): Promise<void> {
