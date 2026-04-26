@@ -135,6 +135,7 @@ export async function createTestProject(creatorId?: string, overrides: any = {})
   const projectData: any = {
     name: overrides.name || `Test Project ${Date.now()}`,
     description: overrides.description || 'Test project description',
+    public: overrides.public ?? false,
   };
   
   const project = await client.project.create({

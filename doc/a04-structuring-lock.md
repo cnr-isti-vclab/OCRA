@@ -220,6 +220,18 @@ The intended model uses expiring leases.
 
 This avoids requiring perfect cleanup from every client.
 
+### Visibility Changes and Presence Cleanup
+
+Changing a project from `public` to `private` should not wait only for lease TTL when the backend can already determine that some active leases belong to users who are no longer entitled to remain in the project.
+
+The intended behaviour is:
+
+- when a project changes from `public` to `private`, the backend immediately removes active `ProjectPresenceLease` rows belonging to non-members
+- if an active `StructuringLock` was waiting in `draining` only because of those now-invalid public leases, the backend should immediately reevaluate and promote it to `exclusive` when appropriate
+- any remaining valid leases still fall back to normal TTL-based draining behaviour
+
+This keeps correctness simple while avoiding unnecessary waiting after a visibility downgrade.
+
 ---
 
 ## Lock Lifecycle

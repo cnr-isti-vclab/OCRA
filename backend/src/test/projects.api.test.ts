@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
+import { StructuringLockState } from '@prisma/client';
 import { createApp } from '../app.js';
 import {
   setupTestDB,
@@ -239,6 +240,58 @@ describe('Projects API Integration Tests', () => {
         .set(authHeader(testUser))
         .send({ name: 'Updated' })
         .expect(404);
+    });
+
+    it('should evict non-member leases when a public project becomes private', async () => {
+      const project = await createTestProject(testUser.id, {
+        name: 'Public Project',
+        description: 'Public before private',
+        public: true,
+      });
+      const publicViewer = await createTestUser({ name: 'Public Viewer' });
+      const prisma = await getTestPrisma();
+
+      await prisma.projectPresenceLease.create({
+        data: {
+          leaseKey: 'viewer-session:viewing:-:tab-1',
+          projectId: project.id,
+          sessionId: 'viewer-session',
+          userId: publicViewer.id,
+          mode: 'viewing',
+          clientInstanceId: 'tab-1',
+          lastHeartbeatAt: new Date(),
+          heartbeatExpiresAt: new Date(Date.now() + 60_000),
+        },
+      });
+
+      await prisma.structuringLock.create({
+        data: {
+          projectId: project.id,
+          ownerSessionId: 'manager-session',
+          ownerUserId: testUser.id,
+          state: StructuringLockState.draining,
+          heartbeatExpiresAt: new Date(Date.now() + 60_000),
+        },
+      });
+
+      const response = await request(app)
+        .put(`/api/projects/${project.id}`)
+        .set(authHeader(testUser))
+        .send({ public: false })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.public', false);
+
+      const remainingLease = await prisma.projectPresenceLease.findUnique({
+        where: { leaseKey: 'viewer-session:viewing:-:tab-1' },
+      });
+      expect(remainingLease).toBeNull();
+
+      const updatedLock = await prisma.structuringLock.findUnique({
+        where: { projectId: project.id },
+      });
+      expect(updatedLock?.state).toBe(StructuringLockState.exclusive);
     });
   });
 

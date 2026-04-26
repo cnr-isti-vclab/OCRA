@@ -22,7 +22,7 @@ import fse from 'fs-extra';
 import multer from 'multer';
 
 import type { PrismaClient } from '@prisma/client';
-import { RoleEnum } from '@prisma/client';
+import { RoleEnum, StructuringLockState } from '@prisma/client';
 
 import { getPrismaClient } from '../../db.js';
 import { getValidSession } from '../../db.js';
@@ -1032,18 +1032,68 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       data.public = Boolean(auditPatch.public);
     }
 
-    // Apply update
-    const updatedProject = await db.project.update({
-      where: { id: projectId },
-      data,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        public: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const transitionedToPrivate = existingProject.public && data.public === false;
+
+    // Apply update and immediately evict stale public-access leases when the project becomes private.
+    const updatedProject = await db.$transaction(async (tx) => {
+      const project = await tx.project.update({
+        where: { id: projectId },
+        data,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          public: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!transitionedToPrivate) {
+        return project;
+      }
+
+      const now = new Date();
+
+      await tx.projectPresenceLease.deleteMany({
+        where: {
+          projectId,
+          user: {
+            sys_admin: false,
+            projectRoles: {
+              none: { projectId },
+            },
+          },
+        },
+      });
+
+      const activeLock = await tx.structuringLock.findUnique({
+        where: { projectId },
+        select: {
+          ownerSessionId: true,
+          heartbeatExpiresAt: true,
+          releasedAt: true,
+        },
+      });
+
+      if (activeLock && !activeLock.releasedAt && activeLock.heartbeatExpiresAt > now) {
+        const remainingPresenceCount = await tx.projectPresenceLease.count({
+          where: {
+            projectId,
+            heartbeatExpiresAt: { gt: now },
+            sessionId: { not: activeLock.ownerSessionId },
+          },
+        });
+
+        await tx.structuringLock.update({
+          where: { projectId },
+          data: {
+            state: remainingPresenceCount === 0 ? StructuringLockState.exclusive : StructuringLockState.draining,
+          },
+        });
+      }
+
+      return project;
     });
 
     // Optional manager reassignment
