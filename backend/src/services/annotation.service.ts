@@ -248,6 +248,16 @@ function hasScene(hdtDocument: HDTDocument, sceneId: string) {
   return hdtDocument.scenes.some((scene) => scene.id === sceneId);
 }
 
+function hasAsset(hdtDocument: HDTDocument, assetId: string) {
+  return hdtDocument.digitalAssets.some((asset) => asset.id === assetId);
+}
+
+function referenceExists(hdtDocument: HDTDocument, scopeType: AnnotationScopeType, scopeId: string) {
+  return scopeType === 'scene'
+    ? hasScene(hdtDocument, scopeId)
+    : hasAsset(hdtDocument, scopeId);
+}
+
 function sceneContainsAsset(hdtDocument: HDTDocument, sceneId: string, assetId: string) {
   const scene = hdtDocument.scenes.find((entry) => entry.id === sceneId);
   return scene ? scene.assets.some((asset) => asset.assetId === assetId) : false;
