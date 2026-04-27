@@ -240,11 +240,7 @@ describe.sequential('Annotation controller edge cases', () => {
   it('returns the restored link when a non-erasable transition succeeds', async () => {
     vi.mocked(annotationService.markAnnotationLinkNonErasable).mockResolvedValueOnce({
       ok: true,
-      value: {
-        linkVersion: 5,
-        geometryVersion: 7,
-        dataVersion: 9,
-      },
+      value: 5,
     } as never);
 
     vi.mocked(annotationService.getAnnotationLink).mockResolvedValueOnce({
@@ -270,9 +266,7 @@ describe.sequential('Annotation controller edge cases', () => {
       .expect(200);
 
     expect(response.body.success).toBe(true);
-    expect(response.body.linkVersion).toBe(5);
-    expect(response.body.geometryVersion).toBe(7);
-    expect(response.body.dataVersion).toBe(9);
+    expect(response.body.version).toBe(5);
   });
 
   it('returns 404 when the requested scene bundle does not exist', async () => {

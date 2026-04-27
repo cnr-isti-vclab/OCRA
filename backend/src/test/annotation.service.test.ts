@@ -209,7 +209,6 @@ describe('annotation.service scene lookups', () => {
 });
 
 describe('annotation.service erasable cascades', () => {
-  const updateMany = vi.fn();
   let session: ReturnType<typeof createSessionMock>;
 
   beforeEach(() => {
@@ -218,7 +217,7 @@ describe('annotation.service erasable cascades', () => {
     vi.mocked(getMongoClient).mockResolvedValue({ startSession: () => session } as never);
   });
 
-  it('marks links erasable when annotation data becomes erasable', async () => {
+  it('marks only annotation data erasable when annotation data becomes erasable', async () => {
     const existingData = {
       id: 'ad_1',
       projectId: 'project-1',
@@ -251,28 +250,15 @@ describe('annotation.service erasable cascades', () => {
     };
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue({} as never);
-    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ updateMany } as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({} as never);
 
     await expect(markAnnotationDataErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toEqual({
       ok: true,
       value: 3,
     });
-    expect(updateMany).toHaveBeenCalledWith(
-      { projectId: 'project-1', erasableAt: null, dataId: 'ad_1' },
-      {
-        $set: {
-          erasableAt: expect.any(String),
-          erasableBy: 'user-2',
-          updatedAt: expect.any(String),
-          updatedBy: 'user-2',
-        },
-        $inc: { version: 1 },
-      },
-      { session },
-    );
   });
 
-  it('marks links erasable when annotation geometry becomes erasable', async () => {
+  it('marks only annotation geometry erasable when annotation geometry becomes erasable', async () => {
     const existingGeometry = {
       id: 'ag_1',
       projectId: 'project-1',
@@ -302,31 +288,15 @@ describe('annotation.service erasable cascades', () => {
     };
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
     vi.mocked(getAnnotationDataCollection).mockResolvedValue({} as never);
-    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ updateMany } as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({} as never);
 
     await expect(markAnnotationGeometryErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toEqual({
       ok: true,
       value: 5,
     });
-    expect(updateMany).toHaveBeenCalledWith(
-      { projectId: 'project-1', erasableAt: null, geometryId: 'ag_1' },
-      {
-        $set: {
-          erasableAt: expect.any(String),
-          erasableBy: 'user-2',
-          updatedAt: expect.any(String),
-          updatedBy: 'user-2',
-        },
-        $inc: { version: 1 },
-      },
-      { session },
-    );
   });
 
-  it('restores geometry-linked erasable links only when the data endpoint is non-erasable', async () => {
-    const dataFind = vi.fn().mockReturnValue(createCursorMock([
-      { id: 'ad_ready', projectId: 'project-1', erasableAt: null },
-    ]));
+  it('restores only geometry when geometry becomes non-erasable', async () => {
     const existingGeometry = {
       id: 'ag_1',
       projectId: 'project-1',
@@ -354,47 +324,17 @@ describe('annotation.service erasable cascades', () => {
         },
       }),
     };
-    const linkFind = vi.fn().mockReturnValue(createCursorMock([
-      { id: 'al_restore', geometryId: 'ag_1', dataId: 'ad_ready', erasableAt: 'ts' },
-      { id: 'al_keep', geometryId: 'ag_1', dataId: 'ad_still_erasable', erasableAt: 'ts' },
-      { id: 'al_ignore', geometryId: 'ag_1', dataId: 'ad_ready', erasableAt: null },
-    ]));
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
-    vi.mocked(getAnnotationDataCollection).mockResolvedValue({ find: dataFind } as never);
-    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ find: linkFind, updateMany } as never);
+    vi.mocked(getAnnotationDataCollection).mockResolvedValue({} as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({} as never);
 
     await expect(markAnnotationGeometryNonErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toEqual({
       ok: true,
       value: 5,
     });
-    expect(dataFind).toHaveBeenCalledWith({
-      projectId: 'project-1',
-      id: { $in: ['ad_ready', 'ad_still_erasable'] },
-      erasableAt: null,
-    }, { session });
-    expect(updateMany).toHaveBeenCalledWith(
-      {
-        projectId: 'project-1',
-        id: { $in: ['al_restore'] },
-        erasableAt: { $ne: null },
-      },
-      {
-        $set: {
-          erasableAt: null,
-          erasableBy: null,
-          updatedAt: expect.any(String),
-          updatedBy: 'user-2',
-        },
-        $inc: { version: 1 },
-      },
-      { session },
-    );
   });
 
-  it('restores data-linked erasable links only when the geometry endpoint is non-erasable', async () => {
-    const geometryFind = vi.fn().mockReturnValue(createCursorMock([
-      { id: 'ag_ready', projectId: 'project-1', erasableAt: null },
-    ]));
+  it('restores only data when data becomes non-erasable', async () => {
     const existingData = {
       id: 'ad_1',
       projectId: 'project-1',
@@ -425,40 +365,14 @@ describe('annotation.service erasable cascades', () => {
         },
       }),
     };
-    const linkFind = vi.fn().mockReturnValue(createCursorMock([
-      { id: 'al_restore', geometryId: 'ag_ready', dataId: 'ad_1', erasableAt: 'ts' },
-      { id: 'al_keep', geometryId: 'ag_still_erasable', dataId: 'ad_1', erasableAt: 'ts' },
-    ]));
-    vi.mocked(getAnnotationGeometryCollection).mockResolvedValue({ find: geometryFind } as never);
+    vi.mocked(getAnnotationGeometryCollection).mockResolvedValue({} as never);
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
-    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({ find: linkFind, updateMany } as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({} as never);
 
     await expect(markAnnotationDataNonErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toEqual({
       ok: true,
       value: 3,
     });
-    expect(geometryFind).toHaveBeenCalledWith({
-      projectId: 'project-1',
-      id: { $in: ['ag_ready', 'ag_still_erasable'] },
-      erasableAt: null,
-    }, { session });
-    expect(updateMany).toHaveBeenCalledWith(
-      {
-        projectId: 'project-1',
-        id: { $in: ['al_restore'] },
-        erasableAt: { $ne: null },
-      },
-      {
-        $set: {
-          erasableAt: null,
-          erasableBy: null,
-          updatedAt: expect.any(String),
-          updatedBy: 'user-2',
-        },
-        $inc: { version: 1 },
-      },
-      { session },
-    );
   });
 });
 
@@ -467,7 +381,7 @@ describe('annotation.service link restore semantics', () => {
     vi.resetAllMocks();
   });
 
-  it('restores a link only when both endpoints are already non-erasable', async () => {
+  it('restores only the link when endpoints are already non-erasable', async () => {
     const session = {
       withTransaction: vi.fn(async (callback: () => Promise<void>) => callback()),
       endSession: vi.fn().mockResolvedValue(undefined),
@@ -502,77 +416,17 @@ describe('annotation.service link restore semantics', () => {
         },
       }),
     };
-    const geometryCollection = {
-      findOne: vi.fn().mockResolvedValue({
-        id: 'ag_1',
-        projectId: 'project-1',
-        shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
-        referenceType: 'scene',
-        referenceId: 'scene-1',
-        version: 4,
-        erasableAt: null,
-        erasableBy: null,
-        createdAt: '2026-04-24T10:00:00.000Z',
-        createdBy: 'user-1',
-        updatedAt: '2026-04-24T10:00:00.000Z',
-        updatedBy: 'user-1',
-      }),
-      findOneAndUpdate: vi.fn().mockResolvedValue({
-        value: {
-          id: 'al_1',
-          projectId: 'project-1',
-          geometryId: 'ag_1',
-          dataId: 'ad_1',
-          version: 8,
-          erasableAt: null,
-          erasableBy: null,
-          createdAt: '2026-04-24T10:00:00.000Z',
-          createdBy: 'user-1',
-          updatedAt: '2026-04-25T10:00:00.000Z',
-          updatedBy: 'user-2',
-        },
-      }),
-    };
-    const dataCollection = {
-      findOne: vi.fn().mockResolvedValue({
-        id: 'ad_1',
-        projectId: 'project-1',
-        label: 'Label',
-        description: 'Description',
-        class: null,
-        content: {},
-        visibilityType: 'scene',
-        visibilityId: 'scene-1',
-        version: 3,
-        erasableAt: null,
-        erasableBy: null,
-        createdAt: '2026-04-24T10:00:00.000Z',
-        createdBy: 'user-1',
-        updatedAt: '2026-04-24T10:00:00.000Z',
-        updatedBy: 'user-1',
-      }),
-      findOneAndUpdate: vi.fn(),
-    };
-
     vi.mocked(getMongoClient).mockResolvedValue({ startSession: () => session } as never);
     vi.mocked(getAnnotationLinkCollection).mockResolvedValue(linkCollection as never);
-    vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
-    vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
 
     await expect(markAnnotationLinkNonErasable('project-1', 'al_1', 7, 'user-2')).resolves.toEqual({
       ok: true,
-      value: {
-        linkVersion: 8,
-        geometryVersion: 4,
-        dataVersion: 3,
-      },
+      value: 8,
     });
     expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(geometryCollection.findOneAndUpdate).not.toHaveBeenCalled();
-    expect(dataCollection.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
-  it('restores link, geometry, and data together when endpoints are still erasable', async () => {
+  it('restores only the link even when endpoints are still erasable', async () => {
     const session = {
       withTransaction: vi.fn(async (callback: () => Promise<void>) => callback()),
       endSession: vi.fn().mockResolvedValue(undefined),
@@ -607,92 +461,13 @@ describe('annotation.service link restore semantics', () => {
         },
       }),
     };
-    const geometryCollection = {
-      findOne: vi.fn().mockResolvedValue({
-        id: 'ag_1',
-        projectId: 'project-1',
-        shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
-        referenceType: 'scene',
-        referenceId: 'scene-1',
-        version: 4,
-        erasableAt: '2026-04-24T10:00:00.000Z',
-        erasableBy: 'user-1',
-        createdAt: '2026-04-24T10:00:00.000Z',
-        createdBy: 'user-1',
-        updatedAt: '2026-04-24T10:00:00.000Z',
-        updatedBy: 'user-1',
-      }),
-      findOneAndUpdate: vi.fn().mockResolvedValue({
-        value: {
-          id: 'ag_1',
-          projectId: 'project-1',
-          shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
-          referenceType: 'scene',
-          referenceId: 'scene-1',
-          version: 5,
-          erasableAt: null,
-          erasableBy: null,
-          createdAt: '2026-04-24T10:00:00.000Z',
-          createdBy: 'user-1',
-          updatedAt: '2026-04-25T10:00:00.000Z',
-          updatedBy: 'user-2',
-        },
-      }),
-    };
-    const dataCollection = {
-      findOne: vi.fn().mockResolvedValue({
-        id: 'ad_1',
-        projectId: 'project-1',
-        label: 'Label',
-        description: 'Description',
-        class: null,
-        content: {},
-        visibilityType: 'scene',
-        visibilityId: 'scene-1',
-        version: 3,
-        erasableAt: '2026-04-24T10:00:00.000Z',
-        erasableBy: 'user-1',
-        createdAt: '2026-04-24T10:00:00.000Z',
-        createdBy: 'user-1',
-        updatedAt: '2026-04-24T10:00:00.000Z',
-        updatedBy: 'user-1',
-      }),
-      findOneAndUpdate: vi.fn().mockResolvedValue({
-        value: {
-          id: 'ad_1',
-          projectId: 'project-1',
-          label: 'Label',
-          description: 'Description',
-          class: null,
-          content: {},
-          visibilityType: 'scene',
-          visibilityId: 'scene-1',
-          version: 4,
-          erasableAt: null,
-          erasableBy: null,
-          createdAt: '2026-04-24T10:00:00.000Z',
-          createdBy: 'user-1',
-          updatedAt: '2026-04-25T10:00:00.000Z',
-          updatedBy: 'user-2',
-        },
-      }),
-    };
-
     vi.mocked(getMongoClient).mockResolvedValue({ startSession: () => session } as never);
     vi.mocked(getAnnotationLinkCollection).mockResolvedValue(linkCollection as never);
-    vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
-    vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
 
     await expect(markAnnotationLinkNonErasable('project-1', 'al_1', 7, 'user-2')).resolves.toEqual({
       ok: true,
-      value: {
-        linkVersion: 8,
-        geometryVersion: 5,
-        dataVersion: 4,
-      },
+      value: 8,
     });
-    expect(geometryCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(dataCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
   });
 });

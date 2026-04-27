@@ -588,30 +588,41 @@ On `409`:
 
 Implemented backend behaviour:
 
-- marking a geometry erasable also marks its connected non-erasable links erasable in the same MongoDB transaction
-- marking a data record erasable also marks its connected non-erasable links erasable in the same MongoDB transaction
+- marking a geometry erasable changes only that geometry
+- marking a data record erasable changes only that data record
 
-Frontend implication: after one of these calls, reloading the scene bundle is usually safer than patching only one local entity.
+Frontend implication: if the UI wants to express a broader intent such as "delete this annotation" or "make this cluster weak", it should call higher-level composite operations when available, or orchestrate the primitive transitions explicitly.
 
 ### Restore Geometry or Data to Non-Erasable
 
 Implemented backend behaviour:
 
-- restoring geometry may restore only those connected links whose data endpoint is already non-erasable
-- restoring data may restore only those connected links whose geometry endpoint is already non-erasable
+- restoring geometry changes only that geometry
+- restoring data changes only that data record
 
 ### Restore Link to Non-Erasable
 
 Important implementation detail:
 
-- restoring a link does **not** restore geometry or data
-- it succeeds only if both endpoints already exist and are already non-erasable
+- restoring a link changes only the link itself
+- a non-erasable link is allowed to point to geometry or data that are still erasable
 
-So the frontend restore order is:
+This means the frontend is responsible for guiding the user through stronger semantic operations. For example, the UI may still recommend restoring geometry and data before restoring the link, but that is a product decision rather than a low-level API invariant.
 
-1. if geometry is erasable, restore geometry first
-2. if data is erasable, restore data first
-3. restore the link last
+### Weak/Strong Interpretation in the UI
+
+The persisted field names stay `erasable` and `non-erasable`, but the frontend should interpret them semantically as:
+
+- `non-erasable` = strong / not collectible
+- `erasable` = weak / collectible if not kept alive
+
+Recommended consequences for the frontend:
+
+- a strong link should be understood as keeping its endpoints alive for maintenance purposes
+- because of that rule, ordinary reads may still include weak geometry or data when a strong link keeps them alive
+- weak entities may still be shown in dedicated recovery or trash views
+- a weak entity referenced by a strong link may still be rendered or selectable if the UX chooses to expose it that way
+- higher-level actions such as "delete annotation", "restore annotation", or "recover from trash" should be presented as explicit guided flows rather than inferred automatically from primitive state transitions
 
 ## Error Handling
 
@@ -672,20 +683,14 @@ Suggested UI behaviour by status:
 - `401`: redirect to login / refresh session
 - `403`: show permission error
 - `404`: entity or scene no longer exists; refresh state
-- `409`: OCC conflict or invalid restore order; refresh and retry explicitly
+- `409`: OCC conflict or invalid state transition; refresh and retry explicitly
 - `500`: generic backend problem; show request id if present
 
 ## Practical Frontend Patterns
 
-### Prefer Bundle Reload After Cascade Operations
+### Prefer Bundle Reload After Composite Operations
 
-After these operations, a full scene-bundle reload is usually simpler and safer:
-
-- geometry erasable
-- geometry non-erasable
-- data erasable
-- data non-erasable
-- link restore
+After higher-level operations that intentionally coordinate several primitive transitions, a full scene-bundle reload is usually simpler and safer than patching individual entities in place.
 
 ### Keep Scope Fields Immutable in UI
 

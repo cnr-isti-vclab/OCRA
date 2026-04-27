@@ -2,12 +2,12 @@
 
 ## Introduction
 
-This document describes the annotation APIs that are actually implemented in OCRA today.
+This document describes the annotation APIs and service semantics for the adopted annotation model in OCRA.
 
 It is organized in three layers:
 
 - Repository layer: direct MongoDB access for annotation collections
-- Service layer: validation, scope checks, OCC, scene-aware reads, and cascade orchestration
+- Service layer: validation, scope checks, OCC, scene-aware reads, and primitive lifecycle transitions
 - REST API: authenticated endpoints exposed by the backend
 
 The current implementation lives mainly in:
@@ -43,20 +43,12 @@ If the filter no longer matches, the operation returns a version conflict result
 
 ### Atomicity Model
 
-The current implementation uses two levels of atomicity:
+The adopted model uses two levels of atomicity:
 
-- Single-document atomic writes for ordinary insert/update operations
-- Multi-document MongoDB transactions for cascade-sensitive state transitions
+- Single-document atomic writes for ordinary insert/update operations and primitive lifecycle transitions
+- Optional higher-level transactions for later composite multi-entity operations when explicitly introduced
 
-Implemented transaction-based operations:
-
-- `markAnnotationGeometryErasable(...)`
-- `markAnnotationGeometryNonErasable(...)`
-- `markAnnotationDataErasable(...)`
-- `markAnnotationDataNonErasable(...)`
-- `markAnnotationLinkNonErasable(...)`
-
-Important detail: `markAnnotationLinkNonErasable(...)` runs in a transaction and restores the full resolved triple consistently: if the link becomes non-erasable, the linked geometry and data are also restored to non-erasable in the same transaction. The inverse operation does not cascade from link to endpoints: marking a link erasable leaves geometry and data unchanged.
+Primitive lifecycle operations do not cascade automatically between collections.
 
 ## Repository Layer
 
@@ -182,11 +174,11 @@ Implemented in `backend/src/services/annotation.service.ts`.
 
 #### `getAnnotationGeometry(projectId, geometryId, includeErasable = false)`
 
-Returns one geometry if visible in the requested visibility mode.
+Returns one geometry if visible in the requested visibility mode. With `includeErasable = false`, an erasable geometry may still be returned if at least one non-erasable link keeps it alive.
 
 #### `getAnnotationData(projectId, dataId, includeErasable = false)`
 
-Returns one data record if visible in the requested visibility mode.
+Returns one data record if visible in the requested visibility mode. With `includeErasable = false`, an erasable data record may still be returned if at least one non-erasable link keeps it alive.
 
 #### `getAnnotationLink(projectId, linkId, includeErasable = false)`
 
@@ -194,14 +186,14 @@ Returns one link if it belongs to the project and passes the erasable filter.
 
 #### `getAnnotationGeometriesForSceneAssets(projectId, sceneId, includeErasable = false)`
 
-Returns geometries visible in the scene bundle. Error results:
+Returns geometries visible in the scene bundle. With `includeErasable = false`, weak geometries may still be present when a strong link keeps them alive. Error results:
 
 - `invalid_input`
 - `scene_not_found`
 
 #### `getAnnotationDataForSceneAssets(projectId, sceneId, includeErasable = false)`
 
-Returns data records visible in the scene bundle. Error results:
+Returns data records visible in the scene bundle. With `includeErasable = false`, weak data records may still be present when a strong link keeps them alive. Error results:
 
 - `invalid_input`
 - `scene_not_found`
@@ -260,19 +252,11 @@ Atomicity: single-document OCC update.
 
 #### `markAnnotationGeometryErasable(projectId, geometryId, expectedVersion, userId)`
 
-Transactionally:
-
-1. marks the geometry erasable
-2. marks all currently non-erasable links connected to that geometry as erasable
-
-This is the implemented geometry-to-link cascade.
+Marks only the geometry erasable. It does **not** alter connected links.
 
 #### `markAnnotationGeometryNonErasable(projectId, geometryId, expectedVersion, userId)`
 
-Transactionally:
-
-1. restores the geometry to non-erasable
-2. restores only those connected links whose data endpoint is already non-erasable
+Marks only the geometry non-erasable. It does **not** alter connected links.
 
 ### Data Mutation Services
 
@@ -303,17 +287,11 @@ Atomicity: single-document OCC update.
 
 #### `markAnnotationDataErasable(projectId, dataId, expectedVersion, userId)`
 
-Transactionally:
-
-1. marks the data record erasable
-2. marks all currently non-erasable links connected to that data record as erasable
+Marks only the data record erasable. It does **not** alter connected links.
 
 #### `markAnnotationDataNonErasable(projectId, dataId, expectedVersion, userId)`
 
-Transactionally:
-
-1. restores the data record to non-erasable
-2. restores only those connected links whose geometry endpoint is already non-erasable
+Marks only the data record non-erasable. It does **not** alter connected links.
 
 ### Link Mutation Services
 
@@ -339,24 +317,18 @@ Atomicity: single-document OCC update.
 
 #### `markAnnotationLinkNonErasable(projectId, linkId, expectedVersion, userId)`
 
-Restores only the link, not the endpoints.
+Marks only the link non-erasable.
 
-Preconditions enforced inside one transaction:
+Preconditions:
 
 1. the link exists
 2. the link is currently erasable
-3. geometry exists
-4. data exists
-5. geometry is already non-erasable
-6. data is already non-erasable
 
-Returns:
+In the adopted model, a non-erasable link is allowed to reference endpoints that are themselves still erasable. That simply means the link is strong while one or both endpoints remain weak.
 
-```ts
-{ linkVersion, geometryVersion, dataVersion }
-```
+Returns the next link version.
 
-Atomicity: MongoDB transaction. The transaction is used to check endpoint state and update the link consistently, even though only the link document is modified.
+Atomicity: single-document OCC update at the primitive level. Composite restore workflows may still exist later as higher-level APIs.
 
 ## REST API
 

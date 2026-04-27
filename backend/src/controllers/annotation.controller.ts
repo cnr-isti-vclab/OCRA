@@ -1046,14 +1046,12 @@ export async function markAnnotationLinkNonErasableHandler(req: Request, res: Re
       return;
     }
 
-    const restoreResult = await markAnnotationLinkNonErasable(projectId, linkId, expectedVersion, currentUser.id);
-    if (!restoreResult.ok) {
-      sendMappedError(req, res, restoreResult, {
+    const transitionResult = await markAnnotationLinkNonErasable(projectId, linkId, expectedVersion, currentUser.id);
+    if (!transitionResult.ok) {
+      sendMappedError(req, res, transitionResult, {
         invalid_input: { status: 400, code: 'annotation.link.invalid_input', error: 'expectedVersion is required' },
         link_not_found: { status: 404, code: 'annotation.link.not_found', error: 'Annotation link not found' },
         already_non_erasable: { status: 409, code: 'annotation.link.already_non_erasable', error: 'Annotation link is already non-erasable' },
-        geometry_not_found: { status: 409, code: 'annotation.link.geometry_missing', error: 'Linked geometry no longer exists' },
-        data_not_found: { status: 409, code: 'annotation.link.data_missing', error: 'Linked annotation data no longer exists' },
         version_conflict: { status: 409, code: 'annotation.link.version_conflict', error: 'Annotation link version conflict' },
         invalid_link_document: { status: 400, code: 'annotation.link.invalid_document', error: 'Annotation link restore produced an invalid document' },
       });
@@ -1069,13 +1067,13 @@ export async function markAnnotationLinkNonErasableHandler(req: Request, res: Re
       entity: {
         kind: 'link',
         id: linkId,
-        version: link?.version ?? null,
+        version: transitionResult.value,
         geometryId: link?.geometryId ?? null,
         dataId: link?.dataId ?? null,
         erasable: false,
       },
     });
-    res.json({ success: true, ...restoreResult.value, updatedAt: link?.updatedAt ?? null });
+    res.json({ success: true, version: transitionResult.value, updatedAt: link?.updatedAt ?? null });
   } catch (error: any) {
     console.error('Failed to restore annotation link:', error);
     res.status(500).json({ error: 'Failed to restore annotation link', message: error?.message });

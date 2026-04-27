@@ -141,8 +141,6 @@ export type MarkAnnotationLinkNonErasableErrorCode =
   | 'invalid_input'
   | 'link_not_found'
   | 'already_non_erasable'
-  | 'geometry_not_found'
-  | 'data_not_found'
   | 'version_conflict'
   | 'invalid_link_document';
 
@@ -151,12 +149,6 @@ export interface UpdateAnnotationDataInput {
   description?: string;
   class?: string | null;
   content?: Record<string, unknown>;
-}
-
-export interface RestoreAnnotationLinkResult {
-  linkVersion: number;
-  geometryVersion: number;
-  dataVersion: number;
 }
 
 export interface SceneAnnotationsResult {
@@ -179,73 +171,6 @@ function getTimestamp() {
   return new Date().toISOString();
 }
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isDuplicateKeyError(error: unknown) {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000;
-}
-
-async function projectExists(projectId: string) {
-  const prisma = getPrismaClient();
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { id: true },
-  });
-
-  return !!project;
-}
-
-function hasScene(hdtDocument: HDTDocument, sceneId: string) {
-  return hdtDocument.scenes.some((scene) => scene.id === sceneId);
-}
-
-function hasAsset(hdtDocument: HDTDocument, assetId: string) {
-  return hdtDocument.digitalAssets.some((asset) => asset.id === assetId);
-}
-
-function sceneContainsAsset(hdtDocument: HDTDocument, sceneId: string, assetId: string) {
-  const scene = hdtDocument.scenes.find((entry) => entry.id === sceneId);
-  return !!scene?.assets.some((asset) => asset.assetId === assetId);
-}
-
-function referenceExists(hdtDocument: HDTDocument, scopeType: AnnotationScopeType, scopeId: string) {
-  return scopeType === 'scene'
-    ? hasScene(hdtDocument, scopeId)
-    : hasAsset(hdtDocument, scopeId);
-}
-
-function areLinkScopesCompatible(
-  hdtDocument: HDTDocument,
-  geometry: AnnotationGeometryDocument,
-  data: AnnotationDataDocument,
-) {
-  if (geometry.referenceType === 'scene' && data.visibilityType === 'scene') {
-    return geometry.referenceId === data.visibilityId;
-  }
-
-  if (geometry.referenceType === 'scene' && data.visibilityType === 'asset') {
-    return sceneContainsAsset(hdtDocument, geometry.referenceId, data.visibilityId);
-  }
-
-  if (geometry.referenceType === 'asset' && data.visibilityType === 'scene') {
-    return sceneContainsAsset(hdtDocument, data.visibilityId, geometry.referenceId);
-  }
-
-  return geometry.referenceId === data.visibilityId;
-}
-
-function validateSchema<T>(
-  result: { success: true; data: T } | { success: false },
-): result is { success: true; data: T } {
-  return result.success;
-}
-
-function nextVersionCandidate<T extends { version: number }>(document: T) {
-  return document.version + 1;
-}
-
 function buildAuditFields(userId: string, timestamp: string) {
   return {
     createdAt: timestamp,
@@ -262,124 +187,26 @@ function buildUpdateAuditFields(userId: string, timestamp: string) {
   };
 }
 
-async function markLinkedAnnotationLinksErasable(
-  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
-  projectId: string,
-  filters: { geometryId?: string; dataId?: string },
-  userId: string,
-  timestamp: string,
-  session?: ClientSession,
-) {
-  await linkCollection.updateMany(
-    {
-      projectId,
-      erasableAt: null,
-      ...filters,
-    },
-    {
-      $set: {
-        erasableAt: timestamp,
-        erasableBy: userId,
-        ...buildUpdateAuditFields(userId, timestamp),
-      },
-      $inc: { version: 1 },
-    },
-    session ? { session } : undefined,
-  );
+function nextVersionCandidate<T extends { version: number }>(document: T) {
+  return document.version + 1;
 }
 
-async function markLinksNonErasableByIds(
-  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
-  projectId: string,
-  linkIds: string[],
-  userId: string,
-  timestamp: string,
-  session?: ClientSession,
-) {
-  if (linkIds.length === 0) {
-    return;
-  }
-
-  await linkCollection.updateMany(
-    {
-      projectId,
-      id: { $in: linkIds },
-      erasableAt: { $ne: null },
-    },
-    {
-      $set: {
-        erasableAt: null,
-        erasableBy: null,
-        ...buildUpdateAuditFields(userId, timestamp),
-      },
-      $inc: { version: 1 },
-    },
-    session ? { session } : undefined,
-  );
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
-async function markLinkedAnnotationLinksNonErasableForGeometry(
-  dataCollection: Awaited<ReturnType<typeof getAnnotationDataCollection>>,
-  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
-  projectId: string,
-  geometryId: string,
-  userId: string,
-  timestamp: string,
-  session?: ClientSession,
-) {
-  const links = await linkCollection.find({ projectId, geometryId }, session ? { session } : undefined).toArray();
-  const erasableLinks = links.filter((link) => link.erasableAt !== null);
-  if (erasableLinks.length === 0) {
-    return;
-  }
-
-  const dataIds = Array.from(new Set(erasableLinks.map((link) => link.dataId)));
-  const nonErasableData = await dataCollection
-    .find({
-      projectId,
-      id: { $in: dataIds },
-      erasableAt: null,
-    }, session ? { session } : undefined)
-    .toArray();
-  const nonErasableDataIds = new Set(nonErasableData.map((data) => data.id));
-
-  const eligibleLinkIds = erasableLinks
-    .filter((link) => nonErasableDataIds.has(link.dataId))
-    .map((link) => link.id);
-
-  await markLinksNonErasableByIds(linkCollection, projectId, eligibleLinkIds, userId, timestamp, session);
+function isDuplicateKeyError(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000;
 }
 
-async function markLinkedAnnotationLinksNonErasableForData(
-  geometryCollection: Awaited<ReturnType<typeof getAnnotationGeometryCollection>>,
-  linkCollection: Awaited<ReturnType<typeof getAnnotationLinkCollection>>,
-  projectId: string,
-  dataId: string,
-  userId: string,
-  timestamp: string,
-  session?: ClientSession,
-) {
-  const links = await linkCollection.find({ projectId, dataId }, session ? { session } : undefined).toArray();
-  const erasableLinks = links.filter((link) => link.erasableAt !== null);
-  if (erasableLinks.length === 0) {
-    return;
-  }
+async function projectExists(projectId: string) {
+  const prisma = getPrismaClient();
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true },
+  });
 
-  const geometryIds = Array.from(new Set(erasableLinks.map((link) => link.geometryId)));
-  const nonErasableGeometries = await geometryCollection
-    .find({
-      projectId,
-      id: { $in: geometryIds },
-      erasableAt: null,
-    }, session ? { session } : undefined)
-    .toArray();
-  const nonErasableGeometryIds = new Set(nonErasableGeometries.map((geometry) => geometry.id));
-
-  const eligibleLinkIds = erasableLinks
-    .filter((link) => nonErasableGeometryIds.has(link.geometryId))
-    .map((link) => link.id);
-
-  await markLinksNonErasableByIds(linkCollection, projectId, eligibleLinkIds, userId, timestamp, session);
+  return project !== null;
 }
 
 async function getAnnotationCollections() {
@@ -390,6 +217,10 @@ async function getAnnotationCollections() {
   ]);
 
   return { geometryCollection, dataCollection, linkCollection };
+}
+
+function validateSchema<T>(result: { success: boolean; data?: T }) {
+  return result.success;
 }
 
 function dedupeById<T extends { id: string }>(documents: T[]) {
@@ -411,6 +242,35 @@ function isEntityVisible<T extends { erasableAt: string | null }>(
 function getSceneAssetIds(hdtDocument: HDTDocument, sceneId: string) {
   const scene = hdtDocument.scenes.find((entry) => entry.id === sceneId);
   return scene ? scene.assets.map((asset) => asset.assetId) : null;
+}
+
+function hasScene(hdtDocument: HDTDocument, sceneId: string) {
+  return hdtDocument.scenes.some((scene) => scene.id === sceneId);
+}
+
+function sceneContainsAsset(hdtDocument: HDTDocument, sceneId: string, assetId: string) {
+  const scene = hdtDocument.scenes.find((entry) => entry.id === sceneId);
+  return scene ? scene.assets.some((asset) => asset.assetId === assetId) : false;
+}
+
+function areLinkScopesCompatible(
+  hdtDocument: HDTDocument,
+  geometry: Pick<AnnotationGeometry, 'referenceType' | 'referenceId'>,
+  data: Pick<AnnotationData, 'visibilityType' | 'visibilityId'>,
+) {
+  if (geometry.referenceType === 'scene' && data.visibilityType === 'scene') {
+    return geometry.referenceId === data.visibilityId;
+  }
+
+  if (geometry.referenceType === 'scene' && data.visibilityType === 'asset') {
+    return sceneContainsAsset(hdtDocument, geometry.referenceId, data.visibilityId);
+  }
+
+  if (geometry.referenceType === 'asset' && data.visibilityType === 'scene') {
+    return sceneContainsAsset(hdtDocument, data.visibilityId, geometry.referenceId);
+  }
+
+  return geometry.referenceId === data.visibilityId;
 }
 
 async function getIncomingVisibleLinksForGeometry(
@@ -888,7 +748,7 @@ export async function markAnnotationGeometryErasable(
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const { geometryCollection, linkCollection } = await getAnnotationCollections();
+      const { geometryCollection } = await getAnnotationCollections();
       const existing = await geometryCollection.findOne({ projectId, id: geometryId }, { session });
       if (!existing) {
         throw new AnnotationServiceAbort('geometry_not_found');
@@ -931,7 +791,6 @@ export async function markAnnotationGeometryErasable(
         throw new AnnotationServiceAbort('invalid_geometry_document');
       }
 
-      await markLinkedAnnotationLinksErasable(linkCollection, projectId, { geometryId }, userId, timestamp, session);
       nextVersion = updated.version;
     });
 
@@ -969,7 +828,7 @@ export async function markAnnotationGeometryNonErasable(
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const { geometryCollection, dataCollection, linkCollection } = await getAnnotationCollections();
+      const { geometryCollection } = await getAnnotationCollections();
       const existing = await geometryCollection.findOne({ projectId, id: geometryId }, { session });
       if (!existing) {
         throw new AnnotationServiceAbort('geometry_not_found');
@@ -1012,15 +871,6 @@ export async function markAnnotationGeometryNonErasable(
         throw new AnnotationServiceAbort('invalid_geometry_document');
       }
 
-      await markLinkedAnnotationLinksNonErasableForGeometry(
-        dataCollection,
-        linkCollection,
-        projectId,
-        geometryId,
-        userId,
-        timestamp,
-        session,
-      );
       nextVersion = updated.version;
     });
 
@@ -1169,7 +1019,7 @@ export async function markAnnotationDataErasable(
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const { dataCollection, linkCollection } = await getAnnotationCollections();
+      const { dataCollection } = await getAnnotationCollections();
       const existing = await dataCollection.findOne({ projectId, id: dataId }, { session });
       if (!existing) {
         throw new AnnotationServiceAbort('data_not_found');
@@ -1212,7 +1062,6 @@ export async function markAnnotationDataErasable(
         throw new AnnotationServiceAbort('invalid_data_document');
       }
 
-      await markLinkedAnnotationLinksErasable(linkCollection, projectId, { dataId }, userId, timestamp, session);
       nextVersion = updated.version;
     });
 
@@ -1250,7 +1099,7 @@ export async function markAnnotationDataNonErasable(
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const { geometryCollection, dataCollection, linkCollection } = await getAnnotationCollections();
+      const { dataCollection } = await getAnnotationCollections();
       const existing = await dataCollection.findOne({ projectId, id: dataId }, { session });
       if (!existing) {
         throw new AnnotationServiceAbort('data_not_found');
@@ -1293,15 +1142,6 @@ export async function markAnnotationDataNonErasable(
         throw new AnnotationServiceAbort('invalid_data_document');
       }
 
-      await markLinkedAnnotationLinksNonErasableForData(
-        geometryCollection,
-        linkCollection,
-        projectId,
-        dataId,
-        userId,
-        timestamp,
-        session,
-      );
       nextVersion = updated.version;
     });
 
@@ -1443,7 +1283,7 @@ export async function markAnnotationLinkNonErasable(
   linkId: string,
   expectedVersion: number,
   userId: string,
-): Promise<AnnotationServiceResult<RestoreAnnotationLinkResult, MarkAnnotationLinkNonErasableErrorCode>> {
+): Promise<AnnotationServiceResult<number, MarkAnnotationLinkNonErasableErrorCode>> {
   if (!isNonEmptyString(userId) || !isNonEmptyString(linkId)) {
     return failResult('invalid_input');
   }
@@ -1452,15 +1292,11 @@ export async function markAnnotationLinkNonErasable(
   const session = client.startSession();
 
   try {
-    let restoreResult: RestoreAnnotationLinkResult | null = null;
+    let nextVersion: number | null = null;
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const [linkCollection, geometryCollection, dataCollection] = await Promise.all([
-        getAnnotationLinkCollection(),
-        getAnnotationGeometryCollection(),
-        getAnnotationDataCollection(),
-      ]);
+      const linkCollection = await getAnnotationLinkCollection();
 
       const link = await linkCollection.findOne({ projectId, id: linkId }, { session });
       if (!link) {
@@ -1469,65 +1305,6 @@ export async function markAnnotationLinkNonErasable(
 
       if (link.erasableAt === null) {
         throw new AnnotationServiceAbort('already_non_erasable');
-      }
-
-      const [geometry, data] = await Promise.all([
-        geometryCollection.findOne({ projectId, id: link.geometryId }, { session }),
-        dataCollection.findOne({ projectId, id: link.dataId }, { session }),
-      ]);
-
-      if (!geometry || !data) {
-        throw new AnnotationServiceAbort(!geometry ? 'geometry_not_found' : 'data_not_found');
-      }
-
-      const updatedGeometryResult =
-        geometry.erasableAt === null
-          ? { value: geometry }
-          : await geometryCollection.findOneAndUpdate(
-              { projectId, id: link.geometryId, version: geometry.version },
-              {
-                $set: {
-                  erasableAt: null,
-                  erasableBy: null,
-                  ...buildUpdateAuditFields(userId, timestamp),
-                },
-                $inc: { version: 1 },
-              },
-              { returnDocument: 'after', session },
-            );
-
-      const updatedGeometry = updatedGeometryResult.value;
-      if (!updatedGeometry) {
-        throw new AnnotationServiceAbort('version_conflict');
-      }
-
-      if (!validateSchema(annotationGeometrySchema.safeParse(updatedGeometry))) {
-        throw new AnnotationServiceAbort('invalid_geometry_document');
-      }
-
-      const updatedDataResult =
-        data.erasableAt === null
-          ? { value: data }
-          : await dataCollection.findOneAndUpdate(
-              { projectId, id: link.dataId, version: data.version },
-              {
-                $set: {
-                  erasableAt: null,
-                  erasableBy: null,
-                  ...buildUpdateAuditFields(userId, timestamp),
-                },
-                $inc: { version: 1 },
-              },
-              { returnDocument: 'after', session },
-            );
-
-      const updatedData = updatedDataResult.value;
-      if (!updatedData) {
-        throw new AnnotationServiceAbort('version_conflict');
-      }
-
-      if (!validateSchema(annotationDataSchema.safeParse(updatedData))) {
-        throw new AnnotationServiceAbort('invalid_data_document');
       }
 
       const updatedLinkResult = await linkCollection.findOneAndUpdate(
@@ -1552,18 +1329,14 @@ export async function markAnnotationLinkNonErasable(
         throw new AnnotationServiceAbort('invalid_link_document');
       }
 
-      restoreResult = {
-        linkVersion: updatedLink.version,
-        geometryVersion: updatedGeometry.version,
-        dataVersion: updatedData.version,
-      };
+      nextVersion = updatedLink.version;
     });
 
-    if (restoreResult === null) {
-      throw new Error('markAnnotationLinkNonErasable transaction completed without a restore result');
+    if (nextVersion === null) {
+      throw new Error('markAnnotationLinkNonErasable transaction completed without a version');
     }
 
-    return okResult(restoreResult);
+    return okResult(nextVersion);
   } catch (error) {
     if (error instanceof AnnotationServiceAbort) {
       return failResult(error.code as MarkAnnotationLinkNonErasableErrorCode);

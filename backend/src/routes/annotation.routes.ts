@@ -35,7 +35,7 @@ router.use('/:projectId', enforceStructuringLock);
  * /api/projects/{projectId}/annotations/for-scene/{sceneId}:
  *   get:
  *     summary: Load all annotations for a scene
- *     description: Returns geometries, data records, and links visible in the given scene in one round-trip.
+ *     description: Returns geometries, data records, and links visible in the given scene in one round-trip. Geometry and data may still be returned even when they are erasable if at least one non-erasable link keeps them alive.
  *     tags:
  *       - Annotations
  *     security:
@@ -56,7 +56,7 @@ router.use('/:projectId', enforceStructuringLock);
  *         name: includeErasable
  *         schema:
  *           type: boolean
- *         description: Include erasable entities and links in the response.
+ *         description: Include weak entities and weak links in the response even when they would otherwise be hidden by the default visibility filter.
  *     responses:
  *       200:
  *         description: Scene annotation bundle
@@ -215,6 +215,7 @@ router.post('/:projectId/annotations/events/social-lock/stop', requireAuth, noti
  * /api/projects/{projectId}/annotations/geometry/for-scene/{sceneId}:
  *   get:
  *     summary: Get annotation geometries visible in a scene
+ *     description: Returns geometries visible in the scene. By default, an erasable geometry may still be included if at least one non-erasable link keeps it alive.
  *     tags:
  *       - Annotation Geometry
  *     security:
@@ -487,6 +488,7 @@ router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', require
  * /api/projects/{projectId}/annotations/data/for-scene/{sceneId}:
  *   get:
  *     summary: Get annotation data visible in a scene
+ *     description: Returns annotation data visible in the scene. By default, an erasable data record may still be included if at least one non-erasable link keeps it alive.
  *     tags:
  *       - Annotation Data
  *     security:
@@ -775,6 +777,7 @@ router.get('/:projectId/annotations/links', requireAuth, getAnnotationLinksHandl
  * /api/projects/{projectId}/annotations/links/for-scene/{sceneId}:
  *   get:
  *     summary: Get annotation links visible in a scene
+ *     description: Returns links visible in the scene. Unlike geometry and data, link visibility depends only on the link's own erasable flag.
  *     tags:
  *       - Annotation Links
  *     security:
@@ -923,7 +926,8 @@ router.patch('/:projectId/annotations/links/:linkId/erasable', requireAuth, mark
  * @openapi
  * /api/projects/{projectId}/annotations/links/{linkId}/nonerasable:
  *   patch:
- *     summary: Restore an annotation link and its referenced entities
+ *     summary: Restore an annotation link
+ *     description: Restores only the link itself. This primitive transition does not restore the referenced geometry or annotation data.
  *     tags:
  *       - Annotation Links
  *     security:
@@ -958,7 +962,7 @@ router.patch('/:projectId/annotations/links/:linkId/erasable', requireAuth, mark
  *       404:
  *         description: Annotation link not found
  *       409:
- *         description: Link already non-erasable, linked endpoints missing, linked endpoints still erasable, or version conflict
+ *         description: Link already non-erasable or version conflict
  */
 router.patch('/:projectId/annotations/links/:linkId/nonerasable', requireAuth, markAnnotationLinkNonErasableHandler);
 
