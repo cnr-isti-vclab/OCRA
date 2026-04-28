@@ -18,6 +18,8 @@ COPY shared/ shared/
 
 # Copy frontend source and build
 COPY frontend/ frontend/
+# Build openlime (local file: dependency - needs rollup to generate dist/js)
+RUN cd frontend/openlime && npm install && npm run rollup
 RUN npm run build --workspace frontend
 
 # Runtime stage (latest Nginx on Alpine)
