@@ -18,6 +18,7 @@ interface AnnotationApiDemoCardProps {
 interface TimelineEntry {
   id: string;
   tone: 'info' | 'warning' | 'success';
+  timestamp: string;
   message: string;
 }
 
@@ -31,10 +32,24 @@ function createFakeShape(seed: number): AnnotationShape {
   };
 }
 
-function addTimelineEntry(setter: React.Dispatch<React.SetStateAction<TimelineEntry[]>>, tone: TimelineEntry['tone'], message: string) {
+function formatTimelineTimestamp(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+
+  return date.toLocaleTimeString();
+}
+
+function addTimelineEntry(
+  setter: React.Dispatch<React.SetStateAction<TimelineEntry[]>>,
+  tone: TimelineEntry['tone'],
+  message: string,
+  timestamp = new Date().toISOString(),
+) {
   setter((current) => {
-    const next = [{ id: `${Date.now()}-${Math.random()}`, tone, message }, ...current];
-    return next.slice(0, 8);
+    const next = [...current, { id: `${Date.now()}-${Math.random()}`, tone, timestamp, message }];
+    return next.slice(-8);
   });
 }
 
@@ -108,7 +123,7 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
         }
 
         setLastMutation(event);
-        addTimelineEntry(setTimeline, 'success', buildReadableMutationMessage(event, sceneId));
+        addTimelineEntry(setTimeline, 'success', buildReadableMutationMessage(event, sceneId), event.timestamp);
       },
       onSocialLockStarted: (event) => {
         if (cancelled || !mountedRef.current) {
@@ -121,7 +136,7 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
           );
           return [event, ...filtered];
         });
-        addTimelineEntry(setTimeline, 'warning', buildReadableSocialLockMessage(event, sceneId));
+        addTimelineEntry(setTimeline, 'warning', buildReadableSocialLockMessage(event, sceneId), event.timestamp);
       },
       onSocialLockStopped: (event) => {
         if (cancelled || !mountedRef.current) {
@@ -131,7 +146,7 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
         setActiveLocks((current) => current.filter(
           (entry) => !(entry.streamId === event.streamId && entry.resourceType === event.resourceType && entry.resourceId === event.resourceId),
         ));
-        addTimelineEntry(setTimeline, 'info', buildReadableSocialLockMessage(event, sceneId));
+        addTimelineEntry(setTimeline, 'info', buildReadableSocialLockMessage(event, sceneId), event.timestamp);
       },
       onReconnect: () => {
         void loadBundle();
@@ -375,6 +390,7 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
             ) : (
               timeline.map((entry) => (
                 <div key={entry.id} className="py-1 border-bottom last-child-border-0">
+                  <span className="text-muted me-2">[{formatTimelineTimestamp(entry.timestamp)}]</span>
                   {entry.message}
                 </div>
               ))
