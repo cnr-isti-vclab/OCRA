@@ -47,15 +47,17 @@ export class AnnotationEventsService {
     const socialLockStopUrl = `${socialLockBaseUrl}/stop`;
     const sceneWidePayload = this.sceneId
       ? ({
-          sceneId: this.sceneId,
           streamId,
+          originScopeType: 'scene',
+          originScopeId: this.sceneId,
           activity: 'external-debug',
         } satisfies AnnotationSocialLockRequest)
       : null;
     const scopedPayload = this.sceneId
       ? ({
-          sceneId: this.sceneId,
           streamId,
+          originScopeType: 'scene',
+          originScopeId: this.sceneId,
           resourceType: 'geometry',
           resourceId: '<geometry-id>',
           activity: 'external-debug',
@@ -74,9 +76,7 @@ export class AnnotationEventsService {
       socialLockStartUrl,
       socialLockStopUrl,
       validResourceTypes: ['geometry', 'data', 'link'],
-      note: this.sceneId
-        ? 'resourceType/resourceId are optional, but if one is present both must be present'
-        : 'sceneId is omitted, so this stream listens project-wide but cannot emit social-lock notifications directly',
+      note: 'The stream is project-wide. originScopeType/originScopeId declare what is being edited; resourceType/resourceId remain optional but must be paired when present.',
       socialLockSceneWidePayloadExample: sceneWidePayload,
       socialLockScopedPayloadExample: scopedPayload,
       fetchExamples: sceneWidePayload && scopedPayload
@@ -125,6 +125,7 @@ export class AnnotationEventsService {
     console.log(`[Annotation SSE] ${event.type}`, {
       projectId: event.projectId,
       sceneId: event.sceneId,
+      impact: event.impact,
       streamId: event.streamId,
       sessionId: event.sessionId,
       userId: event.userId,
@@ -142,6 +143,7 @@ export class AnnotationEventsService {
     console.log('[Annotation SSE] annotation.mutated', {
       projectId: event.projectId,
       sceneId: event.sceneId,
+      impact: event.impact,
       sessionId: event.sessionId,
       userId: event.userId,
       username: event.username,
@@ -238,9 +240,21 @@ export class AnnotationEventsService {
 
   private async sendSocialLock(
     suffix: '/start' | '/stop',
-    input: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string },
+    input: {
+      originScopeType?: 'scene' | 'asset';
+      originScopeId?: string;
+      resourceType?: AnnotationEventResourceType;
+      resourceId?: string;
+      activity?: string;
+    },
   ) {
-    if (!this.streamId || !this.sceneId) {
+    if (!this.streamId) {
+      return false;
+    }
+
+    const originScopeType = input.originScopeType ?? (this.sceneId ? 'scene' : undefined);
+    const originScopeId = input.originScopeId ?? this.sceneId ?? undefined;
+    if (!originScopeType || !originScopeId) {
       return false;
     }
 
@@ -251,8 +265,9 @@ export class AnnotationEventsService {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sceneId: this.sceneId,
           streamId: this.streamId,
+          originScopeType,
+          originScopeId,
           ...input,
         } satisfies AnnotationSocialLockRequest),
       },

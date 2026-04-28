@@ -24,7 +24,9 @@ vi.mock('../services/annotation.service.js', () => ({
   createAnnotationData: vi.fn(),
   createAnnotationGeometry: vi.fn(),
   createAnnotationLink: vi.fn(),
-  getAnnotationsForScene: vi.fn(),
+  getAnnotationDataList: vi.fn(),
+  getAnnotationGeometries: vi.fn(),
+  getAnnotations: vi.fn(),
   getAnnotationData: vi.fn(),
   getAnnotationDataForSceneAssets: vi.fn(),
   getAnnotationGeometry: vi.fn(),
@@ -38,6 +40,8 @@ vi.mock('../services/annotation.service.js', () => ({
   markAnnotationGeometryNonErasable: vi.fn(),
   markAnnotationLinkErasable: vi.fn(),
   markAnnotationLinkNonErasable: vi.fn(),
+  resolveAnnotationImpactForLink: vi.fn(),
+  resolveAnnotationImpactForScope: vi.fn(),
   updateAnnotationData: vi.fn(),
   updateAnnotationGeometryShapes: vi.fn(),
 }));
@@ -270,13 +274,14 @@ describe.sequential('Annotation controller edge cases', () => {
   });
 
   it('returns 404 when the requested scene bundle does not exist', async () => {
-    vi.mocked(annotationService.getAnnotationsForScene).mockResolvedValueOnce({
+    vi.mocked(annotationService.getAnnotations).mockResolvedValueOnce({
       ok: false,
       code: 'scene_not_found',
     } as never);
 
     const response = await request(app)
-      .get(`/api/projects/${project.id}/annotations/for-scene/scene-missing`)
+      .get(`/api/projects/${project.id}/annotations`)
+      .query({ sceneId: 'scene-missing' })
       .expect(404);
 
     expect(response.body.error).toBe('Scene not found');
@@ -284,13 +289,14 @@ describe.sequential('Annotation controller edge cases', () => {
   });
 
   it('returns 404 when scene geometries are requested for a missing scene', async () => {
-    vi.mocked(annotationService.getAnnotationGeometriesForSceneAssets).mockResolvedValueOnce({
+    vi.mocked(annotationService.getAnnotationGeometries).mockResolvedValueOnce({
       ok: false,
       code: 'scene_not_found',
     } as never);
 
     const response = await request(app)
-      .get(`/api/projects/${project.id}/annotations/geometry/for-scene/scene-missing`)
+      .get(`/api/projects/${project.id}/annotations/geometry`)
+      .query({ sceneId: 'scene-missing' })
       .expect(404);
 
     expect(response.body.error).toBe('Scene not found');
@@ -298,13 +304,14 @@ describe.sequential('Annotation controller edge cases', () => {
   });
 
   it('returns 404 when scene data are requested for a missing scene', async () => {
-    vi.mocked(annotationService.getAnnotationDataForSceneAssets).mockResolvedValueOnce({
+    vi.mocked(annotationService.getAnnotationDataList).mockResolvedValueOnce({
       ok: false,
       code: 'scene_not_found',
     } as never);
 
     const response = await request(app)
-      .get(`/api/projects/${project.id}/annotations/data/for-scene/scene-missing`)
+      .get(`/api/projects/${project.id}/annotations/data`)
+      .query({ sceneId: 'scene-missing' })
       .expect(404);
 
     expect(response.body.error).toBe('Scene not found');
@@ -318,11 +325,33 @@ describe.sequential('Annotation controller edge cases', () => {
     } as never);
 
     const response = await request(app)
-      .get(`/api/projects/${project.id}/annotations/links/for-scene/scene-missing`)
+      .get(`/api/projects/${project.id}/annotations/links`)
+      .query({ sceneId: 'scene-missing' })
       .expect(404);
 
     expect(response.body.error).toBe('Scene not found');
     expect(response.body.code).toBe('annotation.scene.not_found');
+  });
+
+  it('filters scene-scoped links by geometryId and dataId on the unified links endpoint', async () => {
+    vi.mocked(annotationService.getAnnotationLinksForSceneAssets).mockResolvedValueOnce({
+      ok: true,
+      value: [
+        buildLink(project.id, 'al_match'),
+        { ...buildLink(project.id, 'al_other_geometry'), geometryId: 'ag_other' },
+        { ...buildLink(project.id, 'al_other_data'), dataId: 'ad_other' },
+      ],
+    } as never);
+
+    const response = await request(app)
+      .get(`/api/projects/${project.id}/annotations/links`)
+      .query({ sceneId: 'scene-1', geometryId: 'ag_test', dataId: 'ad_test' })
+      .expect(200);
+
+    expect(annotationService.getAnnotationLinksForSceneAssets).toHaveBeenCalledWith(project.id, 'scene-1', false);
+    expect(response.body.success).toBe(true);
+    expect(response.body.links).toHaveLength(1);
+    expect(response.body.links[0].id).toBe('al_match');
   });
 
   it('returns the uniform error envelope for unmatched routes', async () => {
@@ -370,6 +399,12 @@ describe.sequential('Annotation controller edge cases', () => {
 
   it('accepts social-lock start notifications for a live stream', async () => {
     const streamId = '11111111-1111-4111-8111-111111111111';
+    vi.mocked(annotationService.resolveAnnotationImpactForScope).mockResolvedValueOnce({
+      originScopeType: 'scene',
+      originScopeId: 'scene-1',
+      affectedSceneIds: ['scene-1'],
+      affectedAssetIds: [],
+    } as never);
     vi.mocked(annotationEvents.publishAnnotationSocialLockStart).mockReturnValue({
       ok: true,
       value: {
@@ -378,6 +413,12 @@ describe.sequential('Annotation controller edge cases', () => {
         streamId,
         projectId: project.id,
         sceneId: 'scene-1',
+        impact: {
+          originScopeType: 'scene',
+          originScopeId: 'scene-1',
+          affectedSceneIds: ['scene-1'],
+          affectedAssetIds: [],
+        },
         sessionId: 'test-session',
         userId: user.id,
         username: 'annotator',
@@ -390,7 +431,7 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/events/social-lock/start`)
-      .send({ sceneId: 'scene-1', streamId, resourceType: 'geometry', resourceId: 'ag-1', activity: 'editing' })
+      .send({ originScopeType: 'scene', originScopeId: 'scene-1', streamId, resourceType: 'geometry', resourceId: 'ag-1', activity: 'editing' })
       .expect(202);
 
     expect(response.body.success).toBe(true);
@@ -405,20 +446,32 @@ describe.sequential('Annotation controller edge cases', () => {
       resourceType: 'geometry',
       resourceId: 'ag-1',
       activity: 'editing',
+      impact: {
+        originScopeType: 'scene',
+        originScopeId: 'scene-1',
+        affectedSceneIds: ['scene-1'],
+        affectedAssetIds: [],
+      },
     });
   });
 
   it('rejects invalid social-lock payloads before touching the broker', async () => {
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/events/social-lock/start`)
-      .send({ sceneId: 'scene-1', streamId: '11111111-1111-4111-8111-111111111111', resourceType: 'geometry' })
+      .send({ originScopeType: 'scene', originScopeId: 'scene-1', streamId: '11111111-1111-4111-8111-111111111111', resourceType: 'geometry' })
       .expect(400);
 
-    expect(response.body.error).toContain('sceneId and streamId are required');
+    expect(response.body.error).toContain('streamId and a valid origin scope are required');
     expect(annotationEvents.publishAnnotationSocialLockStart).not.toHaveBeenCalled();
   });
 
   it('maps missing streams on social-lock stop to 404', async () => {
+    vi.mocked(annotationService.resolveAnnotationImpactForScope).mockResolvedValueOnce({
+      originScopeType: 'scene',
+      originScopeId: 'scene-1',
+      affectedSceneIds: ['scene-1'],
+      affectedAssetIds: [],
+    } as never);
     vi.mocked(annotationEvents.publishAnnotationSocialLockStop).mockReturnValue({
       ok: false,
       code: 'stream_not_found',
@@ -426,7 +479,7 @@ describe.sequential('Annotation controller edge cases', () => {
 
     const response = await request(app)
       .post(`/api/projects/${project.id}/annotations/events/social-lock/stop`)
-      .send({ sceneId: 'scene-1', streamId: '11111111-1111-4111-8111-111111111111' })
+      .send({ originScopeType: 'scene', originScopeId: 'scene-1', streamId: '11111111-1111-4111-8111-111111111111' })
       .expect(404);
 
     expect(response.body.code).toBe('stream_not_found');

@@ -77,6 +77,8 @@ interface CreateLinkInput {
 }
 
 interface SocialLockInput {
+  originScopeType?: 'scene' | 'asset';
+  originScopeId?: string;
   resourceType?: AnnotationEventResourceType;
   resourceId?: string;
   activity?: string;
@@ -136,9 +138,13 @@ export class AnnotationApiClient {
   }
 
   async loadSceneBundle(includeErasable = true) {
-    const query = includeErasable ? '?includeErasable=true' : '';
+    const query = new URLSearchParams();
+    query.set('sceneId', this.sceneId);
+    if (includeErasable) {
+      query.set('includeErasable', 'true');
+    }
     const response = await this.request<SceneBundleEnvelope>(
-      `/annotations/for-scene/${this.sceneId}${query}`,
+      `/annotations?${query.toString()}`,
     );
 
     return {
@@ -149,27 +155,39 @@ export class AnnotationApiClient {
   }
 
   async loadSceneGeometries(includeErasable = true) {
-    const query = includeErasable ? '?includeErasable=true' : '';
+    const query = new URLSearchParams();
+    query.set('sceneId', this.sceneId);
+    if (includeErasable) {
+      query.set('includeErasable', 'true');
+    }
     const response = await this.request<GeometriesEnvelope>(
-      `/annotations/geometry/for-scene/${this.sceneId}${query}`,
+      `/annotations/geometry?${query.toString()}`,
     );
 
     return response.geometries;
   }
 
   async loadSceneData(includeErasable = true) {
-    const query = includeErasable ? '?includeErasable=true' : '';
+    const query = new URLSearchParams();
+    query.set('sceneId', this.sceneId);
+    if (includeErasable) {
+      query.set('includeErasable', 'true');
+    }
     const response = await this.request<DataListEnvelope>(
-      `/annotations/data/for-scene/${this.sceneId}${query}`,
+      `/annotations/data?${query.toString()}`,
     );
 
     return response.data;
   }
 
   async loadSceneLinks(includeErasable = true) {
-    const query = includeErasable ? '?includeErasable=true' : '';
+    const query = new URLSearchParams();
+    query.set('sceneId', this.sceneId);
+    if (includeErasable) {
+      query.set('includeErasable', 'true');
+    }
     const response = await this.request<LinksEnvelope>(
-      `/annotations/links/for-scene/${this.sceneId}${query}`,
+      `/annotations/links?${query.toString()}`,
     );
 
     return response.links;
@@ -380,21 +398,43 @@ export class AnnotationApiClient {
 }
 
 export function buildReadableSocialLockMessage(event: AnnotationSocialLockEvent, currentSceneId?: string | null) {
-  const scope = event.sceneId === currentSceneId ? 'this scene' : `scene ${event.sceneId}`;
+  const scope = event.impact.originScopeType === 'scene'
+    ? event.impact.originScopeId === currentSceneId
+      ? 'this scene'
+      : `scene ${event.impact.originScopeId}`
+    : event.impact.originScopeType === 'asset'
+      ? `asset ${event.impact.originScopeId}`
+      : 'multiple shared scopes';
   const resource = event.resourceType && event.resourceId
     ? `${event.resourceType} ${event.resourceId}`
     : 'scene-wide annotations';
   const activity = event.activity ? ` while ${event.activity}` : '';
+  const impact = currentSceneId && event.impact.affectedSceneIds.includes(currentSceneId)
+    ? ' affecting this scene'
+    : event.impact.affectedSceneIds.length > 0
+      ? ` affecting scenes ${event.impact.affectedSceneIds.join(', ')}`
+      : event.impact.affectedAssetIds.length > 0
+        ? ` affecting assets ${event.impact.affectedAssetIds.join(', ')}`
+        : '';
 
-  return `${event.username} ${event.type === 'annotation.social_lock.started' ? 'started' : 'stopped'} editing ${resource} in ${scope}${activity}.`;
+  return `${event.username} ${event.type === 'annotation.social_lock.started' ? 'started' : 'stopped'} editing ${resource} in ${scope}${impact}${activity}.`;
 }
 
 export function buildReadableMutationMessage(event: AnnotationMutationEvent, currentSceneId?: string | null) {
-  const scope = event.sceneId === null
-    ? 'project scope'
-    : event.sceneId === currentSceneId
+  const scope = event.impact.originScopeType === 'scene'
+    ? event.impact.originScopeId === currentSceneId
       ? 'this scene'
-      : `scene ${event.sceneId}`;
+      : `scene ${event.impact.originScopeId}`
+    : event.impact.originScopeType === 'asset'
+      ? `asset ${event.impact.originScopeId}`
+      : 'multiple shared scopes';
+  const impact = currentSceneId && event.impact.affectedSceneIds.includes(currentSceneId)
+    ? ' affecting this scene'
+    : event.impact.affectedSceneIds.length > 0
+      ? ` affecting scenes ${event.impact.affectedSceneIds.join(', ')}`
+      : event.impact.affectedAssetIds.length > 0
+        ? ` affecting assets ${event.impact.affectedAssetIds.join(', ')}`
+        : '';
 
-  return `${event.username} published ${event.mutation} on ${event.entity.kind} ${event.entity.id} in ${scope}.`;
+  return `${event.username} published ${event.mutation} on ${event.entity.kind} ${event.entity.id} in ${scope}${impact}.`;
 }

@@ -1,5 +1,7 @@
 import type { AnnotationScopeType } from './annotation-types';
 
+export type AnnotationImpactOriginScopeType = AnnotationScopeType | 'mixed';
+
 export type AnnotationMutationKind =
   | 'geometry.created'
   | 'geometry.updated'
@@ -26,10 +28,17 @@ export interface AnnotationEventEntityPayload {
   erasable?: boolean | null;
 }
 
+export interface AnnotationImpactMetadata {
+  originScopeType: AnnotationImpactOriginScopeType;
+  originScopeId: string | null;
+  affectedSceneIds: string[];
+  affectedAssetIds: string[];
+}
+
 export interface AnnotationSocialLockState {
   streamId: string;
   projectId: string;
-  sceneId: string;
+  sceneId: string | null;
   sessionId: string;
   userId: string;
   username: string;
@@ -37,6 +46,7 @@ export interface AnnotationSocialLockState {
   resourceId: string | null;
   activity: string | null;
   startedAt: string;
+  impact: AnnotationImpactMetadata;
 }
 
 export interface AnnotationConnectedEvent {
@@ -63,6 +73,7 @@ export interface AnnotationMutationEvent {
   username: string;
   mutation: AnnotationMutationKind;
   entity: AnnotationEventEntityPayload;
+  impact: AnnotationImpactMetadata;
 }
 
 export type AnnotationStreamEvent =
@@ -75,8 +86,10 @@ export interface AnnotationEventStreamQuery {
 }
 
 export interface AnnotationSocialLockRequest {
-  sceneId: string;
   streamId: string;
+  sceneId?: string;
+  originScopeType?: AnnotationScopeType;
+  originScopeId?: string;
   resourceType?: AnnotationEventResourceType;
   resourceId?: string;
   activity?: string;

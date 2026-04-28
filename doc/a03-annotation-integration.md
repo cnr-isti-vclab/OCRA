@@ -223,12 +223,15 @@ Write endpoints require:
 The primary frontend entry point should be:
 
 ```http
-GET /api/projects/{projectId}/annotations/for-scene/{sceneId}
+GET /api/projects/{projectId}/annotations?sceneId={sceneId}
 ```
 
 Optional query parameter:
 
+- `sceneId={sceneId}`
 - `includeErasable=true`
+
+When `sceneId` is omitted, the same endpoint returns the full annotation bundle for the project.
 
 Typical response:
 
@@ -246,6 +249,14 @@ Recommended usage:
 1. call the scene bundle route when entering the annotation view
 2. normalize arrays into id-keyed maps
 3. derive renderable annotation triples from `links`
+
+If the UI needs only one entity family, the same query pattern is available on the dedicated list routes:
+
+- `GET /api/projects/{projectId}/annotations/geometry?sceneId={sceneId}`
+- `GET /api/projects/{projectId}/annotations/data?sceneId={sceneId}`
+- `GET /api/projects/{projectId}/annotations/links?sceneId={sceneId}`
+
+The links route also accepts `geometryId` and `dataId`; if `sceneId` is present, those id filters are applied after scene visibility is resolved.
 
 ## Real-Time Connection via SSE
 
@@ -267,7 +278,7 @@ GET /api/projects/{projectId}/annotations/events?sceneId={sceneId}
 Notes:
 
 - the endpoint is authenticated exactly like the other annotation endpoints
-- `sceneId` is optional, but for the annotation UI the recommended mode is scene-scoped subscription
+- the transport is project-wide; `sceneId` is optional and acts only as frontend view context
 - the response is `text/event-stream`
 - the backend serves it with `Cache-Control: no-cache, no-transform`
 - the backend also sends `retry: 5000`, so browser `EventSource` clients automatically retry after disconnects
@@ -279,6 +290,8 @@ The stream currently emits three event families:
 - `annotation.connected`
 - `annotation.social_lock.started` and `annotation.social_lock.stopped`
 - `annotation.mutated`
+
+For social-lock and mutation events, the backend now includes an `impact` object so the frontend can decide whether the current scene is affected, whether the origin is scene-scoped or asset-scoped, and whether the change should be surfaced with stronger UI feedback.
 
 The shared frontend/backend contract is defined in `shared/annotation-events.ts`.
 
@@ -304,6 +317,7 @@ Frontend implication:
 - store `streamId`
 - use it later when sending `notifyEditingStart` / `notifyEditingStop`
 - initialize local social-lock indicators from `activeSocialLocks`
+- treat `sceneId` in the handshake as the connection context, not as a server-side delivery filter
 
 ### Recommended Frontend Connection Pattern
 
@@ -344,7 +358,7 @@ Recommended behaviour:
 
 1. open the SSE connection when the annotation view for a scene becomes active
 2. keep one connection per open scene view, not one per annotation
-3. on `annotation.mutated`, refresh the affected entity or reload the current scene bundle
+3. on `annotation.mutated`, use `impact.affectedSceneIds` / `impact.affectedAssetIds` to decide whether the current view is affected, then refresh the affected entity or reload the current scene bundle
 4. on reconnect, perform a safe refresh because some events may have been missed while offline
 
 ### Keep-Alive and Reconnect Semantics
@@ -374,8 +388,9 @@ Request body:
 
 ```json
 {
-  "sceneId": "scene-main",
   "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "originScopeType": "scene",
+  "originScopeId": "scene-main",
   "resourceType": "geometry",
   "resourceId": "ag_123",
   "activity": "editing"
@@ -392,8 +407,9 @@ Request body:
 
 ```json
 {
-  "sceneId": "scene-main",
   "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "originScopeType": "scene",
+  "originScopeId": "scene-main",
   "resourceType": "geometry",
   "resourceId": "ag_123",
   "activity": "editing"
@@ -402,10 +418,20 @@ Request body:
 
 Current contract notes:
 
-- `sceneId` and `streamId` are required
+- `streamId`, `originScopeType`, and `originScopeId` are required
 - `resourceType` and `resourceId` should be sent together when the lock targets one entity
 - valid `resourceType` values are `geometry`, `data`, `link`
 - `activity` is optional descriptive metadata
+- `originScopeType` is `scene` or `asset`
+- `originScopeId` names the source scene or asset being edited
+- legacy `sceneId` is still accepted as shorthand for `originScopeType: "scene"`
+- the corresponding SSE event carries `impact.originScopeType`, `impact.originScopeId`, `impact.affectedSceneIds`, and `impact.affectedAssetIds`
+
+Typical `impact` shapes:
+
+- scene-origin edit: `originScopeType: "scene"`, one affected scene, no affected assets
+- asset-origin edit: `originScopeType: "asset"`, one affected asset, all scenes containing that asset
+- compatible mixed link edit: `originScopeType: "mixed"`, `originScopeId: null`, union of affected scenes/assets from the linked geometry and data
 
 ### Recommended Social-Lock Workflow
 
@@ -471,6 +497,12 @@ Typical payload shape:
   "timestamp": "2026-04-25T12:01:00.000Z",
   "projectId": "p1",
   "sceneId": "scene-main",
+  "impact": {
+    "originScopeType": "scene",
+    "originScopeId": "scene-main",
+    "affectedSceneIds": ["scene-main"],
+    "affectedAssetIds": []
+  },
   "sessionId": "session-123",
   "userId": "u1",
   "username": "annotator",
@@ -488,7 +520,7 @@ Typical payload shape:
 
 Recommended frontend behaviour:
 
-- if the entity is not currently being edited locally, reload that entity or reload the scene bundle
+- if `impact` shows that the current scene or asset view is affected and the entity is not currently being edited locally, reload that entity or reload the scene bundle
 - if the entity is currently being edited locally, show a non-blocking remote-change warning
 - after reconnect, reload the scene because one or more mutation events may have been missed
 
@@ -640,7 +672,7 @@ Structured envelope example:
   "status": 404,
   "requestId": "...",
   "timestamp": "2026-04-25T10:30:00.000Z",
-  "path": "/api/projects/p1/annotations/for-scene/s1",
+  "path": "/api/projects/p1/annotations?sceneId=s1",
   "method": "GET"
 }
 ```

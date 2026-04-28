@@ -3,6 +3,13 @@
 This page shows the simplest way to use the frontend annotation helpers.
 
 These classes are for the new annotation model.
+
+The scene-specific list helpers use the same unified query style as the bundle endpoint:
+
+- `loadSceneBundle()` -> `/annotations?sceneId=...`
+- `loadSceneGeometries()` -> `/annotations/geometry?sceneId=...`
+- `loadSceneData()` -> `/annotations/data?sceneId=...`
+- `loadSceneLinks()` -> `/annotations/links?sceneId=...`
 They do not use the old `scene.annotations` field.
 
 ## What the model looks like
@@ -253,6 +260,8 @@ events.connect({
 events.disconnect();
 ```
 
+`sceneId` here gives the service the current view context. The underlying SSE stream is project-wide, so incoming events should be interpreted through `event.impact`.
+
 ## Take the social lock
 
 The social lock is an informational signal.
@@ -267,10 +276,27 @@ await client.notifySocialLockStart({
 });
 ```
 
+If the client was created with a `sceneId`, this defaults to:
+
+- `originScopeType: 'scene'`
+- `originScopeId: sceneId`
+
+### Asset-scoped lock
+
+```ts
+await client.notifySocialLockStart({
+  originScopeType: 'asset',
+  originScopeId: 'asset-id',
+  activity: 'editing shared asset annotations',
+});
+```
+
 ### Lock one specific resource
 
 ```ts
 await client.notifySocialLockStart({
+  originScopeType: 'asset',
+  originScopeId: 'asset-id',
   resourceType: 'data',
   resourceId: 'data-id',
   activity: 'editing annotation text',
@@ -281,6 +307,8 @@ await client.notifySocialLockStart({
 
 ```ts
 await client.notifySocialLockStop({
+  originScopeType: 'asset',
+  originScopeId: 'asset-id',
   resourceType: 'data',
   resourceId: 'data-id',
   activity: 'editing annotation text',
@@ -303,16 +331,21 @@ client.connectRealtime({
     console.log('Already active locks:', event.activeSocialLocks);
   },
   onMutation: (event) => {
-    console.log(`${event.username} changed ${event.entity.kind} ${event.entity.id}`);
+    console.log(`${event.username} changed ${event.entity.kind} ${event.entity.id}`, event.impact);
   },
   onSocialLockStarted: (event) => {
-    console.log(`${event.username} started editing`);
+    console.log(`${event.username} started editing`, event.impact);
   },
   onSocialLockStopped: (event) => {
-    console.log(`${event.username} stopped editing`);
+    console.log(`${event.username} stopped editing`, event.impact);
   },
 });
 ```
+
+Interpretation rule:
+
+- use `event.impact.originScopeType` and `event.impact.originScopeId` to describe where the edit started
+- use `event.impact.affectedSceneIds` and `event.impact.affectedAssetIds` to decide whether the current screen should refresh or highlight the activity
 
 ## Small React example
 

@@ -5,7 +5,7 @@ import {
   createAnnotationDataHandler,
   createAnnotationGeometryHandler,
   createAnnotationLinkHandler,
-  getAnnotationsForSceneHandler,
+  getAnnotationsHandler,
   getAnnotationDataForSceneHandler,
   getAnnotationDataHandler,
   getAnnotationGeometriesForSceneHandler,
@@ -32,10 +32,10 @@ router.use('/:projectId', enforceStructuringLock);
 
 /**
  * @openapi
- * /api/projects/{projectId}/annotations/for-scene/{sceneId}:
+ * /api/projects/{projectId}/annotations:
  *   get:
- *     summary: Load all annotations for a scene
- *     description: Returns geometries, data records, and links visible in the given scene in one round-trip. Geometry and data may still be returned even when they are erasable if at least one non-erasable link keeps them alive.
+ *     summary: Load annotations for a project or scene
+ *     description: Returns geometries, data records, and links in one round-trip. When `sceneId` is provided, the response is filtered to entities visible in that scene; otherwise all project annotations are returned. Geometry and data may still be returned even when they are erasable if at least one non-erasable link keeps them alive.
  *     tags:
  *       - Annotations
  *     security:
@@ -47,11 +47,12 @@ router.use('/:projectId', enforceStructuringLock);
  *         required: true
  *         schema:
  *           type: string
- *       - in: path
+ *       - in: query
  *         name: sceneId
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
+ *         description: Optional scene filter. When present, only annotations visible in that scene are returned.
  *       - in: query
  *         name: includeErasable
  *         schema:
@@ -71,7 +72,7 @@ router.use('/:projectId', enforceStructuringLock);
  *       404:
  *         description: Scene not found
  */
-router.get('/:projectId/annotations/for-scene/:sceneId', requireAuth, getAnnotationsForSceneHandler);
+router.get('/:projectId/annotations', requireAuth, getAnnotationsHandler);
 /**
  * @openapi
  * /api/projects/{projectId}/annotations/events:
@@ -212,10 +213,10 @@ router.post('/:projectId/annotations/events/social-lock/stop', requireAuth, noti
 
 /**
  * @openapi
- * /api/projects/{projectId}/annotations/geometry/for-scene/{sceneId}:
+ * /api/projects/{projectId}/annotations/geometry:
  *   get:
- *     summary: Get annotation geometries visible in a scene
- *     description: Returns geometries visible in the scene. By default, an erasable geometry may still be included if at least one non-erasable link keeps it alive.
+ *     summary: Get annotation geometries for a project or scene
+ *     description: Returns geometries for the whole project, or only geometries visible in one scene when `sceneId` is provided. By default, an erasable geometry may still be included if at least one non-erasable link keeps it alive.
  *     tags:
  *       - Annotation Geometry
  *     security:
@@ -227,11 +228,12 @@ router.post('/:projectId/annotations/events/social-lock/stop', requireAuth, noti
  *         required: true
  *         schema:
  *           type: string
- *       - in: path
+ *       - in: query
  *         name: sceneId
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
+ *         description: Optional scene filter. When present, only geometries visible in that scene are returned.
  *       - in: query
  *         name: includeErasable
  *         schema:
@@ -257,7 +259,7 @@ router.post('/:projectId/annotations/events/social-lock/stop', requireAuth, noti
  *       404:
  *         description: Scene not found
  */
-router.get('/:projectId/annotations/geometry/for-scene/:sceneId', requireAuth, getAnnotationGeometriesForSceneHandler);
+router.get('/:projectId/annotations/geometry', requireAuth, getAnnotationGeometriesForSceneHandler);
 /**
  * @openapi
  * /api/projects/{projectId}/annotations/geometry/{geometryId}:
@@ -485,10 +487,10 @@ router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', require
 
 /**
  * @openapi
- * /api/projects/{projectId}/annotations/data/for-scene/{sceneId}:
+ * /api/projects/{projectId}/annotations/data:
  *   get:
- *     summary: Get annotation data visible in a scene
- *     description: Returns annotation data visible in the scene. By default, an erasable data record may still be included if at least one non-erasable link keeps it alive.
+ *     summary: Get annotation data for a project or scene
+ *     description: Returns annotation data for the whole project, or only data visible in one scene when `sceneId` is provided. By default, an erasable data record may still be included if at least one non-erasable link keeps it alive.
  *     tags:
  *       - Annotation Data
  *     security:
@@ -500,11 +502,12 @@ router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', require
  *         required: true
  *         schema:
  *           type: string
- *       - in: path
+ *       - in: query
  *         name: sceneId
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
+ *         description: Optional scene filter. When present, only data visible in that scene are returned.
  *       - in: query
  *         name: includeErasable
  *         schema:
@@ -519,7 +522,7 @@ router.patch('/:projectId/annotations/geometry/:geometryId/nonerasable', require
  *       404:
  *         description: Scene not found
  */
-router.get('/:projectId/annotations/data/for-scene/:sceneId', requireAuth, getAnnotationDataForSceneHandler);
+router.get('/:projectId/annotations/data', requireAuth, getAnnotationDataForSceneHandler);
 /**
  * @openapi
  * /api/projects/{projectId}/annotations/data/{dataId}:
@@ -764,6 +767,11 @@ router.patch('/:projectId/annotations/data/:dataId/nonerasable', requireAuth, ma
  *         schema:
  *           type: string
  *       - in: query
+ *         name: sceneId
+ *         schema:
+ *           type: string
+ *         description: Optional scene filter. When present, only links visible in that scene are returned before applying `geometryId` and `dataId` filters.
+ *       - in: query
  *         name: includeErasable
  *         schema:
  *           type: boolean
@@ -772,43 +780,6 @@ router.patch('/:projectId/annotations/data/:dataId/nonerasable', requireAuth, ma
  *         description: Annotation links
  */
 router.get('/:projectId/annotations/links', requireAuth, getAnnotationLinksHandler);
-/**
- * @openapi
- * /api/projects/{projectId}/annotations/links/for-scene/{sceneId}:
- *   get:
- *     summary: Get annotation links visible in a scene
- *     description: Returns links visible in the scene. Unlike geometry and data, link visibility depends only on the link's own erasable flag.
- *     tags:
- *       - Annotation Links
- *     security:
- *       - sessionCookie: []
- *       - sessionBearer: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: sceneId
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: includeErasable
- *         schema:
- *           type: boolean
- *     responses:
- *       200:
- *         description: Links visible in the scene
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Project access denied
- *       404:
- *         description: Scene not found
- */
-router.get('/:projectId/annotations/links/for-scene/:sceneId', requireAuth, getAnnotationLinksForSceneHandler);
 /**
  * @openapi
  * /api/projects/{projectId}/annotations/links/{linkId}:

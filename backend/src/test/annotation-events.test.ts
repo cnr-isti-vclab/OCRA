@@ -104,12 +104,18 @@ describe.sequential('annotation event broker', () => {
       resourceType: 'geometry',
       resourceId: 'ag-1',
       activity: 'editing',
+      impact: {
+        originScopeType: 'scene',
+        originScopeId: 'scene-1',
+        affectedSceneIds: ['scene-1'],
+        affectedAssetIds: [],
+      },
     });
 
     expect(lockResult.ok).toBe(true);
     expect(sceneClient.writes.join('')).toContain('annotation.social_lock.started');
     expect(projectWideClient.writes.join('')).toContain('annotation.social_lock.started');
-    expect(otherSceneClient.writes.join('')).not.toContain('annotation.social_lock.started');
+    expect(otherSceneClient.writes.join('')).toContain('annotation.social_lock.started');
 
     publishAnnotationMutation({
       type: 'annotation.mutated',
@@ -120,19 +126,25 @@ describe.sequential('annotation event broker', () => {
       userId: 'user-1',
       username: 'annotator',
       mutation: 'geometry.updated',
+      impact: {
+        originScopeType: 'asset',
+        originScopeId: 'asset-1',
+        affectedSceneIds: ['scene-1', 'scene-2'],
+        affectedAssetIds: ['asset-1'],
+      },
       entity: {
         kind: 'geometry',
         id: 'ag-1',
         version: 2,
-        referenceType: 'scene',
-        referenceId: 'scene-1',
+        referenceType: 'asset',
+        referenceId: 'asset-1',
         erasable: false,
       },
     });
 
     expect(sceneClient.writes.join('')).toContain('geometry.updated');
     expect(projectWideClient.writes.join('')).toContain('geometry.updated');
-    expect(otherSceneClient.writes.join('')).not.toContain('geometry.updated');
+    expect(otherSceneClient.writes.join('')).toContain('geometry.updated');
   });
 
   it('expires social locks when the owning stream disconnects', () => {
@@ -166,6 +178,12 @@ describe.sequential('annotation event broker', () => {
       resourceType: 'data',
       resourceId: 'ad-1',
       activity: 'editing',
+      impact: {
+        originScopeType: 'scene',
+        originScopeId: 'scene-1',
+        affectedSceneIds: ['scene-1'],
+        affectedAssetIds: [],
+      },
     });
 
     ownerSubscription.close();

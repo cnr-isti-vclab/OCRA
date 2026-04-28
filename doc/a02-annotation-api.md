@@ -184,16 +184,16 @@ Returns one data record if visible in the requested visibility mode. With `inclu
 
 Returns one link if it belongs to the project and passes the erasable filter.
 
-#### `getAnnotationGeometriesForSceneAssets(projectId, sceneId, includeErasable = false)`
+#### `getAnnotationGeometries(projectId, sceneId?, includeErasable = false)`
 
-Returns geometries visible in the scene bundle. With `includeErasable = false`, weak geometries may still be present when a strong link keeps them alive. Error results:
+Returns project geometries when `sceneId` is omitted, or geometries visible in the scene bundle when it is provided. With `includeErasable = false`, weak geometries may still be present when a strong link keeps them alive. Error results when `sceneId` is provided:
 
 - `invalid_input`
 - `scene_not_found`
 
-#### `getAnnotationDataForSceneAssets(projectId, sceneId, includeErasable = false)`
+#### `getAnnotationDataList(projectId, sceneId?, includeErasable = false)`
 
-Returns data records visible in the scene bundle. With `includeErasable = false`, weak data records may still be present when a strong link keeps them alive. Error results:
+Returns project data records when `sceneId` is omitted, or data visible in the scene bundle when it is provided. With `includeErasable = false`, weak data records may still be present when a strong link keeps them alive. Error results when `sceneId` is provided:
 
 - `invalid_input`
 - `scene_not_found`
@@ -359,7 +359,7 @@ Opens a Server-Sent Events stream (`text/event-stream`) for annotation notificat
 
 Supported query params:
 
-- `sceneId` optional scene scope filter
+- `sceneId` optional frontend context hint
 
 Transport headers set by the backend:
 
@@ -382,6 +382,11 @@ Event families currently emitted:
 
 The initial handshake event is `annotation.connected`, which returns a backend-generated `streamId` and any already active social locks visible in the chosen scope.
 
+Delivery note:
+
+- the SSE transport is project-wide
+- `sceneId` does not limit backend delivery; frontend consumers should filter or prioritize events using the `impact` metadata included in social-lock and mutation payloads
+
 Implemented payload types are defined in `shared/annotation-events.ts`.
 
 #### `POST /api/projects/{projectId}/annotations/events/social-lock/start`
@@ -390,8 +395,9 @@ Broadcasts an informational editing-start notification to SSE subscribers.
 
 Required request fields:
 
-- `sceneId`
 - `streamId`
+- `originScopeType` (`scene` or `asset`)
+- `originScopeId`
 
 Optional request fields:
 
@@ -403,14 +409,14 @@ Validation notes:
 
 - `resourceType` and `resourceId` must be paired when targeting one entity
 - the referenced `streamId` must belong to the authenticated session
-- if the SSE stream was opened with a concrete scene scope, the social-lock scene must match that scope
+- the referenced origin scene or asset must exist in the project HDT
+- legacy `sceneId` is still accepted and is interpreted as `originScopeType: "scene"`
 
 Possible responses:
 
 - `202` social-lock accepted and broadcast
 - `400` invalid payload
-- `404` referenced stream not found
-- `409` stream scope mismatch
+- `404` referenced stream or origin scope not found
 
 #### `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
 
@@ -418,8 +424,9 @@ Clears a previously announced informational social lock.
 
 Required request fields:
 
-- `sceneId`
 - `streamId`
+- `originScopeType` (`scene` or `asset`)
+- `originScopeId`
 
 Optional request fields:
 
@@ -431,8 +438,8 @@ Possible responses:
 
 - `202` social-lock removal accepted and broadcast
 - `400` invalid payload
-- `404` referenced stream not found
-- `409` social lock not found or stream scope mismatch
+- `404` referenced stream or origin scope not found
+- `409` social lock not found
 
 ### Real-Time Event Payloads
 
@@ -462,6 +469,12 @@ Typical payload:
 	"streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
 	"projectId": "p1",
 	"sceneId": "scene-main",
+	"impact": {
+		"originScopeType": "scene",
+		"originScopeId": "scene-main",
+		"affectedSceneIds": ["scene-main"],
+		"affectedAssetIds": []
+	},
 	"sessionId": "session-123",
 	"userId": "u1",
 	"username": "annotator",
@@ -471,6 +484,8 @@ Typical payload:
 	"startedAt": "2026-04-25T12:01:00.000Z"
 }
 ```
+
+When the origin is asset-scoped, `sceneId` may be `null` and `impact` becomes the authoritative routing metadata. For mixed link mutations the backend uses `impact.originScopeType = "mixed"` and `impact.originScopeId = null`.
 
 #### `annotation.mutated`
 
@@ -498,6 +513,12 @@ Typical payload:
 	"timestamp": "2026-04-25T12:02:00.000Z",
 	"projectId": "p1",
 	"sceneId": "scene-main",
+	"impact": {
+		"originScopeType": "asset",
+		"originScopeId": "asset-7",
+		"affectedSceneIds": ["scene-main", "scene-alt"],
+		"affectedAssetIds": ["asset-7"]
+	},
 	"sessionId": "session-123",
 	"userId": "u1",
 	"username": "annotator",
@@ -513,14 +534,16 @@ Typical payload:
 }
 ```
 
+Consumers should use `impact` rather than `sceneId` to determine whether the current scene or asset view is affected.
+
 ### Scene Bundle Routes
 
-- `GET /api/projects/{projectId}/annotations/for-scene/{sceneId}`
-- `GET /api/projects/{projectId}/annotations/geometry/for-scene/{sceneId}`
-- `GET /api/projects/{projectId}/annotations/data/for-scene/{sceneId}`
-- `GET /api/projects/{projectId}/annotations/links/for-scene/{sceneId}`
+- `GET /api/projects/{projectId}/annotations?sceneId={sceneId}`
+- `GET /api/projects/{projectId}/annotations/geometry?sceneId={sceneId}`
+- `GET /api/projects/{projectId}/annotations/data?sceneId={sceneId}`
+- `GET /api/projects/{projectId}/annotations/links?sceneId={sceneId}`
 
-These routes accept `includeErasable=true|false` and are read-only.
+The bundle route and the three list routes accept an optional `sceneId` query parameter so they can return either all project annotations or only annotations visible in a specific scene. The links route also accepts optional `geometryId` and `dataId` filters, and when `sceneId` is present those filters are applied after scene visibility. These routes accept `includeErasable=true|false` and are read-only.
 
 ### Geometry Routes
 

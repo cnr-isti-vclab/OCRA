@@ -15,7 +15,9 @@ import {
   createAnnotationData,
   createAnnotationGeometry,
   createAnnotationLink,
-  getAnnotationsForScene,
+  getAnnotationDataList,
+  getAnnotationGeometries,
+  getAnnotations,
   getAnnotationData,
   getAnnotationDataForSceneAssets,
   getAnnotationGeometry,
@@ -29,6 +31,8 @@ import {
   markAnnotationGeometryNonErasable,
   markAnnotationLinkErasable,
   markAnnotationLinkNonErasable,
+  resolveAnnotationImpactForLink,
+  resolveAnnotationImpactForScope,
   updateAnnotationData,
   updateAnnotationGeometryShapes,
 } from '../services/annotation.service.js';
@@ -157,21 +161,43 @@ function getActorUsername(user: User) {
   return user.username || user.email || user.sub || user.id || 'unknown-user';
 }
 
-function getSceneIdForScope(referenceType: string | null | undefined, referenceId: string | null | undefined) {
-  return referenceType === 'scene' && typeof referenceId === 'string' ? referenceId : null;
+async function buildMutationImpact(
+  projectId: string,
+  entity: AnnotationMutationEvent['entity'],
+) {
+  if (
+    (entity.kind === 'geometry' || entity.kind === 'data')
+    && (entity.referenceType === 'scene' || entity.referenceType === 'asset')
+    && typeof entity.referenceId === 'string'
+  ) {
+    return resolveAnnotationImpactForScope(projectId, entity.referenceType, entity.referenceId);
+  }
+
+  if (entity.kind === 'link' && typeof entity.geometryId === 'string' && typeof entity.dataId === 'string') {
+    return resolveAnnotationImpactForLink(projectId, entity.geometryId, entity.dataId);
+  }
+
+  return null;
 }
 
-function publishMutationIfPossible(
+async function publishMutationIfPossible(
   req: Request,
   currentUser: User,
-  event: Omit<AnnotationMutationEvent, 'sessionId' | 'userId' | 'username' | 'timestamp'>,
+  event: Omit<AnnotationMutationEvent, 'sessionId' | 'userId' | 'username' | 'timestamp' | 'impact' | 'sceneId'>,
 ) {
   if (!req.sessionId || !currentUser.id) {
     return;
   }
 
+  const impact = await buildMutationImpact(event.projectId, event.entity);
+  if (!impact) {
+    return;
+  }
+
   publishAnnotationMutation({
     ...event,
+    sceneId: impact.originScopeType === 'scene' ? impact.originScopeId : null,
+    impact,
     timestamp: new Date().toISOString(),
     sessionId: req.sessionId,
     userId: currentUser.id,
@@ -184,8 +210,15 @@ function parseSocialLockPayload(body: unknown) {
     return null;
   }
 
-  const sceneId = typeof body.sceneId === 'string' ? body.sceneId : null;
   const streamId = typeof body.streamId === 'string' ? body.streamId : null;
+  const legacySceneId = typeof body.sceneId === 'string' ? body.sceneId : null;
+  const originScopeType =
+    body.originScopeType === 'scene' || body.originScopeType === 'asset'
+      ? body.originScopeType
+      : legacySceneId
+        ? 'scene'
+        : null;
+  const originScopeId = typeof body.originScopeId === 'string' ? body.originScopeId : legacySceneId;
   const resourceType =
     body.resourceType === 'geometry' || body.resourceType === 'data' || body.resourceType === 'link'
       ? body.resourceType
@@ -193,7 +226,7 @@ function parseSocialLockPayload(body: unknown) {
   const resourceId = typeof body.resourceId === 'string' ? body.resourceId : undefined;
   const activity = typeof body.activity === 'string' ? body.activity : undefined;
 
-  if (!sceneId || !streamId) {
+  if (!streamId || !originScopeType || !originScopeId) {
     return null;
   }
 
@@ -202,8 +235,9 @@ function parseSocialLockPayload(body: unknown) {
   }
 
   return {
-    sceneId,
     streamId,
+    originScopeType,
+    originScopeId,
     resourceType,
     resourceId,
     activity,
@@ -258,13 +292,19 @@ export async function notifyAnnotationSocialLockStartHandler(req: Request, res: 
 
     const payload = parseSocialLockPayload(req.body);
     if (!payload) {
-      res.status(400).json({ error: 'sceneId and streamId are required; resourceType/resourceId must be paired' });
+      res.status(400).json({ error: 'streamId and a valid origin scope are required; resourceType/resourceId must be paired' });
+      return;
+    }
+
+    const impact = await resolveAnnotationImpactForScope(projectId, payload.originScopeType!, payload.originScopeId!);
+    if (!impact) {
+      res.status(404).json({ error: 'Referenced scene or asset not found' });
       return;
     }
 
     const result = publishAnnotationSocialLockStart({
       projectId,
-      sceneId: payload.sceneId,
+      sceneId: impact.originScopeType === 'scene' ? impact.originScopeId : null,
       streamId: payload.streamId,
       sessionId: req.sessionId,
       userId: currentUser.id,
@@ -272,6 +312,7 @@ export async function notifyAnnotationSocialLockStartHandler(req: Request, res: 
       resourceType: payload.resourceType ?? null,
       resourceId: payload.resourceId ?? null,
       activity: payload.activity ?? null,
+      impact,
     });
     if (!result.ok) {
       const status = result.code === 'stream_not_found' ? 404 : 409;
@@ -294,13 +335,19 @@ export async function notifyAnnotationSocialLockStopHandler(req: Request, res: R
 
     const payload = parseSocialLockPayload(req.body);
     if (!payload) {
-      res.status(400).json({ error: 'sceneId and streamId are required; resourceType/resourceId must be paired' });
+      res.status(400).json({ error: 'streamId and a valid origin scope are required; resourceType/resourceId must be paired' });
+      return;
+    }
+
+    const impact = await resolveAnnotationImpactForScope(projectId, payload.originScopeType!, payload.originScopeId!);
+    if (!impact) {
+      res.status(404).json({ error: 'Referenced scene or asset not found' });
       return;
     }
 
     const result = publishAnnotationSocialLockStop({
       projectId,
-      sceneId: payload.sceneId,
+      sceneId: impact.originScopeType === 'scene' ? impact.originScopeId : null,
       streamId: payload.streamId,
       sessionId: req.sessionId,
       userId: currentUser.id,
@@ -308,6 +355,7 @@ export async function notifyAnnotationSocialLockStopHandler(req: Request, res: R
       resourceType: payload.resourceType ?? null,
       resourceId: payload.resourceId ?? null,
       activity: payload.activity ?? null,
+      impact,
     });
     if (!result.ok) {
       const status = result.code === 'stream_not_found' ? 404 : 409;
@@ -322,9 +370,10 @@ export async function notifyAnnotationSocialLockStopHandler(req: Request, res: R
   }
 }
 
-export async function getAnnotationsForSceneHandler(req: Request, res: Response) {
+export async function getAnnotationsHandler(req: Request, res: Response) {
   try {
-    const { projectId, sceneId } = req.params;
+    const { projectId } = req.params;
+    const sceneId = typeof req.query.sceneId === 'string' ? req.query.sceneId : undefined;
     const includeErasable = parseBooleanQuery(req.query.includeErasable);
     const currentUser = await requireProjectRole(req, res, projectId, [
       RoleEnum.viewer,
@@ -333,7 +382,7 @@ export async function getAnnotationsForSceneHandler(req: Request, res: Response)
     ]);
     if (!currentUser) return;
 
-    const result = await getAnnotationsForScene(projectId, sceneId, includeErasable);
+    const result = await getAnnotations(projectId, sceneId, includeErasable);
     if (!result.ok) {
       sendMappedError(req, res, result, {
         invalid_input: { status: 400, code: 'annotation.scene.invalid_input', error: 'Invalid scene id' },
@@ -344,14 +393,15 @@ export async function getAnnotationsForSceneHandler(req: Request, res: Response)
 
     res.json({ success: true, ...result.value });
   } catch (error: any) {
-    console.error('Failed to get annotations for scene:', error);
-    res.status(500).json({ error: 'Failed to get annotations for scene', message: error?.message });
+    console.error('Failed to get annotations:', error);
+    res.status(500).json({ error: 'Failed to get annotations', message: error?.message });
   }
 }
 
 export async function getAnnotationGeometriesForSceneHandler(req: Request, res: Response) {
   try {
-    const { projectId, sceneId } = req.params;
+    const { projectId } = req.params;
+    const sceneId = typeof req.query.sceneId === 'string' ? req.query.sceneId : undefined;
     const includeErasable = parseBooleanQuery(req.query.includeErasable);
     const currentUser = await requireProjectRole(req, res, projectId, [
       RoleEnum.viewer,
@@ -360,7 +410,7 @@ export async function getAnnotationGeometriesForSceneHandler(req: Request, res: 
     ]);
     if (!currentUser) return;
 
-    const geometries = await getAnnotationGeometriesForSceneAssets(projectId, sceneId, includeErasable);
+    const geometries = await getAnnotationGeometries(projectId, sceneId, includeErasable);
     if (!geometries.ok) {
       sendMappedError(req, res, geometries, {
         invalid_input: { status: 400, code: 'annotation.scene.invalid_input', error: 'Invalid scene id' },
@@ -436,10 +486,9 @@ export async function createAnnotationGeometryHandler(req: Request, res: Respons
     }
 
     const geometry = await getAnnotationGeometry(projectId, createResult.value, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
       mutation: 'geometry.created',
       entity: {
         kind: 'geometry',
@@ -482,10 +531,9 @@ export async function updateAnnotationGeometryHandler(req: Request, res: Respons
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
       mutation: 'geometry.updated',
       entity: {
         kind: 'geometry',
@@ -528,10 +576,9 @@ export async function markAnnotationGeometryErasableHandler(req: Request, res: R
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
       mutation: 'geometry.erasable',
       entity: {
         kind: 'geometry',
@@ -574,10 +621,9 @@ export async function markAnnotationGeometryNonErasableHandler(req: Request, res
     }
 
     const geometry = await getAnnotationGeometry(projectId, geometryId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(geometry?.referenceType, geometry?.referenceId),
       mutation: 'geometry.restored',
       entity: {
         kind: 'geometry',
@@ -597,7 +643,8 @@ export async function markAnnotationGeometryNonErasableHandler(req: Request, res
 
 export async function getAnnotationDataForSceneHandler(req: Request, res: Response) {
   try {
-    const { projectId, sceneId } = req.params;
+    const { projectId } = req.params;
+    const sceneId = typeof req.query.sceneId === 'string' ? req.query.sceneId : undefined;
     const includeErasable = parseBooleanQuery(req.query.includeErasable);
     const currentUser = await requireProjectRole(req, res, projectId, [
       RoleEnum.viewer,
@@ -606,7 +653,7 @@ export async function getAnnotationDataForSceneHandler(req: Request, res: Respon
     ]);
     if (!currentUser) return;
 
-    const data = await getAnnotationDataForSceneAssets(projectId, sceneId, includeErasable);
+    const data = await getAnnotationDataList(projectId, sceneId, includeErasable);
     if (!data.ok) {
       sendMappedError(req, res, data, {
         invalid_input: { status: 400, code: 'annotation.scene.invalid_input', error: 'Invalid scene id' },
@@ -688,10 +735,9 @@ export async function createAnnotationDataHandler(req: Request, res: Response) {
     }
 
     const datum = await getAnnotationData(projectId, createResult.value, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
       mutation: 'data.created',
       entity: {
         kind: 'data',
@@ -750,10 +796,9 @@ export async function updateAnnotationDataHandler(req: Request, res: Response) {
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
       mutation: 'data.updated',
       entity: {
         kind: 'data',
@@ -796,10 +841,9 @@ export async function markAnnotationDataErasableHandler(req: Request, res: Respo
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
       mutation: 'data.erasable',
       entity: {
         kind: 'data',
@@ -842,10 +886,9 @@ export async function markAnnotationDataNonErasableHandler(req: Request, res: Re
     }
 
     const datum = await getAnnotationData(projectId, dataId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: getSceneIdForScope(datum?.visibilityType, datum?.visibilityId),
       mutation: 'data.restored',
       entity: {
         kind: 'data',
@@ -867,6 +910,7 @@ export async function getAnnotationLinksHandler(req: Request, res: Response) {
   try {
     const { projectId } = req.params;
     const includeErasable = parseBooleanQuery(req.query.includeErasable);
+    const sceneId = typeof req.query.sceneId === 'string' ? req.query.sceneId : undefined;
     const geometryId = typeof req.query.geometryId === 'string' ? req.query.geometryId : undefined;
     const dataId = typeof req.query.dataId === 'string' ? req.query.dataId : undefined;
     const currentUser = await requireProjectRole(req, res, projectId, [
@@ -876,8 +920,29 @@ export async function getAnnotationLinksHandler(req: Request, res: Response) {
     ]);
     if (!currentUser) return;
 
-    const links = await getAnnotationLinksForProject(projectId, includeErasable, { geometryId, dataId });
-    res.json({ success: true, links });
+    const links = sceneId
+      ? await getAnnotationLinksForSceneAssets(projectId, sceneId, includeErasable)
+      : await Promise.resolve({ ok: true as const, value: await getAnnotationLinksForProject(projectId, includeErasable, { geometryId, dataId }) });
+    if (!links.ok) {
+      sendMappedError(req, res, links, {
+        invalid_input: { status: 400, code: 'annotation.scene.invalid_input', error: 'Invalid scene id' },
+        scene_not_found: { status: 404, code: 'annotation.scene.not_found', error: 'Scene not found' },
+      });
+      return;
+    }
+
+    const filteredLinks = links.value.filter((link) => {
+      if (geometryId && link.geometryId !== geometryId) {
+        return false;
+      }
+
+      if (dataId && link.dataId !== dataId) {
+        return false;
+      }
+
+      return true;
+    });
+    res.json({ success: true, links: filteredLinks });
   } catch (error: any) {
     console.error('Failed to get annotation links:', error);
     res.status(500).json({ error: 'Failed to get annotation links', message: error?.message });
@@ -967,10 +1032,9 @@ export async function createAnnotationLinkHandler(req: Request, res: Response) {
     }
 
     const link = await getAnnotationLink(projectId, createResult.value, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: null,
       mutation: 'link.created',
       entity: {
         kind: 'link',
@@ -1013,10 +1077,9 @@ export async function markAnnotationLinkErasableHandler(req: Request, res: Respo
     }
 
     const link = await getAnnotationLink(projectId, linkId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: null,
       mutation: 'link.erasable',
       entity: {
         kind: 'link',
@@ -1059,10 +1122,9 @@ export async function markAnnotationLinkNonErasableHandler(req: Request, res: Re
     }
 
     const link = await getAnnotationLink(projectId, linkId, true);
-    publishMutationIfPossible(req, currentUser, {
+    await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      sceneId: null,
       mutation: 'link.restored',
       entity: {
         kind: 'link',

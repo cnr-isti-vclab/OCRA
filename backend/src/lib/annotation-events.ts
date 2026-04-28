@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import type { Response } from 'express';
 import type {
   AnnotationConnectedEvent,
+  AnnotationImpactMetadata,
   AnnotationMutationEvent,
   AnnotationSocialLockEvent,
   AnnotationSocialLockState,
@@ -30,7 +31,7 @@ interface SubscribeAnnotationEventsInput {
 
 interface PublishAnnotationSocialLockInput {
   projectId: string;
-  sceneId: string;
+  sceneId: string | null;
   streamId: string;
   sessionId: string;
   userId: string;
@@ -38,6 +39,7 @@ interface PublishAnnotationSocialLockInput {
   resourceType: 'geometry' | 'data' | 'link' | null;
   resourceId: string | null;
   activity: string | null;
+  impact: AnnotationImpactMetadata;
 }
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
@@ -45,10 +47,11 @@ const HEARTBEAT_INTERVAL_MS = 25_000;
 const connections = new Map<string, AnnotationEventConnection>();
 const socialLocks = new Map<string, AnnotationSocialLockState>();
 
-function createSocialLockKey(lock: Pick<AnnotationSocialLockState, 'projectId' | 'sceneId' | 'streamId' | 'resourceType' | 'resourceId'>) {
+function createSocialLockKey(lock: Pick<AnnotationSocialLockState, 'projectId' | 'streamId' | 'resourceType' | 'resourceId' | 'impact'>) {
   return [
     lock.projectId,
-    lock.sceneId,
+    lock.impact.originScopeType,
+    lock.impact.originScopeId ?? '-',
     lock.streamId,
     lock.resourceType ?? '-',
     lock.resourceId ?? '-',
@@ -61,21 +64,13 @@ function writeEvent(response: Response, event: AnnotationStreamEvent) {
   response.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
-function matchesAudience(connection: AnnotationEventConnection, projectId: string, sceneId: string | null) {
-  if (connection.projectId !== projectId) {
-    return false;
-  }
-
-  if (sceneId === null) {
-    return true;
-  }
-
-  return connection.sceneId === null || connection.sceneId === sceneId;
+function matchesAudience(connection: AnnotationEventConnection, projectId: string) {
+  return connection.projectId === projectId;
 }
 
-function broadcastEvent(event: AnnotationStreamEvent, projectId: string, sceneId: string | null) {
+function broadcastEvent(event: AnnotationStreamEvent, projectId: string) {
   for (const connection of connections.values()) {
-    if (!matchesAudience(connection, projectId, sceneId) || connection.response.writableEnded) {
+    if (!matchesAudience(connection, projectId) || connection.response.writableEnded) {
       continue;
     }
 
@@ -83,13 +78,9 @@ function broadcastEvent(event: AnnotationStreamEvent, projectId: string, sceneId
   }
 }
 
-function getActiveSocialLocks(projectId: string, sceneId: string | null) {
+function getActiveSocialLocks(projectId: string) {
   return Array.from(socialLocks.values()).filter((lock) => {
-    if (lock.projectId !== projectId) {
-      return false;
-    }
-
-    return sceneId === null || lock.sceneId === sceneId;
+    return lock.projectId === projectId;
   });
 }
 
@@ -116,7 +107,6 @@ function closeAnnotationEventConnection(streamId: string) {
         timestamp: new Date().toISOString(),
       },
       lock.projectId,
-      lock.sceneId,
     );
   }
 }
@@ -166,7 +156,7 @@ export function subscribeToAnnotationEvents(input: SubscribeAnnotationEventsInpu
     streamId,
     projectId: input.projectId,
     sceneId: input.sceneId,
-    activeSocialLocks: getActiveSocialLocks(input.projectId, input.sceneId),
+    activeSocialLocks: getActiveSocialLocks(input.projectId),
   });
 
   return {
@@ -181,10 +171,6 @@ export function publishAnnotationSocialLockStart(input: PublishAnnotationSocialL
     return { ok: false as const, code: 'stream_not_found' };
   }
 
-  if (connection.sceneId !== null && connection.sceneId !== input.sceneId) {
-    return { ok: false as const, code: 'stream_scene_mismatch' };
-  }
-
   const lock: AnnotationSocialLockState = {
     streamId: input.streamId,
     projectId: input.projectId,
@@ -196,6 +182,7 @@ export function publishAnnotationSocialLockStart(input: PublishAnnotationSocialL
     resourceId: input.resourceId,
     activity: input.activity,
     startedAt: new Date().toISOString(),
+    impact: input.impact,
   };
 
   socialLocks.set(createSocialLockKey(lock), lock);
@@ -205,7 +192,7 @@ export function publishAnnotationSocialLockStart(input: PublishAnnotationSocialL
     type: 'annotation.social_lock.started',
     timestamp: new Date().toISOString(),
   };
-  broadcastEvent(event, input.projectId, input.sceneId);
+  broadcastEvent(event, input.projectId);
 
   return { ok: true as const, value: event };
 }
@@ -216,16 +203,12 @@ export function publishAnnotationSocialLockStop(input: PublishAnnotationSocialLo
     return { ok: false as const, code: 'stream_not_found' };
   }
 
-  if (connection.sceneId !== null && connection.sceneId !== input.sceneId) {
-    return { ok: false as const, code: 'stream_scene_mismatch' };
-  }
-
   const key = createSocialLockKey({
     projectId: input.projectId,
-    sceneId: input.sceneId,
     streamId: input.streamId,
     resourceType: input.resourceType,
     resourceId: input.resourceId,
+    impact: input.impact,
   });
   const existingLock = socialLocks.get(key);
   if (!existingLock) {
@@ -238,13 +221,13 @@ export function publishAnnotationSocialLockStop(input: PublishAnnotationSocialLo
     type: 'annotation.social_lock.stopped',
     timestamp: new Date().toISOString(),
   };
-  broadcastEvent(event, input.projectId, input.sceneId);
+  broadcastEvent(event, input.projectId);
 
   return { ok: true as const, value: event };
 }
 
 export function publishAnnotationMutation(event: AnnotationMutationEvent) {
-  broadcastEvent(event, event.projectId, event.sceneId);
+  broadcastEvent(event, event.projectId);
 }
 
 export function resetAnnotationEventBrokerForTests() {

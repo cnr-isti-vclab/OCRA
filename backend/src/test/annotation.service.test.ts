@@ -63,12 +63,13 @@ import {
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
 import {
   createAnnotationLink,
-  getAnnotationsForScene,
+  getAnnotations,
   markAnnotationDataErasable,
   markAnnotationDataNonErasable,
   markAnnotationGeometryErasable,
   markAnnotationGeometryNonErasable,
   markAnnotationLinkNonErasable,
+  resolveAnnotationImpactForLink,
 } from '../services/annotation.service.js';
 
 function createCursorMock<T>(items: T[]) {
@@ -201,9 +202,120 @@ describe('annotation.service scene lookups', () => {
       digitalAssets: [],
     } as never);
 
-    await expect(getAnnotationsForScene('project-1', 'scene-missing')).resolves.toEqual({
+    await expect(getAnnotations('project-1', 'scene-missing')).resolves.toEqual({
       ok: false,
       code: 'scene_not_found',
+    });
+  });
+
+  it('returns project-wide annotations when sceneId is omitted', async () => {
+    const geometry = {
+      id: 'ag_1',
+      projectId: 'project-1',
+      shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+      referenceType: 'scene',
+      referenceId: 'scene-1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    };
+    const datum = {
+      id: 'ad_1',
+      projectId: 'project-1',
+      label: 'Label',
+      description: 'Description',
+      class: null,
+      content: {},
+      visibilityType: 'scene',
+      visibilityId: 'scene-1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    };
+    const link = {
+      id: 'al_1',
+      projectId: 'project-1',
+      geometryId: 'ag_1',
+      dataId: 'ad_1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    };
+
+    vi.mocked(getAnnotationGeometryCollection).mockResolvedValue({
+      find: vi.fn().mockReturnValue(createCursorMock([geometry])),
+    } as never);
+    vi.mocked(getAnnotationDataCollection).mockResolvedValue({
+      find: vi.fn().mockReturnValue(createCursorMock([datum])),
+    } as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({
+      find: vi.fn().mockReturnValue(createCursorMock([link])),
+    } as never);
+    vi.mocked(findAnnotationLinksByGeometryId).mockResolvedValue([link] as never);
+    vi.mocked(findAnnotationLinksByDataId).mockResolvedValue([link] as never);
+
+    await expect(getAnnotations('project-1')).resolves.toEqual({
+      ok: true,
+      value: {
+        geometries: [geometry],
+        data: [datum],
+        links: [link],
+      },
+    });
+  });
+});
+
+describe('annotation.service impact resolution', () => {
+  const prismaMock = {
+    project: {
+      findUnique: vi.fn(),
+    },
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+    prismaMock.project.findUnique.mockResolvedValue({ id: 'project-1' });
+  });
+
+  it('returns mixed impact for links that connect different compatible scopes', async () => {
+    vi.mocked(getHDTDocument).mockResolvedValue({
+      scenes: [
+        { id: 'scene-1', assets: [{ assetId: 'asset-1' }] },
+        { id: 'scene-2', assets: [{ assetId: 'asset-1' }] },
+      ],
+      digitalAssets: [{ id: 'asset-1' }],
+    } as never);
+    vi.mocked(findAnnotationGeometryById).mockResolvedValue({
+      id: 'ag_1',
+      projectId: 'project-1',
+      referenceType: 'scene',
+      referenceId: 'scene-1',
+    } as never);
+    vi.mocked(findAnnotationDataById).mockResolvedValue({
+      id: 'ad_1',
+      projectId: 'project-1',
+      visibilityType: 'asset',
+      visibilityId: 'asset-1',
+    } as never);
+
+    await expect(resolveAnnotationImpactForLink('project-1', 'ag_1', 'ad_1')).resolves.toEqual({
+      originScopeType: 'mixed',
+      originScopeId: null,
+      affectedSceneIds: ['scene-1', 'scene-2'],
+      affectedAssetIds: ['asset-1'],
     });
   });
 });
