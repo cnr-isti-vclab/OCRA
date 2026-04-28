@@ -1,4 +1,5 @@
 import type {
+  AnnotationConnectedEvent,
   AnnotationEventResourceType,
   AnnotationMutationEvent,
   AnnotationSocialLockEvent,
@@ -10,6 +11,7 @@ import { appendStoredSessionId, getApiBase } from '../config/oauth';
 export type AnnotationRealtimeState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 interface AnnotationEventsHandlers {
+  onConnected?: (event: AnnotationConnectedEvent) => void;
   onConnectionStateChange?: (state: AnnotationRealtimeState) => void;
   onMutation?: (event: AnnotationMutationEvent) => void;
   onReconnect?: () => void;
@@ -189,6 +191,7 @@ export class AnnotationEventsService {
       if (parsed?.type === 'annotation.connected') {
         this.streamId = parsed.streamId;
         this.logConnectionInfo(parsed.streamId);
+        this.handlers.onConnected?.(parsed);
       }
     });
 
@@ -258,7 +261,11 @@ export class AnnotationEventsService {
     return response.ok;
   }
 
-  private parseEvent(event: MessageEvent) {
+  private parseEvent(event: Event): AnnotationStreamEvent | null {
+    if (!(event instanceof MessageEvent) || typeof event.data !== 'string') {
+      return null;
+    }
+
     try {
       return JSON.parse(event.data) as AnnotationStreamEvent;
     } catch (error) {
