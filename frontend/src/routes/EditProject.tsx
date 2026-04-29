@@ -1,24 +1,13 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
-import {
-  ProjectStructuringCoordinator,
-  type HeldStructuringLock,
-} from '../services/ProjectStructuringCoordinator';
-import { ProjectStructuringService } from '../services/ProjectStructuringService';
-import {
-  StructuringDrainingNotifier,
-} from '../services/StructuringDrainingNotifier';
-import {
-  StructuringEventsService,
-  type StructuringRealtimeState,
-} from '../services/StructuringEventsService';
 import {
   getPhysicalObjectSourceAdapter,
   physicalObjectSourceAdapters,
   type PhysicalObjectSourceType,
 } from '../features/physical-object-sources';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 
 async function importPhysicalObjectMetadataViaBackend(
   projectId: string,
@@ -127,24 +116,9 @@ export default function EditProject() {
   
   // Delete confirmation state
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [structuringEnabled, setStructuringEnabled] = useState(false);
-  const [structuringStatus, setStructuringStatus] = useState<'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing'>('inactive');
-  const [structuringError, setStructuringError] = useState<string | null>(null);
-  const [structuringRealtimeState, setStructuringRealtimeState] = useState<StructuringRealtimeState>('idle');
-  const heldLockRef = useRef<HeldStructuringLock | null>(null);
-
-  const structuringService = useMemo(
-    () => (projectId ? new ProjectStructuringService(projectId) : null),
-    [projectId],
-  );
-  const structuringEvents = useMemo(
-    () => (projectId ? new StructuringEventsService(projectId) : null),
-    [projectId],
-  );
-  const structuringCoordinator = useMemo(
-    () => (projectId && structuringService ? new ProjectStructuringCoordinator(projectId, structuringService) : null),
-    [projectId, structuringService],
-  );
+  const { getProjectLockState } = useProjectStructuringLock();
+  const projectLockState = getProjectLockState(projectId);
+  const settingsLockReady = projectLockState.hasExclusiveLock;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -240,38 +214,12 @@ export default function EditProject() {
     }
   }, [projectId]);
 
-  useEffect(() => {
-    if (!structuringEvents) {
-      setStructuringRealtimeState('idle');
-      return;
-    }
-
-    structuringEvents.connect({
-      onConnectionStateChange: setStructuringRealtimeState,
-    });
-
-    return () => {
-      structuringEvents.disconnect();
-    };
-  }, [structuringEvents]);
-
-  useEffect(() => {
-    return () => {
-      const heldLock = heldLockRef.current;
-      if (!heldLock) {
-        return;
-      }
-
-      void heldLock.release().catch((error) => {
-        console.debug('Structuring lock release failed during cleanup:', error);
-      });
-    };
-  }, []);
-
   // Helper function to get display name for users
   const getUserDisplayName = (user: SimpleUser): string => {
     return user.name || user.username || user.email;
   };
+
+  const projectManagerDisplayName = project?.manager?.displayName || project?.manager?.name || project?.manager?.username || project?.manager?.email || 'No manager assigned';
 
   // Fetch project members
   const fetchProjectMembers = async () => {
@@ -301,8 +249,18 @@ export default function EditProject() {
     }
   };
 
+  const requireStructuringLock = (actionDescription: string) => {
+    if (settingsLockReady) {
+      return true;
+    }
+
+    setError(`Acquire the project structuring lock from the project card before ${actionDescription}.`);
+    return false;
+  };
+
   const importFromSelectedSource = async () => {
     if (!projectId) return;
+    if (!requireStructuringLock('initializing HC1 metadata')) return;
 
     const adapter = getPhysicalObjectSourceAdapter(selectedSourceType);
     if (!adapter) {
@@ -342,6 +300,7 @@ export default function EditProject() {
   // Add editor to project
   const handleAddEditor = async () => {
     if (!selectedEditorId) return;
+    if (!requireStructuringLock('adding project members')) return;
     
     try {
       setAddingMember(true);
@@ -376,6 +335,7 @@ export default function EditProject() {
   // Add viewer to project
   const handleAddViewer = async () => {
     if (!selectedViewerId) return;
+    if (!requireStructuringLock('adding project members')) return;
     
     try {
       setAddingMember(true);
@@ -409,6 +369,7 @@ export default function EditProject() {
 
   // Remove member from project
   const handleRemoveMember = async (userId: string, role: string) => {
+    if (!requireStructuringLock(`removing this ${role}`)) return;
     if (!confirm(`Are you sure you want to remove this ${role}?`)) return;
     
     try {
@@ -454,71 +415,8 @@ export default function EditProject() {
     setPendingManagerId('');
   };
 
-  const handleStructuringToggle = async (enabled: boolean) => {
-    if (!structuringCoordinator || !structuringEvents || !projectId) {
-      return;
-    }
-
-    setStructuringError(null);
-
-    if (!enabled) {
-      const heldLock = heldLockRef.current;
-      if (!heldLock) {
-        setStructuringEnabled(false);
-        setStructuringStatus('inactive');
-        return;
-      }
-
-      try {
-        setStructuringStatus('releasing');
-        await heldLock.release();
-        heldLockRef.current = null;
-        setStructuringEnabled(false);
-        setStructuringStatus('inactive');
-      } catch (error) {
-        console.error('Failed to release structuring lock:', error);
-        setStructuringError(error instanceof Error ? error.message : 'Failed to release structuring lock');
-        setStructuringEnabled(true);
-        setStructuringStatus('exclusive');
-      }
-      return;
-    }
-
-    if (structuringRealtimeState !== 'connected') {
-      setStructuringError('Structuring event channel is not connected yet. Please retry in a moment.');
-      setStructuringEnabled(false);
-      return;
-    }
-
-    try {
-      setStructuringEnabled(true);
-      setStructuringStatus('acquiring');
-      const drainingNotifier = new StructuringDrainingNotifier(structuringEvents);
-      const heldLock = await structuringCoordinator.acquireExclusiveLock(
-        {
-          operationType: 'project.delete',
-          operationContext: { projectId },
-          drainingNotifier,
-          onStateChange: (lock) => {
-            setStructuringStatus(lock.state === 'exclusive' ? 'exclusive' : 'draining');
-          },
-        },
-      );
-
-      heldLockRef.current = heldLock;
-      setStructuringStatus('exclusive');
-    } catch (error) {
-      console.error('Failed to acquire structuring lock:', error);
-      heldLockRef.current = null;
-      setStructuringEnabled(false);
-      setStructuringStatus('inactive');
-      setStructuringError(error instanceof Error ? error.message : 'Failed to acquire structuring lock');
-    }
-  };
-
   const handleDelete = async () => {
-    if (!heldLockRef.current) {
-      setStructuringError('Enable structuring and wait for the exclusive lock before deleting the project.');
+    if (!requireStructuringLock('deleting the project')) {
       setShowDeleteConfirmation(false);
       return;
     }
@@ -541,8 +439,6 @@ export default function EditProject() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete project');
       }
-
-      heldLockRef.current = null;
       // Success - navigate back to projects list
       navigate('/projects');
     } catch (e: any) {
@@ -556,6 +452,7 @@ export default function EditProject() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requireStructuringLock('saving project settings')) return;
     
     // Validation
     setNameError(null);
@@ -632,64 +529,14 @@ export default function EditProject() {
     <div className="container py-5">
       <h1 className="mb-4 text-dark">Edit Heritage Digital Twin Project</h1>
       <div className="row g-4 align-items-start">
-        <div className="col-lg-4">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <h2 className="h5 mb-3 text-dark">Structuring Example</h2>
-              <p className="text-muted small mb-3">
-                Use this toggle to acquire the project structuring lock before a destructive operation.
-                The Delete action is enabled only after the lock reaches exclusive state.
-              </p>
-
-              <div className="form-check form-switch mb-3">
-                <input
-                  id="structuringToggle"
-                  className="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  checked={structuringEnabled}
-                  onChange={(e) => void handleStructuringToggle(e.target.checked)}
-                  disabled={deleting || structuringStatus === 'acquiring' || structuringStatus === 'releasing'}
-                />
-                <label htmlFor="structuringToggle" className="form-check-label fw-bold text-dark">
-                  Enable structuring for project delete
-                </label>
-              </div>
-
-              <div className="small mb-2">
-                <strong>Structuring channel:</strong> {structuringRealtimeState}
-              </div>
-              <div className="small mb-3">
-                <strong>Lock state:</strong>{' '}
-                {structuringStatus === 'inactive' && 'inactive'}
-                {structuringStatus === 'acquiring' && 'acquiring lock'}
-                {structuringStatus === 'draining' && 'draining other sessions'}
-                {structuringStatus === 'exclusive' && 'exclusive lock acquired'}
-                {structuringStatus === 'releasing' && 'releasing lock'}
-              </div>
-
-              {structuringStatus === 'draining' && (
-                <div className="alert alert-warning py-2 small">
-                  Structuring draining is active. Other project sessions are being asked to save their work and leave.
-                </div>
-              )}
-
-              {structuringStatus === 'exclusive' && (
-                <div className="alert alert-success py-2 small mb-3">
-                  Exclusive lock acquired. You can now open the delete confirmation and remove the project.
-                </div>
-              )}
-
-              {structuringError && (
-                <div className="alert alert-danger py-2 small mb-0">{structuringError}</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-8">
+        <div className="col-lg-12">
       <div className="card shadow-sm mb-4">
         <div className="card-body">
+          <div className="alert alert-light border mb-4">
+            <strong>Project Overview.</strong>{' '}
+            Name: {project.name}. Visibility: {project.public ? 'Public' : 'Private'}. Manager: {projectManagerDisplayName}. HDT: {hasHdt === false ? 'Not initialized' : 'Initialized'}.
+          </div>
+
           {hasHdt === false && (
             <div className="alert alert-secondary">
               <div className="mb-3">
@@ -699,7 +546,14 @@ export default function EditProject() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => setShowImportModal(true)}
+                  onClick={() => {
+                    if (!requireStructuringLock('initializing HC1 metadata')) {
+                      return;
+                    }
+
+                    setShowImportModal(true);
+                  }}
+                  disabled={!settingsLockReady}
                 >
                   Choose Metadata Source
                 </button>
@@ -729,7 +583,7 @@ export default function EditProject() {
                 onChange={(e) => setName(e.target.value)}
                 className={`form-control${nameError ? ' is-invalid' : ''}`}
                 placeholder="Enter project name"
-                disabled={saving}
+                disabled={saving || !settingsLockReady}
               />
               {nameError && (
                 <div className="invalid-feedback">{nameError}</div>
@@ -746,7 +600,7 @@ export default function EditProject() {
                 rows={4}
                 className="form-control"
                 placeholder="Enter project description (optional)"
-                disabled={saving}
+                disabled={saving || !settingsLockReady}
               />
             </div>
             <div className="form-check mb-3">
@@ -756,7 +610,7 @@ export default function EditProject() {
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
                 id="publicCheck"
-                disabled={saving}
+                disabled={saving || !settingsLockReady}
               />
               <label className="form-check-label fw-bold text-dark" htmlFor="publicCheck">
                 Public Project
@@ -774,7 +628,7 @@ export default function EditProject() {
                 value={selectedManagerId}
                 onChange={(e) => handleManagerChange(e.target.value)}
                 className="form-select"
-                disabled={saving}
+                disabled={saving || !settingsLockReady}
               >
                 <option value="">-- No Manager --</option>
                 {allUsers.map((user) => (
@@ -790,7 +644,7 @@ export default function EditProject() {
             <div className="d-flex gap-2">
               <button
                 type="submit"
-                disabled={saving || deleting}
+                disabled={saving || deleting || !settingsLockReady}
                 className="btn btn-success fw-bold"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
@@ -800,16 +654,22 @@ export default function EditProject() {
               </Link>
               <button
                 type="button"
-                onClick={() => setShowDeleteConfirmation(true)}
-                disabled={saving || deleting || structuringStatus !== 'exclusive'}
+                onClick={() => {
+                  if (!requireStructuringLock('deleting the project')) {
+                    return;
+                  }
+
+                  setShowDeleteConfirmation(true);
+                }}
+                disabled={saving || deleting || !settingsLockReady}
                 className="btn btn-danger fw-bold ms-auto"
               >
                 Delete Project
               </button>
             </div>
-            {structuringStatus !== 'exclusive' && (
+            {!settingsLockReady && (
               <div className="form-text mt-2 text-danger">
-                Enable structuring and wait for the exclusive lock before deleting this project.
+                Enable structuring and wait for the exclusive lock before editing this settings panel.
               </div>
             )}
           </form>
@@ -841,7 +701,7 @@ export default function EditProject() {
                       type="button"
                       className="btn btn-sm btn-outline-danger"
                       onClick={() => handleRemoveMember(member.userId, 'editor')}
-                      disabled={addingMember}
+                      disabled={addingMember || !settingsLockReady}
                     >
                       Remove
                     </button>
@@ -857,7 +717,7 @@ export default function EditProject() {
                 className="form-select"
                 value={selectedEditorId}
                 onChange={(e) => setSelectedEditorId(e.target.value)}
-                disabled={addingMember}
+                disabled={addingMember || !settingsLockReady}
               >
                 <option value="">-- Select User --</option>
                 {allUsers
@@ -872,7 +732,7 @@ export default function EditProject() {
                 type="button"
                 className="btn btn-primary"
                 onClick={handleAddEditor}
-                disabled={!selectedEditorId || addingMember}
+                disabled={!selectedEditorId || addingMember || !settingsLockReady}
               >
                 {addingMember ? 'Adding...' : 'Add Editor'}
               </button>
@@ -899,7 +759,7 @@ export default function EditProject() {
                       type="button"
                       className="btn btn-sm btn-outline-danger"
                       onClick={() => handleRemoveMember(member.userId, 'viewer')}
-                      disabled={addingMember}
+                      disabled={addingMember || !settingsLockReady}
                     >
                       Remove
                     </button>
@@ -915,7 +775,7 @@ export default function EditProject() {
                 className="form-select"
                 value={selectedViewerId}
                 onChange={(e) => setSelectedViewerId(e.target.value)}
-                disabled={addingMember}
+                disabled={addingMember || !settingsLockReady}
               >
                 <option value="">-- Select User --</option>
                 {allUsers
@@ -930,11 +790,16 @@ export default function EditProject() {
                 type="button"
                 className="btn btn-primary"
                 onClick={handleAddViewer}
-                disabled={!selectedViewerId || addingMember}
+                disabled={!selectedViewerId || addingMember || !settingsLockReady}
               >
                 {addingMember ? 'Adding...' : 'Add Viewer'}
               </button>
             </div>
+            {!settingsLockReady && (
+              <div className="form-text mt-2 text-danger">
+                Enable structuring and wait for the exclusive lock before changing project membership.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -982,7 +847,7 @@ export default function EditProject() {
                 <button onClick={cancelManagerChange} className="btn btn-secondary">
                   Cancel
                 </button>
-                <button onClick={confirmManagerChange} className="btn btn-primary">
+                <button onClick={confirmManagerChange} className="btn btn-primary" disabled={!settingsLockReady}>
                   Confirm Change
                 </button>
               </div>
@@ -1025,7 +890,7 @@ export default function EditProject() {
                 <button 
                   onClick={handleDelete} 
                   className="btn btn-danger"
-                  disabled={deleting || structuringStatus !== 'exclusive'}
+                  disabled={deleting || !settingsLockReady}
                 >
                   {deleting ? 'Deleting...' : 'Delete Project'}
                 </button>

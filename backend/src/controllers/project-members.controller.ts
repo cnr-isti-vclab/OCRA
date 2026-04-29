@@ -9,6 +9,7 @@ import { getPrismaClient } from '../../db.js';
 import { RoleEnum } from '@prisma/client';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 import { sendApiError } from '../lib/api-error.js';
+import { requireOwnedExclusiveStructuringLock } from '../middleware/project-structuring-lock.js';
 import type { User } from '../types/index.js';
 import { auditBestEffort } from '../utils/audit.js';
 
@@ -241,6 +242,10 @@ export async function addProjectMember(req: Request, res: Response): Promise<voi
       });
       return;
     }
+
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
     
     // Find the target user
     let targetUser;
@@ -384,6 +389,10 @@ export async function removeProjectMember(req: Request, res: Response): Promise<
         code: API_ERROR_CODES.projectMember.managerRequired,
         error: 'Only project managers and admins can manage project members',
       });
+      return;
+    }
+
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
       return;
     }
     

@@ -2,6 +2,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
+import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -118,6 +120,17 @@ export default function HDTPage() {
 
   const [dataLoaded, setDataLoaded] = useState(false);
   const initialLoadRef = useRef(true);
+  const {
+    activeDrainingEvent,
+    clearDrainingEvent,
+    presenceError,
+  } = useProjectStructuringAwareness({
+    projectId,
+    mode: 'viewing',
+    enabled: !!projectId,
+  });
+  const { getProjectLockState } = useProjectStructuringLock();
+  const projectLockState = getProjectLockState(projectId);
 
   // Form state for Dublin Core
   const [dcTitle, setDcTitle] = useState('');
@@ -130,6 +143,10 @@ export default function HDTPage() {
   const [dcCoverage, setDcCoverage] = useState('');
   const [dcRights, setDcRights] = useState('');
   const [dcSource, setDcSource] = useState('');
+  const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
+  const structuringInProgress = !!activeDrainingEvent || !!presenceError;
+  const isEditingExistingScene = !!editingScene && scenes.some((scene) => scene.id === editingScene.id);
+  const canCreateSceneWithoutProjectLock = projectLockState.hasExclusiveLock || !structuringInProgress;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -678,6 +695,12 @@ export default function HDTPage() {
           <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
+          <Link
+            to={`/projects/${projectId}/edit`}
+            className="btn btn-outline-secondary"
+          >
+            Project Settings
+          </Link>
           <a
             href={`${getApiBase()}/api/projects/${projectId}/export/rdf`}
             className="btn btn-outline-primary"
@@ -688,6 +711,40 @@ export default function HDTPage() {
           </a>
         </div>
       </div>
+
+      <div className="alert alert-info d-flex justify-content-between align-items-start gap-3">
+        <div>
+          <strong>Read-only without project lock.</strong>{' '}
+          Metadata fields, scene configuration, and destructive asset operations stay disabled on this page unless the project structuring lock is acquired elsewhere.
+          Asset upload and scene creation remain available only when no structuring operation is already in progress.
+        </div>
+        <Link to={`/projects/${projectId}/edit`} className="btn btn-outline-primary btn-sm flex-shrink-0">
+          Open Project Settings
+        </Link>
+      </div>
+
+      {structuringInProgress && (
+        <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <strong>Structuring in progress.</strong>{' '}
+            {activeDrainingEvent
+              ? 'Another session is preparing a project-wide structuring operation. Asset upload is temporarily blocked until draining completes.'
+              : presenceError}
+            {activeDrainingEvent?.operationType && (
+              <div className="small mt-2 text-muted">
+                Operation: {activeDrainingEvent.operationType}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm flex-shrink-0"
+            onClick={() => clearDrainingEvent()}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Success/Error Messages */}
       {successMessage && (
@@ -773,6 +830,8 @@ export default function HDTPage() {
               <p className="text-muted small mb-4">
                 Basic descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836).
               </p>
+
+              <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
 
               <div className="mb-3">
                 <label htmlFor="dc-title" className="form-label">Title</label>
@@ -925,6 +984,7 @@ export default function HDTPage() {
                   </div>
                 )}
               </div>
+              </fieldset>
             </div>
           )}
 
@@ -942,6 +1002,9 @@ export default function HDTPage() {
                   <span className="badge bg-primary">RTI</span>
                   <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
+                </div>
+                <div className="form-text mt-2">
+                  Asset upload is still allowed without the project lock, but only when no structuring session is already in progress.
                 </div>
               </div>
 
@@ -1050,6 +1113,7 @@ export default function HDTPage() {
 
                                     <button
                                       className="btn btn-sm btn-outline-danger"
+                                      disabled={hdtReadOnlyWithoutProjectLock}
                                       onClick={async () => {
                                         const displayName = name;
                                         if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
@@ -1126,14 +1190,14 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
-                  disabled={uploading}
+                  disabled={uploading || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                 />
 
                 <div className="d-flex gap-2">
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
-                    disabled={uploading}
+                    disabled={uploading || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                   >
                     {uploading ? (
                       <>
@@ -1163,6 +1227,7 @@ export default function HDTPage() {
                   <h6 className="mb-0">Scenes ({scenes.length})</h6>
                   <button
                     className="btn btn-sm btn-primary"
+                    disabled={!canCreateSceneWithoutProjectLock}
                     onClick={() => {
                       const newScene: SceneConfig = {
                         id: `scene_${Date.now()}`,
@@ -1202,6 +1267,7 @@ export default function HDTPage() {
                               <div className="btn-group btn-group-sm">
                                 <button
                                   className="btn btn-outline-primary"
+                                  disabled={hdtReadOnlyWithoutProjectLock}
                                   onClick={() => {
                                     setEditingScene(scene);
                                     setShowSceneEditor(true);
@@ -1212,6 +1278,7 @@ export default function HDTPage() {
                                 </button>
                                 <button
                                   className="btn btn-outline-danger"
+                                  disabled={hdtReadOnlyWithoutProjectLock}
                                   onClick={() => {
                                     if (scenes.length === 1) {
                                       alert('Cannot delete the last scene. Projects must have at least one scene.');
@@ -1280,6 +1347,7 @@ export default function HDTPage() {
                         ></button>
                       </div>
                       <div className="modal-body">
+                        <fieldset disabled={isEditingExistingScene ? hdtReadOnlyWithoutProjectLock : !canCreateSceneWithoutProjectLock}>
                         <div className="mb-3">
                           <label className="form-label">Scene Name *</label>
                           <input
@@ -1438,6 +1506,7 @@ export default function HDTPage() {
                             Show ground plane
                           </label>
                         </div>
+                        </fieldset>
                       </div>
                       <div className="modal-footer">
                         <button
@@ -1453,6 +1522,7 @@ export default function HDTPage() {
                         <button
                           type="button"
                           className="btn btn-primary"
+                          disabled={isEditingExistingScene ? hdtReadOnlyWithoutProjectLock : !canCreateSceneWithoutProjectLock}
                           onClick={() => {
                             if (!editingScene.label.trim()) {
                               alert('Please enter a scene name');

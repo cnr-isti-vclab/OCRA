@@ -495,6 +495,10 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
       return sendHdtError(req, res, 403, 'managerRequired', 'Only project managers can import physical object metadata');
     }
 
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
     if (!isRecord(req.body)) {
       return sendHdtError(req, res, 400, 'bodyMustBeObject', 'Request body must be a JSON object');
     }
@@ -1220,6 +1224,10 @@ export async function updateSceneHandler(req: Request, res: Response) {
     const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can update scenes');
+    }
+
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
     }
 
     const updatedDoc = await updateScene(projectId, sceneId, updates, currentUser.sub);

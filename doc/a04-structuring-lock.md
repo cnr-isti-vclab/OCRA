@@ -84,7 +84,7 @@ Using separate models keeps the concurrency layer explicit, queryable, and exten
 
 `StructuringLock` is the source of truth for exclusive project-wide structuring ownership.
 
-Suggested fields:
+Fields:
 
 - `id`
 - `projectId`
@@ -104,7 +104,7 @@ Suggested fields:
 
 `ProjectPresenceLease` tracks which sessions are currently active in a project and in which mode.
 
-Suggested fields:
+Fields:
 
 - `id`
 - `leaseKey`

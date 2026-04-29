@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { appendStoredSessionId, getApiBase } from '../config/oauth';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 
 /**
  * PROJECTS COMPONENT
@@ -65,6 +66,7 @@ export default function Projects() {
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectPublic, setNewProjectPublic] = useState(false);
   const navigate = useNavigate();
+  const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
 
   const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
     const showLoading = options?.showLoading ?? true;
@@ -326,6 +328,10 @@ export default function Projects() {
         <div className="row g-4">
           {projects.map((project) => (
             <div className="col-12 col-md-6 col-lg-4" key={project.id}>
+              {(() => {
+                const lockState = getProjectLockState(project.id);
+                const lockedByAnotherSession = !!project.activeStructuringLock && !lockState.hasExclusiveLock;
+                return (
               <div className="card h-100 shadow-sm">
                 <div className="card-body d-flex flex-column">
                   {/* Top Section - Two Columns */}
@@ -365,15 +371,23 @@ export default function Projects() {
                       {!project.public && (
                         <span className="badge bg-danger ms-1">Private</span>
                       )}
-                      {project.activeStructuringLock && (
-                        <span className="badge bg-warning text-dark ms-1">Lock</span>
+                      {lockedByAnotherSession && (
+                        <span
+                          className="badge bg-warning text-dark mt-1 d-inline-block text-wrap text-start"
+                          style={{ maxWidth: '100%' }}
+                        >
+                          Structuring in progress
+                        </span>
+                      )}
+                      {lockState.hasExclusiveLock && (
+                        <span className="badge bg-success ms-1">Your lock</span>
                       )}
                     </div>
                   </div>
 
                   {/* Bottom Section - Action Buttons */}
                   <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }}>
-                    {has3DAssetsMap[project.id] && !project.activeStructuringLock ? (
+                    {has3DAssetsMap[project.id] && !lockedByAnotherSession ? (
                       <Link
                         to={`/projects/${project.id}`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -384,12 +398,12 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title={project.activeStructuringLock ? 'Project temporarily locked for structuring' : 'No 3D assets available'}
+                        title={lockedByAnotherSession ? 'Project is temporarily read-only while structuring is in progress' : 'No 3D assets available'}
                       >
                         3D
                       </button>
                     )}
-                    {has2DAssetsMap[project.id] && !project.activeStructuringLock ? (
+                    {has2DAssetsMap[project.id] && !lockedByAnotherSession ? (
                       <Link
                         to={`/projects/${project.id}?mode=2d`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -400,16 +414,16 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title={project.activeStructuringLock ? 'Project temporarily locked for structuring' : 'No 2D assets available'}
+                        title={lockedByAnotherSession ? 'Project is temporarily read-only while structuring is in progress' : 'No 2D assets available'}
                       >
                         2D
                       </button>
                     )}
-                    {project.activeStructuringLock ? (
+                    {lockedByAnotherSession ? (
                       <button
                         className="btn btn-secondary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title="Project temporarily locked for structuring"
+                        title="Project is temporarily read-only while structuring is in progress"
                       >
                         HDT
                       </button>
@@ -439,8 +453,49 @@ export default function Projects() {
                       </Link>
                     )}
                   </div>
+
+                  {managerMap[project.id] && (
+                    <div className="mt-3 pt-3 border-top">
+                      <div className="rounded p-2" style={{ backgroundColor: '#fff8e1', border: '1px solid #f0d98a' }}>
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div>
+                            <div className="small fw-semibold text-dark">Project Structuring Lock</div>
+                            <div className="small text-muted">
+                              {lockState.hasExclusiveLock
+                                ? 'Exclusive lock acquired for this project.'
+                                : 'Acquire the project-wide lock before structural changes.'}
+                            </div>
+                          </div>
+                          <div className="form-check form-switch m-0">
+                            <input
+                              id={`project-structuring-toggle-${project.id}`}
+                              className="form-check-input"
+                              type="checkbox"
+                              role="switch"
+                              checked={lockState.enabled}
+                              onChange={(e) => void toggleProjectLock(project.id, e.target.checked)}
+                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession}
+                            />
+                          </div>
+                        </div>
+                        <div className="small mt-2 text-dark">
+                          <strong>Status:</strong>{' '}
+                          {lockState.status === 'inactive' && 'inactive'}
+                          {lockState.status === 'acquiring' && 'acquiring lock'}
+                          {lockState.status === 'draining' && 'draining other sessions'}
+                          {lockState.status === 'exclusive' && 'exclusive lock acquired'}
+                          {lockState.status === 'releasing' && 'releasing lock'}
+                        </div>
+                        {lockState.error && (
+                          <div className="small text-danger mt-1">{lockState.error}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>

@@ -410,7 +410,7 @@ export async function resolveAnnotationImpactForLink(
 async function getProjectSceneContext(
   projectId: string,
   sceneId: string,
-): Promise<AnnotationServiceResult<{ hdtDocument: HDTDocument; sceneAssetIds: string[] }, SceneAnnotationsLookupErrorCode>> {
+): Promise<AnnotationServiceResult<{ hdtDocument: HDTDocument; sceneAssetIds: string[] }, AnnotationBundleLookupErrorCode>> {
   if (!isNonEmptyString(sceneId)) {
     return failResult('invalid_input');
   }

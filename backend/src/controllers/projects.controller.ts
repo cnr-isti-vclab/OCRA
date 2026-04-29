@@ -1044,6 +1044,10 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
     // Build Prisma update payload (only allowed fields)
     const data: Record<string, any> = {};
 

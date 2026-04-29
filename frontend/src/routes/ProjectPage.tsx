@@ -90,6 +90,9 @@ export default function ProjectPage() {
     sceneId: selectedSceneId,
     enabled: !!projectId,
   });
+  const structuringInProgress = !!activeDrainingEvent || !!presenceError;
+  const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
+  const projectLockBadgeLabel = structuringInProgress ? 'Structuring in progress' : 'Project lock available';
 
   const loadSelectedScene = useCallback(async () => {
     if (!projectId || !selectedSceneId) return;
@@ -702,8 +705,18 @@ export default function ProjectPage() {
           )}
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center">
-              <h1 className="h3 mb-0 me-3">{project.name}</h1>
-              {project.description && <p className="text-muted mb-0">{project.description}</p>}
+              <div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <h1 className="h3 mb-0 me-1">{project.name}</h1>
+                  <span className={`badge ${projectLockBadgeClass}`}>{projectLockBadgeLabel}</span>
+                </div>
+                {project.description && <p className="text-muted mb-0">{project.description}</p>}
+                {isManager && !structuringInProgress && (
+                  <div className="small text-muted mt-1">
+                    Project-wide structural changes require acquiring the lock from Project Settings.
+                  </div>
+                )}
+              </div>
             </div>
             <div className="d-flex align-items-center gap-3">
               <Link
