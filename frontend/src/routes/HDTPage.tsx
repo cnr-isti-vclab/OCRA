@@ -730,6 +730,11 @@ export default function HDTPage() {
             {activeDrainingEvent
               ? 'Another session is preparing a project-wide structuring operation. Asset upload is temporarily blocked until draining completes.'
               : presenceError}
+            {activeDrainingEvent?.username && (
+              <div className="small mt-2 text-muted">
+                Requested by: {activeDrainingEvent.username}
+              </div>
+            )}
             {activeDrainingEvent?.operationType && (
               <div className="small mt-2 text-muted">
                 Operation: {activeDrainingEvent.operationType}

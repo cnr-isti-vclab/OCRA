@@ -1,4 +1,5 @@
 import type {
+  StructuringConnectedEvent,
   StructuringDrainEvent,
   StructuringDrainRequest,
   StructuringStreamEvent,
@@ -9,6 +10,7 @@ export type StructuringRealtimeState = 'idle' | 'connecting' | 'connected' | 're
 
 interface StructuringEventsHandlers {
   onConnectionStateChange?: (state: StructuringRealtimeState) => void;
+  onConnected?: (event: StructuringConnectedEvent) => void;
   onDrainingStarted?: (event: StructuringDrainEvent) => void;
   onDrainingStopped?: (event: StructuringDrainEvent) => void;
   onReconnect?: () => void;
@@ -56,6 +58,7 @@ export class StructuringEventsService {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'structuring.connected') {
         this.streamId = parsed.streamId;
+        this.handlers.onConnected?.(parsed);
       }
     });
 
@@ -92,7 +95,7 @@ export class StructuringEventsService {
 
   private async sendDrainingSignal(
     suffix: '/start' | '/stop',
-    input: { operationType?: string; operationContext?: Record<string, unknown> },
+    input: { operationType?: string; operationContext?: Record<string, unknown>; drainTimeoutMs?: number },
   ) {
     if (!this.streamId) {
       return false;

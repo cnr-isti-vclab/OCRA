@@ -36,6 +36,7 @@ export interface StructuringLockResponse {
   projectId: string;
   fencingToken: number;
   heartbeatExpiresAt: string;
+  drainDeadlineAt?: string | null;
   ownerSessionId?: string;
   remainingPresenceCount?: number;
   releasedAt?: string;

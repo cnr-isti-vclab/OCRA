@@ -93,6 +93,39 @@ export default function ProjectPage() {
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
   const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
   const projectLockBadgeLabel = structuringInProgress ? 'Structuring in progress' : 'Project lock available';
+  const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!activeDrainingEvent?.drainDeadlineAt) {
+      setDrainingCountdownSeconds(null);
+      return;
+    }
+
+    const deadlineMs = Date.parse(activeDrainingEvent.drainDeadlineAt);
+    if (Number.isNaN(deadlineMs)) {
+      setDrainingCountdownSeconds(null);
+      return;
+    }
+
+    let redirectTriggered = false;
+    const updateCountdown = () => {
+      const remainingMs = deadlineMs - Date.now();
+      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+      setDrainingCountdownSeconds(remainingSeconds);
+
+      if (remainingMs <= 0 && !redirectTriggered) {
+        redirectTriggered = true;
+        navigate('/projects', { replace: true });
+      }
+    };
+
+    updateCountdown();
+    const timerId = window.setInterval(updateCountdown, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [activeDrainingEvent, navigate]);
 
   const loadSelectedScene = useCallback(async () => {
     if (!projectId || !selectedSceneId) return;
@@ -679,6 +712,16 @@ export default function ProjectPage() {
                 {activeDrainingEvent
                   ? 'Another session is preparing a project-wide structuring operation. Save your work and leave this project before draining completes. Other projects remain available.'
                   : presenceError}
+                {activeDrainingEvent?.username && (
+                  <div className="small mt-2 text-muted">
+                    Requested by: {activeDrainingEvent.username}
+                  </div>
+                )}
+                {activeDrainingEvent?.drainDeadlineAt && drainingCountdownSeconds !== null && (
+                  <div className="small mt-2 fw-semibold text-dark">
+                    Automatic exit in {drainingCountdownSeconds} second{drainingCountdownSeconds === 1 ? '' : 's'}.
+                  </div>
+                )}
                 {activeDrainingEvent?.operationType && (
                   <div className="small mt-2 text-muted">
                     Operation: {activeDrainingEvent.operationType}

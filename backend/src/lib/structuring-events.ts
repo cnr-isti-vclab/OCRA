@@ -33,6 +33,8 @@ interface PublishStructuringDrainingInput {
   username: string;
   operationType: string | null;
   operationContext: Record<string, unknown> | null;
+  drainTimeoutMs?: number | null;
+  drainDeadlineAt?: string | null;
 }
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
@@ -139,6 +141,12 @@ export function publishStructuringDrainingStart(input: PublishStructuringDrainin
     return { ok: false as const, code: 'stream_not_found' };
   }
 
+  const startedAt = new Date();
+  const drainDeadlineAt = input.drainDeadlineAt
+    ?? (input.drainTimeoutMs && input.drainTimeoutMs > 0
+      ? new Date(startedAt.getTime() + input.drainTimeoutMs).toISOString()
+      : null);
+
   const signal: StructuringDrainState = {
     streamId: input.streamId,
     projectId: input.projectId,
@@ -147,7 +155,8 @@ export function publishStructuringDrainingStart(input: PublishStructuringDrainin
     username: input.username,
     operationType: input.operationType,
     operationContext: input.operationContext,
-    startedAt: new Date().toISOString(),
+    startedAt: startedAt.toISOString(),
+    drainDeadlineAt,
   };
 
   drainingSignals.set(createDrainingKey(signal), signal);

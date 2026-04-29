@@ -7,6 +7,7 @@ export interface StructuringDrainState {
   operationType: string | null;
   operationContext: Record<string, unknown> | null;
   startedAt: string;
+  drainDeadlineAt: string | null;
 }
 
 export interface StructuringConnectedEvent {
@@ -28,6 +29,8 @@ export interface StructuringDrainRequest {
   streamId: string;
   operationType?: string;
   operationContext?: Record<string, unknown>;
+  drainTimeoutMs?: number;
+  drainDeadlineAt?: string;
 }
 
 export interface StructuringDrainResponse {

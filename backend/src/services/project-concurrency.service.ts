@@ -7,8 +7,8 @@ import { getPrismaClient } from '../../db.js';
 import { apiError, ApiError } from '../lib/api-error.js';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 
-const STRUCTURING_LOCK_TTL_MS = 15_000;
-const PROJECT_PRESENCE_TTL_MS = 15_000;
+const STRUCTURING_LOCK_TTL_MS = 30_000;
+const PROJECT_PRESENCE_TTL_MS = 30_000;
 const SERIALIZABLE_TRANSACTION_MAX_RETRIES = 3;
 const SERIALIZABLE_TRANSACTION_ERROR_MESSAGE = /write conflict|deadlock|could not serialize|serialization failure/i;
 
@@ -50,6 +50,11 @@ interface ActiveLockSnapshot {
   state: StructuringLockState;
   fencingToken: number;
   heartbeatExpiresAt: Date;
+}
+
+interface DrainingProgressSnapshot {
+  remainingPresenceCount: number;
+  drainDeadlineAt: Date | null;
 }
 
 function isRetryableSerializableTransactionError(error: unknown) {
@@ -222,6 +227,31 @@ async function countRemainingPresenceLeases(
   });
 }
 
+async function getDrainingProgressSnapshot(
+  tx: Prisma.TransactionClient,
+  projectId: string,
+  ownerSessionId: string,
+  now: Date,
+): Promise<DrainingProgressSnapshot> {
+  const [remainingPresenceCount, latestPresenceLease] = await Promise.all([
+    countRemainingPresenceLeases(tx, projectId, ownerSessionId, now),
+    tx.projectPresenceLease.findFirst({
+      where: {
+        projectId,
+        heartbeatExpiresAt: { gt: now },
+        sessionId: { not: ownerSessionId },
+      },
+      orderBy: { heartbeatExpiresAt: 'desc' },
+      select: { heartbeatExpiresAt: true },
+    }),
+  ]);
+
+  return {
+    remainingPresenceCount,
+    drainDeadlineAt: latestPresenceLease?.heartbeatExpiresAt ?? null,
+  };
+}
+
 async function upsertPresenceLease(
   tx: Prisma.TransactionClient,
   input: PresenceInput,
@@ -260,7 +290,12 @@ async function promoteStructuringLockIfReady(
   ownerSessionId: string,
   now: Date,
 ) {
-  const remainingPresenceCount = await countRemainingPresenceLeases(tx, projectId, ownerSessionId, now);
+  const { remainingPresenceCount, drainDeadlineAt } = await getDrainingProgressSnapshot(
+    tx,
+    projectId,
+    ownerSessionId,
+    now,
+  );
 
   const state = remainingPresenceCount === 0 ? StructuringLockState.exclusive : StructuringLockState.draining;
 
@@ -279,6 +314,7 @@ async function promoteStructuringLockIfReady(
   return {
     ...lock,
     remainingPresenceCount,
+    drainDeadlineAt,
   };
 }
 

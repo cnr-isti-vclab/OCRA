@@ -9,6 +9,8 @@ export interface StructuringDrainSignal {
   projectId: string;
   operationType?: string;
   operationContext?: Record<string, unknown>;
+  drainTimeoutMs?: number;
+  drainDeadlineAt?: string | null;
 }
 
 export interface StructuringDrainingNotifier {
@@ -82,6 +84,7 @@ export class ProjectStructuringCoordinator {
       projectId: this.projectId,
       operationType: options.operationType,
       operationContext: options.operationContext,
+      drainTimeoutMs: options.acquireTimeoutMs ?? 45_000,
     };
     const acquireHeartbeatIntervalMs = options.acquireHeartbeatIntervalMs ?? 3_000;
     const operationHeartbeatIntervalMs = options.operationHeartbeatIntervalMs ?? 10_000;
@@ -95,6 +98,7 @@ export class ProjectStructuringCoordinator {
 
     let notifierStarted = false;
     if (lock.state === 'draining' && options.drainingNotifier?.notifyDrainingStart) {
+      signal.drainDeadlineAt = lock.drainDeadlineAt ?? null;
       await options.drainingNotifier.notifyDrainingStart(signal);
       notifierStarted = true;
     }

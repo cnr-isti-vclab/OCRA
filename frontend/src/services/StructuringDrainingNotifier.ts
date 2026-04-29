@@ -13,6 +13,8 @@ export class StructuringDrainingNotifier implements StructuringDrainingNotifier 
     return this.structuringEvents.notifyDrainingStart({
       operationType: signal.operationType,
       operationContext: signal.operationContext,
+      drainTimeoutMs: signal.drainTimeoutMs,
+      drainDeadlineAt: signal.drainDeadlineAt ?? undefined,
     });
   }
 

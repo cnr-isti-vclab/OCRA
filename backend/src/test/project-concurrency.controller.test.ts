@@ -123,6 +123,7 @@ describe.sequential('Project concurrency controller SSE endpoints', () => {
         operationType: 'scene.delete',
         operationContext: { sceneId: 'scene-1' },
         startedAt: '2026-04-26T12:00:00.000Z',
+        drainDeadlineAt: null,
       },
     });
 

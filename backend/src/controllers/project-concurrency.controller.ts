@@ -207,10 +207,34 @@ function parseStructuringDrainPayload(req: Request, res: Response) {
     return null;
   }
 
+  const rawDrainTimeoutMs = req.body?.drainTimeoutMs;
+  if (rawDrainTimeoutMs !== undefined && (!Number.isInteger(rawDrainTimeoutMs) || rawDrainTimeoutMs <= 0)) {
+    sendApiError(req, res, {
+      status: 400,
+      code: API_ERROR_CODES.structuring.invalidOperationContext,
+      error: 'drainTimeoutMs must be a positive integer',
+    });
+    return null;
+  }
+
+  const rawDrainDeadlineAt = req.body?.drainDeadlineAt;
+  if (rawDrainDeadlineAt !== undefined) {
+    if (typeof rawDrainDeadlineAt !== 'string' || Number.isNaN(Date.parse(rawDrainDeadlineAt))) {
+      sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.structuring.invalidOperationContext,
+        error: 'drainDeadlineAt must be a valid ISO datetime string',
+      });
+      return null;
+    }
+  }
+
   return {
     streamId,
     operationType,
     operationContext: (operationContext as Record<string, unknown> | undefined) ?? undefined,
+    drainTimeoutMs: rawDrainTimeoutMs as number | undefined,
+    drainDeadlineAt: rawDrainDeadlineAt as string | undefined,
   };
 }
 
@@ -300,6 +324,8 @@ export async function notifyStructuringDrainingStart(req: Request, res: Response
     username: getActorUsername(req),
     operationType: payload.operationType ?? null,
     operationContext: payload.operationContext ?? null,
+    drainTimeoutMs: payload.drainTimeoutMs,
+    drainDeadlineAt: payload.drainDeadlineAt,
   });
   if (!result.ok) {
     return sendApiError(req, res, {
@@ -411,6 +437,7 @@ export async function startStructuring(req: Request, res: Response) {
       fencingToken: result.fencingToken,
       heartbeatExpiresAt: result.heartbeatExpiresAt,
       remainingPresenceCount: result.remainingPresenceCount,
+      drainDeadlineAt: result.drainDeadlineAt,
     });
     if (result.state === 'exclusive') {
       closeAnnotationEventConnectionsForProject(projectId, auth.sessionId);
@@ -470,6 +497,7 @@ export async function heartbeatStructuring(req: Request, res: Response) {
       fencingToken: result.fencingToken,
       heartbeatExpiresAt: result.heartbeatExpiresAt,
       remainingPresenceCount: result.remainingPresenceCount,
+      drainDeadlineAt: result.drainDeadlineAt,
     });
     if (result.state === 'exclusive') {
       closeAnnotationEventConnectionsForProject(projectId, auth.sessionId);

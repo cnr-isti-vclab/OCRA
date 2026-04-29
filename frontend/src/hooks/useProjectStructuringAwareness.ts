@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { StructuringDrainEvent } from 'shared/structuring-events';
+import type { StructuringDrainEvent, StructuringDrainState } from 'shared/structuring-events';
 import {
   ProjectStructuringApiError,
   ProjectStructuringService,
@@ -16,6 +16,14 @@ function createClientInstanceId() {
   }
 
   return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function toActiveDrainingEvent(signal: StructuringDrainState): StructuringDrainEvent {
+  return {
+    ...signal,
+    type: 'structuring.draining.started',
+    timestamp: signal.startedAt,
+  };
 }
 
 interface UseProjectStructuringAwarenessOptions {
@@ -117,6 +125,12 @@ export function useProjectStructuringAwareness({
 
     eventsService.connect({
       onConnectionStateChange: setStructuringRealtimeState,
+      onConnected: (event) => {
+        const latestSignal = [...event.activeDrainingSignals]
+          .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))[0];
+
+        setActiveDrainingEvent(latestSignal ? toActiveDrainingEvent(latestSignal) : null);
+      },
       onDrainingStarted: (event) => {
         setActiveDrainingEvent(event);
       },
