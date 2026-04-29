@@ -423,7 +423,7 @@ export default function EditProject() {
 
     try {
       setDeleting(true);
-      setStructuringError(null);
+      setError(null);
       const sessionId = localStorage.getItem('oauth_session_id');
 
       const response = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
