@@ -27,6 +27,32 @@ import { ensureProjectSkeleton, projectModel3dAssetDir, projectRoot } from '../u
 
 const app = createApp();
 
+async function grantExclusiveProjectUpdateLock(projectId: string, sessionId: string, userId: string) {
+  const prisma = await getTestPrisma();
+
+  await prisma.structuringLock.upsert({
+    where: { projectId },
+    update: {
+      ownerSessionId: sessionId,
+      ownerUserId: userId,
+      state: StructuringLockState.exclusive,
+      operationType: 'project.update',
+      operationContext: { projectId },
+      releasedAt: null,
+      heartbeatExpiresAt: new Date(Date.now() + 60_000),
+    },
+    create: {
+      projectId,
+      ownerSessionId: sessionId,
+      ownerUserId: userId,
+      state: StructuringLockState.exclusive,
+      operationType: 'project.update',
+      operationContext: { projectId },
+      heartbeatExpiresAt: new Date(Date.now() + 60_000),
+    },
+  });
+}
+
 describe('Projects API Integration Tests', () => {
   let testUser: any;
   let adminUser: any;
@@ -207,6 +233,9 @@ describe('Projects API Integration Tests', () => {
         name: 'Original Name',
         description: 'Original description',
       });
+      const sessionId = 'project-update-session';
+
+      await grantExclusiveProjectUpdateLock(project.id, sessionId, testUser.id);
 
       const updates = {
         name: 'Updated Name',
@@ -215,7 +244,7 @@ describe('Projects API Integration Tests', () => {
 
       const response = await request(app)
         .put(`/api/projects/${project.id}`)
-        .set(authHeader(testUser))
+        .set(authHeaders(testUser, sessionId))
         .send(updates)
         .expect(200);
 
@@ -229,10 +258,13 @@ describe('Projects API Integration Tests', () => {
         name: 'Project Name',
         description: 'Original description',
       });
+      const sessionId = 'project-partial-update-session';
+
+      await grantExclusiveProjectUpdateLock(project.id, sessionId, testUser.id);
 
       const response = await request(app)
         .put(`/api/projects/${project.id}`)
-        .set(authHeader(testUser))
+        .set(authHeaders(testUser, sessionId))
         .send({ description: 'New description only' })
         .expect(200);
 
@@ -276,14 +308,16 @@ describe('Projects API Integration Tests', () => {
           projectId: project.id,
           ownerSessionId: 'manager-session',
           ownerUserId: testUser.id,
-          state: StructuringLockState.draining,
+          state: StructuringLockState.exclusive,
+          operationType: 'project.update',
+          operationContext: { projectId: project.id },
           heartbeatExpiresAt: new Date(Date.now() + 60_000),
         },
       });
 
       const response = await request(app)
         .put(`/api/projects/${project.id}`)
-        .set(authHeader(testUser))
+        .set(authHeaders(testUser, 'manager-session'))
         .send({ public: false })
         .expect(200);
 

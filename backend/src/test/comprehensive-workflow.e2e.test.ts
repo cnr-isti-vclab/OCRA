@@ -72,6 +72,32 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
     });
   }
 
+  async function grantExclusiveProjectUpdateLock(projectId: string, sessionId: string, userId: string) {
+    const prisma = await ensurePrisma();
+
+    await prisma.structuringLock.upsert({
+      where: { projectId },
+      update: {
+        ownerSessionId: sessionId,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.update',
+        operationContext: { projectId },
+        releasedAt: null,
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+      create: {
+        projectId,
+        ownerSessionId: sessionId,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.update',
+        operationContext: { projectId },
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+  }
+
   beforeAll(async () => {
     await setupTestDB();
     await cleanupTestDB();
@@ -437,6 +463,8 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   });
 
   it('Phase 3.9: Update project information', async () => {
+    await grantExclusiveProjectUpdateLock(publicProject.id, regularSessionId, regularUser.id);
+
     const updates = {
       name: publicProject.name + ' (Updated)',
       description: 'Updated description',
@@ -454,6 +482,8 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   });
 
   it('Phase 3.10: Partial update (description only)', async () => {
+    await grantExclusiveProjectUpdateLock(publicProject.id, regularSessionId, regularUser.id);
+
     const updates = {
       description: 'New description only',
     };
@@ -604,6 +634,8 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
   });
 
   it('Phase 4.9: Admin manager CAN update shared project', async () => {
+    await grantExclusiveProjectUpdateLock(sharedProject.id, adminSessionId, adminUser.id);
+
     const updates = {
       description: 'Updated by admin manager',
     };
