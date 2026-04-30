@@ -695,6 +695,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         updatedAt: true,
         structuringLock: {
           select: {
+            ownerSessionId: true,
             releasedAt: true,
             heartbeatExpiresAt: true,
           },
@@ -720,31 +721,39 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
 
     const now = new Date();
 
-    const projectsWithManagers = projects.map((project: any) => ({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      public: project.public,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      activeStructuringLock:
-        !!project.structuringLock &&
-        !project.structuringLock.releasedAt &&
-        project.structuringLock.heartbeatExpiresAt > now,
-      manager: project.projectRoles.length > 0
-        ? {
-          id: project.projectRoles[0].user.id,
-          name: project.projectRoles[0].user.name,
-          email: project.projectRoles[0].user.email,
-          username: project.projectRoles[0].user.username,
-          displayName:
-            project.projectRoles[0].user.name ||
-            `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
-            project.projectRoles[0].user.username ||
-            'Unknown User',
-        }
-        : null,
-    }));
+    const projectsWithManagers = projects.map((project: any) => {
+      const activeStructuringLock =
+        !!project.structuringLock
+        && !project.structuringLock.releasedAt
+        && project.structuringLock.heartbeatExpiresAt > now;
+
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        public: project.public,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        activeStructuringLock,
+        activeStructuringLockOwnedByCurrentSession:
+          activeStructuringLock && !!req.sessionId && project.structuringLock.ownerSessionId === req.sessionId,
+        activeStructuringLockHeartbeatExpiresAt:
+          activeStructuringLock ? project.structuringLock.heartbeatExpiresAt : null,
+        manager: project.projectRoles.length > 0
+          ? {
+            id: project.projectRoles[0].user.id,
+            name: project.projectRoles[0].user.name,
+            email: project.projectRoles[0].user.email,
+            username: project.projectRoles[0].user.username,
+            displayName:
+              project.projectRoles[0].user.name ||
+              `${project.projectRoles[0].user.given_name || ''} ${project.projectRoles[0].user.family_name || ''}`.trim() ||
+              project.projectRoles[0].user.username ||
+              'Unknown User',
+          }
+          : null,
+      };
+    });
 
     res.json({ success: true, projects: projectsWithManagers });
   } catch (error) {

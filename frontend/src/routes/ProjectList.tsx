@@ -24,6 +24,8 @@ interface Project {
   description?: string;
   public: boolean;
   activeStructuringLock?: boolean;
+  activeStructuringLockOwnedByCurrentSession?: boolean;
+  activeStructuringLockHeartbeatExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
   manager?: {
@@ -144,6 +146,43 @@ export default function Projects() {
       source.close();
     };
   }, [fetchData]);
+
+  useEffect(() => {
+    const activeLockExpiryTimes = projects
+      .filter((project) => project.activeStructuringLock && !!project.activeStructuringLockHeartbeatExpiresAt)
+      .map((project) => Date.parse(project.activeStructuringLockHeartbeatExpiresAt as string))
+      .filter((value) => !Number.isNaN(value));
+
+    if (activeLockExpiryTimes.length === 0) {
+      return;
+    }
+
+    const nextExpiryAt = Math.min(...activeLockExpiryTimes);
+    const refreshDelayMs = Math.max(1_000, nextExpiryAt - Date.now() + 1_000);
+
+    const timerId = window.setTimeout(() => {
+      void fetchData({ showLoading: false });
+    }, refreshDelayMs);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [projects, fetchData]);
+
+  useEffect(() => {
+    projects.forEach((project) => {
+      if (!project.activeStructuringLock || !project.activeStructuringLockOwnedByCurrentSession) {
+        return;
+      }
+
+      const lockState = getProjectLockState(project.id);
+      if (lockState.enabled || lockState.hasExclusiveLock || lockState.status === 'acquiring' || lockState.status === 'releasing') {
+        return;
+      }
+
+      void toggleProjectLock(project.id, true);
+    });
+  }, [projects, getProjectLockState, toggleProjectLock]);
 
   const openCreateProjectModal = () => {
     setCreateError(null);
@@ -330,7 +369,9 @@ export default function Projects() {
             <div className="col-12 col-md-6 col-lg-4" key={project.id}>
               {(() => {
                 const lockState = getProjectLockState(project.id);
-                const lockedByAnotherSession = !!project.activeStructuringLock && !lockState.hasExclusiveLock;
+                const ownedByCurrentSession = !!project.activeStructuringLockOwnedByCurrentSession || lockState.hasExclusiveLock;
+                const lockedByAnotherSession = !!project.activeStructuringLock && !ownedByCurrentSession;
+                const resumingOwnedLock = !!project.activeStructuringLockOwnedByCurrentSession && !lockState.enabled && !lockState.hasExclusiveLock;
                 return (
               <div className="card h-100 shadow-sm">
                 <div className="card-body d-flex flex-column">
@@ -379,7 +420,7 @@ export default function Projects() {
                           Structuring in progress
                         </span>
                       )}
-                      {lockState.hasExclusiveLock && (
+                      {ownedByCurrentSession && (
                         <span className="badge bg-success ms-1">Your lock</span>
                       )}
                     </div>
@@ -472,19 +513,20 @@ export default function Projects() {
                               className="form-check-input"
                               type="checkbox"
                               role="switch"
-                              checked={lockState.enabled}
+                              checked={lockState.enabled || !!project.activeStructuringLockOwnedByCurrentSession}
                               onChange={(e) => void toggleProjectLock(project.id, e.target.checked)}
-                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession}
+                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession || resumingOwnedLock}
                             />
                           </div>
                         </div>
                         <div className="small mt-2 text-dark">
                           <strong>Status:</strong>{' '}
-                          {lockState.status === 'inactive' && 'inactive'}
-                          {lockState.status === 'acquiring' && 'acquiring lock'}
-                          {lockState.status === 'draining' && 'draining other sessions'}
-                          {lockState.status === 'exclusive' && 'exclusive lock acquired'}
-                          {lockState.status === 'releasing' && 'releasing lock'}
+                          {resumingOwnedLock && 'restoring lock session'}
+                          {!resumingOwnedLock && lockState.status === 'inactive' && 'inactive'}
+                          {!resumingOwnedLock && lockState.status === 'acquiring' && 'acquiring lock'}
+                          {!resumingOwnedLock && lockState.status === 'draining' && 'draining other sessions'}
+                          {!resumingOwnedLock && lockState.status === 'exclusive' && 'exclusive lock acquired'}
+                          {!resumingOwnedLock && lockState.status === 'releasing' && 'releasing lock'}
                         </div>
                         {lockState.error && (
                           <div className="small text-danger mt-1">{lockState.error}</div>

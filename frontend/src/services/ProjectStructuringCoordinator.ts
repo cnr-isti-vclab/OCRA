@@ -114,6 +114,14 @@ export class ProjectStructuringCoordinator {
       options.onStateChange?.(lock);
     }
 
+    if (notifierStarted && options.drainingNotifier?.notifyDrainingStop) {
+      try {
+        await options.drainingNotifier.notifyDrainingStop(signal);
+      } catch (error) {
+        console.error('Failed to emit structuring draining stop notification:', error);
+      }
+    }
+
     const keepAlive = this.startHeartbeatLoop(lock.fencingToken, operationHeartbeatIntervalMs, options.onStateChange);
 
     return {
@@ -122,15 +130,7 @@ export class ProjectStructuringCoordinator {
       state: 'exclusive',
       heartbeatExpiresAt: lock.heartbeatExpiresAt,
       release: async () => {
-      keepAlive.stop();
-
-        if (notifierStarted && options.drainingNotifier?.notifyDrainingStop) {
-          try {
-            await options.drainingNotifier.notifyDrainingStop(signal);
-          } catch (error) {
-            console.error('Failed to emit structuring draining stop notification:', error);
-          }
-        }
+        keepAlive.stop();
 
         await this.structuringService.stopStructuring({ fencingToken: lock.fencingToken });
       },
