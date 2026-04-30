@@ -130,16 +130,21 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const annotationManager = viewer.getAnnotationManager();
       if (!annotationManager) return;
 
-      // Each programmatic call below will echo an onSelectionChange event from OpenLIME.
-      // We suppress exactly those echoes: 1 for deselectAll + 1 per setSelected call.
-      const echoCount = 1 + selectedAnnotationIds.length;
-      isProgrammaticSelectionRef.current += echoCount;
+      if (selectedAnnotationIds.length > 0) {
+        // Directly set private mode field to avoid setMode()'s signal cascade,
+        // then deselect-all (1 echo) + one setSelected per id (N echoes).
+        isProgrammaticSelectionRef.current += 1 + selectedAnnotationIds.length;
 
-      // Clear existing selection, then apply the context selection.
-      annotationManager.deselectAll();
-      selectedAnnotationIds.forEach(id => {
-        annotationManager.setSelected(id, true);
-      });
+        annotationManager._mode = 'edit';
+        annotationManager.deselectAll();
+        selectedAnnotationIds.forEach(id => {
+          annotationManager.setSelected(id, true);
+        });
+      } else {
+        // Empty selection: clear the visual highlight (deselectAll fires 1 echo).
+        isProgrammaticSelectionRef.current += 1;
+        annotationManager.deselectAll();
+      }
     }, [selectedAnnotationIds, ref]);
 
     return (
