@@ -710,7 +710,7 @@ export default function ProjectPage() {
               <div>
                 <strong>Structuring in progress.</strong>{' '}
                 {activeDrainingEvent
-                  ? 'Another session is preparing a project-wide structuring operation. Save your work and leave this project before draining completes. Other projects remain available.'
+                    ? 'Another session is preparing a project-wide structuring operation. Editing and remote saves are temporarily blocked until draining completes. You can leave this project and continue working in other projects.'
                   : presenceError}
                 {activeDrainingEvent?.username && (
                   <div className="small mt-2 text-muted">
@@ -741,7 +741,7 @@ export default function ProjectPage() {
                   className="btn btn-warning btn-sm"
                   onClick={() => navigate('/projects')}
                 >
-                  Save and Leave This Project
+                    Leave This Project
                 </button>
               </div>
             </div>

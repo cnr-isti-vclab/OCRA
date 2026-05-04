@@ -807,8 +807,8 @@ Implemented behaviour:
 - the page subscribes to project-wide structuring SSE events
 - when another session starts structuring drain, the current user sees a warning banner
 - the banner explicitly states that only the current project is temporarily unavailable
-- the user is asked to save work and leave the locked project, while remaining free to continue working on other projects
-- a `Save and Leave This Project` action navigates the user back to the project list
+- the user is informed that editing and remote saves are temporarily blocked while draining is active
+- a `Leave This Project` action navigates the user back to the project list, while remaining free to continue working on other projects
 
 This demonstrates the intended user-facing contract for draining without forcing a large frontend refactor.
 

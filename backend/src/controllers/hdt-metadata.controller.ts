@@ -80,6 +80,32 @@ function getCurrentUser(req: Request): User | null {
 }
 
 /**
+ * Check whether the authenticated user has at least viewer access to a project.
+ * - sys_admin users are always allowed
+ * - otherwise user must have RoleEnum.viewer, RoleEnum.editor, or RoleEnum.manager for the project
+ * Note: public projects do NOT bypass this check. Discoverability (public flag) only affects
+ * listing/metadata endpoints, not HDT content access.
+ */
+async function checkIsViewerOrAboveOfProject(userSub: string, projectId: string): Promise<boolean> {
+  const prisma = getPrismaClient();
+
+  const user = await prisma.user.findUnique({ where: { sub: userSub } });
+  if (!user) return false;
+
+  if (user.sys_admin) return true;
+
+  const role = await prisma.projectRole.findFirst({
+    where: {
+      projectId,
+      userId: user.id,
+      role: { in: [RoleEnum.viewer, RoleEnum.editor, RoleEnum.manager] }
+    }
+  });
+
+  return !!role;
+}
+
+/**
  * Check whether the authenticated user is manager of a given project.
  * - sys_admin users are always allowed
  * - otherwise user must have RoleEnum.manager for the project
@@ -298,13 +324,24 @@ async function purgeAssetScopedAnnotations(projectId: string, assetId: string) {
 /**
  * GET /api/projects/:projectId/hdt
  * Retrieve the HDT document for a project from MongoDB.
+ * Requires at least viewer role on the project (or sys_admin).
  */
 export async function getHDTMetadataHandler(req: Request, res: Response) {
   try {
     const { projectId } = req.params;
+    const currentUser = getCurrentUser(req);
+
+    if (!currentUser) {
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
+    }
 
     if (!projectId) {
       return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
+    }
+
+    const hasAccess = await checkIsViewerOrAboveOfProject(currentUser.sub, projectId);
+    if (!hasAccess) {
+      return sendHdtError(req, res, 403, 'editorOrManagerRequired', 'Access denied: viewer role or above required');
     }
 
     const document = await getHDTDocument(projectId);
