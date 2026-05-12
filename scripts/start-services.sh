@@ -21,7 +21,8 @@ has_host_port() {
   local host_port="$3"
   local bindings
 
-  bindings="$(docker inspect --format '{{json .HostConfig.PortBindings}}' "${container_name}")"
+  # Use effective runtime port mappings rather than requested HostConfig bindings.
+  bindings="$(docker inspect --format '{{json .NetworkSettings.Ports}}' "${container_name}")"
   [[ "${bindings}" == *"\"${container_port}\""* && "${bindings}" == *"\"HostPort\":\"${host_port}\""* ]]
 }
 
@@ -29,8 +30,29 @@ container_env_contains() {
   docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" | grep -qx "$2"
 }
 
+container_cmd_contains() {
+  docker inspect --format '{{json .Config.Cmd}}' "$1" | grep -q -- "$2"
+}
+
+container_mounts_include() {
+  docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' "$1" | grep -qx "$2"
+}
+
 running_container_on_host_port() {
   docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v port=":$1->" '$0 ~ port {print $1}'
+}
+
+running_host_listener_on_port() {
+  ss -ltnp 2>/dev/null | awk -v port=":$1$" '$4 ~ port {print; exit}'
+}
+
+host_listener_pid_from_line() {
+  awk '{
+    if (match($0, /pid=[0-9]+/)) {
+      pid = substr($0, RSTART + 4, RLENGTH - 4)
+      print pid
+    }
+  }'
 }
 
 assert_port_available_for_container() {
@@ -38,11 +60,39 @@ assert_port_available_for_container() {
   local host_port="$2"
   local label="$3"
   local owner
+  local any_owner
+  local listener_line
+  local listener_pid
+  local listener_cmd
 
+  any_owner="$(running_container_on_host_port "${host_port}" | head -n 1 || true)"
   owner="$(running_container_on_host_port "${host_port}" | grep -v "^${container_name}$" | head -n 1 || true)"
   if [[ -n "${owner}" ]]; then
     echo "❌ Cannot start ${label}: host port ${host_port} is already used by running container ${owner}." >&2
     echo "   Stop the conflicting container first (for example with 'docker compose down' or 'npm run services:stop')." >&2
+    exit 1
+  fi
+
+  # If this exact container already owns the host port, allow startup flow to continue.
+  if [[ "${any_owner}" == "${container_name}" ]]; then
+    return 0
+  fi
+
+  listener_line="$(running_host_listener_on_port "${host_port}" || true)"
+  if [[ -n "${listener_line}" ]]; then
+    listener_pid="$(printf '%s\n' "${listener_line}" | host_listener_pid_from_line || true)"
+    if [[ -n "${listener_pid}" ]]; then
+      listener_cmd="$(ps -o args= -p "${listener_pid}" 2>/dev/null || true)"
+      if [[ -n "${listener_cmd}" ]]; then
+        echo "❌ Cannot start ${label}: host port ${host_port} is already used by local process PID ${listener_pid}." >&2
+        echo "   Command: ${listener_cmd}" >&2
+      else
+        echo "❌ Cannot start ${label}: host port ${host_port} is already used by local process PID ${listener_pid}." >&2
+      fi
+    else
+      echo "❌ Cannot start ${label}: host port ${host_port} is already used by a local process." >&2
+    fi
+    echo "   Stop the conflicting process or free the port, then rerun this command." >&2
     exit 1
   fi
 }
@@ -179,6 +229,16 @@ if container_exists "${KEYCLOAK_NAME}"; then
     recreate_keycloak=1
   fi
 
+  if ! container_cmd_contains "${KEYCLOAK_NAME}" "--import-realm"; then
+    echo "  - Recreating ${KEYCLOAK_NAME} with realm import enabled..."
+    recreate_keycloak=1
+  fi
+
+  if ! container_mounts_include "${KEYCLOAK_NAME}" "/opt/keycloak/data/import"; then
+    echo "  - Recreating ${KEYCLOAK_NAME} with realm import mount..."
+    recreate_keycloak=1
+  fi
+
   if [[ ${recreate_keycloak} -eq 1 ]]; then
     docker rm -f "${KEYCLOAK_NAME}" >/dev/null 2>&1 || true
   fi
@@ -191,9 +251,11 @@ if ! container_exists "${KEYCLOAK_NAME}"; then
     -p 8081:8080 \
     -e KEYCLOAK_ADMIN=Administrator \
     -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \
+    -e KC_HOSTNAME=http://localhost:8081 \
     -v keycloak-data:/opt/keycloak/data \
+    -v "$(pwd)/keycloak/realm-export:/opt/keycloak/data/import" \
     quay.io/keycloak/keycloak:latest \
-    start-dev >/dev/null
+    start-dev --import-realm >/dev/null
 else
   ensure_started "${KEYCLOAK_NAME}"
 fi
