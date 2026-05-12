@@ -141,8 +141,7 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 - ✅ allowed
 - ❌ denied
 - ⚠️ conditional (see notes)
-- 🔒 allowed but additionally gated by StructuringLock ownership at runtime
-- 🔑 requires exclusive StructuringLock (manager-only lock, destructive operations)
+- 🔒 requires exclusive StructuringLock
 - ⚡ **DRIFT** — discrepancy found between this policy and the current implementation (see §7)
 
 ### 6.1 Project Registry and Management
@@ -152,10 +151,10 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 | List projects | ⚠️ public only | ⚠️ public + assigned | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Read project metadata by id | ⚠️ public only | ⚠️ public only | ✅ | ✅ | ✅ | ⚠️ public only | ✅ |
 | Create project | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Update project metadata | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Delete project | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update project metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| Delete project | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
 | List project members | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Add/update/remove member roles | ❌ | ❌ | ❌ | ❌ | 🔑 | ❌ | ✅ |
+| Add/update/remove member roles | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
 
 > **Note on member management**: adding/removing members requires the manager to hold an **exclusive** StructuringLock. This ensures no concurrent editing session is active when project membership changes.
 
@@ -163,21 +162,24 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 
 | Operation | Anon | Auth | Viewer | Editor | Manager | `sys_admin` |
 | --- | --- | --- | --- | --- | --- | --- |
-| Read HDT document | ❌ | ❌ ⚡ | 🔒 | 🔒 | 🔒 | ✅ |
-| Read scene JSON | ❌ | ❌ | 🔒 | 🔒 | 🔒 | ✅ |
-| Create/update physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔑 | ✅ |
-| Delete physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔑 | ✅ |
-| Add/update digital asset metadata | ❌ | ❌ | ❌ | 🔒 ⚡ | 🔒 ⚡ | ✅ |
-| Delete digital asset metadata | ❌ | ❌ | ❌ | ❌ | 🔑 | ✅ |
+| Read HDT document | ❌ | ❌ ⚡ | ✅ | ✅ | ✅ | ✅ |
+| Read scene JSON | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Add digital asset metadata | ❌ | ❌ | ❌ | ✅⚡ | ✅ | ✅ |
+| Update digital asset metadata | ❌ | ❌ | ❌ | ❌ ⚡ | 🔒 | 🔒 |
+| Delete digital asset metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
 | Upload asset files | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Remove asset files | ❌ | ❌ | ❌ | ❌ | 🔑 | ✅ |
-| Create/update scenes | ❌ | ❌ | ❌ | 🔒 | 🔒 | ✅ |
-| Delete scene | ❌ | ❌ | ❌ | 🔑 | 🔑 | ✅ |
-| Add/update scene-asset references | ❌ | ❌ | ❌ | 🔒 | 🔒 | ✅ |
-| Remove scene-asset references | ❌ | ❌ | ❌ | 🔑 | 🔑 | ✅ |
-| Read annotations | ❌ | ❌ | 🔒 | 🔒 | 🔒 | ✅ |
-| Create/update/delete annotations | ❌ | ❌ | ❌ | 🔒 | 🔒 | ✅ |
+| Remove asset files | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Create/update scenes | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete scene | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Add/update scene-asset references | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Remove scene-asset references | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Read annotations | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Export/publish RDF | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+> **Note on `sys_admin` in mixed operation rows (`⚠️ ⚡`)**: lock is required only for the `update`/`delete` portion of the operation, not for `create`/`add`.
 
 ### 6.3 Vocabulary Registry
 
@@ -194,12 +196,13 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 
 The following items require a decision from the project team. They do not represent implementation bugs but policy ambiguities.
 
-### OPEN-1 — Digital asset add/update: should editors be allowed?
+### OPEN-1 — Digital asset update by editor: should it remain allowed in code?
 
 - **Original policy** ([data-model.md §6.3](data-model.md)): only `manager` can add or update digital asset metadata.
-- **Current implementation** ([hdt-metadata.controller.ts](../backend/src/controllers/hdt-metadata.controller.ts)): `checkIsEditorOrManagerOfProject()` is used — editors can add and update (but not delete) digital asset metadata.
-- **Decision needed**: align policy to code (allow editors to add/update assets) or restrict code to manager only.
-- The §6.2 table reflects the implemented behaviour until a decision is made. [data-model.md](data-model.md) §6.3 must be updated in the same PR as any change.
+- **Current policy in this document (§6.2)**: editor can **add** metadata but cannot **update** or **delete** it.
+- **Current implementation** ([hdt-metadata.controller.ts](../backend/src/controllers/hdt-metadata.controller.ts)): `checkIsEditorOrManagerOfProject()` is used for both add and update, so editors can still update metadata.
+- **Decision needed**: either keep editor update denied (and change backend), or allow editor update (and change policy/docs).
+- The `❌ ⚡` marker in `Update digital asset metadata` highlights this discrepancy explicitly.
 
 ### OPEN-2 — Vocabulary creation: `sys_admin`-only or also `sys_creator`?
 
@@ -212,12 +215,7 @@ The following items require a decision from the project team. They do not repres
 
 ## 8. Documented Design Decisions (Resolved)
 
-### DD-1 — HDT document read gate: viewer role required ✅ Fixed
-
-- **Issue**: `getHDTMetadataHandler` had no role check, relying solely on `requireAuth` middleware. An authenticated user without a `ProjectRole` on a private project could read its HDT document.
-- **Fix**: added `checkIsViewerOrAboveOfProject()` check at the top of `getHDTMetadataHandler` ([hdt-metadata.controller.ts](../backend/src/controllers/hdt-metadata.controller.ts)). The check requires `viewer`, `editor`, or `manager` role, or `sys_admin`. Public projects do **not** bypass this check — the `public` flag controls discoverability only, not HDT content access.
-
-### DD-2 — Read operations blocked by StructuringLock: intentional
+### DD-1 — Read operations blocked by StructuringLock: intentional
 
 **Design intent**: when a manager acquires a StructuringLock, the project enters a mode in which the data structure is being reorganised (scenes deleted, assets rearranged, membership changed). Allowing concurrent reads during this window would expose a partially consistent view of the project to other sessions, which is misleading and can cause client-side state corruption (e.g. the viewer rendering a scene that no longer exists).
 
@@ -227,13 +225,13 @@ The following items require a decision from the project team. They do not repres
 - `viewer` sessions are blocked from reading HDT content, scenes, and annotations while a structuring lock is active in that project.
 - `editor` sessions are equally blocked.
 - The lock owner (always a `manager`) is not affected.
-- `sys_admin` bypasses the lock check entirely.
+- `sys_admin` should require lock only for `update`/`remove` project-content operations in §6.2 (rows marked `⚡` document the current implementation gap where lock bypass is still present).
 
 **Lock duration**: locks are expected to be short-lived (a single focused restructuring session). The `heartbeatExpiresAt` field provides automatic expiry if the manager's session drops without releasing the lock explicitly.
 
 **Client guidance**: frontends should handle `423 Locked` on read operations gracefully (e.g. show a "project is being restructured, please wait" message) rather than treating it as an access-denied error.
 
-### DD-3 — Member management requires exclusive StructuringLock: intentional
+### DD-2 — Member management requires exclusive StructuringLock: intentional
 
 **Design intent**: adding or removing project members during an active editing or annotation session would change the effective access set mid-session. An editor currently annotating would suddenly lose write access; a newly added viewer would see an inconsistent intermediate state. Requiring an exclusive lock before any membership change ensures the project is in a clean, quiesced state when its access policy changes.
 
