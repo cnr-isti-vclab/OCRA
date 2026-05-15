@@ -11,7 +11,7 @@ This document defines the concurrency model and collaborative editing strategy f
 - The **Social Lock** mechanism used to reduce conflict probability while preserving architectural simplicity.
 - The **real-time synchronisation** layer that keeps concurrent clients aware of remote changes.
 
-The OCC and annotation mutation rules described here match the current implementation. The sections about Social Lock, read-session coordination, and real-time synchronisation are forward-looking architecture notes and are not yet implemented as backend API surface.
+The OCC, Social Lock, and annotation mutation broadcast-network rules described here match the current implementation. Read-session coordination for structuring remains documented separately.
 
 The dedicated design for project-wide exclusive structuring lock, persistent presence tracking, and future structuring APIs is documented separately in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
 
@@ -143,17 +143,22 @@ The OCC mechanism guarantees correctness but does not reduce the probability of 
 
 ### What It Is and What It Is Not
 
-The Social Lock is a **purely informational, presence-based indicator**. It does not block saves, does not hold database records, and does not prevent concurrent edits. It is a best-effort notification mechanism.
+The Social Lock is a **purely informational indicator**. It does not block saves, does not hold database records, and does not prevent concurrent edits. It is a best-effort notification mechanism.
+
+The Social Lock uses two explicit kinds:
+
+- `presence`: session-level activity in a scene/asset scope
+- `editor`: editing intent on one concrete annotation resource (`geometry`, `data`, or `link`)
 
 The backend does not enforce access control based on Social Lock state. The annotation model works correctly even if Social Lock messages are delayed, lost, or never sent.
 
 ### How It Works
 
-1. When a user begins editing an annotation, the client sends a `notifyEditingStart` notification, optionally identifying the specific entity being edited.
-2. Other active clients in the same scene receive this notification and display a visual cue — for example, a padlock icon or a tooltip — indicating that another editor is working on that element.
-3. A second editor, seeing the cue, can choose to work on a different annotation to avoid a potential conflict.
-4. When the first editor finishes (saves or cancels), the client sends `notifyEditingStop`. The visual cue is removed from other clients.
-5. If the editor disconnects without sending `notifyEditingStop`, the Social Lock expires automatically via a TTL (time-to-live) mechanism, preventing stale indicators from persisting indefinitely.
+1. When a client enters a scene/asset context, it may send a `presence` lock (scope-level awareness).
+2. When a user starts editing one concrete annotation resource, the client sends an `editor` lock for that `resourceType/resourceId`.
+3. Other clients whose current scene is affected by the event `impact` receive the notification and display a visual cue.
+4. A second editor, seeing the cue, can choose to work on a different annotation to avoid a potential conflict.
+5. When editing ends (save/cancel/close), the client sends a stop notification. If the stream closes unexpectedly, backend stream cleanup removes that stream's active social locks.
 
 The Social Lock does **not** prevent the second editor from continuing. If the second editor proceeds, the standard OCC check at save time will handle the conflict correctly.
 
@@ -222,16 +227,17 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 **Precondition**: No structuring operation is in progress.
 
 1. The user loads the scene. Active annotations are fetched, including `version` for each mutable entity. `updatedAt` is returned for audit and debugging.
-2. *(Optional)* The user sends `notifyEditingStart(projectId, sceneId, targetId?)` to broadcast a Social Lock.
-3. The user creates or modifies annotations locally.  
+2. *(Optional)* The client sends a `presence` social lock for the current scope.
+3. When the user starts editing a concrete resource, the client sends an `editor` social lock for that resource.
+4. The user creates or modifies annotations locally.  
    - **Create**: new IDs are generated; no conflict possible.  
    - **Update / change erasability**: the user records `expectedVersion` at load time.
 
-4. On save: the backend handles the operation according to its type.  
+5. On save: the backend handles the operation according to its type.  
    - **Create**: the backend inserts a new document with its initial `version`; no `expectedVersion` check is needed.  
    - **Update / change erasability**: the backend performs a conditional write using `expectedVersion`. If the write succeeds, it returns the new `version`; otherwise it returns a conflict error and the client shows a resolution dialog.
    - **Link restore**: restoring an `annotationLink` changes only the link itself. Whether geometry or data should also be promoted back to `non-erasable` is a higher-level workflow decision, not a primitive backend side effect.
-5. The user sends `notifyEditingStop(projectId, sceneId, targetId?)` to release the Social Lock.
+6. The client sends an `editor` stop lock after save/cancel/close and may keep or stop the `presence` lock depending on whether the user remains active in the scope.
 
 ### Workflow 3: Scene Viewing
 

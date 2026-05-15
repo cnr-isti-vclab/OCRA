@@ -410,6 +410,7 @@ describe.sequential('Annotation controller edge cases', () => {
       value: {
         type: 'annotation.social_lock.started',
         timestamp: '2026-04-25T12:00:00.000Z',
+        lockKind: 'editor',
         streamId,
         projectId: project.id,
         sceneId: 'scene-1',
@@ -443,6 +444,7 @@ describe.sequential('Annotation controller edge cases', () => {
       sessionId: 'test-session',
       userId: user.id,
       username: 'annotator',
+      lockKind: 'editor',
       resourceType: 'geometry',
       resourceId: 'ag-1',
       activity: 'editing',

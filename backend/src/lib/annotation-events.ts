@@ -4,6 +4,7 @@ import type {
   AnnotationConnectedEvent,
   AnnotationImpactMetadata,
   AnnotationMutationEvent,
+  AnnotationSocialLockKind,
   AnnotationSocialLockEvent,
   AnnotationSocialLockState,
   AnnotationStreamEvent,
@@ -36,6 +37,7 @@ interface PublishAnnotationSocialLockInput {
   sessionId: string;
   userId: string;
   username: string;
+  lockKind?: AnnotationSocialLockKind;
   resourceType: 'geometry' | 'data' | 'link' | null;
   resourceId: string | null;
   activity: string | null;
@@ -46,6 +48,14 @@ const HEARTBEAT_INTERVAL_MS = 25_000;
 
 const connections = new Map<string, AnnotationEventConnection>();
 const socialLocks = new Map<string, AnnotationSocialLockState>();
+
+function inferSocialLockKind(input: Pick<PublishAnnotationSocialLockInput, 'lockKind' | 'resourceType' | 'resourceId'>): AnnotationSocialLockKind {
+  if (input.lockKind) {
+    return input.lockKind;
+  }
+
+  return input.resourceType && input.resourceId ? 'editor' : 'presence';
+}
 
 function createSocialLockKey(lock: Pick<AnnotationSocialLockState, 'projectId' | 'streamId' | 'resourceType' | 'resourceId' | 'impact'>) {
   return [
@@ -194,6 +204,7 @@ export function publishAnnotationSocialLockStart(input: PublishAnnotationSocialL
   }
 
   const lock: AnnotationSocialLockState = {
+    lockKind: inferSocialLockKind(input),
     streamId: input.streamId,
     projectId: input.projectId,
     sceneId: input.sceneId,

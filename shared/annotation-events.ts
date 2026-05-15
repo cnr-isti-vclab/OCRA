@@ -16,6 +16,7 @@ export type AnnotationMutationKind =
   | 'link.restored';
 
 export type AnnotationEventResourceType = 'geometry' | 'data' | 'link';
+export type AnnotationSocialLockKind = 'presence' | 'editor';
 
 export interface AnnotationEventEntityPayload {
   kind: AnnotationEventResourceType;
@@ -36,6 +37,7 @@ export interface AnnotationImpactMetadata {
 }
 
 export interface AnnotationSocialLockState {
+  lockKind: AnnotationSocialLockKind;
   streamId: string;
   projectId: string;
   sceneId: string | null;
@@ -88,6 +90,7 @@ export interface AnnotationEventStreamQuery {
 export interface AnnotationSocialLockRequest {
   streamId: string;
   sceneId?: string;
+  lockKind?: AnnotationSocialLockKind;
   originScopeType?: AnnotationScopeType;
   originScopeId?: string;
   resourceType?: AnnotationEventResourceType;

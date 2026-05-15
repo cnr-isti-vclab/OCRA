@@ -384,14 +384,15 @@ The initial handshake event is `annotation.connected`, which returns a backend-g
 
 Delivery note:
 
-- the SSE transport is project-wide
-- `sceneId` does not limit backend delivery; frontend consumers should filter or prioritize events using the `impact` metadata included in broadcast-network social-lock and mutation payloads
+- when `sceneId` is omitted, the SSE transport is project-wide
+- when `sceneId` is provided, backend delivery is filtered to events whose `impact` affects that scene
+- frontend consumers should still treat `impact` as the authoritative routing metadata for refresh/highlight logic
 
 Implemented payload types are defined in `shared/annotation-events.ts`.
 
 #### `POST /api/projects/{projectId}/annotations/events/social-lock/start`
 
-Broadcasts an informational editing-start notification to SSE subscribers.
+Broadcasts an informational social-lock start notification to SSE subscribers.
 
 Required request fields:
 
@@ -401,6 +402,7 @@ Required request fields:
 
 Optional request fields:
 
+- `lockKind` one of `presence`, `editor`
 - `resourceType` one of `geometry`, `data`, `link`
 - `resourceId`
 - `activity`
@@ -408,6 +410,9 @@ Optional request fields:
 Validation notes:
 
 - `resourceType` and `resourceId` must be paired when targeting one entity
+- if `lockKind = editor`, `resourceType/resourceId` are required
+- if `lockKind = presence`, `resourceType/resourceId` must be omitted
+- if `lockKind` is omitted, backend infers `editor` when `resourceType/resourceId` are present, otherwise `presence`
 - the referenced `streamId` must belong to the authenticated session
 - the referenced origin scene or asset must exist in the project HDT
 - legacy `sceneId` is still accepted and is interpreted as `originScopeType: "scene"`
@@ -420,7 +425,7 @@ Possible responses:
 
 #### `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
 
-Clears a previously announced informational social lock.
+Clears a previously announced informational social lock (presence or editor).
 
 Required request fields:
 
@@ -430,6 +435,7 @@ Required request fields:
 
 Optional request fields:
 
+- `lockKind` one of `presence`, `editor`
 - `resourceType` one of `geometry`, `data`, `link`
 - `resourceId`
 - `activity`
@@ -466,6 +472,7 @@ Typical payload:
 {
 	"type": "annotation.social_lock.started",
 	"timestamp": "2026-04-25T12:01:00.000Z",
+	"lockKind": "editor",
 	"streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
 	"projectId": "p1",
 	"sceneId": "scene-main",
@@ -484,6 +491,11 @@ Typical payload:
 	"startedAt": "2026-04-25T12:01:00.000Z"
 }
 ```
+
+Social-lock kinds:
+
+- `presence`: announces that a user is active in a scope (`scene` or `asset`) without targeting one specific annotation resource
+- `editor`: announces active editing intent on one specific resource (`resourceType/resourceId`), while still carrying `impact` for multi-scene asset propagation
 
 When the origin is asset-scoped, `sceneId` may be `null` and `impact` becomes the authoritative routing metadata. For mixed link mutations the backend uses `impact.originScopeType = "mixed"` and `impact.originScopeId = null`.
 

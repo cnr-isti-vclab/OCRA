@@ -2,6 +2,7 @@ import type {
   AnnotationConnectedEvent,
   AnnotationEventResourceType,
   AnnotationMutationEvent,
+  AnnotationSocialLockKind,
   AnnotationSocialLockEvent,
 } from 'shared/annotation-events';
 import type {
@@ -77,6 +78,7 @@ interface CreateLinkInput {
 }
 
 interface SocialLockInput {
+  lockKind?: AnnotationSocialLockKind;
   originScopeType?: 'scene' | 'asset';
   originScopeId?: string;
   resourceType?: AnnotationEventResourceType;
@@ -369,6 +371,28 @@ export class AnnotationApiClient {
     return this.events.notifyEditingStop(input);
   }
 
+  async notifyPresenceStart(input: Omit<SocialLockInput, 'lockKind' | 'resourceType' | 'resourceId'> = {}) {
+    return this.events.notifyPresenceStart(input);
+  }
+
+  async notifyPresenceStop(input: Omit<SocialLockInput, 'lockKind' | 'resourceType' | 'resourceId'> = {}) {
+    return this.events.notifyPresenceStop(input);
+  }
+
+  async notifyEditorLockStart(input: Omit<SocialLockInput, 'lockKind'> & {
+    resourceType: AnnotationEventResourceType;
+    resourceId: string;
+  }) {
+    return this.events.notifyEditorStart(input);
+  }
+
+  async notifyEditorLockStop(input: Omit<SocialLockInput, 'lockKind'> & {
+    resourceType: AnnotationEventResourceType;
+    resourceId: string;
+  }) {
+    return this.events.notifyEditorStop(input);
+  }
+
   private async request<T>(path: string, init: RequestInit = {}) {
     const response = await fetch(`${getApiBase()}/api/projects/${this.projectId}${path}`, {
       ...init,
@@ -398,6 +422,7 @@ export class AnnotationApiClient {
 }
 
 export function buildReadableSocialLockMessage(event: AnnotationSocialLockEvent, currentSceneId?: string | null) {
+  const lockKindLabel = event.lockKind === 'editor' ? 'annotation editor' : 'annotation presence';
   const scope = event.impact.originScopeType === 'scene'
     ? event.impact.originScopeId === currentSceneId
       ? 'this scene'
@@ -417,7 +442,7 @@ export function buildReadableSocialLockMessage(event: AnnotationSocialLockEvent,
         ? ` affecting assets ${event.impact.affectedAssetIds.join(', ')}`
         : '';
 
-  return `${event.username} ${event.type === 'annotation.social_lock.started' ? 'started' : 'stopped'} editing ${resource} in ${scope}${impact}${activity}.`;
+  return `${event.username} ${event.type === 'annotation.social_lock.started' ? 'started' : 'stopped'} ${lockKindLabel} on ${resource} in ${scope}${impact}${activity}.`;
 }
 
 export function buildReadableMutationMessage(event: AnnotationMutationEvent, currentSceneId?: string | null) {

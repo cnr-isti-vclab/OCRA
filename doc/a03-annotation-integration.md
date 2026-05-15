@@ -278,7 +278,8 @@ GET /api/projects/{projectId}/annotations/events?sceneId={sceneId}
 Notes:
 
 - the endpoint is authenticated exactly like the other annotation endpoints
-- the transport is project-wide; `sceneId` is optional and acts only as frontend view context
+- when `sceneId` is omitted, the transport is project-wide
+- when `sceneId` is provided, backend delivery is filtered to events whose `impact` affects that scene
 - the response is `text/event-stream`
 - the backend serves it with `Cache-Control: no-cache, no-transform`
 - the backend also sends `retry: 5000`, so browser `EventSource` clients automatically retry after disconnects
@@ -317,7 +318,7 @@ Frontend implication:
 - store `streamId`
 - use it later when sending `notifyEditingStart` / `notifyEditingStop`
 - initialize local social-lock indicators from `activeSocialLocks`
-- treat `sceneId` in the handshake as the connection context, not as a server-side delivery filter
+- treat `sceneId` in the handshake as the subscriber context and still use `impact` for final UI routing decisions
 
 ### Recommended Frontend Connection Pattern
 
@@ -384,11 +385,24 @@ It is best-effort and informational only. If the notification fails or is never 
 POST /api/projects/{projectId}/annotations/events/social-lock/start
 ```
 
-Request body:
+Request body (`presence` lock example):
 
 ```json
 {
   "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "lockKind": "presence",
+  "originScopeType": "scene",
+  "originScopeId": "scene-main",
+  "activity": "reviewing annotations"
+}
+```
+
+Request body (`editor` lock example):
+
+```json
+{
+  "streamId": "9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15",
+  "lockKind": "editor",
   "originScopeType": "scene",
   "originScopeId": "scene-main",
   "resourceType": "geometry",
@@ -419,7 +433,11 @@ Request body:
 Current contract notes:
 
 - `streamId`, `originScopeType`, and `originScopeId` are required
-- `resourceType` and `resourceId` should be sent together when the lock targets one entity
+- lock kind can be sent explicitly with `lockKind: "presence" | "editor"`
+- `resourceType` and `resourceId` must be sent together when the lock targets one entity
+- `editor` locks require `resourceType/resourceId`
+- `presence` locks must omit `resourceType/resourceId`
+- if `lockKind` is omitted, backend infers `editor` when `resourceType/resourceId` are present, otherwise `presence`
 - valid `resourceType` values are `geometry`, `data`, `link`
 - `activity` is optional descriptive metadata
 - `originScopeType` is `scene` or `asset`
@@ -440,10 +458,11 @@ Use social lock around editing intent, not around viewing.
 Recommended flow:
 
 1. open the SSE connection and wait for `annotation.connected`
-2. when the user starts editing one concrete entity, call `notifyEditingStart(...)`
-3. while the user edits, show incoming social-lock state from other sessions in the UI
-4. when the user saves, cancels, closes the editor, or leaves the scene, call `notifyEditingStop(...)`
-5. if the tab disconnects abruptly, rely on stream closure cleanup on the backend rather than trying to guarantee one last stop message
+2. optionally send a `presence` lock while the user is active in the scene/asset context
+3. when the user starts editing one concrete entity, send an `editor` lock
+4. while the user edits, show incoming social-lock state from other sessions in the UI
+5. when the user saves, cancels, closes the editor, or leaves the edited entity, stop the `editor` lock
+6. if the tab disconnects abruptly, rely on stream closure cleanup on the backend rather than trying to guarantee one last stop message
 
 Minimal usage example:
 

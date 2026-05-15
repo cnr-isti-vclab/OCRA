@@ -260,7 +260,7 @@ events.connect({
 events.disconnect();
 ```
 
-`sceneId` here gives the service the current view context. The underlying SSE stream is project-wide, so incoming events should be interpreted through `event.impact`.
+`sceneId` here gives the service the current view context. When `sceneId` is provided, backend delivery is filtered to impacts that affect that scene. Incoming events should still be interpreted through `event.impact`.
 
 ## Take the social lock
 
@@ -268,10 +268,38 @@ The social lock is an informational signal.
 It tells other users what this session is editing.
 It does not block writes by itself.
 
+The model now has two lock kinds:
+
+- `presence`: "I am active in this scene/asset context"
+- `editor`: "I am editing this specific annotation resource"
+
+If you call the generic methods without explicitly passing `lockKind`, the backend infers:
+
+- `editor` when `resourceType/resourceId` are present
+- `presence` when they are omitted
+
+For simplicity you can use the dedicated helpers below.
+
+### Presence lock helpers (recommended)
+
+```ts
+await client.notifyPresenceStart({
+  activity: 'reviewing scene annotations',
+});
+
+// ...later
+await client.notifyPresenceStop({
+  activity: 'reviewing scene annotations',
+});
+```
+
+If the client was created with a `sceneId`, this defaults to that scene scope.
+
 ### Scene-wide lock
 
 ```ts
 await client.notifySocialLockStart({
+  lockKind: 'presence',
   activity: 'editing annotations',
 });
 ```
@@ -294,7 +322,7 @@ await client.notifySocialLockStart({
 ### Lock one specific resource
 
 ```ts
-await client.notifySocialLockStart({
+await client.notifyEditorLockStart({
   originScopeType: 'asset',
   originScopeId: 'asset-id',
   resourceType: 'data',
@@ -306,7 +334,7 @@ await client.notifySocialLockStart({
 ### Release the social lock
 
 ```ts
-await client.notifySocialLockStop({
+await client.notifyEditorLockStop({
   originScopeType: 'asset',
   originScopeId: 'asset-id',
   resourceType: 'data',
@@ -334,10 +362,10 @@ client.connectRealtime({
     console.log(`${event.username} changed ${event.entity.kind} ${event.entity.id}`, event.impact);
   },
   onSocialLockStarted: (event) => {
-    console.log(`${event.username} started editing`, event.impact);
+    console.log(`${event.username} started ${event.lockKind} lock`, event.impact);
   },
   onSocialLockStopped: (event) => {
-    console.log(`${event.username} stopped editing`, event.impact);
+    console.log(`${event.username} stopped ${event.lockKind} lock`, event.impact);
   },
 });
 ```
@@ -346,6 +374,7 @@ Interpretation rule:
 
 - use `event.impact.originScopeType` and `event.impact.originScopeId` to describe where the edit started
 - use `event.impact.affectedSceneIds` and `event.impact.affectedAssetIds` to decide whether the current screen should refresh or highlight the activity
+- use `event.lockKind` to distinguish scope presence from single-resource editor intent
 
 ## Small React example
 
@@ -377,3 +406,4 @@ useEffect(() => {
 - Use `getData()`, `getGeometry()`, and `getLink()` for single-entity reads.
 - Use `updateData()` or `updateGeometry()` with `expectedVersion` for OCC-safe updates.
 - Use `connectRealtime()` and `notifySocialLockStart()` for social awareness.
+- Prefer `notifyPresenceStart()/notifyPresenceStop()` for view-level presence and `notifyEditorLockStart()/notifyEditorLockStop()` when entering/leaving edit mode on one resource.

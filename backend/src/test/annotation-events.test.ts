@@ -122,6 +122,9 @@ describe.sequential('annotation event broker', () => {
     });
 
     expect(lockResult.ok).toBe(true);
+    if (lockResult.ok) {
+      expect(lockResult.value.lockKind).toBe('editor');
+    }
     expect(sceneClient.writes.join('')).toContain('annotation.social_lock.started');
     expect(projectWideClient.writes.join('')).toContain('annotation.social_lock.started');
     expect(otherSceneClient.writes.join('')).not.toContain('annotation.social_lock.started');

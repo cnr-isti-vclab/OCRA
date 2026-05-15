@@ -1,5 +1,6 @@
 import type {
   AnnotationConnectedEvent,
+  AnnotationSocialLockKind,
   AnnotationEventResourceType,
   AnnotationMutationEvent,
   AnnotationSocialLockEvent,
@@ -51,6 +52,7 @@ export class AnnotationEventsService {
     const sceneWidePayload = this.sceneId
       ? ({
           streamId,
+          lockKind: 'presence',
           originScopeType: 'scene',
           originScopeId: this.sceneId,
           activity: 'external-debug',
@@ -59,6 +61,7 @@ export class AnnotationEventsService {
     const scopedPayload = this.sceneId
       ? ({
           streamId,
+          lockKind: 'editor',
           originScopeType: 'scene',
           originScopeId: this.sceneId,
           resourceType: 'geometry',
@@ -217,7 +220,7 @@ export class AnnotationEventsService {
     source.addEventListener('annotation.social_lock.started', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.social_lock.started') {
-        if (!this.shouldDispatchForSession(parsed.sessionId)) {
+        if (!this.shouldDispatchSocialLockForSession(parsed)) {
           return;
         }
 
@@ -229,7 +232,7 @@ export class AnnotationEventsService {
     source.addEventListener('annotation.social_lock.stopped', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.social_lock.stopped') {
-        if (!this.shouldDispatchForSession(parsed.sessionId)) {
+        if (!this.shouldDispatchSocialLockForSession(parsed)) {
           return;
         }
 
@@ -265,6 +268,20 @@ export class AnnotationEventsService {
     return eventSessionId !== this.localSessionId;
   }
 
+  private shouldDispatchSocialLockForSession(event: AnnotationSocialLockEvent) {
+    if (this.includeSelfEvents || !this.localSessionId) {
+      return true;
+    }
+
+    if (event.sessionId !== this.localSessionId) {
+      return true;
+    }
+
+    // Ignore only events echoed back to the same stream, but keep social-lock
+    // visibility across tabs/windows that share one authenticated session.
+    return event.streamId !== this.streamId;
+  }
+
   async notifyEditingStart(input: Omit<AnnotationSocialLockRequest, 'sceneId' | 'streamId'> = {}) {
     return this.sendSocialLock('/start', input);
   }
@@ -273,9 +290,44 @@ export class AnnotationEventsService {
     return this.sendSocialLock('/stop', input);
   }
 
+  async notifyPresenceStart(input: Omit<AnnotationSocialLockRequest, 'sceneId' | 'streamId' | 'lockKind' | 'resourceType' | 'resourceId'> = {}) {
+    return this.sendSocialLock('/start', {
+      ...input,
+      lockKind: 'presence',
+    });
+  }
+
+  async notifyPresenceStop(input: Omit<AnnotationSocialLockRequest, 'sceneId' | 'streamId' | 'lockKind' | 'resourceType' | 'resourceId'> = {}) {
+    return this.sendSocialLock('/stop', {
+      ...input,
+      lockKind: 'presence',
+    });
+  }
+
+  async notifyEditorStart(input: Omit<AnnotationSocialLockRequest, 'sceneId' | 'streamId' | 'lockKind'> & {
+    resourceType: AnnotationEventResourceType;
+    resourceId: string;
+  }) {
+    return this.sendSocialLock('/start', {
+      ...input,
+      lockKind: 'editor',
+    });
+  }
+
+  async notifyEditorStop(input: Omit<AnnotationSocialLockRequest, 'sceneId' | 'streamId' | 'lockKind'> & {
+    resourceType: AnnotationEventResourceType;
+    resourceId: string;
+  }) {
+    return this.sendSocialLock('/stop', {
+      ...input,
+      lockKind: 'editor',
+    });
+  }
+
   private async sendSocialLock(
     suffix: '/start' | '/stop',
     input: {
+      lockKind?: AnnotationSocialLockKind;
       originScopeType?: 'scene' | 'asset';
       originScopeId?: string;
       resourceType?: AnnotationEventResourceType;

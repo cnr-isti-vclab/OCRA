@@ -219,6 +219,9 @@ function parseSocialLockPayload(body: unknown) {
         ? 'scene'
         : null;
   const originScopeId = typeof body.originScopeId === 'string' ? body.originScopeId : legacySceneId;
+  const lockKind = body.lockKind === 'presence' || body.lockKind === 'editor'
+    ? body.lockKind
+    : undefined;
   const resourceType =
     body.resourceType === 'geometry' || body.resourceType === 'data' || body.resourceType === 'link'
       ? body.resourceType
@@ -234,8 +237,19 @@ function parseSocialLockPayload(body: unknown) {
     return null;
   }
 
+  if (lockKind === 'presence' && (resourceType || resourceId)) {
+    return null;
+  }
+
+  if (lockKind === 'editor' && (!resourceType || !resourceId)) {
+    return null;
+  }
+
+  const resolvedLockKind = lockKind ?? (resourceType && resourceId ? 'editor' : 'presence');
+
   return {
     streamId,
+    lockKind: resolvedLockKind,
     originScopeType,
     originScopeId,
     resourceType,
@@ -309,6 +323,7 @@ export async function notifyAnnotationSocialLockStartHandler(req: Request, res: 
       sessionId: req.sessionId,
       userId: currentUser.id,
       username: getActorUsername(currentUser),
+      lockKind: payload.lockKind,
       resourceType: payload.resourceType ?? null,
       resourceId: payload.resourceId ?? null,
       activity: payload.activity ?? null,
@@ -352,6 +367,7 @@ export async function notifyAnnotationSocialLockStopHandler(req: Request, res: R
       sessionId: req.sessionId,
       userId: currentUser.id,
       username: getActorUsername(currentUser),
+      lockKind: payload.lockKind,
       resourceType: payload.resourceType ?? null,
       resourceId: payload.resourceId ?? null,
       activity: payload.activity ?? null,

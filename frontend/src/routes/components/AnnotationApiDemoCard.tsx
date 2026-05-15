@@ -24,6 +24,21 @@ interface TimelineEntry {
 
 const DEMO_WAIT_MS = 2_500;
 
+function getLockEntryKey(event: AnnotationSocialLockEvent) {
+  return [
+    event.streamId,
+    event.lockKind,
+    event.impact.originScopeType,
+    event.impact.originScopeId ?? '-',
+    event.resourceType ?? '-',
+    event.resourceId ?? '-',
+  ].join(':');
+}
+
+function lockKindBadgeClass(lockKind: AnnotationSocialLockEvent['lockKind']) {
+  return lockKind === 'editor' ? 'bg-warning text-dark' : 'bg-info text-dark';
+}
+
 function createFakeShape(seed: number): AnnotationShape {
   const offset = seed % 10;
   return {
@@ -56,6 +71,7 @@ function addTimelineEntry(
 export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: AnnotationApiDemoCardProps) {
   const client = useMemo(() => new AnnotationApiClient({ projectId, sceneId }), [projectId, sceneId]);
   const mountedRef = useRef(true);
+  const presenceAnnouncedRef = useRef(false);
   const [bundle, setBundle] = useState<AnnotationSceneBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [runningDemo, setRunningDemo] = useState(false);
@@ -111,6 +127,11 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
             timestamp: event.timestamp,
           })),
         );
+
+        if (!presenceAnnouncedRef.current) {
+          presenceAnnouncedRef.current = true;
+          void client.notifyPresenceStart({ activity: 'viewing annotation activity demo' });
+        }
       },
       onConnectionStateChange: (state) => {
         if (!cancelled && mountedRef.current) {
@@ -131,9 +152,8 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
         }
 
         setActiveLocks((current) => {
-          const filtered = current.filter(
-            (entry) => !(entry.streamId === event.streamId && entry.resourceType === event.resourceType && entry.resourceId === event.resourceId),
-          );
+          const nextKey = getLockEntryKey(event);
+          const filtered = current.filter((entry) => getLockEntryKey(entry) !== nextKey);
           return [event, ...filtered];
         });
         addTimelineEntry(setTimeline, 'warning', buildReadableSocialLockMessage(event, sceneId), event.timestamp);
@@ -143,9 +163,8 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
           return;
         }
 
-        setActiveLocks((current) => current.filter(
-          (entry) => !(entry.streamId === event.streamId && entry.resourceType === event.resourceType && entry.resourceId === event.resourceId),
-        ));
+        const nextKey = getLockEntryKey(event);
+        setActiveLocks((current) => current.filter((entry) => getLockEntryKey(entry) !== nextKey));
         addTimelineEntry(setTimeline, 'info', buildReadableSocialLockMessage(event, sceneId), event.timestamp);
       },
       onReconnect: () => {
@@ -155,6 +174,10 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
 
     return () => {
       cancelled = true;
+      if (presenceAnnouncedRef.current) {
+        void client.notifyPresenceStop({ activity: 'viewing annotation activity demo' });
+        presenceAnnouncedRef.current = false;
+      }
       client.disconnectRealtime();
     };
   }, [client, sceneId]);
@@ -181,11 +204,12 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
   const runDemo = async () => {
     setRunningDemo(true);
     setError(null);
-    addTimelineEntry(setTimeline, 'info', 'Demo started: loading scene annotations and requesting a social lock.');
+    addTimelineEntry(setTimeline, 'info', 'Demo started: loading scene annotations, then announcing presence lock and editor lock.');
 
     let createdGeometryId: string | null = null;
     let createdDataId: string | null = null;
     let createdLinkId: string | null = null;
+    let editorLockAcquired = false;
 
     try {
       const before = await client.loadSceneBundle(true);
@@ -197,10 +221,6 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
         'info',
         `Scene snapshot: ${before.geometries.length} geometries, ${before.data.length} data records, ${before.links.length} links.`,
       );
-
-      // The social lock is informational only: it tells other connected users
-      // what this session is editing, but it does not enforce write exclusion.
-      await client.notifySocialLockStart({ activity: 'running annotation API demo' });
 
       await new Promise((resolve) => window.setTimeout(resolve, DEMO_WAIT_MS));
 
@@ -234,6 +254,18 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
       });
       createdLinkId = link.id;
 
+      // Editor lock: this session is actively editing one concrete resource.
+      editorLockAcquired = await client.notifyEditorLockStart({
+        originScopeType: 'scene',
+        originScopeId: sceneId,
+        resourceType: 'data',
+        resourceId: datum.id,
+        activity: 'editing annotation text',
+      });
+      if (editorLockAcquired) {
+        addTimelineEntry(setTimeline, 'warning', `Editor lock published for data ${datum.id}.`);
+      }
+
       await client.updateData(datum.id, {
         expectedVersion: datum.version,
         description: `Synthetic annotation updated from the frontend demo card at ${timestamp}.`,
@@ -253,7 +285,7 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
       addTimelineEntry(
         setTimeline,
         'success',
-        `Demo completed: created geometry ${createdGeometryId}, data ${createdDataId}, link ${createdLinkId}, then updated the data record.`,
+        `Demo completed: created geometry ${createdGeometryId}, data ${createdDataId}, link ${createdLinkId}, then updated the data record while editor lock was active.`,
       );
     } catch (demoError) {
       const message = demoError instanceof Error ? demoError.message : 'Demo failed';
@@ -263,9 +295,16 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
       addTimelineEntry(setTimeline, 'warning', `Demo failed: ${message}`);
     } finally {
       try {
-        // Always attempt to clear the informational social lock even when one
-        // of the demo requests fails midway through the flow.
-        await client.notifySocialLockStop({ activity: 'running annotation API demo' });
+        if (editorLockAcquired && createdDataId) {
+          await client.notifyEditorLockStop({
+            originScopeType: 'scene',
+            originScopeId: sceneId,
+            resourceType: 'data',
+            resourceId: createdDataId,
+            activity: 'editing annotation text',
+          });
+        }
+
       } catch {
         // Keep the demo removable and non-blocking.
       }
@@ -374,8 +413,14 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
               <div className="text-muted">No active annotation social locks for this scene.</div>
             ) : (
               activeLocks.map((event) => (
-                <div key={`${event.streamId}:${event.resourceType ?? 'scene'}:${event.resourceId ?? 'all'}`} className="py-1 border-bottom last-child-border-0">
-                  {buildReadableSocialLockMessage(event, sceneId)}
+                <div key={getLockEntryKey(event)} className="py-1 border-bottom last-child-border-0">
+                  <div className="d-flex align-items-center gap-2 mb-1">
+                    <span className={`badge ${lockKindBadgeClass(event.lockKind)}`}>{event.lockKind}</span>
+                    <span className="text-muted small">
+                      {event.impact.originScopeType}:{event.impact.originScopeId ?? 'mixed'}
+                    </span>
+                  </div>
+                  <div>{buildReadableSocialLockMessage(event, sceneId)}</div>
                 </div>
               ))
             )}

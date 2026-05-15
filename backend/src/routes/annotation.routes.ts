@@ -95,7 +95,7 @@ router.get('/:projectId/annotations', requireAuth, getAnnotationsHandler);
  *         required: false
  *         schema:
  *           type: string
- *         description: Optional scene scope. When omitted, project-wide annotation events are streamed.
+ *         description: Optional subscriber scene context. When present, event delivery is filtered to impacts that affect the scene; when omitted, all project events are streamed.
  *     responses:
  *       200:
  *         description: SSE stream established
@@ -119,7 +119,7 @@ router.get('/:projectId/annotations/events', requireAuth, subscribeAnnotationEve
  * /api/projects/{projectId}/annotations/events/social-lock/start:
  *   post:
  *     summary: Broadcast social-lock start
- *     description: Sends an informational editing-start notification to active annotation SSE subscribers.
+ *     description: Sends an informational social-lock start notification (presence or editor) to active annotation SSE subscribers.
  *     tags:
  *       - Annotations
  *     security:
@@ -137,18 +137,27 @@ router.get('/:projectId/annotations/events', requireAuth, subscribeAnnotationEve
  *         application/json:
  *           schema:
  *             type: object
- *             required: [sceneId, streamId]
+ *             required: [streamId, originScopeType, originScopeId]
  *             properties:
- *               sceneId:
- *                 type: string
  *               streamId:
  *                 type: string
  *                 format: uuid
+ *               lockKind:
+ *                 type: string
+ *                 enum: [presence, editor]
+ *                 description: Optional explicit lock kind. If omitted, backend infers editor when resourceType/resourceId are provided, otherwise presence.
+ *               originScopeType:
+ *                 type: string
+ *                 enum: [scene, asset]
+ *               originScopeId:
+ *                 type: string
  *               resourceType:
  *                 type: string
  *                 enum: [geometry, data, link]
+ *                 description: Required with resourceId for editor locks. Omit for presence locks.
  *               resourceId:
  *                 type: string
+ *                 description: Required with resourceType for editor locks. Omit for presence locks.
  *               activity:
  *                 type: string
  *     responses:
@@ -167,7 +176,7 @@ router.post('/:projectId/annotations/events/social-lock/start', requireAuth, not
  * /api/projects/{projectId}/annotations/events/social-lock/stop:
  *   post:
  *     summary: Broadcast social-lock stop
- *     description: Clears a previously announced informational social-lock and notifies active subscribers.
+ *     description: Clears a previously announced informational social-lock (presence or editor) and notifies active subscribers.
  *     tags:
  *       - Annotations
  *     security:
@@ -185,18 +194,27 @@ router.post('/:projectId/annotations/events/social-lock/start', requireAuth, not
  *         application/json:
  *           schema:
  *             type: object
- *             required: [sceneId, streamId]
+ *             required: [streamId, originScopeType, originScopeId]
  *             properties:
- *               sceneId:
- *                 type: string
  *               streamId:
  *                 type: string
  *                 format: uuid
+ *               lockKind:
+ *                 type: string
+ *                 enum: [presence, editor]
+ *                 description: Optional explicit lock kind. If omitted, backend infers editor when resourceType/resourceId are provided, otherwise presence.
+ *               originScopeType:
+ *                 type: string
+ *                 enum: [scene, asset]
+ *               originScopeId:
+ *                 type: string
  *               resourceType:
  *                 type: string
  *                 enum: [geometry, data, link]
+ *                 description: Required with resourceId for editor locks. Omit for presence locks.
  *               resourceId:
  *                 type: string
+ *                 description: Required with resourceType for editor locks. Omit for presence locks.
  *               activity:
  *                 type: string
  *     responses:
