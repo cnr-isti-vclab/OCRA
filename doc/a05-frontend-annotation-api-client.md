@@ -203,7 +203,7 @@ await client.updateGeometry(geometry.id, {
 });
 ```
 
-## Connect to the social channel
+## Connect to the broadcast network
 
 You can connect in two ways.
 
@@ -315,9 +315,9 @@ await client.notifySocialLockStop({
 });
 ```
 
-## Receive social information
+## Receive broadcast-network information
 
-The social channel sends three kinds of information:
+The broadcast network sends three kinds of information:
 
 - connection information
 - mutation events

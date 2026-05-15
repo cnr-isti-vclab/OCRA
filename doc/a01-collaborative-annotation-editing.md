@@ -15,7 +15,7 @@ The OCC and annotation mutation rules described here match the current implement
 
 The dedicated design for project-wide exclusive structuring lock, persistent presence tracking, and future structuring APIs is documented separately in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
 
-Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same channel as the Social Lock, while remaining a separate concept.
+Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same Broadcast Network channel as the Social Lock, while remaining a separate concept.
 
 For annotation editing, the model is intentionally stateless: there are no long-lived database locks, no server-side session ownership of records, and no heartbeat infrastructure. Consistency is guaranteed at commit time through atomic conditional writes. This does not apply to structuring operations, which follow a different concurrency model.
 
@@ -184,7 +184,7 @@ If the notification concerns an annotation that the user is actively editing, th
 
 ### Relationship to Social Locks
 
-The synchronisation notification and the Social Lock use the same communication channel. They serve complementary purposes:
+The synchronisation notification and the Social Lock use the same Broadcast Network channel. They serve complementary purposes:
 
 - **Social Lock** warns about *intent to edit* (before a change is committed).
 - **Synchronisation notification** informs about *committed changes* (after a change is saved).

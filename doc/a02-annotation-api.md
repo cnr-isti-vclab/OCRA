@@ -345,7 +345,7 @@ Permissions:
 - `POST /api/projects/{projectId}/annotations/events/social-lock/start`
 - `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
 
-These routes implement the informational real-time layer for annotations.
+These routes implement the informational annotation Broadcast Network real-time layer.
 
 Important design note:
 
@@ -385,7 +385,7 @@ The initial handshake event is `annotation.connected`, which returns a backend-g
 Delivery note:
 
 - the SSE transport is project-wide
-- `sceneId` does not limit backend delivery; frontend consumers should filter or prioritize events using the `impact` metadata included in social-lock and mutation payloads
+- `sceneId` does not limit backend delivery; frontend consumers should filter or prioritize events using the `impact` metadata included in broadcast-network social-lock and mutation payloads
 
 Implemented payload types are defined in `shared/annotation-events.ts`.
 

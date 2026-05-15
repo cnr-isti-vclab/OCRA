@@ -446,7 +446,7 @@ Realtime event propagation will need a later refactor.
 Today, the annotation SSE broker is process-local. In a true multi-backend deployment, event propagation for:
 
 - annotation mutation notifications
-- social-lock notifications
+- broadcast-network social-lock notifications
 - future structuring-drain notifications
 
 must move to a shared event transport such as:

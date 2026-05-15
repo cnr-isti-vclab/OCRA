@@ -11,6 +11,7 @@ import { appendStoredSessionId, getApiBase } from '../config/oauth';
 export type AnnotationRealtimeState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 interface AnnotationEventsHandlers {
+  includeSelfEvents?: boolean;
   onConnected?: (event: AnnotationConnectedEvent) => void;
   onConnectionStateChange?: (state: AnnotationRealtimeState) => void;
   onMutation?: (event: AnnotationMutationEvent) => void;
@@ -27,6 +28,8 @@ export class AnnotationEventsService {
   private streamId: string | null = null;
   private hasConnectedOnce = false;
   private closedByClient = false;
+  private includeSelfEvents = false;
+  private localSessionId: string | null = null;
 
   constructor(projectId: string, sceneId?: string | null) {
     this.projectId = projectId;
@@ -76,7 +79,7 @@ export class AnnotationEventsService {
       socialLockStartUrl,
       socialLockStopUrl,
       validResourceTypes: ['geometry', 'data', 'link'],
-      note: 'The stream is project-wide. originScopeType/originScopeId declare what is being edited; resourceType/resourceId remain optional but must be paired when present.',
+      note: 'The stream is project-wide when sceneId is omitted. If sceneId is provided, the server filters deliveries to impacted scenes. originScopeType/originScopeId declare what is being edited; resourceType/resourceId remain optional but must be paired when present.',
       socialLockSceneWidePayloadExample: sceneWidePayload,
       socialLockScopedPayloadExample: scopedPayload,
       fetchExamples: sceneWidePayload && scopedPayload
@@ -157,7 +160,9 @@ export class AnnotationEventsService {
     this.disconnect();
 
     this.handlers = handlers;
+    this.includeSelfEvents = handlers.includeSelfEvents ?? false;
     this.closedByClient = false;
+    this.localSessionId = this.readStoredSessionId();
     this.handlers.onConnectionStateChange?.(this.hasConnectedOnce ? 'reconnecting' : 'connecting');
 
     const url = new URL(`${getApiBase()}/api/projects/${this.projectId}/annotations/events`);
@@ -200,6 +205,10 @@ export class AnnotationEventsService {
     source.addEventListener('annotation.mutated', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.mutated') {
+        if (!this.shouldDispatchForSession(parsed.sessionId)) {
+          return;
+        }
+
         this.logMutationEvent(parsed);
         this.handlers.onMutation?.(parsed);
       }
@@ -208,6 +217,10 @@ export class AnnotationEventsService {
     source.addEventListener('annotation.social_lock.started', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.social_lock.started') {
+        if (!this.shouldDispatchForSession(parsed.sessionId)) {
+          return;
+        }
+
         this.logSocialLockEvent(parsed);
         this.handlers.onSocialLockStarted?.(parsed);
       }
@@ -216,6 +229,10 @@ export class AnnotationEventsService {
     source.addEventListener('annotation.social_lock.stopped', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.social_lock.stopped') {
+        if (!this.shouldDispatchForSession(parsed.sessionId)) {
+          return;
+        }
+
         this.logSocialLockEvent(parsed);
         this.handlers.onSocialLockStopped?.(parsed);
       }
@@ -225,9 +242,27 @@ export class AnnotationEventsService {
   disconnect() {
     this.closedByClient = true;
     this.streamId = null;
+    this.includeSelfEvents = false;
+    this.localSessionId = null;
     this.eventSource?.close();
     this.eventSource = null;
     this.handlers.onConnectionStateChange?.('idle');
+  }
+
+  private readStoredSessionId() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    return window.localStorage.getItem('oauth_session_id');
+  }
+
+  private shouldDispatchForSession(eventSessionId: string) {
+    if (this.includeSelfEvents || !this.localSessionId) {
+      return true;
+    }
+
+    return eventSessionId !== this.localSessionId;
   }
 
   async notifyEditingStart(input: Omit<AnnotationSocialLockRequest, 'sceneId' | 'streamId'> = {}) {

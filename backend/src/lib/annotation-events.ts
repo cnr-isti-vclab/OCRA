@@ -64,13 +64,35 @@ function writeEvent(response: Response, event: AnnotationStreamEvent) {
   response.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
-function matchesAudience(connection: AnnotationEventConnection, projectId: string) {
-  return connection.projectId === projectId;
+function eventImpact(event: AnnotationStreamEvent): AnnotationImpactMetadata | null {
+  if (event.type === 'annotation.connected') {
+    return null;
+  }
+
+  return event.impact;
+}
+
+function matchesImpactAudience(connection: Pick<AnnotationEventConnection, 'sceneId'>, impact: AnnotationImpactMetadata | null) {
+  if (!impact || connection.sceneId === null) {
+    return true;
+  }
+
+  if (impact.originScopeType === 'scene' && impact.originScopeId === connection.sceneId) {
+    return true;
+  }
+
+  return impact.affectedSceneIds.includes(connection.sceneId);
+}
+
+function matchesAudience(connection: AnnotationEventConnection, projectId: string, impact: AnnotationImpactMetadata | null) {
+  return connection.projectId === projectId && matchesImpactAudience(connection, impact);
 }
 
 function broadcastEvent(event: AnnotationStreamEvent, projectId: string) {
+  const impact = eventImpact(event);
+
   for (const connection of connections.values()) {
-    if (!matchesAudience(connection, projectId) || connection.response.writableEnded) {
+    if (!matchesAudience(connection, projectId, impact) || connection.response.writableEnded) {
       continue;
     }
 
@@ -78,9 +100,9 @@ function broadcastEvent(event: AnnotationStreamEvent, projectId: string) {
   }
 }
 
-function getActiveSocialLocks(projectId: string) {
+function getActiveSocialLocks(projectId: string, sceneId: string | null) {
   return Array.from(socialLocks.values()).filter((lock) => {
-    return lock.projectId === projectId;
+    return lock.projectId === projectId && matchesImpactAudience({ sceneId }, lock.impact);
   });
 }
 
@@ -156,7 +178,7 @@ export function subscribeToAnnotationEvents(input: SubscribeAnnotationEventsInpu
     streamId,
     projectId: input.projectId,
     sceneId: input.sceneId,
-    activeSocialLocks: getActiveSocialLocks(input.projectId),
+    activeSocialLocks: getActiveSocialLocks(input.projectId, input.sceneId),
   });
 
   return {

@@ -78,7 +78,7 @@ router.get('/:projectId/annotations', requireAuth, getAnnotationsHandler);
  * /api/projects/{projectId}/annotations/events:
  *   get:
  *     summary: Subscribe to annotation SSE events
- *     description: Opens a Server-Sent Events stream for social-lock and committed annotation mutation notifications.
+ *     description: Opens a Server-Sent Events stream for broadcast-network social-lock and committed annotation mutation notifications.
  *     tags:
  *       - Annotations
  *     security:

@@ -96,7 +96,7 @@ export default function AnnotationApiDemoCard({ projectId, sceneId, variant }: A
 
     void loadBundle();
 
-    // Keep this card subscribed to the annotation SSE channel so the team can
+    // Keep this card subscribed to the annotation broadcast-network SSE channel so the team can
     // see social locks and committed mutations as they happen.
     client.connectRealtime({
       onConnected: (event) => {

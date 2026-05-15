@@ -67,6 +67,7 @@ describe.sequential('annotation event broker', () => {
   it('broadcasts social-lock events and mutation events only to the matching audience', () => {
     const sceneClient = createMockResponse();
     const otherSceneClient = createMockResponse();
+    const unrelatedSceneClient = createMockResponse();
     const projectWideClient = createMockResponse();
 
     const sceneSubscription = subscribeToAnnotationEvents({
@@ -84,6 +85,14 @@ describe.sequential('annotation event broker', () => {
       userId: 'user-2',
       username: 'reviewer',
       response: otherSceneClient.response as never,
+    });
+    subscribeToAnnotationEvents({
+      projectId: 'project-1',
+      sceneId: 'scene-3',
+      sessionId: 'session-4',
+      userId: 'user-4',
+      username: 'observer',
+      response: unrelatedSceneClient.response as never,
     });
     subscribeToAnnotationEvents({
       projectId: 'project-1',
@@ -115,7 +124,8 @@ describe.sequential('annotation event broker', () => {
     expect(lockResult.ok).toBe(true);
     expect(sceneClient.writes.join('')).toContain('annotation.social_lock.started');
     expect(projectWideClient.writes.join('')).toContain('annotation.social_lock.started');
-    expect(otherSceneClient.writes.join('')).toContain('annotation.social_lock.started');
+    expect(otherSceneClient.writes.join('')).not.toContain('annotation.social_lock.started');
+    expect(unrelatedSceneClient.writes.join('')).not.toContain('annotation.social_lock.started');
 
     publishAnnotationMutation({
       type: 'annotation.mutated',
@@ -145,6 +155,7 @@ describe.sequential('annotation event broker', () => {
     expect(sceneClient.writes.join('')).toContain('geometry.updated');
     expect(projectWideClient.writes.join('')).toContain('geometry.updated');
     expect(otherSceneClient.writes.join('')).toContain('geometry.updated');
+    expect(unrelatedSceneClient.writes.join('')).not.toContain('geometry.updated');
   });
 
   it('expires social locks when the owning stream disconnects', () => {

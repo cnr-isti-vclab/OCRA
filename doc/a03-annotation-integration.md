@@ -260,14 +260,14 @@ The links route also accepts `geometryId` and `dataId`; if `sceneId` is present,
 
 ## Real-Time Connection via SSE
 
-The annotation backend now exposes one SSE stream for two kinds of informational events:
+The annotation backend now exposes one SSE stream, called the annotation Broadcast Network, for two kinds of informational events:
 
 - social-lock notifications
 - committed annotation mutation notifications
 
 This connection is informational only. It does not replace OCC and it does not change save semantics.
 
-### SSE Endpoint
+### Broadcast Network SSE Endpoint
 
 Open the stream with:
 
