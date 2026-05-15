@@ -24,6 +24,8 @@ Bianca and Denise open the project and review the annotations. Bianca, as manage
 
 OCRA has two orthogonal levels of roles: **system-level** and **project-level**. System roles are global privileges stored as flags on the `User` entity. Project roles are per-project assignments stored in `ProjectRole`.
 
+All OCRA application and API access is authentication-gated via Keycloak (OIDC). Anonymous users are outside the OCRA RBAC model and are not considered assignable roles in this document.
+
 Resolution order:
 1. `sys_admin` overrides all project-scoped checks.
 2. `sys_creator` is evaluated for registry-level operations only.
@@ -95,11 +97,11 @@ Every project carries a `public` visibility flag (default: `false`).
 - **Content access**: discoverability does **not** grant access to HDT content. Reading the HDT document, scenes, or annotations still requires an explicit project role assignment (`viewer` or above).
 - In other words: `public = true` means *"this project exists and what it is about"* is visible to everyone authenticated; it does not mean the content is open.
 
-| | Anonymous | Authenticated (no role) | Viewer | Editor | Manager |
-| --- | --- | --- | --- | --- | --- |
-| See project in list | ✅ public only | ✅ public + assigned | ✅ | ✅ | ✅ |
-| Read project metadata | ✅ public only | ✅ public only | ✅ | ✅ | ✅ |
-| Read HDT content | ❌ | ❌ | ✅ | ✅ | ✅ |
+| | Authenticated (no role) | Viewer | Editor | Manager |
+| --- | --- | --- | --- | --- |
+| See project in list | ✅ public only | ✅ | ✅ | ✅ |
+| Read project metadata | ✅ public only | ✅ | ✅ | ✅ |
+| Read HDT content | ❌ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -146,49 +148,49 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 
 ### 6.1 Project Registry and Management
 
-| Operation | Anon | Auth | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| List projects | ⚠️ public only | ⚠️ public + assigned | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Read project metadata by id | ⚠️ public only | ⚠️ public only | ✅ | ✅ | ✅ | ⚠️ public only | ✅ |
-| Create project | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Update project metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
-| Delete project | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
-| List project members | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Add/update/remove member roles | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- |
+| List projects | ⚠️ public only | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read project metadata by id | ⚠️ public only | ✅ | ✅ | ✅ | ⚠️ public only | ✅ |
+| Create project | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Update project metadata | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| Delete project | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| List project members | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Add/update/remove member roles | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
 
 > **Note on member management**: adding/removing members requires the manager to hold an **exclusive** StructuringLock. This ensures no concurrent editing session is active when project membership changes.
 
 ### 6.2 HDT Content (MongoDB + Filesystem)
 
-| Operation | Anon | Auth | Viewer | Editor | Manager | `sys_admin` |
-| --- | --- | --- | --- | --- | --- | --- |
-| Read HDT document | ❌ | ❌ ⚡ | ✅ | ✅ | ✅ | ✅ |
-| Read scene JSON | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Create/update physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Delete physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Add digital asset metadata | ❌ | ❌ | ❌ | ✅⚡ | ✅ | ✅ |
-| Update digital asset metadata | ❌ | ❌ | ❌ | ❌ ⚡ | 🔒 | 🔒 |
-| Delete digital asset metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Upload asset files | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Remove asset files | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Create/update scenes | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Delete scene | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Add/update scene-asset references | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Remove scene-asset references | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Read annotations | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Export/publish RDF | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_admin` |
+| --- | --- | --- | --- | --- | --- |
+| Read HDT document | ❌ ⚡ | ✅ | ✅ | ✅ | ✅ |
+| Read scene JSON | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Add digital asset metadata | ❌ | ❌ | ✅⚡ | ✅ | ✅ |
+| Update digital asset metadata | ❌ | ❌ | ❌ ⚡ | 🔒 | 🔒 |
+| Delete digital asset metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Upload asset files | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Remove asset files | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Create/update scenes | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete scene | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Add/update scene-asset references | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Remove scene-asset references | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Read annotations | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update/delete annotations | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Export/publish RDF | ❌ | ❌ | ❌ | ✅ | ✅ |
 
 > **Note on `sys_admin` in mixed operation rows (`⚠️ ⚡`)**: lock is required only for the `update`/`delete` portion of the operation, not for `create`/`add`.
 
 ### 6.3 Vocabulary Registry
 
-| Operation | Anon | Auth | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| List vocabularies | ⚠️ public only | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Read vocabulary by id | ⚠️ public only | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ ⚡ | ✅ |
-| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- |
+| List vocabularies | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read vocabulary by id | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ✅ ⚡ | ✅ |
+| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
