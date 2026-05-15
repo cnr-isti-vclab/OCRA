@@ -90,23 +90,6 @@ Where to manage the complete representation of an annotation as a triple (geomet
 
 ## Proposed Modifications for the Viewer 
 
-### Foreground / Background Assets
-
-Allow the Viewer to load scenes with foreground and background assets
-- foreground assets: editable
-- background assets: not editable
-
-Manage 2 or more groups of assets with separate specifications:
-- Rendering mode
-- Editable / Not editable annotations
-    - Annotations Rendering Mode
-    - Annotations Visibility
-    - Lock for non-editable annotations
-- Other possible features per asset group
-
----
-
-
 ## Implementation Notes: OCRA-Viewer Middleware (Annotation Layer)
 
 To implement the connection via Middleware while keeping the Viewer agnostic, the following implementation steps are proposed:
