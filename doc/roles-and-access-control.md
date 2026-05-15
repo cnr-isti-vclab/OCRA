@@ -164,7 +164,7 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 
 | Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_admin` |
 | --- | --- | --- | --- | --- | --- |
-| Read HDT document | ❌ ⚡ | ✅ | ✅ | ✅ | ✅ |
+| Read HDT document | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Read scene JSON | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Create/update physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
 | Delete physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
