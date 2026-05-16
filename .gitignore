@@ -34,4 +34,4 @@ prisma
 !backend/prisma/migrations/**
 
 /doc/Deliverables
-/tmp/slides
+tmp

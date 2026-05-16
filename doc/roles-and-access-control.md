@@ -24,7 +24,7 @@ Bianca and Denise open the project and review the annotations. Bianca, as manage
 
 OCRA has two orthogonal levels of roles: **system-level** and **project-level**. System roles are global privileges stored as flags on the `User` entity. Project roles are per-project assignments stored in `ProjectRole`.
 
-All OCRA application and API access is authentication-gated via Keycloak (OIDC). Anonymous users are outside the OCRA RBAC model and are not considered assignable roles in this document.
+OCRA supports both authenticated users (via Keycloak OIDC) and anonymous (unauthenticated) access to public content. Anonymous users have minimal read-only access and are not assignable to projects.
 
 Resolution order:
 1. `sys_admin` overrides all project-scoped checks.
@@ -40,6 +40,7 @@ Resolution order:
 | `sys_admin` | OCRA platform administrator (e.g. *Anna* in D8.1 workflow) | Full system access. Can manage all users, assign `sys_creator` rights, access and modify all projects regardless of project role. Bypasses all project-scoped access checks. |
 | `sys_creator` | Trusted user granted project creation rights by `sys_admin` | Can create new projects and vocabulary registry entries. Has no special privileges on projects already created by others unless explicitly assigned a project role on them. |
 | Authenticated user | Any logged-in user without additional flags | Can browse public projects and their metadata. Cannot create projects or access private project content. |
+| `anonymous` | Unauthenticated user (no login required) | Can list and view metadata of public projects only. Can read annotations and scene content for public projects. No editing or creation capability. Limited to read-only access on public project content. |
 
 > **D8.1 alignment**: The OCRA Admin role (Anna) corresponds to `sys_admin`. The act of "A gives to B project creation rights" in the D8.1 workflow corresponds to a `sys_admin` granting the `sys_creator` flag to a user.
 
@@ -86,22 +87,22 @@ Every project carries a `public` visibility flag (default: `false`).
 ### Private project (`public = false`)
 
 - **Discoverable**: not listed and not accessible to users without an explicit project role assignment.
-- **Access**: only users with a `ProjectRole` (`viewer`, `editor`, or `manager`) can see the project in listings and access its content.
+- **Access**: only users with a `ProjectRole` (`viewer`, `editor`, or `manager`) can see the project in listings and access its content. Anonymous users cannot see private projects.
 - **Default state**: all newly created projects are private. Only the creating user (as `manager`) can see and access the project until they explicitly invite others.
 
 > **D8.1 alignment**: *"Projects are by default private and can be seen only by the creator."*
 
 ### Public project (`public = true`)
 
-- **Discoverable**: listed for all authenticated users and visible in project registries. Project metadata (name, description) is readable by any authenticated user.
-- **Content access**: discoverability does **not** grant access to HDT content. Reading the HDT document, scenes, or annotations still requires an explicit project role assignment (`viewer` or above).
-- In other words: `public = true` means *"this project exists and what it is about"* is visible to everyone authenticated; it does not mean the content is open.
+- **Discoverable**: listed for all authenticated users and visible in project registries. Project metadata (name, description) is readable by any authenticated user and by anonymous users.
+- **Content access**: discoverability does **not** grant access to HDT content to authenticated users without a role. Reading the HDT document, scenes, or annotations by authenticated users still requires an explicit project role assignment (`viewer` or above). Anonymous users can read HDT content and annotations in public projects without authentication.
+- In other words: `public = true` means *"this project exists and what it is about"* is visible to everyone authenticated; it does not mean the content is open to authenticated users without a role. However, anonymous users can read content and annotations in public projects.
 
-| | Authenticated (no role) | Viewer | Editor | Manager |
-| --- | --- | --- | --- | --- |
-| See project in list | ✅ public only | ✅ | ✅ | ✅ |
-| Read project metadata | ✅ public only | ✅ | ✅ | ✅ |
-| Read HDT content | ❌ | ✅ | ✅ | ✅ |
+| | Anonymous | Authenticated (no role) | Viewer | Editor | Manager |
+| --- | --- | --- | --- | --- | --- |
+| See project in list | ✅ public only | ✅ public only | ✅ | ✅ | ✅ |
+| Read project metadata | ✅ public only | ✅ public only | ✅ | ✅ | ✅ |
+| Read HDT content | ✅ public only | ❌ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -147,47 +148,47 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 
 ### 6.1 Project Registry and Management
 
-| Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
-| --- | --- | --- | --- | --- | --- | --- |
-| List projects | ⚠️ public only | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Read project metadata by id | ⚠️ public only | ✅ | ✅ | ✅ | ⚠️ public only | ✅ |
-| Create project | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Update project metadata | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
-| Delete project | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
-| List project members | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Add/update/remove member roles | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| Operation | Anonymous | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| List projects | ⚠️ public only | ⚠️ public only | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read project metadata by id | ⚠️ public only | ⚠️ public only | ✅ | ✅ | ✅ | ⚠️ public only | ✅ |
+| Create project | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Update project metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| Delete project | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
+| List project members | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Add/update/remove member roles | ❌ | ❌ | ❌ | ❌ | 🔒 | ❌ | 🔒 |
 
 > **Note on member management**: adding/removing members requires the manager to hold an **exclusive** StructuringLock. This ensures no concurrent editing session is active when project membership changes.
 
 ### 6.2 HDT Content (MongoDB + Filesystem)
 
-| Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_admin` |
-| --- | --- | --- | --- | --- | --- |
-| Read HDT document | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Read scene JSON | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Create/update physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Delete physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Add digital asset metadata | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Update digital asset metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Delete digital asset metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Upload asset files | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Remove asset files | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Create/update scenes | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Delete scene | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Add/update scene-asset references | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Remove scene-asset references | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Read annotations | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Create/update/delete annotations | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Export/publish RDF | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Operation | Anonymous | Authenticated (no role) | Viewer | Editor | Manager | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Read HDT document | ⚠️ public only | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Read scene JSON | ⚠️ public only | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete physical object metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Add digital asset metadata | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Update digital asset metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete digital asset metadata | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Upload asset files | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Remove asset files | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Create/update scenes | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Delete scene | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Add/update scene-asset references | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Remove scene-asset references | ❌ | ❌ | ❌ | ❌ | 🔒 | 🔒 |
+| Read annotations | ⚠️ public only | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Export/publish RDF | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 
 ### 6.3 Vocabulary Registry
 
-| Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
-| --- | --- | --- | --- | --- | --- | --- |
-| List vocabularies | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Read vocabulary by id | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Operation | Anonymous | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| List vocabularies | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read vocabulary by id | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
