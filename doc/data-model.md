@@ -95,7 +95,7 @@ This is the main source of truth for identity, authorization, and project regist
 
 ## `RoleEnum` (project-scoped)
 - `manager` is the only role that can edit project metadata, manage project users/roles, add assets, and publish HDT content.
-- `editor` can modify project content but cannot manage users or publish HDT content.
+- `editor` can create, modify, and mark-as-erasable annotations. Cannot manage users, manage assets, manage scenes, or publish HDT content.
 - `viewer` can only view project content.
 
 ## `ProjectRole`
@@ -311,9 +311,9 @@ A user can have multiple roles but in different projects (should not happen due 
 | Create/update/delete `physicalObjectMetadata` | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Add/update/delete `digitalAssets[]` metadata | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Upload/remove asset files under `project_files/<projectId>/...` | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Create/update/delete scenes | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Add/update/remove scene-asset references | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Create/update/delete scenes | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Add/update/remove scene-asset references | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Export/publish RDF (`/export/rdf`) | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 
 ### 6.4 Vocabulary Registry (PostgreSQL + optional payload in MongoDB)

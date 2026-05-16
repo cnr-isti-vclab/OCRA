@@ -132,30 +132,6 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
   return !!isManager;
 }
 
-/**
- * Check whether the authenticated user is editor or manager of a given project.
- * - sys_admin users are always allowed
- * - otherwise user must have RoleEnum.manager or RoleEnum.editor for the project
- */
-async function checkIsEditorOrManagerOfProject(userSub: string, projectId: string): Promise<boolean> {
-  const prisma = getPrismaClient();
-
-  const user = await prisma.user.findUnique({ where: { sub: userSub } });
-  if (!user) return false;
-
-  if (user.sys_admin) return true;
-
-  const role = await prisma.projectRole.findFirst({
-    where: {
-      projectId,
-      userId: user.id,
-      role: { in: [RoleEnum.manager, RoleEnum.editor] }
-    }
-  });
-
-  return !!role;
-}
-
 // ============================================================================
 // RTI Helpers
 // ============================================================================
@@ -734,7 +710,7 @@ export async function addAssetHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       // Audit authorization failure (best-effort).
       await auditBestEffort({
@@ -848,7 +824,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       // Audit authorization failure (best-effort).
       await auditBestEffort({
@@ -957,7 +933,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
       // Audit authorization failure (best-effort).
       await auditBestEffort({
@@ -1221,9 +1197,9 @@ export async function createSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can create scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can create scenes');
     }
 
     const updatedDoc = await addScene(projectId, sceneData, currentUser.sub);
@@ -1258,9 +1234,9 @@ export async function updateSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can update scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can update scenes');
     }
 
     if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
@@ -1298,9 +1274,9 @@ export async function deleteSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can delete scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can delete scenes');
     }
 
     if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
@@ -1340,9 +1316,9 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can modify scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can modify scenes');
     }
 
     const updatedDoc = await addAssetToScene(projectId, sceneId, assetReference, currentUser.sub);
@@ -1373,9 +1349,9 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can modify scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can modify scenes');
     }
 
     const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updates, currentUser.sub);
@@ -1405,9 +1381,9 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsEditorOrManagerOfProject(currentUser.sub, projectId);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneEditorOrManagerRequired', 'Only project managers or editors can modify scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can modify scenes');
     }
 
     const updatedDoc = await removeAssetFromScene(projectId, sceneId, assetId, currentUser.sub);
