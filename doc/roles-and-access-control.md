@@ -16,7 +16,7 @@ Bianca imports the relevant HDT from the ECHOES Knowledge Base, loads the two RT
 
 Charles logs in, sees the project in his project list, opens the scene, and annotates relevant surface areas. Annotations are spatially bound to model coordinates and enriched with structured metadata. He saves his work and notifies Bianca and Denise.
 
-Bianca and Denise open the project and review the annotations. Bianca, as manager, can modify or delete them; Denise, as viewer, can only read them. Once the review is complete, Charles publishes the work into the HDT for long-term archival.
+Bianca and Denise open the project and review the annotations. Bianca, as manager, can modify or delete them; Denise, as viewer, can only read them. Once the review is complete, Bianca publishes the work into the HDT for long-term archival.
 
 ---
 
@@ -64,8 +64,8 @@ Corresponds to the *Project Creator and Manager* role in D8.1 (e.g. *Bern* / *Bi
 
 Corresponds to the *Editor* role in D8.1 (e.g. *Carl* / *Charles* in the workflow examples).
 
-- Can create, update, and delete scenes and scene-asset references.
-- Can create, update, and delete annotations.
+- Can create, update, and mark-as-erasable annotations.
+- Cannot manage scenes, scene-asset references, or digital assets.
 - Cannot manage project membership or modify project metadata.
 - Cannot upload or remove assets, nor publish HDT content.
 
@@ -144,7 +144,6 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 - ❌ denied
 - ⚠️ conditional (see notes)
 - 🔒 requires exclusive StructuringLock
-- ⚡ **DRIFT** — discrepancy found between this policy and the current implementation (see §7)
 
 ### 6.1 Project Registry and Management
 
@@ -168,8 +167,8 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 | Read scene JSON | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Create/update physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
 | Delete physical object metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
-| Add digital asset metadata | ❌ | ❌ | ✅⚡ | ✅ | ✅ |
-| Update digital asset metadata | ❌ | ❌ | ❌ ⚡ | 🔒 | 🔒 |
+| Add digital asset metadata | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Update digital asset metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
 | Delete digital asset metadata | ❌ | ❌ | ❌ | 🔒 | 🔒 |
 | Upload asset files | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Remove asset files | ❌ | ❌ | ❌ | 🔒 | 🔒 |
@@ -181,41 +180,18 @@ The legend below applies to all tables. Lock requirements (§5) are noted separa
 | Create/update/delete annotations | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Export/publish RDF | ❌ | ❌ | ❌ | ✅ | ✅ |
 
-> **Note on `sys_admin` in mixed operation rows (`⚠️ ⚡`)**: lock is required only for the `update`/`delete` portion of the operation, not for `create`/`add`.
-
 ### 6.3 Vocabulary Registry
 
 | Operation | Authenticated (no role) | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
 | --- | --- | --- | --- | --- | --- | --- |
 | List vocabularies | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Read vocabulary by id | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ✅ ⚡ | ✅ |
+| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
-## 7. Open Design Decisions
-
-The following items require a decision from the project team. They do not represent implementation bugs but policy ambiguities.
-
-### OPEN-1 — Digital asset update by editor: should it remain allowed in code?
-
-- **Original policy** ([data-model.md §6.3](data-model.md)): only `manager` can add or update digital asset metadata.
-- **Current policy in this document (§6.2)**: editor can **add** metadata but cannot **update** or **delete** it.
-- **Current implementation** ([hdt-metadata.controller.ts](../backend/src/controllers/hdt-metadata.controller.ts)): `checkIsEditorOrManagerOfProject()` is used for both add and update, so editors can still update metadata.
-- **Decision needed**: either keep editor update denied (and change backend), or allow editor update (and change policy/docs).
-- The `❌ ⚡` marker in `Update digital asset metadata` highlights this discrepancy explicitly.
-
-### OPEN-2 — Vocabulary creation: `sys_admin`-only or also `sys_creator`?
-
-- **Original policy** ([data-model.md §6.4](data-model.md)): only `sys_admin` can create vocabulary entries.
-- **Current implementation** ([vocabularies.controller.ts](../backend/src/controllers/vocabularies.controller.ts)): `sys_creator` is also likely permitted (mirrors project creation pattern).
-- **Decision needed**: vocabularies are system-wide shared resources — restricting creation to `sys_admin` makes sense if vocabulary governance should be centralised. Allowing `sys_creator` mirrors project authority but widens the trust boundary.
-- The §6.3 table reflects the implemented behaviour until a decision is made.
-
----
-
-## 8. Documented Design Decisions (Resolved)
+## 7. Documented Design Decisions (Resolved)
 
 ### DD-1 — Read operations blocked by StructuringLock: intentional
 
