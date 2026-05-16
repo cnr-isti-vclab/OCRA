@@ -27,6 +27,8 @@ OCRA distinguishes two fundamentally different categories of operations, each wi
 
 ### Structuring Operations
 
+**Required role**: `manager` (or `sys_admin`). The `editor` role cannot perform structuring operations.
+
 Structuring operations modify the project's organizational structure: creating or deleting scenes, adding or removing digital assets from scenes, repositioning assets, and publishing HDT data. These operations can change the reference spaces and containment relationships on which annotation geometry and data depend.
 
 In the adopted design, project-wide structuring coordination is handled by a persistent exclusive lock plus project presence leases. The detailed model, state machine, invariants, and minimal API surface are documented in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
@@ -36,6 +38,8 @@ Because structuring operations may invalidate annotations (e.g. deleting a scene
 **Concurrency Rule 1 — Exclusive structuring lock**: when a structuring operation is in progress, all other operations (read, view, edit) are blocked until the structuring operation completes.
 
 ### Annotation Editing Operations
+
+**Required role**: `editor` or above (`editor`, `manager`, or `sys_admin`). The `editor` role is the primary annotation role. Editors can create, update, and change the erasable state of annotations, but cannot perform any structuring operation.
 
 Annotation editing operations act on `annotationGeometry`, `annotationData`, and `annotationLink` records. `annotationGeometry` and `annotationData` may be created, updated, or transitioned between `non-erasable` and `erasable`. `annotationLink` keeps its two endpoints (`geometryId` and `dataId`) immutable after creation, but it also participates in the same `non-erasable` / `erasable` lifecycle and OCC model. 
 
