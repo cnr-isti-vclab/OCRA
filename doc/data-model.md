@@ -7,7 +7,7 @@ This document is the canonical reference for OCRA data ownership and entity boun
 OCRA uses three persistence layers:
 
 1. PostgreSQL (via Prisma): identity, authorization, project registry, vocabulary registry, sessions.
-2. MongoDB: HDT project content aggregate and audit and logging events.
+2. MongoDB: HDT project content aggregate, annotation collections, and audit/logging events.
 3. Filesystem (`project_files`): binary payloads (3D/RTI files) and derived exports.
 
 ## Source of Truth
@@ -156,20 +156,7 @@ It is defined by a set of asset references and their relative positions. It is o
 - `type` ( `3D`, `2D`, eventually we will support also other types of mixed 3D/2D scenes, but for now we can keep it simple with just 3D and 2D)
 - `assets[]` (array of `SceneAssetReference` objects)
 - `environment` (typed JSON object for scene environment settings, e.g. background color, lighting, ground plane, camera position, etc.)
-- `annotations[]` (array of annotation ids that are associated with this scene)  
 - Timestamps and authorship fields (optional)
-
-## `Annotation` (inside HDT document) (See [annotation-concepts.md](./annotation-concepts.md)
-- `id` (annotation id, unique within project document)
-- `referenceType` ('asset' or 'scene'; annotations are associated to a specific asset, or to a specific scene and have a meaning only in the context of that scene, for example an annotation tied to a specific point between two 3D models in a specific scene configuration)
-- `targetId` (references either an `HDTScene.id` or a `DigitalAsset.id`, depending on the type)
-- `annotationGeometry` (JSON, type-specific, for the spatial/geometric definition of the annotation, e.g. point coordinates, bounding box, polygon vertices, etc.)
-- `annotationData` (JSON for the semantic content of the annotation, e.g. fields filled by the user, controlled vocabulary terms, etc.)
-- `annotationParadata` (free-form JSON for paradata related to the annotation, e.g. creation method, tools used, etc.)
-- Timestamps and authorship fields (optional)
-
-## `AnnotationGraph` (inside HDT document)
-To be defined later to connect the annotations between themselves. For example, it could be a graph structure where the nodes are the annotations and the edges are the relationships between them (e.g. "is part of", "is similar to", etc.). This is not strictly necessary for the first version, but it could be useful for more complex annotation scenarios.
 
 ## `SceneAssetReference`
 - `assetId` (references `digitalAssets[].id`)
@@ -178,6 +165,71 @@ To be defined later to connect the annotations between themselves. For example, 
   - `position`
   - `rotation`
   - `scale`
+
+## 2b) Annotation Model (MongoDB — `ocra_content` database)
+
+Annotations are stored in the `ocra_content` MongoDB database as three independent, first-class collections. They are **not** embedded inside the HDT document. The bridge to PostgreSQL and to the HDT is through `projectId`; to a specific scene or digital asset through `referenceType`/`referenceId` (geometry) and `visibilityType`/`visibilityId` (data).
+
+For the full model rationale, lifecycle rules, OCC semantics, and collaborative-editing strategy see:
+
+- [a00-annotation-model.md](a00-annotation-model.md) — canonical data model and entity field reference
+- [a01-collaborative-annotation-editing.md](a01-collaborative-annotation-editing.md) — OCC, Social Lock, and real-time synchronisation
+- [a05-frontend-annotation-api-client.md](a05-frontend-annotation-api-client.md) — frontend `AnnotationApiClient` and `AnnotationEventsService` usage guide
+
+Canonical Zod schemas: `shared/annotation-schema.ts`. TypeScript types: `shared/annotation-types.ts`.
+
+### `annotation_geometry` collection
+
+Stores the 3D geometric anchor of an annotation. Each document is scoped to a project and positioned relative to a scene or digital asset.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Project-unique identifier. Immutable. |
+| `projectId` | `string` | Bridge key to PostgreSQL `Project.id`. |
+| `shapes` | `Shape[]` | Non-empty array of `ShapePoints`, `ShapePolyline`, or `ShapePolygon` primitives. |
+| `referenceType` | `"scene"` \| `"asset"` | Coordinate space. **Immutable after creation.** |
+| `referenceId` | `string` | Id of the `HDTScene` or `DigitalAsset`. **Immutable after creation.** |
+| `version` | `integer` | OCC token; incremented atomically on every update. |
+| `erasableAt` | `timestamp \| null` | Set when the entity is marked weak; `null` when strong. |
+| `erasableBy` | `user id \| null` | User who marked it weak. |
+| `createdAt`, `createdBy` | `timestamp`, `user id` | Server-assigned at creation. Immutable. |
+| `updatedAt`, `updatedBy` | `timestamp`, `user id` | Server-assigned on every write. |
+
+### `annotation_data` collection
+
+Stores the semantic content of an annotation independently from its spatial anchor.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Project-unique identifier. Immutable. |
+| `projectId` | `string` | Bridge key to PostgreSQL `Project.id`. |
+| `label` | `string` | Non-empty short label. |
+| `description` | `string` | Free-text notes. May be empty. |
+| `class` | `string \| null` | Optional classification tag (e.g. `"damage"`, `"restoration"`). |
+| `content` | `object` | Open payload for ontology-defined fields. |
+| `visibilityType` | `"scene"` \| `"asset"` | Visibility scope. **Immutable after creation.** |
+| `visibilityId` | `string` | Id of the `HDTScene` or `DigitalAsset`. **Immutable after creation.** |
+| `version` | `integer` | OCC token. |
+| `erasableAt`, `erasableBy` | `timestamp \| null`, `user id \| null` | Weak-entity marker. |
+| `createdAt`, `createdBy` | `timestamp`, `user id` | Immutable. |
+| `updatedAt`, `updatedBy` | `timestamp`, `user id` | Updated on every write. |
+
+### `annotation_link` collection
+
+Explicit, auditable join between exactly one geometry record and one data record. Structurally immutable after creation; only the erasable state may change.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Project-unique identifier. Immutable. |
+| `projectId` | `string` | Bridge key to PostgreSQL `Project.id`. |
+| `geometryId` | `string` | References `annotation_geometry.id`. Immutable. |
+| `dataId` | `string` | References `annotation_data.id`. Immutable. |
+| `version` | `integer` | OCC token; incremented on erasable-state transitions only. |
+| `erasableAt`, `erasableBy` | `timestamp \| null`, `user id \| null` | Weak-entity marker. A non-erasable link is a **strong relationship** that keeps its endpoints alive for maintenance. |
+| `createdAt`, `createdBy` | `timestamp`, `user id` | Immutable. |
+| `updatedAt`, `updatedBy` | `timestamp`, `user id` | Updated on state transitions. |
+
+The pair `(geometryId, dataId)` must be unique within a project. Geometry–data scope compatibility is validated at link-creation time (see scene consistency rules in [a00-annotation-model.md](a00-annotation-model.md)).
 
 ## 3) Filesystem Model
 
@@ -197,7 +249,8 @@ Public URLs are served under:
 ## 4) Ownership Boundaries
 
 - PostgreSQL owns identity and authorization decisions.
-- MongoDB owns HDT content graph (metadata, assets, scenes).
+- MongoDB (`ocra_content`) owns the HDT content graph (metadata, assets, scenes) and the three annotation collections.
+- MongoDB (`ocra_audit`) owns audit and logging events.
 - Filesystem owns large binary payload bytes.
 - `projectId` is the cross-store join key.
 
@@ -208,7 +261,7 @@ Public URLs are served under:
 3. Scene asset references must point to existing assets in the same HDT document.
 4. Project deletion must clean all three layers:
    - PostgreSQL rows (`Project`, `ProjectRole` links),
-   - MongoDB HDT document,
+   - MongoDB HDT document and annotation documents (`annotation_geometry`, `annotation_data`, `annotation_link`),
    - filesystem subtree under project root.
 5. Role vocabulary for project membership is only: `manager | editor | viewer`.
 6. At most one active `StructuringLock` may exist per project.
