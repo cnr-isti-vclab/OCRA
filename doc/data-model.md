@@ -318,12 +318,12 @@ A user can have multiple roles but in different projects (should not happen due 
 
 ### 6.4 Vocabulary Registry (PostgreSQL + optional payload in MongoDB)
 
-| Operation | Anonymous | Authenticated | Viewer | Editor | Manager |
-| --- | --- | --- | --- | --- | --- |
-| List vocabularies | ⚠️ (public only) | ✅ | ✅ | ✅ | ✅ |
-| Read vocabulary by id | ⚠️ (public only) | ✅ | ✅ | ✅ | ✅ |
-| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Operation | Anonymous | Authenticated | Viewer | Editor | Manager | `sys_creator` | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| List vocabularies | ⚠️ (public only) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read vocabulary by id | ⚠️ (public only) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Create vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Update/delete vocabulary registry entry | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 Conformance note:
 - This matrix is canonical for policy decisions. If an endpoint behavior differs, treat it as drift and reconcile implementation or documentation in the same PR.
