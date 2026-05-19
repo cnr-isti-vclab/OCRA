@@ -120,6 +120,18 @@ interface LinksEnvelope extends SuccessEnvelope {
   links: AnnotationLink[];
 }
 
+export class AnnotationApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'AnnotationApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 export class AnnotationApiClient {
   readonly projectId: string;
   readonly sceneId: string;
@@ -177,6 +189,20 @@ export class AnnotationApiClient {
     }
     const response = await this.request<DataListEnvelope>(
       `/annotations/data?${query.toString()}`,
+    );
+
+    return response.data;
+  }
+
+  /** Project-wide data list (no sceneId filter). Used by on-demand link pickers. */
+  async loadAllData(includeErasable = true) {
+    const query = new URLSearchParams();
+    if (includeErasable) {
+      query.set('includeErasable', 'true');
+    }
+    const suffix = query.toString();
+    const response = await this.request<DataListEnvelope>(
+      `/annotations/data${suffix ? `?${suffix}` : ''}`,
     );
 
     return response.data;
@@ -404,19 +430,22 @@ export class AnnotationApiClient {
     });
 
     if (!response.ok) {
-      const details = await this.extractError(response);
-      throw new Error(details);
+      const { message, code } = await this.extractError(response);
+      throw new AnnotationApiError(message, response.status, code);
     }
 
     return (await response.json()) as T;
   }
 
-  private async extractError(response: Response) {
+  private async extractError(response: Response): Promise<{ message: string; code?: string }> {
     try {
       const payload = await response.json() as { error?: string; message?: string; code?: string };
-      return payload.message || payload.error || payload.code || `Request failed with status ${response.status}`;
+      return {
+        message: payload.message || payload.error || payload.code || `Request failed with status ${response.status}`,
+        code: payload.code,
+      };
     } catch {
-      return `Request failed with status ${response.status}`;
+      return { message: `Request failed with status ${response.status}` };
     }
   }
 }
