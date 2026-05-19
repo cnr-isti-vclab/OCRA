@@ -12,15 +12,22 @@ This page is the index for technical documentation in `doc/`.
 
 - [Local Development Setup](./local-dev-setup.md)
 - [Scene JSON Format](./scene-json-format.md)
-- [RTI Asset Ontology and Upload Pipeline](./rti-asset-ontology-and-upload-pipeline.md)
+- [Frontend OpenLIME Integration](./frontend-openlime.md)
+- [Physical Object Metadata](./physical-object-metadata.md)
 
 ## Domain and Use Cases
 
 - [OCRA Use Case](./ocra-use-case.md)
-- [00 Annotation Model](./00-annotation-model.md)
-- [01 Collaborative Annotation Editing](./collaborative-annotation-editing.md)
-- [04 Structuring Lock and Project Presence](./a04-structuring-lock.md)
-- [02 Annotation API](./annotation-api.md)
+- [Roles and Access Control](./roles-and-access-control.md)
+
+### Annotation Model
+
+- [a00 Annotation Model](./a00-annotation-model.md)
+- [a01 Collaborative Annotation Editing](./a01-collaborative-annotation-editing.md)
+- [a02 Annotation API](./a02-annotation-api.md)
+- [a03 Annotation Integration](./a03-annotation-integration.md)
+- [a04 Structuring Lock and Project Presence](./a04-structuring-lock.md)
+- [a05 Frontend Annotation API Client](./a05-frontend-annotation-api-client.md)
 
 ## Archived / Outdated
 

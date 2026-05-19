@@ -109,6 +109,7 @@ export const API_ERROR_CODES = {
     sceneUpdateFailed: 'hdt.scene_update_failed',
     sceneDeleteFailed: 'hdt.scene_delete_failed',
     sceneModifyFailed: 'hdt.scene_modify_failed',
+    sceneManagerRequired: 'hdt.scene_manager_required',
     sceneEditorOrManagerRequired: 'hdt.scene_editor_or_manager_required',
     sceneDocumentNotFound: 'hdt.scene_document_not_found',
     sceneOrDocumentNotFound: 'hdt.scene_or_document_not_found',

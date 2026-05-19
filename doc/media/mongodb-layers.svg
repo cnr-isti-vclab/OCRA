@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 600" width="700" height="600" font-family="'Segoe UI', Arial, sans-serif">
+
+  <rect width="700" height="600" fill="#f8fafc"/>
+
+  <!-- ═══ TITLE ═══ -->
+  <text x="350" y="34" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">MongoDB Access Layer Architecture</text>
+  <line x1="24" y1="46" x2="676" y2="46" stroke="#cbd5e1" stroke-width="1.5"/>
+
+  <!-- ════════════════════════════════════════════════
+       SERVICE LAYER   y=56..186
+       ════════════════════════════════════════════════ -->
+  <rect x="24" y="56" width="652" height="130" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <!-- Header: rounded top only via path -->
+  <path d="M34,56 Q24,56 24,66 L24,92 L676,92 L676,66 Q676,56 666,56 Z" fill="#d97706"/>
+  <circle cx="46" cy="74" r="11" fill="#fbbf24"/>
+  <text x="46" y="79" font-size="12" font-weight="800" fill="#7c2d12" text-anchor="middle">S</text>
+  <text x="65" y="71" font-size="13" font-weight="700" fill="white">Service Layer</text>
+  <text x="65" y="86" font-size="9" fill="#fef9c3">business logic &amp; orchestration</text>
+  <!-- Vertical divider body -->
+  <line x1="422" y1="97" x2="422" y2="180" stroke="#fcd34d" stroke-width="1" stroke-dasharray="5 3"/>
+  <!-- Bullets -->
+  <text x="44" y="110" font-size="11" fill="#78350f">&#x2022; Domain logic, use cases, multi-step flows</text>
+  <text x="44" y="126" font-size="11" fill="#78350f">&#x2022; Orchestrates repos, validations, permissions, locks</text>
+  <text x="44" y="142" font-size="11" fill="#78350f">&#x2022; Exposes meaningful functions to controllers</text>
+  <text x="44" y="158" font-size="11" fill="#78350f">&#x2022; Enforces rules: e.g. check lock &#x2192; write to Mongo</text>
+  <!-- File chips -->
+  <text x="434" y="107" font-size="9" font-weight="700" fill="#92400e" letter-spacing="0.5">EXAMPLES</text>
+  <rect x="434" y="111" width="226" height="22" rx="5" fill="white" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="444" y="126" font-size="9" fill="#78350f" font-family="'Courier New',monospace">services/audit.service.ts</text>
+  <rect x="434" y="138" width="226" height="22" rx="5" fill="white" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="444" y="153" font-size="9" fill="#78350f" font-family="'Courier New',monospace">services/hdt-metadata.service.ts</text>
+
+  <!-- ═══ ARROW 1  Service &#x2192; Repository ═══ -->
+  <line x1="350" y1="186" x2="350" y2="207" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="344,203 356,203 350,210" fill="#94a3b8"/>
+  <text x="358" y="202" font-size="9" fill="#64748b">calls</text>
+
+  <!-- ════════════════════════════════════════════════
+       REPOSITORY LAYER   y=210..340
+       ════════════════════════════════════════════════ -->
+  <rect x="24" y="210" width="652" height="130" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <path d="M34,210 Q24,210 24,220 L24,246 L676,246 L676,220 Q676,210 666,210 Z" fill="#2563eb"/>
+  <circle cx="46" cy="228" r="11" fill="#60a5fa"/>
+  <text x="46" y="233" font-size="12" font-weight="800" fill="#1e3a8a" text-anchor="middle">R</text>
+  <text x="65" y="225" font-size="13" font-weight="700" fill="white">Repository Layer</text>
+  <text x="65" y="240" font-size="9" fill="#dbeafe">collection access &amp; query translation</text>
+  <line x1="422" y1="251" x2="422" y2="334" stroke="#93c5fd" stroke-width="1" stroke-dasharray="5 3"/>
+  <text x="44" y="264" font-size="11" fill="#1e3a8a">&#x2022; Encapsulates access to MongoDB collections</text>
+  <text x="44" y="280" font-size="11" fill="#1e3a8a">&#x2022; Translates domain ops into concrete Mongo queries</text>
+  <text x="44" y="296" font-size="11" fill="#1e3a8a">&#x2022; Handles CRUD, aggregations, indexes, lookups</text>
+  <text x="44" y="312" font-size="11" fill="#1e3a8a">&#x2022; Hides DB/collection details from the service layer</text>
+  <text x="434" y="261" font-size="9" font-weight="700" fill="#1d4ed8" letter-spacing="0.5">EXAMPLES</text>
+  <rect x="434" y="265" width="226" height="22" rx="5" fill="white" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="444" y="280" font-size="9" fill="#1e3a8a" font-family="'Courier New',monospace">repositories/audit.repository.ts</text>
+  <rect x="434" y="292" width="226" height="22" rx="5" fill="white" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="444" y="307" font-size="9" fill="#1e3a8a" font-family="'Courier New',monospace">repositories/hdt.repository.ts</text>
+
+  <!-- ═══ ARROW 2  Repository &#x2192; Infrastructure ═══ -->
+  <line x1="350" y1="340" x2="350" y2="361" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="344,357 356,357 350,364" fill="#94a3b8"/>
+  <text x="358" y="356" font-size="9" fill="#64748b">calls</text>
+
+  <!-- ════════════════════════════════════════════════
+       MONGO INFRASTRUCTURE   y=364..494
+       ════════════════════════════════════════════════ -->
+  <rect x="24" y="364" width="652" height="130" rx="10" fill="#f0fdf4" stroke="#059669" stroke-width="2"/>
+  <path d="M34,364 Q24,364 24,374 L24,400 L676,400 L676,374 Q676,364 666,364 Z" fill="#059669"/>
+  <circle cx="46" cy="382" r="11" fill="#4ade80"/>
+  <text x="46" y="387" font-size="12" font-weight="800" fill="#14532d" text-anchor="middle">I</text>
+  <text x="65" y="379" font-size="13" font-weight="700" fill="white">Mongo Infrastructure</text>
+  <text x="65" y="394" font-size="9" fill="#d1fae5">client lifecycle &amp; database exposure</text>
+  <line x1="422" y1="405" x2="422" y2="488" stroke="#6ee7b7" stroke-width="1" stroke-dasharray="5 3"/>
+  <text x="44" y="418" font-size="11" fill="#064e3b">&#x2022; Creates and reuses the MongoClient (ping / reconnect)</text>
+  <text x="44" y="434" font-size="11" fill="#064e3b">&#x2022; Exposes databases: getAuditDb(), getContentDb()</text>
+  <text x="44" y="450" font-size="11" fill="#064e3b">&#x2022; Handles connection details, reconnect, client close</text>
+  <text x="44" y="466" font-size="11" fill="#064e3b">&#x2022; Single entry point &#x2014; never use MongoClient elsewhere</text>
+  <text x="434" y="415" font-size="9" font-weight="700" fill="#047857" letter-spacing="0.5">EXAMPLE</text>
+  <rect x="434" y="419" width="226" height="22" rx="5" fill="white" stroke="#10b981" stroke-width="1.5"/>
+  <text x="444" y="434" font-size="9" fill="#064e3b" font-family="'Courier New',monospace">lib/mongo/client.ts</text>
+
+  <!-- ═══ ARROW 3  Infrastructure &#x2192; MongoDB ═══ -->
+  <line x1="350" y1="494" x2="350" y2="517" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="344,513 356,513 350,520" fill="#94a3b8"/>
+  <text x="358" y="510" font-size="9" fill="#64748b">TCP</text>
+
+  <!-- ════════════════════════════════════════════════
+       MONGODB SERVER — cylinder   visual y=520..592
+       ════════════════════════════════════════════════ -->
+  <!-- Body fill: rect top + bottom arc -->
+  <path d="M220,530 L480,530 L480,582 A130,10 0 0 0 220,582 Z" fill="#1e293b"/>
+  <!-- Side strokes -->
+  <line x1="220" y1="530" x2="220" y2="582" stroke="#475569" stroke-width="1.5"/>
+  <line x1="480" y1="530" x2="480" y2="582" stroke="#475569" stroke-width="1.5"/>
+  <!-- Bottom arc stroke (visible front edge) -->
+  <path d="M220,582 A130,10 0 0 1 480,582" fill="none" stroke="#475569" stroke-width="1"/>
+  <!-- Top cap -->
+  <ellipse cx="350" cy="530" rx="130" ry="10" fill="#334155" stroke="#475569" stroke-width="1.5"/>
+  <!-- Small MongoDB leaf on cap -->
+  <g transform="translate(268,530)">
+    <ellipse rx="5" ry="8" fill="#13AA52"/>
+    <line y1="-8" y2="8" stroke="#088a37" stroke-width="1"/>
+    <path d="M0,-6 Q4,0 0,6" fill="none" stroke="#088a37" stroke-width="0.8"/>
+  </g>
+  <!-- Server text, centered -->
+  <text x="350" y="554" font-size="13" font-weight="700" fill="white" text-anchor="middle">MongoDB Server</text>
+  <text x="350" y="569" font-size="10" fill="#94a3b8" text-anchor="middle">docker container  &#x2022;  replica set <tspan font-weight="700" fill="#4ade80">rs0</tspan></text>
+
+</svg>

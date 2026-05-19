@@ -47,7 +47,7 @@ CLIENT_SECRET=
 
 # Backend
 PORT=3002
-CORS_ORIGINS=http://localhost:3001
+CORS_ORIGINS=http://localhost:3001,http://localhost:5173
 
 # PostgreSQL (REQUIRED for Prisma)
 DATABASE_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
@@ -56,10 +56,11 @@ DIRECT_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
 # Optional admin
 SYS_ADMIN_EMAIL=admin@ocra.it
 
-# MongoDB for audit logs
-MONGO_URL=mongodb://localhost:27017/?replicaSet=rs0
-MONGO_DB=ocra_audit
-MONGO_COLLECTION=audit
+# MongoDB
+MONGO_URL=mongodb://127.0.0.1:27017/?replicaSet=rs0
+MONGO_AUDIT_DB=ocra_audit
+MONGO_AUDIT_COLLECTION=audit
+MONGO_CONTENT_DB=ocra_content
 
 # Local directory for project files (relative to backend/)
 PROJECT_FILES_PATH=../project_files
@@ -414,9 +415,7 @@ From the repo root in a **separate terminal window**:
 npm run dev:frontend
 ```
 
-This typically starts Vite on `http://localhost:5173`.
-
-Bare mode now uses the same frontend port as non-bare mode, so the expected dev URL is `http://localhost:3001`.
+The expected dev URL is `http://localhost:3001` — bare and non-bare environments use the same frontend port.
 
 Expected logs:
 - `Local: http://localhost:3001/`
@@ -632,7 +631,7 @@ With this setup you can develop locally with hot-reload (backend via `tsx watch`
 
 ***
 
-## 12. Production Build (Optional)
+## 13. Production Build (Optional)
 
 For production builds:
 
@@ -650,7 +649,7 @@ npm run install:backend
 
 ***
 
-## 13. Alternative: Full Docker Compose Setup
+## 14. Alternative: Full Docker Compose Setup
 
 If you prefer to run everything in containers (including frontend/backend):
 

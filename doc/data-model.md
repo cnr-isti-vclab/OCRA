@@ -24,11 +24,14 @@ This is the main source of truth for identity, authorization, and project regist
 
 ## `User`
 - Primary key: `id` (cuid)
-- External identity key: `sub` (unique came from the OAuth provider, e.g. Keycloak)
-- Email: `email` (unique came from OAuth provider, used as login identifier)
+- External identity key: `sub` (unique, from OAuth provider, e.g. Keycloak)
+- Email: `email` (unique, from OAuth provider, used as login identifier)
+- Profile fields: `name`, `username`, `given_name`, `family_name`, `middle_name` (all optional, populated from OAuth claims)
 - Global privileges:
   - `sys_admin` (full system access, can manage users, projects, vocabularies)
   - `sys_creator` (can create new projects and vocabularies)
+- Lifecycle fields: `isActive` (default `true`), `disabledAt`, `disabledBy`, `disableReason` — used for soft-disable; a disabled user cannot log in but their rows are preserved for attribution and audit
+- `lastLoginAt` — updated on successful login
 - Relations:
   - `sessions[]`
   - `projectRoles[]`
@@ -130,22 +133,33 @@ One logical HDT aggregate per `projectId`:
 ## `PhysicalObjectMetadata`
 This is a typed JSON object that contains the basic metadata for the physical object represented in the HC1 class of the HDT. Ideally the information contained here should be just a reference to an external URI that is the source of truth for the metadata of the object itself that is cached here (like for example a QXXXX for Wikidata or the catalog entry of the Italian ARCO), but we can also have some basic fields here for easier querying and indexing. 
 - `sourceUri` required,  the URI that is the source of truth for the metadata of the physical object, e.g. a Wikidata QXXXX or an ARCO catalog entry
-- `sourceType` required  (e.g. `ECHOES`, `wikidata`, `arco`, `other`)
+- `sourceType` required  (`echoes`, `wikidata`, `arco`, `other`)
 - `dublinCore` cached fields from the source, e.g. title, description, creator, date, etc. These fields are somewhat redundant with the sourceUri and are filled by a metadata extraction process that can be triggered at HDT creation time or later and cached here for easier querying and indexing.
+- `cidocCrm` (optional) typed JSON for CIDOC-CRM mapped fields
+- `sourceRecord` (optional) raw record fetched from the source, preserved as-is for reference
 
 See the [physical-object-metadata.md](physical-object-metadata.md) for more details on the metadata model for the physical object.
 
 
 ## `DigitalAsset` (inside HDT document)
 - `id` (asset id, unique within project document)
-- `publicUri` (mandatory for each asset we should have a uri that is the source of truth for the asset, from which we can copy locally the asset internally for more efficient use. This is the uri that should be used in the HDT published, and it should be stable across imports/exports. It should be a reference to an external repository)
+- `projectId` (bridge key to PostgreSQL `Project.id`)
 - `type` (`3d-model`, `rti`, `image`, `video`, `other`)
-- `assetParadata` (free-form JSON for traditional acquisition paradata, it could be extracted by the uri/manifest or provided by the user at upload time; there will be a way of mapping it into the HC2 Class of the HDT, but we can keep it free-form for now)
-- `label`
-- `description`
-- `thumbnail` (optional, local URL; if not provided the frontend can generate it on the fly for 3D models and RTI)
-- `entryPointUrl` (local URL where the asset can be accessed, e.g. `/assets/projects/<projectId>/3d-model/<assetId>/model.gltf`)
-- `mimeType` (e.g. `model/gltf+json`, `image/jpeg`, etc.)
+- `label` (required display name)
+- `title` (optional long title, distinct from `label`)
+- `description` (optional free text)
+- `publicUri` (optional; the stable external URI that is the canonical reference for this asset in an HDT publication. Should be an external repository reference. Not mandatory during local working phases but required before governed publication.)
+- `entryPointUrl` (optional; full public URL where the asset can be accessed interactively, e.g. `/assets/projects/<projectId>/3d-model/<assetId>/model.gltf`)
+- `entryPoint` (optional; relative filename within the asset directory, e.g. `model.gltf`; used by the backend to locate the file on disk and by the scene generator to reference the model)
+- `fileName` (optional; original upload filename)
+- `mimeType` (optional; e.g. `model/gltf+json`, `image/jpeg`)
+- `entrySize` (optional; file size in bytes)
+- `thumbnail` (optional; local URL; if not provided the frontend can generate it on the fly for 3D models and RTI)
+- `assetParadata` (optional; free-form JSON for traditional acquisition paradata)
+- `metadata` (optional; typed sub-object for asset-specific technical metadata):
+  - 3D models: `triangles`, `vertices`, `format`
+  - RTI: `rtiType` (`ptm`|`lptm`|`hsh`|`yrbf`), `rtiLayout`, `zipName`, `width`, `height`
+  - Other: `duration`, `codec`, `resolution`, and open extension fields
 - Upload metadata (`uploadedAt`, `uploadedBy`)
 
 ## `HDTScene` (inside HDT document)
@@ -153,10 +167,11 @@ A scene is a specific configuration of digital assets for visualization and anno
 It is defined by a set of asset references and their relative positions. It is owned by the HDT document.
 - `id` (scene id, unique within project document)
 - `label`, `description`
-- `type` ( `3D`, `2D`, eventually we will support also other types of mixed 3D/2D scenes, but for now we can keep it simple with just 3D and 2D)
+- `type` (`3D`, `2D`; additional mixed types may be added later)
+- `isDefault` (optional boolean; marks the scene opened by default when loading a project)
 - `assets[]` (array of `SceneAssetReference` objects)
-- `environment` (typed JSON object for scene environment settings, e.g. background color, lighting, ground plane, camera position, etc.)
-- Timestamps and authorship fields (optional)
+- `environment` (optional typed JSON object for scene environment settings: background color, lighting, ground plane, camera position, etc.)
+- Timestamps and authorship fields (optional): `createdAt`, `updatedAt`, `createdBy`
 
 ## `SceneAssetReference`
 - `assetId` (references `digitalAssets[].id`)
@@ -304,17 +319,20 @@ A user can have multiple roles but in different projects (should not happen due 
 
 ### 6.3 HDT Content (MongoDB + Filesystem)
 
-| Operation | Anonymous | Authenticated | Viewer | Editor | Manager | 
-| --- | --- | --- | --- | --- | --- | 
-| Read HDT document (`/hdt`) | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Read generated scene JSON (`/scenes`) | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Create/update/delete `physicalObjectMetadata` | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Add/update/delete `digitalAssets[]` metadata | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Upload/remove asset files under `project_files/<projectId>/...` | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Create/update/delete scenes | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Add/update/remove scene-asset references | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Export/publish RDF (`/export/rdf`) | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+All HDT content routes require authentication (`requireAuth`). The `public` flag on a project affects discoverability only (list and metadata endpoints), not content access.
+
+| Operation | Anonymous | Authenticated | Viewer | Editor | Manager | `sys_admin` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Read HDT document (`/hdt`) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Read generated scene JSON (`/scenes`) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Read annotations | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Create/update/delete `physicalObjectMetadata` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Add/update/delete `digitalAssets[]` metadata | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Upload/remove asset files under `project_files/<projectId>/...` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Create/update/delete scenes | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Add/update/remove scene-asset references | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Create/update/delete annotations | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Export/publish RDF (`/export/rdf`) | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 
 ### 6.4 Vocabulary Registry (PostgreSQL + optional payload in MongoDB)
 
