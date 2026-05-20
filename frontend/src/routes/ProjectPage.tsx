@@ -11,6 +11,8 @@ import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
+import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
+import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import AnnotationPanel from './components/AnnotationPanel';
 import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
@@ -42,6 +44,7 @@ export default function ProjectPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || '3d';
+  const annotationTestMode = mode === 'test';
 
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -674,10 +677,19 @@ export default function ProjectPage() {
 
   // Show/hide annotation button based on active tab
   useEffect(() => {
+    if (annotationTestMode) {
+      return;
+    }
     if (viewerRef.current) {
       viewerRef.current.setAnnotationButtonVisible(activeTab === 'annotations');
     }
-  }, [activeTab]);
+  }, [activeTab, annotationTestMode]);
+
+  useEffect(() => {
+    if (annotationTestMode && activeTab === 'annotations') {
+      setActiveTab('scene');
+    }
+  }, [annotationTestMode, activeTab]);
 
   // isManager now comes from backend API
 
@@ -691,16 +703,7 @@ export default function ProjectPage() {
     return <div className="container py-5">Project not found</div>;
   }
 
-  return (
-    <AnnotationProvider
-      projectId={projectId || ''}
-      selectedSceneId={selectedSceneId || ''}
-      sceneDesc={sceneDesc}
-      user={user}
-      reloadScene={loadSelectedScene}
-    >
-      {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
-
+  const projectPageBody = (
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
         {/* Project Header */}
         <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
@@ -751,6 +754,9 @@ export default function ProjectPage() {
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                   <h1 className="h3 mb-0 me-1">{project.name}</h1>
                   <span className={`badge ${projectLockBadgeClass}`}>{projectLockBadgeLabel}</span>
+                  {annotationTestMode && (
+                    <span className="badge bg-primary">Annotation Store Lab</span>
+                  )}
                 </div>
                 {project.description && <p className="text-muted mb-0">{project.description}</p>}
                 {isManager && !structuringInProgress && (
@@ -820,8 +826,21 @@ export default function ProjectPage() {
         {/* Main content */}
         <div className="flex-grow-1 d-flex overflow-hidden">
           {/* 3D/2D Viewer */}
-          <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
-            {mode === '3d' && (
+          <div
+            className="bg-light border-end h-100 overflow-hidden"
+            style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, minHeight: 0, position: 'relative' }}
+          >
+            {annotationTestMode && (
+              selectedSceneId
+                ? <AnnotationStoreTestPanel />
+                : (
+                  <div className="h-100 d-flex align-items-center justify-content-center text-muted p-4">
+                    Select a scene in the sidebar to start the annotation store lab.
+                  </div>
+                )
+            )}
+
+            {!annotationTestMode && mode === '3d' && (
               <Viewer3DPanel
                 ref={viewerRef}
                 sceneDesc={sceneDesc}
@@ -859,7 +878,7 @@ export default function ProjectPage() {
               />
             )}
 
-            {mode === '2d' && (
+            {!annotationTestMode && mode === '2d' && (
               <Viewer2DPanel
                 ref={openLimeRef}
                 sceneDesc={sceneDesc}
@@ -903,17 +922,19 @@ export default function ProjectPage() {
                     Models
                   </button>
                 </li>
-                <li className="nav-item" role="presentation">
-                  <button
-                    className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('annotations')}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === 'annotations'}
-                  >
-                    Annotations
-                  </button>
-                </li>
+                {!annotationTestMode && (
+                  <li className="nav-item" role="presentation">
+                    <button
+                      className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('annotations')}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === 'annotations'}
+                    >
+                      Annotations
+                    </button>
+                  </li>
+                )}
               </ul>
 
               {/* Tab Content */}
@@ -1503,7 +1524,7 @@ export default function ProjectPage() {
                 )}
 
                 {/* Annotations Tab */}
-                {activeTab === 'annotations' && (
+                {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
                     <AnnotationPanel
                       onSelectionChanged={(selectedIds) => {
@@ -1527,6 +1548,29 @@ export default function ProjectPage() {
           </div>
         </div>
       </div>
+  );
+
+  if (annotationTestMode) {
+    if (!projectId || !selectedSceneId) {
+      return projectPageBody;
+    }
+
+    return (
+      <AnnotationStoreProvider projectId={projectId} sceneId={selectedSceneId}>
+        {projectPageBody}
+      </AnnotationStoreProvider>
+    );
+  }
+
+  return (
+    <AnnotationProvider
+      projectId={projectId || ''}
+      selectedSceneId={selectedSceneId || ''}
+      sceneDesc={sceneDesc}
+      user={user}
+      reloadScene={loadSelectedScene}
+    >
+      {projectPageBody}
     </AnnotationProvider>
   );
 }

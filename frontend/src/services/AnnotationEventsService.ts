@@ -208,6 +208,9 @@ export class AnnotationEventsService {
     source.addEventListener('annotation.mutated', (event) => {
       const parsed = this.parseEvent(event);
       if (parsed?.type === 'annotation.mutated') {
+        // Comment next lines To always deliver mutations to every subscribed tab, including tabs that share
+        // one authenticated session. AnnotationStore dedupes via version guards; the
+        // legacy session filter hid cross-tab updates during multi-tab editing.
         if (!this.shouldDispatchForSession(parsed.sessionId)) {
           return;
         }
@@ -267,7 +270,7 @@ export class AnnotationEventsService {
 
     return eventSessionId !== this.localSessionId;
   }
-
+  
   private shouldDispatchSocialLockForSession(event: AnnotationSocialLockEvent) {
     if (this.includeSelfEvents || !this.localSessionId) {
       return true;

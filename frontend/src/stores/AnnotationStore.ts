@@ -1,4 +1,9 @@
-import type { AnnotationEventResourceType, AnnotationMutationEvent } from 'shared/annotation-events';
+import type {
+  AnnotationConnectedEvent,
+  AnnotationEventResourceType,
+  AnnotationMutationEvent,
+  AnnotationSocialLockEvent,
+} from 'shared/annotation-events';
 import type {
   AnnotationData,
   AnnotationGeometry,
@@ -32,6 +37,11 @@ export interface AnnotationStoreCallbacks {
   onConflict: (id: string) => void;
   onError: (err: unknown) => void;
   onEditsCancelled: () => void;
+  onConnected?: (event: AnnotationConnectedEvent) => void;
+  onMutation?: (event: AnnotationMutationEvent) => void;
+  onSocialLockStarted?: (event: AnnotationSocialLockEvent) => void;
+  onSocialLockStopped?: (event: AnnotationSocialLockEvent) => void;
+  onReconnect?: () => void;
 }
 
 export interface CreateAnnotationInput {
@@ -167,14 +177,25 @@ export class AnnotationStore {
       this.bump();
 
       this.client.connectRealtime({
+        onConnected: (event) => {
+          this.callbacks.onConnected?.(event);
+        },
         onConnectionStateChange: (state) => {
           this.realtimeState = state;
           this.callbacks.onRealtimeStateChange(state);
         },
         onMutation: (event) => {
+          this.callbacks.onMutation?.(event);
           void this.processSSEUpdate(event);
         },
+        onSocialLockStarted: (event) => {
+          this.callbacks.onSocialLockStarted?.(event);
+        },
+        onSocialLockStopped: (event) => {
+          this.callbacks.onSocialLockStopped?.(event);
+        },
         onReconnect: () => {
+          this.callbacks.onReconnect?.();
           void this.handleReconnect();
         },
       });
