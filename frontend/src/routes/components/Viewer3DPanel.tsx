@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
-import { LoadingProgress } from '../../lib/ThreePresenter/src';
+import { LoadingProgress } from 'three-presenter';
 import type { SceneDescription } from '../../../../shared/scene-types';
 import type { ViewerAnnotation } from '../../../../shared/scene-types';
 import { useAnnotations } from '../../context/AnnotationContext';
