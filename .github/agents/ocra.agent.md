@@ -42,3 +42,9 @@ Authoritative domain documentation is in `doc/`. Ignore `doc/outdated_docs/` —
 - **Minimize code**: always prefer the smallest correct implementation. Warn before writing large amounts of new code and suggest leaner alternatives. Actively flag dead code, unused imports, and leftover files for removal.
 - **No duplication**: before adding a utility, service, or component, check whether an equivalent already exists.
 - **Testing**: Vitest + Supertest; integration tests live in `backend/src/test/`.
+- **MongoDB topology**: MongoDB is expected to run as a single-node replica set named `rs0` in both Docker Compose and bare-metal local setups.
+- **MongoDB connection strings**: use `MONGO_URL=mongodb://mongodb:27017/?replicaSet=rs0` for Docker Compose and `MONGO_URL=mongodb://localhost:27017/?replicaSet=rs0` for bare-metal local development.
+- **MongoDB bootstrap**: if MongoDB is recreated or volumes are reset, re-run the bootstrap flow so replica set initialization and collection/index setup are applied (`scripts/bootstrap-mongo.sh` or the higher-level startup scripts).
+- **Dev Compose seeding**: the full local demo bootstrap depends on `docker-compose.override.yml`; backend seeding runs only when `NODE_ENV=development`.
+- **Seed ownership and scope**: `backend/seed.ts` is the authoritative idempotent demo seed for PostgreSQL, MongoDB, and `project_files`; Keycloak demo users are imported separately from `keycloak/realm-export/demo-realm.json`.
+- **Keycloak dev issuer**: in Docker Compose development, the public issuer must stay `http://localhost:8081/realms/demo` while the backend reaches Keycloak over the internal service network; keep hostname/backchannel settings aligned to avoid token issuer mismatches during PKCE login.

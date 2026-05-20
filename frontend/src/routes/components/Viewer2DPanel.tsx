@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef } from 'react';
 import OpenLIMEViewer, { type OpenLIMEViewerRef, type SimplifiedAnnotation } from '../../adapters/openlime-viewer/OpenLIMEViewer';
-import type { SceneDescription, Annotation } from '../../../../shared/scene-types';
+import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotations } from '../../context/AnnotationContext';
 
@@ -64,17 +64,17 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }
 
     // Handle forward annotation creation from viewer to context, then to the annotationPanel
-    const handleAnnotationCreated = (anno: Annotation) => {
+    const handleAnnotationCreated = (anno: ViewerAnnotation) => {
       createAnnotation(anno);
     };
 
     // Handle forward annotation update from viewer to context, then to the annotationPanel
-    const handleAnnotationUpdated = (anno: Annotation) => {
+    const handleAnnotationUpdated = (anno: ViewerAnnotation) => {
       updateAnnotationGeometry(anno.id, anno.geometry);
     };
 
     // Handle forward annotation deletion from viewer to context, then to the annotationPanel
-    const handleAnnotationDeleted = (anno: Annotation) => {
+    const handleAnnotationDeleted = (anno: ViewerAnnotation) => {
       // Annotation deletion is handled through AnnotationPanel's delete button
       // When viewer wants to delete, it should go through the same path
     };

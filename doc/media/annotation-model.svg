@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   viewBox="0 0 1082 668.62042"
+   viewBox="0 0 1082 642"
    width="1082"
-   height="668.62042"
+   height="642"
    font-family="'Segoe UI', Helvetica, Arial, sans-serif"
    version="1.1"
    id="svg83"
    sodipodi:docname="annotation-model.svg"
-   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -21,9 +21,9 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="0.70710678"
-     inkscape:cx="434.87067"
-     inkscape:cy="434.16356"
+     inkscape:zoom="2"
+     inkscape:cx="451.75"
+     inkscape:cy="461.5"
      inkscape:window-width="1920"
      inkscape:window-height="1011"
      inkscape:window-x="0"
@@ -65,15 +65,215 @@
   <!-- ROW 1 — annotationGeometry (left)  +  annotationData (right)       -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ── annotationGeometry ───────────────────────────────── -->
+  <rect
+     x="1"
+     y="1"
+     width="490"
+     height="295"
+     rx="10"
+     fill="#ffffff"
+     stroke="#3b82f6"
+     stroke-width="2"
+     id="rect3"
+     ry="10" />
+  <rect
+     x="1"
+     y="1"
+     width="490"
+     height="36"
+     rx="10"
+     fill="#3b82f6"
+     id="rect4"
+     ry="10" />
+  <rect
+     x="1"
+     y="25"
+     width="490"
+     height="12"
+     fill="#3b82f6"
+     id="rect5" />
+  <text
+     x="246"
+     y="24"
+     text-anchor="middle"
+     font-size="14px"
+     font-weight="700"
+     fill="#ffffff"
+     id="text5">annotationGeometry</text>
+  <line
+     x1="1"
+     y1="37"
+     x2="491"
+     y2="37"
+     stroke="#93c5fd"
+     stroke-width="1"
+     id="line5" />
+  <line
+     x1="21"
+     y1="194"
+     x2="471"
+     y2="194"
+     stroke="#e2e8f0"
+     stroke-width="1"
+     stroke-dasharray="4, 3"
+     id="line13" />
+  <line
+     x1="21"
+     y1="218"
+     x2="471"
+     y2="218"
+     stroke="#e2e8f0"
+     stroke-width="1"
+     stroke-dasharray="4, 3"
+     id="line14" />
   <!-- shape badges -->
   <!-- immutability badge -->
   <!-- multi-shape note -->
   <!-- ── annotationData ────────────────────────────────────── -->
+  <rect
+     x="590.97101"
+     y="16.97097"
+     width="490.05807"
+     height="278.08749"
+     rx="10.001185"
+     fill="#ffffff"
+     stroke="#10b981"
+     stroke-width="1.94194"
+     id="rect19"
+     ry="10.001185" />
+  <text
+     x="609.2207"
+     y="177.27008"
+     font-size="12px"
+     fill="#1e40af"
+     id="text11-6"><tspan
+   font-weight="700"
+   id="tspan10-0"
+   style="fill:#065f46;fill-opacity:1">visibilityType</tspan>·<tspan
+   style="fill:#374151;fill-opacity:1"
+   id="tspan4">&quot;scene&quot; | &quot;asset&quot;</tspan></text>
+  <rect
+     x="591"
+     y="1"
+     width="490"
+     height="36"
+     rx="10"
+     fill="#10b981"
+     id="rect20"
+     ry="10" />
+  <rect
+     x="591"
+     y="25"
+     width="490"
+     height="12"
+     fill="#10b981"
+     id="rect21" />
+  <text
+     x="836"
+     y="24"
+     text-anchor="middle"
+     font-size="14px"
+     font-weight="700"
+     fill="#ffffff"
+     id="text21">annotationData</text>
+  <line
+     x1="591"
+     y1="37"
+     x2="1081"
+     y2="37"
+     stroke="#6ee7b7"
+     stroke-width="1"
+     id="line21" />
+  <text
+     x="609.34961"
+     y="59"
+     font-size="12px"
+     fill="#065f46"
+     id="text22"><tspan
+       font-weight="700"
+       id="tspan21">id</tspan><tspan
+       fill="#374151"
+       id="tspan22">· unique within project</tspan></text>
+  <text
+     x="609.2207"
+     y="78.769302"
+     font-size="12px"
+     fill="#065f46"
+     id="text22-5"><tspan
+       font-weight="700"
+       id="tspan21-6">projectId</tspan><tspan
+       fill="#374151"
+       id="tspan22-2">· unique projectId</tspan></text>
+  <text
+     x="609.2207"
+     y="98.538589"
+     font-size="12px"
+     fill="#065f46"
+     id="text24"><tspan
+       font-weight="700"
+       id="tspan23">label</tspan><tspan
+       fill="#374151"
+       id="tspan24">· string (short title, non-empty)</tspan></text>
+  <text
+     x="609.57812"
+     y="137.14554"
+     font-size="12px"
+     fill="#065f46"
+     id="text26"><tspan
+   style="font-weight:bold"
+   id="tspan1">content</tspan>· <tspan
+   style="fill:#374151;fill-opacity:1"
+   id="tspan2">any</tspan></text>
+  <text
+     x="609.57812"
+     y="118.4368"
+     font-size="12px"
+     fill="#065f46"
+     id="text26-6"><tspan
+       font-weight="700"
+       id="tspan25-7">description</tspan><tspan
+       fill="#374151"
+       id="tspan26-5">· string (free text)</tspan></text>
+  <text
+     x="609.57812"
+     y="157.20779"
+     font-size="12px"
+     fill="#065f46"
+     id="text28"><tspan
+       font-weight="700"
+       id="tspan27">class</tspan><tspan
+       fill="#374151"
+       id="tspan28">· string | null (e.g. damage, restoration…)</tspan></text>
+  <line
+     x1="611"
+     y1="228"
+     x2="1061"
+     y2="228"
+     stroke="#e2e8f0"
+     stroke-width="1"
+     stroke-dasharray="4, 3"
+     id="line32" />
+  <text
+     x="611"
+     y="245"
+     font-size="11px"
+     fill="#94a3b8"
+     font-weight="600"
+     id="text33">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
+  <line
+     x1="611"
+     y1="256"
+     x2="1061"
+     y2="256"
+     stroke="#e2e8f0"
+     stroke-width="1"
+     stroke-dasharray="4, 3"
+     id="line33" />
   <!-- mutable badge -->
   <!-- immutable badge -->
   <text
      x="906"
-     y="319.31738"
+     y="248"
      text-anchor="middle"
      font-size="10px"
      fill="#15803d"
@@ -82,11 +282,211 @@
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ARROWS  geometry → link   and   data → link                        -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <line
+     x1="246.21957"
+     y1="296.16122"
+     x2="392.86105"
+     y2="387.07675"
+     stroke="#3b82f6"
+     stroke-width="1.8"
+     stroke-dasharray="6, 3"
+     marker-end="url(#arrowBlue)"
+     id="line35" />
+  <text
+     x="413.35678"
+     y="100.59032"
+     font-size="11px"
+     fill="#3b82f6"
+     font-style="italic"
+     transform="rotate(32.699373)"
+     id="text36">annotationGeometry ref</text>
+  <line
+     x1="835.7804"
+     y1="296.16122"
+     x2="689.13898"
+     y2="387.07675"
+     stroke="#10b981"
+     stroke-width="1.8"
+     stroke-dasharray="6, 3"
+     marker-end="url(#arrowGreen)"
+     id="line36" />
+  <text
+     x="402.01736"
+     y="681.82343"
+     font-size="11px"
+     fill="#10b981"
+     font-style="italic"
+     transform="rotate(-31.743518)"
+     id="text37">annotationData ref</text>
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ROW 2 — annotationLink (centre)                                    -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <rect
+     x="291"
+     y="390"
+     width="500"
+     height="251"
+     rx="10"
+     fill="#1e3a5f"
+     stroke="#0f2944"
+     stroke-width="2.00001"
+     id="rect37"
+     ry="10" />
+  <rect
+     x="291"
+     y="411"
+     width="500"
+     height="36"
+     rx="10"
+     fill="#1e3a5f"
+     id="rect38"
+     ry="10" />
+  <rect
+     x="291"
+     y="435"
+     width="500"
+     height="12"
+     fill="#1e3a5f"
+     id="rect39" />
+  <text
+     x="541"
+     y="416"
+     text-anchor="middle"
+     font-size="14px"
+     font-weight="700"
+     fill="#ffffff"
+     letter-spacing="0.5"
+     id="text39">annotationLink</text>
+  <line
+     x1="291"
+     y1="429"
+     x2="791"
+     y2="429"
+     stroke="#2d5a8e"
+     stroke-width="1"
+     id="line39" />
+  <text
+     x="311"
+     y="448"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text40"><tspan
+       font-weight="700"
+       id="tspan39">id</tspan><tspan
+       fill="#cbd5e1"
+       id="tspan40">· unique within project</tspan></text>
+  <text
+     x="311.45703"
+     y="488.04883"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text42"><tspan
+       font-weight="700"
+       id="tspan41">geometryId</tspan><tspan
+       fill="#cbd5e1"
+       id="tspan42">· ref to annotationGeometry.id</tspan></text>
+  <text
+     x="311.45703"
+     y="508"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text44"><tspan
+       font-weight="700"
+       id="tspan43">dataId</tspan><tspan
+       fill="#cbd5e1"
+       id="tspan44">· ref to annotationData.id</tspan></text>
+  <text
+     x="311.07031"
+     y="467.97461"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text44-6"><tspan
+   style="font-weight:bold"
+   id="tspan14">projectId</tspan>· unique within project</text>
+  <text
+     x="311.45703"
+     y="528"
+     font-size="12px"
+     fill="#93c5fd"
+     id="text-link-version"><tspan
+       font-weight="700"
+       id="tspan-link-version">version</tspan><tspan
+       fill="#cbd5e1"
+       id="tspan3">· integer</tspan></text>
+  <line
+     x1="311"
+     y1="539"
+     x2="771"
+     y2="539"
+     stroke="#2d5a8e"
+     stroke-width="1"
+     id="line44" />
+  <text
+     x="311"
+     y="556"
+     font-size="11px"
+     fill="#94a3b8"
+     font-weight="600"
+     id="text45">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
+  <line
+     x1="311"
+     y1="567"
+     x2="771"
+     y2="567"
+     stroke="#2d5a8e"
+     stroke-width="1"
+     id="line45" />
   <!-- constraints badges -->
+  <rect
+     x="311"
+     y="576"
+     width="285"
+     height="18"
+     rx="4"
+     fill="#1e4080"
+     id="rect45"
+     ry="4" />
+  <text
+     x="453"
+     y="589"
+     text-anchor="middle"
+     font-size="10px"
+     fill="#93c5fd"
+     font-weight="600"
+     id="text46">geometryId · dataId immutable after creation</text>
+  <rect
+     x="606"
+     y="576"
+     width="165"
+     height="18"
+     rx="4"
+     fill="#1e4080"
+     id="rect46"
+     ry="4" />
+  <text
+     x="688"
+     y="589"
+     text-anchor="middle"
+     font-size="10px"
+     fill="#93c5fd"
+     font-weight="600"
+     id="text47">(geometryId, dataId) unique</text>
   <!-- scene-consistency note -->
+  <text
+     x="311"
+     y="608"
+     font-size="11px"
+     fill="#94a3b8"
+     font-style="italic"
+     id="text48"><tspan
+       sodipodi:role="line"
+       id="tspan65"
+       x="311"
+       y="608">scene consistency: geometry.referenceType × data.visibilityType combinations</tspan><tspan
+       sodipodi:role="line"
+       id="tspan66"
+       x="311"
+       y="621.75">must satisfy the rules in the Visibility Rules table</tspan></text>
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ROW 3 — Visibility table                                           -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -96,528 +496,142 @@
   <!-- Row 2: scene / asset -->
   <!-- Row 3: asset / scene -->
   <!-- Row 4: asset / asset -->
-  <g
-     id="g15"
-     transform="translate(-59,-27.682617)">
-    <text
-       x="600"
-       y="44"
-       text-anchor="middle"
-       font-size="22px"
-       font-weight="700"
-       fill="#1a1a2e"
-       id="text2">OCRA — Annotation Model</text>
-    <text
-       x="600"
-       y="66"
-       text-anchor="middle"
-       font-size="13px"
-       fill="#6b7280"
-       id="text3">Heritage Digital Twin · Decomposed Relational Model</text>
-    <line
-       x1="80"
-       y1="78"
-       x2="1120"
-       y2="78"
-       stroke="#d1d5db"
-       stroke-width="1"
-       id="line3" />
-    <rect
-       x="60"
-       y="100"
-       width="490"
-       height="295"
-       rx="10"
-       fill="#ffffff"
-       stroke="#3b82f6"
-       stroke-width="2"
-       id="rect3"
-       ry="10" />
-    <rect
-       x="60"
-       y="100"
-       width="490"
-       height="36"
-       rx="10"
-       fill="#3b82f6"
-       id="rect4"
-       ry="10" />
-    <rect
-       x="60"
-       y="124"
-       width="490"
-       height="12"
-       fill="#3b82f6"
-       id="rect5" />
-    <text
-       x="305"
-       y="123"
-       text-anchor="middle"
-       font-size="14px"
-       font-weight="700"
-       fill="#ffffff"
-       id="text5">annotationGeometry</text>
-    <line
-       x1="60"
-       y1="136"
-       x2="550"
-       y2="136"
-       stroke="#93c5fd"
-       stroke-width="1"
-       id="line5" />
-    <line
-       x1="80"
-       y1="293"
-       x2="530"
-       y2="293"
-       stroke="#e2e8f0"
-       stroke-width="1"
-       stroke-dasharray="4, 3"
-       id="line13" />
-    <line
-       x1="80"
-       y1="317"
-       x2="530"
-       y2="317"
-       stroke="#e2e8f0"
-       stroke-width="1"
-       stroke-dasharray="4, 3"
-       id="line14" />
-    <rect
-       x="649.97101"
-       y="115.97097"
-       width="490.05807"
-       height="278.08749"
-       rx="10.001185"
-       fill="#ffffff"
-       stroke="#10b981"
-       stroke-width="1.94194"
-       id="rect19"
-       ry="10.001185" />
-    <text
-       x="668.2207"
-       y="276.27008"
-       font-size="12px"
-       fill="#1e40af"
-       id="text11-6"><tspan
-   font-weight="700"
-   id="tspan10-0"
-   style="fill:#065f46;fill-opacity:1">visibilityType</tspan>·<tspan
-   style="fill:#374151;fill-opacity:1"
-   id="tspan4">&quot;scene&quot; | &quot;asset&quot;</tspan></text>
-    <rect
-       x="650"
-       y="100"
-       width="490"
-       height="36"
-       rx="10"
-       fill="#10b981"
-       id="rect20"
-       ry="10" />
-    <rect
-       x="650"
-       y="124"
-       width="490"
-       height="12"
-       fill="#10b981"
-       id="rect21" />
-    <text
-       x="895"
-       y="123"
-       text-anchor="middle"
-       font-size="14px"
-       font-weight="700"
-       fill="#ffffff"
-       id="text21">annotationData</text>
-    <line
-       x1="650"
-       y1="136"
-       x2="1140"
-       y2="136"
-       stroke="#6ee7b7"
-       stroke-width="1"
-       id="line21" />
-    <text
-       x="668.34961"
-       y="158"
-       font-size="12px"
-       fill="#065f46"
-       id="text22"><tspan
-         font-weight="700"
-         id="tspan21">id</tspan><tspan
-         fill="#374151"
-         id="tspan22">· unique within project</tspan></text>
-    <text
-       x="668.2207"
-       y="177.7693"
-       font-size="12px"
-       fill="#065f46"
-       id="text22-5"><tspan
-         font-weight="700"
-         id="tspan21-6">projectId</tspan><tspan
-         fill="#374151"
-         id="tspan22-2">· unique projectId</tspan></text>
-    <text
-       x="668.2207"
-       y="197.53859"
-       font-size="12px"
-       fill="#065f46"
-       id="text24"><tspan
-         font-weight="700"
-         id="tspan23">label</tspan><tspan
-         fill="#374151"
-         id="tspan24">· string (short title, non-empty)</tspan></text>
-    <text
-       x="668.57812"
-       y="236.14554"
-       font-size="12px"
-       fill="#065f46"
-       id="text26"><tspan
-   style="font-weight:bold"
-   id="tspan1">content</tspan>· <tspan
-   style="fill:#374151;fill-opacity:1"
-   id="tspan2">any</tspan></text>
-    <text
-       x="668.57812"
-       y="217.4368"
-       font-size="12px"
-       fill="#065f46"
-       id="text26-6"><tspan
-         font-weight="700"
-         id="tspan25-7">description</tspan><tspan
-         fill="#374151"
-         id="tspan26-5">· string (free text)</tspan></text>
-    <text
-       x="668.57812"
-       y="256.20779"
-       font-size="12px"
-       fill="#065f46"
-       id="text28"><tspan
-         font-weight="700"
-         id="tspan27">class</tspan><tspan
-         fill="#374151"
-         id="tspan28">· string | null (e.g. damage, restoration…)</tspan></text>
-    <line
-       x1="670"
-       y1="327"
-       x2="1120"
-       y2="327"
-       stroke="#e2e8f0"
-       stroke-width="1"
-       stroke-dasharray="4, 3"
-       id="line32" />
-    <text
-       x="670"
-       y="344"
-       font-size="11px"
-       fill="#94a3b8"
-       font-weight="600"
-       id="text33">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
-    <line
-       x1="670"
-       y1="355"
-       x2="1120"
-       y2="355"
-       stroke="#e2e8f0"
-       stroke-width="1"
-       stroke-dasharray="4, 3"
-       id="line33" />
-    <line
-       x1="305.21957"
-       y1="395.16122"
-       x2="451.86105"
-       y2="486.07675"
-       stroke="#3b82f6"
-       stroke-width="1.8"
-       stroke-dasharray="6, 3"
-       marker-end="url(#arrowBlue)"
-       id="line35" />
-    <text
-       x="534.88397"
-       y="154.50253"
-       font-size="11px"
-       fill="#3b82f6"
-       font-style="italic"
-       transform="rotate(32.699373)"
-       id="text36">geometryId</text>
-    <line
-       x1="894.7804"
-       y1="395.16122"
-       x2="748.13898"
-       y2="486.07675"
-       stroke="#10b981"
-       stroke-width="1.8"
-       stroke-dasharray="6, 3"
-       marker-end="url(#arrowGreen)"
-       id="line36" />
-    <text
-       x="440.27332"
-       y="795.29749"
-       font-size="11px"
-       fill="#10b981"
-       font-style="italic"
-       transform="rotate(-31.743518)"
-       id="text37">dataId</text>
-    <rect
-       x="350"
-       y="489.00003"
-       width="500"
-       height="206.30299"
-       rx="10"
-       fill="#1e3a5f"
-       stroke="#0f2944"
-       stroke-width="2"
-       id="rect37"
-       ry="10.000001" />
-    <rect
-       x="350"
-       y="510"
-       width="500"
-       height="36"
-       rx="10"
-       fill="#1e3a5f"
-       id="rect38"
-       ry="10" />
-    <rect
-       x="350"
-       y="534"
-       width="500"
-       height="12"
-       fill="#1e3a5f"
-       id="rect39" />
-    <text
-       x="600"
-       y="515"
-       text-anchor="middle"
-       font-size="14px"
-       font-weight="700"
-       fill="#ffffff"
-       letter-spacing="0.5"
-       id="text39">annotationLink</text>
-    <line
-       x1="350"
-       y1="528"
-       x2="850"
-       y2="528"
-       stroke="#2d5a8e"
-       stroke-width="1"
-       id="line39" />
-    <text
-       x="370"
-       y="547"
-       font-size="12px"
-       fill="#93c5fd"
-       id="text40"><tspan
-         font-weight="700"
-         id="tspan39">id</tspan><tspan
-         fill="#cbd5e1"
-         id="tspan40">· unique within project</tspan></text>
-    <text
-       x="370.45703"
-       y="587.04883"
-       font-size="12px"
-       fill="#93c5fd"
-       id="text42"><tspan
-         font-weight="700"
-         id="tspan41">geometryId</tspan><tspan
-         fill="#cbd5e1"
-         id="tspan42">· ref to annotationGeometry.id</tspan></text>
-    <text
-       x="370.45703"
-       y="607"
-       font-size="12px"
-       fill="#93c5fd"
-       id="text44"><tspan
-         font-weight="700"
-         id="tspan43">dataId</tspan><tspan
-         fill="#cbd5e1"
-         id="tspan44">· ref to annotationData.id</tspan></text>
-    <text
-       x="370.07031"
-       y="566.97461"
-       font-size="12px"
-       fill="#93c5fd"
-       id="text44-6"><tspan
-   style="font-weight:bold"
-   id="tspan14">projectId</tspan>·unique projectIdd</text>
-    <line
-       x1="370"
-       y1="618"
-       x2="830"
-       y2="618"
-       stroke="#2d5a8e"
-       stroke-width="1"
-       id="line44" />
-    <line
-       x1="370"
-       y1="646"
-       x2="830"
-       y2="646"
-       stroke="#2d5a8e"
-       stroke-width="1"
-       id="line45" />
-    <rect
-       x="370"
-       y="655"
-       width="227.72435"
-       height="18"
-       rx="4"
-       fill="#1e4080"
-       id="rect45"
-       style="stroke-width:1"
-       ry="4" />
-    <text
-       x="476"
-       y="668"
-       text-anchor="middle"
-       font-size="10px"
-       fill="#93c5fd"
-       font-weight="600"
-       id="text46">immutable after creation: <tspan
-   style="font-weight:normal"
-   id="tspan15">geometryId dataId</tspan></text>
-    <text
-       x="668.2207"
-       y="296.17999"
-       font-size="12px"
-       fill="#1e40af"
-       id="text13-6"><tspan
+  <text
+     x="609.2207"
+     y="197.17999"
+     font-size="12px"
+     fill="#1e40af"
+     id="text13-6"><tspan
    style="font-weight:bold;fill:#065f46;fill-opacity:1"
    id="tspan3-1">visibilityId</tspan>· <tspan
    style="fill:#374151;fill-opacity:1"
    id="tspan9">id of target HDTScene or DigitalAsset</tspan></text>
-    <text
-       x="669.58936"
-       y="317.93735"
-       font-size="12px"
-       fill="#1e40af"
-       id="text13-6-3"><tspan
+  <text
+     x="610.58936"
+     y="218.93735"
+     font-size="12px"
+     fill="#1e40af"
+     id="text13-6-3"><tspan
    style="font-weight:bold;fill:#065f46;fill-opacity:1"
-   id="tspan3-1-6">version</tspan>·</text>
-    <text
-       x="85.164383"
-       y="157.132"
-       font-size="12px"
-       fill="#1e40af"
-       id="text6"><tspan
-         font-weight="700"
-         id="tspan5">id</tspan><tspan
-         fill="#374151"
-         id="tspan6">· unique within project</tspan></text>
-    <text
-       x="85.035477"
-       y="173.26401"
-       font-size="12px"
-       fill="#1e40af"
-       id="text6-6"><tspan
-         font-weight="700"
-         id="tspan5-7">projectId</tspan><tspan
-         fill="#374151"
-         id="tspan6-5">· uniqueprojectId</tspan></text>
-    <text
-       x="85.428055"
-       y="191.132"
-       font-size="12px"
-       fill="#1e40af"
-       id="text8"><tspan
-         font-weight="700"
-         id="tspan7">shapes</tspan><tspan
-         fill="#374151"
-         id="tspan8">· array of { Shapes }</tspan></text>
-    <text
-       x="104.81477"
-       y="209.132"
-       font-size="11px"
-       fill="#6b7280"
-       font-style="italic"
-       id="text9">Shape is a: &quot;ShapePoints&quot; | &quot;ShapePolyline&quot; | &quot;ShapePolygon&quot;</text>
-    <text
-       x="85.035477"
-       y="231.13199"
-       font-size="12px"
-       fill="#1e40af"
-       id="text11"><tspan
-         font-weight="700"
-         id="tspan10">referenceType</tspan><tspan
-         fill="#374151"
-         id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
-    <text
-       x="83.215881"
-       y="274.64447"
-       font-size="12px"
-       fill="#1e40af"
-       id="text11-2"><tspan
-         style="font-weight:bold"
-         id="tspan13">version</tspan></text>
-    <text
-       x="85.035477"
-       y="251.13199"
-       font-size="12px"
-       fill="#1e40af"
-       id="text13"><tspan
+   id="tspan3-1-6">version</tspan>·<tspan
+   style="fill:#374151;fill-opacity:1"
+   id="tspan16">integer</tspan></text>
+  <text
+     x="26.164383"
+     y="58.132004"
+     font-size="12px"
+     fill="#1e40af"
+     id="text6"><tspan
+       font-weight="700"
+       id="tspan5">id</tspan><tspan
+       fill="#374151"
+       id="tspan6">· unique within project</tspan></text>
+  <text
+     x="26.035477"
+     y="74.264008"
+     font-size="12px"
+     fill="#1e40af"
+     id="text6-6"><tspan
+       font-weight="700"
+       id="tspan5-7">projectId</tspan><tspan
+       fill="#374151"
+       id="tspan6-5">· uniqueprojectId</tspan></text>
+  <text
+     x="26.428055"
+     y="92.132004"
+     font-size="12px"
+     fill="#1e40af"
+     id="text8"><tspan
+       font-weight="700"
+       id="tspan7">shapes</tspan><tspan
+       fill="#374151"
+       id="tspan8">· array of { Shapes }</tspan></text>
+  <text
+     x="45.814774"
+     y="110.132"
+     font-size="11px"
+     fill="#6b7280"
+     font-style="italic"
+     id="text9">Shape is a: &quot;ShapePoints&quot; | &quot;ShapePolyline&quot; | &quot;ShapePolygon&quot;</text>
+  <text
+     x="26.035477"
+     y="132.13199"
+     font-size="12px"
+     fill="#1e40af"
+     id="text11"><tspan
+       font-weight="700"
+       id="tspan10">referenceType</tspan><tspan
+       fill="#374151"
+       id="tspan11">· &quot;scene&quot; | &quot;asset&quot;</tspan></text>
+  <text
+     x="24.215881"
+     y="175.64447"
+     font-size="12px"
+     fill="#1e40af"
+     id="text11-2"><tspan
    style="font-weight:bold"
-   id="tspan3">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
-    <text
-       x="82.814774"
-       y="309.13199"
-       font-size="11px"
-       fill="#94a3b8"
-       font-weight="600"
-       id="text14">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
-    <rect
-       x="79.51326"
-       y="329.4249"
-       width="303.31726"
-       height="18"
-       rx="11.445935"
-       fill="#eff6ff"
-       id="rect14-6"
-       style="stroke-width:1.69159"
-       ry="11.445935" />
-    <text
-       xml:space="preserve"
-       style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
-       x="88.608078"
-       y="341.82843"
-       id="text18"><tspan
-         sodipodi:role="line"
-         id="tspan18"
-         x="88.608078"
-         y="341.82843"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1">Immutable after creation:  <tspan
+   id="tspan13">version·</tspan>integer</text>
+  <text
+     x="26.035477"
+     y="152.13199"
+     font-size="12px"
+     fill="#1e40af"
+     id="text13"><tspan
+   style="font-weight:bold"
+   id="tspan12">referenceId</tspan>· id of target HDTScene or DigitalAsset</text>
+  <text
+     x="23.814774"
+     y="210.13199"
+     font-size="11px"
+     fill="#94a3b8"
+     font-weight="600"
+     id="text14">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
+  <rect
+     x="20.51326"
+     y="230.4249"
+     width="303.31726"
+     height="18"
+     rx="11.445935"
+     fill="#eff6ff"
+     id="rect14-6"
+     style="stroke-width:1.69159"
+     ry="11.445935" />
+  <text
+     xml:space="preserve"
+     style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
+     x="29.608078"
+     y="242.82843"
+     id="text18"><tspan
+       sodipodi:role="line"
+       id="tspan18"
+       x="29.608078"
+       y="242.82843"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1">Immutable after creation:  <tspan
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif';fill:#666666"
    id="tspan19">referenceId referenceType</tspan></tspan></text>
-    <rect
-       x="667"
-       y="365"
-       width="303.31726"
-       height="18"
-       rx="11.445935"
-       fill="#eff6ff"
-       id="rect14-6-6"
-       style="fill:#12c483;fill-opacity:0.166799;stroke-width:1.69159"
-       ry="11.445935" />
-    <text
-       xml:space="preserve"
-       style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
-       x="676.09479"
-       y="377.40353"
-       id="text18-7"><tspan
-         sodipodi:role="line"
-         id="tspan18-5"
-         x="676.09479"
-         y="377.40353"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1"><tspan
+  <rect
+     x="608"
+     y="266"
+     width="303.31726"
+     height="18"
+     rx="11.445935"
+     fill="#eff6ff"
+     id="rect14-6-6"
+     style="fill:#12c483;fill-opacity:0.166799;stroke-width:1.69159"
+     ry="11.445935" />
+  <text
+     xml:space="preserve"
+     style="font-size:12px;font-family:'Comic Sans MS';-inkscape-font-specification:'Comic Sans MS';writing-mode:lr-tb;direction:ltr;fill:#b0bce3;fill-opacity:1;stroke:#000000;stroke-width:0.755906"
+     x="617.09479"
+     y="278.40353"
+     id="text18-7"><tspan
+       sodipodi:role="line"
+       id="tspan18-5"
+       x="617.09479"
+       y="278.40353"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif Bold';fill:#1e40af;fill-opacity:1;stroke:none;stroke-opacity:1"><tspan
    style="fill:#065f46;fill-opacity:1"
-   id="tspan12">Immutable after creation: </tspan> <tspan
+   id="tspan15">Immutable after creation: </tspan> <tspan
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Segoe UI', Helvetica, Arial, sans-serif;-inkscape-font-specification:'Segoe UI, Helvetica, Arial, sans-serif';fill:#666666"
    id="tspan19-3">visibilityId visibilityType</tspan></tspan></text>
-    <text
-       x="370.44482"
-       y="635.22095"
-       font-size="11px"
-       fill="#94a3b8"
-       font-weight="600"
-       id="text33-5">createdAt · createdBy · updatedAt · updatedBy · erasableAt · erasableBy</text>
-  </g>
 </svg>

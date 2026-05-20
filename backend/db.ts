@@ -33,6 +33,7 @@ interface LoginEventData {
 
 // Singleton Prisma client - reuse across the application
 let prisma: PrismaClient | undefined;
+export const USER_DISABLED_MESSAGE = 'User account is disabled';
 
 /**
  * Get or create Prisma client instance
@@ -71,6 +72,10 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
     
     // If user exists by sub, update their information
     if (existingUserBySub) {
+      if (!existingUserBySub.isActive) {
+        throw new Error(USER_DISABLED_MESSAGE);
+      }
+
       const user = await db.user.update({
         where: { sub: profile.sub },
         data: {
@@ -112,6 +117,10 @@ export async function createUserSession(profile: OAuthUserProfile, tokens: OAuth
       });
       
       if (existingUserByEmail) {
+        if (!existingUserByEmail.isActive) {
+          throw new Error(USER_DISABLED_MESSAGE);
+        }
+
         // Reuse existing user - update their OAuth sub and other profile information
         console.log(`🔄 Reusing existing user with email: ${profile.email}, updating OAuth sub from ${existingUserByEmail.sub} to ${profile.sub}`);
         
@@ -206,6 +215,10 @@ export async function getValidSession(sessionId: string) {
     });
     
     if (!session) {
+      return null;
+    }
+
+    if (!session.user.isActive) {
       return null;
     }
     
@@ -343,6 +356,10 @@ export async function getAllUsers() {
         family_name: true,
         middle_name: true,
         sys_admin: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -376,6 +393,10 @@ export async function getUserById(userId: string) {
         family_name: true,
         middle_name: true,
         sys_admin: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       },

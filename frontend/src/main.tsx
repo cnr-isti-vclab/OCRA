@@ -13,6 +13,7 @@ import RequireAuth from './routes/RequireAuth.tsx'
 import RequireAdmin from './routes/RequireAdmin.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 import HDTPage from './routes/HDTPage.tsx'
+import { ProjectStructuringLockProvider } from './context/ProjectStructuringLockContext.tsx'
 
 /**
  * SINGLE PAGE APPLICATIONS (SPAs)
@@ -178,4 +179,8 @@ const router = createBrowserRouter([
 
 // Render the router provider which enables routing throughout the app
 // RouterProvider makes the router available to all child components
-createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />)
+createRoot(document.getElementById('root')!).render(
+	<ProjectStructuringLockProvider>
+		<RouterProvider router={router} />
+	</ProjectStructuringLockProvider>
+)

@@ -1,7 +1,8 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
 import { LoadingProgress } from 'three-presenter';
 import { OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer.tsx';
@@ -10,8 +11,9 @@ import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
+import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import AnnotationPanel from './components/AnnotationPanel';
-import type { SceneDescription, Annotation } from 'shared/scene-types';
+import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
 
 interface Project {
   id: string;
@@ -37,6 +39,7 @@ interface HDTModelMeta {
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || '3d';
 
@@ -76,6 +79,85 @@ export default function ProjectPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
+  const {
+    activeDrainingEvent,
+    clearDrainingEvent,
+    presenceError,
+  } = useProjectStructuringAwareness({
+    projectId,
+    mode: 'viewing',
+    sceneId: selectedSceneId,
+    enabled: !!projectId,
+  });
+  const structuringInProgress = !!activeDrainingEvent || !!presenceError;
+  const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
+  const projectLockBadgeLabel = structuringInProgress ? 'Structuring...' : 'Project lock available';
+  const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!activeDrainingEvent?.drainDeadlineAt) {
+      setDrainingCountdownSeconds(null);
+      return;
+    }
+
+    const deadlineMs = Date.parse(activeDrainingEvent.drainDeadlineAt);
+    if (Number.isNaN(deadlineMs)) {
+      setDrainingCountdownSeconds(null);
+      return;
+    }
+
+    let redirectTriggered = false;
+    const updateCountdown = () => {
+      const remainingMs = deadlineMs - Date.now();
+      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+      setDrainingCountdownSeconds(remainingSeconds);
+
+      if (remainingMs <= 0 && !redirectTriggered) {
+        redirectTriggered = true;
+        navigate('/projects', { replace: true });
+      }
+    };
+
+    updateCountdown();
+    const timerId = window.setInterval(updateCountdown, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [activeDrainingEvent, navigate]);
+
+  const loadSelectedScene = useCallback(async () => {
+    if (!projectId || !selectedSceneId) return;
+
+    try {
+      const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
+        credentials: 'include'
+      });
+
+      if (sceneRes.ok) {
+        const scene = await sceneRes.json();
+        console.log('📥 Scene loaded from backend:', scene.environment);
+        if (!scene.projectId) {
+          scene.projectId = projectId;
+        }
+        setSceneDesc(scene);
+
+        setShowGround(scene.environment?.showGround ?? false);
+        setBackgroundColor(scene.environment?.background || '#404040');
+        setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
+
+        const initialVisibility: Record<string, boolean> = {};
+        if (scene.models) {
+          scene.models.forEach((model: any) => {
+            initialVisibility[model.id] = model.visible !== false;
+          });
+        }
+        setMeshVisibility(initialVisibility);
+      }
+    } catch (err) {
+      console.error('Failed to load selected scene:', err);
+    }
+  }, [projectId, selectedSceneId]);
 
   // Ensure HDT document and default scene exist before updating
   const ensureHDTDocument = async (projectId: string): Promise<boolean> => {
@@ -587,45 +669,8 @@ export default function ProjectPage() {
 
   // Reload scene when selected scene changes
   useEffect(() => {
-    const loadSelectedScene = async () => {
-      if (!projectId || !selectedSceneId) return;
-
-      try {
-        // Use endpoint that always regenerates from MongoDB (source of truth)
-        const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
-          credentials: 'include'
-        });
-
-        if (sceneRes.ok) {
-          const scene = await sceneRes.json();
-          console.log('📥 Scene loaded from backend:', scene.environment);
-          // Add projectId to scene if not present
-          if (!scene.projectId) {
-            scene.projectId = projectId;
-          }
-          setSceneDesc(scene);
-
-          // Initialize local environment settings from scene
-          setShowGround(scene.environment?.showGround ?? false);
-          setBackgroundColor(scene.environment?.background || '#404040');
-          setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
-
-          // Initialize visibility state for all models
-          const initialVisibility: Record<string, boolean> = {};
-          if (scene.models) {
-            scene.models.forEach((model: any) => {
-              initialVisibility[model.id] = model.visible !== false;
-            });
-          }
-          setMeshVisibility(initialVisibility);
-        }
-      } catch (err) {
-        console.error('Failed to load selected scene:', err);
-      }
-    };
-
     loadSelectedScene();
-  }, [projectId, selectedSceneId]);
+  }, [loadSelectedScene]);
 
   // Show/hide annotation button based on active tab
   useEffect(() => {
@@ -652,16 +697,68 @@ export default function ProjectPage() {
       selectedSceneId={selectedSceneId || ''}
       sceneDesc={sceneDesc}
       user={user}
+      reloadScene={loadSelectedScene}
     >
       {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
 
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
         {/* Project Header */}
         <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
+          {(activeDrainingEvent || presenceError) && (
+            <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <strong>Structuring...</strong>{' '}
+                {activeDrainingEvent
+                    ? 'Another session is preparing a project-wide structuring operation. Editing and remote saves are temporarily blocked until draining completes. You can leave this project and continue working in other projects.'
+                  : presenceError}
+                {activeDrainingEvent?.username && (
+                  <div className="small mt-2 text-muted">
+                    Requested by: {activeDrainingEvent.username}
+                  </div>
+                )}
+                {activeDrainingEvent?.drainDeadlineAt && drainingCountdownSeconds !== null && (
+                  <div className="small mt-2 fw-semibold text-dark">
+                    Automatic exit in {drainingCountdownSeconds} second{drainingCountdownSeconds === 1 ? '' : 's'}.
+                  </div>
+                )}
+                {activeDrainingEvent?.operationType && (
+                  <div className="small mt-2 text-muted">
+                    Operation: {activeDrainingEvent.operationType}
+                  </div>
+                )}
+              </div>
+              <div className="d-flex gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => clearDrainingEvent()}
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-warning btn-sm"
+                  onClick={() => navigate('/projects')}
+                >
+                    Leave This Project
+                </button>
+              </div>
+            </div>
+          )}
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center">
-              <h1 className="h3 mb-0 me-3">{project.name}</h1>
-              {project.description && <p className="text-muted mb-0">{project.description}</p>}
+              <div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <h1 className="h3 mb-0 me-1">{project.name}</h1>
+                  <span className={`badge ${projectLockBadgeClass}`}>{projectLockBadgeLabel}</span>
+                </div>
+                {project.description && <p className="text-muted mb-0">{project.description}</p>}
+                {isManager && !structuringInProgress && (
+                  <div className="small text-muted mt-1">
+                    Project-wide structural changes require acquiring the lock from Project Settings.
+                  </div>
+                )}
+              </div>
             </div>
             <div className="d-flex align-items-center gap-3">
               <Link
@@ -1407,21 +1504,23 @@ export default function ProjectPage() {
 
                 {/* Annotations Tab */}
                 {activeTab === 'annotations' && (
-                  <AnnotationPanel
-                    onSelectionChanged={(selectedIds) => {
-                      // Notify the active viewer about selection changes
-                      if (mode === '3d' && viewerRef.current) {
-                        const annotationMgr = viewerRef.current.getAnnotationManager();
-                        if (annotationMgr) {
-                          annotationMgr.clearSelection();
-                          annotationMgr.select(selectedIds, false);
+                  <div className="h-100 overflow-auto">
+                    <AnnotationPanel
+                      onSelectionChanged={(selectedIds) => {
+                        // Notify the active viewer about selection changes
+                        if (mode === '3d' && viewerRef.current) {
+                          const annotationMgr = viewerRef.current.getAnnotationManager();
+                          if (annotationMgr) {
+                            annotationMgr.clearSelection();
+                            annotationMgr.select(selectedIds, false);
+                          }
+                        } else if (mode === '2d' && openLimeRef.current) {
+                          // For 2D viewer, if needed
+                          console.log('2D viewer selection update:', selectedIds);
                         }
-                      } else if (mode === '2d' && openLimeRef.current) {
-                        // For 2D viewer, if needed
-                        console.log('2D viewer selection update:', selectedIds);
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             </div>

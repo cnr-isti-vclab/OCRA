@@ -19,7 +19,7 @@ import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } f
 import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
-import { Annotation, AnnotationType, AnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
+import { ViewerAnnotation, ViewerAnnotationType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -34,10 +34,10 @@ export interface SimplifiedAnnotation {
   state?: any;
 }
 
-function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
+function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   console.log('Converting SimplifiedAnnotation to OCRA Annotation:', anno);
-  let annoType: AnnotationType = 'point';
-  let geometry: AnnotationGeometry = ([]);
+  let annoType: ViewerAnnotationType = 'point';
+  let geometry: ViewerAnnotationGeometry = ([]);
 
   if (anno.type === 'disk') {
     annoType = 'point';
@@ -72,7 +72,7 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
   // console.log('MarkerPoints:', anno.data?._markerPoints);
   // console.log('Extracted geometry:', geometry);
 
-  const ocraAnno: Annotation = {
+  const ocraAnno: ViewerAnnotation = {
     id: anno.id || `anno-${Date.now()}`,
     label: anno.label || 'New ' + anno.type + ' annotation',
     type: annoType,
@@ -105,9 +105,9 @@ const OpenLIMEViewer = forwardRef<
     onReady?: () => void;
     onError?: (error: Error) => void;
     // Annotation callbacks
-    onAnnotationCreated?: (annotation: Annotation) => void;
-    onAnnotationUpdated?: (annotation: Annotation) => void;
-    onAnnotationDeleted?: (annotation: Annotation) => void;
+    onAnnotationCreated?: (annotation: ViewerAnnotation) => void;
+    onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
+    onAnnotationDeleted?: (annotation: ViewerAnnotation) => void;
     onAnnotationSelectionChanged?: (ids: string[]) => void;
   }>(
     (

@@ -18,14 +18,23 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: ocra-mongodb
+    hostname: ocra-mongodb
+    command: ["sh", "/docker/mongo-start.sh"]
     environment:
       MONGO_INITDB_DATABASE: ocra_audit
+      MONGO_REPLICA_SET_NAME: rs0
+      MONGO_REPLICA_HOST: mongodb:27017
     volumes:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
-      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - ./docker/mongo-init.js:/docker/mongo-init.js:ro
+      - ./docker/mongo-start.sh:/docker/mongo-start.sh:ro
+    networks:
+      default:
+        aliases:
+          - ocra-mongodb
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'quit(db.hello().setName === \"rs0\" && db.hello().isWritablePrimary ? 0 : 1)' >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,20 +47,22 @@ services:
     container_name: ocra-backend
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public}
-      MONGO_URL: mongodb://mongodb:27017
+      MONGO_URL: mongodb://mongodb:27017/?replicaSet=rs0
       MONGO_AUDIT_DB: ${MONGO_AUDIT_DB:-ocra_audit}
       MONGO_CONTENT_DB: ${MONGO_CONTENT_DB:-ocra_content}
       PORT: 3002
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://localhost:5173,http://localhost:5174}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       NODE_ENV: ${NODE_ENV:-development}
       # OAuth Configuration
       ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
       CLIENT_ID: ${CLIENT_ID:-react-oauth}
       CLIENT_SECRET: ${CLIENT_SECRET}
     depends_on:
-      - postgres
-      - mongodb
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     volumes:
       - project_files:/app/project_files
 

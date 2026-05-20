@@ -10,13 +10,8 @@
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; padding: 0; background: #f7f7f7; }
       #root { display: grid; place-items: center; min-height: 100vh; }
     </style>
-    <!-- Runtime config injected by Docker entrypoint (fallback created for local dev) -->
-    <!-- Add timestamp to prevent browser caching -->
-    <script>
-      var configScript = document.createElement('script');
-      configScript.src = '/config.js?t=' + new Date().getTime();
-      document.head.appendChild(configScript);
-    </script>
+    <!-- Runtime config injected by Docker entrypoint; frontend/public/config.js is the local fallback -->
+    <script src="/config.js"></script>
   </head>
   <body>
     <div id="root"></div>

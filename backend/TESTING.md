@@ -30,7 +30,7 @@ Before running tests, ensure you have:
 The tests use a separate test environment configuration file: `.env.test`
 
 **Important**: The tests use **separate databases** from your development/production environment:
-- PostgreSQL test database: `oauth_demo_test`
+- PostgreSQL test database: `ocra_test`
 - MongoDB test database: `ocra_audit_test`
 
 Example `.env.test` file:
@@ -40,10 +40,10 @@ NODE_ENV=test
 PORT=3001
 
 # PostgreSQL Test Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/oauth_demo_test"
+DATABASE_URL="postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public"
 
 # MongoDB Test Database (for audit logs)
-MONGODB_URL="mongodb://localhost:27017/ocra_audit_test"
+MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0"
 
 # Other required variables
 KEYCLOAK_URL=http://localhost:8080
@@ -54,20 +54,16 @@ KEYCLOAK_CLIENT_SECRET=your-secret-here
 
 ### 2. Database Creation
 
-You need to create the test databases **only once**:
+When you use the standard bare services flow, `npm run services:start` now ensures that the PostgreSQL test database `ocra_test` exists alongside the main development database.
 
-#### PostgreSQL Test Database
+If you want the same bootstrap path used by CI without starting the full bare stack, run:
 
 ```bash
-# Connect to PostgreSQL
-psql -U postgres
-
-# Create test database
-CREATE DATABASE oauth_demo_test;
-
-# Exit psql
-\q
+# From the project root
+POSTGRES_ADMIN_PASSWORD=postgres npm run db:test:bootstrap
 ```
+
+The script defaults to the CI/test credentials and can be customized with `POSTGRES_ADMIN_HOST`, `POSTGRES_ADMIN_PORT`, `POSTGRES_ADMIN_USER`, `POSTGRES_ADMIN_DB`, `POSTGRES_ADMIN_PASSWORD`, `TEST_DB_ROLE`, `TEST_DB_PASSWORD`, and `TEST_DB_NAME`.
 
 #### MongoDB Test Database
 
@@ -82,8 +78,10 @@ Run Prisma migrations on the test database:
 npm run prisma:generate
 
 # Run migrations on test database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/oauth_demo_test" npx prisma migrate deploy
+DATABASE_URL="postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public" npx prisma migrate deploy
 ```
+
+The Vitest global setup also runs `prisma migrate deploy` automatically against `DATABASE_URL_TEST`, so a normal `npm test` or `vitest run` uses an up-to-date test schema without an extra manual step.
 
 ## Running Tests
 
@@ -98,7 +96,7 @@ npm run services:start
 ```
 
 **What the tests need:**
-- ✅ **PostgreSQL** (`localhost:5432`) - for test database `oauth_demo_test`
+- ✅ **PostgreSQL** (`localhost:5432`) - for test database `ocra_test`
 - ✅ **MongoDB** (`localhost:27017`) - for test audit logs `ocra_audit_test`
 - ❌ **Backend Express server** - NOT needed (tests create their own instance with `createApp()`)
 
@@ -205,7 +203,8 @@ You can verify this by checking the databases:
 ```bash
 # Check PostgreSQL test database
 psql -U postgres -d oauth_demo_test -c "SELECT COUNT(*) FROM users;"
-psql -U postgres -d oauth_demo_test -c "SELECT COUNT(*) FROM projects;"
+psql -U ocra_user -d ocra_test -c "SELECT COUNT(*) FROM users;"
+psql -U ocra_user -d ocra_test -c "SELECT COUNT(*) FROM projects;"
 
 # Should both return 0
 ```

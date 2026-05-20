@@ -262,7 +262,6 @@ export interface HDTScene {
   description?: string;
   type?: '3D' | '2D';
   isDefault?: boolean;
-  annotations?: string[];
   assets: SceneAssetReference[];
   environment?: {
     backgroundColor?: string;
@@ -279,23 +278,6 @@ export interface HDTScene {
 }
 
 /**
- * Semantic annotation stored in the HDT document (MongoDB).
- * Not to be confused with 3D viewer annotations in scene-types.ts.
- */
-export interface Annotation {
-  id: string;
-  referenceType: 'asset' | 'scene';
-  targetId: string;
-  annotationGeometry?: Record<string, any>;
-  annotationData?: Record<string, any>;
-  annotationParadata?: Record<string, any>;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-/**
  * Complete Heritage Digital Twin document (MongoDB).
  * _id is string here (API/serialized form); the backend uses ObjectId internally.
  * Links to a Project in PostgreSQL via projectId.
@@ -306,7 +288,6 @@ export interface HDTDocument {
   physicalObjectMetadata: PhysicalObjectMetadata;
   digitalAssets: DigitalAsset[];
   scenes: HDTScene[];
-  annotations?: Annotation[];
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdBy?: string;

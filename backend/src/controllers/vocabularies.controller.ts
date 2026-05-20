@@ -174,9 +174,9 @@ export async function createVocabulary(req: Request, res: Response): Promise<voi
       return;
     }
     
-    // Only sysadmin can create vocabularies
-    if (!currentUser.sys_admin) {
-      res.status(403).json({ error: 'Only system administrators can create vocabularies' });
+    // sys_admin or sys_creator can create vocabularies
+    if (!currentUser.sys_admin && !currentUser.sys_creator) {
+      res.status(403).json({ error: 'Only system administrators or creators can create vocabularies' });
       return;
     }
     

@@ -1,0 +1,48 @@
+name: Annotation Schema Checks
+
+on:
+  push:
+    paths:
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/annotation-schema.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/annotation-schema.yml'
+
+jobs:
+  annotation-schema:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run annotation schema tests
+        run: npx vitest run shared/annotation-schema.test.ts
+
+      - name: Type check annotation schema
+        run: npx tsc -p shared/tsconfig.annotation-schema.json
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Annotation Schema Checks" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Suite:** shared/annotation-schema.test.ts" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type Check:** shared/tsconfig.annotation-schema.json" >> $GITHUB_STEP_SUMMARY

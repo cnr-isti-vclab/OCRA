@@ -6,7 +6,8 @@
   "sslRequired": "none",
   "users": [
     {
-      "username": "Administrator",
+      "id": "cc927c12-8122-4191-9232-7a56bc02feed",
+      "username": "administrator",
       "email": "admin@ocra.it",
       "firstName": "System",
       "lastName": "Administrator",
@@ -24,6 +25,7 @@
       }
     },
     {
+      "id": "2f594010-e6d2-4f7b-8f2f-3d427de0f12f",
       "username": "conservator",
       "email": "conservator@example.com",
       "firstName": "Pinco",
@@ -42,6 +44,7 @@
       }
     },
     {
+      "id": "4c421f42-1771-4d52-a4f5-0c1d6bb7d4de",
       "username": "student",
       "email": "student@example.com", 
       "firstName": "Mario",
@@ -60,6 +63,7 @@
       }
     },
     {
+      "id": "7b2fd98d-95b1-429b-bf54-83376d232625",
       "username": "restorator",
       "email": "restorator@example.com",
       "firstName": "Anna",
@@ -78,6 +82,7 @@
       }
     },
     {
+      "id": "f1f7db89-8a7f-4d74-a5da-1cf88c4fa1d2",
       "username": "lab-head",
       "email": "labhead@example.com",
       "firstName": "Giulia",
@@ -96,6 +101,7 @@
       }
     },
     {
+      "id": "8b7ad097-5c74-440a-bc4c-2fd3c5267338",
       "username": "museum-director",
       "email": "director@example.com",
       "firstName": "Roberto",

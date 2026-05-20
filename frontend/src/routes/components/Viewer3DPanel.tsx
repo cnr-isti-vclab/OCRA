@@ -1,8 +1,8 @@
 import { forwardRef, useEffect, useRef } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
-import { LoadingProgress } from '../../lib/ThreePresenter/src';
+import { LoadingProgress } from 'three-presenter';
 import type { SceneDescription } from '../../../../shared/scene-types';
-import type { Annotation } from '../../../../shared/scene-types';
+import type { ViewerAnnotation } from '../../../../shared/scene-types';
 import { useAnnotations } from '../../context/AnnotationContext';
 
 interface Viewer3DPanelProps {
@@ -44,13 +44,13 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
 
       const handler = (point: [number, number, number]) => {
-        const newAnnotation: Annotation = {
+        const newAnnotation: ViewerAnnotation = {
           id: `annotation-${Date.now()}`,
           label: `Point ${new Date().toLocaleString()}`,
           type: 'point',
           geometry: point,
           createdAt: new Date().toISOString()
-        } as Annotation;
+        } as ViewerAnnotation;
 
         // call the latest createAnnotation
         createAnnotation(newAnnotation).catch(err => {

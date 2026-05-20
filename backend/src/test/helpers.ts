@@ -74,6 +74,8 @@ export async function cleanupTestDB() {
   try {
     // Use transaction for atomic cleanup
     await client.$transaction([
+      client.projectPresenceLease.deleteMany({}),
+      client.structuringLock.deleteMany({}),
       client.projectRole.deleteMany({}),
       client.project.deleteMany({}),
       client.session.deleteMany({}),
@@ -121,6 +123,10 @@ export async function createTestUser(overrides: any = {}) {
       family_name: overrides.family_name || 'User',
       sys_admin: overrides.sys_admin || overrides.isAdmin || false,
       sys_creator: overrides.sys_creator || (overrides.canCreateProjects ?? true),
+      isActive: overrides.isActive ?? true,
+      disabledAt: overrides.disabledAt || null,
+      disabledBy: overrides.disabledBy || null,
+      disableReason: overrides.disableReason || null,
     },
   });
 }
@@ -133,6 +139,7 @@ export async function createTestProject(creatorId?: string, overrides: any = {})
   const projectData: any = {
     name: overrides.name || `Test Project ${Date.now()}`,
     description: overrides.description || 'Test project description',
+    public: overrides.public ?? false,
   };
   
   const project = await client.project.create({
@@ -189,6 +196,13 @@ export function mockAuthMiddleware(user: any) {
  */
 export function authHeader(user: any): { 'X-Test-User-Id': string } {
   return { 'X-Test-User-Id': user.id };
+}
+
+export function authHeaders(user: any, sessionId = 'test-session-id'): { 'X-Test-User-Id': string; 'X-Test-Session-Id': string } {
+  return {
+    'X-Test-User-Id': user.id,
+    'X-Test-Session-Id': sessionId,
+  };
 }
 
 /**

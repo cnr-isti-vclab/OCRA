@@ -1,7 +1,8 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getApiBase } from '../config/oauth';
+import { appendStoredSessionId, getApiBase } from '../config/oauth';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 
 /**
  * PROJECTS COMPONENT
@@ -22,6 +23,9 @@ interface Project {
   name: string;
   description?: string;
   public: boolean;
+  activeStructuringLock?: boolean;
+  activeStructuringLockOwnedByCurrentSession?: boolean;
+  activeStructuringLockHeartbeatExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
   manager?: {
@@ -64,55 +68,121 @@ export default function Projects() {
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectPublic, setNewProjectPublic] = useState(false);
   const navigate = useNavigate();
+  const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
+  const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading ?? true;
+
+    try {
+      if (showLoading) {
         setLoading(true);
-        const sessionId = localStorage.getItem('oauth_session_id');
+      }
+      setError(null);
+      const sessionId = localStorage.getItem('oauth_session_id');
 
-        if (!sessionId) {
-          throw new Error('No session found');
-        }
+      if (!sessionId) {
+        throw new Error('No session found');
+      }
 
-        // Fetch current user information
-        const userResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
-          credentials: 'include', // Include session cookies
-          headers: {
-            'Authorization': `Bearer ${sessionId}`,
-            'Content-Type': 'application/json',
-          },
-        });
+      // Fetch current user information
+      const userResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          setUser(userData.user);
-        }
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        setUser(userData.user);
+      }
 
-        // Fetch projects
-        const response = await fetch(`${getApiBase()}/api/projects`, {
-          credentials: 'include', // Include session cookies
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      const response = await fetch(`${getApiBase()}/api/projects`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects: ${response.status}`);
-        }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
 
-        const data = await response.json();
-        setProjects(data.projects || data || []);
-      } catch (e: any) {
-        console.error('Failed to fetch data:', e);
-        setError(e?.message ?? String(e));
-      } finally {
+      const data = await response.json();
+      setProjects(data.projects || data || []);
+    } catch (e: any) {
+      console.error('Failed to fetch data:', e);
+      setError(e?.message ?? String(e));
+    } finally {
+      if (showLoading) {
         setLoading(false);
       }
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const source = new EventSource(
+      appendStoredSessionId(new URL(`${getApiBase()}/api/projects/events`)).toString(),
+      { withCredentials: true },
+    );
+
+    const handleCatalogChanged = () => {
+      void fetchData({ showLoading: false });
     };
 
-    fetchData();
-  }, []);
+    source.addEventListener('project.catalog.changed', handleCatalogChanged);
+
+    source.onerror = () => {
+      console.debug('Project catalog SSE disconnected; browser will retry automatically.');
+    };
+
+    return () => {
+      source.removeEventListener('project.catalog.changed', handleCatalogChanged);
+      source.close();
+    };
+  }, [fetchData]);
+
+  useEffect(() => {
+    const activeLockExpiryTimes = projects
+      .filter((project) => project.activeStructuringLock && !!project.activeStructuringLockHeartbeatExpiresAt)
+      .map((project) => Date.parse(project.activeStructuringLockHeartbeatExpiresAt as string))
+      .filter((value) => !Number.isNaN(value));
+
+    if (activeLockExpiryTimes.length === 0) {
+      return;
+    }
+
+    const nextExpiryAt = Math.min(...activeLockExpiryTimes);
+    const refreshDelayMs = Math.max(1_000, nextExpiryAt - Date.now() + 1_000);
+
+    const timerId = window.setTimeout(() => {
+      void fetchData({ showLoading: false });
+    }, refreshDelayMs);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [projects, fetchData]);
+
+  useEffect(() => {
+    projects.forEach((project) => {
+      if (!project.activeStructuringLock || !project.activeStructuringLockOwnedByCurrentSession) {
+        return;
+      }
+
+      const lockState = getProjectLockState(project.id);
+      if (lockState.enabled || lockState.hasExclusiveLock || lockState.status === 'acquiring' || lockState.status === 'releasing') {
+        return;
+      }
+
+      void toggleProjectLock(project.id, true);
+    });
+  }, [projects, getProjectLockState, toggleProjectLock]);
 
   const openCreateProjectModal = () => {
     setCreateError(null);
@@ -209,6 +279,10 @@ export default function Projects() {
       const newMap3D: Record<string, boolean> = {};
       const newHdtMap: Record<string, boolean> = {};
       await Promise.all(projects.map(async (project) => {
+        if (project.activeStructuringLock) {
+          return;
+        }
+
         try {
           const res = await fetch(`${getApiBase()}/api/projects/${project.id}/hdt`, {
             credentials: 'include',
@@ -221,6 +295,10 @@ export default function Projects() {
             const has2DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'rti') || false;
             newMap3D[project.id] = has3DAssets;
             newMap2D[project.id] = has2DAssets;
+          } else if (res.status === 423) {
+            // Locked projects are handled by activeStructuringLock in the catalog state.
+            // Keep the last known asset availability instead of degrading to false.
+            return;
           } else {
             newMap3D[project.id] = false;
             newMap2D[project.id] = false;
@@ -232,9 +310,9 @@ export default function Projects() {
           newHdtMap[project.id] = false;
         }
       }));
-      setHas3DAssetsMap(newMap3D);
-      setHas2DAssetsMap(newMap2D);
-      setHasHdtMap(newHdtMap);
+      setHas3DAssetsMap((current) => ({ ...current, ...newMap3D }));
+      setHas2DAssetsMap((current) => ({ ...current, ...newMap2D }));
+      setHasHdtMap((current) => ({ ...current, ...newHdtMap }));
     };
     fetchAssetStatus();
   }, [projects]);
@@ -289,6 +367,13 @@ export default function Projects() {
         <div className="row g-4">
           {projects.map((project) => (
             <div className="col-12 col-md-6 col-lg-4" key={project.id}>
+              {(() => {
+                const lockState = getProjectLockState(project.id);
+                const ownedByCurrentSession = !!project.activeStructuringLockOwnedByCurrentSession || lockState.hasExclusiveLock;
+                const lockedByAnotherSession = !!project.activeStructuringLock && !ownedByCurrentSession;
+                const structuringActive = !!project.activeStructuringLock || lockState.enabled || lockState.status !== 'inactive';
+                const resumingOwnedLock = !!project.activeStructuringLockOwnedByCurrentSession && !lockState.enabled && !lockState.hasExclusiveLock;
+                return (
               <div className="card h-100 shadow-sm">
                 <div className="card-body d-flex flex-column">
                   {/* Top Section - Two Columns */}
@@ -326,14 +411,25 @@ export default function Projects() {
                         </div>
                       )}
                       {!project.public && (
-                        <span className="badge bg-danger">Private</span>
+                        <span className="badge bg-danger ms-1">Private</span>
+                      )}
+                      {lockedByAnotherSession && (
+                        <span
+                          className="badge bg-warning text-dark mt-1 d-inline-block text-wrap text-start"
+                          style={{ maxWidth: '100%' }}
+                        >
+                          Structuring...
+                        </span>
+                      )}
+                      {ownedByCurrentSession && (
+                        <span className="badge bg-success ms-1">Your lock</span>
                       )}
                     </div>
                   </div>
 
                   {/* Bottom Section - Action Buttons */}
                   <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }}>
-                    {has3DAssetsMap[project.id] ? (
+                    {has3DAssetsMap[project.id] && !structuringActive ? (
                       <Link
                         to={`/projects/${project.id}`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -344,12 +440,12 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title="No 3D assets available"
+                        title={structuringActive ? 'Viewer access is disabled while structuring lock is active' : 'No 3D assets available'}
                       >
                         3D
                       </button>
                     )}
-                    {has2DAssetsMap[project.id] ? (
+                    {has2DAssetsMap[project.id] && !structuringActive ? (
                       <Link
                         to={`/projects/${project.id}?mode=2d`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -360,12 +456,20 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title="No 2D assets available"
+                        title={structuringActive ? 'Viewer access is disabled while structuring lock is active' : 'No 2D assets available'}
                       >
                         2D
                       </button>
                     )}
-                    {hasHdtMap[project.id] === false && managerMap[project.id] ? (
+                    {lockedByAnotherSession ? (
+                      <button
+                        className="btn btn-secondary btn-sm d-flex align-items-center justify-content-center gap-1"
+                        disabled
+                        title="Project is temporarily read-only while structuring is in progress"
+                      >
+                        HDT
+                      </button>
+                    ) : hasHdtMap[project.id] === false && managerMap[project.id] ? (
                       <Link
                         to={`/projects/${project.id}/edit`}
                         className="btn btn-outline-warning btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -391,8 +495,50 @@ export default function Projects() {
                       </Link>
                     )}
                   </div>
+
+                  {managerMap[project.id] && (
+                    <div className="mt-3 pt-3 border-top">
+                      <div className="rounded p-2" style={{ backgroundColor: '#fff8e1', border: '1px solid #f0d98a' }}>
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div>
+                            <div className="small fw-semibold text-dark">Project Structuring Lock</div>
+                            <div className="small text-muted">
+                              {lockState.hasExclusiveLock
+                                ? 'Exclusive lock acquired for this project.'
+                                : 'Acquire the project-wide lock before structural changes.'}
+                            </div>
+                          </div>
+                          <div className="form-check form-switch m-0">
+                            <input
+                              id={`project-structuring-toggle-${project.id}`}
+                              className="form-check-input"
+                              type="checkbox"
+                              role="switch"
+                              checked={lockState.enabled || !!project.activeStructuringLockOwnedByCurrentSession}
+                              onChange={(e) => void toggleProjectLock(project.id, e.target.checked)}
+                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession || resumingOwnedLock}
+                            />
+                          </div>
+                        </div>
+                        <div className="small mt-2 text-dark">
+                          <strong>Status:</strong>{' '}
+                          {resumingOwnedLock && 'restoring lock session'}
+                          {!resumingOwnedLock && lockState.status === 'inactive' && 'inactive'}
+                          {!resumingOwnedLock && lockState.status === 'acquiring' && 'acquiring lock'}
+                          {!resumingOwnedLock && lockState.status === 'draining' && 'draining other sessions'}
+                          {!resumingOwnedLock && lockState.status === 'exclusive' && 'exclusive lock acquired'}
+                          {!resumingOwnedLock && lockState.status === 'releasing' && 'releasing lock'}
+                        </div>
+                        {lockState.error && (
+                          <div className="small text-danger mt-1">{lockState.error}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>

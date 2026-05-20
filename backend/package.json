@@ -10,6 +10,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "seed": "tsx seed.ts",
+    "seed:annotation": "tsx ./scripts/create-test-annotation.ts",
     "prisma:push": "npx prisma db push",
     "prisma:generate": "npx prisma generate",
     "test": "vitest run",

@@ -1,69 +1,263 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 echo "▶ Starting local services (Postgres, Mongo, Keycloak)..."
 
-# PostgreSQL (bare metal)
-POSTGRES_NAME="bare-ocra-postgres"
-if docker ps -a --format '{{.Names}}' | grep -q "^${POSTGRES_NAME}$"; then
-  if ! docker ps --format '{{.Names}}' | grep -q "^${POSTGRES_NAME}$"; then
-    echo "  - Starting existing ${POSTGRES_NAME}..."
-    docker start ${POSTGRES_NAME} >/dev/null
-  else
-    echo "  - ${POSTGRES_NAME} already running"
+container_exists() {
+  docker ps -a --format '{{.Names}}' | grep -q "^$1$"
+}
+
+container_running() {
+  docker ps --format '{{.Names}}' | grep -q "^$1$"
+}
+
+published_host_port() {
+  docker port "$1" "$2" 2>/dev/null || true
+}
+
+has_host_port() {
+  local container_name="$1"
+  local container_port="$2"
+  local host_port="$3"
+  local bindings
+
+  # Use effective runtime port mappings rather than requested HostConfig bindings.
+  bindings="$(docker inspect --format '{{json .NetworkSettings.Ports}}' "${container_name}")"
+  [[ "${bindings}" == *"\"${container_port}\""* && "${bindings}" == *"\"HostPort\":\"${host_port}\""* ]]
+}
+
+container_env_contains() {
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" | grep -qx "$2"
+}
+
+container_cmd_contains() {
+  docker inspect --format '{{json .Config.Cmd}}' "$1" | grep -q -- "$2"
+}
+
+container_mounts_include() {
+  docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' "$1" | grep -qx "$2"
+}
+
+running_container_on_host_port() {
+  docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v port=":$1->" '$0 ~ port {print $1}'
+}
+
+running_host_listener_on_port() {
+  ss -ltnp 2>/dev/null | awk -v port=":$1$" '$4 ~ port {print; exit}'
+}
+
+host_listener_pid_from_line() {
+  awk '{
+    if (match($0, /pid=[0-9]+/)) {
+      pid = substr($0, RSTART + 4, RLENGTH - 4)
+      print pid
+    }
+  }'
+}
+
+assert_port_available_for_container() {
+  local container_name="$1"
+  local host_port="$2"
+  local label="$3"
+  local owner
+  local any_owner
+  local listener_line
+  local listener_pid
+  local listener_cmd
+
+  any_owner="$(running_container_on_host_port "${host_port}" | head -n 1 || true)"
+  owner="$(running_container_on_host_port "${host_port}" | grep -v "^${container_name}$" | head -n 1 || true)"
+  if [[ -n "${owner}" ]]; then
+    echo "❌ Cannot start ${label}: host port ${host_port} is already used by running container ${owner}." >&2
+    echo "   Stop the conflicting container first (for example with 'docker compose down' or 'npm run services:stop')." >&2
+    exit 1
   fi
-else
+
+  # If this exact container already owns the host port, allow startup flow to continue.
+  if [[ "${any_owner}" == "${container_name}" ]]; then
+    return 0
+  fi
+
+  listener_line="$(running_host_listener_on_port "${host_port}" || true)"
+  if [[ -n "${listener_line}" ]]; then
+    listener_pid="$(printf '%s\n' "${listener_line}" | host_listener_pid_from_line || true)"
+    if [[ -n "${listener_pid}" ]]; then
+      listener_cmd="$(ps -o args= -p "${listener_pid}" 2>/dev/null || true)"
+      if [[ -n "${listener_cmd}" ]]; then
+        echo "❌ Cannot start ${label}: host port ${host_port} is already used by local process PID ${listener_pid}." >&2
+        echo "   Command: ${listener_cmd}" >&2
+      else
+        echo "❌ Cannot start ${label}: host port ${host_port} is already used by local process PID ${listener_pid}." >&2
+      fi
+    else
+      echo "❌ Cannot start ${label}: host port ${host_port} is already used by a local process." >&2
+    fi
+    echo "   Stop the conflicting process or free the port, then rerun this command." >&2
+    exit 1
+  fi
+}
+
+ensure_started() {
+  local container_name="$1"
+  if container_running "${container_name}"; then
+    echo "  - ${container_name} already running"
+  else
+    echo "  - Starting existing ${container_name}..."
+    docker start "${container_name}" >/dev/null
+  fi
+}
+
+wait_for_postgres() {
+  local container_name="$1"
+
+  for _ in $(seq 1 30); do
+    if docker exec "${container_name}" pg_isready -U ocra_user -d ocra >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "❌ PostgreSQL did not become ready in time." >&2
+  exit 1
+}
+
+ensure_postgres_database() {
+  local container_name="$1"
+  local database_name="$2"
+
+  if docker exec "${container_name}" psql -U ocra_user -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${database_name}'" | grep -q 1; then
+    echo "  - PostgreSQL database ${database_name} already exists"
+    return 0
+  fi
+
+  echo "  - Creating PostgreSQL database ${database_name}..."
+  docker exec "${container_name}" psql -U ocra_user -d postgres -c "CREATE DATABASE ${database_name} OWNER ocra_user" >/dev/null
+}
+
+POSTGRES_NAME="bare-ocra-postgres"
+assert_port_available_for_container "${POSTGRES_NAME}" 5432 "bare PostgreSQL"
+
+if container_exists "${POSTGRES_NAME}"; then
+  recreate_postgres=0
+
+  if ! has_host_port "${POSTGRES_NAME}" "5432/tcp" 5432; then
+    echo "  - Recreating ${POSTGRES_NAME} with published port 5432..."
+    recreate_postgres=1
+  fi
+
+  if ! container_env_contains "${POSTGRES_NAME}" "POSTGRES_USER=ocra_user" || \
+     ! container_env_contains "${POSTGRES_NAME}" "POSTGRES_PASSWORD=ocra_pass" || \
+     ! container_env_contains "${POSTGRES_NAME}" "POSTGRES_DB=ocra"; then
+    echo "  - Recreating ${POSTGRES_NAME} with expected credentials..."
+    recreate_postgres=1
+  fi
+
+  if [[ ${recreate_postgres} -eq 1 ]]; then
+    docker rm -f "${POSTGRES_NAME}" >/dev/null 2>&1 || true
+  fi
+fi
+
+if ! container_exists "${POSTGRES_NAME}"; then
   echo "  - Creating ${POSTGRES_NAME}..."
   docker run -d \
-    --name ${POSTGRES_NAME} \
+    --name "${POSTGRES_NAME}" \
     -e POSTGRES_USER=ocra_user \
     -e POSTGRES_PASSWORD=ocra_pass \
     -e POSTGRES_DB=ocra \
     -p 5432:5432 \
     -v ocra-postgres-data:/var/lib/postgresql/data \
-    postgres:16
+    postgres:16 >/dev/null
+else
+  ensure_started "${POSTGRES_NAME}"
 fi
 
-# MongoDB (bare metal)
+echo "  - Waiting for PostgreSQL readiness..."
+wait_for_postgres "${POSTGRES_NAME}"
+ensure_postgres_database "${POSTGRES_NAME}" "ocra_test"
+
 MONGO_NAME="bare-ocra-mongo"
-if docker ps -a --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
-  if ! docker ps --format '{{.Names}}' | grep -q "^${MONGO_NAME}$"; then
-    echo "  - Starting existing ${MONGO_NAME}..."
-    docker start ${MONGO_NAME} >/dev/null
-  else
-    echo "  - ${MONGO_NAME} already running"
+assert_port_available_for_container "${MONGO_NAME}" 27017 "bare MongoDB"
+
+if container_exists "${MONGO_NAME}"; then
+  recreate_mongo=0
+  mongo_cmd="$(docker inspect --format '{{json .Config.Cmd}}' "${MONGO_NAME}")"
+
+  if ! has_host_port "${MONGO_NAME}" "27017/tcp" 27017; then
+    echo "  - Recreating ${MONGO_NAME} with published port 27017..."
+    recreate_mongo=1
   fi
-else
+
+  if [[ "${mongo_cmd}" != *"--replSet"* || "${mongo_cmd}" != *"rs0"* ]]; then
+    echo "  - Recreating ${MONGO_NAME} with replica set enabled..."
+    recreate_mongo=1
+  fi
+
+  if [[ ${recreate_mongo} -eq 1 ]]; then
+    docker rm -f "${MONGO_NAME}" >/dev/null 2>&1 || true
+  fi
+fi
+
+if ! container_exists "${MONGO_NAME}"; then
   echo "  - Creating ${MONGO_NAME}..."
   docker run -d \
-    --name ${MONGO_NAME} \
+    --name "${MONGO_NAME}" \
     -p 27017:27017 \
     -v ocra-mongo-data:/data/db \
-    mongo:7
+    mongo:7 \
+    --replSet rs0 --bind_ip_all >/dev/null
+else
+  ensure_started "${MONGO_NAME}"
 fi
 
-  echo "  - Bootstrapping MongoDB databases and collections..."
-  bash "$(dirname "$0")/bootstrap-mongo.sh" "${MONGO_NAME}"
+echo "  - Bootstrapping MongoDB databases and collections..."
+bash "$(dirname "$0")/bootstrap-mongo.sh" "${MONGO_NAME}"
 
-# Keycloak (bare metal) 
 KEYCLOAK_NAME="bare-keycloak"
-if docker ps -a --format '{{.Names}}' | grep -q "^${KEYCLOAK_NAME}$"; then
-  if ! docker ps --format '{{.Names}}' | grep -q "^${KEYCLOAK_NAME}$"; then
-    echo "  - Starting existing ${KEYCLOAK_NAME}..."
-    docker start ${KEYCLOAK_NAME} >/dev/null
-  else
-    echo "  - ${KEYCLOAK_NAME} already running"
+assert_port_available_for_container "${KEYCLOAK_NAME}" 8081 "bare Keycloak"
+
+if container_exists "${KEYCLOAK_NAME}"; then
+  recreate_keycloak=0
+
+  if ! has_host_port "${KEYCLOAK_NAME}" "8080/tcp" 8081; then
+    echo "  - Recreating ${KEYCLOAK_NAME} with published port 8081..."
+    recreate_keycloak=1
   fi
-else
+
+  if ! container_env_contains "${KEYCLOAK_NAME}" "KEYCLOAK_ADMIN=Administrator" || \
+     ! container_env_contains "${KEYCLOAK_NAME}" "KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it"; then
+    echo "  - Recreating ${KEYCLOAK_NAME} with expected admin credentials..."
+    recreate_keycloak=1
+  fi
+
+  if ! container_cmd_contains "${KEYCLOAK_NAME}" "--import-realm"; then
+    echo "  - Recreating ${KEYCLOAK_NAME} with realm import enabled..."
+    recreate_keycloak=1
+  fi
+
+  if ! container_mounts_include "${KEYCLOAK_NAME}" "/opt/keycloak/data/import"; then
+    echo "  - Recreating ${KEYCLOAK_NAME} with realm import mount..."
+    recreate_keycloak=1
+  fi
+
+  if [[ ${recreate_keycloak} -eq 1 ]]; then
+    docker rm -f "${KEYCLOAK_NAME}" >/dev/null 2>&1 || true
+  fi
+fi
+
+if ! container_exists "${KEYCLOAK_NAME}"; then
   echo "  - Creating ${KEYCLOAK_NAME}..."
   docker run -d \
-    --name ${KEYCLOAK_NAME} \
+    --name "${KEYCLOAK_NAME}" \
     -p 8081:8080 \
     -e KEYCLOAK_ADMIN=Administrator \
     -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \
+    -e KC_HOSTNAME=http://localhost:8081 \
     -v keycloak-data:/opt/keycloak/data \
+    -v "$(pwd)/keycloak/realm-export:/opt/keycloak/data/import" \
     quay.io/keycloak/keycloak:latest \
-    start-dev
+    start-dev --import-realm >/dev/null
+else
+  ensure_started "${KEYCLOAK_NAME}"
 fi
 
 echo "✅ All services started (or already running)."

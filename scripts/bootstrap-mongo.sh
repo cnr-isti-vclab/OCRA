@@ -28,6 +28,18 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
   exit 1
 fi
 
+replica_set_name="rs0"
+replica_host="${container_name}:27017"
+
+case "${container_name}" in
+  bare-ocra-mongo)
+    replica_host="localhost:27017"
+    ;;
+  ocra-mongodb)
+    replica_host="mongodb:27017"
+    ;;
+esac
+
 echo "▶ Ensuring MongoDB databases and collections in ${container_name}..."
 
 until docker exec "${container_name}" mongosh --quiet --eval "db.adminCommand({ ping: 1 }).ok" >/dev/null 2>&1; do
@@ -35,7 +47,11 @@ until docker exec "${container_name}" mongosh --quiet --eval "db.adminCommand({ 
 done
 
 docker cp "${INIT_SCRIPT}" "${container_name}:${TMP_INIT_SCRIPT}"
-docker exec "${container_name}" mongosh --quiet --file "${TMP_INIT_SCRIPT}"
+docker exec \
+  -e MONGO_REPLICA_SET_NAME="${replica_set_name}" \
+  -e MONGO_REPLICA_HOST="${replica_host}" \
+  "${container_name}" \
+  mongosh --quiet --file "${TMP_INIT_SCRIPT}"
 docker exec "${container_name}" rm -f "${TMP_INIT_SCRIPT}"
 
 echo "✅ MongoDB bootstrap completed for ${container_name}."

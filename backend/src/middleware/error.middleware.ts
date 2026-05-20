@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ApiError, sendApiError } from '../lib/api-error.js';
 
 /**
  * Error Handling Middleware (TypeScript version)
@@ -16,25 +17,21 @@ export function errorHandler(
   next: NextFunction
 ): void {
   console.error('Unhandled error:', error);
-  
-  // Default error response
-  const response: any = {
-    error: 'Internal server error',
-    timestamp: new Date().toISOString(),
-    path: req.path,
-    method: req.method,
-  };
-  
-  // Add error details in development
-  if (process.env.NODE_ENV === 'development') {
-    response.details = error.message;
-    response.stack = error.stack;
+
+  if (error instanceof ApiError) {
+    sendApiError(req, res, {
+      status: error.status,
+      code: error.code,
+      error: error.message,
+      details: error.details,
+    });
+    return;
   }
-  
-  // Handle specific error types
+
   if (error.name === 'ValidationError') {
-    res.status(400).json({
-      ...response,
+    sendApiError(req, res, {
+      status: 400,
+      code: 'common.validation_error',
       error: 'Validation error',
       details: error.message,
     });
@@ -42,26 +39,32 @@ export function errorHandler(
   }
   
   if (error.name === 'UnauthorizedError') {
-    res.status(401).json({
-      ...response,
+    sendApiError(req, res, {
+      status: 401,
+      code: 'common.unauthorized',
       error: 'Unauthorized',
     });
     return;
   }
-  
-  // Default server error
-  res.status(500).json(response);
+
+  sendApiError(req, res, {
+    status: 500,
+    code: 'common.internal_error',
+    error: 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? { message: error.message, stack: error.stack } : undefined,
+  });
 }
 
 /**
  * 404 Not Found handler
  */
 export function notFoundHandler(req: Request, res: Response): void {
-  res.status(404).json({
+  sendApiError(req, res, {
+    status: 404,
+    code: 'common.route_not_found',
     error: 'Not found',
-    message: `Route ${req.method} ${req.path} not found`,
-    timestamp: new Date().toISOString(),
-    path: req.path,
-    method: req.method,
+    details: {
+      message: `Route ${req.method} ${req.path} not found`,
+    },
   });
 }

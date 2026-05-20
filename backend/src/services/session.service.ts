@@ -7,7 +7,8 @@
 import { 
   createUserSession as dbCreateUserSession,
   getValidSession as dbGetValidSession, 
-  deleteUserSession as dbDeleteUserSession 
+  deleteUserSession as dbDeleteUserSession,
+  USER_DISABLED_MESSAGE,
 } from '../../db.js';
 import { OAuthUserProfile, OAuthTokens } from '../types/index.js';
 
@@ -29,7 +30,11 @@ export async function createSession(userProfile: OAuthUserProfile, tokens: OAuth
     return sessionId;
   } catch (error) {
     console.error('Session service error:', error);
-    throw new Error(`Session creation failed: ${(error as Error).message}`);
+    const message = (error as Error).message;
+    if (message.includes(USER_DISABLED_MESSAGE)) {
+      throw new Error(USER_DISABLED_MESSAGE);
+    }
+    throw new Error(`Session creation failed: ${message}`);
   }
 }
 

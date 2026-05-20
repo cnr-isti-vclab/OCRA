@@ -4,27 +4,35 @@
  * Handles synchronization between UI, viewers, and backend
  */
 
-import React, { createContext, useContext, useCallback, useState, useEffect } from 'react';
-import type { Annotation, SceneDescription } from '../../../shared/scene-types';
+import React, { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
+import type { ViewerAnnotation, SceneDescription } from '../../../shared/scene-types';
+import type { AnnotationEventResourceType, AnnotationMutationEvent } from 'shared/annotation-events';
 import { AnnotationService } from '../services/AnnotationService';
+import { AnnotationApiClient } from '../services/AnnotationApiClient';
+import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
 
 interface AnnotationContextType {
-  annotations: Annotation[];
+  annotations: ViewerAnnotation[];
   selectedAnnotationIds: string[];
   isLoading: boolean;
   error: string | null;
+  realtimeState: AnnotationRealtimeState;
+  lastRemoteMutation: AnnotationMutationEvent | null;
 
   // Annotation CRUD operations
-  createAnnotation: (annotation: Annotation) => Promise<void>;
-  updateAnnotation: (annotation: Annotation) => Promise<void>;
-  updateAnnotationGeometry: (id: string, geometry: Annotation['geometry']) => Promise<void>;
-  updateAnnotationData: (id: string, data: Partial<Omit<Annotation, 'id' | 'geometry'>>) => Promise<void>;
+  createAnnotation: (annotation: ViewerAnnotation) => Promise<void>;
+  updateAnnotation: (annotation: ViewerAnnotation) => Promise<void>;
+  updateAnnotationGeometry: (id: string, geometry: ViewerAnnotation['geometry']) => Promise<void>;
+  updateAnnotationData: (id: string, data: Partial<Omit<ViewerAnnotation, 'id' | 'geometry'>>) => Promise<void>;
   deleteAnnotations: (ids: string[]) => Promise<void>;
 
   // Selection operations
   selectAnnotation: (id: string, multiSelect: boolean) => void;
   setSelectedAnnotationIds: (ids: string[]) => void;
   clearSelection: () => void;
+
+  notifyEditingStart: (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => Promise<boolean>;
+  notifyEditingStop: (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => Promise<boolean>;
 
 }
 
@@ -36,6 +44,7 @@ interface AnnotationProviderProps {
   selectedSceneId: string;
   sceneDesc: SceneDescription | null;
   user: any;
+  reloadScene?: () => Promise<void>;
 }
 
 /**
@@ -47,18 +56,50 @@ export function AnnotationProvider({
   projectId,
   selectedSceneId,
   sceneDesc,
-  user
+  user,
 }: AnnotationProviderProps) {
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const realtimeClientRef = useRef<AnnotationApiClient | null>(null);
+  const [annotations, setAnnotations] = useState<ViewerAnnotation[]>([]);
   const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [annotationService, setAnnotationService] = useState<AnnotationService | null>(null);
+  const [realtimeState, setRealtimeState] = useState<AnnotationRealtimeState>('idle');
+  const [lastRemoteMutation, setLastRemoteMutation] = useState<AnnotationMutationEvent | null>(null);
 
   // Initialize or update AnnotationService when projectId or selectedSceneId changes
   useEffect(() => {
     const service = new AnnotationService(projectId, selectedSceneId);
     setAnnotationService(service);
+  }, [projectId, selectedSceneId]);
+
+  useEffect(() => {
+    setRealtimeState('idle');
+    setLastRemoteMutation(null);
+  }, [projectId, selectedSceneId]);
+
+  useEffect(() => {
+    const client = new AnnotationApiClient({
+      projectId,
+      sceneId: selectedSceneId,
+    });
+    realtimeClientRef.current = client;
+
+    client.connectRealtime({
+      onConnectionStateChange: (state) => {
+        setRealtimeState(state);
+      },
+      onMutation: (event) => {
+        setLastRemoteMutation(event);
+      },
+    });
+
+    return () => {
+      client.disconnectRealtime();
+      if (realtimeClientRef.current === client) {
+        realtimeClientRef.current = null;
+      }
+    };
   }, [projectId, selectedSceneId]);
 
   // Load annotations from sceneDesc whenever it or the selected scene changes
@@ -76,7 +117,7 @@ export function AnnotationProvider({
    * Create a new annotation
    */
   const createAnnotation = useCallback(
-    async (annotation: Annotation) => {
+    async (annotation: ViewerAnnotation) => {
       annotation.createdBy = user.username;
       if (!sceneDesc || !annotationService) return;
 
@@ -106,7 +147,7 @@ export function AnnotationProvider({
    * Update an existing annotation
    */
   const updateAnnotation = useCallback(
-    async (annotation: Annotation) => {
+    async (annotation: ViewerAnnotation) => {
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);
@@ -139,7 +180,7 @@ export function AnnotationProvider({
    * Update only the geometry of an annotation
    */
   const updateAnnotationGeometry = useCallback(
-    async (id: string, geometry: Annotation['geometry']) => {
+    async (id: string, geometry: ViewerAnnotation['geometry']) => {
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);
@@ -168,7 +209,7 @@ export function AnnotationProvider({
    * Update only the data/metadata of an annotation
    */
   const updateAnnotationData = useCallback(
-    async (id: string, data: Partial<Omit<Annotation, 'id' | 'geometry'>>) => {
+    async (id: string, data: Partial<Omit<ViewerAnnotation, 'id' | 'geometry'>>) => {
       if (!sceneDesc || !annotationService) return;
 
       setIsLoading(true);
@@ -250,11 +291,27 @@ export function AnnotationProvider({
     setSelectedAnnotationIds([]);
   }, []);
 
+  const notifyEditingStart = useCallback(
+    async (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => {
+      return realtimeClientRef.current?.notifySocialLockStart(input ?? {}) ?? false;
+    },
+    [],
+  );
+
+  const notifyEditingStop = useCallback(
+    async (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => {
+      return realtimeClientRef.current?.notifySocialLockStop(input ?? {}) ?? false;
+    },
+    [],
+  );
+
   const value: AnnotationContextType = {
     annotations,
     selectedAnnotationIds,
     isLoading,
     error,
+    realtimeState,
+    lastRemoteMutation,
     createAnnotation,
     updateAnnotation,
     updateAnnotationGeometry,
@@ -263,6 +320,8 @@ export function AnnotationProvider({
     selectAnnotation,
     setSelectedAnnotationIds,
     clearSelection,
+    notifyEditingStart,
+    notifyEditingStop,
   };
 
   return (
