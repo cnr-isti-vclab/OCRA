@@ -315,15 +315,15 @@ export async function getHDTMetadataHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
     }
 
-    const hasAccess = await checkIsViewerOrAboveOfProject(currentUser.sub, projectId);
-    if (!hasAccess) {
-      return sendHdtError(req, res, 403, 'editorOrManagerRequired', 'Access denied: viewer role or above required');
-    }
-
     const document = await getHDTDocument(projectId);
 
     if (!document) {
       return sendHdtError(req, res, 404, 'documentNotFound', 'HDT document not found for this project');
+    }
+
+    const hasAccess = await checkIsViewerOrAboveOfProject(currentUser.sub, projectId);
+    if (!hasAccess) {
+      return sendHdtError(req, res, 403, 'editorOrManagerRequired', 'Access denied: viewer role or above required');
     }
 
     res.json(document);
