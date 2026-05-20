@@ -54,7 +54,6 @@ export interface CreateAnnotationInput {
 }
 
 export interface UpdateDataInput {
-  expectedVersion: number;
   label?: string;
   description?: string;
   class?: string | null;
@@ -292,15 +291,14 @@ export class AnnotationStore {
   }
 
   async updateData(dataId: string, input: UpdateDataInput): Promise<void> {
-    const { expectedVersion, ...patch } = input;
     await this.optimisticVersionedUpdate({
       kind: 'data',
       id: dataId,
-      applyOptimistic: (snapshot) => ({ ...snapshot, ...patch }),
+      applyOptimistic: (snapshot) => ({ ...snapshot, ...input }),
       write: (snapshot) =>
         this.client.updateData(dataId, {
           expectedVersion: snapshot.version,
-          ...patch,
+          ...input,
         }),
       mergeSuccess: (current, snapshot, res, values) => ({
         ...current,
@@ -308,7 +306,7 @@ export class AnnotationStore {
         version: res.version,
         updatedAt: res.updatedAt ?? current.updatedAt ?? snapshot.updatedAt,
       }),
-      inputValues: { patch },
+      inputValues: { patch: input },
     });
   }
 
@@ -634,11 +632,11 @@ export class AnnotationStore {
     this.isSaving.add(key);
 
     try {
-      const res = await this.patchErasable(kind, id, snapshot.version, true);
+      await this.patchErasable(kind, id, snapshot.version, true);
       if (this.generation !== myGen) {
         return;
       }
-      await this.refetchAndApplyIfNewer(kind, id, myGen, res.version);
+      await this.refetchAndApplyIfNewer(kind, id, myGen);
     } catch (err) {
       if (this.generation !== myGen) {
         return;
@@ -685,11 +683,11 @@ export class AnnotationStore {
     this.isSaving.add(key);
 
     try {
-      const res = await this.patchErasable(kind, id, snapshot.version, false);
+      await this.patchErasable(kind, id, snapshot.version, false);
       if (this.generation !== myGen) {
         return;
       }
-      await this.refetchAndApplyIfNewer(kind, id, myGen, res.version);
+      await this.refetchAndApplyIfNewer(kind, id, myGen);
     } catch (err) {
       if (this.generation !== myGen) {
         return;
@@ -747,14 +745,13 @@ export class AnnotationStore {
     kind: AnnotationEntityKind,
     id: string,
     myGen: number,
-    minimumVersion: number,
   ): Promise<void> {
     const fetched = await this.fetchEntity(kind, id);
     if (this.generation !== myGen) {
       return;
     }
     const current = this.getEntity(kind, id);
-    if (!current || fetched.version >= current.version || fetched.version >= minimumVersion) {
+    if (!current || fetched.version >= current.version) {
       this.setEntity(kind, id, fetched);
       this.bump();
     }

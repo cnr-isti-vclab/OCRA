@@ -24,12 +24,6 @@ export interface AnnotationSceneBundle {
   links: AnnotationLink[];
 }
 
-export interface AnnotationEntityTriple {
-  geometry: AnnotationGeometry;
-  datum: AnnotationData;
-  link: AnnotationLink;
-}
-
 interface AnnotationApiClientOptions {
   projectId: string;
   sceneId: string;
@@ -333,40 +327,6 @@ export class AnnotationApiClient {
     });
 
     return response.link;
-  }
-
-  async createSceneAnnotation(input: {
-    shapes: AnnotationShape[];
-    label: string;
-    description?: string;
-    class: string | null;
-    content: Record<string, unknown>;
-  }) {
-    const geometry = await this.createGeometry({
-      shapes: input.shapes,
-      referenceType: 'scene',
-      referenceId: this.sceneId,
-    });
-
-    const datum = await this.createData({
-      label: input.label,
-      description: input.description,
-      class: input.class,
-      content: input.content,
-      visibilityType: 'scene',
-      visibilityId: this.sceneId,
-    });
-
-    const link = await this.createLink({
-      geometryId: geometry.id,
-      dataId: datum.id,
-    });
-
-    return {
-      geometry,
-      datum,
-      link,
-    } satisfies AnnotationEntityTriple;
   }
 
   async markLinkErasable(linkId: string, expectedVersion: number) {

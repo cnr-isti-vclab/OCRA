@@ -19,9 +19,7 @@ import {
   getAnnotationGeometries,
   getAnnotations,
   getAnnotationData,
-  getAnnotationDataForSceneAssets,
   getAnnotationGeometry,
-  getAnnotationGeometriesForSceneAssets,
   getAnnotationLink,
   getAnnotationLinksForProject,
   getAnnotationLinksForSceneAssets,
@@ -69,7 +67,10 @@ async function userHasProjectAccess(userId: string, projectId: string, allowedRo
     where: { id: projectId },
     select: { public: true },
   });
-  if (project?.public) {
+
+  // Public project grants read access to any authenticated user,
+  // but write operations (editor/manager only) still require an explicit project role.
+  if (project?.public && allowedRoles.includes(RoleEnum.viewer)) {
     return true;
   }
 
