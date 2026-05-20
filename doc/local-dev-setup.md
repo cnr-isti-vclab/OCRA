@@ -665,3 +665,7 @@ npm run clean
 ```
 
 **Note:** With Docker Compose, you'll need to rebuild containers after code changes, so the bare-metal approach above is recommended for active development.
+
+---
+
+*Last reviewed: 2026-05-20*

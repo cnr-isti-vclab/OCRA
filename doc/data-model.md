@@ -346,8 +346,6 @@ All HDT content routes require authentication (`requireAuth`). The `public` flag
 Conformance note:
 - This matrix is canonical for policy decisions. If an endpoint behavior differs, treat it as drift and reconcile implementation or documentation in the same PR.
 
-
-
 ## 7) Change Management Rule
 
 For any model-related change:
@@ -356,3 +354,7 @@ For any model-related change:
 2. Update API types/contracts.
 3. Update this file (`doc/data-model.md`) in the same PR.
 4. Update user/developer docs that reference changed entities or routes.
+
+---
+
+*Last reviewed: 2026-05-20*

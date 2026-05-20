@@ -367,3 +367,7 @@ For `annotationLink`, the only allowed updates are those erasable-state transiti
 Primitive geometry, data, and link transitions conceptually update only one document at a time. Higher-level composite operations may still use transactions when they intentionally coordinate several documents, but that orchestration is outside the base lifecycle semantics of the three collections.
 
 This design supports optimistic concurrency control (OCC) without long-lived database locks. The conditional MongoDB update filter uses `version`, not `updatedAt`, as the concurrency token. This avoids coupling correctness to timestamp precision, clock skew, or clock-dependent ordering.
+
+---
+
+*Last reviewed: 2026-05-20*

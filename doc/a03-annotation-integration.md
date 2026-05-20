@@ -949,3 +949,7 @@ async function notifyEditingStop(resourceType: 'geometry' | 'data' | 'link', res
 - Always clear the lock in `finally`, even if the save fails.
 - Treat `annotation.mutated` as informational: refresh the scene or entity, but do not bypass OCC.
 - After reconnect, refresh the scene because some events may have been missed while the connection was down.
+
+---
+
+*Last reviewed: 2026-05-20*

@@ -1,7 +1,5 @@
 # OCRA Architecture
 
-Last validated against code: 2026-05-19.
-
 ## Scope
 
 This document describes runtime architecture and system boundaries.
@@ -161,3 +159,7 @@ flowchart LR
 - Local mixed mode:
   - External services started via `npm run services:start`.
   - Frontend/backend run locally with workspace scripts.
+
+---
+
+*Last reviewed: 2026-05-20*

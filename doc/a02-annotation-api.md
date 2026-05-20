@@ -620,3 +620,7 @@ The old conceptual names `notifyEditingStart` and `notifyEditingStop` are now im
 
 - `POST /api/projects/{projectId}/annotations/events/social-lock/start`
 - `POST /api/projects/{projectId}/annotations/events/social-lock/stop`
+
+---
+
+*Last reviewed: 2026-05-20*

@@ -407,3 +407,7 @@ useEffect(() => {
 - Use `updateData()` or `updateGeometry()` with `expectedVersion` for OCC-safe updates.
 - Use `connectRealtime()` and `notifySocialLockStart()` for social awareness.
 - Prefer `notifyPresenceStart()/notifyPresenceStop()` for view-level presence and `notifyEditorLockStart()/notifyEditorLockStop()` when entering/leaving edit mode on one resource.
+
+---
+
+*Last reviewed: 2026-05-20*

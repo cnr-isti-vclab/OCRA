@@ -236,3 +236,7 @@ Project visibility and membership in OCRA are **application-internal** concepts.
 - The `Export/publish RDF` operation (manager only) is the explicit action that initiates a governed publication path. Internal collaborative visibility and governed publication are separate concerns.
 
 > **D8.1 alignment**: *"Internal collaborative visibility and governed publication are not the same thing. [...] Publication to shared or public targets is a separate action."*
+
+---
+
+*Last reviewed: 2026-05-20*

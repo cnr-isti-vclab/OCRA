@@ -11,7 +11,6 @@ This page is the index for technical documentation in `doc/`.
 ## Core Technical Guides
 
 - [Local Development Setup](./local-dev-setup.md)
-- [Scene JSON Format](./scene-json-format.md)
 - [Frontend OpenLIME Integration](./frontend-openlime.md)
 - [Physical Object Metadata](./physical-object-metadata.md)
 
@@ -43,3 +42,10 @@ Non-essential or superseded docs are kept in:
    - `backend/src/services/hdt-metadata.service.ts`
    - `backend/src/utils/project-static-paths.ts`
    - `backend/src/app.ts`
+
+## REST API documentation
+The REST API is documented via OpenAPI, which can be accessed at `http://localhost:3000/api-docs` when the backend is running locally.
+
+---
+
+*Last reviewed: 2026-05-20*

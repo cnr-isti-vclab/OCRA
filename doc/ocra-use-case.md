@@ -11,12 +11,13 @@ snapping and refinements for annotation onto 3D models and the
 time-aware management of visual annotations.”
 
 This Vertical Application is an online, web-based tool for the
-collaborative annotation of 3D assets, primarily designed to help the
+collaborative annotation of 2D and 3D assets, primarily designed to help the
 workflows in conservation-restoration.
 
-The core idea of this platform is a 3D-centric management of the data,
-referencing all the annotations to a 3D reference space and 3D surface
-of digital representations of CH objects.
+The core idea of this platform is spatially anchored management of the
+data, referencing annotations to scene/asset reference spaces over
+digital representations of CH objects (3D models and 2D relightable
+imagery).
 
 Using advanced multiresolution techniques, and specialized 3D
 visualization, it is possible to work on complex, high-resolution 3D
@@ -79,15 +80,23 @@ of this class of objects this could be useful, the initial focus of this
 VA is the management of non-structured, typical result of 3D scanning
 acquisition campaigns.
 
-In the context of this VA, a *spatial 3D annotation* is a geometrical
-data structure that describes a location or part of a 3D surface. 3D
-annotation can be represented as a collection of points, and/or
-polylines and/or areas, marked on the surface of a 3D model. This
-geometric information exists and is referenced in the 3D space of the
-asset. This spatial annotation data structure is then connected to
-semantic concepts that have a specific *meaning* in the framework of the
-specific project, like, for example, the kind of material of a specific
-part expressed using a standard reference thesauri.
+In the current OCRA model, one logical annotation is decomposed into
+three first-class entities:
+
+- **annotationGeometry**: geometric anchor (point, polyline, polygon),
+  scoped by `referenceType/referenceId` to a scene or asset reference
+  space.
+- **annotationData**: semantic record (label, description, class,
+  ontology payload), scoped by `visibilityType/visibilityId` to a scene
+  or asset context.
+- **annotationLink**: explicit link between one geometry and one data
+  record.
+
+Geometry and semantic content are intentionally independent resources.
+They are associated only through links, enabling reuse and many-to-many
+interpretation patterns. Annotation entities are versioned and updated
+through optimistic concurrency control (OCC), and support soft-delete
+semantics through erasable/non-erasable state.
 
 To populate the workspace, and as target of the spatial 3D annotations,
 the VA will use 3D assets created through digitization, primarily via 3D
@@ -182,11 +191,17 @@ coordination, and track the provenance of authored data.
 small group of administrators, setup this space and assets at the
 beginning of the project.
 
-**Semantic management of annotations**. All the information mapped onto
-the 3D space needs to be semantically mapped. The platform supports the
-definition of project-specific ontologies for the information needed by
-the specific case or institution, starting from standardized ontologies
-and vocabularies.
+**Semantic management of annotations**. All mapped information is
+semantically structured in `annotationData` records and linked to spatial
+anchors via `annotationLink`. The platform supports project-specific
+vocabularies and ontology-aligned payloads, starting from standardized
+ontologies and controlled vocabularies.
+
+**Collaborative editing with OCC and awareness**. Annotation editing is
+multi-user and optimistic: no long-lived database locks are used for
+annotation records. Conflicts are detected at save time via `version`
+checks; social-lock notifications and SSE mutation events provide
+real-time collaboration awareness.
 
 **Output of reporting data**. The platform supports interactive
 visualization and browsing of the annotations directly in the 3D space,
@@ -270,7 +285,7 @@ entities in the knowledge graph). If not, the possible choices are: (a)
 the VA has to provide an assisted workflow to add a new 3D model to
 ECCCH, (b) the model has to be added to ECCCH via other tools, and then
 will be available from within the VA, (iii) this VA also supports models
-that are not part of ECCCH but hare somehow accessible with the same
+that are not part of ECCCH but are somehow accessible with the same
 paradigms highlighted above.
 
 **The “project” data**. This is the information that defines the
@@ -284,24 +299,26 @@ This data must clearly be associated with the shard that is on the
 server that is managing the project. Data can be stored on that specific
 server, or as an entity on ECCCH.
 
-**The annotation data**. This contains all the user-generated
-geometric/semantic information that make up the annotations. This is the
-actual bulk of the user-created information, that can be seen as new
-knowledge associated to the 3D model(s) as a result of the use of this
-VA.
+**The annotation data**. Annotation content is persisted in three MongoDB
+collections (`annotation_geometry`, `annotation_data`, `annotation_link`)
+using a decomposed relational model. Each entity is project-scoped,
+versioned, and can transition between non-erasable (strong) and erasable
+(weak) states. Primitive mutations do not cascade automatically; higher
+level workflows (delete/restore clusters, cleanup) are coordinated at
+service/workflow level.
 
-This kind of data, as in the previous class, is associated to the
-specific project, and thus to the specific server managing the project.
-However, the 3D-mapped annotations can also have a wider meaning as data
-associated to the 3D model(s): in this sense, the annotations/mappings
-may exist also as individual entities of the knowledge graph.
+This data is associated with the project and managed by the server that
+hosts the project. Through explicit semantic payloads and stable
+identifiers, annotation records can also be mapped to knowledge-graph
+entities and interoperability workflows.
 
 As these last two categories (project + annotation data) can be seen as
 an interconnected dataset, and they make sense as a whole, it might be
 possible to collate and manage them together.
 
 **Any other data linked to / mapped by the annotations**. This includes
-documents and information referenced in the annotations metadata and
+documents and information referenced in annotation metadata and linked
+external resources.
 
 This last class can be managed, for the most part, independently from
 the rest of the data, and may or may not be part of ECCCH. However,
@@ -311,35 +328,51 @@ level of connection and expressiveness.
 Most of this external data may be referenced with an URI or some other
 identifier.
 
-As an exception, 2D data that is referenced to the 3D space, and used as
-a support for annotations will require a management similar to the 3D
-models described above, to be used for streaming, realtime visualization
-(and maybe computation).
+2D data is not generic in the current implementation: OCRA supports
+relightable and multi-layer image assets (including RTI datasets) through
+OpenLIME integration. These assets are managed as digital assets in HDT,
+streamed in the 2D viewer, and can participate in the same scene/asset
+annotation workflows used for 3D assets.
 
 ### Implementation 
 
-The platform will heavily use multiresolution techniques, to manage
-high-resolution 3D assets, transmit the data effectively over the
-network, and efficiently render it for interactive inspection, measuring
-and annotation.
+The platform uses web-native multiresolution visualization techniques to
+manage high-resolution assets, transmit data efficiently, and support
+interactive inspection and annotation in collaborative sessions.
 
-NEXUS is a development library already used in similar projects to
-manage multiresolution data, developed by ISTI-CNR.
+For 3D workflows, OCRA relies on streamed asset representations and
+scene-based interaction in browser WebGL environments.
+
+NEXUS remains a key reference for multiresolution 3D data streaming and
+rendering strategies developed in the CNR ecosystem:
 
 http://vcg.isti.cnr.it/vcgtools/nexus/
 
-The 3D frontend of the web application will manage the interactive
-visualization of 3D data, navigation and manipulation of the 3D space
-and 3D assets, and provide the interface for tracing the annotations.
-The development of this frontend, based on HTML5 and WebGL, is a complex
-task that can be simplified by using one of the available
-tools/frameworks designed to this aim.
+3DHOP remains a historical framework reference for web-based interactive
+visualization of high-resolution Cultural Heritage 3D data:
 
-3DHOP is a framework developed by ISTI-CNR to create web-based
-interactive visualization of high-resolution 3D data for the Cultural
-Heritage Field.
+https://3dhop.net/
 
-<https://3dhop.net/>
+In the current OCRA 3D frontend stack, the adopted solution is
+ThreePresenter, which derives from and evolves the CNR framework
+experience for browser-based 3D presentation and interaction.
+
+For 2D workflows, OCRA integrates **OpenLIME** as the relightable image
+viewer layer (RTI and multi-layer image exploration). In the current
+repository, OpenLIME is maintained as a git submodule in
+`frontend/openlime`, then built and linked as a local frontend
+dependency.
+
+The current annotation behavior, APIs, and concurrency model are
+described in:
+
+- `doc/a00-annotation-model.md`
+- `doc/a01-collaborative-annotation-editing.md`
+- `doc/a02-annotation-api.md`
+- `doc/a03-annotation-integration.md`
+- `doc/a04-structuring-lock.md`
+- `doc/a05-frontend-annotation-api-client.md`
+- `doc/frontend-openlime.md`
 
 ### Bibliography
 
@@ -379,3 +412,12 @@ Manuel, V. Abergel, O. Malavergne, I. Cao, R. Roussel, X. Granier, X.
 Rodier, L. De Luca
 
 Journal of Cultural Heritage 65, 210-220, 2024
+
+OpenLIME: An open and flexible web framework for creating and exploring complex multi-layered relightable image models
+F. Ponchio, F. Bettio, F. Marton, R. Pintus, L. Righetto, A. Giachetti, E. Gobbetti
+Proc. Digital Heritage, 2025
+DOI: 10.2312/dh.20253240
+
+---
+
+*Last reviewed: 2026-05-20*

@@ -168,3 +168,7 @@ sys_admin grants sys_creator rights to user
 ```
 
 Project visibility and membership are internal OCRA concepts, independent from governed publication to the ECHOES Knowledge Base. A project can remain private while its content has been published, and vice versa.
+
+---
+
+*Last reviewed: 2026-05-20*

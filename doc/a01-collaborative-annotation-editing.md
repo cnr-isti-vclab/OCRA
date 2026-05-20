@@ -272,3 +272,7 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 | 4 | All mutating operations use the same `expectedVersion` OCC check. `annotationGeometry` and `annotationData` support `update`, `markErasable`, and `markNonErasable`. `annotationLink` supports `markErasable` and `markNonErasable` (its `geometryId`/`dataId` endpoints are immutable after creation). No operation type has automatic priority. |
 | 5 | Both the `version` value and the persisted `erasableAt` state are validated atomically before any write is applied. |
 | 6 | Social Lock messages are best-effort informational only. The model is correct even if those messages are delayed or absent. |
+
+---
+
+*Last reviewed: 2026-05-20*

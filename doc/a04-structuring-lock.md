@@ -877,3 +877,7 @@ The first implementation should optimise for correctness and simplicity.
 - defer cross-node realtime propagation and forced drain automation to a later iteration
 
 This gives OCRA a correct and extendable structuring concurrency model without prematurely committing to a specific multi-backend event architecture.
+
+---
+
+*Last reviewed: 2026-05-20*
