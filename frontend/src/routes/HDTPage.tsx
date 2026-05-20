@@ -726,7 +726,7 @@ export default function HDTPage() {
       {structuringInProgress && (
         <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3">
           <div>
-            <strong>Structuring in progress.</strong>{' '}
+            <strong>Structuring...</strong>{' '}
             {activeDrainingEvent
               ? 'Another session is preparing a project-wide structuring operation. Asset upload is temporarily blocked until draining completes.'
               : presenceError}

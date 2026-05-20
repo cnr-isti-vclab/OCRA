@@ -168,14 +168,14 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
   const realtimeLabel =
     realtimeState === 'connected'
-      ? 'Realtime connected'
+      ? 'Connected'
       : realtimeState === 'reconnecting'
-        ? 'Realtime reconnecting'
+        ? 'Reconnecting...'
         : realtimeState === 'connecting'
-          ? 'Realtime connecting'
+          ? 'Connecting...'
           : realtimeState === 'error'
-            ? 'Realtime error'
-            : 'Realtime idle';
+            ? 'Network error'
+            : 'Disconnected';
 
   const toggleGeom = (id: string) => {
     setExpandedGeomIds(prev => {

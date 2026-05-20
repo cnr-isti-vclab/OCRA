@@ -371,6 +371,7 @@ export default function Projects() {
                 const lockState = getProjectLockState(project.id);
                 const ownedByCurrentSession = !!project.activeStructuringLockOwnedByCurrentSession || lockState.hasExclusiveLock;
                 const lockedByAnotherSession = !!project.activeStructuringLock && !ownedByCurrentSession;
+                const structuringActive = !!project.activeStructuringLock || lockState.enabled || lockState.status !== 'inactive';
                 const resumingOwnedLock = !!project.activeStructuringLockOwnedByCurrentSession && !lockState.enabled && !lockState.hasExclusiveLock;
                 return (
               <div className="card h-100 shadow-sm">
@@ -417,7 +418,7 @@ export default function Projects() {
                           className="badge bg-warning text-dark mt-1 d-inline-block text-wrap text-start"
                           style={{ maxWidth: '100%' }}
                         >
-                          Structuring in progress
+                          Structuring...
                         </span>
                       )}
                       {ownedByCurrentSession && (
@@ -428,7 +429,7 @@ export default function Projects() {
 
                   {/* Bottom Section - Action Buttons */}
                   <div className="d-grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }}>
-                    {has3DAssetsMap[project.id] && !lockedByAnotherSession ? (
+                    {has3DAssetsMap[project.id] && !structuringActive ? (
                       <Link
                         to={`/projects/${project.id}`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -439,12 +440,12 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title={lockedByAnotherSession ? 'Project is temporarily read-only while structuring is in progress' : 'No 3D assets available'}
+                        title={structuringActive ? 'Viewer access is disabled while structuring lock is active' : 'No 3D assets available'}
                       >
                         3D
                       </button>
                     )}
-                    {has2DAssetsMap[project.id] && !lockedByAnotherSession ? (
+                    {has2DAssetsMap[project.id] && !structuringActive ? (
                       <Link
                         to={`/projects/${project.id}?mode=2d`}
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
@@ -455,7 +456,7 @@ export default function Projects() {
                       <button
                         className="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-1"
                         disabled
-                        title={lockedByAnotherSession ? 'Project is temporarily read-only while structuring is in progress' : 'No 2D assets available'}
+                        title={structuringActive ? 'Viewer access is disabled while structuring lock is active' : 'No 2D assets available'}
                       >
                         2D
                       </button>

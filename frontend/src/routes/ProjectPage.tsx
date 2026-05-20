@@ -13,7 +13,6 @@ import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import AnnotationPanel from './components/AnnotationPanel';
-import AnnotationApiDemoCard from './components/AnnotationApiDemoCard';
 import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
 
 interface Project {
@@ -92,7 +91,7 @@ export default function ProjectPage() {
   });
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
   const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
-  const projectLockBadgeLabel = structuringInProgress ? 'Structuring in progress' : 'Project lock available';
+  const projectLockBadgeLabel = structuringInProgress ? 'Structuring...' : 'Project lock available';
   const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
 
   useEffect(() => {
@@ -708,7 +707,7 @@ export default function ProjectPage() {
           {(activeDrainingEvent || presenceError) && (
             <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3 mb-3">
               <div>
-                <strong>Structuring in progress.</strong>{' '}
+                <strong>Structuring...</strong>{' '}
                 {activeDrainingEvent
                     ? 'Another session is preparing a project-wide structuring operation. Editing and remote saves are temporarily blocked until draining completes. You can leave this project and continue working in other projects.'
                   : presenceError}
@@ -816,15 +815,6 @@ export default function ProjectPage() {
               </div>
             </div>
           </div>
-          {projectId && selectedSceneId && (
-            <div className="mt-3">
-              <AnnotationApiDemoCard
-                projectId={projectId}
-                sceneId={selectedSceneId}
-                variant="project"
-              />
-            </div>
-          )}
         </div>
 
         {/* Main content */}
@@ -1515,15 +1505,6 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    <div className="p-3 border-bottom bg-light-subtle">
-                      {projectId && selectedSceneId && (
-                        <AnnotationApiDemoCard
-                          projectId={projectId}
-                          sceneId={selectedSceneId}
-                          variant="annotations"
-                        />
-                      )}
-                    </div>
                     <AnnotationPanel
                       onSelectionChanged={(selectedIds) => {
                         // Notify the active viewer about selection changes

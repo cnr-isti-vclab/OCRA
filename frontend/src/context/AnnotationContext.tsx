@@ -8,6 +8,7 @@ import React, { createContext, useContext, useCallback, useState, useEffect, use
 import type { ViewerAnnotation, SceneDescription } from '../../../shared/scene-types';
 import type { AnnotationEventResourceType, AnnotationMutationEvent } from 'shared/annotation-events';
 import { AnnotationService } from '../services/AnnotationService';
+import { AnnotationApiClient } from '../services/AnnotationApiClient';
 import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
 
 interface AnnotationContextType {
@@ -57,6 +58,7 @@ export function AnnotationProvider({
   sceneDesc,
   user,
 }: AnnotationProviderProps) {
+  const realtimeClientRef = useRef<AnnotationApiClient | null>(null);
   const [annotations, setAnnotations] = useState<ViewerAnnotation[]>([]);
   const [selectedAnnotationIds, setSelectedAnnotationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -74,6 +76,30 @@ export function AnnotationProvider({
   useEffect(() => {
     setRealtimeState('idle');
     setLastRemoteMutation(null);
+  }, [projectId, selectedSceneId]);
+
+  useEffect(() => {
+    const client = new AnnotationApiClient({
+      projectId,
+      sceneId: selectedSceneId,
+    });
+    realtimeClientRef.current = client;
+
+    client.connectRealtime({
+      onConnectionStateChange: (state) => {
+        setRealtimeState(state);
+      },
+      onMutation: (event) => {
+        setLastRemoteMutation(event);
+      },
+    });
+
+    return () => {
+      client.disconnectRealtime();
+      if (realtimeClientRef.current === client) {
+        realtimeClientRef.current = null;
+      }
+    };
   }, [projectId, selectedSceneId]);
 
   // Load annotations from sceneDesc whenever it or the selected scene changes
@@ -267,16 +293,14 @@ export function AnnotationProvider({
 
   const notifyEditingStart = useCallback(
     async (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => {
-      void input;
-      return false;
+      return realtimeClientRef.current?.notifySocialLockStart(input ?? {}) ?? false;
     },
     [],
   );
 
   const notifyEditingStop = useCallback(
     async (input?: { resourceType?: AnnotationEventResourceType; resourceId?: string; activity?: string }) => {
-      void input;
-      return false;
+      return realtimeClientRef.current?.notifySocialLockStop(input ?? {}) ?? false;
     },
     [],
   );
