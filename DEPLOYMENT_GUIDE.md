@@ -25,7 +25,7 @@ We use a separate production configuration file that extends the base configurat
 2. **Deploy using the production override:**
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
 ### Configuration Files Structure
@@ -46,9 +46,9 @@ If you are using an external Identity Provider (like EGI) instead of the local K
 
 **Why?** Keycloak needs to know which URLs are allowed to redirect and which domains can make API calls.
 
-1. Start Keycloak: `docker-compose up -d keycloak`
+1. Start Keycloak: `docker compose up -d keycloak`
 2. Access admin console: `http://your-server:8081`
-3. Login with credentials from your `.env` file
+3. Login with default credentials (`admin` / `admin`), or override via `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` in `.env.prod`
 4. Select **demo** realm from dropdown (top-left)
 5. Go to **Clients** → **react-oauth**
 6. Configure these settings:
@@ -144,6 +144,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Only needed if running a local Keycloak (development or self-hosted auth).
+    # For external IdPs (e.g. EGI), remove this block.
     location /auth/ {
         proxy_pass http://ocra-keycloak:8080/;
         proxy_set_header Host $host;
@@ -208,7 +210,7 @@ docker compose restart [service]
 docker compose exec postgres pg_dump -U postgres ocra_production > backup.sql
 
 # Update
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
 ## Notes

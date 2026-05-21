@@ -8,7 +8,7 @@ OCRA is developed within the frame of the [ECHOES project](https://www.echoes-ec
 ## Architecture (short)
 - Frontend: React + TypeScript (Vite), Bootstrap UI — dev server on `:3001`.
 - Backend: Node.js + Express; Prisma + PostgreSQL for application data (users, sessions, projects) — API on `:3002`.
-- Audit store: **MongoDB 8.0** (audit events including login/logout/file uploads stored in Mongo collection). Backend uses Prisma only to enrich audit documents with user info (read-only).
+- Audit store: **MongoDB 7.0** (audit events including login/logout/file uploads stored in Mongo collection). Backend uses Prisma only to enrich audit documents with user info (read-only).
 - Authentication: OAuth2 PKCE (Keycloak). Realm exports under `keycloak/realm-export/`.
 
 ## Run (quick)
