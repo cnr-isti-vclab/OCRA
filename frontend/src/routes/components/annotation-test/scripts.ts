@@ -114,6 +114,21 @@ export const ANNOTATION_TEST_SCRIPTS: AnnotationTestScript[] = [
     },
   },
   {
+    id: 'mark-first-link-non-erasable',
+    label: 'Mark first link non-erasable',
+    description: 'Marks the first link as non-erasable via the non-erasable transition.',
+    async run({ store, log }) {
+      const link = [...store.linksById.values()][0];
+      if (!link) {
+        log('No link in store', 'warning');
+        return;
+      }
+      log(`Marking link ${link.id} non-erasable (v${link.version})…`);
+      await store.markLinkNonErasable(link.id);
+      log('Link marked non-erasable', 'success');
+    },
+  },
+  {
     id: 'load-project-data',
     label: 'Load project data',
     description: 'On-demand project-wide data fetch merged into the store.',
