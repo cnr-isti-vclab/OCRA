@@ -67,7 +67,7 @@ export default function App() {
         <p className="text-muted mb-2">
           OCRA is an online platform for collaborative annotation and management of 3D assets, designed for conservation-restoration and heritage science workflows.
         </p>
-        <p className="text-secondary mb-2">Provider: {OAUTH_CONFIG.issuer} | Client: {OAUTH_CONFIG.clientId}</p>
+        <p className="text-secondary mb-2">Authentication Provider: {OAUTH_CONFIG.issuer} </p>
         {error && <p className="text-danger">Error: {error}</p>}
         <button className="btn btn-primary fw-bold px-4" onClick={() => startAuthFlow()}>Login</button>
       </Card>
