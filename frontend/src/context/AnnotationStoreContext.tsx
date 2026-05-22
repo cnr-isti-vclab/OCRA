@@ -19,6 +19,12 @@ import type {
 } from 'shared/annotation-types';
 import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
 import {
+  createEmptyActiveSelection,
+  EMPTY_SELECTION_CRITERIA,
+  type ActiveAnnotationSelection,
+  type SelectionCriteria,
+} from '../stores/annotation-selection';
+import {
   AnnotationStore,
   createAnnotationStore,
   type CreateAnnotationInput,
@@ -34,12 +40,20 @@ export interface AnnotationStoreLogEntry {
   message: string;
 }
 
-interface AnnotationStoreContextValue {
+export interface AnnotationStoreContextValue {
   store: AnnotationStore | null;
   revision: number;
-  geometries: AnnotationGeometry[];
-  data: AnnotationData[];
-  links: AnnotationLink[];
+  /** Full loaded store snapshot (scene + merged project data). */
+  allGeometries: AnnotationGeometry[];
+  allData: AnnotationData[];
+  allLinks: AnnotationLink[];
+  /** Query-filtered active sets for viewer (geometries) and panel (data). */
+  activeGeometries: AnnotationGeometry[];
+  activeData: AnnotationData[];
+  activeLinks: AnnotationLink[];
+  activeAnnotationSelection: ActiveAnnotationSelection;
+  currentSelectionCriteria: Readonly<SelectionCriteria>;
+  selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
   realtimeState: AnnotationRealtimeState;
   loadingAdditionalData: boolean;
   creating: boolean;
@@ -50,6 +64,12 @@ interface AnnotationStoreContextValue {
   updateData: (dataId: string, input: UpdateDataInput) => Promise<void>;
   createAnnotation: (input: CreateAnnotationInput) => Promise<void>;
   loadProjectData: () => Promise<void>;
+  markGeometryErasable: (geometryId: string) => Promise<void>;
+  markGeometryNonErasable: (geometryId: string) => Promise<void>;
+  markDataErasable: (dataId: string) => Promise<void>;
+  markDataNonErasable: (dataId: string) => Promise<void>;
+  markLinkErasable: (linkId: string) => Promise<void>;
+  markLinkNonErasable: (linkId: string) => Promise<void>;
 }
 
 const AnnotationStoreContext = createContext<AnnotationStoreContextValue | undefined>(undefined);
@@ -160,18 +180,45 @@ export function AnnotationStoreProvider({
 
   const store = storeRef.current;
 
-  const geometries = useMemo(
+  const allGeometries = useMemo(
     () => (store ? [...store.geometriesById.values()] : []),
     [store, revision],
   );
-  const data = useMemo(
+  const allData = useMemo(
     () => (store ? [...store.dataById.values()] : []),
     [store, revision],
   );
-  const links = useMemo(
+  const allLinks = useMemo(
     () => (store ? [...store.linksById.values()] : []),
     [store, revision],
   );
+
+  const activeAnnotationSelection = useMemo(
+    () => store?.activeAnnotationSelection ?? createEmptyActiveSelection(),
+    [store, revision],
+  );
+
+  const currentSelectionCriteria = useMemo(
+    () => store?.currentSelectionCriteria ?? EMPTY_SELECTION_CRITERIA,
+    [store, revision],
+  );
+
+  const activeGeometries = useMemo(
+    () => [...activeAnnotationSelection.geometriesById.values()],
+    [activeAnnotationSelection],
+  );
+  const activeData = useMemo(
+    () => [...activeAnnotationSelection.dataById.values()],
+    [activeAnnotationSelection],
+  );
+  const activeLinks = useMemo(
+    () => [...activeAnnotationSelection.linksById.values()],
+    [activeAnnotationSelection],
+  );
+
+  const selectActiveAnnotations = useCallback((criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA) => {
+    storeRef.current?.selectActiveAnnotations(criteria);
+  }, []);
 
   const loadScene = useCallback(async (nextSceneId: string) => {
     const current = storeRef.current;
@@ -198,12 +245,42 @@ export function AnnotationStoreProvider({
     await storeRef.current?.loadProjectData();
   }, []);
 
+  const markGeometryErasable = useCallback(async (geometryId: string) => {
+    await storeRef.current?.markGeometryErasable(geometryId);
+  }, []);
+
+  const markGeometryNonErasable = useCallback(async (geometryId: string) => {
+    await storeRef.current?.markGeometryNonErasable(geometryId);
+  }, []);
+
+  const markDataErasable = useCallback(async (dataId: string) => {
+    await storeRef.current?.markDataErasable(dataId);
+  }, []);
+
+  const markDataNonErasable = useCallback(async (dataId: string) => {
+    await storeRef.current?.markDataNonErasable(dataId);
+  }, []);
+
+  const markLinkErasable = useCallback(async (linkId: string) => {
+    await storeRef.current?.markLinkErasable(linkId);
+  }, []);
+
+  const markLinkNonErasable = useCallback(async (linkId: string) => {
+    await storeRef.current?.markLinkNonErasable(linkId);
+  }, []);
+
   const value: AnnotationStoreContextValue = {
     store,
     revision,
-    geometries,
-    data,
-    links,
+    allGeometries,
+    allData,
+    allLinks,
+    activeGeometries,
+    activeData,
+    activeLinks,
+    activeAnnotationSelection,
+    currentSelectionCriteria,
+    selectActiveAnnotations,
     realtimeState,
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,
@@ -214,6 +291,12 @@ export function AnnotationStoreProvider({
     updateData,
     createAnnotation,
     loadProjectData,
+    markGeometryErasable,
+    markGeometryNonErasable,
+    markDataErasable,
+    markDataNonErasable,
+    markLinkErasable,
+    markLinkNonErasable,
   };
 
   return (

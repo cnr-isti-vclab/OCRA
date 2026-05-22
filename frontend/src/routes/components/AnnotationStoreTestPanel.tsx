@@ -1,9 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useAnnotationStore, type AnnotationStoreLogEntry } from '../../context/AnnotationStoreContext';
+import { EMPTY_SELECTION_CRITERIA } from '../../stores/annotation-selection';
 import {
   ANNOTATION_TEST_SCRIPTS,
   type AnnotationTestLogTone,
 } from './annotation-test/scripts';
+
+function isDefaultSelectionCriteria(criteria: object): boolean {
+  return Object.keys(criteria).length === 0;
+}
 
 function toneBadgeClass(tone: AnnotationStoreLogEntry['tone']) {
   switch (tone) {
@@ -26,9 +31,14 @@ function formatTime(timestamp: string) {
 export default function AnnotationStoreTestPanel() {
   const {
     store,
-    geometries,
-    data,
-    links,
+    allGeometries,
+    allData,
+    allLinks,
+    activeGeometries,
+    activeData,
+    activeLinks,
+    currentSelectionCriteria,
+    selectActiveAnnotations,
     realtimeState,
     loadingAdditionalData,
     creating,
@@ -91,6 +101,22 @@ export default function AnnotationStoreTestPanel() {
     appendScriptLog('Scene reload finished', 'success');
   };
 
+  const resetActiveFilter = () => {
+    selectActiveAnnotations(EMPTY_SELECTION_CRITERIA);
+    appendScriptLog('Active filter reset to {} (all loaded entities)', 'success');
+  };
+
+  const criteriaSummary = useMemo(() => {
+    if (isDefaultSelectionCriteria(currentSelectionCriteria)) {
+      return 'default {} — all loaded entities active';
+    }
+    try {
+      return JSON.stringify(currentSelectionCriteria);
+    } catch {
+      return '(non-serializable criteria)';
+    }
+  }, [currentSelectionCriteria]);
+
   return (
     <div className="h-100 d-flex flex-column p-3 overflow-hidden">
       <div className="d-flex justify-content-between align-items-start gap-3 mb-3 flex-shrink-0">
@@ -113,10 +139,30 @@ export default function AnnotationStoreTestPanel() {
             </div>
             <div className="card-body py-2 small">
               <div>Scene: <code>{store?.sceneScopeId ?? '—'}</code></div>
-              <div>Geometries: {geometries.length}</div>
-              <div>Data: {data.length}</div>
-              <div>Links: {links.length}</div>
-              <div>Creating: {creating ? 'yes' : 'no'}</div>
+              <div className="mt-2">
+                <strong className="d-block">Loaded (all)</strong>
+                <div>Geometries: {allGeometries.length}</div>
+                <div>Data: {allData.length}</div>
+                <div>Links: {allLinks.length}</div>
+              </div>
+              <div className="mt-2">
+                <strong className="d-block">Active (query filter)</strong>
+                <div>Geometries: {activeGeometries.length}</div>
+                <div>Data: {activeData.length}</div>
+                <div>Links: {activeLinks.length}</div>
+              </div>
+              <div className="mt-2 text-muted">
+                Filter: <code className="user-select-all">{criteriaSummary}</code>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm mt-2"
+                onClick={resetActiveFilter}
+                disabled={!store || isDefaultSelectionCriteria(currentSelectionCriteria)}
+              >
+                Reset filter to {'{}'}
+              </button>
+              <div className="mt-2">Creating: {creating ? 'yes' : 'no'}</div>
               <div>Loading project data: {loadingAdditionalData ? 'yes' : 'no'}</div>
             </div>
           </div>
