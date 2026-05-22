@@ -16,14 +16,30 @@ import {
   type AnnotationSceneBundle,
 } from '../services/AnnotationApiClient';
 import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
+import {
+  createEmptyActiveSelection,
+  EMPTY_SELECTION_CRITERIA,
+  evaluateActiveSelection,
+  getActiveGeometriesForData,
+  getActiveResolvedTriples,
+  AnnotationStoreMaps,
+  type ActiveAnnotationSelection,
+  type SelectionCriteria,
+} from './annotation-selection';
 
 export type AnnotationEntityKind = 'geometry' | 'data' | 'link';
 
-export interface AnnotationStoreMaps {
-  geometries: Map<string, AnnotationGeometry>;
-  data: Map<string, AnnotationData>;
-  links: Map<string, AnnotationLink>;
-}
+export type {
+  ActiveAnnotationSelection,
+  AnnotationStoreMaps,
+  DataPredicate,
+  GeometryPredicate,
+  GeometryLabelDisplay,
+  LinkPredicate,
+  LinkPresence,
+  SelectionCriteria,
+  SelectionLinkMode,
+} from './annotation-selection';
 
 export interface AnnotationStoreMeta {
   loadedDataScopes: Set<string>;
@@ -101,6 +117,8 @@ export class AnnotationStore {
 
   private client: AnnotationApiClient;
   private sceneId: string;
+  private selectionCriteria: SelectionCriteria = { ...EMPTY_SELECTION_CRITERIA };
+  private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
 
   constructor(
     private readonly projectId: string,
@@ -145,6 +163,31 @@ export class AnnotationStore {
 
   get sceneScopeId(): string {
     return this.sceneId;
+  }
+
+  get currentSelectionCriteria(): Readonly<SelectionCriteria> {
+    return this.selectionCriteria;
+  }
+
+  get activeAnnotationSelection(): Readonly<ActiveAnnotationSelection> {
+    return this.activeSelection;
+  }
+
+  /**
+   * Sets the query filter for active geometries, data, and links.
+   * Re-evaluates immediately against the current store snapshot.
+   */
+  selectActiveAnnotations(criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA): void {
+    this.selectionCriteria = { ...criteria };
+    this.bump();
+  }
+
+  getActiveResolvedTriples(): ReturnType<typeof getActiveResolvedTriples> {
+    return getActiveResolvedTriples(this.getStoreMaps(), this.activeSelection);
+  }
+
+  getActiveGeometriesForData(dataId: string): AnnotationGeometry[] {
+    return getActiveGeometriesForData(this.activeSelection)(dataId);
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -227,6 +270,8 @@ export class AnnotationStore {
       allProjectDataLoaded: false,
     };
     this.isLoadingAdditionalData = false;
+    this.selectionCriteria = { ...EMPTY_SELECTION_CRITERIA };
+    this.activeSelection = createEmptyActiveSelection();
     if (hadPending) {
       this.callbacks.onEditsCancelled();
     }
@@ -848,7 +893,24 @@ export class AnnotationStore {
     }
   }
 
+  private getStoreMaps(): AnnotationStoreMaps {
+    return {
+      geometries: this.geometryMap,
+      data: this.dataMap,
+      links: this.linkMap,
+    };
+  }
+
+  private recomputeActiveSelection(): void {
+    this.activeSelection = evaluateActiveSelection(
+      this.getStoreMaps(),
+      this.sceneId,
+      this.selectionCriteria,
+    );
+  }
+
   private bump(): void {
+    this.recomputeActiveSelection();
     this.callbacks.onUpdate();
   }
 }
