@@ -40,7 +40,18 @@ export interface AnnotationStoreLogEntry {
   message: string;
 }
 
-export interface AnnotationStoreContextValue {
+export interface AnnotationFocusState {
+  focusedGeometryId: string | null;
+  focusedDataIds: ReadonlySet<string>;
+  setFocusedGeometryId: (geometryId: string | null) => void;
+  setFocusedDataIds: (dataIds: Iterable<string>) => void;
+  focusData: (dataId: string, multiSelect: boolean) => void;
+  clearFocus: () => void;
+  isDataFocused: (dataId: string) => boolean;
+  isGeometryFocused: (geometryId: string) => boolean;
+}
+
+export interface AnnotationStoreContextValue extends AnnotationFocusState {
   store: AnnotationStore | null;
   revision: number;
   /** Full loaded store snapshot (scene + merged project data). */
@@ -104,6 +115,51 @@ export function AnnotationStoreProvider({
 
   const bump = useCallback(() => setRevision((r) => r + 1), []);
   const clearEventLog = useCallback(() => setEventLog([]), []);
+
+  const [focusedGeometryId, setFocusedGeometryIdState] = useState<string | null>(null);
+  const [focusedDataIds, setFocusedDataIdsState] = useState<ReadonlySet<string>>(() => new Set());
+
+  const setFocusedGeometryId = useCallback((geometryId: string | null) => {
+    setFocusedGeometryIdState(geometryId);
+  }, []);
+
+  const setFocusedDataIds = useCallback((dataIds: Iterable<string>) => {
+    setFocusedDataIdsState(new Set(dataIds));
+  }, []);
+
+  const focusData = useCallback((dataId: string, multiSelect: boolean) => {
+    setFocusedDataIdsState((prev) => {
+      if (multiSelect) {
+        const next = new Set(prev);
+        if (next.has(dataId)) {
+          next.delete(dataId);
+        } else {
+          next.add(dataId);
+        }
+        return next;
+      }
+      return new Set([dataId]);
+    });
+  }, []);
+
+  const clearFocus = useCallback(() => {
+    setFocusedGeometryIdState(null);
+    setFocusedDataIdsState(new Set());
+  }, []);
+
+  const isDataFocused = useCallback(
+    (dataId: string) => focusedDataIds.has(dataId),
+    [focusedDataIds],
+  );
+
+  const isGeometryFocused = useCallback(
+    (geometryId: string) => focusedGeometryId === geometryId,
+    [focusedGeometryId],
+  );
+
+  useEffect(() => {
+    clearFocus();
+  }, [sceneId, clearFocus]);
 
   useEffect(() => {
     if (!projectId || !sceneId) {
@@ -270,6 +326,14 @@ export function AnnotationStoreProvider({
   }, []);
 
   const value: AnnotationStoreContextValue = {
+    focusedGeometryId,
+    focusedDataIds,
+    setFocusedGeometryId,
+    setFocusedDataIds,
+    focusData,
+    clearFocus,
+    isDataFocused,
+    isGeometryFocused,
     store,
     revision,
     allGeometries,

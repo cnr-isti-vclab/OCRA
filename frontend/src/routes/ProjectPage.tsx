@@ -10,12 +10,11 @@ import { getApiBase } from '../config/oauth';
 import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
-import { AnnotationProvider } from '../context/AnnotationContext';
 import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
 import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import AnnotationPanel from './components/AnnotationPanel';
-import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
+import type { SceneDescription } from 'shared/scene-types';
 
 interface Project {
   id: string;
@@ -1526,21 +1525,7 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    <AnnotationPanel
-                      onSelectionChanged={(selectedIds) => {
-                        // Notify the active viewer about selection changes
-                        if (mode === '3d' && viewerRef.current) {
-                          const annotationMgr = viewerRef.current.getAnnotationManager();
-                          if (annotationMgr) {
-                            annotationMgr.clearSelection();
-                            annotationMgr.select(selectedIds, false);
-                          }
-                        } else if (mode === '2d' && openLimeRef.current) {
-                          // For 2D viewer, if needed
-                          console.log('2D viewer selection update:', selectedIds);
-                        }
-                      }}
-                    />
+                    <AnnotationPanel />
                   </div>
                 )}
               </div>
@@ -1550,11 +1535,7 @@ export default function ProjectPage() {
       </div>
   );
 
-  if (annotationTestMode) {
-    if (!projectId || !selectedSceneId) {
-      return projectPageBody;
-    }
-
+  if (projectId && selectedSceneId && (annotationTestMode || mode === '3d' || mode === '2d')) {
     return (
       <AnnotationStoreProvider projectId={projectId} sceneId={selectedSceneId}>
         {projectPageBody}
@@ -1562,15 +1543,5 @@ export default function ProjectPage() {
     );
   }
 
-  return (
-    <AnnotationProvider
-      projectId={projectId || ''}
-      selectedSceneId={selectedSceneId || ''}
-      sceneDesc={sceneDesc}
-      user={user}
-      reloadScene={loadSelectedScene}
-    >
-      {projectPageBody}
-    </AnnotationProvider>
-  );
+  return projectPageBody;
 }

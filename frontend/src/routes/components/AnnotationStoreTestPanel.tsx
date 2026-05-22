@@ -106,6 +106,11 @@ export default function AnnotationStoreTestPanel() {
     appendScriptLog('Active filter reset to {} (all loaded entities)', 'success');
   };
 
+  const applyDemoFilter = () => {
+    selectActiveAnnotations({ includeErasable: false });
+    appendScriptLog('Demo filter: includeErasable=false (non-erasable only)', 'success');
+  };
+
   const criteriaSummary = useMemo(() => {
     if (isDefaultSelectionCriteria(currentSelectionCriteria)) {
       return 'default {} — all loaded entities active';
@@ -154,14 +159,24 @@ export default function AnnotationStoreTestPanel() {
               <div className="mt-2 text-muted">
                 Filter: <code className="user-select-all">{criteriaSummary}</code>
               </div>
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm mt-2"
-                onClick={resetActiveFilter}
-                disabled={!store || isDefaultSelectionCriteria(currentSelectionCriteria)}
-              >
-                Reset filter to {'{}'}
-              </button>
+              <div className="d-flex flex-wrap gap-2 mt-2">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={applyDemoFilter}
+                  disabled={!store}
+                >
+                  Demo: non-erasable only
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={resetActiveFilter}
+                  disabled={!store || isDefaultSelectionCriteria(currentSelectionCriteria)}
+                >
+                  Reset filter to {'{}'}
+                </button>
+              </div>
               <div className="mt-2">Creating: {creating ? 'yes' : 'no'}</div>
               <div>Loading project data: {loadingAdditionalData ? 'yes' : 'no'}</div>
             </div>
