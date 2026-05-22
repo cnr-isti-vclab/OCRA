@@ -5,7 +5,8 @@ import type { SceneDescription } from '../../../../shared/scene-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import {
   activeGeometriesToViewerAnnotations,
-  geometryIdsForFocusedData,
+  dataIdsForFocusedGeometries,
+  getViewerHighlightGeometryIds,
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 
 interface Viewer3DPanelProps {
@@ -38,8 +39,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       activeGeometries,
       activeAnnotationSelection,
       focusedDataIds,
-      focusedGeometryId,
-      setFocusedGeometryId,
+      focusedGeometryIds,
+      setFocusedGeometryIds,
       setFocusedDataIds,
       createAnnotation,
     } = useAnnotationStore();
@@ -57,8 +58,13 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     );
 
     const highlightGeometryIds = useMemo(
-      () => geometryIdsForFocusedData(focusedDataIds, activeAnnotationSelection),
-      [focusedDataIds, activeAnnotationSelection],
+      () =>
+        getViewerHighlightGeometryIds(
+          focusedGeometryIds,
+          focusedDataIds,
+          activeAnnotationSelection,
+        ),
+      [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
     );
 
     useEffect(() => {
@@ -113,20 +119,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         if (!annotationMgr) {
           return;
         }
-        const ids =
-          highlightGeometryIds.length > 0
-            ? highlightGeometryIds
-            : focusedGeometryId
-              ? [focusedGeometryId]
-              : [];
         annotationMgr.clearSelection();
-        if (ids.length > 0) {
-          annotationMgr.select(ids, false);
+        if (highlightGeometryIds.length > 0) {
+          annotationMgr.select(highlightGeometryIds, false);
         }
       } catch {
         // ignore
       }
-    }, [highlightGeometryIds, focusedGeometryId, ref]);
+    }, [highlightGeometryIds, ref]);
 
     // Viewer pick → geometry / linked data focus
     useEffect(() => {
@@ -147,21 +147,17 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           }
           prevSelectedRef.current = selectedIds;
 
-          const geometryId = selectedIds[0] ?? null;
-          setFocusedGeometryId(geometryId);
-          if (geometryId) {
-            const linkedData = activeAnnotationSelection.dataIdsByGeometryId.get(geometryId) ?? [];
-            setFocusedDataIds(linkedData);
-          } else {
-            setFocusedDataIds([]);
-          }
+          setFocusedGeometryIds(selectedIds);
+          setFocusedDataIds(
+            dataIdsForFocusedGeometries(selectedIds, activeAnnotationSelection),
+          );
         } catch {
           // ignore
         }
       }, 200);
 
       return () => clearInterval(interval);
-    }, [ref, setFocusedGeometryId, setFocusedDataIds, activeAnnotationSelection]);
+    }, [ref, setFocusedGeometryIds, setFocusedDataIds, activeAnnotationSelection]);
 
     if (!sceneDesc) {
       return (

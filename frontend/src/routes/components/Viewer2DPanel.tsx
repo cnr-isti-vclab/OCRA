@@ -5,7 +5,8 @@ import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import {
   activeGeometriesToViewerAnnotations,
-  geometryIdsForFocusedData,
+  dataIdsForFocusedGeometries,
+  getViewerHighlightGeometryIds,
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
 import { syncOpenLimeAnnotations } from '../../adapters/annotation-store/syncOpenLimeAnnotations';
@@ -29,8 +30,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       activeAnnotationSelection,
       revision,
       focusedDataIds,
-      focusedGeometryId,
-      setFocusedGeometryId,
+      focusedGeometryIds,
+      setFocusedGeometryIds,
       setFocusedDataIds,
       createAnnotation,
       updateGeometry,
@@ -51,8 +52,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     );
 
     const highlightGeometryIds = useMemo(
-      () => geometryIdsForFocusedData(focusedDataIds, activeAnnotationSelection),
-      [focusedDataIds, activeAnnotationSelection],
+      () =>
+        getViewerHighlightGeometryIds(
+          focusedGeometryIds,
+          focusedDataIds,
+          activeAnnotationSelection,
+        ),
+      [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
     );
 
     const handleAnnotationCreated = (anno: ViewerAnnotation) => {
@@ -89,14 +95,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         isProgrammaticSelectionRef.current--;
         return;
       }
-      const geometryId = ids[0] ?? null;
-      setFocusedGeometryId(geometryId);
-      if (geometryId) {
-        const linkedData = activeAnnotationSelection.dataIdsByGeometryId.get(geometryId) ?? [];
-        setFocusedDataIds(linkedData);
-      } else {
-        setFocusedDataIds([]);
-      }
+      setFocusedGeometryIds(ids);
+      setFocusedDataIds(dataIdsForFocusedGeometries(ids, activeAnnotationSelection));
     };
 
     useEffect(() => {
@@ -121,29 +121,22 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      const ids =
-        highlightGeometryIds.length > 0
-          ? highlightGeometryIds
-          : focusedGeometryId
-            ? [focusedGeometryId]
-            : [];
-
       isProgrammaticSelectionRef.current += 1;
       const manager = annotationManager as typeof annotationManager & {
         setSelectedIds?: (ids: string[]) => void;
       };
       if (typeof manager.setSelectedIds === 'function') {
-        manager.setSelectedIds(ids);
-      } else if (ids.length > 0) {
+        manager.setSelectedIds(highlightGeometryIds);
+      } else if (highlightGeometryIds.length > 0) {
         annotationManager._mode = 'edit';
         annotationManager.deselectAll();
-        ids.forEach((id) => {
+        highlightGeometryIds.forEach((id) => {
           annotationManager.setSelected(id, true);
         });
       } else {
         annotationManager.deselectAll();
       }
-    }, [highlightGeometryIds, focusedGeometryId, ref]);
+    }, [highlightGeometryIds, ref]);
 
     if (!rtiAvailable) {
       return (

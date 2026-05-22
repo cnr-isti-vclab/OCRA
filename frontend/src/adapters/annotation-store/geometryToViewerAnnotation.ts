@@ -97,3 +97,32 @@ export function geometryIdsForFocusedData(
   }
   return [...out];
 }
+
+/** Data ids linked to any of the given geometry ids (deduplicated). */
+export function dataIdsForFocusedGeometries(
+  geometryIds: Iterable<string>,
+  selection: ActiveAnnotationSelection,
+): string[] {
+  const out = new Set<string>();
+  for (const geometryId of geometryIds) {
+    for (const dataId of selection.dataIdsByGeometryId.get(geometryId) ?? []) {
+      out.add(dataId);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Viewer highlight targets: geometry-led focus wins over panel data focus.
+ * Panel multi-data → many geometries; viewer multi-geometry → those ids exactly.
+ */
+export function getViewerHighlightGeometryIds(
+  focusedGeometryIds: ReadonlySet<string>,
+  focusedDataIds: ReadonlySet<string>,
+  selection: ActiveAnnotationSelection,
+): string[] {
+  if (focusedGeometryIds.size > 0) {
+    return [...focusedGeometryIds];
+  }
+  return geometryIdsForFocusedData(focusedDataIds, selection);
+}

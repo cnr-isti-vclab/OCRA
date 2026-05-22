@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
-import { geometryIdsForFocusedData } from '../../adapters/annotation-store/geometryToViewerAnnotation';
+import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 
 interface AnnotationPanelProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
@@ -103,6 +103,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   const {
     activeData,
     activeAnnotationSelection,
+    focusedGeometryIds,
     focusedDataIds,
     focusData,
     clearFocus,
@@ -140,9 +141,15 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
   useEffect(() => {
     if (onSelectionChanged) {
-      onSelectionChanged(geometryIdsForFocusedData(focusedDataIds, activeAnnotationSelection));
+      onSelectionChanged(
+        getViewerHighlightGeometryIds(
+          focusedGeometryIds,
+          focusedDataIds,
+          activeAnnotationSelection,
+        ),
+      );
     }
-  }, [focusedDataIds, activeAnnotationSelection, onSelectionChanged]);
+  }, [focusedGeometryIds, focusedDataIds, activeAnnotationSelection, onSelectionChanged]);
 
   const handleDataClick = (dataId: string, e: React.MouseEvent) => {
     focusData(dataId, e.ctrlKey || e.metaKey);
