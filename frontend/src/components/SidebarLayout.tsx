@@ -70,7 +70,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     if (!currentProjectId) { setProjectName(null); setHas3d(null); setHas2d(null); return; }
     fetch(`${getApiBase()}/api/projects/${currentProjectId}`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(data => setProjectName(data?.name ?? null))
+      .then(data => setProjectName(data?.project?.name ?? data?.name ?? null))
       .catch(() => setProjectName(null));
     fetch(`${getApiBase()}/api/projects/${currentProjectId}/hdt`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
