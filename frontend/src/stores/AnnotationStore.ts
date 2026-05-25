@@ -414,7 +414,6 @@ export class AnnotationStore {
       }
       created.geometry = geometry;
       this.geometryMap.set(geometry.id, geometry);
-      this.bump();
 
       let datum: AnnotationData;
       if (existingDatum) {
@@ -434,7 +433,6 @@ export class AnnotationStore {
         }
         created.datum = datum;
         this.dataMap.set(datum.id, datum);
-        this.bump();
       }
 
       const link = await this.client.createLink({

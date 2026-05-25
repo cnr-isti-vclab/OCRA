@@ -9,6 +9,7 @@ import {
   getViewerHighlightGeometryIds,
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
+import { applyViewerSelectionFromStore } from '../../adapters/annotation-store/openlimeSelectionMode';
 import { syncOpenLimeAnnotations } from '../../adapters/annotation-store/syncOpenLimeAnnotations';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
 
@@ -33,6 +34,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       focusedGeometryIds,
       setFocusedGeometryIds,
       setFocusedDataIds,
+      clearFocus,
       createAnnotation,
       updateGeometry,
     } = useAnnotationStore();
@@ -95,6 +97,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         isProgrammaticSelectionRef.current--;
         return;
       }
+      if (ids.length === 0) {
+        clearFocus();
+        return;
+      }
       setFocusedGeometryIds(ids);
       setFocusedDataIds(dataIdsForFocusedGeometries(ids, activeAnnotationSelection));
     };
@@ -120,23 +126,23 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (!annotationManager) {
         return;
       }
-
-      isProgrammaticSelectionRef.current += 1;
-      const manager = annotationManager as typeof annotationManager & {
-        setSelectedIds?: (ids: string[]) => void;
-      };
-      if (typeof manager.setSelectedIds === 'function') {
-        manager.setSelectedIds(highlightGeometryIds);
-      } else if (highlightGeometryIds.length > 0) {
-        annotationManager._mode = 'edit';
+      if (highlightGeometryIds.length === 0 && focusedDataIds.size === 0) {
+        isProgrammaticSelectionRef.current += 1;
         annotationManager.deselectAll();
-        highlightGeometryIds.forEach((id) => {
-          annotationManager.setSelected(id, true);
-        });
-      } else {
-        annotationManager.deselectAll();
+        return;
       }
-    }, [highlightGeometryIds, ref]);
+
+      if (highlightGeometryIds.length === 0) {
+        return;
+      }
+      annotationManager._mode = 'edit'; // Without this, panel selection does not work, if not already in edit mode
+      isProgrammaticSelectionRef.current += 1;
+      applyViewerSelectionFromStore(
+        annotationManager,
+        highlightGeometryIds,
+        //viewerAnnotationsForSync,
+      );
+    }, [highlightGeometryIds, focusedDataIds, viewerAnnotationsForSync, ref]);
 
     if (!rtiAvailable) {
       return (
