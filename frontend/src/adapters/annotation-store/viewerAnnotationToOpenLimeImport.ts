@@ -101,12 +101,48 @@ export function viewerGeometryMatchesOpenLime(
   return verticesKey(expected) === verticesKey(actual);
 }
 
+/** Default screen-px vertex radius (OpenLIME PolylineMarker default); scaled on prefetch. */
+const DEFAULT_VERTEX_DOT_R = 5;
+
+function vertexHandleDots(vertices: [number, number, number][]): string {
+  return vertices
+    .map(
+      (v) =>
+        `<circle class="annotation-vertex-dot" cx="${v[0]}" cy="${v[1]}" r="${DEFAULT_VERTEX_DOT_R}" fill="#fff" stroke="#333" stroke-width="${DEFAULT_VERTEX_DOT_R * 0.4}" style="cursor: grab"/>`,
+    )
+    .join('');
+}
+
+/**
+ * SVG aligned with OpenLIME PolylineMarker after finalize: shape, hit target, vertex handles.
+ * Handles start hidden; ManagerSvgAnnotation shows them on selection.
+ */
 function buildPolylineSvg(vertices: [number, number, number][], closed: boolean): string {
   const points = pointsAttr(vertices);
   const stroke = closed ? '#00aaff' : '#22bb55';
   const fill = closed ? 'rgba(0,160,255,0.3)' : 'none';
   const hitFill = closed ? 'transparent' : 'none';
-  return `<g xmlns="http://www.w3.org/2000/svg"><polyline class="annotation-polyline" points="${points}" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="${fill}" opacity="1"/><polyline class="annotation-polyline-hit" points="${points}" stroke="transparent" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="${hitFill}"/></g>`;
+  const shapeTag = closed ? 'polygon' : 'polyline';
+  const handles = vertexHandleDots(vertices);
+  return `<g xmlns="http://www.w3.org/2000/svg"><${shapeTag} class="annotation-polyline" points="${points}" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="${fill}" opacity="1"/><${shapeTag} class="annotation-polyline-hit" points="${points}" stroke="transparent" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="${hitFill}"/><g class="annotation-vertex-handles" visibility="hidden">${handles}</g></g>`;
+}
+
+/** Store-synced polylines need vertex handles for OpenLIME drag editing. */
+export function openLimePolylineHasVertexHandles(anno: {
+  type?: string;
+  data?: { _markerPoints?: OpenLimePoint[] };
+  elements?: Array<{ classList?: { contains: (c: string) => boolean } }>;
+}): boolean {
+  if (anno.type === 'point' || anno.type === 'disk') {
+    return true;
+  }
+  if (!anno.data?._markerPoints?.length) {
+    return false;
+  }
+  return (
+    anno.elements?.some((el) => el.classList?.contains('annotation-vertex-handles')) ??
+    false
+  );
 }
 
 /**

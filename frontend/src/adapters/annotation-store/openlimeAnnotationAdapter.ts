@@ -2,6 +2,7 @@ import type { ViewerAnnotation } from 'shared/scene-types';
 import {
   applyOpenLimeImportMetadata,
   type OpenLimeJsonLdImportEntry,
+  openLimePolylineHasVertexHandles,
   viewerAnnotationToOpenLimeJsonLd,
   viewerGeometryMatchesOpenLime,
 } from './viewerAnnotationToOpenLimeImport';
@@ -98,10 +99,11 @@ export function syncOpenLimeAnnotations(
 
     if (existing) {
       const geometryStale =
-        viewerAnno.type !== 'point' &&
         !viewerGeometryMatchesOpenLime(viewerAnno, existing);
+      const handlesMissing =
+        viewerAnno.type !== 'point' && !openLimePolylineHasVertexHandles(existing);
 
-      if (geometryStale) {
+      if (geometryStale || handlesMissing) {
         manager.deleteAnnotation(viewerAnno.id);
         existing = null;
       } else if (viewerAnno.label && existing.label !== viewerAnno.label) {
