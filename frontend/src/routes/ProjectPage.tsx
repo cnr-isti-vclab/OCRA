@@ -12,6 +12,7 @@ import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanel from './components/AnnotationPanel';
 import type { SceneDescription, ViewerAnnotation } from 'shared/scene-types';
 
@@ -89,6 +90,8 @@ export default function ProjectPage() {
     sceneId: selectedSceneId,
     enabled: !!projectId,
   });
+  const { getProjectLockState } = useProjectStructuringLock();
+  const hasExclusiveLock = getProjectLockState(projectId).hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
   const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
   const projectLockBadgeLabel = structuringInProgress ? 'Structuring...' : 'Project lock available';
@@ -385,7 +388,7 @@ export default function ProjectPage() {
   };
 
   // Save edited model properties
-  const saveModelProperties = async (modelId: string, fileName: string) => {
+  const saveModelProperties = async (modelId: string, _fileName: string) => {
     setSaveError(null);
     try {
       // Parse the input values
@@ -414,76 +417,50 @@ export default function ProjectPage() {
         }
       }
 
-      // Update the scene description
-      const updatedScene = { ...sceneDesc } as SceneDescription;
-      if (!updatedScene.models) updatedScene.models = [];
-
-      // Ensure rotation units are specified as degrees
-      updatedScene.rotationUnits = 'deg';
-
-      // Find or create the model entry - improved HDT-compatible matching
-      let modelIndex = updatedScene.models.findIndex((m: any) => {
-        // Direct ID match
-        if (m.id === modelId) return true;
-        // Legacy direct file match
-        if (m.file === fileName) return true;
-        // HDT URL matching: check if URL ends with filename
-        if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
-        return false;
-      });
-      if (modelIndex === -1) {
-        // Only create new model if no existing model found
-        // This should NOT happen with HDT scenes, but keep as fallback
-        console.warn(`⚠️ Creating new model entry for ${modelId}/${fileName} - this may indicate a matching issue`);
-        updatedScene.models.push({
-          id: modelId,
-          file: fileName,
-          ...(position && { position }),
-          ...(rotation && { rotation }),
-          ...(scale !== undefined && { scale })
-        });
-      } else {
-        // Update existing model
-        const model = updatedScene.models[modelIndex] as any;
-        if (position) model.position = position;
-        else delete model.position;
-
-        if (rotation) model.rotation = rotation;
-        else delete model.rotation;
-
-        if (scale !== undefined) model.scale = scale;
-        else delete model.scale;
-      }
-
       // Ensure HDT document exists before saving
       if (!await ensureHDTDocument(projectId!)) {
         throw new Error('Failed to ensure HDT document exists');
       }
 
-      // Save to backend using HDT scenes endpoint
-      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      });
+      // Build asset update payload (rotation stored in degrees; backend's generateSceneFile
+      // returns rotationUnits: 'deg' so three-presenter converts correctly on reload)
+      const assetUpdate: Record<string, any> = {};
+      if (position) assetUpdate.position = position;
+      if (rotation) assetUpdate.rotation = rotation;
+      if (scale !== undefined) assetUpdate.scale = scale;
+
+      // Save to the asset-specific endpoint so the update lands in scene.assets[]
+      // (the canonical storage read by generateSceneFile), not as an alien field.
+      const response = await fetch(
+        `${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}/assets/${modelId}`,
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assetUpdate)
+        }
+      );
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to save changes');
       }
 
-      // Update local state
-      setSceneDesc(updatedScene);
+      // Update local sceneDesc so the viewer reflects the change without a full reload
+      if (sceneDesc) {
+        const updatedModels = (sceneDesc.models || []).map((m: any) => {
+          if (m.id !== modelId) return m;
+          const updated = { ...m };
+          if (position) updated.position = position; else delete updated.position;
+          if (rotation) updated.rotation = rotation; else delete updated.rotation;
+          if (scale !== undefined) updated.scale = scale; else delete updated.scale;
+          return updated;
+        });
+        setSceneDesc({ ...sceneDesc, models: updatedModels } as SceneDescription);
+      }
 
       // Exit edit mode
       setEditingModelId(null);
-
-      // Reload the scene in the viewer without resetting camera
-      if (viewerRef.current) {
-        // The viewer will reload with the updated scene description
-        // Camera position is preserved since we're not reloading the page
-      }
 
     } catch (err: any) {
       setSaveError(err?.message || 'Failed to save changes');
@@ -1155,7 +1132,8 @@ export default function ProjectPage() {
                                               <button
                                                 className="btn btn-sm btn-outline-primary"
                                                 onClick={() => startEditingModel(modelId, sceneModel)}
-                                                title="Edit transformation"
+                                                title={hasExclusiveLock ? 'Edit transformation' : 'Acquire the project lock to edit'}
+                                                disabled={!hasExclusiveLock}
                                               >
                                                 <i className="bi bi-pencil"></i> Edit
                                               </button>
