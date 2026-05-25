@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { logout, getCurrentUser } from '../backend';
+import { getApiBase } from '../config/oauth';
 
 /**
  * SIDEBAR LAYOUT COMPONENT
@@ -56,6 +57,31 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Parse project context from the current URL
+  const projectMatch = location.pathname.match(/^\/projects\/([^/]+)(\/[^?#]*)?$/);
+  const currentProjectId = projectMatch?.[1] ?? null;
+  const projectSubPath = projectMatch?.[2] ?? '';
+  const viewerMode = new URLSearchParams(location.search).get('mode') ?? '3d';
+
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [has3d, setHas3d] = useState<boolean | null>(null);
+  const [has2d, setHas2d] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!currentProjectId) { setProjectName(null); setHas3d(null); setHas2d(null); return; }
+    fetch(`${getApiBase()}/api/projects/${currentProjectId}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setProjectName(data?.name ?? null))
+      .catch(() => setProjectName(null));
+    fetch(`${getApiBase()}/api/projects/${currentProjectId}/hdt`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(doc => {
+        const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
+        setHas3d(assets.some((a: any) => typeof a?.type === 'string' && (a.type === '3d-model' || a.type.includes('3d'))));
+        setHas2d(assets.some((a: any) => a?.type === 'rti'));
+      })
+      .catch(() => { setHas3d(null); setHas2d(null); });
+  }, [currentProjectId]);
+
   // Get display name for user
   const getDisplayName = (user: User) => {
     if (user.given_name || user.family_name) {
@@ -70,7 +96,27 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       <nav className="navbar navbar-expand navbar-light bg-white border-bottom shadow-sm px-3 flex-shrink-0" style={{zIndex: 1000}}>
         <div className="d-flex align-items-center gap-3">
           <img src="/echoes-logo.png" alt="Echoes" style={{ height: '40px' }} />
-          <span className="navbar-brand fw-bold fs-4 mb-0">OCRA Demo</span>
+          {currentProjectId ? (
+            <>
+              <span className="text-secondary" style={{ fontSize: '1.1rem' }}>|</span>
+              <Link
+                to={`/projects/${currentProjectId}`}
+                className="fw-bold text-dark text-decoration-none"
+                style={{ fontSize: '1rem', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={projectName ?? ''}
+              >
+                {projectName ?? '\u2026'}
+              </Link>
+              <div className="d-flex gap-1">
+                <ProjectNavTab to={`/projects/${currentProjectId}`}           label="3D"       active={projectSubPath === '' && viewerMode !== '2d'} disabled={has3d === false} />
+                <ProjectNavTab to={`/projects/${currentProjectId}?mode=2d`}  label="2D"       active={projectSubPath === '' && viewerMode === '2d'}  disabled={has2d === false} />
+                <ProjectNavTab to={`/projects/${currentProjectId}/hdt`}      label="HDT"      active={projectSubPath === '/hdt'} />
+                <ProjectNavTab to={`/projects/${currentProjectId}/edit`}     label="Settings" active={projectSubPath === '/edit'} />
+              </div>
+            </>
+          ) : (
+            <span className="navbar-brand fw-bold fs-4 mb-0">OCRA</span>
+          )}
         </div>
         <div className="ms-auto d-flex align-items-center gap-3">
           {currentUser && (
@@ -167,6 +213,30 @@ interface SidebarItemProps {
   label: string;
   isActive: boolean;
   sidebarOpen: boolean;
+}
+
+interface ProjectNavTabProps { to: string; label: string; active: boolean; disabled?: boolean; }
+function ProjectNavTab({ to, label, active, disabled }: ProjectNavTabProps) {
+  if (disabled) {
+    return (
+      <span
+        className="btn btn-sm btn-outline-secondary disabled"
+        style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', opacity: 0.4, pointerEvents: 'none', cursor: 'default' }}
+        aria-disabled="true"
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      to={to}
+      className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
+      style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+    >
+      {label}
+    </Link>
+  );
 }
 
 function SidebarItem({ to, icon, label, isActive, sidebarOpen }: SidebarItemProps) {

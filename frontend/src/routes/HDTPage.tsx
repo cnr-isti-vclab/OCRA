@@ -692,7 +692,7 @@ export default function HDTPage() {
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
         <div className="flex-grow-1">
-          <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
+          <h1 className="h3 mb-0">HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
           <Link
