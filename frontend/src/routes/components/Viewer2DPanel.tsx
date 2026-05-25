@@ -9,8 +9,10 @@ import {
   getViewerHighlightGeometryIds,
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
-import { applyViewerSelectionFromStore } from '../../adapters/annotation-store/openlimeSelectionMode';
-import { syncOpenLimeAnnotations } from '../../adapters/annotation-store/syncOpenLimeAnnotations';
+import {
+  applyViewerSelectionFromStore,
+  syncOpenLimeAnnotations,
+} from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
 
 interface Viewer2DPanelProps {
@@ -140,7 +142,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       applyViewerSelectionFromStore(
         annotationManager,
         highlightGeometryIds,
-        //viewerAnnotationsForSync,
+        viewerAnnotationsForSync,
       );
     }, [highlightGeometryIds, focusedDataIds, viewerAnnotationsForSync, ref]);
 
