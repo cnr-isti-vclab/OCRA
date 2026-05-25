@@ -1,4 +1,24 @@
 import type { ViewerAnnotation } from 'shared/scene-types';
+import {
+  applyOpenLimeImportMetadata,
+  type OpenLimeJsonLdImportEntry,
+  viewerAnnotationToOpenLimeJsonLd,
+  viewerGeometryMatchesOpenLime,
+} from './viewerAnnotationToOpenLimeImport';
+
+/** OpenLIME annotation instance (structural typing). */
+export type OpenLimeSyncedAnnotation = {
+  id: string;
+  label?: string;
+  type?: string;
+  data?: Record<string, unknown>;
+  elements?: Array<{
+    classList?: { contains: (c: string) => boolean };
+    getAttribute?: (name: string) => string | null;
+  }>;
+  ready?: boolean;
+  needsUpdate?: boolean;
+};
 
 /**
  * Minimal surface of {@link OpenLIME.ManagerSvgAnnotation} used by the OCRA adapter.
@@ -10,12 +30,13 @@ export type OpenLimeAnnotationManager = {
   _session?: unknown;
   viewer?: { redraw?: () => void; panzoom?: { enableDoubleTapZoom: boolean } };
   getAnnotations: () => Array<{ id: string }>;
-  getAnnotationById: (id: string) => { id: string; label?: string } | null;
+  getAnnotationById: (id: string) => OpenLimeSyncedAnnotation | null;
   deleteAnnotation: (id: string) => void;
+  importAnnotations: (jsonLdArray: OpenLimeJsonLdImportEntry[]) => void;
   createAnnotation: (
     pos: { x: number; y: number },
     opts?: { label?: string; select?: boolean },
-  ) => { id: string };
+  ) => { id: string; label?: string };
   setMode: (mode: 'idle' | 'create' | 'edit') => string;
   setSelectedIds?: (ids: string[]) => void;
   deselectAll: () => void;
@@ -70,25 +91,54 @@ export function syncOpenLimeAnnotations(
     }
   }
 
+  const toImport: OpenLimeJsonLdImportEntry[] = [];
+
   for (const viewerAnno of viewerAnnotations) {
-    const existing = manager.getAnnotationById(viewerAnno.id);
+    let existing = manager.getAnnotationById(viewerAnno.id);
+
     if (existing) {
-      if (viewerAnno.label && existing.label !== viewerAnno.label) {
+      const geometryStale =
+        viewerAnno.type !== 'point' &&
+        !viewerGeometryMatchesOpenLime(viewerAnno, existing);
+
+      if (geometryStale) {
+        manager.deleteAnnotation(viewerAnno.id);
+        existing = null;
+      } else if (viewerAnno.label && existing.label !== viewerAnno.label) {
         existing.label = viewerAnno.label;
         labelsUpdated = true;
       }
+    }
+
+    if (existing) {
       continue;
     }
 
-    if (viewerAnno.type !== 'point' || !isPointGeometry(viewerAnno.geometry)) {
+    if (viewerAnno.type === 'point' && isPointGeometry(viewerAnno.geometry)) {
+      const created = manager.createAnnotation(
+        { x: viewerAnno.geometry[0], y: viewerAnno.geometry[1] },
+        { label: viewerAnno.label, select: false },
+      );
+      created.id = viewerAnno.id;
       continue;
     }
 
-    const created = manager.createAnnotation(
-      { x: viewerAnno.geometry[0], y: viewerAnno.geometry[1] },
-      { label: viewerAnno.label, select: false },
-    );
-    created.id = viewerAnno.id;
+    const entry = viewerAnnotationToOpenLimeJsonLd(viewerAnno);
+    if (entry) {
+      toImport.push(entry);
+    }
+  }
+
+  if (toImport.length > 0) {
+    manager.importAnnotations(toImport);
+    for (const entry of toImport) {
+      const anno = manager.getAnnotationById(entry.id);
+      const viewerAnno = viewerAnnotations.find((a) => a.id === entry.id);
+      if (anno && viewerAnno) {
+        applyOpenLimeImportMetadata(anno, viewerAnno);
+      }
+    }
+    labelsUpdated = true;
   }
 
   if (labelsUpdated) {
