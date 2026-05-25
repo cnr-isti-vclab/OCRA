@@ -95,6 +95,15 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
       }
     });
 
+    // Find users with at least one non-expired session (currently logged in)
+    const now = new Date();
+    const activeSessions = await db.session.findMany({
+      where: { expiresAt: { gt: now } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    const activeUserIds = new Set(activeSessions.map((s: any) => s.userId));
+
     // Get last login information for all users from Mongo audit collection
     const { getLatestLogins } = await import('../services/audit.service.js');
     let lastLogins: Array<{ userSub: string; createdAt: Date }> = [];
@@ -119,7 +128,8 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
     const usersWithStats = users.map((user: any) => ({
       ...user,
       managedProjectsCount: projectCountMap.get(user.id) || 0,
-      lastLoginAt: lastLoginMap.get(user.sub) || null
+      lastLoginAt: lastLoginMap.get(user.sub) || null,
+      hasActiveSession: activeUserIds.has(user.id),
     }));
 
     res.json(usersWithStats);

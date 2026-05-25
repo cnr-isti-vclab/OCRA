@@ -55,13 +55,18 @@ async function getCurrentUser(req: Request): Promise<User | null> {
  */
 export async function createUser(req: Request, res: Response): Promise<void> {
   try {
-    const { sub, email, username, name, given_name, family_name, sys_admin, sys_creator } = req.body;
-    
+    const { sub: providedSub, email, username, name, given_name, family_name, sys_admin, sys_creator } = req.body;
+
     // Validate required fields
-    if (!sub || !email) {
-      res.status(400).json({ error: 'sub and email are required' });
+    if (!email) {
+      res.status(400).json({ error: 'email is required' });
       return;
     }
+
+    // If no sub provided (pre-registration by email), use a placeholder
+    // It will be replaced by the real OAuth sub on first login (see db.ts createUserSession)
+    const { randomUUID } = await import('crypto');
+    const sub = providedSub || `pending:${randomUUID()}`;
     
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
@@ -89,14 +94,15 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     const existingUser = await db.user.findFirst({
       where: {
         OR: [
-          { sub },
+          // Only check sub if a real one was provided (pending: placeholders are always unique)
+          ...(providedSub ? [{ sub }] : []),
           { email }
         ]
       }
     });
     
     if (existingUser) {
-      res.status(409).json({ error: 'User with this sub or email already exists' });
+      res.status(409).json({ error: 'User with this email already exists' });
       return;
     }
     

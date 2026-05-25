@@ -24,6 +24,7 @@ interface User {
   updatedAt: string;
   lastLoginAt?: string | null;
   managedProjectsCount?: number;
+  hasActiveSession?: boolean;
 }
 
 export default function UserAdmin() {
@@ -34,6 +35,12 @@ export default function UserAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addEmail, setAddEmail] = useState('');
+  const [addName, setAddName] = useState('');
+  const [addCreator, setAddCreator] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addLoading, setAddLoading] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -201,6 +208,41 @@ export default function UserAdmin() {
     }
   };
 
+  const addUser = async () => {
+    const trimmedEmail = addEmail.trim().toLowerCase();
+    if (!trimmedEmail) {
+      setAddError('Email is required');
+      return;
+    }
+    setAddLoading(true);
+    setAddError(null);
+    try {
+      const response = await fetch(`${getApiBase()}/api/admin/users`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          name: addName.trim() || undefined,
+          sys_creator: addCreator,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed: ${response.status}`);
+      }
+      setShowAddModal(false);
+      setAddEmail('');
+      setAddName('');
+      setAddCreator(false);
+      fetchUsers();
+    } catch (e: any) {
+      setAddError(e.message);
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container py-5">
@@ -222,7 +264,74 @@ export default function UserAdmin() {
 
   return (
     <div className="container py-5">
-      <h1 className="mb-4 text-dark">User Administration</h1>
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <h1 className="mb-0 text-dark">User Administration</h1>
+        {currentUser?.sys_admin && (
+          <button className="btn btn-primary" onClick={() => { setAddError(null); setShowAddModal(true); }}>
+            + Add User
+          </button>
+        )}
+      </div>
+
+      {/* Add User modal */}
+      {showAddModal && (
+        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Add User</h5>
+                <button type="button" className="btn-close" onClick={() => setShowAddModal(false)} />
+              </div>
+              <div className="modal-body">
+                <p className="text-muted small mb-3">
+                  Pre-register a user by email. Their account will be fully activated the first time they sign in via the identity provider.
+                </p>
+                {addError && <div className="alert alert-danger py-2 small">{addError}</div>}
+                <div className="mb-3">
+                  <label className="form-label fw-semibold">Email <span className="text-danger">*</span></label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={addEmail}
+                    onChange={e => setAddEmail(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addUser()}
+                    placeholder="user@example.com"
+                    autoFocus
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label fw-semibold">Display name <span className="text-muted fw-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={addName}
+                    onChange={e => setAddName(e.target.value)}
+                    placeholder="Jane Doe"
+                  />
+                </div>
+                <div className="form-check">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id="add-creator"
+                    checked={addCreator}
+                    onChange={e => setAddCreator(e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="add-creator">
+                    Grant creator privilege (can create projects)
+                  </label>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={addUser} disabled={addLoading}>
+                  {addLoading ? 'Adding…' : 'Add User'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="card shadow-sm mb-4">
         <div className="card-header bg-light">
           <h2 className="h6 mb-0 text-secondary">All Users ({users.length})</h2>
@@ -262,7 +371,22 @@ export default function UserAdmin() {
               <tbody>
                 {displayedUsers.map((user) => (
                   <tr key={user.id}>
-                    <td className="fw-semibold text-dark">{getDisplayName(user)}</td>
+                    <td className="fw-semibold text-dark">
+                        <span
+                          title={user.hasActiveSession ? 'Currently logged in' : 'Not logged in'}
+                          style={{
+                            display: 'inline-block',
+                            width: 9,
+                            height: 9,
+                            borderRadius: '50%',
+                            backgroundColor: user.hasActiveSession ? '#28a745' : '#ced4da',
+                            marginRight: 7,
+                            flexShrink: 0,
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                        {getDisplayName(user)}
+                      </td>
                       <td className="text-secondary">{user.email || 'N/A'}</td>
                       <td className="text-secondary">{user.username || 'N/A'}</td>
                       <td className="text-center">
