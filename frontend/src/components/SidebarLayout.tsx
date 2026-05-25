@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { logout, getCurrentUser } from '../backend';
 import { getApiBase } from '../config/oauth';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 
 /**
  * SIDEBAR LAYOUT COMPONENT
@@ -66,6 +67,8 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [has3d, setHas3d] = useState<boolean | null>(null);
   const [has2d, setHas2d] = useState<boolean | null>(null);
+  const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
+  const lockState = getProjectLockState(currentProjectId ?? undefined);
   useEffect(() => {
     if (!currentProjectId) { setProjectName(null); setHas3d(null); setHas2d(null); return; }
     fetch(`${getApiBase()}/api/projects/${currentProjectId}`, { credentials: 'include' })
@@ -112,6 +115,10 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                 <ProjectNavTab to={`/projects/${currentProjectId}?mode=2d`}  label="2D"       active={projectSubPath === '' && viewerMode === '2d'}  disabled={has2d === false} />
                 <ProjectNavTab to={`/projects/${currentProjectId}/hdt`}      label="HDT"      active={projectSubPath === '/hdt'} />
                 <ProjectNavTab to={`/projects/${currentProjectId}/edit`}     label="Settings" active={projectSubPath === '/edit'} />
+                <EditLockButton
+                  lockStatus={lockState.status}
+                  onToggle={() => toggleProjectLock(currentProjectId!, lockState.status === 'inactive')}
+                />
               </div>
             </>
           ) : (
@@ -236,6 +243,38 @@ function ProjectNavTab({ to, label, active, disabled }: ProjectNavTabProps) {
     >
       {label}
     </Link>
+  );
+}
+
+interface EditLockButtonProps {
+  lockStatus: 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing';
+  onToggle: () => void;
+}
+
+function EditLockButton({ lockStatus, onToggle }: EditLockButtonProps) {
+  const busy = lockStatus === 'acquiring' || lockStatus === 'draining' || lockStatus === 'releasing';
+  const active = lockStatus === 'exclusive';
+
+  let title = 'Enable editing (acquire project lock)';
+  if (active) title = 'Stop editing (release project lock)';
+  else if (lockStatus === 'acquiring') title = 'Acquiring lock…';
+  else if (lockStatus === 'draining') title = 'Waiting for other sessions to finish…';
+  else if (lockStatus === 'releasing') title = 'Releasing lock…';
+
+  return (
+    <button
+      className={`btn btn-sm ${active ? 'btn-warning' : 'btn-outline-secondary'}`}
+      style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+      onClick={onToggle}
+      disabled={busy}
+      title={title}
+    >
+      {busy ? (
+        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+      ) : (
+        <i className={`bi ${active ? 'bi-pencil-fill' : 'bi-pencil'}`}></i>
+      )}
+    </button>
   );
 }
 

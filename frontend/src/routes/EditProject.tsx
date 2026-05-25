@@ -562,13 +562,8 @@ export default function EditProject() {
           )}
 
           {hasHdt === true && (
-            <div className="alert alert-light d-flex justify-content-between align-items-center">
-              <div>
-                <strong>HDT metadata is initialized.</strong>
-              </div>
-              <Link to={`/projects/${projectId}/hdt`} className="btn btn-outline-primary">
-                Open HDT Metadata
-              </Link>
+            <div className="alert alert-light">
+              <strong>HDT metadata is initialized.</strong>
             </div>
           )}
           <form onSubmit={handleSubmit}>

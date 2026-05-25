@@ -847,7 +847,7 @@ export default function HDTPage() {
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-creator" className="form-label">Creator(s) <span className="text-muted fw-normal small">(dc:creator)</span></label>
+                  <label htmlFor="dc-creator" className="form-label">Creator(s) <span className="text-muted fw-normal small">(dc:creator, comma-separated)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -856,11 +856,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcCreator(e.target.value)}
                     placeholder="Artist, sculptor, architect (comma-separated)"
                   />
-                  <small className="form-text text-muted">comma-separated</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-date" className="form-label">Date <span className="text-muted fw-normal small">(dc:date)</span></label>
+                  <label htmlFor="dc-date" className="form-label">Date <span className="text-muted fw-normal small">(dc:date — year, year-month, or ISO 8601)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -869,12 +868,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcDate(e.target.value)}
                     placeholder="e.g., 1924, 1924-05, 1924-05-15"
                   />
-                  <small className="form-text text-muted">flexible format: year, year-month, or ISO 8601 date</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-subject" className="form-label">Subject / Keywords <span className="text-muted fw-normal small">(dc:subject)</span></label>
+                <label htmlFor="dc-subject" className="form-label">Subject / Keywords <span className="text-muted fw-normal small">(dc:subject, comma-separated)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -883,12 +881,11 @@ export default function HDTPage() {
                   onChange={(e) => setDcSubject(e.target.value)}
                   placeholder="sculpture, renaissance, marble, religious art (comma-separated)"
                 />
-                <small className="form-text text-muted">comma-separated keywords</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-type" className="form-label">Type(s) <span className="text-muted fw-normal small">(dc:type)</span></label>
+                  <label htmlFor="dc-type" className="form-label">Type(s) <span className="text-muted fw-normal small">(dc:type, comma-separated)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -897,11 +894,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcType(e.target.value)}
                     placeholder="3D Model, Sculpture, Artifact (comma-separated)"
                   />
-                  <small className="form-text text-muted">comma-separated</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-language" className="form-label">Language(s) <span className="text-muted fw-normal small">(dc:language)</span></label>
+                  <label htmlFor="dc-language" className="form-label">Language(s) <span className="text-muted fw-normal small">(dc:language, ISO 639 codes)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -910,7 +906,6 @@ export default function HDTPage() {
                     onChange={(e) => setDcLanguage(e.target.value)}
                     placeholder="en, it, la (comma-separated ISO 639 codes)"
                   />
-                  <small className="form-text text-muted">ISO 639 codes</small>
                 </div>
               </div>
 
