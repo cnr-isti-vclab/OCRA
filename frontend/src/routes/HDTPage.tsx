@@ -509,7 +509,7 @@ export default function HDTPage() {
 
   if (loading) {
     return (
-      <div className="container py-5 text-center">
+      <div className="container-fluid py-5 text-center">
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -520,7 +520,7 @@ export default function HDTPage() {
 
   if (error) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-danger mb-3">
           <h3 className="h5">Error Loading HDT Management</h3>
           <p className="mb-3">{error}</p>
@@ -532,7 +532,7 @@ export default function HDTPage() {
 
   if (!project) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-warning mb-3">
           <h3 className="h5">Project Not Found</h3>
           <p className="mb-3">The requested project could not be found.</p>
@@ -688,19 +688,13 @@ export default function HDTPage() {
   };
 
   return (
-    <div className="container py-4">
+    <div className="container-fluid py-4 px-4">
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
         <div className="flex-grow-1">
           <h1 className="h3 mb-0">HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
-          <Link
-            to={`/projects/${projectId}/edit`}
-            className="btn btn-outline-secondary"
-          >
-            Project Settings
-          </Link>
           <a
             href={`${getApiBase()}/api/projects/${projectId}/export/rdf`}
             className="btn btn-outline-primary"
@@ -710,17 +704,6 @@ export default function HDTPage() {
             📥 Download RDF
           </a>
         </div>
-      </div>
-
-      <div className="alert alert-info d-flex justify-content-between align-items-start gap-3">
-        <div>
-          <strong>Read-only without project lock.</strong>{' '}
-          Metadata fields, scene configuration, and destructive asset operations stay disabled on this page unless the project structuring lock is acquired elsewhere.
-          Asset upload and scene creation remain available only when no structuring operation is already in progress.
-        </div>
-        <Link to={`/projects/${projectId}/edit`} className="btn btn-outline-primary btn-sm flex-shrink-0">
-          Open Project Settings
-        </Link>
       </div>
 
       {structuringInProgress && (
@@ -839,7 +822,7 @@ export default function HDTPage() {
               <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
 
               <div className="mb-3">
-                <label htmlFor="dc-title" className="form-label">Title</label>
+                <label htmlFor="dc-title" className="form-label">Title <span className="text-muted fw-normal small">(dc:title)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -848,11 +831,10 @@ export default function HDTPage() {
                   onChange={(e) => setDcTitle(e.target.value)}
                   placeholder="Heritage Digital Twin title"
                 />
-                <small className="form-text text-muted">dc:title</small>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-description" className="form-label">Description</label>
+                <label htmlFor="dc-description" className="form-label">Description <span className="text-muted fw-normal small">(dc:description)</span></label>
                 <textarea
                   className="form-control"
                   id="dc-description"
@@ -861,12 +843,11 @@ export default function HDTPage() {
                   onChange={(e) => setDcDescription(e.target.value)}
                   placeholder="Detailed description of the heritage object"
                 ></textarea>
-                <small className="form-text text-muted">dc:description</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-creator" className="form-label">Creator(s)</label>
+                  <label htmlFor="dc-creator" className="form-label">Creator(s) <span className="text-muted fw-normal small">(dc:creator)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -875,11 +856,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcCreator(e.target.value)}
                     placeholder="Artist, sculptor, architect (comma-separated)"
                   />
-                  <small className="form-text text-muted">dc:creator (comma-separated)</small>
+                  <small className="form-text text-muted">comma-separated</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-date" className="form-label">Date</label>
+                  <label htmlFor="dc-date" className="form-label">Date <span className="text-muted fw-normal small">(dc:date)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -888,12 +869,12 @@ export default function HDTPage() {
                     onChange={(e) => setDcDate(e.target.value)}
                     placeholder="e.g., 1924, 1924-05, 1924-05-15"
                   />
-                  <small className="form-text text-muted">dc:date (flexible format: year, year-month, or ISO 8601 date)</small>
+                  <small className="form-text text-muted">flexible format: year, year-month, or ISO 8601 date</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-subject" className="form-label">Subject / Keywords</label>
+                <label htmlFor="dc-subject" className="form-label">Subject / Keywords <span className="text-muted fw-normal small">(dc:subject)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -902,12 +883,12 @@ export default function HDTPage() {
                   onChange={(e) => setDcSubject(e.target.value)}
                   placeholder="sculpture, renaissance, marble, religious art (comma-separated)"
                 />
-                <small className="form-text text-muted">dc:subject (comma-separated keywords)</small>
+                <small className="form-text text-muted">comma-separated keywords</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-type" className="form-label">Type(s)</label>
+                  <label htmlFor="dc-type" className="form-label">Type(s) <span className="text-muted fw-normal small">(dc:type)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -916,11 +897,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcType(e.target.value)}
                     placeholder="3D Model, Sculpture, Artifact (comma-separated)"
                   />
-                  <small className="form-text text-muted">dc:type (comma-separated)</small>
+                  <small className="form-text text-muted">comma-separated</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-language" className="form-label">Language(s)</label>
+                  <label htmlFor="dc-language" className="form-label">Language(s) <span className="text-muted fw-normal small">(dc:language)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -929,13 +910,13 @@ export default function HDTPage() {
                     onChange={(e) => setDcLanguage(e.target.value)}
                     placeholder="en, it, la (comma-separated ISO 639 codes)"
                   />
-                  <small className="form-text text-muted">dc:language (ISO 639 codes)</small>
+                  <small className="form-text text-muted">ISO 639 codes</small>
                 </div>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-coverage" className="form-label">Coverage</label>
+                  <label htmlFor="dc-coverage" className="form-label">Coverage <span className="text-muted fw-normal small">(dc:coverage)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -944,11 +925,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcCoverage(e.target.value)}
                     placeholder="Spatial or temporal coverage"
                   />
-                  <small className="form-text text-muted">dc:coverage</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-source" className="form-label">Source</label>
+                  <label htmlFor="dc-source" className="form-label">Source <span className="text-muted fw-normal small">(dc:source)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -957,12 +937,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcSource(e.target.value)}
                     placeholder="Original source or reference"
                   />
-                  <small className="form-text text-muted">dc:source</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-rights" className="form-label">Rights Statement</label>
+                <label htmlFor="dc-rights" className="form-label">Rights Statement <span className="text-muted fw-normal small">(dc:rights)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -971,7 +950,6 @@ export default function HDTPage() {
                   onChange={(e) => setDcRights(e.target.value)}
                   placeholder="Copyright statement or rights information"
                 />
-                <small className="form-text text-muted">dc:rights</small>
               </div>
 
               {/* Save Button for Dublin Core */}

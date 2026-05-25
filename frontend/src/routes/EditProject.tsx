@@ -498,7 +498,7 @@ export default function EditProject() {
 
   if (loading) {
     return (
-      <div className="container py-5 text-center">
+      <div className="container-fluid py-5 text-center">
         <p className="text-muted">Loading project details...</p>
       </div>
     );
@@ -506,7 +506,7 @@ export default function EditProject() {
 
   if (error) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-danger mb-3">
           <h3 className="h5">Error</h3>
             <p className="mb-3">{error}</p>
@@ -518,7 +518,7 @@ export default function EditProject() {
 
   if (!project) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
           <h1 className="mb-3">HDT Project not found</h1>
           <Link to="/projects" className="btn btn-secondary">Back to HDT Projects</Link>
         </div>
@@ -526,7 +526,7 @@ export default function EditProject() {
   }
 
   return (
-    <div className="container py-5">
+    <div className="container-fluid py-5 px-4">
       <h1 className="mb-4 text-dark">Edit Heritage Digital Twin Project</h1>
       <div className="row g-4 align-items-start">
         <div className="col-lg-12">
