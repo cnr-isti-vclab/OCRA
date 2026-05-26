@@ -1202,6 +1202,10 @@ export async function createSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can create scenes');
     }
 
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
     const updatedDoc = await addScene(projectId, sceneData, currentUser.sub);
     if (!updatedDoc) {
       return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');

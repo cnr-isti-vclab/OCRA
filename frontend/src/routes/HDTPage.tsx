@@ -145,8 +145,6 @@ export default function HDTPage() {
   const [dcSource, setDcSource] = useState('');
   const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
-  const isEditingExistingScene = !!editingScene && scenes.some((scene) => scene.id === editingScene.id);
-  const canCreateSceneWithoutProjectLock = projectLockState.hasExclusiveLock || !structuringInProgress;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -348,6 +346,71 @@ export default function HDTPage() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to delete asset');
+    }
+  };
+
+  const toScenePayload = (scene: SceneConfig): Record<string, any> => ({
+    label: scene.label?.trim() || '',
+    description: scene.description || '',
+    type: scene.type || '3D',
+    isDefault: !!scene.isDefault,
+    assets: Array.isArray(scene.assets) ? scene.assets : [],
+    environment: scene.environment || {},
+  });
+
+  const createHdtScene = async (scene: SceneConfig): Promise<string | null> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toScenePayload(scene)),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create scene');
+    }
+
+    const updatedDoc = await response.json();
+    const createdScene = Array.isArray(updatedDoc?.scenes)
+      ? updatedDoc.scenes[updatedDoc.scenes.length - 1]
+      : null;
+
+    return createdScene?.id || null;
+  };
+
+  const updateHdtScene = async (sceneId: string, patch: Partial<SceneConfig>): Promise<void> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const payload: Record<string, any> = { ...patch };
+    delete payload.id;
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${encodeURIComponent(sceneId)}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update scene');
+    }
+  };
+
+  const deleteHdtScene = async (sceneId: string): Promise<void> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${encodeURIComponent(sceneId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete scene');
     }
   };
 
@@ -1205,7 +1268,7 @@ export default function HDTPage() {
                   <h6 className="mb-0">Scenes ({scenes.length})</h6>
                   <button
                     className="btn btn-sm btn-primary"
-                    disabled={!canCreateSceneWithoutProjectLock}
+                    disabled={hdtReadOnlyWithoutProjectLock}
                     onClick={() => {
                       const newScene: SceneConfig = {
                         id: `scene_${Date.now()}`,
@@ -1257,18 +1320,21 @@ export default function HDTPage() {
                                 <button
                                   className="btn btn-outline-danger"
                                   disabled={hdtReadOnlyWithoutProjectLock}
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (scenes.length === 1) {
                                       alert('Cannot delete the last scene. Projects must have at least one scene.');
                                       return;
                                     }
                                     if (confirm(`Delete scene "${scene.label}"?`)) {
-                                      const updatedScenes = scenes.filter((_, i) => i !== index);
-                                      if (scene.isDefault && updatedScenes.length > 0) {
-                                        updatedScenes[0].isDefault = true;
+                                      try {
+                                        setError(null);
+                                        setSuccessMessage(null);
+                                        await deleteHdtScene(scene.id);
+                                        await fetchProjectAndMetadata();
+                                        setSuccessMessage('✓ Scene deleted');
+                                      } catch (err: any) {
+                                        setError(err?.message || 'Failed to delete scene');
                                       }
-                                      setScenes(updatedScenes);
-                                      setSuccessMessage('✓ Scene deleted');
                                     }
                                   }}
                                   title="Delete Scene"
@@ -1325,7 +1391,7 @@ export default function HDTPage() {
                         ></button>
                       </div>
                       <div className="modal-body">
-                        <fieldset disabled={isEditingExistingScene ? hdtReadOnlyWithoutProjectLock : !canCreateSceneWithoutProjectLock}>
+                        <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
                         <div className="mb-3">
                           <label className="form-label">Scene Name *</label>
                           <input
@@ -1500,33 +1566,41 @@ export default function HDTPage() {
                         <button
                           type="button"
                           className="btn btn-primary"
-                          disabled={isEditingExistingScene ? hdtReadOnlyWithoutProjectLock : !canCreateSceneWithoutProjectLock}
-                          onClick={() => {
+                          disabled={hdtReadOnlyWithoutProjectLock}
+                          onClick={async () => {
                             if (!editingScene.label.trim()) {
                               alert('Please enter a scene name');
                               return;
                             }
 
-                            const existingIndex = scenes.findIndex(s => s.id === editingScene.id);
-                            let updatedScenes: any[];
+                            const isExisting = scenes.some((s) => s.id === editingScene.id);
 
-                            if (existingIndex >= 0) {
-                              updatedScenes = [...scenes];
-                              updatedScenes[existingIndex] = editingScene;
-                            } else {
-                              updatedScenes = [...scenes, editingScene];
+                            try {
+                              setError(null);
+                              setSuccessMessage(null);
+
+                              if (editingScene.isDefault) {
+                                const scenesToUnset = scenes.filter(
+                                  (s) => s.id !== editingScene.id && s.isDefault
+                                );
+                                await Promise.all(
+                                  scenesToUnset.map((s) => updateHdtScene(s.id, { isDefault: false }))
+                                );
+                              }
+
+                              if (isExisting) {
+                                await updateHdtScene(editingScene.id, toScenePayload(editingScene));
+                              } else {
+                                await createHdtScene(editingScene);
+                              }
+
+                              await fetchProjectAndMetadata();
+                              setShowSceneEditor(false);
+                              setEditingScene(null);
+                              setSuccessMessage('✓ Scene saved');
+                            } catch (err: any) {
+                              setError(err?.message || 'Failed to save scene');
                             }
-
-                            if (editingScene.isDefault) {
-                              updatedScenes = updatedScenes.map(s =>
-                                s.id === editingScene.id ? s : { ...s, isDefault: false }
-                              );
-                            }
-
-                            setScenes(updatedScenes);
-                            setShowSceneEditor(false);
-                            setEditingScene(null);
-                            setSuccessMessage('✓ Scene saved');
                           }}
                         >
                           {scenes.find(s => s.id === editingScene.id) ? 'Update Scene' : 'Create Scene'}

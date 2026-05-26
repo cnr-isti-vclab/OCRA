@@ -885,7 +885,13 @@ router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHan
  * /api/projects/{projectId}/hdt/scenes:
  *   post:
  *     summary: Create a scene
- *     description: Creates a new scene in the project's HDT document (manager only).
+ *     description: |
+ *       Creates a new scene in the project's HDT document.
+ *
+ *       **Important notes:**
+ *       - Only project managers can create scenes.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - Scenes
  *     security:
@@ -929,9 +935,31 @@ router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHan
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers or editors can create scenes
- *               code: hdt.scene_editor_or_manager_required
+ *               error: Only project managers can create scenes
+ *               code: hdt.scene_manager_required
  *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document not found
  *         content:
@@ -962,7 +990,13 @@ router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
  * /api/projects/{projectId}/hdt/scenes/{sceneId}:
  *   put:
  *     summary: Update a scene
- *     description: Updates a scene in the project's HDT document (manager only).
+ *     description: |
+ *       Updates a scene in the project's HDT document.
+ *
+ *       **Important notes:**
+ *       - Only project managers can update scenes.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - Scenes
  *     security:
@@ -1012,9 +1046,31 @@ router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers or editors can update scenes
- *               code: hdt.scene_editor_or_manager_required
+ *               error: Only project managers can update scenes
+ *               code: hdt.scene_manager_required
  *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or scene not found
  *         content:
@@ -1049,7 +1105,7 @@ router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
  *       Deletes a scene from the project's HDT document.
  *
  *       **Important notes:**
- *       - Only project managers or editors can delete scenes.
+ *       - Only project managers can delete scenes.
  *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
  *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
@@ -1095,8 +1151,8 @@ router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers or editors can delete scenes
- *               code: hdt.scene_editor_or_manager_required
+ *               error: Only project managers can delete scenes
+ *               code: hdt.scene_manager_required
  *               status: 403
  *       409:
  *         description: No active exclusive structuring lock exists for the project
