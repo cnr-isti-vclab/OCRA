@@ -794,7 +794,7 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
       headLightOffset: scene.environment?.headLightOffset || [0, 0] as [number, number]
     },
     enableControls: true,
-    rotationUnits: 'rad' as const
+    rotationUnits: 'deg' as const
   };
 
   console.log(`✅ Generated scene description from MongoDB for scene: ${sceneId}`);
