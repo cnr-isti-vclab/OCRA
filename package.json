@@ -30,6 +30,7 @@
     "services:stop": "bash scripts/stop-services.sh",
     "mongo:init": "bash scripts/bootstrap-mongo.sh",
     "mongo:clear-annotations": "bash scripts/clear-annotations-mongo.sh",
+    "mongo:gc-annotations-erasable-links": "bash scripts/gc-annotations-erasable-links.sh",
     "project-files:cleanup": "bash scripts/cleanup-orphan-project-files.sh"
   },
   "workspaces": [
