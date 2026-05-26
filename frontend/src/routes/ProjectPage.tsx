@@ -91,6 +91,7 @@ export default function ProjectPage() {
   });
   const { getProjectLockState } = useProjectStructuringLock();
   const hasExclusiveLock = getProjectLockState(projectId).hasExclusiveLock;
+  const canEditSceneSettings = isManager && hasExclusiveLock;
   const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
 
   useEffect(() => {
@@ -1106,6 +1107,11 @@ export default function ProjectPage() {
                     <h6 className="mb-3">Scene Settings</h6>
                     {isManager ? (
                       <div className="flex-grow-1">
+                        {!hasExclusiveLock && (
+                          <div className="alert alert-light py-2 px-3 small mb-3">
+                            Acquire the project lock from the top bar to edit scene settings.
+                          </div>
+                        )}
                         {/* Ground Grid Setting */}
                         <div className="mb-3">
                           <div className="form-check">
@@ -1114,6 +1120,7 @@ export default function ProjectPage() {
                               type="checkbox"
                               id="showGroundCheckbox"
                               checked={showGround}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newShowGround = e.target.checked;
 
@@ -1179,6 +1186,7 @@ export default function ProjectPage() {
                               className="form-control form-control-color"
                               id="backgroundColorInput"
                               value={backgroundColor}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newBackground = e.target.value;
 
@@ -1229,6 +1237,7 @@ export default function ProjectPage() {
                               className="form-control"
                               style={{ maxWidth: '100px' }}
                               value={backgroundColor}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newBackground = e.target.value;
                                 // Validate hex color format
@@ -1295,6 +1304,7 @@ export default function ProjectPage() {
                                 className="form-control"
                                 step="1"
                                 value={String(headlightOffset[0])}
+                                disabled={!canEditSceneSettings}
                                 onChange={async (e) => {
                                   const newThetaDeg = parseFloat(e.target.value || '0');
                                   const phiDeg = headlightOffset[1];
@@ -1347,6 +1357,7 @@ export default function ProjectPage() {
                                 className="form-control"
                                 step="1"
                                 value={String(headlightOffset[1])}
+                                disabled={!canEditSceneSettings}
                                 onChange={async (e) => {
                                   const newPhiDeg = parseFloat(e.target.value || '0');
                                   const thetaDeg = headlightOffset[0];
