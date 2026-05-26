@@ -129,6 +129,66 @@ export const ANNOTATION_TEST_SCRIPTS: AnnotationTestScript[] = [
     },
   },
   {
+    id: 'mark-first-geometry-erasable',
+    label: 'Mark first geometry erasable',
+    description: 'Soft-deletes the first geometry via the erasable transition.',
+    async run({ store, log }) {
+      const geometry = [...store.geometriesById.values()][0];
+      if (!geometry) {
+        log('No geometry in store', 'warning');
+        return;
+      }
+      log(`Marking geometry ${geometry.id} erasable (v${geometry.version})…`);
+      await store.markGeometryErasable(geometry.id);
+      log('Geometry marked erasable', 'success');
+    },
+  },
+  {
+    id: 'mark-first-geometry-non-erasable',
+    label: 'Mark first geometry non-erasable',
+    description: 'Marks the first geometry as non-erasable via the non-erasable transition.',
+    async run({ store, log }) {
+      const geometry = [...store.geometriesById.values()][0];
+      if (!geometry) {
+        log('No geometry in store', 'warning');
+        return;
+      }
+      log(`Marking geometry ${geometry.id} non-erasable (v${geometry.version})…`);
+      await store.markGeometryNonErasable(geometry.id);
+      log('Geometry marked non-erasable', 'success');
+    },
+  },
+   {
+    id: 'mark-first-data-erasable',
+    label: 'Mark first data erasable',
+    description: 'Soft-deletes the first data via the erasable transition.',
+    async run({ store, log }) {
+      const data = [...store.dataById.values()][0];
+      if (!data) {
+        log('No data in store', 'warning');
+        return;
+      }
+      log(`Marking data ${data.id} erasable (v${data.version})…`);
+      await store.markDataErasable(data.id);
+      log('Data marked erasable', 'success');
+    },
+  },
+  {
+    id: 'mark-first-data-non-erasable',
+    label: 'Mark first data non-erasable',
+    description: 'Marks the first data as non-erasable via the non-erasable transition.',
+    async run({ store, log }) {
+      const data = [...store.dataById.values()][0];
+      if (!data) {
+        log('No data in store', 'warning');
+        return;
+      }
+      log(`Marking data ${data.id} non-erasable (v${data.version})…`);
+      await store.markDataNonErasable(data.id);
+      log('Data marked non-erasable', 'success');
+    },
+  },
+  {
     id: 'load-project-data',
     label: 'Load project data',
     description: 'On-demand project-wide data fetch merged into the store.',

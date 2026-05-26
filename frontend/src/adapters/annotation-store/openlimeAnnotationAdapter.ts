@@ -34,26 +34,11 @@ export type OpenLimeAnnotationManager = {
   getAnnotationById: (id: string) => OpenLimeSyncedAnnotation | null;
   deleteAnnotation: (id: string) => void;
   importAnnotations: (jsonLdArray: OpenLimeJsonLdImportEntry[]) => void;
-  createAnnotation: (
-    pos: { x: number; y: number },
-    opts?: { label?: string; select?: boolean; markerType?: string },
-  ) => { id: string; label?: string };
   setMode: (mode: 'idle' | 'create' | 'edit') => string;
   setSelectedIds?: (ids: string[]) => void;
   deselectAll: () => void;
   setSelected: (id: string, on?: boolean) => void;
 };
-
-function isPointGeometry(
-  geometry: ViewerAnnotation['geometry'],
-): geometry is [number, number, number] {
-  return (
-    Array.isArray(geometry) &&
-    geometry.length === 3 &&
-    typeof geometry[0] === 'number' &&
-    !Array.isArray(geometry[0])
-  );
-}
 
 /**
  * Leaves `create` / `idle` so annotations are selectable (`pointer-events` restored).
@@ -116,17 +101,6 @@ export function syncOpenLimeAnnotations(
       continue;
     }
 
-    if (viewerAnno.type === 'point' && isPointGeometry(viewerAnno.geometry)) {
-      // Must force disk marker — createAnnotation defaults to activeMarker (e.g. polyline),
-      // and PolylineMarker has no createElement() for tap mode (crashes on remote point sync).
-      const created = manager.createAnnotation(
-        { x: viewerAnno.geometry[0], y: viewerAnno.geometry[1] },
-        { label: viewerAnno.label, select: false, markerType: 'disk' },
-      );
-      created.id = viewerAnno.id;
-      continue;
-    }
-
     const entry = viewerAnnotationToOpenLimeJsonLd(viewerAnno);
     if (entry) {
       toImport.push(entry);
@@ -151,8 +125,39 @@ export function syncOpenLimeAnnotations(
 }
 
 /**
- * Panel / store → viewer highlight: edit mode, sync shapes, then select.
- * Must run in one synchronous block — OpenLIME mode changes do not re-run other React effects.
+ * Applies viewer selection only (no shape sync).
+ * Use after {@link syncOpenLimeAnnotations} or when geometries are already on the canvas.
+ */
+export function applyOpenLimeSelection(
+  manager: OpenLimeAnnotationManager | null,
+  geometryIds: string[],
+): void {
+  if (!manager) {
+    return;
+  }
+
+  if (geometryIds.length === 0) {
+    manager.deselectAll();
+    return;
+  }
+
+  ensureEditModeForSelection(manager);
+
+  if (typeof manager.setSelectedIds === 'function') {
+    manager.setSelectedIds(geometryIds);
+    return;
+  }
+
+  manager.deselectAll();
+  geometryIds.forEach((id) => {
+    manager.setSelected(id, true);
+  });
+}
+
+/**
+ * Full store → viewer pass: sync shapes, then select.
+ * Prefer separate sync + {@link applyOpenLimeSelection} in React effects to avoid
+ * re-importing geometry on every focus change (which drops the selected style for one frame).
  */
 export function applyViewerSelectionFromStore(
   manager: OpenLimeAnnotationManager | null,
@@ -170,14 +175,5 @@ export function applyViewerSelectionFromStore(
 
   ensureEditModeForSelection(manager);
   syncOpenLimeAnnotations(manager, viewerAnnotationsForSync);
-
-  if (typeof manager.setSelectedIds === 'function') {
-    manager.setSelectedIds(geometryIds);
-    return;
-  }
-
-  manager.deselectAll();
-  geometryIds.forEach((id) => {
-    manager.setSelected(id, true);
-  });
+  applyOpenLimeSelection(manager, geometryIds);
 }

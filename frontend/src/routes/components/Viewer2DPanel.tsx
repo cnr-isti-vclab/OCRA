@@ -1,5 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react';
-import OpenLIMEViewer, { type OpenLIMEViewerRef } from '../../adapters/openlime-viewer/OpenLIMEViewer';
+import OpenLIMEViewer, {
+  type OpenLIMEViewerRef,
+} from '../../adapters/openlime-viewer/OpenLIMEViewer';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
@@ -10,7 +12,7 @@ import {
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
 import {
-  applyViewerSelectionFromStore,
+  applyOpenLimeSelection,
   syncOpenLimeAnnotations,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
@@ -65,6 +67,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
     );
 
+    const highlightGeometryIdsRef = useRef(highlightGeometryIds);
+    highlightGeometryIdsRef.current = highlightGeometryIds;
+
     const handleAnnotationCreated = (anno: ViewerAnnotation) => {
       if (isStoreSyncRef.current) {
         return;
@@ -107,16 +112,32 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setFocusedDataIds(dataIdsForFocusedGeometries(ids, activeAnnotationSelection));
     };
 
-    useEffect(() => {
-      if (!ref || !('current' in ref) || !ref.current) {
-        return;
-      }
-      const annotationManager = ref.current.getAnnotationManager();
+    const runStoreOpenLimeSync = (annotationManager: NonNullable<
+      ReturnType<OpenLIMEViewerRef['getAnnotationManager']>
+    >) => {
       isStoreSyncRef.current = true;
       try {
         syncOpenLimeAnnotations(annotationManager, viewerAnnotationsForSync);
       } finally {
         isStoreSyncRef.current = false;
+      }
+    };
+
+    useEffect(() => {
+      if (!ref || !('current' in ref) || !ref.current) {
+        return;
+      }
+      const annotationManager = ref.current.getAnnotationManager();
+      if (!annotationManager) {
+        return;
+      }
+      runStoreOpenLimeSync(annotationManager);
+      // Re-apply selection after shape sync — import/redraw can strip the selected CSS class.
+      const idsToSelect = highlightGeometryIdsRef.current;
+      if (idsToSelect.length > 0) {
+        isProgrammaticSelectionRef.current += 1;
+        annotationManager._mode = 'edit';
+        applyOpenLimeSelection(annotationManager, idsToSelect);
       }
     }, [viewerAnnotationsForSync, ref]);
 
@@ -139,12 +160,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
       annotationManager._mode = 'edit'; // Without this, panel selection does not work, if not already in edit mode
       isProgrammaticSelectionRef.current += 1;
-      applyViewerSelectionFromStore(
-        annotationManager,
-        highlightGeometryIds,
-        viewerAnnotationsForSync,
-      );
-    }, [highlightGeometryIds, focusedDataIds, viewerAnnotationsForSync, ref]);
+      applyOpenLimeSelection(annotationManager, highlightGeometryIds);
+    }, [highlightGeometryIds, focusedDataIds, ref]);
 
     if (!rtiAvailable) {
       return (

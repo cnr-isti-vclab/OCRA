@@ -86,6 +86,12 @@ export function openLimeAnnotationVertices(anno: {
   if (pointsAttrValue) {
     return parsePointsAttr(pointsAttrValue);
   }
+  const disk = anno.elements?.find((el) => el.classList?.contains('annotation-disk'));
+  const cx = disk?.getAttribute?.('cx');
+  const cy = disk?.getAttribute?.('cy');
+  if (cx != null && cy != null) {
+    return [[Number(cx), Number(cy), 0]];
+  }
   return null;
 }
 
@@ -103,6 +109,9 @@ export function viewerGeometryMatchesOpenLime(
 
 /** Default screen-px vertex radius (OpenLIME PolylineMarker default); scaled on prefetch. */
 const DEFAULT_VERTEX_DOT_R = 5;
+
+/** Initial model-space disk radius for import; OpenLIME rescales on prefetch. */
+const DEFAULT_DISK_R = 8;
 
 function vertexHandleDots(vertices: [number, number, number][]): string {
   return vertices
@@ -145,15 +154,33 @@ export function openLimePolylineHasVertexHandles(anno: {
   );
 }
 
+function buildDiskSvg(x: number, y: number): string {
+  return `<g xmlns="http://www.w3.org/2000/svg"><circle class="annotation-disk" cx="${x}" cy="${y}" r="${DEFAULT_DISK_R}" fill="#e63946" opacity="0.75"/></g>`;
+}
+
 /**
- * Builds a JSON-LD import entry for line/area store geometries.
- * Points are created via `createAnnotation` instead.
+ * Builds a JSON-LD import entry for store geometries (points, lines, areas).
+ * Uses `importAnnotations` so sync never fires OpenLIME `create` events.
  */
 export function viewerAnnotationToOpenLimeJsonLd(
   viewerAnno: ViewerAnnotation,
 ): OpenLimeJsonLdImportEntry | null {
   if (viewerAnno.type === 'point') {
-    return null;
+    const v = lineVertices(viewerAnno);
+    if (!v?.[0]) {
+      return null;
+    }
+    return {
+      '@context': 'http://www.w3.org/ns/anno.jsonld',
+      id: viewerAnno.id,
+      type: 'Annotation',
+      target: {
+        selector: {
+          type: 'SvgSelector',
+          value: buildDiskSvg(v[0][0], v[0][1]),
+        },
+      },
+    };
   }
 
   const vertices = lineVertices(viewerAnno);

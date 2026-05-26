@@ -39,16 +39,21 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   let annoType: ViewerAnnotationType = 'point';
   let geometry: ViewerAnnotationGeometry = ([]);
 
-  if (anno.type === 'disk') {
+  // OpenLIME's ManagerSvgAnnotation uses `annotation.type = 'point'` for disk annotations,
+  // while the actual marker is stored in `data._markerType = 'disk'`.
+  // Prefer marker type when present, and treat 'point' as a disk.
+  const markerType = anno.data?._markerType ?? anno.type;
+
+  if (markerType === 'disk' || markerType === 'point') {
     annoType = 'point';
     geometry = [anno.data?._x || 0, anno.data?._y || 0, 0];
-  } else if (anno.type === 'polyline') {
+  } else if (markerType === 'polyline') {
     annoType = 'line';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
-  } else if (anno.type === 'polygon') {
+  } else if (markerType === 'polygon') {
     annoType = 'area';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
-  } else if (anno.type === 'rect') {
+  } else if (markerType === 'rect') {
     annoType = 'area';
     //geometry = anno.data?._markerCorners.map((point: any) => [point.x, point.y, 0]);
     // Convert the two markerCorners into 4 explicit points
@@ -57,11 +62,11 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[0].y, 0]);
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[1].y, 0]);
     geometry.push([anno.data?._markerCorners[0].x, anno.data?._markerCorners[1].y, 0]);
-  } else if (anno.type === 'freehand') {
+  } else if (markerType === 'freehand') {
     annoType = 'line';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
   } else {
-    console.log('Unknown annotation type:', anno.type);
+    console.log('Unknown annotation type:', anno.type, 'markerType:', markerType);
   }
 
   if (geometry.length === 0) {
