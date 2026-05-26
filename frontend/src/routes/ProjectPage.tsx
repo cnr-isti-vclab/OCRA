@@ -13,6 +13,7 @@ import Viewer2DPanel from './components/Viewer2DPanel';
 import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
 import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanel from './components/AnnotationPanel';
 import type { SceneDescription } from 'shared/scene-types';
 
@@ -67,7 +68,6 @@ export default function ProjectPage() {
   const [backgroundColor, setBackgroundColor] = useState<string>('#404040');
   const [headlightOffset, setHeadlightOffset] = useState<[number, number]>([0, 0]);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [downloadingRdf, setDownloadingRdf] = useState(false);
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
@@ -91,9 +91,12 @@ export default function ProjectPage() {
     sceneId: selectedSceneId,
     enabled: !!projectId,
   });
-  const structuringInProgress = !!activeDrainingEvent || !!presenceError;
-  const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
-  const projectLockBadgeLabel = structuringInProgress ? 'Structuring...' : 'Project lock available';
+  const { getProjectLockState } = useProjectStructuringLock();
+  const projectLockState = getProjectLockState(projectId);
+  const hasExclusiveLock = projectLockState.hasExclusiveLock;
+  const canEditSceneSettings = isManager && hasExclusiveLock;
+  const projectLockBadgeClass = hasExclusiveLock ? 'bg-success' : 'bg-secondary';
+  const projectLockBadgeLabel = hasExclusiveLock ? 'Structuring Lock: Active' : 'Structuring Lock: Inactive';
   const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
 
   useEffect(() => {
@@ -206,33 +209,20 @@ export default function ProjectPage() {
     }
   };
 
-  // Download RDF export
-  const handleDownloadRdf = async () => {
-    if (!projectId) return;
-
-    setDownloadingRdf(true);
+  const handleExportSceneJson = async () => {
+    if (!projectId || !selectedSceneId) return;
     try {
-      // Create a temporary anchor element to trigger download
-      const url = `${getApiBase()}/api/projects/${projectId}/export/rdf`;
+      const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hdt-${projectId}.rdf`;
+      a.download = `${projectId}-${selectedSceneId}.json`;
       a.style.display = 'none';
-
-      // Add to DOM and click
       document.body.appendChild(a);
       a.click();
-
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(a);
-      }, 100);
-
+      setTimeout(() => document.body.removeChild(a), 100);
     } catch (err: any) {
-      console.error('Error downloading RDF:', err);
-      alert('Failed to download RDF export: ' + (err.message || 'Unknown error'));
-    } finally {
-      setDownloadingRdf(false);
+      console.error('Error exporting scene:', err);
+      alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -387,7 +377,7 @@ export default function ProjectPage() {
   };
 
   // Save edited model properties
-  const saveModelProperties = async (modelId: string, fileName: string) => {
+  const saveModelProperties = async (modelId: string, _fileName: string) => {
     setSaveError(null);
     try {
       // Parse the input values
@@ -416,76 +406,50 @@ export default function ProjectPage() {
         }
       }
 
-      // Update the scene description
-      const updatedScene = { ...sceneDesc } as SceneDescription;
-      if (!updatedScene.models) updatedScene.models = [];
-
-      // Ensure rotation units are specified as degrees
-      updatedScene.rotationUnits = 'deg';
-
-      // Find or create the model entry - improved HDT-compatible matching
-      let modelIndex = updatedScene.models.findIndex((m: any) => {
-        // Direct ID match
-        if (m.id === modelId) return true;
-        // Legacy direct file match
-        if (m.file === fileName) return true;
-        // HDT URL matching: check if URL ends with filename
-        if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
-        return false;
-      });
-      if (modelIndex === -1) {
-        // Only create new model if no existing model found
-        // This should NOT happen with HDT scenes, but keep as fallback
-        console.warn(`⚠️ Creating new model entry for ${modelId}/${fileName} - this may indicate a matching issue`);
-        updatedScene.models.push({
-          id: modelId,
-          file: fileName,
-          ...(position && { position }),
-          ...(rotation && { rotation }),
-          ...(scale !== undefined && { scale })
-        });
-      } else {
-        // Update existing model
-        const model = updatedScene.models[modelIndex] as any;
-        if (position) model.position = position;
-        else delete model.position;
-
-        if (rotation) model.rotation = rotation;
-        else delete model.rotation;
-
-        if (scale !== undefined) model.scale = scale;
-        else delete model.scale;
-      }
-
       // Ensure HDT document exists before saving
       if (!await ensureHDTDocument(projectId!)) {
         throw new Error('Failed to ensure HDT document exists');
       }
 
-      // Save to backend using HDT scenes endpoint
-      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      });
+      // Build asset update payload (rotation stored in degrees; backend's generateSceneFile
+      // returns rotationUnits: 'deg' so three-presenter converts correctly on reload)
+      const assetUpdate: Record<string, any> = {};
+      if (position) assetUpdate.position = position;
+      if (rotation) assetUpdate.rotation = rotation;
+      if (scale !== undefined) assetUpdate.scale = scale;
+
+      // Save to the asset-specific endpoint so the update lands in scene.assets[]
+      // (the canonical storage read by generateSceneFile), not as an alien field.
+      const response = await fetch(
+        `${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}/assets/${modelId}`,
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assetUpdate)
+        }
+      );
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to save changes');
       }
 
-      // Update local state
-      setSceneDesc(updatedScene);
+      // Update local sceneDesc so the viewer reflects the change without a full reload
+      if (sceneDesc) {
+        const updatedModels = (sceneDesc.models || []).map((m: any) => {
+          if (m.id !== modelId) return m;
+          const updated = { ...m };
+          if (position) updated.position = position; else delete updated.position;
+          if (rotation) updated.rotation = rotation; else delete updated.rotation;
+          if (scale !== undefined) updated.scale = scale; else delete updated.scale;
+          return updated;
+        });
+        setSceneDesc({ ...sceneDesc, models: updatedModels } as SceneDescription);
+      }
 
       // Exit edit mode
       setEditingModelId(null);
-
-      // Reload the scene in the viewer without resetting camera
-      if (viewerRef.current) {
-        // The viewer will reload with the updated scene description
-        // Camera position is preserved since we're not reloading the page
-      }
 
     } catch (err: any) {
       setSaveError(err?.message || 'Failed to save changes');
@@ -758,66 +722,10 @@ export default function ProjectPage() {
                   )}
                 </div>
                 {project.description && <p className="text-muted mb-0">{project.description}</p>}
-                {isManager && !structuringInProgress && (
-                  <div className="small text-muted mt-1">
-                    Project-wide structural changes require acquiring the lock from Project Settings.
-                  </div>
-                )}
               </div>
             </div>
             <div className="d-flex align-items-center gap-3">
-              <Link
-                to={`/projects/${projectId}/hdt`}
-                className="btn btn-outline-secondary btn-sm"
-                title="Manage HDT metadata and default 3D model"
-              >
-                <i className="bi bi-sliders me-2"></i>
-                Manage HDT
-              </Link>
-              <button
-                onClick={handleDownloadRdf}
-                disabled={downloadingRdf}
-                className="btn btn-outline-primary btn-sm"
-                title="Download Heritage Digital Twin metadata as RDF/Turtle"
-              >
-                {downloadingRdf ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-download me-2"></i>
-                    Download RDF
-                  </>
-                )}
-              </button>
-              <button
-                onClick={async () => {
-                  if (!projectId || !selectedSceneId) return;
-                  try {
-                    const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${projectId}-${selectedSceneId}.json`;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => document.body.removeChild(a), 100);
-                  } catch (err: any) {
-                    console.error('Error exporting scene:', err);
-                    alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
-                  }
-                }}
-                className="btn btn-outline-secondary btn-sm"
-                title="Export current scene as JSON file (for debugging)"
-              >
-                <i className="bi bi-file-earmark-code me-2"></i>
-                Export Scene JSON
-              </button>
-              <div className="text-secondary">
-                Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
-              </div>
+              {/* Header actions intentionally minimized to reduce duplication with top navigation */}
             </div>
           </div>
         </div>
@@ -1175,7 +1083,8 @@ export default function ProjectPage() {
                                               <button
                                                 className="btn btn-sm btn-outline-primary"
                                                 onClick={() => startEditingModel(modelId, sceneModel)}
-                                                title="Edit transformation"
+                                                title={hasExclusiveLock ? 'Edit transformation' : 'Acquire the project lock to edit'}
+                                                disabled={!hasExclusiveLock}
                                               >
                                                 <i className="bi bi-pencil"></i> Edit
                                               </button>
@@ -1225,6 +1134,11 @@ export default function ProjectPage() {
                     <h6 className="mb-3">Scene Settings</h6>
                     {isManager ? (
                       <div className="flex-grow-1">
+                        {!hasExclusiveLock && (
+                          <div className="alert alert-light py-2 px-3 small mb-3">
+                            Acquire the project lock from the top bar to edit scene settings.
+                          </div>
+                        )}
                         {/* Ground Grid Setting */}
                         <div className="mb-3">
                           <div className="form-check">
@@ -1233,6 +1147,7 @@ export default function ProjectPage() {
                               type="checkbox"
                               id="showGroundCheckbox"
                               checked={showGround}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newShowGround = e.target.checked;
 
@@ -1298,6 +1213,7 @@ export default function ProjectPage() {
                               className="form-control form-control-color"
                               id="backgroundColorInput"
                               value={backgroundColor}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newBackground = e.target.value;
 
@@ -1348,6 +1264,7 @@ export default function ProjectPage() {
                               className="form-control"
                               style={{ maxWidth: '100px' }}
                               value={backgroundColor}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newBackground = e.target.value;
                                 // Validate hex color format
@@ -1414,6 +1331,7 @@ export default function ProjectPage() {
                                 className="form-control"
                                 step="1"
                                 value={String(headlightOffset[0])}
+                                disabled={!canEditSceneSettings}
                                 onChange={async (e) => {
                                   const newThetaDeg = parseFloat(e.target.value || '0');
                                   const phiDeg = headlightOffset[1];
@@ -1466,6 +1384,7 @@ export default function ProjectPage() {
                                 className="form-control"
                                 step="1"
                                 value={String(headlightOffset[1])}
+                                disabled={!canEditSceneSettings}
                                 onChange={async (e) => {
                                   const newPhiDeg = parseFloat(e.target.value || '0');
                                   const thetaDeg = headlightOffset[0];
@@ -1519,6 +1438,17 @@ export default function ProjectPage() {
                         <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
                       </div>
                     )}
+
+                    <div className="mt-auto pt-3 border-top">
+                      <button
+                        onClick={handleExportSceneJson}
+                        className="btn btn-outline-secondary btn-sm w-100"
+                        title="Export current scene as JSON file (for debugging)"
+                      >
+                        <i className="bi bi-file-earmark-code me-2"></i>
+                        Export Scene JSON
+                      </button>
+                    </div>
                   </div>
                 )}
 

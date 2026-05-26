@@ -11,11 +11,9 @@ docs/
 *.log
 
 # Environment variables
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.prod  # Production environment file (contains secrets)
+# Production environment file (contains secrets) 
+# — use with --env-file .env.prod (it should never be committed!)
+.env.prod  
 
 # Prisma
 src/generated/
@@ -34,4 +32,4 @@ prisma
 !backend/prisma/migrations/**
 
 /doc/Deliverables
-tmp
+/tmp

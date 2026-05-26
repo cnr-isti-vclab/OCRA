@@ -145,8 +145,6 @@ export default function HDTPage() {
   const [dcSource, setDcSource] = useState('');
   const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
-  const isEditingExistingScene = !!editingScene && scenes.some((scene) => scene.id === editingScene.id);
-  const canCreateSceneWithoutProjectLock = projectLockState.hasExclusiveLock || !structuringInProgress;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -351,6 +349,71 @@ export default function HDTPage() {
     }
   };
 
+  const toScenePayload = (scene: SceneConfig): Record<string, any> => ({
+    label: scene.label?.trim() || '',
+    description: scene.description || '',
+    type: scene.type || '3D',
+    isDefault: !!scene.isDefault,
+    assets: Array.isArray(scene.assets) ? scene.assets : [],
+    environment: scene.environment || {},
+  });
+
+  const createHdtScene = async (scene: SceneConfig): Promise<string | null> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toScenePayload(scene)),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create scene');
+    }
+
+    const updatedDoc = await response.json();
+    const createdScene = Array.isArray(updatedDoc?.scenes)
+      ? updatedDoc.scenes[updatedDoc.scenes.length - 1]
+      : null;
+
+    return createdScene?.id || null;
+  };
+
+  const updateHdtScene = async (sceneId: string, patch: Partial<SceneConfig>): Promise<void> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const payload: Record<string, any> = { ...patch };
+    delete payload.id;
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${encodeURIComponent(sceneId)}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update scene');
+    }
+  };
+
+  const deleteHdtScene = async (sceneId: string): Promise<void> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${encodeURIComponent(sceneId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete scene');
+    }
+  };
+
   const fetchProjectAndMetadata = async () => {
     if (!projectId) return;
 
@@ -509,7 +572,7 @@ export default function HDTPage() {
 
   if (loading) {
     return (
-      <div className="container py-5 text-center">
+      <div className="container-fluid py-5 text-center">
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -520,7 +583,7 @@ export default function HDTPage() {
 
   if (error) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-danger mb-3">
           <h3 className="h5">Error Loading HDT Management</h3>
           <p className="mb-3">{error}</p>
@@ -532,7 +595,7 @@ export default function HDTPage() {
 
   if (!project) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-warning mb-3">
           <h3 className="h5">Project Not Found</h3>
           <p className="mb-3">The requested project could not be found.</p>
@@ -688,19 +751,13 @@ export default function HDTPage() {
   };
 
   return (
-    <div className="container py-4">
+    <div className="container-fluid py-4 px-4">
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
         <div className="flex-grow-1">
-          <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
+          <h1 className="h3 mb-0">HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
-          <Link
-            to={`/projects/${projectId}/edit`}
-            className="btn btn-outline-secondary"
-          >
-            Project Settings
-          </Link>
           <a
             href={`${getApiBase()}/api/projects/${projectId}/export/rdf`}
             className="btn btn-outline-primary"
@@ -710,17 +767,6 @@ export default function HDTPage() {
             📥 Download RDF
           </a>
         </div>
-      </div>
-
-      <div className="alert alert-info d-flex justify-content-between align-items-start gap-3">
-        <div>
-          <strong>Read-only without project lock.</strong>{' '}
-          Metadata fields, scene configuration, and destructive asset operations stay disabled on this page unless the project structuring lock is acquired elsewhere.
-          Asset upload and scene creation remain available only when no structuring operation is already in progress.
-        </div>
-        <Link to={`/projects/${projectId}/edit`} className="btn btn-outline-primary btn-sm flex-shrink-0">
-          Open Project Settings
-        </Link>
       </div>
 
       {structuringInProgress && (
@@ -839,7 +885,7 @@ export default function HDTPage() {
               <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
 
               <div className="mb-3">
-                <label htmlFor="dc-title" className="form-label">Title</label>
+                <label htmlFor="dc-title" className="form-label">Title <span className="text-muted fw-normal small">(dc:title)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -848,11 +894,10 @@ export default function HDTPage() {
                   onChange={(e) => setDcTitle(e.target.value)}
                   placeholder="Heritage Digital Twin title"
                 />
-                <small className="form-text text-muted">dc:title</small>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-description" className="form-label">Description</label>
+                <label htmlFor="dc-description" className="form-label">Description <span className="text-muted fw-normal small">(dc:description)</span></label>
                 <textarea
                   className="form-control"
                   id="dc-description"
@@ -861,12 +906,11 @@ export default function HDTPage() {
                   onChange={(e) => setDcDescription(e.target.value)}
                   placeholder="Detailed description of the heritage object"
                 ></textarea>
-                <small className="form-text text-muted">dc:description</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-creator" className="form-label">Creator(s)</label>
+                  <label htmlFor="dc-creator" className="form-label">Creator(s) <span className="text-muted fw-normal small">(dc:creator, comma-separated)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -875,11 +919,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcCreator(e.target.value)}
                     placeholder="Artist, sculptor, architect (comma-separated)"
                   />
-                  <small className="form-text text-muted">dc:creator (comma-separated)</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-date" className="form-label">Date</label>
+                  <label htmlFor="dc-date" className="form-label">Date <span className="text-muted fw-normal small">(dc:date — year, year-month, or ISO 8601)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -888,12 +931,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcDate(e.target.value)}
                     placeholder="e.g., 1924, 1924-05, 1924-05-15"
                   />
-                  <small className="form-text text-muted">dc:date (flexible format: year, year-month, or ISO 8601 date)</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-subject" className="form-label">Subject / Keywords</label>
+                <label htmlFor="dc-subject" className="form-label">Subject / Keywords <span className="text-muted fw-normal small">(dc:subject, comma-separated)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -902,12 +944,11 @@ export default function HDTPage() {
                   onChange={(e) => setDcSubject(e.target.value)}
                   placeholder="sculpture, renaissance, marble, religious art (comma-separated)"
                 />
-                <small className="form-text text-muted">dc:subject (comma-separated keywords)</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-type" className="form-label">Type(s)</label>
+                  <label htmlFor="dc-type" className="form-label">Type(s) <span className="text-muted fw-normal small">(dc:type, comma-separated)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -916,11 +957,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcType(e.target.value)}
                     placeholder="3D Model, Sculpture, Artifact (comma-separated)"
                   />
-                  <small className="form-text text-muted">dc:type (comma-separated)</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-language" className="form-label">Language(s)</label>
+                  <label htmlFor="dc-language" className="form-label">Language(s) <span className="text-muted fw-normal small">(dc:language, ISO 639 codes)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -929,13 +969,12 @@ export default function HDTPage() {
                     onChange={(e) => setDcLanguage(e.target.value)}
                     placeholder="en, it, la (comma-separated ISO 639 codes)"
                   />
-                  <small className="form-text text-muted">dc:language (ISO 639 codes)</small>
                 </div>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-coverage" className="form-label">Coverage</label>
+                  <label htmlFor="dc-coverage" className="form-label">Coverage <span className="text-muted fw-normal small">(dc:coverage)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -944,11 +983,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcCoverage(e.target.value)}
                     placeholder="Spatial or temporal coverage"
                   />
-                  <small className="form-text text-muted">dc:coverage</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-source" className="form-label">Source</label>
+                  <label htmlFor="dc-source" className="form-label">Source <span className="text-muted fw-normal small">(dc:source)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -957,12 +995,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcSource(e.target.value)}
                     placeholder="Original source or reference"
                   />
-                  <small className="form-text text-muted">dc:source</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-rights" className="form-label">Rights Statement</label>
+                <label htmlFor="dc-rights" className="form-label">Rights Statement <span className="text-muted fw-normal small">(dc:rights)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -971,7 +1008,6 @@ export default function HDTPage() {
                   onChange={(e) => setDcRights(e.target.value)}
                   placeholder="Copyright statement or rights information"
                 />
-                <small className="form-text text-muted">dc:rights</small>
               </div>
 
               {/* Save Button for Dublin Core */}
@@ -1232,7 +1268,7 @@ export default function HDTPage() {
                   <h6 className="mb-0">Scenes ({scenes.length})</h6>
                   <button
                     className="btn btn-sm btn-primary"
-                    disabled={!canCreateSceneWithoutProjectLock}
+                    disabled={hdtReadOnlyWithoutProjectLock}
                     onClick={() => {
                       const newScene: SceneConfig = {
                         id: `scene_${Date.now()}`,
@@ -1284,18 +1320,21 @@ export default function HDTPage() {
                                 <button
                                   className="btn btn-outline-danger"
                                   disabled={hdtReadOnlyWithoutProjectLock}
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (scenes.length === 1) {
                                       alert('Cannot delete the last scene. Projects must have at least one scene.');
                                       return;
                                     }
                                     if (confirm(`Delete scene "${scene.label}"?`)) {
-                                      const updatedScenes = scenes.filter((_, i) => i !== index);
-                                      if (scene.isDefault && updatedScenes.length > 0) {
-                                        updatedScenes[0].isDefault = true;
+                                      try {
+                                        setError(null);
+                                        setSuccessMessage(null);
+                                        await deleteHdtScene(scene.id);
+                                        await fetchProjectAndMetadata();
+                                        setSuccessMessage('✓ Scene deleted');
+                                      } catch (err: any) {
+                                        setError(err?.message || 'Failed to delete scene');
                                       }
-                                      setScenes(updatedScenes);
-                                      setSuccessMessage('✓ Scene deleted');
                                     }
                                   }}
                                   title="Delete Scene"
@@ -1352,7 +1391,7 @@ export default function HDTPage() {
                         ></button>
                       </div>
                       <div className="modal-body">
-                        <fieldset disabled={isEditingExistingScene ? hdtReadOnlyWithoutProjectLock : !canCreateSceneWithoutProjectLock}>
+                        <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
                         <div className="mb-3">
                           <label className="form-label">Scene Name *</label>
                           <input
@@ -1527,33 +1566,41 @@ export default function HDTPage() {
                         <button
                           type="button"
                           className="btn btn-primary"
-                          disabled={isEditingExistingScene ? hdtReadOnlyWithoutProjectLock : !canCreateSceneWithoutProjectLock}
-                          onClick={() => {
+                          disabled={hdtReadOnlyWithoutProjectLock}
+                          onClick={async () => {
                             if (!editingScene.label.trim()) {
                               alert('Please enter a scene name');
                               return;
                             }
 
-                            const existingIndex = scenes.findIndex(s => s.id === editingScene.id);
-                            let updatedScenes: any[];
+                            const isExisting = scenes.some((s) => s.id === editingScene.id);
 
-                            if (existingIndex >= 0) {
-                              updatedScenes = [...scenes];
-                              updatedScenes[existingIndex] = editingScene;
-                            } else {
-                              updatedScenes = [...scenes, editingScene];
+                            try {
+                              setError(null);
+                              setSuccessMessage(null);
+
+                              if (editingScene.isDefault) {
+                                const scenesToUnset = scenes.filter(
+                                  (s) => s.id !== editingScene.id && s.isDefault
+                                );
+                                await Promise.all(
+                                  scenesToUnset.map((s) => updateHdtScene(s.id, { isDefault: false }))
+                                );
+                              }
+
+                              if (isExisting) {
+                                await updateHdtScene(editingScene.id, toScenePayload(editingScene));
+                              } else {
+                                await createHdtScene(editingScene);
+                              }
+
+                              await fetchProjectAndMetadata();
+                              setShowSceneEditor(false);
+                              setEditingScene(null);
+                              setSuccessMessage('✓ Scene saved');
+                            } catch (err: any) {
+                              setError(err?.message || 'Failed to save scene');
                             }
-
-                            if (editingScene.isDefault) {
-                              updatedScenes = updatedScenes.map(s =>
-                                s.id === editingScene.id ? s : { ...s, isDefault: false }
-                              );
-                            }
-
-                            setScenes(updatedScenes);
-                            setShowSceneEditor(false);
-                            setEditingScene(null);
-                            setSuccessMessage('✓ Scene saved');
                           }}
                         >
                           {scenes.find(s => s.id === editingScene.id) ? 'Update Scene' : 'Create Scene'}
