@@ -273,6 +273,29 @@ function matchesLinkPredicate(
   return true;
 }
 
+/**
+ * When hiding erasable entities, drop geometries that only existed via erased data.
+ * Panel delete marks data erasable, not the shape — without this pass those geometries
+ * stay active with no labels ("(no data)" in the viewer).
+ * Unlinked geometries (no links) remain visible.
+ */
+function excludeGeometriesWithoutActiveData(
+  geometryIds: Set<string>,
+  dataIds: Set<string>,
+  linkIndexes: ReturnType<typeof buildLinkIndexes>,
+): void {
+  for (const geometryId of [...geometryIds]) {
+    const geometryLinks = linkIndexes.linksByGeometryId.get(geometryId) ?? [];
+    if (geometryLinks.length === 0) {
+      continue;
+    }
+    const hasActiveDataLink = geometryLinks.some((link) => dataIds.has(link.dataId));
+    if (!hasActiveDataLink) {
+      geometryIds.delete(geometryId);
+    }
+  }
+}
+
 function materializeActiveSelection(
   geometryIds: Set<string>,
   dataIds: Set<string>,
@@ -378,6 +401,11 @@ export function evaluateActiveSelection(
     if (matchesDataPredicate(datum, criteria.data, ctx, includeErasable)) {
       dataIds.add(datum.id);
     }
+  }
+
+  if (!includeErasable) {
+    // This step excludes geometries that would otherwise be active solely by being linked to erased data.
+    excludeGeometriesWithoutActiveData(geometryIds, dataIds, linkIndexes);
   }
 
   const linkIds = new Set<string>();
