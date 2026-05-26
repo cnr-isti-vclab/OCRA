@@ -36,7 +36,7 @@ export type OpenLimeAnnotationManager = {
   importAnnotations: (jsonLdArray: OpenLimeJsonLdImportEntry[]) => void;
   createAnnotation: (
     pos: { x: number; y: number },
-    opts?: { label?: string; select?: boolean },
+    opts?: { label?: string; select?: boolean; markerType?: string },
   ) => { id: string; label?: string };
   setMode: (mode: 'idle' | 'create' | 'edit') => string;
   setSelectedIds?: (ids: string[]) => void;
@@ -117,9 +117,11 @@ export function syncOpenLimeAnnotations(
     }
 
     if (viewerAnno.type === 'point' && isPointGeometry(viewerAnno.geometry)) {
+      // Must force disk marker — createAnnotation defaults to activeMarker (e.g. polyline),
+      // and PolylineMarker has no createElement() for tap mode (crashes on remote point sync).
       const created = manager.createAnnotation(
         { x: viewerAnno.geometry[0], y: viewerAnno.geometry[1] },
-        { label: viewerAnno.label, select: false },
+        { label: viewerAnno.label, select: false, markerType: 'disk' },
       );
       created.id = viewerAnno.id;
       continue;
