@@ -66,7 +66,6 @@ export default function ProjectPage() {
   const [backgroundColor, setBackgroundColor] = useState<string>('#404040');
   const [headlightOffset, setHeadlightOffset] = useState<[number, number]>([0, 0]);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [downloadingRdf, setDownloadingRdf] = useState(false);
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
@@ -92,9 +91,6 @@ export default function ProjectPage() {
   });
   const { getProjectLockState } = useProjectStructuringLock();
   const hasExclusiveLock = getProjectLockState(projectId).hasExclusiveLock;
-  const structuringInProgress = !!activeDrainingEvent || !!presenceError;
-  const projectLockBadgeClass = structuringInProgress ? 'bg-warning text-dark' : 'bg-light text-dark border';
-  const projectLockBadgeLabel = structuringInProgress ? 'Structuring...' : 'Project lock available';
   const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
 
   useEffect(() => {
@@ -207,33 +203,20 @@ export default function ProjectPage() {
     }
   };
 
-  // Download RDF export
-  const handleDownloadRdf = async () => {
-    if (!projectId) return;
-
-    setDownloadingRdf(true);
+  const handleExportSceneJson = async () => {
+    if (!projectId || !selectedSceneId) return;
     try {
-      // Create a temporary anchor element to trigger download
-      const url = `${getApiBase()}/api/projects/${projectId}/export/rdf`;
+      const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hdt-${projectId}.rdf`;
+      a.download = `${projectId}-${selectedSceneId}.json`;
       a.style.display = 'none';
-
-      // Add to DOM and click
       document.body.appendChild(a);
       a.click();
-
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(a);
-      }, 100);
-
+      setTimeout(() => document.body.removeChild(a), 100);
     } catch (err: any) {
-      console.error('Error downloading RDF:', err);
-      alert('Failed to download RDF export: ' + (err.message || 'Unknown error'));
-    } finally {
-      setDownloadingRdf(false);
+      console.error('Error exporting scene:', err);
+      alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -725,71 +708,11 @@ export default function ProjectPage() {
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center">
               <div>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <h1 className="h3 mb-0 me-1">{project.name}</h1>
-                  <span className={`badge ${projectLockBadgeClass}`}>{projectLockBadgeLabel}</span>
-                </div>
                 {project.description && <p className="text-muted mb-0">{project.description}</p>}
-                {isManager && !structuringInProgress && (
-                  <div className="small text-muted mt-1">
-                    Project-wide structural changes require acquiring the lock from Project Settings.
-                  </div>
-                )}
               </div>
             </div>
             <div className="d-flex align-items-center gap-3">
-              <Link
-                to={`/projects/${projectId}/hdt`}
-                className="btn btn-outline-secondary btn-sm"
-                title="Manage HDT metadata and default 3D model"
-              >
-                <i className="bi bi-sliders me-2"></i>
-                Manage HDT
-              </Link>
-              <button
-                onClick={handleDownloadRdf}
-                disabled={downloadingRdf}
-                className="btn btn-outline-primary btn-sm"
-                title="Download Heritage Digital Twin metadata as RDF/Turtle"
-              >
-                {downloadingRdf ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-download me-2"></i>
-                    Download RDF
-                  </>
-                )}
-              </button>
-              <button
-                onClick={async () => {
-                  if (!projectId || !selectedSceneId) return;
-                  try {
-                    const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${projectId}-${selectedSceneId}.json`;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => document.body.removeChild(a), 100);
-                  } catch (err: any) {
-                    console.error('Error exporting scene:', err);
-                    alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
-                  }
-                }}
-                className="btn btn-outline-secondary btn-sm"
-                title="Export current scene as JSON file (for debugging)"
-              >
-                <i className="bi bi-file-earmark-code me-2"></i>
-                Export Scene JSON
-              </button>
-              <div className="text-secondary">
-                Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
-              </div>
+              {/* Header actions intentionally minimized to reduce duplication with top navigation */}
             </div>
           </div>
         </div>
@@ -1477,6 +1400,17 @@ export default function ProjectPage() {
                         <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
                       </div>
                     )}
+
+                    <div className="mt-auto pt-3 border-top">
+                      <button
+                        onClick={handleExportSceneJson}
+                        className="btn btn-outline-secondary btn-sm w-100"
+                        title="Export current scene as JSON file (for debugging)"
+                      >
+                        <i className="bi bi-file-earmark-code me-2"></i>
+                        Export Scene JSON
+                      </button>
+                    </div>
                   </div>
                 )}
 
