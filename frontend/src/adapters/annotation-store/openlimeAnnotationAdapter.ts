@@ -11,8 +11,10 @@ import {
 export type OpenLimeSyncedAnnotation = {
   id: string;
   label?: string;
+  class?: string | number | null;
   type?: string;
   data?: Record<string, unknown>;
+  svg?: string | null;
   elements?: Array<{
     classList?: { contains: (c: string) => boolean };
     getAttribute?: (name: string) => string | null;
@@ -20,6 +22,27 @@ export type OpenLimeSyncedAnnotation = {
   ready?: boolean;
   needsUpdate?: boolean;
 };
+
+function ensureElementsFromSvg(anno: OpenLimeSyncedAnnotation): void {
+  if (anno.ready && anno.elements && anno.elements.length > 0) {
+    return;
+  }
+  if (!anno.svg || typeof anno.svg !== 'string') {
+    return;
+  }
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(anno.svg, 'image/svg+xml');
+    const root = doc.documentElement;
+    // `Annotation.syncSvg()` may produce either a single element or a <g>.
+    // We always store the children as the element list expected by LayerSvgAnnotation.
+    anno.elements = [...root.children] as any;
+    anno.ready = true;
+    anno.needsUpdate = true;
+  } catch {
+    // ignore — will be parsed by LayerSvgAnnotation.prefetch later
+  }
+}
 
 /**
  * Minimal surface of {@link OpenLIME.ManagerSvgAnnotation} used by the OCRA adapter.
@@ -29,6 +52,7 @@ export type OpenLimeAnnotationManager = {
   mode: string;
   /** In-progress draw session; skip layer sync while set. */
   _session?: unknown;
+  layer?: { selected?: Set<string> };
   viewer?: { redraw?: () => void; panzoom?: { enableDoubleTapZoom: boolean } };
   getAnnotations: () => Array<{ id: string }>;
   getAnnotationById: (id: string) => OpenLimeSyncedAnnotation | null;
@@ -108,14 +132,29 @@ export function syncOpenLimeAnnotations(
   }
 
   if (toImport.length > 0) {
+    // Preserve current selection so we can re-apply it after import.
+    const selectedIds = manager.layer?.selected ? [...manager.layer.selected] : [];
+
     manager.importAnnotations(toImport);
     for (const entry of toImport) {
       const anno = manager.getAnnotationById(entry.id);
       const viewerAnno = viewerAnnotations.find((a) => a.id === entry.id);
       if (anno && viewerAnno) {
         applyOpenLimeImportMetadata(anno, viewerAnno);
+        // Make SVG elements available immediately so OpenLIME's style application
+        // (triggered by deselect/select) can affect them without waiting for prefetch().
+        ensureElementsFromSvg(anno);
       }
     }
+
+    // Newly imported annotations start with minimal SVG attributes; force OpenLIME to
+    // (re)apply class styles to elements via its selection update pipeline.
+    // This avoids relying on hardcoded inline SVG style attributes.
+    manager.deselectAll();
+    if (selectedIds.length > 0 && typeof manager.setSelectedIds === 'function') {
+      manager.setSelectedIds(selectedIds);
+    }
+
     labelsUpdated = true;
   }
 

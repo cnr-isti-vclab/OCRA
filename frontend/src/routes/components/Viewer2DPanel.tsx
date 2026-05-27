@@ -116,6 +116,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       ReturnType<OpenLIMEViewerRef['getAnnotationManager']>
     >) => {
       isStoreSyncRef.current = true;
+      // Sync may temporarily deselect/reselect to let OpenLIME re-apply styles.
+      // Ignore resulting selectionChange events.
+      isProgrammaticSelectionRef.current += 3;
       try {
         syncOpenLimeAnnotations(annotationManager, viewerAnnotationsForSync);
       } finally {

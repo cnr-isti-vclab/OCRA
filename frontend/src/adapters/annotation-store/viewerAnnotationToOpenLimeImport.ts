@@ -128,12 +128,16 @@ function vertexHandleDots(vertices: [number, number, number][]): string {
  */
 function buildPolylineSvg(vertices: [number, number, number][], closed: boolean): string {
   const points = pointsAttr(vertices);
-  const stroke = closed ? '#00aaff' : '#22bb55';
-  const fill = closed ? 'rgba(0,160,255,0.3)' : 'none';
-  const hitFill = closed ? 'transparent' : 'none';
+
   const shapeTag = closed ? 'polygon' : 'polyline';
   const handles = vertexHandleDots(vertices);
-  return `<g xmlns="http://www.w3.org/2000/svg"><${shapeTag} class="annotation-polyline" points="${points}" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="${fill}" opacity="1"/><${shapeTag} class="annotation-polyline-hit" points="${points}" stroke="transparent" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="${hitFill}"/><g class="annotation-vertex-handles" visibility="hidden">${handles}</g></g>`;
+  // Do not inline stroke/fill — OpenLIME applies class styles via ManagerSvgAnnotation.
+  // Keep the hit target transparent for selection.
+  const hitFill = closed ? 'transparent' : 'none';
+  // IMPORTANT: SVG default fill is black. For open polylines we must force fill='none'
+  // because OpenLIME's style pass does not set fill for non-closed lines.
+  const fillAttr = closed ? '' : ' fill="none"';
+  return `<g xmlns="http://www.w3.org/2000/svg"><${shapeTag} class="annotation-polyline" points="${points}"${fillAttr}/><${shapeTag} class="annotation-polyline-hit" points="${points}" stroke="transparent" fill="${hitFill}"/><g class="annotation-vertex-handles" visibility="hidden">${handles}</g></g>`;
 }
 
 /** Store-synced polylines need vertex handles for OpenLIME drag editing. */
@@ -155,7 +159,8 @@ export function openLimePolylineHasVertexHandles(anno: {
 }
 
 function buildDiskSvg(x: number, y: number): string {
-  return `<g xmlns="http://www.w3.org/2000/svg"><circle class="annotation-disk" cx="${x}" cy="${y}" r="${DEFAULT_DISK_R}" fill="#e63946" opacity="0.75"/></g>`;
+  // No inline fill/stroke — OpenLIME applies class styles via ManagerSvgAnnotation.
+  return `<g xmlns="http://www.w3.org/2000/svg"><circle class="annotation-disk" cx="${x}" cy="${y}" r="${DEFAULT_DISK_R}"/></g>`;
 }
 
 /**
@@ -206,6 +211,7 @@ export function viewerAnnotationToOpenLimeJsonLd(
 export function applyOpenLimeImportMetadata(
   anno: {
     label?: string;
+    class?: string | number | null;
     type?: string;
     data?: Record<string, unknown>;
     ready?: boolean;
@@ -215,6 +221,7 @@ export function applyOpenLimeImportMetadata(
 ): void {
   anno.label = viewerAnno.label ?? '';
   anno.data = anno.data ?? {};
+  anno.class = 0;
 
   if (viewerAnno.type === 'point') {
     const v = lineVertices(viewerAnno);

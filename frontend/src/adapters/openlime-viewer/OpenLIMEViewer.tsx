@@ -19,7 +19,7 @@ import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } f
 import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
-import { ViewerAnnotation, ViewerAnnotationType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
+import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -36,7 +36,7 @@ export interface SimplifiedAnnotation {
 
 function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   console.log('Converting SimplifiedAnnotation to OCRA Annotation:', anno);
-  let annoType: ViewerAnnotationType = 'point';
+  let annoType: ViewerAnnotationShapeType = 'point';
   let geometry: ViewerAnnotationGeometry = ([]);
 
   // OpenLIME's ManagerSvgAnnotation uses `annotation.type = 'point'` for disk annotations,
@@ -44,11 +44,15 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   // Prefer marker type when present, and treat 'point' as a disk.
   const markerType = anno.data?._markerType ?? anno.type;
 
+  const markerClosed = Boolean(anno.data?._markerClosed);
+
   if (markerType === 'disk' || markerType === 'point') {
     annoType = 'point';
     geometry = [anno.data?._x || 0, anno.data?._y || 0, 0];
   } else if (markerType === 'polyline') {
-    annoType = 'line';
+    // OpenLIME uses markerType 'polyline' for both open polylines and closed polygons.
+    // Closed-ness is stored in `data._markerClosed` (and may also appear as anno.type === 'polygon').
+    annoType = markerClosed || anno.type === 'polygon' ? 'area' : 'line';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
   } else if (markerType === 'polygon') {
     annoType = 'area';
@@ -342,17 +346,6 @@ const OpenLIMEViewer = forwardRef<
           console.log('🎬 Setting up OpenLIME annotation manager');
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
             activeMarker: 'disk',
-            markerOptions: { radius: 14 },
-            // Colour classes — annotation.class (0/1/2) selects the style
-            classes: [
-              { label: 'Disk', fill: '#e63946', stroke: '#e63946', fillOpacity: 0.75, strokeWidth: 2, fillSelected: '#ffd700', strokeSelected: '#ffd700' },
-              { label: 'Polyline', fill: 'none', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'none', strokeSelected: '#ffd700' },
-              { label: 'Polygon', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
-              { label: 'Rect', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
-              { label: 'Freehand', fill: 'rgba(255, 140, 0, 0.45)', stroke: '#ff8c00', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
-            ],
-            defaultAnnotationClass: 0,
-            showVertexHandles: true,
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.
             singleEditMode: true,
@@ -367,6 +360,10 @@ const OpenLIMEViewer = forwardRef<
               } else {
                 console.log('OpenLIMEViewerRef:onCreate Missing Annotation Callback', anno);
               }
+              // Some OpenLIME builds create elements without inline paint attributes and rely on
+              // ManagerSvgAnnotation's style application pass (triggered on selection updates).
+              // Force a style refresh so the freshly created annotation doesn't render with SVG defaults (black).
+              annotationManager.deselectAll();
             },
 
             onDelete: (anno: SimplifiedAnnotation) => {
@@ -463,14 +460,33 @@ const OpenLIMEViewer = forwardRef<
 
 
             // ── Marker selector panel ────────────────────────────────────────
+            const freehandSettings = {
+                enableSmoothingFilter: false,
+                // Backward-compatible alias used by older builds.
+                enableTremorFilter: false,
+                sampleDistance: 1.5,
+                simplifyTolerance: 1.0,
+                smoothAngle: 90,
+                closed: false,
+                autoCloseNearStart: true,
+                hitTolerance: 10,
+                enableContourSnap: true,
+                contourSnapRadius: 14,
+                contourSnapStrength: 0.70,
+                contourMinGradient: 22,
+                contourAmount: 0.55,
+                enableFinalRelax: true,
+                finalRelaxStrength: 0.12,
+                finalRelaxDenseFactor: 1.45,
+                strokeWidth: 5.0,
+            };
             type MarkerType = 'disk' | 'polyline' | 'polygon' | 'rect' | 'freehand';
-            const markerType: MarkerType = 'disk';
             const markerConfigs = {
-              'disk': { type: 'disk', opts: { radius: 14 }, classIdx: 0 },
-              'polyline': { type: 'polyline', opts: { closed: false, vertexRadius: 5 }, classIdx: 1 },
-              'polygon': { type: 'polyline', opts: { closed: true, vertexRadius: 5 }, classIdx: 2 },
-              'rect': { type: 'rect', opts: { vertexRadius: 5 }, classIdx: 3 },
-              'freehand': { type: 'freehand', opts: { vertexRadius: 5 }, classIdx: 4 },
+                'disk':     { type: 'disk',     opts: {} },
+                'polyline': { type: 'polyline', opts: { closed: false } },
+                'polygon':  { type: 'polyline', opts: { closed: true  } },
+                'rect':     { type: 'rect',     opts: {} },
+                'freehand': { type: 'freehand', opts: { ...freehandSettings } },
             };
 
             function setMarker(key: MarkerType) {
@@ -479,12 +495,7 @@ const OpenLIMEViewer = forwardRef<
               const cfg = markerConfigs[key];
               if (cfg) {
                 manager.setActiveMarker(cfg.type, cfg.opts);
-                manager.defaultAnnotationClass = cfg.classIdx;
-                setActiveAnnotationClass(cfg.classIdx);
-              } else {
-                manager.defaultAnnotationClass = 0;
-                setActiveAnnotationClass(0);
-              }
+              } 
             }
 
             let programmaticPencilEnabled = false;
@@ -513,24 +524,34 @@ const OpenLIMEViewer = forwardRef<
 
             document.addEventListener('keydown', (e: KeyboardEvent) => {
               let markerType: MarkerType | undefined;
+              let newClass = -1;
               if (e.key === '0') {
                 markerType = 'disk';
+                newClass = 0;
               } else if (e.key === '1') {
                 markerType = 'polyline';
+                newClass = 1;
               } else if (e.key === '2') {
                 markerType = 'polygon';
+                newClass = 2;
               } else if (e.key === '3') {
                 markerType = 'rect';
+                newClass = 3;
               } else if (e.key === '4') {
                 markerType = 'freehand';
+                newClass = 4;
               } else if (e.key == '5') {
                 programmaticPencilEnabled = true;
                 annotationManagerRef.current?.setMode('edit');
+                newClass = 5;
 
 
                 console.log('Edit mode')
               } else {
                 console.log('Pressed', e.key, 'Annotation mode: 0=disk, 1=polyline, 2=polygon, 3=rect, 4=freehand 5=edit');
+              }
+              if (newClass != -1) {
+                setActiveAnnotationClass(newClass);
               }
               if (markerType) {
                 setMarker(markerType);
