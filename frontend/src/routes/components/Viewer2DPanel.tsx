@@ -139,7 +139,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const idsToSelect = highlightGeometryIdsRef.current;
       if (idsToSelect.length > 0) {
         isProgrammaticSelectionRef.current += 1;
-        annotationManager._mode = 'edit';
+        annotationManager.setMode('edit', false);
         applyOpenLimeSelection(annotationManager, idsToSelect);
       }
     }, [viewerAnnotationsForSync, ref]);
@@ -161,7 +161,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (highlightGeometryIds.length === 0) {
         return;
       }
-      annotationManager._mode = 'edit'; // Without this, panel selection does not work, if not already in edit mode
+      annotationManager.setMode('edit', false);
       isProgrammaticSelectionRef.current += 1;
       applyOpenLimeSelection(annotationManager, highlightGeometryIds);
     }, [highlightGeometryIds, focusedDataIds, ref]);
