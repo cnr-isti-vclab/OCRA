@@ -1,7 +1,11 @@
-import { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import OpenLIMEViewer, {
   type OpenLIMEViewerRef,
 } from '../../adapters/openlime-viewer/OpenLIMEViewer';
+import { applyOpenLimeToolbarMode } from '../../adapters/openlime-viewer/openlimeToolbarMode';
+import AnnotationToolbar, {
+  type AnnotationToolbarMode,
+} from '../../components/AnnotationToolbar';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
@@ -45,6 +49,27 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const isStoreSyncRef = useRef(false);
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+    const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
+    const [viewerReady, setViewerReady] = useState(false);
+
+    const applyToolbarMode = useCallback(
+      (mode: AnnotationToolbarMode) => {
+        setToolbarMode(mode);
+        const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+        const manager = viewer?.getAnnotationManager();
+        if (!viewer || !manager) {
+          return;
+        }
+        applyOpenLimeToolbarMode(manager, viewer, mode);
+      },
+      [ref],
+    );
+
+    const handleViewerReady = useCallback(() => {
+      setViewerReady(true);
+      onReady();
+      applyToolbarMode('edit');
+    }, [onReady, applyToolbarMode]);
 
     function normalizeIds(ids: string[]): string[] {
       return [...ids].sort();
@@ -222,16 +247,34 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }
 
     return (
-      <OpenLIMEViewer
-        ref={ref}
-        sceneDesc={sceneDesc}
-        digitalAssets={digitalAssets}
-        onReady={onReady}
-        onError={onError}
-        onAnnotationCreated={handleAnnotationCreated}
-        onAnnotationUpdated={handleAnnotationUpdated}
-        onAnnotationSelectionChanged={handleAnnotationSelectionChange}
-      />
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <OpenLIMEViewer
+          ref={ref}
+          sceneDesc={sceneDesc}
+          digitalAssets={digitalAssets}
+          onReady={handleViewerReady}
+          onError={onError}
+          onAnnotationCreated={handleAnnotationCreated}
+          onAnnotationUpdated={handleAnnotationUpdated}
+          onAnnotationSelectionChanged={handleAnnotationSelectionChange}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+            pointerEvents: 'auto',
+          }}
+        >
+          <AnnotationToolbar
+            mode={toolbarMode}
+            onModeChange={applyToolbarMode}
+            disabled={!viewerReady}
+          />
+        </div>
+      </div>
     );
   }
 );

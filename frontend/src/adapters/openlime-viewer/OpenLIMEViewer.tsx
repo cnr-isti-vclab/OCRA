@@ -126,8 +126,6 @@ const OpenLIMEViewer = forwardRef<
       { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelectionChanged },
       ref
     ) => {
-      const [isEditing, setIsEditing] = useState(false);
-      const [activeAnnotationClass, setActiveAnnotationClass] = useState<number>(0);
       const mountRef = useRef<HTMLDivElement | null>(null);
       const viewerRef = useRef<OpenLIME.Viewer | null>(null);
       const uiRef = useRef<OpenLIME.UIBasic | null>(null);
@@ -472,105 +470,11 @@ const OpenLIMEViewer = forwardRef<
 
 
             // ── Marker selector panel ────────────────────────────────────────
-            const freehandSettings = {
-                enableSmoothingFilter: false,
-                // Backward-compatible alias used by older builds.
-                enableTremorFilter: false,
-                sampleDistance: 1.5,
-                simplifyTolerance: 1.0,
-                smoothAngle: 90,
-                closed: false,
-                autoCloseNearStart: true,
-                hitTolerance: 10,
-                enableContourSnap: true,
-                contourSnapRadius: 14,
-                contourSnapStrength: 0.70,
-                contourMinGradient: 22,
-                contourAmount: 0.55,
-                enableFinalRelax: true,
-                finalRelaxStrength: 0.12,
-                finalRelaxDenseFactor: 1.45,
-                strokeWidth: 5.0,
-            };
-            type MarkerType = 'disk' | 'polyline' | 'polygon' | 'rect' | 'freehand';
-            const markerConfigs = {
-                'disk':     { type: 'disk',     opts: {} },
-                'polyline': { type: 'polyline', opts: { closed: false } },
-                'polygon':  { type: 'polyline', opts: { closed: true  } },
-                'rect':     { type: 'rect',     opts: {} },
-                'freehand': { type: 'freehand', opts: { ...freehandSettings } },
-            };
-
-            function setMarker(key: MarkerType) {
-              const manager = annotationManagerRef.current;
-              if (!manager) return;
-              const cfg = markerConfigs[key];
-              if (cfg) {
-                manager.setActiveMarker(cfg.type, cfg.opts);
-              } 
-            }
-
-            let programmaticPencilEnabled = false;
-
-            // When pencil mode is activated, deselect all annotations
             uiRef.current.addEvent('pencilEnabled', () => {
-              console.log('🎬 Pencil tool activated - deselecting all annotations');
               if (annotationManagerRef.current) {
                 annotationManagerRef.current.deselectAll();
-                if (!programmaticPencilEnabled) {
-                  let marker = annotationManagerRef.current.activeMarker;
-                  console.log('Set marker', marker);
-                  if (marker) {
-                    setMarker(marker);
-                  }
-                }
-              }
-              programmaticPencilEnabled = false;
-              setIsEditing(true);
-            });
-
-            uiRef.current.addEvent('pencilDisabled', () => {
-              console.log('🎬 Pencil tool deactivated');
-              setIsEditing(false);
-            });
-
-            document.addEventListener('keydown', (e: KeyboardEvent) => {
-              let markerType: MarkerType | undefined;
-              let newClass = -1;
-              if (e.key === '0') {
-                markerType = 'disk';
-                newClass = 0;
-              } else if (e.key === '1') {
-                markerType = 'polyline';
-                newClass = 1;
-              } else if (e.key === '2') {
-                markerType = 'polygon';
-                newClass = 2;
-              } else if (e.key === '3') {
-                markerType = 'rect';
-                newClass = 3;
-              } else if (e.key === '4') {
-                markerType = 'freehand';
-                newClass = 4;
-              } else if (e.key == '5') {
-                programmaticPencilEnabled = true;
-                annotationManagerRef.current?.setMode('edit');
-                newClass = 5;
-
-
-                console.log('Edit mode')
-              } else {
-                console.log('Pressed', e.key, 'Annotation mode: 0=disk, 1=polyline, 2=polygon, 3=rect, 4=freehand 5=edit');
-              }
-              if (newClass != -1) {
-                setActiveAnnotationClass(newClass);
-              }
-              if (markerType) {
-                setMarker(markerType);
-                console.log('Annotation mode set to', markerType);
               }
             });
-
           }
 
           // Setup event listeners for annotation layer events (update, delete)
@@ -689,8 +593,6 @@ const OpenLIMEViewer = forwardRef<
             | null
             | undefined;
           pencilButton?.classList.toggle('openlime-pencil-active', on);
-
-          setIsEditing(on);
         },
       }));
 
@@ -707,32 +609,6 @@ const OpenLIMEViewer = forwardRef<
               backgroundColor: '#404040',
             }}
           />
-          {isEditing && (
-            <div style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: '#fff',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              pointerEvents: 'none',
-              fontFamily: 'sans-serif',
-              fontSize: '14px',
-              zIndex: 100,
-              backdropFilter: 'blur(4px)',
-            }}>
-
-              <strong>Geometry</strong> &middot; Keys:
-              <code>0</code> {activeAnnotationClass == 0 ? (<strong>Disk</strong>) : (<span>Disk</span>)} |
-              <code>1</code> {activeAnnotationClass == 1 ? (<strong>Polyline</strong>) : (<span>Polyline</span>)} |
-              <code>2</code> {activeAnnotationClass == 2 ? (<strong>Polygon</strong>) : (<span>Polygon</span>)} |
-              <code>3</code> {activeAnnotationClass == 3 ? (<strong>Rect</strong>) : (<span>Rect</span>)} |
-              <code>4</code> {activeAnnotationClass == 4 ? (<strong>Freehand</strong>) : (<span>Freehand</span>)} |
-              <code>5</code> {activeAnnotationClass == 5 ? (<strong>Select/Edit</strong>) : (<span>Select/Edit</span>)}
-            </div>
-          )}
         </div>
       );
     }
