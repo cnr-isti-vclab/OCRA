@@ -32,6 +32,7 @@ interface User {
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isProjectManager, setIsProjectManager] = useState(false);
   const location = useLocation();
 
   // Fetch current user information to check admin status
@@ -63,12 +64,16 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const currentProjectId = projectMatch?.[1] ?? null;
   const projectSubPath = projectMatch?.[2] ?? '';
   const viewerMode = new URLSearchParams(location.search).get('mode') ?? '3d';
+  const isViewerRoute = currentProjectId !== null && projectSubPath === '';
+  const canAcquireProjectLock = !!currentUser?.sys_admin || isProjectManager;
+  const showEditLockButton = currentProjectId !== null && canAcquireProjectLock && !isViewerRoute;
 
   const [projectName, setProjectName] = useState<string | null>(null);
   const [has3d, setHas3d] = useState<boolean | null>(null);
   const [has2d, setHas2d] = useState<boolean | null>(null);
   const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
   const lockState = getProjectLockState(currentProjectId ?? undefined);
+
   useEffect(() => {
     if (!currentProjectId) { setProjectName(null); setHas3d(null); setHas2d(null); return; }
     fetch(`${getApiBase()}/api/projects/${currentProjectId}`, { credentials: 'include' })
@@ -84,6 +89,37 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       })
       .catch(() => { setHas3d(null); setHas2d(null); });
   }, [currentProjectId]);
+
+  useEffect(() => {
+    if (!currentProjectId) {
+      setIsProjectManager(false);
+      return;
+    }
+
+    if (currentUser?.sys_admin) {
+      setIsProjectManager(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`${getApiBase()}/api/projects/${currentProjectId}/is-manager`, { credentials: 'include' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!cancelled) {
+          setIsProjectManager(!!data?.isManager);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsProjectManager(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId, currentUser?.sys_admin]);
 
   // Get display name for user
   const getDisplayName = (user: User) => {
@@ -115,10 +151,12 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
                 <ProjectNavTab to={`/projects/${currentProjectId}?mode=2d`}  label="2D"       active={projectSubPath === '' && viewerMode === '2d'}  disabled={has2d === false} />
                 <ProjectNavTab to={`/projects/${currentProjectId}/hdt`}      label="HDT"      active={projectSubPath === '/hdt'} />
                 <ProjectNavTab to={`/projects/${currentProjectId}/edit`}     label="Settings" active={projectSubPath === '/edit'} />
-                <EditLockButton
-                  lockStatus={lockState.status}
-                  onToggle={() => toggleProjectLock(currentProjectId!, lockState.status === 'inactive')}
-                />
+                {showEditLockButton && (
+                  <EditLockButton
+                    lockStatus={lockState.status}
+                    onToggle={() => toggleProjectLock(currentProjectId!, lockState.status === 'inactive')}
+                  />
+                )}
               </div>
             </>
           ) : (
