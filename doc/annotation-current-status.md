@@ -238,6 +238,7 @@ OCRA currently uses **structural state only**, not semantic classes (Pattern A: 
 | **`structuralClasses.underEditing`** | Config only | Not applied (`anno.editing` never set from app code) |
 | **`structuralClasses.default`** | Config only | Not auto-applied; idle shadow from `_getClassStyle` CSS `drop-shadow` |
 | **Labels** | Yes | `anno.label` from store / create; panel `updateData` triggers resync |
+| **Selected label text** | Yes | When focused/selected, label `fill` matches `structuralClasses.selected.stroke` (`#fed802`) |
 
 Wiring: `frontend/src/adapters/openlime-viewer/OpenLIMEViewer.tsx` (`structuralClasses`), `openlimeAnnotationAdapter.ts` (sync + selection), `viewerAnnotationToOpenLimeImport.ts` (`applyOpenLimeImportMetadata`).
 
@@ -303,12 +304,14 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 
 ## 12. Planned / not done (roadmap)
 
-1. **Multi-label in viewers** — `buildGeometryLabelDisplay` → per-viewer `setGeometryLabels` (3D three-presenter, 2D OpenLIME).
-2. **Panel** — link/unlink, optional geometry rows, expose `getActiveResolvedTriples` on context.
-3. **Query UI** — editor for `SelectionCriteria`.
-4. **3D** — draw/edit polylines and polygons, dedicated adapter module.
-5. **Cleanup** — ~~legacy provider/service~~ done; any remaining scene.json annotation fields in HDT payloads are read-only legacy data, not the editor write path.
-6. **Tests** — e2e on store path (optional).
+1. **Centralized annotation styles (2D + 3D)** — Single shared style definition (colours, stroke width, shadow, selection/focus, label typography) consumed by both OpenLIME (`ManagerSvgAnnotation` / `structuralClasses`) and three-presenter (`AnnotationManager`), so the same geometry looks the same in RTI and 3D. Today styles are split: 2D in `OpenLIMEViewer.tsx` + vendored OpenLIME defaults; 3D in three-presenter / `Viewer3DPanel` adapters. Target: e.g. `shared/annotation-viewer-styles.ts` or frontend theme module referenced by both adapters.
+2. **Multi-label in viewers** — `buildGeometryLabelDisplay` → per-viewer `setGeometryLabels` (3D three-presenter, 2D OpenLIME).
+3. **Label style variants (team decision)** — OpenLIME supports global `labelStyle` plus per-state overrides (e.g. `textFillSelected`); geometries already use semantic + structural class maps. Decide whether labels need the same multi-style model (default / selected / semantic class) or only selection + shared palette from the centralized styles module.
+4. **Panel** — link/unlink, optional geometry rows, expose `getActiveResolvedTriples` on context.
+5. **Query UI** — editor for `SelectionCriteria`.
+6. **3D** — draw/edit polylines and polygons, dedicated adapter module.
+7. **Cleanup** — ~~legacy provider/service~~ done; any remaining scene.json annotation fields in HDT payloads are read-only legacy data, not the editor write path.
+8. **Tests** — e2e on store path (optional).
 
 ---
 

@@ -117,7 +117,7 @@ export function syncOpenLimeAnnotations(
         existing = null;
       } else if (viewerAnno.label && existing.label !== viewerAnno.label) {
         existing.label = viewerAnno.label;
-        delete (existing as { _ocraLabelLayoutKey?: string })._ocraLabelLayoutKey;
+        delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
         existing.needsUpdate = true;
         labelsUpdated = true;
       }
