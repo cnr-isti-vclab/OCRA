@@ -121,9 +121,21 @@ const OpenLIMEViewer = forwardRef<
     onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
     onAnnotationDeleted?: (annotation: ViewerAnnotation) => void;
     onAnnotationSelectionChanged?: (ids: string[]) => void;
+    /** Fired when the OpenLIME pencil (annotation tool) is enabled or disabled. */
+    onPencilActiveChange?: (active: boolean) => void;
   }>(
     (
-      { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelectionChanged },
+      {
+        sceneDesc,
+        digitalAssets,
+        onReady,
+        onError,
+        onAnnotationCreated,
+        onAnnotationUpdated,
+        onAnnotationDeleted,
+        onAnnotationSelectionChanged,
+        onPencilActiveChange,
+      },
       ref
     ) => {
       const mountRef = useRef<HTMLDivElement | null>(null);
@@ -136,6 +148,14 @@ const OpenLIMEViewer = forwardRef<
       const onAnnotationUpdatedRef = useRef<typeof onAnnotationUpdated>(onAnnotationUpdated);
       const onAnnotationDeletedRef = useRef<typeof onAnnotationDeleted>(onAnnotationDeleted);
       const onAnnotationSelectionChangedRef = useRef<typeof onAnnotationSelectionChanged>(onAnnotationSelectionChanged);
+      const onPencilActiveChangeRef = useRef<typeof onPencilActiveChange>(onPencilActiveChange);
+      /** Panel-driven `enableEditing` must not clear selection via UIBasic `pencilEnabled`. */
+      const skipDeselectOnPencilEnableRef = useRef(false);
+
+      const notifyPencilActive = (active: boolean) => {
+        onPencilActiveChangeRef.current?.(active);
+      };
+
       useEffect(() => {
         onReadyRef.current = onReady;
       }, [onReady]);
@@ -159,6 +179,10 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         onAnnotationSelectionChangedRef.current = onAnnotationSelectionChanged;
       }, [onAnnotationSelectionChanged]);
+
+      useEffect(() => {
+        onPencilActiveChangeRef.current = onPencilActiveChange;
+      }, [onPencilActiveChange]);
 
       // Initialize viewer on mount
       useEffect(() => {
@@ -471,9 +495,15 @@ const OpenLIMEViewer = forwardRef<
 
             // ── Marker selector panel ────────────────────────────────────────
             uiRef.current.addEvent('pencilEnabled', () => {
-              if (annotationManagerRef.current) {
+              if (annotationManagerRef.current && !skipDeselectOnPencilEnableRef.current) {
                 annotationManagerRef.current.deselectAll();
               }
+              skipDeselectOnPencilEnableRef.current = false;
+              notifyPencilActive(true);
+            });
+
+            uiRef.current.addEvent('pencilDisabled', () => {
+              notifyPencilActive(false);
             });
           }
 
@@ -575,6 +605,11 @@ const OpenLIMEViewer = forwardRef<
           const on = Boolean(enabled);
           const ui = uiRef.current as any;
           const manager = annotationManagerRef.current as any;
+          const wasAlreadyEditing = Boolean(manager?.active);
+
+          if (on) {
+            skipDeselectOnPencilEnableRef.current = true;
+          }
 
           // Try the official UI pathway first (keeps controllers in sync).
           if (ui && typeof ui.toggleAnnotations === 'function') {
@@ -585,6 +620,11 @@ const OpenLIMEViewer = forwardRef<
             manager.setMode(on ? 'edit' : 'idle');
           }
 
+          // `pencilEnabled` only fires on idle→edit; clear the guard if we were already editing.
+          if (on && wasAlreadyEditing) {
+            skipDeselectOnPencilEnableRef.current = false;
+          }
+
           // Defensive: keep the pencil button visual state in sync even if
           // modeChange events are missed for any reason.
           const container = viewerRef.current?.containerElement as HTMLElement | undefined;
@@ -593,6 +633,11 @@ const OpenLIMEViewer = forwardRef<
             | null
             | undefined;
           pencilButton?.classList.toggle('openlime-pencil-active', on);
+
+          // UIBasic modeChange may not fire when already in 'edit' (e.g. panel focus ran first).
+          // Safe to notify here: onPencilActiveChange only updates toolbar visibility.
+          const isActive = Boolean(manager?.active);
+          notifyPencilActive(on ? isActive : false);
         },
       }));
 

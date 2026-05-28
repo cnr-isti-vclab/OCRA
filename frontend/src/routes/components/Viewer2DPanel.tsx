@@ -51,6 +51,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
+    const [pencilActive, setPencilActive] = useState(false);
 
     const applyToolbarMode = useCallback(
       (mode: AnnotationToolbarMode) => {
@@ -65,11 +66,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       [ref],
     );
 
+    const handlePencilActiveChange = useCallback((active: boolean) => {
+      setPencilActive(active);
+    }, []);
+
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
       onReady();
-      applyToolbarMode('edit');
-    }, [onReady, applyToolbarMode]);
+    }, [onReady]);
 
     function normalizeIds(ids: string[]): string[] {
       return [...ids].sort();
@@ -145,6 +149,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           expectedProgrammaticSelectionRef.current = null;
           return;
         }
+        // OpenLIME may emit a transient empty selection when the pencil is enabled.
+        if (expected.length > 0 && ids.length === 0) {
+          return;
+        }
         // If it doesn't match, it is a real user selection; clear the expectation.
         expectedProgrammaticSelectionRef.current = null;
       }
@@ -179,7 +187,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       // Re-apply selection after shape sync — import/redraw can strip the selected CSS class.
       const idsToSelect = highlightGeometryIdsRef.current;
       if (idsToSelect.length > 0) {
-        annotationManager.setMode('edit', false);
+        ref.current?.enableEditing(true);
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
         applyOpenLimeSelection(annotationManager, idsToSelect);
       }
@@ -202,7 +210,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (highlightGeometryIds.length === 0) {
         return;
       }
-      annotationManager.setMode('edit', false);
+      ref.current?.enableEditing(true);
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
       applyOpenLimeSelection(annotationManager, highlightGeometryIds);
     }, [highlightGeometryIds, focusedDataIds, ref]);
@@ -257,23 +265,22 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           onAnnotationCreated={handleAnnotationCreated}
           onAnnotationUpdated={handleAnnotationUpdated}
           onAnnotationSelectionChanged={handleAnnotationSelectionChange}
+          onPencilActiveChange={handlePencilActiveChange}
         />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 100,
-            pointerEvents: 'auto',
-          }}
-        >
-          <AnnotationToolbar
-            mode={toolbarMode}
-            onModeChange={applyToolbarMode}
-            disabled={!viewerReady}
-          />
-        </div>
+        {pencilActive && viewerReady && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              pointerEvents: 'auto',
+            }}
+          >
+            <AnnotationToolbar mode={toolbarMode} onModeChange={applyToolbarMode} />
+          </div>
+        )}
       </div>
     );
   }
