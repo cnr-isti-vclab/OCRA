@@ -117,7 +117,8 @@ export class AnnotationStore {
 
   private client: AnnotationApiClient;
   private sceneId: string;
-  private selectionCriteria: SelectionCriteria = { ...EMPTY_SELECTION_CRITERIA };
+  // Default UX: hide erasable entities (soft-deleted) unless explicitly requested.
+  private selectionCriteria: SelectionCriteria = { includeErasable: false };
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
 
   constructor(
@@ -196,14 +197,14 @@ export class AnnotationStore {
    * Tear down the current scene (SSE, maps, in-flight writes) and load another scene
    * on a fresh {@link AnnotationApiClient}. Reuses the same store instance and callbacks.
    */
-  async loadScene(sceneId: string, includeErasable = true): Promise<void> {
+  async loadScene(sceneId: string, includeErasable = false): Promise<void> {
     this.releaseCurrentScene();
     this.sceneId = sceneId;
     this.client = new AnnotationApiClient({ projectId: this.projectId, sceneId });
     await this.init(includeErasable);
   }
 
-  async init(includeErasable = true): Promise<void> {
+  async init(includeErasable = false): Promise<void> {
     this.generation += 1;
     const myGen = this.generation;
     this.isSaving.clear();
@@ -270,7 +271,7 @@ export class AnnotationStore {
       allProjectDataLoaded: false,
     };
     this.isLoadingAdditionalData = false;
-    this.selectionCriteria = { ...EMPTY_SELECTION_CRITERIA };
+    this.selectionCriteria = { includeErasable: false };
     this.activeSelection = createEmptyActiveSelection();
     if (hadPending) {
       this.callbacks.onEditsCancelled();
@@ -280,7 +281,7 @@ export class AnnotationStore {
 
   // ── On-demand loading ─────────────────────────────────────────────────────
 
-  async loadProjectData(includeErasable = true): Promise<void> {
+  async loadProjectData(includeErasable = false): Promise<void> {
     if (this.meta.allProjectDataLoaded || this.meta.loadingScopes.has(PROJECT_DATA_SCOPE)) {
       return;
     }

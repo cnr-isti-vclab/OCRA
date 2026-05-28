@@ -6,7 +6,6 @@ import React, { useEffect, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
-import { EMPTY_SELECTION_CRITERIA } from '../../stores/annotation-selection';
 
 interface AnnotationPanelProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
@@ -104,8 +103,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   const {
     activeData,
     activeAnnotationSelection,
-    currentSelectionCriteria,
-    selectActiveAnnotations,
     focusedGeometryIds,
     focusedDataIds,
     focusData,
@@ -116,8 +113,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     updateData,
     markDataErasable,
   } = useAnnotationStore();
-
-  const hideErasable = currentSelectionCriteria.includeErasable === false;
 
   const [editingDatum, setEditingDatum] = useState<AnnotationData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -198,15 +193,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     }
   };
 
-  const handleHideErasableToggle = () => {
-    clearFocus();
-    if (hideErasable) {
-      selectActiveAnnotations(EMPTY_SELECTION_CRITERIA);
-    } else {
-      selectActiveAnnotations({ includeErasable: false });
-    }
-  };
-
   return (
     <div className="p-3 h-100 d-flex flex-column">
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -229,17 +215,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         )}
       </div>
 
-      <div className="mb-3">
-        <button
-          type="button"
-          className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}
-          onClick={handleHideErasableToggle}
-          aria-pressed={hideErasable}
-        >
-          <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />
-          {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}
-        </button>
-      </div>
+      {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
 
       <div className="mb-3 p-2 border rounded bg-light-subtle">
         <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
