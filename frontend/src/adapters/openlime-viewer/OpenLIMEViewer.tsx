@@ -384,8 +384,8 @@ const OpenLIMEViewer = forwardRef<
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.
             singleEditMode: true,
-            // Capture viewer state (light direction, render mode, …) in each annotation
-            enableState: true,
+            // Avoid per-annotation state capture during viewer redraws (can become O(N) at idle).
+            enableState: false,
 
             // Called whenever a new annotation is created
             onCreate: (anno: SimplifiedAnnotation) => {

@@ -104,7 +104,7 @@ Canonical Zod schemas and types (not the same as viewer DTOs):
 | Viewer DTO | `shared/scene-types.ts`       | `ViewerAnnotation` — rendering-only (`point` / `line` / `area`)                |
 
 
-Geometries are scoped by `referenceType` + `referenceId` (scene or asset). Data has visibility scope and can be shared across scenes in a project. All entities carry `**version`** (OCC), `**erasableAt` / `erasableBy**` (soft delete), and audit fields.
+Geometries are scoped by `referenceType` + `referenceId` (scene or asset). Data has visibility scope and can be shared across scenes in a project. All entities carry `**version`** (OCC), `**erasableAt` / `erasableBy`** (soft delete), and audit fields.
 
 ---
 
@@ -144,9 +144,11 @@ Writes are optimistic local-first with version checks; conflicts surface via `on
 
 ### 5.2 Active selection (`frontend/src/stores/annotation-selection.ts`)
 
-`**SelectionCriteria`** — declarative filter (geometry / data / link predicates, `includeErasable`, `linkMode`). Default `{}` means “everything currently loaded.”
+`**SelectionCriteria`** — declarative filter (geometry / data / link predicates, `includeErasable`, `linkMode`).
 
-`**evaluateActiveSelection(maps, criteria, sceneId)**` → `**ActiveAnnotationSelection**`:
+**Current default UX:** `includeErasable: false` (hide soft-deleted entities by default). This is enforced in `AnnotationStore` defaults and in scene/project loads.
+
+`**evaluateActiveSelection(maps, criteria, sceneId)`** → `**ActiveAnnotationSelection**`:
 
 - Three ID sets: `geometryIds`, `dataIds`, `linkIds`
 - Materialized maps: `geometriesById`, `dataById`, `linksById`
@@ -154,7 +156,7 @@ Writes are optimistic local-first with version checks; conflicts surface via `on
 
 Helpers include `buildGeometryLabelDisplay`, `getActiveResolvedTriples`, `getActiveGeometriesForData`, etc.
 
-**Not in UI yet:** a query builder GUI; only default criteria in production and a lab demo filter (`includeErasable: false`) in test mode.
+**Not in UI yet:** a query builder GUI. A “show/hide erased” toggle previously existed in the panel but is intentionally disabled/commented out for now; restore/recovery flows will reintroduce UI controls later.
 
 ### 5.3 `AnnotationStoreContext` (`frontend/src/context/AnnotationStoreContext.tsx`)
 
@@ -183,7 +185,7 @@ Helpers include `buildGeometryLabelDisplay`, `getActiveResolvedTriples`, `getAct
 | `?mode=test` | `AnnotationStoreTestPanel` (lab) | —                 |
 
 
-The old `**AnnotationProvider**` / `**AnnotationContext**` / frontend `**AnnotationService**` (scene.json `PUT` persistence) have been **removed**. Production paths use only `AnnotationStoreProvider`.
+The old `**AnnotationProvider`** / `**AnnotationContext**` / frontend `**AnnotationService**` (scene.json `PUT` persistence) have been **removed**. Production paths use only `AnnotationStoreProvider`.
 
 ---
 
@@ -198,7 +200,7 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 | `viewerAnnotationToShapes.ts`         | OpenLIME/three events → `AnnotationShape[]` for persistence                                                             |
 | `shapesEqual.ts`                      | Skip redundant geometry PATCH when shapes unchanged (2D)                                                                |
 | `viewerAnnotationToOpenLimeImport.ts` | JSON-LD + SVG for polylines/polygons; vertex-handle repair detection                                                    |
-| `openlimeAnnotationAdapter.ts`        | `syncOpenLimeAnnotations`, `applyViewerSelectionFromStore`, edit-mode helpers                                           |
+| `openlimeAnnotationAdapter.ts`        | `syncOpenLimeAnnotations`, OpenLIME selection helpers, edit-mode helpers                                                |
 
 
 ### 7.1 3D — `Viewer3DPanel` + `ThreeJSViewer`
@@ -211,13 +213,16 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 ### 7.2 2D — `Viewer2DPanel` + `OpenLIMEViewer`
 
 - **Store → canvas:** `syncOpenLimeAnnotations` keeps OpenLIME layer aligned with active geometries.
-  - **Points:** `createAnnotation` on the manager.
-  - **Lines / areas:** `importAnnotations` with SVG (shape, hit target, **vertex handles** for editing).
+  - **All shapes:** `importAnnotations` (JSON-LD + SVG), so store sync does **not** emit OpenLIME `create` events.
+  - Imported SVG includes a hit target and **vertex handles** for polyline/polygon editing.
+  - Imported annotations are parsed immediately (SVG → `elements`) so OpenLIME can apply styles without waiting for a later prefetch cycle.
   - **Remote geometry changes:** if vertices differ from OpenLIME (`viewerGeometryMatchesOpenLime`), annotation is deleted and re-imported (applies to **all** types including points).
   - **Missing handles:** older imports without `annotation-vertex-handles` are re-imported.
   - Does **not** call `updateAnnotation` on sync (avoids SSE feedback loops).
 - **Canvas → store:** `onAnnotationCreated` / `onAnnotationUpdated` → `createAnnotation` / `updateGeometry` (guarded by `isStoreSyncRef`, `shapesEqual`).
-- **Selection:** canvas ↔ `focusedGeometryIds` / `focusedDataIds`; empty canvas selection clears panel focus; panel-driven select uses `applyViewerSelectionFromStore` (edit mode + sync + select in one block).
+- **Selection:** canvas ↔ `focusedGeometryIds` / `focusedDataIds`; empty canvas selection clears panel focus.
+  - Panel-driven selection enables the OpenLIME pencil tool (`enableEditing(true)`) so viewer clicks emit `selectionChange` and keep the panel in sync.
+  - Viewer2D filters out programmatic selection-change events using an “expected ids” guard (`expectedProgrammaticSelectionRef`), to avoid swallowing real user selections after sync.
 - **Editable:** points and polylines/polygons drawn in OpenLIME or imported from store (vertex drag → `update` → store PATCH).
 
 ---
@@ -236,7 +241,7 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 
 ## 9. Lab (`AnnotationStoreTestPanel`)
 
-`?mode=test` — counts (loaded vs active), SSE log, scripted CRUD/erasable/loadProjectData tests, demo `selectActiveAnnotations({ includeErasable: false })`. Scripts live in `frontend/src/routes/components/annotation-test/scripts.ts`.
+`?mode=test` — counts (loaded vs active), SSE log, scripted CRUD/erasable/loadProjectData tests. Scripts live in `frontend/src/routes/components/annotation-test/scripts.ts`.
 
 ---
 
@@ -248,7 +253,7 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 | Scene load + SSE sync                                           | Yes                                            |
 | OCC writes + conflict handling                                  | Yes                                            |
 | Decoupled geometry / data / link                                | Yes                                            |
-| Active query (`{}` default)                                     | Yes                                            |
+| Active query (default hides erasable)                           | Yes                                            |
 | UI focus (panel ↔ viewer)                                       | Yes                                            |
 | 3D point create + render active geometries                      | Yes                                            |
 | 2D point / polyline / polygon create, edit vertices, store sync | Yes                                            |
@@ -318,7 +323,7 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 
 | Mode         | What to check                                                                                                               |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `?mode=test` | Loaded vs active counts, SSE log, erasable filter demo                                                                      |
+| `?mode=test` | Loaded vs active counts, SSE log                                                                                            |
 | `?mode=2d`   | Create/edit point and polyline; panel select in create mode; canvas deselect clears panel; remote point move updates canvas |
 | `?mode=3d`   | Point create; panel multi-select; viewer Ctrl multi-select; active geometries render                                        |
 
