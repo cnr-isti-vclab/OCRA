@@ -169,21 +169,6 @@ export default function Projects() {
     };
   }, [projects, fetchData]);
 
-  useEffect(() => {
-    projects.forEach((project) => {
-      if (!project.activeStructuringLock || !project.activeStructuringLockOwnedByCurrentSession) {
-        return;
-      }
-
-      const lockState = getProjectLockState(project.id);
-      if (lockState.enabled || lockState.hasExclusiveLock || lockState.status === 'acquiring' || lockState.status === 'releasing') {
-        return;
-      }
-
-      void toggleProjectLock(project.id, true);
-    });
-  }, [projects, getProjectLockState, toggleProjectLock]);
-
   const openCreateProjectModal = () => {
     setCreateError(null);
     setNewProjectName('');
@@ -372,7 +357,7 @@ export default function Projects() {
                 const ownedByCurrentSession = !!project.activeStructuringLockOwnedByCurrentSession || lockState.hasExclusiveLock;
                 const lockedByAnotherSession = !!project.activeStructuringLock && !ownedByCurrentSession;
                 const structuringActive = !!project.activeStructuringLock || lockState.enabled || lockState.status !== 'inactive';
-                const resumingOwnedLock = !!project.activeStructuringLockOwnedByCurrentSession && !lockState.enabled && !lockState.hasExclusiveLock;
+                const unmanagedOwnedLock = !!project.activeStructuringLockOwnedByCurrentSession && !lockState.enabled && !lockState.hasExclusiveLock;
                 return (
               <div className="card h-100 shadow-sm">
                 <div className="card-body d-flex flex-column">
@@ -505,7 +490,9 @@ export default function Projects() {
                             <div className="small text-muted">
                               {lockState.hasExclusiveLock
                                 ? 'Exclusive lock acquired for this project.'
-                                : 'Acquire the project-wide lock before structural changes.'}
+                                : unmanagedOwnedLock
+                                  ? 'An active lock exists for this session, but this tab is not managing its heartbeat.'
+                                  : 'Acquire the project-wide lock before structural changes.'}
                             </div>
                           </div>
                           <div className="form-check form-switch m-0">
@@ -514,20 +501,20 @@ export default function Projects() {
                               className="form-check-input"
                               type="checkbox"
                               role="switch"
-                              checked={lockState.enabled || !!project.activeStructuringLockOwnedByCurrentSession}
+                              checked={lockState.enabled}
                               onChange={(e) => void toggleProjectLock(project.id, e.target.checked)}
-                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession || resumingOwnedLock}
+                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession}
                             />
                           </div>
                         </div>
                         <div className="small mt-2 text-dark">
                           <strong>Status:</strong>{' '}
-                          {resumingOwnedLock && 'restoring lock session'}
-                          {!resumingOwnedLock && lockState.status === 'inactive' && 'inactive'}
-                          {!resumingOwnedLock && lockState.status === 'acquiring' && 'acquiring lock'}
-                          {!resumingOwnedLock && lockState.status === 'draining' && 'draining other sessions'}
-                          {!resumingOwnedLock && lockState.status === 'exclusive' && 'exclusive lock acquired'}
-                          {!resumingOwnedLock && lockState.status === 'releasing' && 'releasing lock'}
+                          {unmanagedOwnedLock && 'lock active outside this tab'}
+                          {!unmanagedOwnedLock && lockState.status === 'inactive' && 'inactive'}
+                          {!unmanagedOwnedLock && lockState.status === 'acquiring' && 'acquiring lock'}
+                          {!unmanagedOwnedLock && lockState.status === 'draining' && 'draining other sessions'}
+                          {!unmanagedOwnedLock && lockState.status === 'exclusive' && 'exclusive lock acquired'}
+                          {!unmanagedOwnedLock && lockState.status === 'releasing' && 'releasing lock'}
                         </div>
                         {lockState.error && (
                           <div className="small text-danger mt-1">{lockState.error}</div>
