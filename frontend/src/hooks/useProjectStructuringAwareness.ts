@@ -10,12 +10,21 @@ import {
   type StructuringRealtimeState,
 } from '../services/StructuringEventsService';
 
-function createClientInstanceId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
+function generateId() {
+  return crypto.randomUUID?.() ?? `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
-  return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function getOrCreateClientInstanceId(mode: ProjectPresenceMode, sceneId?: string | null): string {
+  const key = `ocra:presence:${mode}:${sceneId ?? '-'}`;
+  try {
+    const existing = sessionStorage.getItem(key);
+    if (existing) return existing;
+    const id = generateId();
+    sessionStorage.setItem(key, id);
+    return id;
+  } catch {
+    return generateId();
+  }
 }
 
 function toActiveDrainingEvent(signal: StructuringDrainState): StructuringDrainEvent {
@@ -42,7 +51,7 @@ export function useProjectStructuringAwareness({
   const [structuringRealtimeState, setStructuringRealtimeState] = useState<StructuringRealtimeState>('idle');
   const [activeDrainingEvent, setActiveDrainingEvent] = useState<StructuringDrainEvent | null>(null);
   const [presenceError, setPresenceError] = useState<string | null>(null);
-  const clientInstanceIdRef = useRef(createClientInstanceId());
+  const clientInstanceId = useMemo(() => getOrCreateClientInstanceId(mode, sceneId), [mode, sceneId]);
   const retryPresenceTimeoutRef = useRef<number | null>(null);
 
   const structuringService = useMemo(
@@ -63,7 +72,7 @@ export function useProjectStructuringAwareness({
     const presencePayload = {
       mode,
       sceneId: sceneId ?? undefined,
-      clientInstanceId: clientInstanceIdRef.current,
+      clientInstanceId,
     };
 
     const clearRetryPresenceTimer = () => {

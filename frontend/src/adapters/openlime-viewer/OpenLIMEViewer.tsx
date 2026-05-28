@@ -379,6 +379,11 @@ const OpenLIMEViewer = forwardRef<
                 // olime-glow-soft, olime-shadow-soft, olime-outline-soft
                 underEditing: { strokeWidth: 3, fillOpacity: 0.8, filter: 'url(#olime-glow-soft)' },
             },
+            labelStyle: {
+                textFill: '#ff0000',
+                textFillSelected: '#006600',
+                backgroundFill: 'rgba(80, 0, 0, 0.30)',
+            },
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.

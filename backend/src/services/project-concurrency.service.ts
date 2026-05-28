@@ -9,7 +9,7 @@ import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 
 const STRUCTURING_LOCK_TTL_MS = 30_000;
 const PROJECT_PRESENCE_TTL_MS = 30_000;
-const SERIALIZABLE_TRANSACTION_MAX_RETRIES = 3;
+const SERIALIZABLE_TRANSACTION_MAX_RETRIES = 5;
 const SERIALIZABLE_TRANSACTION_ERROR_MESSAGE = /write conflict|deadlock|could not serialize|serialization failure/i;
 
 type JsonObject = Record<string, unknown>;
