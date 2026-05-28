@@ -10,11 +10,13 @@ For the target active-selection contract see [a06-active-annotations.md](./a06-a
 
 OCRA treats annotations as **three decoupled MongoDB entities** per project:
 
-| Entity | Role |
-|--------|------|
+
+| Entity       | Role                                                                            |
+| ------------ | ------------------------------------------------------------------------------- |
 | **Geometry** | Shapes in scene or asset space (`ShapePoints`, `ShapePolyline`, `ShapePolygon`) |
-| **Data** | Semantic fields (label, description, class, vocabulary content) |
-| **Link** | Many-to-many join between geometry and data |
+| **Data**     | Semantic fields (label, description, class, vocabulary content)                 |
+| **Link**     | Many-to-many join between geometry and data                                     |
+
 
 The editor keeps a **local replica** of the current scene’s annotations, updates it optimistically, persists via REST, and stays aligned with other users through **SSE**. The UI does not treat “one link = one row”; the **viewer** works on geometries and the **panel** on data, with focus and highlights bridging the two.
 
@@ -77,6 +79,8 @@ flowchart TB
   AS --> SSE
 ```
 
+
+
 **Data flow (simplified):**
 
 1. **Load** scene bundle (REST) → populate `AnnotationStore` maps.
@@ -91,14 +95,16 @@ flowchart TB
 
 Canonical Zod schemas and types (not the same as viewer DTOs):
 
-| Artifact | Path | Notes |
-|----------|------|--------|
-| Schemas | `shared/annotation-schema.ts` | Validation for API and persistence |
-| Types | `shared/annotation-types.ts` | `AnnotationGeometry`, `AnnotationData`, `AnnotationLink`, `AnnotationShape`, … |
-| Events | `shared/annotation-events.ts` | SSE mutation and social-lock payloads |
-| Viewer DTO | `shared/scene-types.ts` | `ViewerAnnotation` — rendering-only (`point` / `line` / `area`) |
 
-Geometries are scoped by `referenceType` + `referenceId` (scene or asset). Data has visibility scope and can be shared across scenes in a project. All entities carry **`version`** (OCC), **`erasableAt` / `erasableBy`** (soft delete), and audit fields.
+| Artifact   | Path                          | Notes                                                                          |
+| ---------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| Schemas    | `shared/annotation-schema.ts` | Validation for API and persistence                                             |
+| Types      | `shared/annotation-types.ts`  | `AnnotationGeometry`, `AnnotationData`, `AnnotationLink`, `AnnotationShape`, … |
+| Events     | `shared/annotation-events.ts` | SSE mutation and social-lock payloads                                          |
+| Viewer DTO | `shared/scene-types.ts`       | `ViewerAnnotation` — rendering-only (`point` / `line` / `area`)                |
+
+
+Geometries are scoped by `referenceType` + `referenceId` (scene or asset). Data has visibility scope and can be shared across scenes in a project. All entities carry `**version`** (OCC), `**erasableAt` / `erasableBy**` (soft delete), and audit fields.
 
 ---
 
@@ -106,7 +112,7 @@ Geometries are scoped by `referenceType` + `referenceId` (scene or asset). Data 
 
 Repositories under `backend/src/repositories/annotation-*.repository.ts` read/write the three MongoDB collections in `ocra_content`. Routes expose scene bundles, CRUD, erasable marks, and an SSE stream keyed by project + scene.
 
-The frontend does not talk to Mongo directly; it uses **`AnnotationApiClient`** (`frontend/src/services/AnnotationApiClient.ts`) and **`AnnotationEventsService`** (`frontend/src/services/AnnotationEventsService.ts`) for REST + SSE.
+The frontend does not talk to Mongo directly; it uses `**AnnotationApiClient**` (`frontend/src/services/AnnotationApiClient.ts`) and `**AnnotationEventsService**` (`frontend/src/services/AnnotationEventsService.ts`) for REST + SSE.
 
 ---
 
@@ -122,23 +128,25 @@ In-memory maps:
 
 **Main operations:**
 
-| Operation | Effect |
-|-----------|--------|
-| `loadScene(sceneId)` | REST bundle → maps; then SSE connect |
-| `createAnnotation(input)` | New geometry + data + link (or link to `existingDataId`) |
-| `updateGeometry(id, shapes)` | OCC geometry PATCH |
-| `updateData(id, input)` | OCC data PATCH (one write updates all linked geometries’ semantics) |
-| `mark*Erasable` / `mark*NonErasable` | Soft delete / restore per kind |
-| `loadProjectData()` | Merge all project data for link-to-existing pickers (store API ready; limited UI) |
-| SSE handlers | Merge remote creates/updates/deletes into maps |
+
+| Operation                            | Effect                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `loadScene(sceneId)`                 | REST bundle → maps; then SSE connect                                              |
+| `createAnnotation(input)`            | New geometry + data + link (or link to `existingDataId`)                          |
+| `updateGeometry(id, shapes)`         | OCC geometry PATCH                                                                |
+| `updateData(id, input)`              | OCC data PATCH (one write updates all linked geometries’ semantics)               |
+| `mark*Erasable` / `mark*NonErasable` | Soft delete / restore per kind                                                    |
+| `loadProjectData()`                  | Merge all project data for link-to-existing pickers (store API ready; limited UI) |
+| SSE handlers                         | Merge remote creates/updates/deletes into maps                                    |
+
 
 Writes are optimistic local-first with version checks; conflicts surface via `onConflict`.
 
 ### 5.2 Active selection (`frontend/src/stores/annotation-selection.ts`)
 
-**`SelectionCriteria`** — declarative filter (geometry / data / link predicates, `includeErasable`, `linkMode`). Default `{}` means “everything currently loaded.”
+`**SelectionCriteria`** — declarative filter (geometry / data / link predicates, `includeErasable`, `linkMode`). Default `{}` means “everything currently loaded.”
 
-**`evaluateActiveSelection(maps, criteria, sceneId)`** → **`ActiveAnnotationSelection`**:
+`**evaluateActiveSelection(maps, criteria, sceneId)**` → `**ActiveAnnotationSelection**`:
 
 - Three ID sets: `geometryIds`, `dataIds`, `linkIds`
 - Materialized maps: `geometriesById`, `dataById`, `linksById`
@@ -150,7 +158,7 @@ Helpers include `buildGeometryLabelDisplay`, `getActiveResolvedTriples`, `getAct
 
 ### 5.3 `AnnotationStoreContext` (`frontend/src/context/AnnotationStoreContext.tsx`)
 
-**`AnnotationStoreProvider`** wraps the project viewer area in `ProjectPage` (when a scene is selected). Exposes:
+`**AnnotationStoreProvider`** wraps the project viewer area in `ProjectPage` (when a scene is selected). Exposes:
 
 - Store ref, `revision` (React re-render tick)
 - **Loaded:** `allGeometries`, `allData`, `allLinks`
@@ -165,15 +173,17 @@ Helpers include `buildGeometryLabelDisplay`, `getActiveResolvedTriples`, `getAct
 
 ## 6. UI integration (`ProjectPage`)
 
-`ProjectPage` mounts **`AnnotationStoreProvider`** with `projectId` and `selectedSceneId`.
+`ProjectPage` mounts `**AnnotationStoreProvider`** with `projectId` and `selectedSceneId`.
 
-| URL mode | Viewer | Panel |
-|----------|--------|--------|
-| `?mode=3d` | `Viewer3DPanel` | `AnnotationPanel` |
-| `?mode=2d` | `Viewer2DPanel` (RTI / OpenLIME) | `AnnotationPanel` |
-| `?mode=test` | `AnnotationStoreTestPanel` (lab) | — |
 
-The old **`AnnotationProvider`** / **`AnnotationContext`** / frontend **`AnnotationService`** (scene.json `PUT` persistence) have been **removed**. Production paths use only `AnnotationStoreProvider`.
+| URL mode     | Viewer                           | Panel             |
+| ------------ | -------------------------------- | ----------------- |
+| `?mode=3d`   | `Viewer3DPanel`                  | `AnnotationPanel` |
+| `?mode=2d`   | `Viewer2DPanel` (RTI / OpenLIME) | `AnnotationPanel` |
+| `?mode=test` | `AnnotationStoreTestPanel` (lab) | —                 |
+
+
+The old `**AnnotationProvider**` / `**AnnotationContext**` / frontend `**AnnotationService**` (scene.json `PUT` persistence) have been **removed**. Production paths use only `AnnotationStoreProvider`.
 
 ---
 
@@ -181,13 +191,15 @@ The old **`AnnotationProvider`** / **`AnnotationContext`** / frontend **`Annotat
 
 Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-presenter into the store.
 
-| Module | Responsibility |
-|--------|----------------|
-| `geometryToViewerAnnotation.ts` | `AnnotationGeometry` → `ViewerAnnotation`; `getViewerHighlightGeometryIds`; comma-joined label from linked data + focus |
-| `viewerAnnotationToShapes.ts` | OpenLIME/three events → `AnnotationShape[]` for persistence |
-| `shapesEqual.ts` | Skip redundant geometry PATCH when shapes unchanged (2D) |
-| `viewerAnnotationToOpenLimeImport.ts` | JSON-LD + SVG for polylines/polygons; vertex-handle repair detection |
-| `openlimeAnnotationAdapter.ts` | `syncOpenLimeAnnotations`, `applyViewerSelectionFromStore`, edit-mode helpers |
+
+| Module                                | Responsibility                                                                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `geometryToViewerAnnotation.ts`       | `AnnotationGeometry` → `ViewerAnnotation`; `getViewerHighlightGeometryIds`; comma-joined label from linked data + focus |
+| `viewerAnnotationToShapes.ts`         | OpenLIME/three events → `AnnotationShape[]` for persistence                                                             |
+| `shapesEqual.ts`                      | Skip redundant geometry PATCH when shapes unchanged (2D)                                                                |
+| `viewerAnnotationToOpenLimeImport.ts` | JSON-LD + SVG for polylines/polygons; vertex-handle repair detection                                                    |
+| `openlimeAnnotationAdapter.ts`        | `syncOpenLimeAnnotations`, `applyViewerSelectionFromStore`, edit-mode helpers                                           |
+
 
 ### 7.1 3D — `Viewer3DPanel` + `ThreeJSViewer`
 
@@ -212,7 +224,7 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 
 ## 8. Annotation panel (`AnnotationPanel`)
 
-- Lists **`activeData`** (not a flat “resolved triple” list).
+- Lists `**activeData`** (not a flat “resolved triple” list).
 - Per row: label, description, **linked geometry count**, edit modal (`updateData`), delete (`markDataErasable`).
 - **Focus:** row click (with Ctrl multi-select) → `focusData` → viewer highlights linked geometries via `getViewerHighlightGeometryIds`.
 - **Bulk:** delete focused data rows, clear focus.
@@ -230,34 +242,38 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 
 ## 10. Supported functionality (current)
 
-| Area | Supported |
-|------|-----------|
-| Scene load + SSE sync | Yes |
-| OCC writes + conflict handling | Yes |
-| Decoupled geometry / data / link | Yes |
-| Active query (`{}` default) | Yes |
-| UI focus (panel ↔ viewer) | Yes |
-| 3D point create + render active geometries | Yes |
-| 2D point / polyline / polygon create, edit vertices, store sync | Yes |
-| 2D store → canvas import (all shape types) | Yes |
-| 2D remote geometry + label sync | Yes (geometry re-import; label patch) |
-| Panel edit/delete data | Yes |
-| Soft delete (erasable) all three kinds | Store + API; panel uses data side |
-| Multi-label per geometry (a06 `labels[]` / `selected[]`) | **No** — comma-joined single label in adapters |
-| Selection criteria GUI | **No** |
-| Panel link/unlink | **No** (store ready) |
-| 3D polylines/polygons | **No** (points only for create) |
-| Social lock UI from panel | **No** |
-| Legacy scene.json annotation `PUT` path | Removed (was unused on 3d/2d/test) |
+
+| Area                                                            | Supported                                      |
+| --------------------------------------------------------------- | ---------------------------------------------- |
+| Scene load + SSE sync                                           | Yes                                            |
+| OCC writes + conflict handling                                  | Yes                                            |
+| Decoupled geometry / data / link                                | Yes                                            |
+| Active query (`{}` default)                                     | Yes                                            |
+| UI focus (panel ↔ viewer)                                       | Yes                                            |
+| 3D point create + render active geometries                      | Yes                                            |
+| 2D point / polyline / polygon create, edit vertices, store sync | Yes                                            |
+| 2D store → canvas import (all shape types)                      | Yes                                            |
+| 2D remote geometry + label sync                                 | Yes (geometry re-import; label patch)          |
+| Panel edit/delete data                                          | Yes                                            |
+| Soft delete (erasable) all three kinds                          | Store + API; panel uses data side              |
+| Multi-label per geometry (a06 `labels[]` / `selected[]`)        | **No** — comma-joined single label in adapters |
+| Selection criteria GUI                                          | **No**                                         |
+| Panel link/unlink                                               | **No** (store ready)                           |
+| 3D polylines/polygons                                           | **No** (points only for create)                |
+| Social lock UI from panel                                       | **No**                                         |
+| Legacy scene.json annotation `PUT` path                         | Removed (was unused on 3d/2d/test)             |
+
 
 ---
 
 ## 11. Mental model: active vs focus
 
-| Concept | Driven by | Used for |
-|---------|-----------|----------|
-| **Active** | `SelectionCriteria` → `selectActiveAnnotations` | Which entities appear in viewer/panel at all |
-| **Focus** | User clicks (panel or viewer) | Highlights, which data labels are emphasized on geometries |
+
+| Concept    | Driven by                                       | Used for                                                   |
+| ---------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| **Active** | `SelectionCriteria` → `selectActiveAnnotations` | Which entities appear in viewer/panel at all               |
+| **Focus**  | User clicks (panel or viewer)                   | Highlights, which data labels are emphasized on geometries |
+
 
 Rule of thumb from a06: **query** narrows the working set; **focus** narrows emphasis within that set.
 
@@ -276,29 +292,34 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 
 ## 13. Key files (quick index)
 
-| Layer | Path |
-|-------|------|
-| Spec (active) | `doc/a06-active-annotations.md` |
-| Spec (store/sync) | `doc/anno-frontend.md` |
-| This status doc | `doc/annotation-current-status.md` |
-| Types | `shared/annotation-types.ts`, `shared/scene-types.ts` |
-| Store | `frontend/src/stores/AnnotationStore.ts` |
-| Selection | `frontend/src/stores/annotation-selection.ts` |
-| Context | `frontend/src/context/AnnotationStoreContext.tsx` |
-| API / SSE | `frontend/src/services/AnnotationApiClient.ts`, `AnnotationEventsService.ts` |
-| Adapters | `frontend/src/adapters/annotation-store/*` |
-| 3D UI | `frontend/src/routes/components/Viewer3DPanel.tsx`, `adapters/three-presenter/ThreeJSViewer.tsx` |
-| 2D UI | `frontend/src/routes/components/Viewer2DPanel.tsx`, `adapters/openlime-viewer/OpenLIMEViewer.tsx` |
-| Panel | `frontend/src/routes/components/AnnotationPanel.tsx` |
-| Lab | `frontend/src/routes/components/AnnotationStoreTestPanel.tsx` |
-| Wiring | `frontend/src/routes/ProjectPage.tsx` |
+
+| Layer             | Path                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| Spec (active)     | `doc/a06-active-annotations.md`                                                                   |
+| Spec (store/sync) | `doc/anno-frontend.md`                                                                            |
+| This status doc   | `doc/annotation-current-status.md`                                                                |
+| Types             | `shared/annotation-types.ts`, `shared/scene-types.ts`                                             |
+| Store             | `frontend/src/stores/AnnotationStore.ts`                                                          |
+| Selection         | `frontend/src/stores/annotation-selection.ts`                                                     |
+| Context           | `frontend/src/context/AnnotationStoreContext.tsx`                                                 |
+| API / SSE         | `frontend/src/services/AnnotationApiClient.ts`, `AnnotationEventsService.ts`                      |
+| Adapters          | `frontend/src/adapters/annotation-store/`*                                                        |
+| 3D UI             | `frontend/src/routes/components/Viewer3DPanel.tsx`, `adapters/three-presenter/ThreeJSViewer.tsx`  |
+| 2D UI             | `frontend/src/routes/components/Viewer2DPanel.tsx`, `adapters/openlime-viewer/OpenLIMEViewer.tsx` |
+| Panel             | `frontend/src/routes/components/AnnotationPanel.tsx`                                              |
+| Lab               | `frontend/src/routes/components/AnnotationStoreTestPanel.tsx`                                     |
+| Wiring            | `frontend/src/routes/ProjectPage.tsx`                                                             |
+
 
 ---
 
 ## 14. Quick verification
 
-| Mode | What to check |
-|------|----------------|
-| `?mode=test` | Loaded vs active counts, SSE log, erasable filter demo |
-| `?mode=2d` | Create/edit point and polyline; panel select in create mode; canvas deselect clears panel; remote point move updates canvas |
-| `?mode=3d` | Point create; panel multi-select; viewer Ctrl multi-select; active geometries render |
+
+| Mode         | What to check                                                                                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `?mode=test` | Loaded vs active counts, SSE log, erasable filter demo                                                                      |
+| `?mode=2d`   | Create/edit point and polyline; panel select in create mode; canvas deselect clears panel; remote point move updates canvas |
+| `?mode=3d`   | Point create; panel multi-select; viewer Ctrl multi-select; active geometries render                                        |
+
+

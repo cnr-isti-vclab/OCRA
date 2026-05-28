@@ -103,6 +103,9 @@ export interface OpenLIMEViewerRef {
   deleteAnnotationById: (id: string) => SimplifiedAnnotation | null;
 
   getAnnotationManager: () => OpenLIME.ManagerSvgAnnotation | null;
+
+  /** Enables/disables the OpenLIME pencil tool (annotation system). */
+  enableEditing: (enabled: boolean) => void;
 }
 
 
@@ -685,6 +688,32 @@ const OpenLIMEViewer = forwardRef<
 
         getAnnotationManager() {
           return annotationManagerRef.current;
+        },
+
+        enableEditing(enabled: boolean) {
+          const on = Boolean(enabled);
+          const ui = uiRef.current as any;
+          const manager = annotationManagerRef.current as any;
+
+          // Try the official UI pathway first (keeps controllers in sync).
+          if (ui && typeof ui.toggleAnnotations === 'function') {
+            ui.toggleAnnotations(on);
+          } else if (manager && typeof manager.toggle === 'function') {
+            manager.toggle(on);
+          } else if (manager && typeof manager.setMode === 'function') {
+            manager.setMode(on ? 'edit' : 'idle');
+          }
+
+          // Defensive: keep the pencil button visual state in sync even if
+          // modeChange events are missed for any reason.
+          const container = viewerRef.current?.containerElement as HTMLElement | undefined;
+          const pencilButton = container?.querySelector?.('.openlime-button.openlime-pencil') as
+            | HTMLElement
+            | null
+            | undefined;
+          pencilButton?.classList.toggle('openlime-pencil-active', on);
+
+          setIsEditing(on);
         },
       }));
 

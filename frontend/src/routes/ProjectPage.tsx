@@ -1455,7 +1455,13 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    <AnnotationPanel />
+                    <AnnotationPanel
+                      onSelectionChanged={(geometryIds) => {
+                        if (mode !== '2d') return;
+                        if (geometryIds.length === 0) return;
+                        openLimeRef.current?.enableEditing(true);
+                      }}
+                    />
                   </div>
                 )}
               </div>

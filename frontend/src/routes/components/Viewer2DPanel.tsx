@@ -43,8 +43,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       updateGeometry,
     } = useAnnotationStore();
 
-    const isProgrammaticSelectionRef = useRef(0);
     const isStoreSyncRef = useRef(false);
+    const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+
+    function normalizeIds(ids: string[]): string[] {
+      return [...ids].sort();
+    }
 
     /** Stable labels for OpenLIME sync — exclude focus-driven label text to avoid resync storms. */
     const viewerAnnotationsForSync = useMemo(
@@ -100,9 +104,24 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     };
 
     const handleAnnotationSelectionChange = (ids: string[]) => {
-      if (isProgrammaticSelectionRef.current > 0) {
-        isProgrammaticSelectionRef.current--;
+      // Ignore selectionChange events caused by store-driven sync/selection.
+      // (OpenLIME may emit transient empty selections during a sync pass.)
+      if (isStoreSyncRef.current) {
         return;
+      }
+
+      const expected = expectedProgrammaticSelectionRef.current;
+      if (expected) {
+        const normalized = normalizeIds(ids);
+        if (
+          normalized.length === expected.length &&
+          normalized.every((id, idx) => id === expected[idx])
+        ) {
+          expectedProgrammaticSelectionRef.current = null;
+          return;
+        }
+        // If it doesn't match, it is a real user selection; clear the expectation.
+        expectedProgrammaticSelectionRef.current = null;
       }
       if (ids.length === 0) {
         clearFocus();
@@ -116,9 +135,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       ReturnType<OpenLIMEViewerRef['getAnnotationManager']>
     >) => {
       isStoreSyncRef.current = true;
-      // Sync may temporarily deselect/reselect to let OpenLIME re-apply styles.
-      // Ignore resulting selectionChange events.
-      isProgrammaticSelectionRef.current += 3;
       try {
         syncOpenLimeAnnotations(annotationManager, viewerAnnotationsForSync);
       } finally {
@@ -138,8 +154,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       // Re-apply selection after shape sync — import/redraw can strip the selected CSS class.
       const idsToSelect = highlightGeometryIdsRef.current;
       if (idsToSelect.length > 0) {
-        isProgrammaticSelectionRef.current += 1;
         annotationManager.setMode('edit', false);
+        expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
         applyOpenLimeSelection(annotationManager, idsToSelect);
       }
     }, [viewerAnnotationsForSync, ref]);
@@ -153,7 +169,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
       if (highlightGeometryIds.length === 0 && focusedDataIds.size === 0) {
-        isProgrammaticSelectionRef.current += 1;
+        expectedProgrammaticSelectionRef.current = [];
         annotationManager.deselectAll();
         return;
       }
@@ -162,7 +178,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
       annotationManager.setMode('edit', false);
-      isProgrammaticSelectionRef.current += 1;
+      expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
       applyOpenLimeSelection(annotationManager, highlightGeometryIds);
     }, [highlightGeometryIds, focusedDataIds, ref]);
 
