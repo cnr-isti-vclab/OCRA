@@ -162,6 +162,11 @@ export function syncOpenLimeAnnotations(
 
   if (labelsUpdated) {
     manager.viewer?.redraw?.();
+    if (toImport.length > 0) {
+      // getBBox() returns 0 until the browser paints; double-RAF fires after the first
+      // paint so OpenLIME can measure real text dimensions on the second redraw.
+      requestAnimationFrame(() => { requestAnimationFrame(() => { manager.viewer?.redraw?.(); }); });
+    }
   }
 }
 
