@@ -225,6 +225,22 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
   - Viewer2D filters out programmatic selection-change events using an “expected ids” guard (`expectedProgrammaticSelectionRef`), to avoid swallowing real user selections after sync.
 - **Editable:** points and polylines/polygons drawn in OpenLIME or imported from store (vertex drag → `update` → store PATCH).
 
+### 7.3 OpenLIME classes and labels (ManagerSvgAnnotation)
+
+
+OCRA currently uses **structural state only**, not semantic classes (Pattern A: `semanticClass` stays null).
+
+| Mechanism | Used in OCRA? | How |
+| --------- | ------------- | --- |
+| **Manager defaults** | Yes | OpenLIME built-in `defaultFill` / `defaultStroke` (not overridden in `OpenLIMEViewer`) |
+| **`semanticClasses`** | No | No map in viewer config; `AnnotationData.class` not mapped to `semanticClass` |
+| **`structuralClasses.selected`** | Yes | Focus → `layer.selected` → automatic highlight (gold stroke/fill) |
+| **`structuralClasses.underEditing`** | Config only | Not applied (`anno.editing` never set from app code) |
+| **`structuralClasses.default`** | Config only | Not auto-applied; idle shadow from `_getClassStyle` CSS `drop-shadow` |
+| **Labels** | Yes | `anno.label` from store / create; panel `updateData` triggers resync |
+
+Wiring: `frontend/src/adapters/openlime-viewer/OpenLIMEViewer.tsx` (`structuralClasses`), `openlimeAnnotationAdapter.ts` (sync + selection), `viewerAnnotationToOpenLimeImport.ts` (`applyOpenLimeImportMetadata`).
+
 ---
 
 ## 8. Annotation panel (`AnnotationPanel`)
@@ -266,6 +282,7 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 | Panel link/unlink                                               | **No** (store ready)                           |
 | 3D polylines/polygons                                           | **No** (points only for create)                |
 | Social lock UI from panel                                       | **No**                                         |
+| OpenLIME semantic classes (`AnnotationData.class` → viewer)   | **No** — structural `selected` only; see §7.3  |
 | Legacy scene.json annotation `PUT` path                         | Removed (was unused on 3d/2d/test)             |
 
 

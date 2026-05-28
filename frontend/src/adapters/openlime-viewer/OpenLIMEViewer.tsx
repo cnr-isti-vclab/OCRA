@@ -347,39 +347,16 @@ const OpenLIMEViewer = forwardRef<
 
           // Setup annotation manager
           console.log('🎬 Setting up OpenLIME annotation manager');
-          // Provide an explicit SVG annotation layer so we can inject style into the shadow root
-          // (regular app CSS cannot reach inside shadow DOM).
-          const baseLayerForAnnotations =
-            Object.values((viewer as any).canvas?.layers ?? {}).find((l: any) => !l.overlay) ??
-            Object.values((viewer as any).canvas?.layers ?? {})[0];
-
-          // Set explicit annotation layer options to override label rendering 
-          // in openlime::ManagerSvgAnnotation::LayerSvgAnnotation
-          const annotationLayerOptions: any = {
-            label: 'Annotations',
-            annotations: [],
-            // The injected style is appended to the layer's shadow root <style>.
-            // Use !important to override presentation attributes set by ManagerSvgAnnotation.
-            style: `
-              .annotation-label-bg {
-                fill: rgba(0, 0, 0, 0.4) !important;
-                stroke: #dddddd !important;
-                stroke-width: 1px !important;
-              }
- 
-            `,
-          };
-
-          if (baseLayerForAnnotations) {
-            annotationLayerOptions.layout = baseLayerForAnnotations.layout;
-            annotationLayerOptions.transform = baseLayerForAnnotations.transform.copy();
-          }
-
-          const explicitAnnotationLayer = new (OpenLIME as any).LayerSvgAnnotation(annotationLayerOptions);
-          viewer.addLayer('manager_annotations', explicitAnnotationLayer);
 
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
-            layer: explicitAnnotationLayer,
+            structuralClasses: {
+                // Same CSS drop-shadow as PolylineMarker/DiskMarker (screen-px, zoom-invariant).
+                default: { filter: 'drop-shadow(1.5px 1.5px 2.0px rgba(0,0,0,0.80))' },
+                selected: { stroke: '#fed802', fill: 'rgba(183, 153, 35, 0.2)' },
+                // Built-in preloaded filters in ManagerSvgAnnotation:
+                // olime-glow-soft, olime-shadow-soft, olime-outline-soft
+                underEditing: { strokeWidth: 3, fillOpacity: 0.8, filter: 'url(#olime-glow-soft)' },
+            },
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.
