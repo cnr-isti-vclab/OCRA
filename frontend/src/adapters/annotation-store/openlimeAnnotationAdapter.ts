@@ -62,6 +62,7 @@ export type OpenLimeAnnotationManager = {
   setSelectedIds?: (ids: string[]) => void;
   deselectAll: () => void;
   setSelected: (id: string, on?: boolean) => void;
+  setAnnotationStructuralClass?: (id: string, classId: string | null) => void;
 };
 
 /**
@@ -222,4 +223,43 @@ export function applyViewerSelectionFromStore(
   ensureEditModeForSelection(manager);
   syncOpenLimeAnnotations(manager, viewerAnnotationsForSync);
   applyOpenLimeSelection(manager, geometryIds);
+}
+
+/**
+ * Applies the OpenLIME `underEditing` structural class to locked geometries.
+ * Used to surface remote editor social-locks in the 2D viewer.
+ */
+export function applyOpenLimeUnderEditing(
+  manager: OpenLimeAnnotationManager | null,
+  geometryIdsUnderEditing: string[],
+): void {
+  if (!manager) {
+    return;
+  }
+
+  const underEditing = new Set(geometryIdsUnderEditing);
+  const allIds = manager.getAnnotations().map((a) => a.id);
+
+  if (typeof manager.setAnnotationStructuralClass === 'function') {
+    allIds.forEach((id) => {
+      manager.setAnnotationStructuralClass?.(id, underEditing.has(id) ? 'underEditing' : null);
+    });
+    manager.viewer?.redraw?.();
+    return;
+  }
+
+  // Fallback for older OpenLIME typings/builds without setAnnotationStructuralClass.
+  allIds.forEach((id) => {
+    const anno = manager.getAnnotationById(id) as (OpenLimeSyncedAnnotation & { structuralClass?: string | null }) | null;
+    if (!anno) {
+      return;
+    }
+    const nextClass = underEditing.has(id) ? 'underEditing' : null;
+    if ((anno.structuralClass ?? null) === nextClass) {
+      return;
+    }
+    anno.structuralClass = nextClass;
+    anno.needsUpdate = true;
+  });
+  manager.viewer?.redraw?.();
 }

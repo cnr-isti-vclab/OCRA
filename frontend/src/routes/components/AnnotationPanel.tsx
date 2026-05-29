@@ -279,19 +279,11 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
               const isSelected = isDataFocused(datum.id);
-              const linkedGeometryIds =
-                activeAnnotationSelection.geometryIdsByDataId.get(datum.id) ?? [];
               const isUnderEditing = activeSocialLocks.some((lock) => {
                 if (lock.lockKind !== 'editor') {
                   return false;
                 }
-                if (lock.resourceType === 'data') {
-                  return lock.resourceId === datum.id;
-                }
-                if (lock.resourceType === 'geometry') {
-                  return lock.resourceId != null && linkedGeometryIds.includes(lock.resourceId);
-                }
-                return false;
+                return lock.resourceType === 'data' && lock.resourceId === datum.id;
               });
 
               const itemColors = isUnderEditing
@@ -340,6 +332,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                         className="btn btn-sm btn-outline-secondary"
                         onClick={(e) => {
                           e.stopPropagation();
+                          focusData(datum.id, false);
                           void handleEditStart(datum);
                         }}
                         disabled={creating}

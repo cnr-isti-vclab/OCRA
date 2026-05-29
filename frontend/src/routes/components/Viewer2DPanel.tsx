@@ -16,6 +16,7 @@ import {
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
 import {
+  applyOpenLimeUnderEditing,
   applyOpenLimeSelection,
   syncOpenLimeAnnotations,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
@@ -37,6 +38,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const {
       activeGeometries,
       activeAnnotationSelection,
+      activeSocialLocks,
       revision,
       focusedDataIds,
       focusedGeometryIds,
@@ -45,6 +47,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       clearFocus,
       createAnnotation,
       updateGeometry,
+      startEditorLock,
+      stopEditorLock,
     } = useAnnotationStore();
 
     const isStoreSyncRef = useRef(false);
@@ -52,6 +56,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
     const [pencilActive, setPencilActive] = useState(false);
+    const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
 
     const applyToolbarMode = useCallback(
       (mode: AnnotationToolbarMode) => {
@@ -175,6 +180,32 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     };
 
+    const syncGeometryEditorLocks = useCallback(
+      async (geometryIds: string[]) => {
+        const prev = geometryEditorLockIdsRef.current;
+        const next = new Set(geometryIds);
+
+        const toStart = [...next].filter((id) => !prev.has(id));
+        const toStop = [...prev].filter((id) => !next.has(id));
+
+        await Promise.all([
+          ...toStart.map((id) =>
+            startEditorLock('geometry', id, 'editing annotation geometry').catch((err) => {
+              console.warn('Failed to publish geometry editor lock:', err);
+            }),
+          ),
+          ...toStop.map((id) =>
+            stopEditorLock('geometry', id, 'editing annotation geometry').catch((err) => {
+              console.warn('Failed to release geometry editor lock:', err);
+            }),
+          ),
+        ]);
+
+        geometryEditorLockIdsRef.current = next;
+      },
+      [startEditorLock, stopEditorLock],
+    );
+
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
         return;
@@ -214,6 +245,46 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
       applyOpenLimeSelection(annotationManager, highlightGeometryIds);
     }, [highlightGeometryIds, focusedDataIds, ref]);
+
+    // Keep editor social locks aligned with this viewer's focused geometries.
+    useEffect(() => {
+      void syncGeometryEditorLocks([...focusedGeometryIds]);
+    }, [focusedGeometryIds, syncGeometryEditorLocks]);
+
+    // Apply remote geometry editor locks as OpenLIME underEditing style.
+    useEffect(() => {
+      if (!ref || !('current' in ref) || !ref.current) {
+        return;
+      }
+      const annotationManager = ref.current.getAnnotationManager();
+      if (!annotationManager) {
+        return;
+      }
+
+      const lockedGeometryIds = activeSocialLocks
+        .filter(
+          (lock) =>
+            lock.lockKind === 'editor' &&
+            lock.resourceType === 'geometry' &&
+            typeof lock.resourceId === 'string' &&
+            lock.resourceId.length > 0,
+        )
+        .map((lock) => lock.resourceId as string);
+
+      applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+    }, [activeSocialLocks, ref]);
+
+    useEffect(() => {
+      return () => {
+        const locked = [...geometryEditorLockIdsRef.current];
+        geometryEditorLockIdsRef.current = new Set();
+        locked.forEach((id) => {
+          void stopEditorLock('geometry', id, 'editing annotation geometry').catch(() => {
+            // best-effort cleanup
+          });
+        });
+      };
+    }, [stopEditorLock]);
 
     if (!rtiAvailable) {
       return (
