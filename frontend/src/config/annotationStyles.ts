@@ -9,23 +9,35 @@
 export const OPENLIME_ANNOTATION_SHADOW_FILTER = 'drop-shadow(1.5px 1.5px 2.0px rgba(0,0,0,0.80))';
 export const OPENLIME_ANNOTATION_RUBBER_SHADOW_FILTER = 'drop-shadow(1px 1px 1.8px rgba(0,0,0,0.40))';
 
+const MARKED_COLOR = {
+  fill: 'rgba(0,0,0,0.30)',
+  stroke: 'rgba(255, 255, 255, 1)',
+} as const;
+
+const DEFAULT_COLOR = {
+  fill: MARKED_COLOR.fill,
+  stroke: MARKED_COLOR.stroke,
+  text: MARKED_COLOR.stroke,
+  background: MARKED_COLOR.fill,
+} as const;
+
 const UNDER_EDITING_COLOR = {
-  fill: 'rgba(249, 115, 22, 0.22)',
-  stroke: '#ea580c',
-  text: '#7c2d12',
-  background: '#ffedd5',
+  fill: DEFAULT_COLOR.fill,
+  stroke: DEFAULT_COLOR.stroke,
+  text: DEFAULT_COLOR.stroke,
+  background: DEFAULT_COLOR.fill,
 } as const;
 
 const SELECTED_COLOR = {
-  fill: 'rgba(37, 99, 235, 0.22)',
-  stroke: '#2563eb',
-  text: '#1e3a8a',
-  background: '#dbeafe',
+  fill: 'rgba(219, 234, 254, 0.5)',
+  stroke: 'rgba(30, 58, 138, 1)',
+  text: 'rgba(30, 58, 138, 1)',
+  background: 'rgba(219, 234, 254, 0.5)',
 } as const;
 
 export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
-  defaultFill: 'rgba(0, 0, 0, 0.30)',
-  defaultStroke: '#888888',
+  defaultFill: DEFAULT_COLOR.fill,
+  defaultStroke: DEFAULT_COLOR.stroke,
   defaultFillOpacity: 1,
   defaultStrokeWidth: 2,
   selectionFill: SELECTED_COLOR.fill,
@@ -33,39 +45,11 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
   preloadStructuralFilters: true,
   showAnnotationLabels: true,
   semanticClasses: {
-    default: {
-      label: 'Default',
-      fill: 'rgba(0, 0, 0, 0.30)',
-      stroke: '#888888',
-      fillOpacity: 1,
-      strokeWidth: 2,
-      fillSelected: SELECTED_COLOR.fill,
-      strokeSelected: SELECTED_COLOR.stroke,
-      fillUnderEditing: UNDER_EDITING_COLOR.fill,
-      strokeUnderEditing: UNDER_EDITING_COLOR.stroke,
-      filter: OPENLIME_ANNOTATION_SHADOW_FILTER,
-      filterSelected: OPENLIME_ANNOTATION_SHADOW_FILTER,
-      filterUnderEditing: 'url(#olime-glow-soft)',
-    },
-    group: {
-      label: 'Group',
-      fill: '#fa5aff',
-      stroke: '#fa5aff',
-      fillOpacity: 0.7,
-      strokeWidth: 2,
-      fillSelected: SELECTED_COLOR.fill,
-      strokeSelected: SELECTED_COLOR.stroke,
-      fillUnderEditing: UNDER_EDITING_COLOR.fill,
-      strokeUnderEditing: UNDER_EDITING_COLOR.stroke,
-      filter: OPENLIME_ANNOTATION_SHADOW_FILTER,
-      filterSelected: OPENLIME_ANNOTATION_SHADOW_FILTER,
-      filterUnderEditing: 'url(#olime-glow-soft)',
-    },
   },
   structuralClasses: {
     default: {
-      fill: 'rgba(0, 0, 0, 0.30)',
-      stroke: '#000000',
+      fill: DEFAULT_COLOR.fill,
+      stroke: DEFAULT_COLOR.stroke,
       fillOpacity: 1,
       strokeWidth: 2,
       filter: OPENLIME_ANNOTATION_SHADOW_FILTER,
@@ -82,23 +66,23 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
       stroke: UNDER_EDITING_COLOR.stroke,
       fillOpacity: 1,
       strokeWidth: 2,
-      filter: 'url(#olime-glow-soft)',
+      filter: 'drop-shadow(0px 0px 6.0px rgba(255,0,0,1.0))',
     },
   },
   labelStyle: {
     fontSizePx: 14,
     fontFamily: 'sans-serif',
     fontWeight: 600,
-    textFill: '#ffffff',
+    textFill: DEFAULT_COLOR.text,
     textFillSelected: SELECTED_COLOR.text,
     textStroke: 'none',
     textStrokeWidthPx: 0,
-    backgroundFill: 'rgba(0, 0, 0, 0.30)',
-    backgroundFillSelected: 'rgba(219, 234, 254, 0.92)',
-    textFillUnderEditing: UNDER_EDITING_COLOR.text,
-    backgroundFillUnderEditing: 'rgba(255, 237, 213, 0.92)',
-    backgroundStroke: 'rgba(255, 255, 255, 0.22)',
-    backgroundStrokeWidthPx: 1,
+    backgroundFill: DEFAULT_COLOR.background,
+    backgroundFillSelected: SELECTED_COLOR.background,
+    textFillUnderEditing: UNDER_EDITING_COLOR.stroke,
+    backgroundFillUnderEditing: UNDER_EDITING_COLOR.background,
+    backgroundStroke: 'none',
+    backgroundStrokeWidthPx: 0,
     paddingPx: 6,
     borderRadiusPx: 4,
     offsetYPx: 4,
@@ -107,8 +91,8 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
 
 export const ANNOTATION_PANEL_STYLE_CONFIG = {
   dataItem: {
-    background: '#f8f9fa',
-    text: '#212529',
+    background: 'rgba(248, 249, 250, 1)',
+    text: 'rgba(33, 37, 41, 1)',
     backgroundSelected: SELECTED_COLOR.background,
     textSelected: SELECTED_COLOR.text,
     backgroundUnderEditing: UNDER_EDITING_COLOR.background,
