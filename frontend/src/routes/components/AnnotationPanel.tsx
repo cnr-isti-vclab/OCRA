@@ -2,7 +2,7 @@
  * AnnotationPanel — lists active {@link AnnotationData} from the store and drives UI focus.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
@@ -103,8 +103,11 @@ function EditDataModal({
 export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelProps) {
   const {
     activeData,
+    allData,
+    allLinks,
     activeAnnotationSelection,
     activeSocialLocks,
+    currentStreamId,
     focusedGeometryIds,
     focusedDataIds,
     focusData,
@@ -143,6 +146,123 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
             : 'Disconnected';
 
   const focusedDataIdList = [...focusedDataIds];
+
+  const collaborativeEditInfo = useMemo(() => {
+    if (!currentStreamId) {
+      return '';
+    }
+
+    const dataById = new Map(allData.map((datum) => [datum.id, datum]));
+    const linkById = new Map(allLinks.map((link) => [link.id, link]));
+    const dataIdsByGeometryId = new Map<string, Set<string>>();
+    const geometryIdsByDataId = new Map<string, Set<string>>();
+
+    for (const link of allLinks) {
+      const byGeometry = dataIdsByGeometryId.get(link.geometryId) ?? new Set<string>();
+      byGeometry.add(link.dataId);
+      dataIdsByGeometryId.set(link.geometryId, byGeometry);
+
+      const byData = geometryIdsByDataId.get(link.dataId) ?? new Set<string>();
+      byData.add(link.geometryId);
+      geometryIdsByDataId.set(link.dataId, byData);
+    }
+
+    const targetGeometryIds = new Set<string>(focusedGeometryIds);
+    const targetDataIds = new Set<string>(focusedDataIds);
+
+    for (const dataId of targetDataIds) {
+      for (const geometryId of geometryIdsByDataId.get(dataId) ?? []) {
+        targetGeometryIds.add(geometryId);
+      }
+    }
+
+    for (const geometryId of targetGeometryIds) {
+      for (const dataId of dataIdsByGeometryId.get(geometryId) ?? []) {
+        targetDataIds.add(dataId);
+      }
+    }
+
+    if (targetGeometryIds.size === 0 && targetDataIds.size === 0) {
+      return '';
+    }
+
+    const overlapUsers = new Set<string>();
+    const overlapTitles = new Set<string>();
+
+    for (const lock of activeSocialLocks) {
+      if (lock.lockKind !== 'editor' || !lock.resourceType || !lock.resourceId) {
+        continue;
+      }
+      if (lock.streamId === currentStreamId) {
+        continue;
+      }
+
+      let conflictsWithFocus = false;
+      if (lock.resourceType === 'geometry') {
+        conflictsWithFocus = targetGeometryIds.has(lock.resourceId);
+        if (conflictsWithFocus) {
+          for (const dataId of dataIdsByGeometryId.get(lock.resourceId) ?? []) {
+            const datum = dataById.get(dataId);
+            if (datum?.label?.trim()) {
+              overlapTitles.add(datum.label.trim());
+            }
+          }
+        }
+      } else if (lock.resourceType === 'data') {
+        conflictsWithFocus = targetDataIds.has(lock.resourceId);
+        if (conflictsWithFocus) {
+          const datum = dataById.get(lock.resourceId);
+          if (datum?.label?.trim()) {
+            overlapTitles.add(datum.label.trim());
+          }
+        }
+      } else if (lock.resourceType === 'link') {
+        const link = linkById.get(lock.resourceId);
+        if (!link) {
+          continue;
+        }
+        conflictsWithFocus = targetGeometryIds.has(link.geometryId) || targetDataIds.has(link.dataId);
+        if (conflictsWithFocus) {
+          const datum = dataById.get(link.dataId);
+          if (datum?.label?.trim()) {
+            overlapTitles.add(datum.label.trim());
+          }
+        }
+      }
+
+      if (conflictsWithFocus) {
+        overlapUsers.add(lock.username);
+      }
+    }
+
+    if (overlapUsers.size === 0) {
+      return '';
+    }
+
+    const users = [...overlapUsers];
+    const titles = [...overlapTitles];
+    const usersText =
+      users.length === 1
+        ? users[0]
+        : users.length === 2
+          ? `${users[0]} and ${users[1]}`
+          : `${users.slice(0, 2).join(', ')} and ${users.length - 2} more users`;
+
+    if (titles.length === 0) {
+      return `${usersText} are editing annotations you are editing.`;
+    }
+
+    const shownTitles = titles.slice(0, 2).map((title) => `"${title}"`).join(', ');
+    const suffix = titles.length > 2 ? ` and ${titles.length - 2} more` : '';
+    return `${usersText} are editing the same annotation: ${shownTitles}${suffix}.`;
+  }, [
+    activeSocialLocks,
+    allData,
+    allLinks,
+    currentStreamId,
+    focusedDataIds,
+    focusedGeometryIds,
+  ]);
 
   useEffect(() => {
     if (onSelectionChanged) {
@@ -260,11 +380,18 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
       {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
 
-      <div className="mb-3 p-2 border rounded bg-light-subtle">
-        <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
-        <p className="small text-muted mb-0 mt-2">
-          Active data rows (query filter). Draw in the viewer to create geometry + data + link.
-        </p>
+      <div
+        className={`mb-3 p-2 border rounded small ${
+          collaborativeEditInfo
+            ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
+            : 'bg-light-subtle text-muted'
+        }`}
+        style={{ minHeight: '36px' }}
+      >
+        <div className="d-flex flex-column gap-1 align-items-start">
+          <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
+          {collaborativeEditInfo ? <div>{collaborativeEditInfo}</div> : null}
+        </div>
       </div>
 
       {activeData.length === 0 ? (
@@ -359,9 +486,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                   </div>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
                     {datum.description || '(no description)'}
-                  </p>
-                  <p className="mb-0 small font-monospace" style={{ color: itemColors.text }}>
-                    {datum.id}
                   </p>
                 </div>
               );

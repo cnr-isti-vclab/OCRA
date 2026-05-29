@@ -73,6 +73,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   creating: boolean;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
+  currentStreamId: string | null;
   clearEventLog: () => void;
   setFocusSelection: (input: FocusSelectionInput, onApplied?: () => void) => void;
   loadScene: (sceneId: string) => Promise<void>;
@@ -533,6 +534,7 @@ export function AnnotationStoreProvider({
     creating: store?.creating ?? false,
     eventLog,
     activeSocialLocks,
+    currentStreamId,
     clearEventLog,
     loadScene,
     updateGeometry,
