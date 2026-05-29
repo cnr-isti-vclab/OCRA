@@ -108,6 +108,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     focusedGeometryIds,
     focusedDataIds,
     focusData,
+    setFocusSelection,
     clearFocus,
     isDataFocused,
     realtimeState,
@@ -332,8 +333,12 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                         className="btn btn-sm btn-outline-secondary"
                         onClick={(e) => {
                           e.stopPropagation();
-                          focusData(datum.id, false);
-                          void handleEditStart(datum);
+                          setFocusSelection(
+                            { geometryIds: [], dataIds: [datum.id] },
+                            () => {
+                              void handleEditStart(datum);
+                            },
+                          );
                         }}
                         disabled={creating}
                       >

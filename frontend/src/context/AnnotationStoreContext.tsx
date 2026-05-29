@@ -74,6 +74,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
   clearEventLog: () => void;
+  setFocusSelection: (input: FocusSelectionInput, onApplied?: () => void) => void;
   loadScene: (sceneId: string) => Promise<void>;
   updateGeometry: (geometryId: string, shapes: CreateAnnotationInput['shapes']) => Promise<void>;
   updateData: (dataId: string, input: UpdateDataInput) => Promise<void>;
@@ -120,6 +121,22 @@ function appendLog(
   });
 }
 
+interface FocusSelectionInput {
+  geometryIds?: Iterable<string>;
+  dataIds?: Iterable<string>;
+}
+
+function lockResourceLabel(lock: AnnotationSocialLockState): string {
+  if (!lock.resourceType || !lock.resourceId) {
+    return 'annotation scope';
+  }
+  return `${lock.resourceType} ${lock.resourceId}`;
+}
+
+function lockKindLabel(lock: AnnotationSocialLockState): string {
+  return lock.lockKind === 'editor' ? 'editor lock' : 'presence lock';
+}
+
 interface AnnotationStoreProviderProps {
   projectId: string;
   sceneId: string;
@@ -136,6 +153,10 @@ export function AnnotationStoreProvider({
   const [realtimeState, setRealtimeState] = useState<AnnotationRealtimeState>('idle');
   const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
   const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+  const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
+
+  const pendingSelectionRef = useRef<(() => void) | null>(null);
 
   const bump = useCallback(() => setRevision((r) => r + 1), []);
   const clearEventLog = useCallback(() => setEventLog([]), []);
@@ -144,6 +165,8 @@ export function AnnotationStoreProvider({
     () => new Set(),
   );
   const [focusedDataIds, setFocusedDataIdsState] = useState<ReadonlySet<string>>(() => new Set());
+  const focusedGeometryIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const focusedDataIdsRef = useRef<ReadonlySet<string>>(new Set());
 
   const setFocusedGeometryIds = useCallback((geometryIds: Iterable<string>) => {
     setFocusedGeometryIdsState(new Set(geometryIds));
@@ -153,37 +176,114 @@ export function AnnotationStoreProvider({
     setFocusedDataIdsState(new Set(dataIds));
   }, []);
 
-  const focusGeometry = useCallback((geometryId: string, multiSelect: boolean) => {
-    setFocusedGeometryIdsState((prev) => {
-      if (multiSelect) {
-        const next = new Set(prev);
-        if (next.has(geometryId)) {
-          next.delete(geometryId);
-        } else {
-          next.add(geometryId);
+  useEffect(() => {
+    focusedGeometryIdsRef.current = focusedGeometryIds;
+  }, [focusedGeometryIds]);
+
+  useEffect(() => {
+    focusedDataIdsRef.current = focusedDataIds;
+  }, [focusedDataIds]);
+
+  const collectSelectionConflicts = useCallback(
+    (input: FocusSelectionInput): AnnotationSocialLockState[] => {
+      const geometryIds = new Set(input.geometryIds ?? []);
+      const dataIds = new Set(input.dataIds ?? []);
+      const linkIds = new Set<string>();
+
+      if (geometryIds.size > 0 || dataIds.size > 0) {
+        const links = storeRef.current?.linksById;
+        if (links) {
+          for (const link of links.values()) {
+            if (geometryIds.has(link.geometryId) || dataIds.has(link.dataId)) {
+              linkIds.add(link.id);
+            }
+          }
         }
-        return next;
       }
-      return new Set([geometryId]);
+
+      return activeSocialLocks.filter((lock) => {
+        if (!lock.resourceType || !lock.resourceId) {
+          return false;
+        }
+        if (currentStreamId && lock.streamId === currentStreamId) {
+          return false;
+        }
+        if (lock.resourceType === 'geometry') {
+          return geometryIds.has(lock.resourceId);
+        }
+        if (lock.resourceType === 'data') {
+          return dataIds.has(lock.resourceId);
+        }
+        if (lock.resourceType === 'link') {
+          return linkIds.has(lock.resourceId);
+        }
+        return false;
+      });
+    },
+    [activeSocialLocks, currentStreamId],
+  );
+
+  const runSelectionWithLockGuard = useCallback(
+    (input: FocusSelectionInput, applySelection: () => void) => {
+      const conflicts = collectSelectionConflicts(input);
+      if (conflicts.length === 0) {
+        applySelection();
+        return;
+      }
+      pendingSelectionRef.current = applySelection;
+      setSelectionConflictLocks(conflicts);
+    },
+    [collectSelectionConflicts],
+  );
+
+  const setFocusSelection = useCallback(
+    (input: FocusSelectionInput, onApplied?: () => void) => {
+      runSelectionWithLockGuard(input, () => {
+        setFocusedGeometryIdsState(new Set(input.geometryIds ?? []));
+        setFocusedDataIdsState(new Set(input.dataIds ?? []));
+        onApplied?.();
+      });
+    },
+    [runSelectionWithLockGuard],
+  );
+
+  const focusGeometry = useCallback((geometryId: string, multiSelect: boolean) => {
+    const nextGeometryIds = new Set(focusedGeometryIdsRef.current);
+    if (multiSelect) {
+      if (nextGeometryIds.has(geometryId)) {
+        nextGeometryIds.delete(geometryId);
+      } else {
+        nextGeometryIds.add(geometryId);
+      }
+    } else {
+      nextGeometryIds.clear();
+      nextGeometryIds.add(geometryId);
+    }
+
+    runSelectionWithLockGuard({ geometryIds: nextGeometryIds, dataIds: [] }, () => {
+      setFocusedGeometryIdsState(nextGeometryIds);
+      setFocusedDataIdsState(new Set());
     });
-    setFocusedDataIdsState(new Set());
-  }, []);
+  }, [runSelectionWithLockGuard]);
 
   const focusData = useCallback((dataId: string, multiSelect: boolean) => {
-    setFocusedGeometryIdsState(new Set());
-    setFocusedDataIdsState((prev) => {
-      if (multiSelect) {
-        const next = new Set(prev);
-        if (next.has(dataId)) {
-          next.delete(dataId);
-        } else {
-          next.add(dataId);
-        }
-        return next;
+    const nextDataIds = new Set(focusedDataIdsRef.current);
+    if (multiSelect) {
+      if (nextDataIds.has(dataId)) {
+        nextDataIds.delete(dataId);
+      } else {
+        nextDataIds.add(dataId);
       }
-      return new Set([dataId]);
+    } else {
+      nextDataIds.clear();
+      nextDataIds.add(dataId);
+    }
+
+    runSelectionWithLockGuard({ geometryIds: [], dataIds: nextDataIds }, () => {
+      setFocusedGeometryIdsState(new Set());
+      setFocusedDataIdsState(nextDataIds);
     });
-  }, []);
+  }, [runSelectionWithLockGuard]);
 
   const clearFocus = useCallback(() => {
     setFocusedGeometryIdsState(new Set());
@@ -230,6 +330,7 @@ export function AnnotationStoreProvider({
       },
       onConnected: (event: AnnotationConnectedEvent) => {
         setActiveSocialLocks(event.activeSocialLocks);
+        setCurrentStreamId(event.streamId);
         appendLog(
           setEventLog,
           'success',
@@ -287,6 +388,9 @@ export function AnnotationStoreProvider({
       store.destroy();
       setRealtimeState('idle');
       setActiveSocialLocks([]);
+      setCurrentStreamId(null);
+      setSelectionConflictLocks([]);
+      pendingSelectionRef.current = null;
     };
   }, [projectId, sceneId, bump]);
 
@@ -443,12 +547,85 @@ export function AnnotationStoreProvider({
     markLinkNonErasable,
     startEditorLock,
     stopEditorLock,
+    setFocusSelection,
   };
 
   return (
-    <AnnotationStoreContext value={value}>
-      {children}
-    </AnnotationStoreContext>
+    <>
+      <AnnotationStoreContext value={value}>
+        {children}
+      </AnnotationStoreContext>
+      {selectionConflictLocks.length > 0 && (
+        <div
+          className="modal d-block"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          }}
+          onClick={() => {
+            pendingSelectionRef.current = null;
+            setSelectionConflictLocks([]);
+          }}
+        >
+          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Annotation lock conflict</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={() => {
+                    pendingSelectionRef.current = null;
+                    setSelectionConflictLocks([]);
+                  }}
+                />
+              </div>
+              <div className="modal-body">
+                <p className="mb-2">
+                  This annotation is currently being edited by another user. Continuing may cause conflicts and could overwrite your changes.
+                </p>
+                <ul className="small mb-0">
+                  {selectionConflictLocks.slice(0, 5).map((lock) => (
+                    <li key={socialLockKey(lock)}>
+                      {lock.username}: {lockKindLabel(lock)} on {lockResourceLabel(lock)}
+                    </li>
+                  ))}
+                </ul>
+                {selectionConflictLocks.length > 5 && (
+                  <p className="small text-muted mt-2 mb-0">
+                    +{selectionConflictLocks.length - 5} more active lock(s).
+                  </p>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    pendingSelectionRef.current = null;
+                    setSelectionConflictLocks([]);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => {
+                    const pending = pendingSelectionRef.current;
+                    pendingSelectionRef.current = null;
+                    setSelectionConflictLocks([]);
+                    pending?.();
+                  }}
+                >
+                  Continue anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

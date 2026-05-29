@@ -19,6 +19,7 @@ import {
   applyOpenLimeUnderEditing,
   applyOpenLimeSelection,
   syncOpenLimeAnnotations,
+  type OpenLimeAnnotationManager,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
 
@@ -44,6 +45,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       focusedGeometryIds,
       setFocusedGeometryIds,
       setFocusedDataIds,
+      setFocusSelection,
       clearFocus,
       createAnnotation,
       updateGeometry,
@@ -103,6 +105,20 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           activeAnnotationSelection,
         ),
       [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
+    );
+
+    const lockedGeometryIds = useMemo(
+      () =>
+        activeSocialLocks
+          .filter(
+            (lock) =>
+              lock.lockKind === 'editor' &&
+              lock.resourceType === 'geometry' &&
+              typeof lock.resourceId === 'string' &&
+              lock.resourceId.length > 0,
+          )
+          .map((lock) => lock.resourceId as string),
+      [activeSocialLocks],
     );
 
     const highlightGeometryIdsRef = useRef(highlightGeometryIds);
@@ -165,13 +181,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         clearFocus();
         return;
       }
-      setFocusedGeometryIds(ids);
-      setFocusedDataIds(dataIdsForFocusedGeometries(ids, activeAnnotationSelection));
+      setFocusSelection({
+        geometryIds: ids,
+        dataIds: dataIdsForFocusedGeometries(ids, activeAnnotationSelection),
+      });
     };
 
-    const runStoreOpenLimeSync = (annotationManager: NonNullable<
-      ReturnType<OpenLIMEViewerRef['getAnnotationManager']>
-    >) => {
+    const runStoreOpenLimeSync = (annotationManager: OpenLimeAnnotationManager) => {
       isStoreSyncRef.current = true;
       try {
         syncOpenLimeAnnotations(annotationManager, viewerAnnotationsForSync);
@@ -210,7 +226,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (!ref || !('current' in ref) || !ref.current) {
         return;
       }
-      const annotationManager = ref.current.getAnnotationManager();
+      const annotationManager = ref.current.getAnnotationManager() as OpenLimeAnnotationManager | null;
       if (!annotationManager) {
         return;
       }
@@ -222,13 +238,15 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
         applyOpenLimeSelection(annotationManager, idsToSelect);
       }
-    }, [viewerAnnotationsForSync, ref]);
+      // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
+      applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+    }, [viewerAnnotationsForSync, lockedGeometryIds, ref]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
         return;
       }
-      const annotationManager = ref.current.getAnnotationManager();
+      const annotationManager = ref.current.getAnnotationManager() as OpenLimeAnnotationManager | null;
       if (!annotationManager) {
         return;
       }
@@ -256,23 +274,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (!ref || !('current' in ref) || !ref.current) {
         return;
       }
-      const annotationManager = ref.current.getAnnotationManager();
+      const annotationManager = ref.current.getAnnotationManager() as OpenLimeAnnotationManager | null;
       if (!annotationManager) {
         return;
       }
 
-      const lockedGeometryIds = activeSocialLocks
-        .filter(
-          (lock) =>
-            lock.lockKind === 'editor' &&
-            lock.resourceType === 'geometry' &&
-            typeof lock.resourceId === 'string' &&
-            lock.resourceId.length > 0,
-        )
-        .map((lock) => lock.resourceId as string);
-
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
-    }, [activeSocialLocks, ref]);
+    }, [lockedGeometryIds, ref]);
 
     useEffect(() => {
       return () => {

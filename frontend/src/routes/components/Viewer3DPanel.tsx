@@ -42,6 +42,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       focusedGeometryIds,
       setFocusedGeometryIds,
       setFocusedDataIds,
+      setFocusSelection,
       clearFocus,
       createAnnotation,
     } = useAnnotationStore();
@@ -151,10 +152,10 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           if (selectedIds.length === 0) {
             clearFocus();
           } else {
-            setFocusedGeometryIds(selectedIds);
-            setFocusedDataIds(
-              dataIdsForFocusedGeometries(selectedIds, activeAnnotationSelection),
-            );
+            setFocusSelection({
+              geometryIds: selectedIds,
+              dataIds: dataIdsForFocusedGeometries(selectedIds, activeAnnotationSelection),
+            });
           }
         } catch {
           // ignore
@@ -162,7 +163,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }, 200);
 
       return () => clearInterval(interval);
-    }, [ref, clearFocus, setFocusedGeometryIds, setFocusedDataIds, activeAnnotationSelection]);
+    }, [ref, clearFocus, setFocusSelection, activeAnnotationSelection]);
 
     if (!sceneDesc) {
       return (
