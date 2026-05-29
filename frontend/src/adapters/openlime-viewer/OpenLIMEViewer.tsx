@@ -20,6 +20,7 @@ import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
 import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
+import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.ts';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -371,19 +372,7 @@ const OpenLIMEViewer = forwardRef<
           console.log('🎬 Setting up OpenLIME annotation manager');
 
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
-            structuralClasses: {
-                // Same CSS drop-shadow as PolylineMarker/DiskMarker (screen-px, zoom-invariant).
-                default: { filter: 'drop-shadow(1.5px 1.5px 2.0px rgba(0,0,0,0.80))' },
-                selected: { stroke: '#fed802', fill: 'rgba(183, 153, 35, 0.2)' },
-                // Built-in preloaded filters in ManagerSvgAnnotation:
-                // olime-glow-soft, olime-shadow-soft, olime-outline-soft
-                underEditing: { strokeWidth: 3, fillOpacity: 0.8, filter: 'url(#olime-glow-soft)' },
-            },
-            labelStyle: {
-                textFill: '#ff0000',
-                textFillSelected: '#006600',
-                backgroundFill: 'rgba(80, 0, 0, 0.30)',
-            },
+            ...OPENLIME_ANNOTATION_STYLE_CONFIG,
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.

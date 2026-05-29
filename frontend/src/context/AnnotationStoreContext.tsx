@@ -9,8 +9,10 @@ import React, {
 } from 'react';
 import type {
   AnnotationConnectedEvent,
+  AnnotationEventResourceType,
   AnnotationMutationEvent,
   AnnotationSocialLockEvent,
+  AnnotationSocialLockState,
 } from 'shared/annotation-events';
 import type {
   AnnotationData,
@@ -70,6 +72,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   loadingAdditionalData: boolean;
   creating: boolean;
   eventLog: AnnotationStoreLogEntry[];
+  activeSocialLocks: AnnotationSocialLockState[];
   clearEventLog: () => void;
   loadScene: (sceneId: string) => Promise<void>;
   updateGeometry: (geometryId: string, shapes: CreateAnnotationInput['shapes']) => Promise<void>;
@@ -82,9 +85,28 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   markDataNonErasable: (dataId: string) => Promise<void>;
   markLinkErasable: (linkId: string) => Promise<void>;
   markLinkNonErasable: (linkId: string) => Promise<void>;
+  startEditorLock: (
+    resourceType: AnnotationEventResourceType,
+    resourceId: string,
+    activity?: string,
+  ) => Promise<void>;
+  stopEditorLock: (
+    resourceType: AnnotationEventResourceType,
+    resourceId: string,
+    activity?: string,
+  ) => Promise<void>;
 }
 
 const AnnotationStoreContext = createContext<AnnotationStoreContextValue | undefined>(undefined);
+
+function socialLockKey(lock: {
+  streamId: string;
+  lockKind: string;
+  resourceType: string | null;
+  resourceId: string | null;
+}): string {
+  return `${lock.streamId}:${lock.lockKind}:${lock.resourceType ?? 'none'}:${lock.resourceId ?? 'none'}`;
+}
 
 function appendLog(
   setter: React.Dispatch<React.SetStateAction<AnnotationStoreLogEntry[]>>,
@@ -113,6 +135,7 @@ export function AnnotationStoreProvider({
   const [revision, setRevision] = useState(0);
   const [realtimeState, setRealtimeState] = useState<AnnotationRealtimeState>('idle');
   const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
+  const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
 
   const bump = useCallback(() => setRevision((r) => r + 1), []);
   const clearEventLog = useCallback(() => setEventLog([]), []);
@@ -185,6 +208,7 @@ export function AnnotationStoreProvider({
     if (!projectId || !sceneId) {
       storeRef.current = null;
       setRealtimeState('idle');
+      setActiveSocialLocks([]);
       return;
     }
 
@@ -205,6 +229,7 @@ export function AnnotationStoreProvider({
         appendLog(setEventLog, 'warning', 'Reconnect cancelled in-flight local edits');
       },
       onConnected: (event: AnnotationConnectedEvent) => {
+        setActiveSocialLocks(event.activeSocialLocks);
         appendLog(
           setEventLog,
           'success',
@@ -221,6 +246,12 @@ export function AnnotationStoreProvider({
         );
       },
       onSocialLockStarted: (event: AnnotationSocialLockEvent) => {
+        setActiveSocialLocks((prev) => {
+          const key = socialLockKey(event);
+          const next = prev.filter((item) => socialLockKey(item) !== key);
+          next.push(event);
+          return next;
+        });
         appendLog(
           setEventLog,
           'info',
@@ -229,6 +260,10 @@ export function AnnotationStoreProvider({
         );
       },
       onSocialLockStopped: (event: AnnotationSocialLockEvent) => {
+        setActiveSocialLocks((prev) => {
+          const key = socialLockKey(event);
+          return prev.filter((item) => socialLockKey(item) !== key);
+        });
         appendLog(
           setEventLog,
           'info',
@@ -251,6 +286,7 @@ export function AnnotationStoreProvider({
       storeRef.current = null;
       store.destroy();
       setRealtimeState('idle');
+      setActiveSocialLocks([]);
     };
   }, [projectId, sceneId, bump]);
 
@@ -345,6 +381,28 @@ export function AnnotationStoreProvider({
     await storeRef.current?.markLinkNonErasable(linkId);
   }, []);
 
+  const startEditorLock = useCallback(
+    async (
+      resourceType: AnnotationEventResourceType,
+      resourceId: string,
+      activity?: string,
+    ) => {
+      await storeRef.current?.notifyEditorLockStart({ resourceType, resourceId, activity });
+    },
+    [],
+  );
+
+  const stopEditorLock = useCallback(
+    async (
+      resourceType: AnnotationEventResourceType,
+      resourceId: string,
+      activity?: string,
+    ) => {
+      await storeRef.current?.notifyEditorLockStop({ resourceType, resourceId, activity });
+    },
+    [],
+  );
+
   const value: AnnotationStoreContextValue = {
     focusedGeometryIds,
     focusedDataIds,
@@ -370,6 +428,7 @@ export function AnnotationStoreProvider({
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,
     eventLog,
+    activeSocialLocks,
     clearEventLog,
     loadScene,
     updateGeometry,
@@ -382,6 +441,8 @@ export function AnnotationStoreProvider({
     markDataNonErasable,
     markLinkErasable,
     markLinkNonErasable,
+    startEditorLock,
+    stopEditorLock,
   };
 
   return (

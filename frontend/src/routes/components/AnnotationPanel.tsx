@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
+import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts';
 
 interface AnnotationPanelProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
@@ -103,6 +104,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   const {
     activeData,
     activeAnnotationSelection,
+    activeSocialLocks,
     focusedGeometryIds,
     focusedDataIds,
     focusData,
@@ -112,6 +114,8 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     creating,
     updateData,
     markDataErasable,
+    startEditorLock,
+    stopEditorLock,
   } = useAnnotationStore();
 
   const [editingDatum, setEditingDatum] = useState<AnnotationData | null>(null);
@@ -190,8 +194,46 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     } catch (err) {
       console.error('Failed to update annotation data:', err);
       alert('Failed to update annotation data');
+    } finally {
+      try {
+        await stopEditorLock('data', dataId, 'editing annotation data');
+      } catch (lockErr) {
+        console.warn('Failed to release data editor lock:', lockErr);
+      }
     }
   };
+
+  const handleEditStart = async (datum: AnnotationData) => {
+    setEditingDatum(datum);
+    setIsEditModalOpen(true);
+    try {
+      await startEditorLock('data', datum.id, 'editing annotation data');
+    } catch (lockErr) {
+      console.warn('Failed to publish data editor lock:', lockErr);
+    }
+  };
+
+  const handleEditCancel = async () => {
+    const datumId = editingDatum?.id;
+    setIsEditModalOpen(false);
+    setEditingDatum(null);
+    if (!datumId) {
+      return;
+    }
+    try {
+      await stopEditorLock('data', datumId, 'editing annotation data');
+    } catch (lockErr) {
+      console.warn('Failed to release data editor lock:', lockErr);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (editingDatum?.id) {
+        void stopEditorLock('data', editingDatum.id, 'editing annotation data');
+      }
+    };
+  }, [editingDatum, stopEditorLock]);
 
   return (
     <div className="p-3 h-100 d-flex flex-column">
@@ -237,19 +279,55 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
               const isSelected = isDataFocused(datum.id);
+              const linkedGeometryIds =
+                activeAnnotationSelection.geometryIdsByDataId.get(datum.id) ?? [];
+              const isUnderEditing = activeSocialLocks.some((lock) => {
+                if (lock.lockKind !== 'editor') {
+                  return false;
+                }
+                if (lock.resourceType === 'data') {
+                  return lock.resourceId === datum.id;
+                }
+                if (lock.resourceType === 'geometry') {
+                  return lock.resourceId != null && linkedGeometryIds.includes(lock.resourceId);
+                }
+                return false;
+              });
+
+              const itemColors = isUnderEditing
+                ? {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundUnderEditing,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textUnderEditing,
+                  }
+                : isSelected
+                ? {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundSelected,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textSelected,
+                  }
+                : {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.background,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.text,
+                  };
               return (
                 <div
                   key={datum.id}
-                  className={`list-group-item list-group-item-action d-flex flex-column align-items-stretch ${
-                    isSelected ? 'bg-warning' : 'bg-light'
-                  }`}
+                  className="list-group-item list-group-item-action d-flex flex-column align-items-stretch"
                   onClick={(e) => handleDataClick(datum.id, e)}
-                  style={{ cursor: 'pointer' }}
+                  style={{
+                    cursor: 'pointer',
+                    backgroundColor: itemColors.background,
+                    color: itemColors.text,
+                  }}
                 >
                   <div className="d-flex justify-content-between align-items-center w-100">
                     <h5
                       className="mb-1 flex-grow-1"
-                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: itemColors.text,
+                      }}
                     >
                       {datum.label}
                     </h5>
@@ -262,8 +340,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                         className="btn btn-sm btn-outline-secondary"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingDatum(datum);
-                          setIsEditModalOpen(true);
+                          void handleEditStart(datum);
                         }}
                         disabled={creating}
                       >
@@ -282,10 +359,12 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                       </button>
                     </div>
                   </div>
-                  <p className="mb-0 small text-muted">
+                  <p className="mb-0 small" style={{ color: itemColors.text }}>
                     {datum.description || '(no description)'}
                   </p>
-                  <p className="mb-0 small font-monospace text-muted">{datum.id}</p>
+                  <p className="mb-0 small font-monospace" style={{ color: itemColors.text }}>
+                    {datum.id}
+                  </p>
                 </div>
               );
             })}
@@ -298,8 +377,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         isOpen={isEditModalOpen}
         onSave={handleEditSave}
         onCancel={() => {
-          setIsEditModalOpen(false);
-          setEditingDatum(null);
+          void handleEditCancel();
         }}
       />
     </div>
