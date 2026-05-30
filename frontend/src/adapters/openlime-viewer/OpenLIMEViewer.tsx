@@ -21,6 +21,7 @@ import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
 import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
 import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.ts';
+import type { OpenLimeLabelVisibility } from '../annotation-store/openlimeAnnotationAdapter.ts';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -126,6 +127,9 @@ const OpenLIMEViewer = forwardRef<
     onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
     /** Fired when the OpenLIME pencil (annotation tool) is enabled or disabled. */
     onPencilActiveChange?: (active: boolean) => void;
+    /** Fired when the OpenLIME settings button is pressed. */
+    onSettingsRequested?: () => void;
+    annotationLabelVisibility?: OpenLimeLabelVisibility;
   }>(
     (
       {
@@ -139,6 +143,8 @@ const OpenLIMEViewer = forwardRef<
         onAnnotationSelectionChanged,
         onAnnotationEditStart,
         onPencilActiveChange,
+        onSettingsRequested,
+        annotationLabelVisibility = 'selected',
       },
       ref
     ) => {
@@ -154,6 +160,7 @@ const OpenLIMEViewer = forwardRef<
       const onAnnotationSelectionChangedRef = useRef<typeof onAnnotationSelectionChanged>(onAnnotationSelectionChanged);
       const onAnnotationEditStartRef = useRef<typeof onAnnotationEditStart>(onAnnotationEditStart);
       const onPencilActiveChangeRef = useRef<typeof onPencilActiveChange>(onPencilActiveChange);
+      const onSettingsRequestedRef = useRef<typeof onSettingsRequested>(onSettingsRequested);
       /** Panel-driven `enableEditing` must not clear selection via UIBasic `pencilEnabled`. */
       const skipDeselectOnPencilEnableRef = useRef(false);
 
@@ -192,6 +199,19 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         onPencilActiveChangeRef.current = onPencilActiveChange;
       }, [onPencilActiveChange]);
+
+      useEffect(() => {
+        onSettingsRequestedRef.current = onSettingsRequested;
+      }, [onSettingsRequested]);
+
+      useEffect(() => {
+        const manager = annotationManagerRef.current as
+          | (OpenLIME.ManagerSvgAnnotation & {
+              setLabelVisibility?: (mode: OpenLimeLabelVisibility, repaint?: boolean) => OpenLimeLabelVisibility;
+            })
+          | null;
+        manager?.setLabelVisibility?.(annotationLabelVisibility, true);
+      }, [annotationLabelVisibility]);
 
       // Initialize viewer on mount
       useEffect(() => {
@@ -393,6 +413,7 @@ const OpenLIMEViewer = forwardRef<
 
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
             ...OPENLIME_ANNOTATION_STYLE_CONFIG,
+            labelVisibility: annotationLabelVisibility,
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.
@@ -494,12 +515,13 @@ const OpenLIMEViewer = forwardRef<
           }
 
           if (uiRef.current) {
-            uiRef.current.actions.zoomin.display = true;
-            uiRef.current.actions.zoomout.display = true;
+            uiRef.current.actions.zoomin.display = false;
+            uiRef.current.actions.zoomout.display = false;
             uiRef.current.toggleLightController(true);
             // Show pencil tool but don't activate it by default
             // This allows single-click selection to work
             uiRef.current.actions.pencil.display = true;
+            uiRef.current.actions.settings.display = true;
             console.log('🎬 Toolbar setup: pencil displayed');
 
             // Leave the annotation manager in 'idle' mode at startup.
@@ -523,6 +545,10 @@ const OpenLIMEViewer = forwardRef<
 
             uiRef.current.addEvent('pencilDisabled', () => {
               notifyPencilActive(false);
+            });
+
+            uiRef.current.addEvent('settings', () => {
+              onSettingsRequestedRef.current?.();
             });
           }
 

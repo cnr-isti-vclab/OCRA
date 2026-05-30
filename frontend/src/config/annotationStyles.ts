@@ -36,6 +36,7 @@ const SELECTED_COLOR = {
 } as const;
 
 export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
+  labelVisibility: 'selected',
   defaultFill: DEFAULT_COLOR.fill,
   defaultStroke: DEFAULT_COLOR.stroke,
   defaultFillOpacity: 1,

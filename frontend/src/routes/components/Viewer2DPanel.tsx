@@ -21,6 +21,7 @@ import {
   applyOpenLimeUnderEditing,
   applyOpenLimeSelection,
   syncOpenLimeAnnotations,
+  type OpenLimeLabelVisibility,
   type OpenLimeAnnotationManager,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
@@ -29,6 +30,7 @@ import {
   AnnotationMessageModalCatalog,
   type MessageModalDescriptor,
 } from '../../shared/ui/AnnotationMessageModalModel';
+import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -85,6 +87,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [viewerReady, setViewerReady] = useState(false);
     const [pencilActive, setPencilActive] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
 
@@ -493,6 +497,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           onAnnotationUpdated={handleAnnotationUpdated}
           onAnnotationSelectionChanged={handleAnnotationSelectionChange}
           onPencilActiveChange={handlePencilActiveChange}
+          onSettingsRequested={() => setSettingsOpen(true)}
+          annotationLabelVisibility={labelVisibility}
         />
         {pencilActive && viewerReady && (
           <div
@@ -512,6 +518,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           descriptor={messageModal}
           onClose={releaseConflictSnapshotsAndSync}
           onAction={releaseConflictSnapshotsAndSync}
+        />
+        <ViewerSettingsModal
+          isOpen={settingsOpen}
+          labelVisibility={labelVisibility}
+          onLabelVisibilityChange={setLabelVisibility}
+          onClose={() => setSettingsOpen(false)}
         />
       </div>
     );

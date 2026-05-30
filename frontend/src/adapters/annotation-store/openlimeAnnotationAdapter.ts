@@ -7,6 +7,8 @@ import {
   viewerGeometryMatchesOpenLime,
 } from './viewerAnnotationToOpenLimeImport';
 
+export type OpenLimeLabelVisibility = 'none' | 'all' | 'selected';
+
 /** OpenLIME annotation instance (structural typing). */
 export type OpenLimeSyncedAnnotation = {
   id: string;
@@ -63,6 +65,8 @@ export type OpenLimeAnnotationManager = {
   deselectAll: () => void;
   setSelected: (id: string, on?: boolean) => void;
   setAnnotationStructuralClass?: (id: string, classId: string | null) => void;
+  setLabelVisibility?: (mode: OpenLimeLabelVisibility, repaint?: boolean) => OpenLimeLabelVisibility;
+  getLabelVisibility?: () => OpenLimeLabelVisibility;
 };
 
 /**
