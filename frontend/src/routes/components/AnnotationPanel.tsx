@@ -7,34 +7,38 @@ import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts';
+import AppMessageModal from '../../shared/ui/AppMessageModal';
+import {
+  AnnotationMessageModalCatalog,
+  type MessageModalDescriptor,
+} from '../../shared/ui/AnnotationMessageModalModel';
 
 interface AnnotationPanelProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
   onSelectionChanged?: (geometryIds: string[]) => void;
 }
 
+interface AnnotationDataDraft {
+  dataId: string;
+  expectedVersion: number;
+  label: string;
+  description: string;
+  annotationClass: string | null;
+  content: Record<string, unknown>;
+}
+
 function EditDataModal({
-  datum,
-  isOpen,
+  draft,
   onSave,
+  onChange,
   onCancel,
 }: {
-  datum: AnnotationData | null;
-  isOpen: boolean;
-  onSave: (dataId: string, label: string, description: string) => void;
+  draft: AnnotationDataDraft | null;
+  onSave: () => void;
+  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description'>>) => void;
   onCancel: () => void;
 }) {
-  const [editedLabel, setEditedLabel] = useState('');
-  const [editedDescription, setEditedDescription] = useState('');
-
-  useEffect(() => {
-    if (datum) {
-      setEditedLabel(datum.label);
-      setEditedDescription(datum.description ?? '');
-    }
-  }, [datum, isOpen]);
-
-  if (!isOpen || !datum) {
+  if (!draft) {
     return null;
   }
 
@@ -43,7 +47,7 @@ function EditDataModal({
       className="modal d-block"
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: isOpen ? 'block' : 'none',
+        display: 'block',
       }}
       onClick={onCancel}
     >
@@ -62,8 +66,8 @@ function EditDataModal({
                 type="text"
                 className="form-control"
                 id="annotationLabel"
-                value={editedLabel}
-                onChange={(e) => setEditedLabel(e.target.value)}
+                value={draft.label}
+                onChange={(e) => onChange({ label: e.target.value })}
               />
             </div>
             <div className="mb-3">
@@ -74,12 +78,12 @@ function EditDataModal({
                 type="text"
                 className="form-control"
                 id="annotationDescription"
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
+                value={draft.description}
+                onChange={(e) => onChange({ description: e.target.value })}
               />
             </div>
             <p className="small text-muted mb-0">
-              Class: {datum.class ?? '(none)'}
+              Class: {draft.annotationClass ?? '(none)'}
             </p>
           </div>
           <div className="modal-footer">
@@ -89,7 +93,7 @@ function EditDataModal({
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => onSave(datum.id, editedLabel, editedDescription)}
+              onClick={onSave}
             >
               Save
             </button>
@@ -122,8 +126,8 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     stopEditorLock,
   } = useAnnotationStore();
 
-  const [editingDatum, setEditingDatum] = useState<AnnotationData | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
+  const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
 
   const realtimeBadgeClass =
     realtimeState === 'connected'
@@ -286,7 +290,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         await markDataErasable(dataId);
       } catch (err) {
         console.error('Failed to mark data erasable:', err);
-        alert('Failed to delete annotation data');
+        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data'));
       }
     }
   };
@@ -302,22 +306,30 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         clearFocus();
       } catch (err) {
         console.error('Failed to delete annotation data:', err);
-        alert('Failed to delete selected data');
+        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data_bulk'));
       }
     }
   };
 
-  const handleEditSave = async (dataId: string, label: string, description: string) => {
+  const handleEditSave = async () => {
+    if (!editingDraft) {
+      return;
+    }
+
     try {
-      await updateData(dataId, { label, description });
-      setIsEditModalOpen(false);
-      setEditingDatum(null);
+      await updateData(editingDraft.dataId, {
+        label: editingDraft.label,
+        description: editingDraft.description,
+      }, {
+        expectedVersion: editingDraft.expectedVersion,
+      });
+      setEditingDraft(null);
     } catch (err) {
       console.error('Failed to update annotation data:', err);
-      alert('Failed to update annotation data');
+      setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
     } finally {
       try {
-        await stopEditorLock('data', dataId, 'editing annotation data');
+        await stopEditorLock('data', editingDraft.dataId, 'editing annotation data');
       } catch (lockErr) {
         console.warn('Failed to release data editor lock:', lockErr);
       }
@@ -325,19 +337,25 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   };
 
   const handleEditStart = async (datum: AnnotationData) => {
-    setEditingDatum(datum);
-    setIsEditModalOpen(true);
+    setEditingDraft({
+      dataId: datum.id,
+      expectedVersion: datum.version,
+      label: datum.label,
+      description: datum.description ?? '',
+      annotationClass: datum.class ?? null,
+      content: { ...datum.content },
+    });
     try {
       await startEditorLock('data', datum.id, 'editing annotation data');
     } catch (lockErr) {
       console.warn('Failed to publish data editor lock:', lockErr);
+      setMessageModal(AnnotationMessageModalCatalog.fromError(lockErr, 'editor_lock_start'));
     }
   };
 
   const handleEditCancel = async () => {
-    const datumId = editingDatum?.id;
-    setIsEditModalOpen(false);
-    setEditingDatum(null);
+    const datumId = editingDraft?.dataId;
+    setEditingDraft(null);
     if (!datumId) {
       return;
     }
@@ -345,16 +363,17 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       await stopEditorLock('data', datumId, 'editing annotation data');
     } catch (lockErr) {
       console.warn('Failed to release data editor lock:', lockErr);
+      setMessageModal(AnnotationMessageModalCatalog.fromError(lockErr, 'editor_lock_stop'));
     }
   };
 
   useEffect(() => {
     return () => {
-      if (editingDatum?.id) {
-        void stopEditorLock('data', editingDatum.id, 'editing annotation data');
+      if (editingDraft?.dataId) {
+        void stopEditorLock('data', editingDraft.dataId, 'editing annotation data');
       }
     };
-  }, [editingDatum, stopEditorLock]);
+  }, [editingDraft, stopEditorLock]);
 
   return (
     <div className="p-3 h-100 d-flex flex-column">
@@ -495,11 +514,21 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       )}
 
       <EditDataModal
-        datum={editingDatum}
-        isOpen={isEditModalOpen}
-        onSave={handleEditSave}
+        draft={editingDraft}
+        onSave={() => {
+          void handleEditSave();
+        }}
+        onChange={(patch) => {
+          setEditingDraft((current) => (current ? { ...current, ...patch } : current));
+        }}
         onCancel={() => {
           void handleEditCancel();
+        }}
+      />
+      <AppMessageModal
+        descriptor={messageModal}
+        onClose={() => {
+          setMessageModal(null);
         }}
       />
     </div>

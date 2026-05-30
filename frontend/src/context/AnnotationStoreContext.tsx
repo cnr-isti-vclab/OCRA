@@ -28,10 +28,13 @@ import {
 } from '../stores/annotation-selection';
 import {
   AnnotationStore,
+  type AnnotationUpdateOptions,
   createAnnotationStore,
   type CreateAnnotationInput,
   type UpdateDataInput,
 } from '../stores/AnnotationStore';
+import AppMessageModal from '../shared/ui/AppMessageModal';
+import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalModel';
 
 export type AnnotationStoreLogTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -78,7 +81,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   setFocusSelection: (input: FocusSelectionInput, onApplied?: () => void) => void;
   loadScene: (sceneId: string) => Promise<void>;
   updateGeometry: (geometryId: string, shapes: CreateAnnotationInput['shapes']) => Promise<void>;
-  updateData: (dataId: string, input: UpdateDataInput) => Promise<void>;
+  updateData: (dataId: string, input: UpdateDataInput, options?: AnnotationUpdateOptions) => Promise<void>;
   createAnnotation: (input: CreateAnnotationInput) => Promise<void>;
   loadProjectData: () => Promise<void>;
   markGeometryErasable: (geometryId: string) => Promise<void>;
@@ -125,17 +128,6 @@ function appendLog(
 interface FocusSelectionInput {
   geometryIds?: Iterable<string>;
   dataIds?: Iterable<string>;
-}
-
-function lockResourceLabel(lock: AnnotationSocialLockState): string {
-  if (!lock.resourceType || !lock.resourceId) {
-    return 'annotation scope';
-  }
-  return `${lock.resourceType} ${lock.resourceId}`;
-}
-
-function lockKindLabel(lock: AnnotationSocialLockState): string {
-  return lock.lockKind === 'editor' ? 'editor lock' : 'presence lock';
 }
 
 interface AnnotationStoreProviderProps {
@@ -450,8 +442,12 @@ export function AnnotationStoreProvider({
     await storeRef.current?.updateGeometry(geometryId, shapes);
   }, []);
 
-  const updateData = useCallback(async (dataId: string, input: UpdateDataInput) => {
-    await storeRef.current?.updateData(dataId, input);
+  const updateData = useCallback(async (
+    dataId: string,
+    input: UpdateDataInput,
+    options?: AnnotationUpdateOptions,
+  ) => {
+    await storeRef.current?.updateData(dataId, input, options);
   }, []);
 
   const createAnnotation = useCallback(async (input: CreateAnnotationInput) => {
@@ -552,81 +548,38 @@ export function AnnotationStoreProvider({
     setFocusSelection,
   };
 
+  const selectionConflictModalDescriptor = useMemo(
+    () => (selectionConflictLocks.length > 0
+      ? AnnotationMessageModalCatalog.lockConflict(selectionConflictLocks)
+      : null),
+    [selectionConflictLocks],
+  );
+
+  const clearSelectionConflict = useCallback(() => {
+    pendingSelectionRef.current = null;
+    setSelectionConflictLocks([]);
+  }, []);
+
   return (
     <>
       <AnnotationStoreContext value={value}>
         {children}
       </AnnotationStoreContext>
-      {selectionConflictLocks.length > 0 && (
-        <div
-          className="modal d-block"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          }}
-          onClick={() => {
+      <AppMessageModal
+        descriptor={selectionConflictModalDescriptor}
+        onClose={clearSelectionConflict}
+        onAction={(actionKey) => {
+          if (actionKey === 'continue') {
+            const pending = pendingSelectionRef.current;
             pendingSelectionRef.current = null;
             setSelectionConflictLocks([]);
-          }}
-        >
-          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Annotation lock conflict</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label="Close"
-                  onClick={() => {
-                    pendingSelectionRef.current = null;
-                    setSelectionConflictLocks([]);
-                  }}
-                />
-              </div>
-              <div className="modal-body">
-                <p className="mb-2">
-                  This annotation is currently being edited by another user. Continuing may cause conflicts and could overwrite your changes.
-                </p>
-                <ul className="small mb-0">
-                  {selectionConflictLocks.slice(0, 5).map((lock) => (
-                    <li key={socialLockKey(lock)}>
-                      {lock.username}: {lockKindLabel(lock)} on {lockResourceLabel(lock)}
-                    </li>
-                  ))}
-                </ul>
-                {selectionConflictLocks.length > 5 && (
-                  <p className="small text-muted mt-2 mb-0">
-                    +{selectionConflictLocks.length - 5} more active lock(s).
-                  </p>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    pendingSelectionRef.current = null;
-                    setSelectionConflictLocks([]);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => {
-                    const pending = pendingSelectionRef.current;
-                    pendingSelectionRef.current = null;
-                    setSelectionConflictLocks([]);
-                    pending?.();
-                  }}
-                >
-                  Continue anyway
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            pending?.();
+            return;
+          }
+
+          clearSelectionConflict();
+        }}
+      />
     </>
   );
 }

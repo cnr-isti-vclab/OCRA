@@ -76,6 +76,10 @@ export interface UpdateDataInput {
   content?: Record<string, unknown>;
 }
 
+export interface AnnotationUpdateOptions {
+  expectedVersion?: number;
+}
+
 interface VersionedWriteResult {
   success: true;
   version: number;
@@ -336,14 +340,18 @@ export class AnnotationStore {
     });
   }
 
-  async updateData(dataId: string, input: UpdateDataInput): Promise<void> {
+  async updateData(
+    dataId: string,
+    input: UpdateDataInput,
+    options: AnnotationUpdateOptions = {},
+  ): Promise<void> {
     await this.optimisticVersionedUpdate({
       kind: 'data',
       id: dataId,
       applyOptimistic: (snapshot) => ({ ...snapshot, ...input }),
       write: (snapshot) =>
         this.client.updateData(dataId, {
-          expectedVersion: snapshot.version,
+          expectedVersion: options.expectedVersion ?? snapshot.version,
           ...input,
         }),
       mergeSuccess: (current, snapshot, res, values) => ({
