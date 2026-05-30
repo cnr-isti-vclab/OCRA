@@ -454,17 +454,16 @@ const OpenLIMEViewer = forwardRef<
           // Before creating the UI create a lensLayer which could be activated for each layer, to be passed to the UIBasic interface
           if (!uiRef.current) {
             console.log("Create new OpenLIME.UIBasic");
-            const lensLayer = new OpenLIME.Layer({
-              type: "lens",
+            const lensLayer = new OpenLIME.LayerLens({
               layers: [],
               camera: viewer.camera,
               radius: 300,
               borderEnable: true,
               borderColor: [0.5, 0.5, 0.5, 1],
               borderWidth: 5,
-              visible: false,
-              zindex: selectedAssets.length + 1, // Ensure lens is always on top
             });
+            lensLayer.setVisible(false);
+            lensLayer.zindex = selectedAssets.length + 1; // Ensure lens is always on top
             viewer.addLayer('lens', lensLayer);
 
             // Create a lens controller for focus and context exploration when lenses are enabled.
@@ -563,7 +562,9 @@ const OpenLIMEViewer = forwardRef<
       useImperativeHandle(ref, () => ({
         resetCamera() {
           if (viewerRef.current != null) {
-            viewerRef.current.camera.reset();
+            const camera = viewerRef.current.camera;
+            camera.setPosition(0, 0, 0, 1, 0);
+            viewerRef.current.redraw();
           }
         },
 
