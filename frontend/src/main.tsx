@@ -10,7 +10,6 @@ import VocabularyList from './routes/VocabularyList.tsx'
 import EditProject from './routes/EditProject.tsx'
 import ProjectPage from './routes/ProjectPage.tsx'
 import RequireAuth from './routes/RequireAuth.tsx'
-import RequireAdmin from './routes/RequireAdmin.tsx'
 import SidebarLayout from './components/SidebarLayout.tsx'
 import HDTPage from './routes/HDTPage.tsx'
 import { ProjectStructuringLockProvider } from './context/ProjectStructuringLockContext.tsx'
@@ -68,6 +67,10 @@ import { ProjectStructuringLockProvider } from './context/ProjectStructuringLock
  * - Navigation: Changes URL and renders different components without page refresh
  * - Route Guards: Components that control access to certain routes (like RequireAuth)
  */
+
+window.addEventListener('contextmenu', function(e) {
+  e.preventDefault()
+})
 
 const router = createBrowserRouter([
 	// Root route: renders the main App component at "/"

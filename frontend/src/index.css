@@ -27,6 +27,12 @@ body {
   width: 100%;
 }
 
+/* Avoid drag gestures on media/links that can trigger browser callouts. */
+#root img,
+#root a {
+  -webkit-user-drag: none;  /* Safari/Chrome */
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   #root {

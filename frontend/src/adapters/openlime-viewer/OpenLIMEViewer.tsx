@@ -122,6 +122,8 @@ const OpenLIMEViewer = forwardRef<
     onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
     onAnnotationDeleted?: (annotation: ViewerAnnotation) => void;
     onAnnotationSelectionChanged?: (ids: string[]) => void;
+    /** Fired when the user starts dragging a vertex or disc handle (pointerdown). */
+    onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
     /** Fired when the OpenLIME pencil (annotation tool) is enabled or disabled. */
     onPencilActiveChange?: (active: boolean) => void;
   }>(
@@ -135,6 +137,7 @@ const OpenLIMEViewer = forwardRef<
         onAnnotationUpdated,
         onAnnotationDeleted,
         onAnnotationSelectionChanged,
+        onAnnotationEditStart,
         onPencilActiveChange,
       },
       ref
@@ -149,6 +152,7 @@ const OpenLIMEViewer = forwardRef<
       const onAnnotationUpdatedRef = useRef<typeof onAnnotationUpdated>(onAnnotationUpdated);
       const onAnnotationDeletedRef = useRef<typeof onAnnotationDeleted>(onAnnotationDeleted);
       const onAnnotationSelectionChangedRef = useRef<typeof onAnnotationSelectionChanged>(onAnnotationSelectionChanged);
+      const onAnnotationEditStartRef = useRef<typeof onAnnotationEditStart>(onAnnotationEditStart);
       const onPencilActiveChangeRef = useRef<typeof onPencilActiveChange>(onPencilActiveChange);
       /** Panel-driven `enableEditing` must not clear selection via UIBasic `pencilEnabled`. */
       const skipDeselectOnPencilEnableRef = useRef(false);
@@ -180,6 +184,10 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         onAnnotationSelectionChangedRef.current = onAnnotationSelectionChanged;
       }, [onAnnotationSelectionChanged]);
+
+      useEffect(() => {
+        onAnnotationEditStartRef.current = onAnnotationEditStart;
+      }, [onAnnotationEditStart]);
 
       useEffect(() => {
         onPencilActiveChangeRef.current = onPencilActiveChange;
@@ -400,6 +408,12 @@ const OpenLIMEViewer = forwardRef<
                 onAnnotationDeletedRef.current(getOcraAnnotation(anno));
               } else {
                 console.log('OpenLIMEViewerRef:onDelete Missing Annotation Callback', anno);
+              }
+            },
+
+            onEditStart: (anno: SimplifiedAnnotation) => {
+              if (onAnnotationEditStartRef.current) {
+                onAnnotationEditStartRef.current(getOcraAnnotation(anno));
               }
             },
 

@@ -37,6 +37,7 @@ export class MessageModalDescriptor {
 }
 
 export type AnnotationOperation =
+  | 'update_geometry'
   | 'update_data'
   | 'delete_data'
   | 'delete_data_bulk'
@@ -45,6 +46,8 @@ export type AnnotationOperation =
 
 function operationLabel(operation: AnnotationOperation): string {
   switch (operation) {
+    case 'update_geometry':
+      return 'update annotation geometry';
     case 'update_data':
       return 'update annotation data';
     case 'delete_data':
@@ -79,6 +82,15 @@ export class AnnotationMessageModalCatalog {
     const action = operationLabel(operation);
 
     if (error instanceof AnnotationApiError) {
+      if (error.status === 409 && error.code === 'annotation.geometry.version_conflict') {
+        return new MessageModalDescriptor({
+          tone: 'warning',
+          title: 'Version conflict (409)',
+          message:
+            'Another user saved a newer geometry while you were editing. Your changes were not applied. Please review the latest geometry and retry.',
+        });
+      }
+
       if (error.status === 409 && error.code === 'annotation.data.version_conflict') {
         return new MessageModalDescriptor({
           tone: 'warning',

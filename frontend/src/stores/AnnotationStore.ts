@@ -80,6 +80,10 @@ export interface AnnotationUpdateOptions {
   expectedVersion?: number;
 }
 
+export interface GeometryUpdateOptions extends AnnotationUpdateOptions {
+  optimistic?: boolean;
+}
+
 interface VersionedWriteResult {
   success: true;
   version: number;
@@ -321,14 +325,23 @@ export class AnnotationStore {
 
   // ── Writes ────────────────────────────────────────────────────────────────
 
-  async updateGeometry(geometryId: string, shapes: AnnotationShape[]): Promise<void> {
+  async updateGeometry(
+    geometryId: string,
+    shapes: AnnotationShape[],
+    expectedVersionOrOptions?: number | GeometryUpdateOptions,
+  ): Promise<void> {
+    const options =
+      typeof expectedVersionOrOptions === 'number'
+        ? { expectedVersion: expectedVersionOrOptions }
+        : expectedVersionOrOptions ?? {};
+
     await this.optimisticVersionedUpdate({
       kind: 'geometry',
       id: geometryId,
       applyOptimistic: (snapshot) => ({ ...snapshot, shapes }),
       write: (snapshot) =>
         this.client.updateGeometry(geometryId, {
-          expectedVersion: snapshot.version,
+          expectedVersion: options.expectedVersion ?? snapshot.version,
           shapes,
         }),
       mergeSuccess: (current, snapshot, res) => ({
@@ -337,6 +350,7 @@ export class AnnotationStore {
         version: res.version,
         updatedAt: res.updatedAt ?? current.updatedAt ?? snapshot.updatedAt,
       }),
+      optimistic: options.optimistic ?? true,
     });
   }
 
@@ -601,6 +615,7 @@ export class AnnotationStore {
       input: TInput,
     ) => AnnotationGeometry | AnnotationData | AnnotationLink;
     inputValues?: TInput;
+    optimistic?: boolean;
   }): Promise<void> {
     const { kind, id } = options;
     const key = savingKey(kind, id);
@@ -616,8 +631,10 @@ export class AnnotationStore {
     const myGen = this.generation;
     this.isSaving.add(key);
 
-    this.setEntity(kind, id, options.applyOptimistic(snapshot));
-    this.bump();
+    if (options.optimistic ?? true) {
+      this.setEntity(kind, id, options.applyOptimistic(snapshot));
+      this.bump();
+    }
 
     try {
       const res = await options.write(snapshot);

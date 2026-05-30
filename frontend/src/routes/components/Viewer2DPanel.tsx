@@ -7,8 +7,10 @@ import AnnotationToolbar, {
   type AnnotationToolbarMode,
 } from '../../components/AnnotationToolbar';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
+import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import {
   activeGeometriesToViewerAnnotations,
   dataIdsForFocusedGeometries,
@@ -22,6 +24,11 @@ import {
   type OpenLimeAnnotationManager,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
+import AppMessageModal from '../../shared/ui/AppMessageModal';
+import {
+  AnnotationMessageModalCatalog,
+  type MessageModalDescriptor,
+} from '../../shared/ui/AnnotationMessageModalModel';
 
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -29,6 +36,18 @@ interface Viewer2DPanelProps {
   rtiAvailable: boolean;
   onReady: () => void;
   onError: (error: Error) => void;
+}
+
+interface GeometryEditSnapshot {
+  version: number;
+  shapes: AnnotationShape[];
+}
+
+function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
+  return shapes.map((shape) => ({
+    ...shape,
+    vertices: shape.vertices.map((vertex) => [vertex[0], vertex[1], vertex[2]]),
+  }));
 }
 
 /**
@@ -55,10 +74,19 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const isStoreSyncRef = useRef(false);
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+    const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
+    const isPointerDownRef = useRef(false);
+    // Always-current refs for use inside pointer event handlers (avoids stale closures).
+    const focusedGeometryIdsRef = useRef(focusedGeometryIds);
+    focusedGeometryIdsRef.current = focusedGeometryIds;
+    const activeGeometriesRef = useRef(activeGeometries);
+    activeGeometriesRef.current = activeGeometries;
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
     const [pencilActive, setPencilActive] = useState(false);
+    const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
+    const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
 
     const applyToolbarMode = useCallback(
       (mode: AnnotationToolbarMode) => {
@@ -139,18 +167,84 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       });
     };
 
+    const captureGeometryEditSnapshot = (geometryId: string) => {
+      if (editSnapshotsRef.current.has(geometryId)) {
+        return;
+      }
+      const geo = activeGeometriesRef.current.find((g) => g.id === geometryId);
+      if (!geo) {
+        return;
+      }
+      editSnapshotsRef.current.set(geometryId, {
+        version: geo.version,
+        shapes: cloneShapes(geo.shapes),
+      });
+    };
+
+    const handleAnnotationEditStart = (anno: ViewerAnnotation) => {
+      // Capture the local editing copy at the exact OpenLIME edit start.
+      captureGeometryEditSnapshot(anno.id);
+    };
+
+    const handleViewerPointerDown = () => {
+      isPointerDownRef.current = true;
+      // Snapshot focused geometries so any concurrent SSE update cannot replace the
+      // OpenLIME object being dragged, and OCC still uses the edit-start version.
+      for (const id of focusedGeometryIdsRef.current) {
+        captureGeometryEditSnapshot(id);
+      }
+    };
+
+    const handleViewerPointerUpOrCancel = useCallback(() => {
+      isPointerDownRef.current = false;
+    }, []);
+
+    useEffect(() => {
+      const handleGlobalPointerEnd = () => {
+        if (isPointerDownRef.current) {
+          handleViewerPointerUpOrCancel();
+        }
+      };
+
+      window.addEventListener('pointerup', handleGlobalPointerEnd);
+      window.addEventListener('pointercancel', handleGlobalPointerEnd);
+
+      return () => {
+        window.removeEventListener('pointerup', handleGlobalPointerEnd);
+        window.removeEventListener('pointercancel', handleGlobalPointerEnd);
+      };
+    }, [handleViewerPointerUpOrCancel]);
+
     const handleAnnotationUpdated = (anno: ViewerAnnotation) => {
       if (isStoreSyncRef.current) {
         return;
       }
       const nextShapes = viewerGeometryToShapes(anno.type, anno.geometry);
-      const existing = activeGeometries.find((g) => g.id === anno.id);
-      if (existing && shapesEqual(existing.shapes, nextShapes)) {
+      const editSnapshot = editSnapshotsRef.current.get(anno.id);
+      const baselineShapes =
+        editSnapshot?.shapes ?? activeGeometriesRef.current.find((g) => g.id === anno.id)?.shapes;
+      if (baselineShapes && shapesEqual(baselineShapes, nextShapes)) {
+        editSnapshotsRef.current.delete(anno.id);
         return;
       }
-      void updateGeometry(anno.id, nextShapes).catch((err) => {
-        console.error('Failed to update 2D annotation geometry:', err);
-      });
+      const expectedVersion = editSnapshot?.version;
+      void updateGeometry(anno.id, nextShapes, {
+        expectedVersion,
+        optimistic: false,
+      })
+        .then(() => {
+          editSnapshotsRef.current.delete(anno.id);
+        })
+        .catch((err) => {
+          if (err instanceof AnnotationApiError && err.status === 409) {
+            pendingConflictGeometryIdsRef.current.add(anno.id);
+            setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_geometry'));
+            return;
+          }
+
+          editSnapshotsRef.current.delete(anno.id);
+          console.error('Failed to update 2D annotation geometry:', err);
+        });
     };
 
     const handleAnnotationSelectionChange = (ids: string[]) => {
@@ -190,11 +284,42 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const runStoreOpenLimeSync = (annotationManager: OpenLimeAnnotationManager) => {
       isStoreSyncRef.current = true;
       try {
-        syncOpenLimeAnnotations(annotationManager, viewerAnnotationsForSync);
+        // While a geometry has a local edit snapshot, block store-driven shape sync
+        // for that id. The user edits the OpenLIME copy captured at pointer/edit start;
+        // remote store changes remain in the store and will surface after the edit ends.
+        const excludeIds = new Set(editSnapshotsRef.current.keys());
+        if (excludeIds.size === 0 && isPointerDownRef.current) {
+          for (const id of focusedGeometryIdsRef.current) {
+            excludeIds.add(id);
+          }
+        }
+        syncOpenLimeAnnotations(annotationManager, viewerAnnotationsForSync, excludeIds);
       } finally {
         isStoreSyncRef.current = false;
       }
     };
+
+    const releaseConflictSnapshotsAndSync = useCallback(() => {
+      for (const id of pendingConflictGeometryIdsRef.current) {
+        editSnapshotsRef.current.delete(id);
+      }
+      pendingConflictGeometryIdsRef.current.clear();
+      setMessageModal(null);
+
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      const annotationManager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+      if (!annotationManager) {
+        return;
+      }
+
+      runStoreOpenLimeSync(annotationManager);
+      const idsToSelect = highlightGeometryIdsRef.current;
+      if (idsToSelect.length > 0) {
+        expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
+        applyOpenLimeSelection(annotationManager, idsToSelect);
+      }
+      applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+    }, [lockedGeometryIds, ref, viewerAnnotationsForSync]);
 
     const syncGeometryEditorLocks = useCallback(
       async (geometryIds: string[]) => {
@@ -203,6 +328,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
         const toStart = [...next].filter((id) => !prev.has(id));
         const toStop = [...prev].filter((id) => !next.has(id));
+
+        for (const id of toStart) {
+          captureGeometryEditSnapshot(id);
+        }
+        for (const id of toStop) {
+          editSnapshotsRef.current.delete(id);
+        }
 
         await Promise.all([
           ...toStart.map((id) =>
@@ -334,7 +466,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }
 
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div
+        style={{ position: 'relative', width: '100%', height: '100%' }}
+        onPointerDown={handleViewerPointerDown}
+        onPointerUp={handleViewerPointerUpOrCancel}
+        onPointerCancel={handleViewerPointerUpOrCancel}
+      >
         <OpenLIMEViewer
           ref={ref}
           sceneDesc={sceneDesc}
@@ -342,6 +479,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           onReady={handleViewerReady}
           onError={onError}
           onAnnotationCreated={handleAnnotationCreated}
+          onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
           onAnnotationSelectionChanged={handleAnnotationSelectionChange}
           onPencilActiveChange={handlePencilActiveChange}
@@ -360,6 +498,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             <AnnotationToolbar mode={toolbarMode} onModeChange={applyToolbarMode} />
           </div>
         )}
+        <AppMessageModal
+          descriptor={messageModal}
+          onClose={releaseConflictSnapshotsAndSync}
+          onAction={releaseConflictSnapshotsAndSync}
+        />
       </div>
     );
   }

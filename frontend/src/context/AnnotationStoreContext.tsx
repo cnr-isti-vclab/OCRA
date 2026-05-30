@@ -28,6 +28,7 @@ import {
 } from '../stores/annotation-selection';
 import {
   AnnotationStore,
+  type GeometryUpdateOptions,
   type AnnotationUpdateOptions,
   createAnnotationStore,
   type CreateAnnotationInput,
@@ -80,7 +81,11 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   clearEventLog: () => void;
   setFocusSelection: (input: FocusSelectionInput, onApplied?: () => void) => void;
   loadScene: (sceneId: string) => Promise<void>;
-  updateGeometry: (geometryId: string, shapes: CreateAnnotationInput['shapes']) => Promise<void>;
+  updateGeometry: (
+    geometryId: string,
+    shapes: CreateAnnotationInput['shapes'],
+    options?: number | GeometryUpdateOptions,
+  ) => Promise<void>;
   updateData: (dataId: string, input: UpdateDataInput, options?: AnnotationUpdateOptions) => Promise<void>;
   createAnnotation: (input: CreateAnnotationInput) => Promise<void>;
   loadProjectData: () => Promise<void>;
@@ -438,8 +443,12 @@ export function AnnotationStoreProvider({
     await current.loadScene(nextSceneId);
   }, []);
 
-  const updateGeometry = useCallback(async (geometryId: string, shapes: CreateAnnotationInput['shapes']) => {
-    await storeRef.current?.updateGeometry(geometryId, shapes);
+  const updateGeometry = useCallback(async (
+    geometryId: string,
+    shapes: CreateAnnotationInput['shapes'],
+    options?: number | GeometryUpdateOptions,
+  ) => {
+    await storeRef.current?.updateGeometry(geometryId, shapes, options);
   }, []);
 
   const updateData = useCallback(async (

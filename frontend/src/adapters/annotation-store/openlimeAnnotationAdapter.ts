@@ -87,6 +87,7 @@ export function ensureEditModeForSelection(manager: OpenLimeAnnotationManager | 
 export function syncOpenLimeAnnotations(
   manager: OpenLimeAnnotationManager | null,
   viewerAnnotations: ViewerAnnotation[],
+  excludeIds?: Set<string>,
 ): void {
   if (!manager || (manager.mode === 'create' && manager._session)) {
     return;
@@ -108,6 +109,18 @@ export function syncOpenLimeAnnotations(
     let existing = manager.getAnnotationById(viewerAnno.id);
 
     if (existing) {
+      // Skip geometry stale check for annotations being actively dragged by this user.
+      // The local drag state in OpenLIME must not be overwritten by a concurrent SSE update.
+      if (excludeIds?.has(viewerAnno.id)) {
+        if (viewerAnno.label && existing.label !== viewerAnno.label) {
+          existing.label = viewerAnno.label;
+          delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
+          existing.needsUpdate = true;
+          labelsUpdated = true;
+        }
+        continue;
+      }
+
       const geometryStale =
         !viewerGeometryMatchesOpenLime(viewerAnno, existing);
       const handlesMissing =
