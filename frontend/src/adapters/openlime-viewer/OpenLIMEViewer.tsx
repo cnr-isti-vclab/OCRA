@@ -269,17 +269,29 @@ const OpenLIMEViewer = forwardRef<
 
           const getMatrix = (model: SceneDescription['models'][number]) => {
             console.log(`Calculating transformation matrix for model ${model.id} with properties:`, model);
-            const scale = model.scale || 1;
+            const scale = Array.isArray(model.scale)
+              ? model.scale[0] ?? 1
+              : model.scale ?? 1;
             const pos = model.position || [0, 0, 0];
             const rotScale = (model.rotationUnits && model.rotationUnits === 'rad') ? 180 / Math.PI : 1;
             const rot = model.rotation ? model.rotation[2] * rotScale : 0;
+
+            if (
+              Array.isArray(model.scale) &&
+              (model.scale[1] !== scale || model.scale[2] !== scale)
+            ) {
+              console.warn(
+                `OpenLIME uses uniform scaling; model ${model.id} has non-uniform scale`,
+                model.scale,
+                `and will use ${scale}`,
+              );
+            }
 
             let t = new OpenLIME.Transform();
             t.x = pos[0];
             t.y = pos[1];
             t.a = rot;
-            t.sx = scale;
-            t.sy = scale;
+            t.z = scale;
             t.t = 0;
             //
             t.print();
