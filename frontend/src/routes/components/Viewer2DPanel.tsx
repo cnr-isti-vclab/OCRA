@@ -197,6 +197,16 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const handleViewerPointerUpOrCancel = useCallback(() => {
       isPointerDownRef.current = false;
+      // RAF fires after OpenLIME's document-level pointerup handler (and thus after
+      // handleAnnotationUpdated). Any snapshot still present was captured at pointer-down
+      // but not consumed by a vertex drag — safe to drop unless it's a pending conflict.
+      requestAnimationFrame(() => {
+        for (const id of [...editSnapshotsRef.current.keys()]) {
+          if (!pendingConflictGeometryIdsRef.current.has(id)) {
+            editSnapshotsRef.current.delete(id);
+          }
+        }
+      });
     }, []);
 
     useEffect(() => {

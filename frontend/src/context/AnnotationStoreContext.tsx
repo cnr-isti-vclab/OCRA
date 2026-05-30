@@ -576,7 +576,10 @@ export function AnnotationStoreProvider({
       </AnnotationStoreContext>
       <AppMessageModal
         descriptor={selectionConflictModalDescriptor}
-        onClose={clearSelectionConflict}
+        onClose={() => {
+          clearFocus();
+          clearSelectionConflict();
+        }}
         onAction={(actionKey) => {
           if (actionKey === 'continue') {
             const pending = pendingSelectionRef.current;
@@ -586,6 +589,7 @@ export function AnnotationStoreProvider({
             return;
           }
 
+          clearFocus();
           clearSelectionConflict();
         }}
       />

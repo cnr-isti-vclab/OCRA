@@ -70,7 +70,9 @@ export default function AppMessageModal({ descriptor, onClose, onAction }: AppMe
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">{descriptor.title}</h5>
-            <span className={`badge ${toneClass(descriptor.tone)}`}>{descriptor.tone.toUpperCase()}</span>
+            <span className={`badge ms-auto ${toneClass(descriptor.tone)}`}>
+              {descriptor.tone.toUpperCase()}
+            </span>
           </div>
           <div className="modal-body">
             <p className="mb-0">{descriptor.message}</p>
