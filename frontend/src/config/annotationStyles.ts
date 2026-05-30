@@ -24,8 +24,8 @@ const DEFAULT_COLOR = {
 const UNDER_EDITING_COLOR = {
   fill: DEFAULT_COLOR.fill,
   stroke: DEFAULT_COLOR.stroke,
-  text: DEFAULT_COLOR.stroke,
-  background: DEFAULT_COLOR.fill,
+  text: 'rgba(153, 27, 27, 1)',
+  background: 'rgba(254, 226, 226, 0.92)',
 } as const;
 
 const SELECTED_COLOR = {
@@ -81,8 +81,10 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
     backgroundFill: DEFAULT_COLOR.background,
     backgroundFillSelected: SELECTED_COLOR.background,
     textFillUnderEditing: UNDER_EDITING_COLOR.stroke,
-    backgroundFillUnderEditing: UNDER_EDITING_COLOR.background,
+    backgroundFillUnderEditing: UNDER_EDITING_COLOR.fill,
+    backgroundStrokeUnderEditing: 'rgba(220, 38, 38, 1)',
     backgroundStroke: 'none',
+    backgroundStrokeWidthUnderEditingPx: 1,
     backgroundStrokeWidthPx: 0,
     paddingPx: 6,
     borderRadiusPx: 4,
