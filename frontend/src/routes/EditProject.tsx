@@ -59,6 +59,9 @@ interface Project {
   public: boolean;
   createdAt: string;
   updatedAt: string;
+  activeStructuringLock?: boolean;
+  activeStructuringLockOwnedByCurrentSession?: boolean;
+  activeStructuringLockHeartbeatExpiresAt?: string | null;
   manager?: {
     id: string;
     email: string;
@@ -116,9 +119,21 @@ export default function EditProject() {
   
   // Delete confirmation state
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [contextLockTouched, setContextLockTouched] = useState(false);
   const { getProjectLockState } = useProjectStructuringLock();
   const projectLockState = getProjectLockState(projectId);
-  const settingsLockReady = projectLockState.hasExclusiveLock;
+  useEffect(() => {
+    if (projectLockState.enabled || projectLockState.status !== 'inactive' || projectLockState.hasExclusiveLock) {
+      setContextLockTouched(true);
+    }
+  }, [projectLockState.enabled, projectLockState.status, projectLockState.hasExclusiveLock]);
+
+  const unmanagedOwnedLock =
+    !contextLockTouched
+    && !!project?.activeStructuringLock
+    && !!project?.activeStructuringLockOwnedByCurrentSession;
+
+  const settingsLockReady = projectLockState.hasExclusiveLock || unmanagedOwnedLock;
 
   useEffect(() => {
     const fetchData = async () => {

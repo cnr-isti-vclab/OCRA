@@ -889,6 +889,13 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         public: true,
         createdAt: true,
         updatedAt: true,
+        structuringLock: {
+          select: {
+            ownerSessionId: true,
+            releasedAt: true,
+            heartbeatExpiresAt: true,
+          },
+        },
         projectRoles: {
           where: { role: RoleEnum.manager },
           select: {
@@ -912,8 +919,19 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
       return;
     }
 
+    const now = new Date();
+    const activeStructuringLock =
+      !!project.structuringLock
+      && !project.structuringLock.releasedAt
+      && project.structuringLock.heartbeatExpiresAt > now;
+
     const projectWithManager = {
       ...project,
+      activeStructuringLock,
+      activeStructuringLockOwnedByCurrentSession:
+        activeStructuringLock && !!req.sessionId && project.structuringLock?.ownerSessionId === req.sessionId,
+      activeStructuringLockHeartbeatExpiresAt:
+        activeStructuringLock ? project.structuringLock?.heartbeatExpiresAt ?? null : null,
       manager: project.projectRoles.length > 0
         ? {
           id: project.projectRoles[0].user.id,
@@ -927,6 +945,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
         }
         : null,
       projectRoles: undefined,
+      structuringLock: undefined,
     };
 
     res.json({ success: true, project: projectWithManager });
