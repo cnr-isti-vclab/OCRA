@@ -195,6 +195,92 @@ export async function isManagerOfProject(req: Request, res: Response) {
 }
 
 /**
+ * Atomically consume the next project counter value.
+ *
+ * POST /api/projects/:projectId/counter
+ * Returns a monotonic value starting at "0" for each project.
+ */
+export async function consumeProjectCounter(req: Request, res: Response): Promise<void> {
+  try {
+    const { projectId } = req.params;
+    if (!projectId) {
+      sendProjectError(req, res, 400, 'idRequired', 'Project ID is required');
+      return;
+    }
+
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser) {
+      sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
+      return;
+    }
+
+    const db = getPrismaClient();
+
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        public: true,
+      },
+    });
+
+    if (!project) {
+      sendProjectError(req, res, 404, 'notFound', 'Project not found');
+      return;
+    }
+
+    if (!currentUser.sys_admin) {
+      const dbUser = await db.user.findUnique({
+        where: { sub: currentUser.sub },
+        select: { id: true },
+      });
+
+      if (!dbUser) {
+        sendProjectError(req, res, 401, 'authenticationRequired', 'Authentication required');
+        return;
+      }
+
+      const roleAssignment = await db.projectRole.findFirst({
+        where: {
+          projectId,
+          userId: dbUser.id,
+          role: { in: [RoleEnum.manager, RoleEnum.editor, RoleEnum.viewer] },
+        },
+        select: { id: true },
+      });
+
+      if (!project.public && !roleAssignment) {
+        sendProjectError(req, res, 403, 'counterAccessDenied', 'Access denied for this project counter');
+        return;
+      }
+    }
+
+    // Single SQL statement ensures atomic increment+read under concurrent requests.
+    const rows = await db.$queryRaw<Array<{ counter: bigint }>>`
+      UPDATE "projects"
+      SET "counter" = "counter" + 1
+      WHERE "id" = ${projectId}
+      RETURNING "counter"
+    `;
+
+    if (rows.length === 0) {
+      sendProjectError(req, res, 404, 'notFound', 'Project not found');
+      return;
+    }
+
+    const assignedCounter = rows[0].counter - 1n;
+
+    res.json({
+      success: true,
+      counter: assignedCounter.toString(),
+    });
+  } catch (error) {
+    console.error('Error consuming project counter:', error);
+    sendProjectError(req, res, 500, 'counterIncrementFailed', 'Failed to consume project counter', error instanceof Error ? error.message : 'Unknown error');
+  }
+}
+
+/**
  * Multer setup for 3D file uploads.
  *
  * IMPORTANT:
@@ -1001,7 +1087,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     }
 
     // Explicitly forbid immutable/system fields
-    const forbiddenFields = ['id', 'createdAt', 'updatedAt'] as const;
+    const forbiddenFields = ['id', 'createdAt', 'updatedAt', 'counter'] as const;
     const forbiddenInBody = forbiddenFields.filter((k) =>
       Object.prototype.hasOwnProperty.call(req.body ?? {}, k)
     );

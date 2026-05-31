@@ -88,6 +88,7 @@ model Project {
   name        String @unique // Project name (e.g., "Marble Head", "Stanford Bunny")
   description String // Project description
   public      Boolean @default(false) // Whether the project is publicly visible
+  counter     BigInt @default(0) // Monotonic per-project counter, never reset by API
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

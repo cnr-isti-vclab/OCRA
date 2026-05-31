@@ -20,6 +20,7 @@ import {
   getProjectScene,
   updateProjectScene,
   subscribeProjectCatalogEventsHandler,
+  consumeProjectCounter,
 } from '../controllers/projects.controller.js';
 import {
   heartbeatPresence,
@@ -200,6 +201,56 @@ router.get('/:projectId', getProjectById);
 
 /**
  * @openapi
+ * /api/projects/{projectId}/counter:
+ *   post:
+ *     summary: Consume next project counter value
+ *     description: |
+ *       Atomically increments the per-project persistent counter and returns the assigned value.
+ *
+ *       **Counter semantics:**
+ *       - Starts from `0` for each project.
+ *       - First call returns `0`, second returns `1`, and so on.
+ *       - Value is never reset by any API endpoint.
+ *       - Returned as string to preserve full integer precision.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     responses:
+ *       200:
+ *         description: Counter value successfully consumed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 counter:
+ *                   type: string
+ *                   example: "0"
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Access denied for this project
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Counter operation failed
+ */
+router.post('/:projectId/counter', requireAuth, consumeProjectCounter);
+
+/**
+ * @openapi
  * /api/projects/{projectId}:
  *   put:
  *     summary: Update an existing project
@@ -210,7 +261,7 @@ router.get('/:projectId', getProjectById);
  *       - The project is identified **only** by `projectId` in the URL.
  *       - The request body supports **partial updates** (PATCH-like semantics).
  *       - The following fields are **forbidden** in the request body:
- *         `id`, `createdAt`, `updatedAt`.
+ *         `id`, `createdAt`, `updatedAt`, `counter`.
  *       - `updatedAt` is managed automatically by the backend.
  *
  *       An audit event `project.update` is generated with the applied patch only.

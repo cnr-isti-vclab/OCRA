@@ -54,6 +54,8 @@ export const API_ERROR_CODES = {
     invalidDescription: 'project.invalid_description',
     invalidManagerId: 'project.invalid_manager_id',
     selectedManagerNotFound: 'project.selected_manager_not_found',
+    counterAccessDenied: 'project.counter_access_denied',
+    counterIncrementFailed: 'project.counter_increment_failed',
     updateFailed: 'project.update_failed',
     deleteManagerRequired: 'project.delete_manager_required',
     deleteFailed: 'project.delete_failed',

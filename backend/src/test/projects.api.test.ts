@@ -281,6 +281,23 @@ describe('Projects API Integration Tests', () => {
         .expect(404);
     });
 
+    it('should reject updates containing counter field', async () => {
+      const project = await createTestProject(testUser.id, {
+        name: 'Counter Protected Project',
+      });
+      const sessionId = 'project-counter-protection-session';
+
+      await grantExclusiveProjectUpdateLock(project.id, sessionId, testUser.id);
+
+      const response = await request(app)
+        .put(`/api/projects/${project.id}`)
+        .set(authHeaders(testUser, sessionId))
+        .send({ counter: 42 })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('code', 'project.forbidden_body_fields');
+    });
+
     it('should evict non-member leases when a public project becomes private', async () => {
       const project = await createTestProject(testUser.id, {
         name: 'Public Project',
@@ -333,6 +350,66 @@ describe('Projects API Integration Tests', () => {
         where: { projectId: project.id },
       });
       expect(updatedLock?.state).toBe(StructuringLockState.exclusive);
+    });
+  });
+
+  describe('POST /api/projects/:projectId/counter', () => {
+    it('should return sequential values starting from 0', async () => {
+      const project = await createTestProject(testUser.id, { name: 'Counter Sequence Project' });
+
+      const first = await request(app)
+        .post(`/api/projects/${project.id}/counter`)
+        .set(authHeader(testUser))
+        .expect(200);
+
+      const second = await request(app)
+        .post(`/api/projects/${project.id}/counter`)
+        .set(authHeader(testUser))
+        .expect(200);
+
+      expect(first.body).toHaveProperty('success', true);
+      expect(first.body).toHaveProperty('counter', '0');
+      expect(second.body).toHaveProperty('counter', '1');
+    });
+
+    it('should be atomic under concurrent requests', async () => {
+      const project = await createTestProject(testUser.id, { name: 'Counter Atomic Project' });
+      const concurrentCalls = 10;
+
+      const responses = await Promise.all(
+        Array.from({ length: concurrentCalls }, () =>
+          request(app)
+            .post(`/api/projects/${project.id}/counter`)
+            .set(authHeader(testUser))
+        )
+      );
+
+      const counters = responses.map((response) => {
+        expect(response.status).toBe(200);
+        return Number(response.body.counter);
+      });
+
+      const uniqueCounters = new Set(counters);
+
+      expect(uniqueCounters.size).toBe(concurrentCalls);
+      expect([...uniqueCounters].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: concurrentCalls }, (_, i) => i)
+      );
+    });
+
+    it('should return 403 when user has no access to private project', async () => {
+      const project = await createTestProject(testUser.id, {
+        name: 'Private Counter Project',
+        public: false,
+      });
+      const outsider = await createTestUser({ name: 'Outsider User' });
+
+      const response = await request(app)
+        .post(`/api/projects/${project.id}/counter`)
+        .set(authHeader(outsider))
+        .expect(403);
+
+      expect(response.body).toHaveProperty('code', 'project.counter_access_denied');
     });
   });
 
