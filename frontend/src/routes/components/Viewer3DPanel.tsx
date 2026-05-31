@@ -78,7 +78,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       const handler = (point: [number, number, number]) => {
         void createAnnotation({
           shapes: [{ type: 'ShapePoints', vertices: [point] }],
-          label: `Point ${new Date().toLocaleString()}`,
+          label: '',
           description: '',
           class: null,
           content: {},

@@ -100,6 +100,10 @@ function savingKey(kind: AnnotationEntityKind, id: string): string {
   return `${kind}:${id}`;
 }
 
+function formatDefaultDataLabel(counter: bigint): string {
+  return `A${counter.toString().padStart(6, '0')}`;
+}
+
 /**
  * In-memory annotation store mirroring MongoDB geometry / data / link collections.
  * Pure TypeScript — no React dependency. Remote DB is source of truth.
@@ -402,6 +406,22 @@ export class AnnotationStore {
     await this.markEntityNonErasable('link', linkId);
   }
 
+  /**
+   * Demo-only monolithic soft-delete: mark data + linked links + linked geometries erasable.
+   * This treats one annotation as a single triplet even though the model is decoupled.
+   */
+  async markAnnotationTripletErasable(dataId: string): Promise<void> {
+    const links = [...this.linkMap.values()].filter(
+      (link) => link.dataId === dataId && link.erasableAt === null,
+    );
+
+    const geometryIds = [...new Set(links.map((link) => link.geometryId))];
+
+    await Promise.all(links.map((link) => this.markLinkErasable(link.id)));
+    await Promise.all(geometryIds.map((geometryId) => this.markGeometryErasable(geometryId)));
+    await this.markDataErasable(dataId);
+  }
+
   async createAnnotation(input: CreateAnnotationInput): Promise<void> {
     if (this.isCreating) {
       return;
@@ -442,8 +462,12 @@ export class AnnotationStore {
       if (existingDatum) {
         datum = existingDatum;
       } else {
+        const counter = await this.client.consumeProjectCounter();
+        const defaultLabel = formatDefaultDataLabel(counter);
+        const requestedLabel = input.label.trim();
+
         datum = await this.client.createData({
-          label: input.label,
+          label: requestedLabel.length > 0 ? requestedLabel : defaultLabel,
           description: input.description,
           class: input.class,
           content: input.content,

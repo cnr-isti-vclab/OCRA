@@ -162,7 +162,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
       void createAnnotation({
         shapes: viewerGeometryToShapes(anno.type, anno.geometry),
-        label: anno.label || `Annotation ${new Date().toLocaleString()}`,
+        label: anno.label || '',
         description: anno.description ?? '',
         class: null,
         content: {},

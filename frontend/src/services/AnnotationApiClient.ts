@@ -110,6 +110,10 @@ interface DataListEnvelope extends SuccessEnvelope {
   data: AnnotationData[];
 }
 
+interface ProjectCounterEnvelope extends SuccessEnvelope {
+  counter: string;
+}
+
 interface LinksEnvelope extends SuccessEnvelope {
   links: AnnotationLink[];
 }
@@ -288,6 +292,14 @@ export class AnnotationApiClient {
     });
 
     return response.datum;
+  }
+
+  async consumeProjectCounter(): Promise<bigint> {
+    const response = await this.request<ProjectCounterEnvelope>('/counter', {
+      method: 'POST',
+    });
+
+    return BigInt(response.counter);
   }
 
   async updateData(dataId: string, input: UpdateDataInput) {

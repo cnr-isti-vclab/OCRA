@@ -29,7 +29,11 @@ export async function completeAuthCodeFlow(): Promise<void> {
   // Get stored code verifier
   const codeVerifier = sessionStorage.getItem('oauth_code_verifier');
   if (!codeVerifier) {
-    throw new Error('No code verifier found - invalid OAuth state');
+    // Callback was resumed without local PKCE state (new tab, expired storage, or manual URL reopen).
+    // Clear OAuth params so the app can recover to a clean login state.
+    window.history.replaceState({}, document.title, window.location.pathname);
+    console.warn('OAuth callback ignored: missing code verifier in sessionStorage');
+    return;
   }
   
   try {

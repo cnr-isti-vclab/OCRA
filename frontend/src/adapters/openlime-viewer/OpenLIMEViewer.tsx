@@ -85,7 +85,7 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
 
   const ocraAnno: ViewerAnnotation = {
     id: anno.id || `anno-${Date.now()}`,
-    label: anno.label || 'New ' + anno.type + ' annotation',
+    label: anno.label || '',
     type: annoType,
     geometry: geometry,
     createdAt: new Date().toISOString(),

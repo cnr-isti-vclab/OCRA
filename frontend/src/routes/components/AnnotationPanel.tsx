@@ -2,15 +2,16 @@
  * AnnotationPanel — lists active {@link AnnotationData} from the store and drives UI focus.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
-  type MessageModalDescriptor,
+  MessageModalDescriptor,
 } from '../../shared/ui/AnnotationMessageModalModel';
 
 interface AnnotationPanelProps {
@@ -112,6 +113,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
+    getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
     focusData,
@@ -122,12 +124,14 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     creating,
     updateData,
     markDataErasable,
+    markAnnotationTripletErasable,
     startEditorLock,
     stopEditorLock,
   } = useAnnotationStore();
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
+  const editingDataIdRef = useRef<string | null>(null);
 
   const realtimeBadgeClass =
     realtimeState === 'connected'
@@ -192,6 +196,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
     const overlapUsers = new Set<string>();
     const overlapTitles = new Set<string>();
+    const overlapResourceTypes = new Set<'geometry' | 'data' | 'link'>();
 
     for (const lock of activeSocialLocks) {
       if (lock.lockKind !== 'editor' || !lock.resourceType || !lock.resourceId) {
@@ -205,6 +210,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       if (lock.resourceType === 'geometry') {
         conflictsWithFocus = targetGeometryIds.has(lock.resourceId);
         if (conflictsWithFocus) {
+          overlapResourceTypes.add('geometry');
           for (const dataId of dataIdsByGeometryId.get(lock.resourceId) ?? []) {
             const datum = dataById.get(dataId);
             if (datum?.label?.trim()) {
@@ -215,6 +221,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       } else if (lock.resourceType === 'data') {
         conflictsWithFocus = targetDataIds.has(lock.resourceId);
         if (conflictsWithFocus) {
+          overlapResourceTypes.add('data');
           const datum = dataById.get(lock.resourceId);
           if (datum?.label?.trim()) {
             overlapTitles.add(datum.label.trim());
@@ -227,6 +234,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         }
         conflictsWithFocus = targetGeometryIds.has(link.geometryId) || targetDataIds.has(link.dataId);
         if (conflictsWithFocus) {
+          overlapResourceTypes.add('link');
           const datum = dataById.get(link.dataId);
           if (datum?.label?.trim()) {
             overlapTitles.add(datum.label.trim());
@@ -245,20 +253,30 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
     const users = [...overlapUsers];
     const titles = [...overlapTitles];
-    const usersText =
-      users.length === 1
-        ? users[0]
-        : users.length === 2
-          ? `${users[0]} and ${users[1]}`
-          : `${users.slice(0, 2).join(', ')} and ${users.length - 2} more users`;
+    const quotedUsers = users.map((user) => `"${user}"`);
+    const usersText = quotedUsers.length === 1
+      ? quotedUsers[0]
+      : `${quotedUsers.slice(0, -1).join(', ')} and ${quotedUsers[quotedUsers.length - 1]}`;
+
+    const overlapHasGeometry = overlapResourceTypes.has('geometry');
+    const overlapHasData = overlapResourceTypes.has('data');
+    const overlapHasLink = overlapResourceTypes.has('link');
+
+    const annotationScope = overlapHasGeometry && !overlapHasData && !overlapHasLink
+      ? 'geometry annotation'
+      : overlapHasData && !overlapHasGeometry && !overlapHasLink
+        ? 'data annotation'
+        : 'annotation';
+
+    const userNoun = users.length === 1 ? 'User' : 'Users';
+    const verb = users.length === 1 ? 'is' : 'are';
 
     if (titles.length === 0) {
-      return `${usersText} are editing annotations you are editing.`;
+      return `${userNoun} ${usersText} ${verb} editing the same ${annotationScope}.`;
     }
 
-    const shownTitles = titles.slice(0, 2).map((title) => `"${title}"`).join(', ');
-    const suffix = titles.length > 2 ? ` and ${titles.length - 2} more` : '';
-    return `${usersText} are editing the same annotation: ${shownTitles}${suffix}.`;
+    const shownTitles = titles.map((title) => `"${title}"`).join(', ');
+    return `${userNoun} ${usersText} ${verb} editing the same ${annotationScope}: ${shownTitles}.`;
   }, [
     activeSocialLocks,
     allData,
@@ -285,9 +303,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   };
 
   const handleDelete = async (dataId: string) => {
-    if (window.confirm('Mark this annotation data as erasable (soft delete)?')) {
+    if (window.confirm('Mark annotation triplet (data + link + geometry) as erasable (soft delete)?')) {
       try {
-        await markDataErasable(dataId);
+        await markAnnotationTripletErasable(dataId);
       } catch (err) {
         console.error('Failed to mark data erasable:', err);
         setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data'));
@@ -300,9 +318,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       return;
     }
     const count = focusedDataIdList.length;
-    if (window.confirm(`Mark ${count} data record${count > 1 ? 's' : ''} as erasable?`)) {
+    if (window.confirm(`Mark ${count} annotation triplet${count > 1 ? 's' : ''} as erasable?`)) {
       try {
-        await Promise.all(focusedDataIdList.map((id) => markDataErasable(id)));
+        await Promise.all(focusedDataIdList.map((id) => markAnnotationTripletErasable(id)));
         clearFocus();
       } catch (err) {
         console.error('Failed to delete annotation data:', err);
@@ -326,7 +344,26 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       setEditingDraft(null);
     } catch (err) {
       console.error('Failed to update annotation data:', err);
-      setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+      if (err instanceof AnnotationApiError && err.status === 409 && err.code === 'annotation.data.version_conflict') {
+        const latestMutation = getLatestMutationForEntity('data', editingDraft.dataId);
+        if (latestMutation?.mutation === 'data.erasable') {
+          setMessageModal(new MessageModalDescriptor({
+            tone: 'warning',
+            title: 'Annotation deleted',
+            message: `This annotation was deleted by User "${latestMutation.username}" while you were editing. Your changes were not applied.`,
+          }));
+        } else if (latestMutation?.username) {
+          setMessageModal(new MessageModalDescriptor({
+            tone: 'warning',
+            title: 'Version conflict (409)',
+            message: `User "${latestMutation.username}" saved a newer version while you were editing. Your changes were not applied. Please review the latest data and retry.`,
+          }));
+        } else {
+          setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+        }
+      } else {
+        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+      }
     } finally {
       try {
         await stopEditorLock('data', editingDraft.dataId, 'editing annotation data');
@@ -368,12 +405,16 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   };
 
   useEffect(() => {
+    editingDataIdRef.current = editingDraft?.dataId ?? null;
+  }, [editingDraft?.dataId]);
+
+  useEffect(() => {
     return () => {
-      if (editingDraft?.dataId) {
-        void stopEditorLock('data', editingDraft.dataId, 'editing annotation data');
+      if (editingDataIdRef.current) {
+        void stopEditorLock('data', editingDataIdRef.current, 'editing annotation data');
       }
     };
-  }, [editingDraft, stopEditorLock]);
+  }, [stopEditorLock]);
 
   return (
     <div className="p-3 h-100 d-flex flex-column">

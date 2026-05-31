@@ -79,6 +79,10 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   activeSocialLocks: AnnotationSocialLockState[];
   currentStreamId: string | null;
   clearEventLog: () => void;
+  getLatestMutationForEntity: (
+    kind: AnnotationEventResourceType,
+    id: string,
+  ) => { mutation: string; username: string; timestamp: string } | null;
   setFocusSelection: (input: FocusSelectionInput, onApplied?: () => void) => void;
   loadScene: (sceneId: string) => Promise<void>;
   updateGeometry: (
@@ -93,6 +97,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   markGeometryNonErasable: (geometryId: string) => Promise<void>;
   markDataErasable: (dataId: string) => Promise<void>;
   markDataNonErasable: (dataId: string) => Promise<void>;
+  markAnnotationTripletErasable: (dataId: string) => Promise<void>;
   markLinkErasable: (linkId: string) => Promise<void>;
   markLinkNonErasable: (linkId: string) => Promise<void>;
   startEditorLock: (
@@ -141,6 +146,12 @@ interface AnnotationStoreProviderProps {
   children: React.ReactNode;
 }
 
+interface MutationSummary {
+  mutation: string;
+  username: string;
+  timestamp: string;
+}
+
 export function AnnotationStoreProvider({
   projectId,
   sceneId,
@@ -153,6 +164,9 @@ export function AnnotationStoreProvider({
   const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
+  const [latestMutationsByEntity, setLatestMutationsByEntity] = useState<Map<string, MutationSummary>>(
+    () => new Map(),
+  );
 
   const pendingSelectionRef = useRef<(() => void) | null>(null);
 
@@ -307,6 +321,7 @@ export function AnnotationStoreProvider({
       storeRef.current = null;
       setRealtimeState('idle');
       setActiveSocialLocks([]);
+      setLatestMutationsByEntity(new Map());
       return;
     }
 
@@ -337,6 +352,16 @@ export function AnnotationStoreProvider({
         );
       },
       onMutation: (event: AnnotationMutationEvent) => {
+        const key = `${event.entity.kind}:${event.entity.id}`;
+        setLatestMutationsByEntity((prev) => {
+          const next = new Map(prev);
+          next.set(key, {
+            mutation: event.mutation,
+            username: event.username,
+            timestamp: event.timestamp,
+          });
+          return next;
+        });
         appendLog(
           setEventLog,
           'success',
@@ -388,6 +413,7 @@ export function AnnotationStoreProvider({
       setActiveSocialLocks([]);
       setCurrentStreamId(null);
       setSelectionConflictLocks([]);
+      setLatestMutationsByEntity(new Map());
       pendingSelectionRef.current = null;
     };
   }, [projectId, sceneId, bump]);
@@ -483,6 +509,10 @@ export function AnnotationStoreProvider({
     await storeRef.current?.markDataNonErasable(dataId);
   }, []);
 
+  const markAnnotationTripletErasable = useCallback(async (dataId: string) => {
+    await storeRef.current?.markAnnotationTripletErasable(dataId);
+  }, []);
+
   const markLinkErasable = useCallback(async (linkId: string) => {
     await storeRef.current?.markLinkErasable(linkId);
   }, []);
@@ -513,6 +543,10 @@ export function AnnotationStoreProvider({
     [],
   );
 
+  const getLatestMutationForEntity = useCallback((kind: AnnotationEventResourceType, id: string) => {
+    return latestMutationsByEntity.get(`${kind}:${id}`) ?? null;
+  }, [latestMutationsByEntity]);
+
   const value: AnnotationStoreContextValue = {
     focusedGeometryIds,
     focusedDataIds,
@@ -541,6 +575,7 @@ export function AnnotationStoreProvider({
     activeSocialLocks,
     currentStreamId,
     clearEventLog,
+    getLatestMutationForEntity,
     loadScene,
     updateGeometry,
     updateData,
@@ -550,6 +585,7 @@ export function AnnotationStoreProvider({
     markGeometryNonErasable,
     markDataErasable,
     markDataNonErasable,
+    markAnnotationTripletErasable,
     markLinkErasable,
     markLinkNonErasable,
     startEditorLock,
