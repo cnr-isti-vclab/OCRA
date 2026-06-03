@@ -493,7 +493,7 @@ export default function Projects() {
                                 ? 'Exclusive lock acquired for this project.'
                                 : unmanagedOwnedLock
                                   ? 'An active lock exists for this session, but this tab is not managing its heartbeat.'
-                                  : `${project.activeUserCount} active user${project.activeUserCount === 1 ? '' : 's'} connected to this project.`}
+                                  : `${project.activeUserCount} active user${project.activeUserCount === 1 ? '' : 's'}`}
                             </div>
                           </div>
                           <div className="form-check form-switch m-0">
