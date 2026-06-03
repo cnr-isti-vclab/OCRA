@@ -8,6 +8,11 @@ import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts';
+import {
+  areAnyDataIdsUnderRemoteEditorLock,
+  isDataIdUnderEditorLock,
+  isDataIdUnderRemoteEditorLock,
+} from '../../stores/annotation-social-locks';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -154,6 +159,38 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
             : 'Disconnected';
 
   const focusedDataIdList = [...focusedDataIds];
+
+  const deleteBlockedTitle =
+    'Cannot delete while another user is editing this annotation';
+
+  const deleteButtonClass = (disabled: boolean, size: 'sm' | 'md' = 'sm') =>
+    [
+      'btn',
+      size === 'sm' ? 'btn-sm' : '',
+      disabled
+        ? 'btn-outline-secondary text-muted annotation-delete-btn--inactive'
+        : 'btn-outline-danger',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  const bulkDeleteBlocked = useMemo(
+    () =>
+      areAnyDataIdsUnderRemoteEditorLock(
+        focusedDataIdList,
+        activeSocialLocks,
+        currentStreamId,
+        activeAnnotationSelection.geometryIdsByDataId,
+        allLinks,
+      ),
+    [
+      focusedDataIdList,
+      activeSocialLocks,
+      currentStreamId,
+      activeAnnotationSelection.geometryIdsByDataId,
+      allLinks,
+    ],
+  );
 
   const collaborativeEditInfo = useMemo(() => {
     if (!currentStreamId) {
@@ -303,6 +340,17 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   };
 
   const handleDelete = async (dataId: string) => {
+    if (
+      isDataIdUnderRemoteEditorLock(
+        dataId,
+        activeSocialLocks,
+        currentStreamId,
+        activeAnnotationSelection.geometryIdsByDataId,
+        allLinks,
+      )
+    ) {
+      return;
+    }
     if (window.confirm('Mark annotation triplet (data + link + geometry) as erasable (soft delete)?')) {
       try {
         await markAnnotationTripletErasable(dataId);
@@ -314,7 +362,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   };
 
   const handleBulkDelete = async () => {
-    if (focusedDataIdList.length === 0) {
+    if (focusedDataIdList.length === 0 || bulkDeleteBlocked) {
       return;
     }
     const count = focusedDataIdList.length;
@@ -424,11 +472,12 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
           <div className="btn-group btn-group-sm" role="group">
             <button
               type="button"
-              className="btn btn-outline-danger"
+              className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
               onClick={() => void handleBulkDelete()}
-              disabled={creating}
+              disabled={creating || bulkDeleteBlocked}
+              title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
             >
-              <i className="bi bi-trash me-1"></i>
+              <i className="bi bi-trash me-1" aria-hidden />
               Delete ({focusedDataIdList.length})
             </button>
             <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
@@ -467,12 +516,21 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
               const isSelected = isDataFocused(datum.id);
-              const isUnderEditing = activeSocialLocks.some((lock) => {
-                if (lock.lockKind !== 'editor') {
-                  return false;
-                }
-                return lock.resourceType === 'data' && lock.resourceId === datum.id;
-              });
+              const isUnderEditing = isDataIdUnderEditorLock(
+                datum.id,
+                activeSocialLocks,
+                activeAnnotationSelection.geometryIdsByDataId,
+                allLinks,
+              );
+              const deleteDisabled =
+                creating ||
+                isDataIdUnderRemoteEditorLock(
+                  datum.id,
+                  activeSocialLocks,
+                  currentStreamId,
+                  activeAnnotationSelection.geometryIdsByDataId,
+                  allLinks,
+                );
 
               const itemColors = isUnderEditing
                 ? {
@@ -533,14 +591,18 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-danger"
+                        className={deleteButtonClass(deleteDisabled)}
                         onClick={(e) => {
                           e.stopPropagation();
                           void handleDelete(datum.id);
                         }}
-                        disabled={creating}
+                        disabled={deleteDisabled}
+                        title={deleteDisabled ? deleteBlockedTitle : undefined}
+                        aria-label={
+                          deleteDisabled ? 'Delete unavailable (annotation under edit)' : 'Delete annotation'
+                        }
                       >
-                        <i className="bi bi-trash"></i>
+                        <i className="bi bi-trash" aria-hidden />
                       </button>
                     </div>
                   </div>

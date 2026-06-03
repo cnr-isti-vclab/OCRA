@@ -61,6 +61,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       activeGeometries,
       activeAnnotationSelection,
       activeSocialLocks,
+      currentStreamId,
       revision,
       focusedDataIds,
       focusedGeometryIds,
@@ -147,10 +148,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
               lock.lockKind === 'editor' &&
               lock.resourceType === 'geometry' &&
               typeof lock.resourceId === 'string' &&
-              lock.resourceId.length > 0,
+              lock.resourceId.length > 0 &&
+              (!currentStreamId || lock.streamId !== currentStreamId),
           )
           .map((lock) => lock.resourceId as string),
-      [activeSocialLocks],
+      [activeSocialLocks, currentStreamId],
     );
 
     const highlightGeometryIdsRef = useRef(highlightGeometryIds);
