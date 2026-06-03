@@ -787,6 +787,7 @@ export default function ProjectPage() {
 
             {!annotationTestMode && mode === '2d' && (
               <Viewer2DPanel
+                key={`viewer-2d-${selectedSceneId ?? 'none'}`}
                 ref={openLimeRef}
                 sceneDesc={sceneDesc}
                 digitalAssets={digitalAssets}
@@ -1467,7 +1468,11 @@ export default function ProjectPage() {
 
   if (projectId && selectedSceneId && (annotationTestMode || mode === '3d' || mode === '2d')) {
     return (
-      <AnnotationStoreProvider projectId={projectId} sceneId={selectedSceneId}>
+      <AnnotationStoreProvider
+        key={`annotation-scene-${selectedSceneId}`}
+        projectId={projectId}
+        sceneId={selectedSceneId}
+      >
         {projectPageBody}
       </AnnotationStoreProvider>
     );
