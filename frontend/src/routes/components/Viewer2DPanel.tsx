@@ -379,7 +379,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       // Re-apply selection after shape sync — import/redraw can strip the selected CSS class.
       const idsToSelect = highlightGeometryIdsRef.current;
       if (idsToSelect.length > 0) {
-        ref.current?.enableEditing(true);
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
         applyOpenLimeSelection(annotationManager, idsToSelect);
       }
@@ -404,7 +403,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (highlightGeometryIds.length === 0) {
         return;
       }
-      ref.current?.enableEditing(true);
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
       applyOpenLimeSelection(annotationManager, highlightGeometryIds);
     }, [highlightGeometryIds, focusedDataIds, ref]);

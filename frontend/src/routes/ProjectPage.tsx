@@ -81,6 +81,7 @@ export default function ProjectPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
+  const sceneLoadSequenceRef = useRef(0);
   const {
     activeDrainingEvent,
     clearDrainingEvent,
@@ -133,6 +134,12 @@ export default function ProjectPage() {
 
   const loadSelectedScene = useCallback(async () => {
     if (!projectId || !selectedSceneId) return;
+    const requestId = ++sceneLoadSequenceRef.current;
+
+    // Clear the current scene immediately so scene-scoped viewers/stores do not
+    // re-mount with stale scene content while the next scene payload is loading.
+    setSceneDesc(null);
+    setMeshVisibility({});
 
     try {
       const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
@@ -141,6 +148,9 @@ export default function ProjectPage() {
 
       if (sceneRes.ok) {
         const scene = await sceneRes.json();
+        if (sceneLoadSequenceRef.current !== requestId) {
+          return;
+        }
         console.log('📥 Scene loaded from backend:', scene.environment);
         if (!scene.projectId) {
           scene.projectId = projectId;
@@ -158,9 +168,13 @@ export default function ProjectPage() {
           });
         }
         setMeshVisibility(initialVisibility);
+      } else if (sceneLoadSequenceRef.current === requestId) {
+        setSceneDesc(null);
       }
     } catch (err) {
-      console.error('Failed to load selected scene:', err);
+      if (sceneLoadSequenceRef.current === requestId) {
+        console.error('Failed to load selected scene:', err);
+      }
     }
   }, [projectId, selectedSceneId]);
 
