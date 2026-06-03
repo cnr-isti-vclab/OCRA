@@ -343,9 +343,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const toStart = [...next].filter((id) => !prev.has(id));
         const toStop = [...prev].filter((id) => !next.has(id));
 
-        for (const id of toStart) {
-          captureGeometryEditSnapshot(id);
-        }
         for (const id of toStop) {
           editSnapshotsRef.current.delete(id);
         }
