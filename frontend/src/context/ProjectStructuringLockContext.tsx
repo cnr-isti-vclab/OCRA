@@ -7,7 +7,7 @@ import { ProjectStructuringService } from '../services/ProjectStructuringService
 import { StructuringDrainingNotifier } from '../services/StructuringDrainingNotifier';
 import { StructuringEventsService, type StructuringRealtimeState } from '../services/StructuringEventsService';
 
-export type ProjectStructuringStatus = 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing';
+export type ProjectStructuringStatus = 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing' | 'canceling';
 
 export interface ProjectStructuringLockState {
   enabled: boolean;
@@ -20,6 +20,11 @@ export interface ProjectStructuringLockState {
 interface ProjectStructuringLockContextValue {
   getProjectLockState: (projectId?: string) => ProjectStructuringLockState;
   toggleProjectLock: (projectId: string, enabled: boolean) => Promise<void>;
+}
+
+interface PendingStructuringAcquisition {
+  controller: AbortController;
+  promise: Promise<void>;
 }
 
 const defaultLockState: ProjectStructuringLockState = {
@@ -37,6 +42,7 @@ export function ProjectStructuringLockProvider({ children }: { children: ReactNo
   const eventsRef = useRef<Record<string, StructuringEventsService>>({});
   const coordinatorsRef = useRef<Record<string, ProjectStructuringCoordinator>>({});
   const heldLocksRef = useRef<Record<string, HeldStructuringLock>>({});
+  const pendingAcquisitionsRef = useRef<Record<string, PendingStructuringAcquisition>>({});
 
   const updateProjectLockState = useCallback((projectId: string, partial: Partial<ProjectStructuringLockState>) => {
     setLockStateMap((current) => ({
@@ -81,6 +87,19 @@ export function ProjectStructuringLockProvider({ children }: { children: ReactNo
 
   const releaseProjectLock = useCallback(async (projectId: string) => {
     const heldLock = heldLocksRef.current[projectId];
+    const pendingAcquisition = pendingAcquisitionsRef.current[projectId];
+    if (!heldLock && pendingAcquisition) {
+      updateProjectLockState(projectId, {
+        enabled: true,
+        hasExclusiveLock: false,
+        status: 'canceling',
+        error: null,
+      });
+      pendingAcquisition.controller.abort();
+      await pendingAcquisition.promise;
+      return;
+    }
+
     if (!heldLock) {
       disposeProjectResources(projectId);
       updateProjectLockState(projectId, defaultLockState);
@@ -121,7 +140,14 @@ export function ProjectStructuringLockProvider({ children }: { children: ReactNo
       return;
     }
 
+    const existingAcquisition = pendingAcquisitionsRef.current[projectId];
+    if (existingAcquisition) {
+      await existingAcquisition.promise;
+      return;
+    }
+
     const { coordinator, events } = ensureProjectResources(projectId);
+    const controller = new AbortController();
     updateProjectLockState(projectId, {
       enabled: true,
       hasExclusiveLock: false,
@@ -129,37 +155,65 @@ export function ProjectStructuringLockProvider({ children }: { children: ReactNo
       error: null,
     });
 
-    try {
-      const drainingNotifier = new StructuringDrainingNotifier(events);
-      const heldLock = await coordinator.acquireExclusiveLock({
-        operationType: 'project.structuring',
-        operationContext: { projectId },
-        drainingNotifier,
-        onStateChange: (lock) => {
-          updateProjectLockState(projectId, {
-            enabled: true,
-            hasExclusiveLock: lock.state === 'exclusive',
-            status: lock.state === 'exclusive' ? 'exclusive' : 'draining',
-          });
-        },
-      });
+    const acquisitionPromise = (async () => {
+      try {
+        const drainingNotifier = new StructuringDrainingNotifier(events);
+        const heldLock = await coordinator.acquireExclusiveLock({
+          operationType: 'project.structuring',
+          operationContext: { projectId },
+          abortSignal: controller.signal,
+          drainingNotifier,
+          onStateChange: (lock) => {
+            updateProjectLockState(projectId, {
+              enabled: true,
+              hasExclusiveLock: lock.state === 'exclusive',
+              status: lock.state === 'exclusive' ? 'exclusive' : 'draining',
+              error: null,
+            });
+          },
+        });
 
-      heldLocksRef.current[projectId] = heldLock;
-      updateProjectLockState(projectId, {
-        enabled: true,
-        hasExclusiveLock: true,
-        status: 'exclusive',
-        error: null,
-      });
-    } catch (error) {
-      disposeProjectResources(projectId);
-      updateProjectLockState(projectId, {
-        enabled: false,
-        hasExclusiveLock: false,
-        status: 'inactive',
-        error: error instanceof Error ? error.message : 'Failed to acquire structuring lock',
-      });
-    }
+        if (controller.signal.aborted) {
+          await heldLock.release().catch(() => {
+            // The coordinator already cleaned up the aborted acquisition path.
+          });
+          return;
+        }
+
+        heldLocksRef.current[projectId] = heldLock;
+        updateProjectLockState(projectId, {
+          enabled: true,
+          hasExclusiveLock: true,
+          status: 'exclusive',
+          error: null,
+        });
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+          disposeProjectResources(projectId);
+          updateProjectLockState(projectId, defaultLockState);
+          return;
+        }
+
+        disposeProjectResources(projectId);
+        updateProjectLockState(projectId, {
+          enabled: false,
+          hasExclusiveLock: false,
+          status: 'inactive',
+          error: error instanceof Error ? error.message : 'Failed to acquire structuring lock',
+        });
+      } finally {
+        if (pendingAcquisitionsRef.current[projectId]?.controller === controller) {
+          delete pendingAcquisitionsRef.current[projectId];
+        }
+      }
+    })();
+
+    pendingAcquisitionsRef.current[projectId] = {
+      controller,
+      promise: acquisitionPromise,
+    };
+
+    await acquisitionPromise;
   }, [disposeProjectResources, ensureProjectResources, updateProjectLockState]);
 
   const toggleProjectLock = useCallback(async (projectId: string, enabled: boolean) => {
@@ -173,6 +227,9 @@ export function ProjectStructuringLockProvider({ children }: { children: ReactNo
 
   useEffect(() => {
     return () => {
+      Object.values(pendingAcquisitionsRef.current).forEach((acquisition) => {
+        acquisition.controller.abort();
+      });
       Object.keys(eventsRef.current).forEach((projectId) => {
         eventsRef.current[projectId]?.disconnect();
       });

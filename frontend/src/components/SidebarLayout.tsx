@@ -285,19 +285,20 @@ function ProjectNavTab({ to, label, active, disabled }: ProjectNavTabProps) {
 }
 
 interface EditLockButtonProps {
-  lockStatus: 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing';
+  lockStatus: 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing' | 'canceling';
   onToggle: () => void;
 }
 
 function EditLockButton({ lockStatus, onToggle }: EditLockButtonProps) {
-  const busy = lockStatus === 'acquiring' || lockStatus === 'draining' || lockStatus === 'releasing';
-  const active = lockStatus === 'exclusive';
+  const busy = lockStatus === 'acquiring' || lockStatus === 'releasing' || lockStatus === 'canceling';
+  const active = lockStatus === 'exclusive' || lockStatus === 'draining';
 
   let title = 'Enable editing (acquire project lock)';
   if (active) title = 'Stop editing (release project lock)';
   else if (lockStatus === 'acquiring') title = 'Acquiring lock…';
-  else if (lockStatus === 'draining') title = 'Waiting for other sessions to finish…';
+  else if (lockStatus === 'draining') title = 'Waiting for other sessions to finish. Click to cancel.';
   else if (lockStatus === 'releasing') title = 'Releasing lock…';
+  else if (lockStatus === 'canceling') title = 'Canceling draining…';
 
   return (
     <button

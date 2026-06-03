@@ -600,6 +600,7 @@ export async function startPresence(req: Request, res: Response) {
     });
 
     res.json({ success: true, ...result });
+    publishProjectCatalogChanged(projectId, 'updated');
   } catch (error) {
     if (isKnownApiError(error)) {
       return sendApiError(req, res, {
@@ -698,6 +699,7 @@ export async function stopPresence(req: Request, res: Response) {
     });
 
     res.json({ success: true, ...result });
+    publishProjectCatalogChanged(projectId, 'updated');
   } catch (error) {
     if (isKnownApiError(error)) {
       return sendApiError(req, res, {

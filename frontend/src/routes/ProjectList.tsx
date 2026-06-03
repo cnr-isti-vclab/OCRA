@@ -23,6 +23,7 @@ interface Project {
   name: string;
   description?: string;
   public: boolean;
+  activeUserCount: number;
   activeStructuringLock?: boolean;
   activeStructuringLockOwnedByCurrentSession?: boolean;
   activeStructuringLockHeartbeatExpiresAt?: string | null;
@@ -354,7 +355,7 @@ export default function Projects() {
             <div className="col-12 col-md-6 col-lg-4" key={project.id}>
               {(() => {
                 const lockState = getProjectLockState(project.id);
-                const ownedByCurrentSession = !!project.activeStructuringLockOwnedByCurrentSession || lockState.hasExclusiveLock;
+                const ownedByCurrentSession = !!project.activeStructuringLockOwnedByCurrentSession || lockState.enabled;
                 const lockedByAnotherSession = !!project.activeStructuringLock && !ownedByCurrentSession;
                 const structuringActive = !!project.activeStructuringLock || lockState.enabled || lockState.status !== 'inactive';
                 const unmanagedOwnedLock = !!project.activeStructuringLockOwnedByCurrentSession && !lockState.enabled && !lockState.hasExclusiveLock;
@@ -492,7 +493,7 @@ export default function Projects() {
                                 ? 'Exclusive lock acquired for this project.'
                                 : unmanagedOwnedLock
                                   ? 'An active lock exists for this session, but this tab is not managing its heartbeat.'
-                                  : 'Acquire the project-wide lock before structural changes.'}
+                                  : `${project.activeUserCount} active user${project.activeUserCount === 1 ? '' : 's'} connected to this project.`}
                             </div>
                           </div>
                           <div className="form-check form-switch m-0">
@@ -503,7 +504,7 @@ export default function Projects() {
                               role="switch"
                               checked={lockState.enabled}
                               onChange={(e) => void toggleProjectLock(project.id, e.target.checked)}
-                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockedByAnotherSession}
+                              disabled={lockState.status === 'acquiring' || lockState.status === 'releasing' || lockState.status === 'canceling' || lockedByAnotherSession}
                             />
                           </div>
                         </div>
@@ -515,6 +516,7 @@ export default function Projects() {
                           {!unmanagedOwnedLock && lockState.status === 'draining' && 'draining other sessions'}
                           {!unmanagedOwnedLock && lockState.status === 'exclusive' && 'exclusive lock acquired'}
                           {!unmanagedOwnedLock && lockState.status === 'releasing' && 'releasing lock'}
+                          {!unmanagedOwnedLock && lockState.status === 'canceling' && 'canceling draining'}
                         </div>
                         {lockState.error && (
                           <div className="small text-danger mt-1">{lockState.error}</div>

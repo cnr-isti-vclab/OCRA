@@ -806,6 +806,25 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
     });
 
     const now = new Date();
+    const projectIds = projects.map((project) => project.id);
+    const activePresenceRows = projectIds.length > 0
+      ? await db.projectPresenceLease.findMany({
+        where: {
+          projectId: { in: projectIds },
+          heartbeatExpiresAt: { gt: now },
+          mode: { in: ['viewing', 'editing'] },
+        },
+        select: {
+          projectId: true,
+          userId: true,
+        },
+        distinct: ['projectId', 'userId'],
+      })
+      : [];
+    const activeUserCountByProjectId = activePresenceRows.reduce<Record<string, number>>((counts, row) => {
+      counts[row.projectId] = (counts[row.projectId] ?? 0) + 1;
+      return counts;
+    }, {});
 
     const projectsWithManagers = projects.map((project: any) => {
       const activeStructuringLock =
@@ -820,6 +839,7 @@ export async function getAllProjects(req: Request, res: Response): Promise<void>
         public: project.public,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
+        activeUserCount: activeUserCountByProjectId[project.id] ?? 0,
         activeStructuringLock,
         activeStructuringLockOwnedByCurrentSession:
           activeStructuringLock && !!req.sessionId && project.structuringLock.ownerSessionId === req.sessionId,

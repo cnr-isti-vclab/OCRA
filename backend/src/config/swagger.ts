@@ -171,6 +171,12 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               example: 'Draft project created from UI',
             },
             public: { type: 'boolean', example: false },
+            activeUserCount: {
+              type: 'integer',
+              minimum: 0,
+              description: 'Number of distinct active users currently connected to the project through viewing or editing presence leases.',
+              example: 3,
+            },
             createdAt: {
               type: 'string',
               format: 'date-time',

@@ -22,6 +22,7 @@ export interface RunExclusiveStructuringOptions extends StructuringStartPayload 
   acquireTimeoutMs?: number;
   acquireHeartbeatIntervalMs?: number;
   operationHeartbeatIntervalMs?: number;
+  abortSignal?: AbortSignal;
   drainingNotifier?: StructuringDrainingNotifier;
   onStateChange?: (lock: StructuringLockResponse) => void;
 }
@@ -41,6 +42,16 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+function createAbortError() {
+  const error = new Error('Structuring lock acquisition aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
 }
 
 export class ProjectStructuringCoordinator {
@@ -89,7 +100,13 @@ export class ProjectStructuringCoordinator {
     const acquireHeartbeatIntervalMs = options.acquireHeartbeatIntervalMs ?? 3_000;
     const operationHeartbeatIntervalMs = options.operationHeartbeatIntervalMs ?? 10_000;
     const acquireTimeoutMs = options.acquireTimeoutMs ?? 45_000;
+    const throwIfAborted = () => {
+      if (options.abortSignal?.aborted) {
+        throw createAbortError();
+      }
+    };
 
+    throwIfAborted();
     let lock = await this.structuringService.startStructuring({
       operationType: options.operationType,
       operationContext: options.operationContext,
@@ -97,44 +114,78 @@ export class ProjectStructuringCoordinator {
     options.onStateChange?.(lock);
 
     let notifierStarted = false;
+    const stopDrainingNotification = async () => {
+      if (!notifierStarted || !options.drainingNotifier?.notifyDrainingStop) {
+        notifierStarted = false;
+        return;
+      }
+
+      notifierStarted = false;
+      try {
+        await options.drainingNotifier.notifyDrainingStop(signal);
+      } catch (error) {
+        console.error('Failed to emit structuring draining stop notification:', error);
+      }
+    };
+
     if (lock.state === 'draining' && options.drainingNotifier?.notifyDrainingStart) {
       signal.drainDeadlineAt = lock.drainDeadlineAt ?? null;
       await options.drainingNotifier.notifyDrainingStart(signal);
       notifierStarted = true;
     }
 
-    const deadline = Date.now() + acquireTimeoutMs;
-    while (lock.state !== 'exclusive') {
-      if (Date.now() >= deadline) {
-        throw new Error(`Timed out while waiting for project ${this.projectId} to reach exclusive structuring state`);
-      }
-
-      await delay(acquireHeartbeatIntervalMs);
-      lock = await this.structuringService.heartbeatStructuring({ fencingToken: lock.fencingToken });
-      options.onStateChange?.(lock);
-    }
-
-    if (notifierStarted && options.drainingNotifier?.notifyDrainingStop) {
+    const abortAcquisition = async () => {
+      await stopDrainingNotification();
       try {
-        await options.drainingNotifier.notifyDrainingStop(signal);
-      } catch (error) {
-        console.error('Failed to emit structuring draining stop notification:', error);
-      }
-    }
-
-    const keepAlive = this.startHeartbeatLoop(lock.fencingToken, operationHeartbeatIntervalMs, options.onStateChange);
-
-    return {
-      projectId: lock.projectId,
-      fencingToken: lock.fencingToken,
-      state: 'exclusive',
-      heartbeatExpiresAt: lock.heartbeatExpiresAt,
-      release: async () => {
-        keepAlive.stop();
-
         await this.structuringService.stopStructuring({ fencingToken: lock.fencingToken });
-      },
+      } catch (error) {
+        if (
+          error instanceof ProjectStructuringApiError
+          && (error.status === 404 || error.status === 410)
+        ) {
+          return;
+        }
+
+        console.error('Failed to cancel structuring lock acquisition:', error);
+      }
     };
+
+    try {
+      const deadline = Date.now() + acquireTimeoutMs;
+      while (lock.state !== 'exclusive') {
+        throwIfAborted();
+        if (Date.now() >= deadline) {
+          throw new Error(`Timed out while waiting for project ${this.projectId} to reach exclusive structuring state`);
+        }
+
+        await delay(acquireHeartbeatIntervalMs);
+        throwIfAborted();
+        lock = await this.structuringService.heartbeatStructuring({ fencingToken: lock.fencingToken });
+        options.onStateChange?.(lock);
+      }
+
+      await stopDrainingNotification();
+
+      throwIfAborted();
+      const keepAlive = this.startHeartbeatLoop(lock.fencingToken, operationHeartbeatIntervalMs, options.onStateChange);
+
+      return {
+        projectId: lock.projectId,
+        fencingToken: lock.fencingToken,
+        state: 'exclusive',
+        heartbeatExpiresAt: lock.heartbeatExpiresAt,
+        release: async () => {
+          keepAlive.stop();
+
+          await this.structuringService.stopStructuring({ fencingToken: lock.fencingToken });
+        },
+      };
+    } catch (error) {
+      if (isAbortError(error)) {
+        await abortAcquisition();
+      }
+      throw error;
+    }
   }
 
   private startHeartbeatLoop(
