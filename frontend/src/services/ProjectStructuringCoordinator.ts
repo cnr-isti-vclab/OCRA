@@ -25,6 +25,7 @@ export interface RunExclusiveStructuringOptions extends StructuringStartPayload 
   abortSignal?: AbortSignal;
   drainingNotifier?: StructuringDrainingNotifier;
   onStateChange?: (lock: StructuringLockResponse) => void;
+  onLeaseLost?: (error: ProjectStructuringApiError) => void;
 }
 
 export interface ExclusiveStructuringLease {
@@ -52,6 +53,18 @@ function createAbortError() {
 
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError';
+}
+
+function isLeaseLostError(error: unknown) {
+  return (
+    error instanceof ProjectStructuringApiError
+    && (
+      error.status === 404
+      || error.status === 410
+      || error.code === 'structuring.owner_required'
+      || error.code === 'structuring.fencing_token_mismatch'
+    )
+  );
 }
 
 export class ProjectStructuringCoordinator {
@@ -167,7 +180,12 @@ export class ProjectStructuringCoordinator {
       await stopDrainingNotification();
 
       throwIfAborted();
-      const keepAlive = this.startHeartbeatLoop(lock.fencingToken, operationHeartbeatIntervalMs, options.onStateChange);
+      const keepAlive = this.startHeartbeatLoop(
+        lock.fencingToken,
+        operationHeartbeatIntervalMs,
+        options.onStateChange,
+        options.onLeaseLost,
+      );
 
       return {
         projectId: lock.projectId,
@@ -176,8 +194,14 @@ export class ProjectStructuringCoordinator {
         heartbeatExpiresAt: lock.heartbeatExpiresAt,
         release: async () => {
           keepAlive.stop();
-
-          await this.structuringService.stopStructuring({ fencingToken: lock.fencingToken });
+          try {
+            await this.structuringService.stopStructuring({ fencingToken: lock.fencingToken });
+          } catch (error) {
+            if (isLeaseLostError(error)) {
+              return;
+            }
+            throw error;
+          }
         },
       };
     } catch (error) {
@@ -192,6 +216,7 @@ export class ProjectStructuringCoordinator {
     fencingToken: number,
     intervalMs: number,
     onStateChange?: (lock: StructuringLockResponse) => void,
+    onLeaseLost?: (error: ProjectStructuringApiError) => void,
   ) {
     let stopped = false;
     let inFlight = false;
@@ -207,11 +232,14 @@ export class ProjectStructuringCoordinator {
           onStateChange?.(lock);
         })
         .catch((error) => {
-          if (
-            stopped ||
-            (error instanceof ProjectStructuringApiError &&
-              (error.status === 404 || error.status === 410))
-          ) {
+          if (stopped) {
+            return;
+          }
+
+          if (isLeaseLostError(error)) {
+            stopped = true;
+            window.clearInterval(timerId);
+            onLeaseLost?.(error);
             return;
           }
 
