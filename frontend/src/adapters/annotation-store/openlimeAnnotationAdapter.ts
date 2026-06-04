@@ -52,6 +52,8 @@ function ensureElementsFromSvg(anno: OpenLimeSyncedAnnotation): void {
  */
 export type OpenLimeAnnotationManager = {
   mode: string;
+  /** True when the OpenLIME pencil is enabled (`ManagerSvgAnnotation.toggle`). */
+  active?: boolean;
   /** In-progress draw session; skip layer sync while set. */
   _session?: unknown;
   layer?: { selected?: Set<string> };
@@ -74,7 +76,12 @@ export type OpenLimeAnnotationManager = {
  * Cancels an in-progress draw session when leaving `create` with an active session.
  */
 export function ensureEditModeForSelection(manager: OpenLimeAnnotationManager | null): void {
-  if (!manager || manager.mode === 'edit') {
+  if (!manager) {
+    return;
+  }
+  // setMode('edit') alone does not enable the pencil; annotations stay pointer-events:none.
+  if (!manager.active && typeof manager.toggle === 'function') {
+    manager.toggle(true);
     return;
   }
   if (manager.mode === 'create' || manager.mode === 'idle') {
