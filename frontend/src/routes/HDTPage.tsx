@@ -112,6 +112,14 @@ export default function HDTPage() {
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showUrlImportForm, setShowUrlImportForm] = useState(false);
+  const [importSourceUrl, setImportSourceUrl] = useState('');
+  const [urlImportLabel, setUrlImportLabel] = useState('');
+  const [urlImportTitle, setUrlImportTitle] = useState('');
+  const [urlImportAuthEnabled, setUrlImportAuthEnabled] = useState(false);
+  const [urlImportUsername, setUrlImportUsername] = useState('');
+  const [urlImportPassword, setUrlImportPassword] = useState('');
+  const [importingFromUrl, setImportingFromUrl] = useState(false);
 
   // Scenes state
   const [scenes, setScenes] = useState<SceneConfig[]>([]);
@@ -145,6 +153,7 @@ export default function HDTPage() {
   const [dcSource, setDcSource] = useState('');
   const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
+  const ingestingAsset = uploading || importingFromUrl;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -605,40 +614,47 @@ export default function HDTPage() {
     );
   }
 
+  const deriveAssetNameSuggestion = (sourceName: string) => {
+    const fallback = 'remote_asset';
+    const sanitizedSource = sourceName.trim().split('/').pop() || fallback;
+    const fileName = sanitizedSource || fallback;
+    const title = fileName.replace(/\.[^/.]+$/, '') || fallback;
+    return {
+      label: fileName,
+      title,
+    };
+  };
+
   /**
-   * Determine asset type from file extension and name, 
-   * it handles zip archives checking if it contains RTI keywords or not.
-   * - used in unified upload handler
-   * @returns '3d-model' | 'rti'
+   * Determine asset type from file extension and name.
+   * ZIP archives with RTI-related keywords are classified as RTI, otherwise as 3D archives.
    */
-  const determineAssetType = (file: File): '3d-model' | 'rti' => {
-    const fileName = file.name.toLowerCase();
+  const determineAssetTypeFromName = (sourceName: string): '3d-model' | 'rti' => {
+    const fileName = sourceName.toLowerCase();
     const ext = fileName.split('.').pop() || '';
 
-    // Check for ZIP archives first
-    // If ZIP contains RTI-related keywords, classify as 'rti'
-    // Otherwise, classify as '3d-model' archive
-  
     if (ext === 'zip') {
       const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
-      const hasRtiKeyword = rtiKeywords.some(keyword => fileName.includes(keyword));
+      const hasRtiKeyword = rtiKeywords.some((keyword) => fileName.includes(keyword));
       if (hasRtiKeyword) {
-        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${file.name}`);
+        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${sourceName}`);
         return 'rti';
       }
-      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${file.name}`);
+      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${sourceName}`);
       return '3d-model';
     }
 
     const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'nxz', 'ase', 'ifc'];
     if (model3dExtensions.includes(ext)) {
-      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
+      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${sourceName}`);
       return '3d-model';
     }
 
-    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${file.name}`);
+    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${sourceName}`);
     return '3d-model';
   };
+
+  const determineAssetType = (file: File): '3d-model' | 'rti' => determineAssetTypeFromName(file.name);
 
   /**
    * Unified asset upload handler (2-step flow preserved)
@@ -747,6 +763,128 @@ export default function HDTPage() {
     } finally {
       setUploading(false);
       setUploadProgress(0);
+    }
+  };
+
+  const populateUrlImportSuggestions = (rawUrl: string) => {
+    try {
+      const parsed = new URL(rawUrl);
+      const suggestions = deriveAssetNameSuggestion(decodeURIComponent(parsed.pathname));
+      setUrlImportLabel((current) => current.trim() ? current : suggestions.label);
+      setUrlImportTitle((current) => current.trim() ? current : suggestions.title);
+    } catch {
+      // Ignore incomplete URLs while the user is typing.
+    }
+  };
+
+  const resetUrlImportForm = () => {
+    setImportSourceUrl('');
+    setUrlImportLabel('');
+    setUrlImportTitle('');
+    setUrlImportAuthEnabled(false);
+    setUrlImportUsername('');
+    setUrlImportPassword('');
+    setShowUrlImportForm(false);
+  };
+
+  const handleImportAssetFromUrl = async () => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+
+    const trimmedUrl = importSourceUrl.trim();
+    if (!trimmedUrl) {
+      setError('Please provide a source URL.');
+      return;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(trimmedUrl);
+    } catch {
+      setError('Please provide a valid absolute URL.');
+      return;
+    }
+
+    const sourceName = decodeURIComponent(parsedUrl.pathname.split('/').pop() || 'remote_asset');
+    const assetLabel = (urlImportLabel.trim() || deriveAssetNameSuggestion(sourceName).label);
+    const assetTitle = (urlImportTitle.trim() || deriveAssetNameSuggestion(sourceName).title);
+
+    if (urlImportAuthEnabled && !urlImportUsername.trim()) {
+      setError('Please provide a username for Basic Auth.');
+      return;
+    }
+
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      setWarningMessages([]);
+      setImportingFromUrl(true);
+
+      const assetType = determineAssetTypeFromName(sourceName);
+      const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/files/import-url`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId,
+          sourceUrl: trimmedUrl,
+          authType: urlImportAuthEnabled ? 'basic' : 'none',
+          ...(urlImportAuthEnabled
+            ? {
+              username: urlImportUsername.trim(),
+              password: urlImportPassword,
+            }
+            : {}),
+        }),
+      });
+
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json.message || json.error || 'Failed to import asset from URL');
+      }
+
+      const responseData = json.value || json;
+      const importWarnings = Array.isArray(responseData.warnings)
+        ? responseData.warnings.filter((warning: unknown): warning is string => typeof warning === 'string' && warning.trim().length > 0)
+        : [];
+
+      const updatePayload: Record<string, any> = {
+        fileName: responseData.fileName || sourceName,
+        entrySize: responseData.entrySize,
+        entryPointUrl: responseData.entryPointUrl,
+        entryPoint: responseData.entryPoint,
+        mimeType: responseData.mimeType || 'application/octet-stream',
+        uploadedAt: new Date().toISOString(),
+        ...(responseData.metadata !== undefined ? { metadata: responseData.metadata } : {}),
+      };
+
+      switch (responseData.type) {
+        case 'rti':
+          updatePayload.type = 'rti';
+          break;
+        case '3d-model':
+        case '3d-model-archive':
+          updatePayload.type = '3d-model';
+          break;
+        default:
+          throw new Error(`Unsupported import response type: ${responseData.type}`);
+      }
+
+      await updateHdtAsset(assetId, updatePayload);
+      await fetchProjectAndMetadata();
+
+      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      setSuccessMessage(`✓ ${typeLabel} asset imported successfully from URL!`);
+      setWarningMessages(importWarnings);
+      resetUrlImportForm();
+    } catch (err: any) {
+      console.error('[UnifiedUpload] Remote import error:', err);
+      setError(err?.message || 'Failed to import asset from URL');
+    } finally {
+      setImportingFromUrl(false);
     }
   };
 
@@ -1231,14 +1369,14 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
-                  disabled={uploading || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                  disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                 />
 
                 <div className="d-flex gap-2">
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
-                    disabled={uploading || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                    disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                   >
                     {uploading ? (
                       <>
@@ -1249,7 +1387,133 @@ export default function HDTPage() {
                       <>📁 Upload Asset (3D or RTI)</>
                     )}
                   </button>
+
+                  <button
+                    className="btn btn-outline-primary"
+                    type="button"
+                    onClick={() => setShowUrlImportForm((current) => !current)}
+                    disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                  >
+                    {importingFromUrl ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Importing...
+                      </>
+                    ) : (
+                      <>🔗 Import Asset from URL</>
+                    )}
+                  </button>
                 </div>
+
+                {showUrlImportForm && (
+                  <div className="card border-primary-subtle mt-3">
+                    <div className="card-body">
+                      <div className="mb-3">
+                        <label htmlFor="assetImportUrl" className="form-label">Remote URL</label>
+                        <input
+                          id="assetImportUrl"
+                          type="url"
+                          className="form-control"
+                          placeholder="https://example.org/path/to/asset.zip"
+                          value={importSourceUrl}
+                          onChange={(e) => setImportSourceUrl(e.target.value)}
+                          onBlur={(e) => populateUrlImportSuggestions(e.target.value)}
+                          disabled={importingFromUrl}
+                        />
+                        <div className="form-text">
+                          The backend will download the remote file and ingest it as a 3D model or RTI dataset.
+                        </div>
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label htmlFor="assetImportLabel" className="form-label">Asset label</label>
+                          <input
+                            id="assetImportLabel"
+                            type="text"
+                            className="form-control"
+                            value={urlImportLabel}
+                            onChange={(e) => setUrlImportLabel(e.target.value)}
+                            disabled={importingFromUrl}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label htmlFor="assetImportTitle" className="form-label">Asset title</label>
+                          <input
+                            id="assetImportTitle"
+                            type="text"
+                            className="form-control"
+                            value={urlImportTitle}
+                            onChange={(e) => setUrlImportTitle(e.target.value)}
+                            disabled={importingFromUrl}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-check mt-3">
+                        <input
+                          id="assetImportBasicAuth"
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={urlImportAuthEnabled}
+                          onChange={(e) => setUrlImportAuthEnabled(e.target.checked)}
+                          disabled={importingFromUrl}
+                        />
+                        <label className="form-check-label" htmlFor="assetImportBasicAuth">
+                          This URL requires HTTP Basic Auth (.htaccess / .htpasswd)
+                        </label>
+                      </div>
+
+                      {urlImportAuthEnabled && (
+                        <div className="row g-3 mt-1">
+                          <div className="col-md-6">
+                            <label htmlFor="assetImportUsername" className="form-label">Username</label>
+                            <input
+                              id="assetImportUsername"
+                              type="text"
+                              className="form-control"
+                              value={urlImportUsername}
+                              onChange={(e) => setUrlImportUsername(e.target.value)}
+                              disabled={importingFromUrl}
+                              autoComplete="username"
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <label htmlFor="assetImportPassword" className="form-label">Password</label>
+                            <input
+                              id="assetImportPassword"
+                              type="password"
+                              className="form-control"
+                              value={urlImportPassword}
+                              onChange={(e) => setUrlImportPassword(e.target.value)}
+                              disabled={importingFromUrl}
+                              autoComplete="current-password"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="d-flex gap-2 mt-3">
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => void handleImportAssetFromUrl()}
+                          disabled={importingFromUrl}
+                        >
+                          Import from URL
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={resetUrlImportForm}
+                          disabled={importingFromUrl}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
