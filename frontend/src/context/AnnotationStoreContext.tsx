@@ -35,7 +35,7 @@ import {
   type UpdateDataInput,
 } from '../stores/AnnotationStore';
 import AppMessageModal from '../shared/ui/AppMessageModal';
-import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalModel';
+import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
 
 export type AnnotationStoreLogTone = 'info' | 'success' | 'warning' | 'error';
 

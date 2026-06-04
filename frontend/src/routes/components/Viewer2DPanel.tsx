@@ -28,8 +28,8 @@ import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
-  type MessageModalDescriptor,
-} from '../../shared/ui/AnnotationMessageModalModel';
+} from '../../shared/ui/AnnotationMessageModalCatalog';
+import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 
 interface Viewer2DPanelProps {

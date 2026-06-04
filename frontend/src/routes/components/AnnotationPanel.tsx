@@ -16,8 +16,10 @@ import {
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
+} from '../../shared/ui/AnnotationMessageModalCatalog';
+import {
   MessageModalDescriptor,
-} from '../../shared/ui/AnnotationMessageModalModel';
+} from '../../shared/ui/AppMessageModalModel';
 
 interface AnnotationPanelProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
