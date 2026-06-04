@@ -4,6 +4,11 @@ import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
+import AppMessageModal from '../shared/ui/AppMessageModal';
+import {
+  AppMessageModalCatalog,
+  MessageModalDescriptor,
+} from '../shared/ui/AppMessageModalModel';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -106,6 +111,7 @@ export default function HDTPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
 
   // Digital Assets state
@@ -355,6 +361,15 @@ export default function HDTPage() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to delete asset');
+    }
+  };
+
+  const rollbackPartialImportedAsset = async (assetId: string): Promise<string> => {
+    try {
+      await deleteHdtAsset(assetId);
+      return 'The partially created asset entry was removed automatically.';
+    } catch (cleanupError: any) {
+      return `Automatic cleanup failed: ${cleanupError?.message || 'Unable to delete the partial asset.'}`;
     }
   };
 
@@ -794,7 +809,12 @@ export default function HDTPage() {
 
     const trimmedUrl = importSourceUrl.trim();
     if (!trimmedUrl) {
-      setError('Please provide a source URL.');
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Please provide a source URL before starting the import.',
+          'Missing URL',
+        ),
+      );
       return;
     }
 
@@ -802,7 +822,12 @@ export default function HDTPage() {
     try {
       parsedUrl = new URL(trimmedUrl);
     } catch {
-      setError('Please provide a valid absolute URL.');
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Please provide a valid absolute URL, including the http:// or https:// scheme.',
+          'Invalid URL',
+        ),
+      );
       return;
     }
 
@@ -811,18 +836,27 @@ export default function HDTPage() {
     const assetTitle = (urlImportTitle.trim() || deriveAssetNameSuggestion(sourceName).title);
 
     if (urlImportAuthEnabled && !urlImportUsername.trim()) {
-      setError('Please provide a username for Basic Auth.');
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Username is required when HTTP Basic Auth is enabled.',
+          'Missing credentials',
+        ),
+      );
       return;
     }
+
+    let createdAssetId: string | null = null;
 
     try {
       setError(null);
       setSuccessMessage(null);
       setWarningMessages([]);
+      setMessageModal(null);
       setImportingFromUrl(true);
 
       const assetType = determineAssetTypeFromName(sourceName);
       const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+      createdAssetId = assetId;
 
       const response = await fetch(`${getApiBase()}/api/projects/${projectId}/files/import-url`, {
         method: 'POST',
@@ -882,13 +916,32 @@ export default function HDTPage() {
       resetUrlImportForm();
     } catch (err: any) {
       console.error('[UnifiedUpload] Remote import error:', err);
-      setError(err?.message || 'Failed to import asset from URL');
+      setError(null);
+
+      const details: string[] = [];
+      if (typeof err?.message === 'string' && err.message.trim()) {
+        details.push(err.message.trim());
+      }
+
+      if (createdAssetId) {
+        const cleanupResult = await rollbackPartialImportedAsset(createdAssetId);
+        details.push(cleanupResult);
+      }
+
+      setMessageModal(
+        AppMessageModalCatalog.error(
+          'The asset could not be imported from the provided URL.',
+          'Asset import failed',
+          details,
+        ),
+      );
     } finally {
       setImportingFromUrl(false);
     }
   };
 
   return (
+    <>
     <div className="container-fluid py-4 px-4">
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
@@ -1891,5 +1944,11 @@ export default function HDTPage() {
         </div>
       </div>
     </div>
+    <AppMessageModal
+      descriptor={messageModal}
+      onClose={() => setMessageModal(null)}
+      onAction={() => setMessageModal(null)}
+    />
+    </>
   );
 }

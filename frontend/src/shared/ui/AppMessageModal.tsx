@@ -1,4 +1,4 @@
-import type { MessageModalDescriptor } from './AnnotationMessageModalModel';
+import type { MessageModalDescriptor } from './AppMessageModalModel';
 
 interface AppMessageModalProps {
   descriptor: MessageModalDescriptor | null;
