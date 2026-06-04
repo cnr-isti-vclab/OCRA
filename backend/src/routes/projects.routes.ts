@@ -36,7 +36,10 @@ import {
 
 import { requireAuth } from '../middleware/auth.js';
 import { unifiedAssetUploadMiddleware } from '../middleware/unified-asset-upload-middleware.js';
-import { unifiedAssetUploadHandler } from '../controllers/unified-asset-upload.controller.js';
+import {
+  unifiedAssetImportFromUrlHandler,
+  unifiedAssetUploadHandler,
+} from '../controllers/unified-asset-upload.controller.js';
 
 import {
   listProjectMembers,
@@ -1196,6 +1199,71 @@ router.post(
   requireAuth,                  // Auth middleware
   unifiedAssetUploadMiddleware, // File processing middleware
   unifiedAssetUploadHandler     // Upload controller
+);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/files/import-url:
+ *   post:
+ *     summary: Import a 3D or RTI asset from a remote URL
+ *     description: |
+ *       Downloads a remote asset on the backend and ingests it through the same
+ *       storage pipeline used for direct uploads. Only project managers can use
+ *       this endpoint. The remote URL must use HTTP or HTTPS and must not resolve
+ *       to localhost or private network addresses. Optional HTTP Basic Auth can
+ *       be supplied as separate fields when the remote server is protected by
+ *       .htaccess/.htpasswd.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - assetId
+ *               - sourceUrl
+ *             properties:
+ *               assetId:
+ *                 type: string
+ *               sourceUrl:
+ *                 type: string
+ *                 format: uri
+ *               authType:
+ *                 type: string
+ *                 enum: [none, basic]
+ *               username:
+ *                 type: string
+ *                 description: Required when authType is basic
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Required when authType is basic
+ *     responses:
+ *       201:
+ *         description: Asset imported
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized or URL is not allowed
+ *       404:
+ *         description: Project or asset not found
+ */
+router.post(
+  '/:projectId/files/import-url',
+  requireAuth,
+  unifiedAssetImportFromUrlHandler,
 );
 
 // FIXME: currently unused (commented out)

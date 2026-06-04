@@ -4,107 +4,21 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import fsp from 'fs/promises';
-import extract from 'extract-zip';
 import type { Request } from 'express';
 import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-static-paths.js';
 import {
-  collectObjPackagingWarnings,
-  selectPrimary3DModelFile,
-  type DetectedArchiveFile
-} from '../services/model-archive-utils.js';
+  is3DModelFile,
+  prepareAssetProcessingFromLocalFile,
+  type PreparedAssetFile,
+  type PreparedAssetProcessing,
+  SUPPORTED_3D_EXTENSIONS,
+} from '../services/asset-ingestion.service.js';
 
 /**
  * Extended Request interface to include asset processing results
  */
 export interface AssetProcessingRequest extends Request {
-  assetProcessing: {
-    type: 'rti' | '3d' | '3d-direct';
-    extractedPath?: string; // For ZIP files, path where content was extracted
-    originalFile: Express.Multer.File;
-    detectedFiles?: DetectedArchiveFile[];
-    primaryModelFile?: DetectedArchiveFile;
-    warnings?: string[];
-  };
-}
-
-/**
- * Supported 3D model file extensions
- */
-const SUPPORTED_3D_EXTENSIONS = [
-  '.ply', '.obj', '.gltf', '.glb', '.fbx', '.dae', '.x3d', 
-  '.stl', '.3ds', '.blend', '.ase', '.ifc'
-];
-
-/**
- * Check if a file extension indicates a 3D model
- */
-function is3DModelFile(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase();
-  return SUPPORTED_3D_EXTENSIONS.includes(ext);
-}
-
-/**
- * Check if a file is likely a texture/material file
- */
-function isTextureFile(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase();
-  const textureExts = ['.jpg', '.jpeg', '.png', '.bmp', '.tga', '.tiff', '.exr', '.hdr'];
-  return textureExts.includes(ext);
-}
-
-/**
- * Analyze extracted ZIP contents to determine type
- */
-async function analyzeZipContents(extractedPath: string): Promise<{
-  type: 'rti' | '3d';
-  files: DetectedArchiveFile[];
-}> {
-  const files: DetectedArchiveFile[] = [];
-  
-  // Recursively scan extracted directory
-  async function scanDirectory(dirPath: string, relativePath: string = '') {
-    const entries = await fsp.readdir(dirPath, { withFileTypes: true });
-    
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-      const relativeFilePath = path.posix.join(relativePath.replace(/\\/g, '/'), entry.name);
-      
-      if (entry.isDirectory()) {
-        // Recursive scan for subdirectories
-        await scanDirectory(fullPath, relativeFilePath);
-      } else if (entry.isFile()) {
-        let fileType: '3d-model' | 'rti-info' | 'texture' | 'other' = 'other';
-        
-        if (entry.name === 'info.json') {
-          fileType = 'rti-info';
-        } else if (is3DModelFile(entry.name)) {
-          fileType = '3d-model';
-        } else if (isTextureFile(entry.name)) {
-          fileType = 'texture';
-        }
-        
-        files.push({
-          name: relativeFilePath,
-          path: fullPath,
-          type: fileType
-        });
-      }
-    }
-  }
-  
-  await scanDirectory(extractedPath);
-  
-  // Determine type based on detected files
-  const hasRtiInfo = files.some(f => f.type === 'rti-info');
-  const has3DModels = files.some(f => f.type === '3d-model');
-  
-  if (hasRtiInfo) {
-    return { type: 'rti', files };
-  } else if (has3DModels) {
-    return { type: '3d', files };
-  } else {
-    throw new Error('ZIP archive contains neither RTI data (info.json) nor 3D models');
-  }
+  assetProcessing: PreparedAssetProcessing;
 }
 
 /**
@@ -202,81 +116,30 @@ const upload = multer({
 export const unifiedAssetUploadMiddleware = [
   upload.single('file'),
   async (req: Request, _res: any, next: any) => {
+    const file = (req as any).file as Express.Multer.File | undefined;
+
     try {
-      const file = (req as any).file as Express.Multer.File | undefined;
       if (!file) {
         return next(new Error('No file uploaded'));
       }
 
-      const ext = path.extname(file.originalname).toLowerCase();
       const assetReq = req as AssetProcessingRequest;
+      const preparedFile: PreparedAssetFile = {
+        path: file.path,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+      };
 
-      // Direct 3D model upload
-      if (is3DModelFile(file.originalname)) {
-        assetReq.assetProcessing = {
-          type: '3d-direct',
-          originalFile: file
-        };
-        return next();
-      }
-
-      // ZIP file - extract and analyze
-      if (ext === '.zip') {
-        const { projectId } = req.params;
-        const extractedPath = path.join(path.dirname(file.path), `extracted_${Date.now()}`);
-        
-        try {
-          // Extract ZIP
-          await extract(file.path, { dir: extractedPath });
-          
-          // Analyze contents
-          const analysis = await analyzeZipContents(extractedPath);
-          const warnings: string[] = [];
-          let primaryModelFile: DetectedArchiveFile | undefined;
-
-          if (analysis.type === '3d') {
-            const selectedPrimary = selectPrimary3DModelFile(analysis.files);
-            if (!selectedPrimary) {
-              throw new Error('ZIP archive analysis failed: no 3D model entry point could be selected');
-            }
-            primaryModelFile = selectedPrimary;
-
-            const objWarnings = await collectObjPackagingWarnings(analysis.files, primaryModelFile);
-            warnings.push(...objWarnings);
-          }
-          
-          assetReq.assetProcessing = {
-            type: analysis.type,
-            extractedPath,
-            originalFile: file,
-            detectedFiles: analysis.files,
-            primaryModelFile,
-            warnings
-          };
-          
-          console.log(`📦 [UnifiedUpload] ZIP analysis for project ${projectId}:`, {
-            type: analysis.type,
-            fileCount: analysis.files.length,
-            extractedTo: extractedPath
-          });
-          
-        } catch (extractError: any) {
-          // Cleanup on error
-          try {
-            await fsp.rm(extractedPath, { recursive: true, force: true });
-          } catch {}
-          
-          throw new Error(`Failed to process ZIP archive: ${extractError.message}`);
-        }
-        
-        return next();
-      }
-
-      // Should not reach here due to fileFilter, but just in case
-      return next(new Error('Unsupported file format'));
+      assetReq.assetProcessing = await prepareAssetProcessingFromLocalFile({ file: preparedFile });
+      return next();
 
     } catch (error: any) {
       console.error('[UnifiedAssetUpload] Processing error:', error);
+      if (file?.path) {
+        try {
+          await fsp.rm(file.path, { force: true });
+        } catch {}
+      }
       next(error);
     }
   }
