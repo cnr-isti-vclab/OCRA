@@ -16,14 +16,13 @@ export const releases: Release[] = [
     highlights: [
       'Project activity dashboard with user and session analytics',
       'Collaborative review workflow: lock-aware annotation access and conflict resolution UX',
-      'Shift-drag gesture to select and move SVG annotations in a single action',
+      'Full collaborative annotation UI: create, update, and delete geometry and metadata in-viewer'
     ],
   },
   {
     version: '202605',
     date: 'May 2026',
     highlights: [
-      'Full collaborative annotation UI: create, update, and delete geometry and metadata in-viewer',
       'Optimistic concurrency control (OCC) on annotation edits to prevent conflicts',
       'Real-time annotation sync via Server-Sent Events with per-scene social locks (presence + editor)',
       'Project structuring lock UX: drain countdown, requester visibility, and 30 s grace period',
