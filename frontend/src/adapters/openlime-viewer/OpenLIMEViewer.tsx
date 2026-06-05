@@ -487,15 +487,6 @@ const OpenLIMEViewer = forwardRef<
             lensLayer.zindex = selectedAssets.length + 1; // Ensure lens is always on top
             viewer.addLayer('lens', lensLayer);
 
-            // Create a lens controller for focus and context exploration when lenses are enabled.
-            const controllerLens = new OpenLIME.ControllerFocusContext({
-              lensLayer: lensLayer,
-              camera: viewer.camera,
-              canvas: viewer.canvas,
-            });
-            viewer.pointerManager.onEvent(controllerLens);
-            lensLayer.controllers.push(controllerLens);
-
             // Here we are: create the UI
             uiRef.current = new OpenLIME.UIBasic(viewer, {
               showLightDirections: true,
