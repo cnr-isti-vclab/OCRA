@@ -9,6 +9,8 @@
     "dev:backend": "cd backend && npm run dev",
     "build": "cd frontend && npm run build",
     "build:frontend": "cd frontend && npm run build",
+    "build:openlime": "bash scripts/build-openlime.sh",
+    "update:openlime": "git submodule update --remote --recursive frontend/openlime && npm run build:openlime",
     "clean": "docker compose down",
     "logs": "docker compose logs -f",
     "logs:backend": "docker compose logs -f backend",
