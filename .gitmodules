@@ -2,3 +2,7 @@
 	path = frontend/openlime
 	url = https://github.com/cnr-isti-vclab/openlime.git
 	branch = ocra-integration
+[submodule "frontend/three-presenter"]
+	path = frontend/three-presenter
+	url = https://github.com/cnr-isti-vclab/ThreePresenter.git
+	branch = devel
