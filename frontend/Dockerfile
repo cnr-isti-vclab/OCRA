@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/package.json
 COPY frontend/openlime/package.json frontend/openlime/package.json
+COPY frontend/three-presenter/package.json frontend/three-presenter/package.json
 COPY backend/package.json backend/package.json
 COPY shared/package.json shared/package.json
 
@@ -18,8 +19,9 @@ COPY shared/ shared/
 
 # Copy frontend source and build
 COPY frontend/ frontend/
-# Build openlime (local file: dependency - needs rollup to generate dist/js)
+# Build local file: dependencies before the app build so Vite can resolve them.
 RUN cd frontend/openlime && npm install && npm run rollup
+RUN cd frontend/three-presenter && npm install && npm run build
 RUN npm run build --workspace frontend
 
 # Runtime stage (latest Nginx on Alpine)
