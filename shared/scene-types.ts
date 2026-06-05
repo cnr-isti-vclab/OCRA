@@ -1,35 +1,44 @@
 /**
  * Shared type definitions for scene description and presenter state
- * Used by both frontend and backend
+ * Used by both frontend and backend for scene rendering and presenter state.
+ *
+ * Note: annotation types in this file are viewer-only rendering models.
+ * They are not the canonical annotation domain model, which lives in
+ * annotation-schema.ts / annotation-types.ts.
  */
 
 /**
- * Annotation type - can be point, line, or area
+ * Viewer annotation shape type used only for scene rendering.
  */
-export type AnnotationType = 'point' | 'line' | 'area';
+export type ViewerAnnotationShapeType = 'point' | 'line' | 'area';
 
 /**
- * Geometry for different annotation types
+ * Viewer annotation geometry used only for scene rendering.
+ *
+ * Geometry for different rendered annotation shapes:
  * - Point: single 3D coordinate [x, y, z]
  * - Line: array of 3D coordinates [[x1,y1,z1], [x2,y2,z2], ...]
  * - Area: array of 3D coordinates forming a closed polygon
  */
-export type AnnotationGeometry = 
+export type ViewerAnnotationGeometry = 
   | [number, number, number]           // Point
   | [number, number, number][]         // Line or Area (array of points)
 
 /**
- * A single annotation in the scene
+ * A single viewer annotation in the scene.
+ *
+ * This is a rendering-oriented DTO for 2D/3D viewers, not the canonical
+ * persisted annotation structure.
  */
-export interface Annotation {
+export interface ViewerAnnotation {
   /** Unique identifier for the annotation */
   id: string;
   /** User-visible label/name for the annotation */
   label: string;
   /** Type of annotation */
-  type: AnnotationType;
+  type: ViewerAnnotationShapeType;
   /** Geometric data for the annotation */
-  geometry: AnnotationGeometry;
+  geometry: ViewerAnnotationGeometry;
   /** Optional creation timestamp */
   createdAt?: string;
   /** Optional user who created it */
@@ -85,7 +94,8 @@ export interface EnvironmentSettings {
 
 /**
  * Complete scene description - what models exist and their properties
- * Stored as scene.json alongside the model files
+ * Stored as scene.json alongside the model files.
+ * Any annotations here are viewer annotations used for rendering.
  */
 export interface SceneDescription {
   /** Project ID for resolving file URLs */
@@ -99,7 +109,7 @@ export interface SceneDescription {
   /** Optional scene-level default for rotation units (overridden by model.rotationUnits) */
   rotationUnits?: 'deg' | 'rad';
   /** Array of annotations in the scene */
-  annotations?: Annotation[];
+  annotations?: ViewerAnnotation[];
 }
 
 /**

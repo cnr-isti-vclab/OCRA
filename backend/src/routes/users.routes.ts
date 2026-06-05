@@ -31,8 +31,8 @@ const router = express.Router();
  *     tags:
  *       - Users
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     responses:
  *       200:
  *         description: List of all users
@@ -67,8 +67,8 @@ router.get('/', requireAuth, requireAdmin, getAllUsers);
  *     tags:
  *       - Users
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     responses:
  *       200:
  *         description: Simplified user list
@@ -113,8 +113,8 @@ router.get('/list', requireAuth, getUsersForDropdown);
  *     tags:
  *       - Users
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     responses:
  *       200:
  *         description: Users with statistics
@@ -140,8 +140,8 @@ router.get('/stats', requireAuth, requireAdmin, getAllUsersWithStats);
  *     tags:
  *       - Users
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     responses:
  *       200:
  *         description: Project role debug information
@@ -224,8 +224,8 @@ router.get('/debug/roles', requireAuth, requireAdmin, debugProjectRoles);
  *     tags:
  *       - Users
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -261,8 +261,8 @@ router.get('/:userId', requireAuth, getUserById);
  *     tags:
  *       - Users
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: userId

@@ -1,7 +1,8 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../adapters/three-presenter/ThreeJSViewer';
 import { LoadingProgress } from 'three-presenter';
 import { OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEViewer.tsx';
@@ -9,9 +10,12 @@ import { getApiBase } from '../config/oauth';
 import { DigitalAsset } from './HDTPage.tsx';
 import Viewer3DPanel from './components/Viewer3DPanel';
 import Viewer2DPanel from './components/Viewer2DPanel';
-import { AnnotationProvider } from '../context/AnnotationContext';
+import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
+import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
+import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanel from './components/AnnotationPanel';
-import type { SceneDescription, Annotation } from 'shared/scene-types';
+import type { SceneDescription } from 'shared/scene-types';
 
 interface Project {
   id: string;
@@ -37,8 +41,10 @@ interface HDTModelMeta {
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || '3d';
+  const annotationTestMode = mode === 'test';
 
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -62,7 +68,6 @@ export default function ProjectPage() {
   const [backgroundColor, setBackgroundColor] = useState<string>('#404040');
   const [headlightOffset, setHeadlightOffset] = useState<[number, number]>([0, 0]);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [downloadingRdf, setDownloadingRdf] = useState(false);
   const [hdtModel, setHdtModel] = useState<HDTModelMeta | null>(null);
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
@@ -76,6 +81,102 @@ export default function ProjectPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeJSViewerRef>(null);
   const openLimeRef = useRef<OpenLIMEViewerRef>(null);
+  const sceneLoadSequenceRef = useRef(0);
+  const {
+    activeDrainingEvent,
+    clearDrainingEvent,
+    presenceError,
+  } = useProjectStructuringAwareness({
+    projectId,
+    mode: 'viewing',
+    sceneId: selectedSceneId,
+    enabled: !!projectId,
+  });
+  const { getProjectLockState } = useProjectStructuringLock();
+  const projectLockState = getProjectLockState(projectId);
+  const hasExclusiveLock = projectLockState.hasExclusiveLock;
+  const canEditSceneSettings = isManager && hasExclusiveLock;
+  const projectLockBadgeClass = hasExclusiveLock ? 'bg-success' : 'bg-secondary';
+  const projectLockBadgeLabel = hasExclusiveLock ? 'Structuring Lock: Active' : 'Structuring Lock: Inactive';
+  const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!activeDrainingEvent?.drainDeadlineAt) {
+      setDrainingCountdownSeconds(null);
+      return;
+    }
+
+    const deadlineMs = Date.parse(activeDrainingEvent.drainDeadlineAt);
+    if (Number.isNaN(deadlineMs)) {
+      setDrainingCountdownSeconds(null);
+      return;
+    }
+
+    let redirectTriggered = false;
+    const updateCountdown = () => {
+      const remainingMs = deadlineMs - Date.now();
+      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+      setDrainingCountdownSeconds(remainingSeconds);
+
+      if (remainingMs <= 0 && !redirectTriggered) {
+        redirectTriggered = true;
+        navigate('/projects', { replace: true });
+      }
+    };
+
+    updateCountdown();
+    const timerId = window.setInterval(updateCountdown, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [activeDrainingEvent, navigate]);
+
+  const loadSelectedScene = useCallback(async () => {
+    if (!projectId || !selectedSceneId) return;
+    const requestId = ++sceneLoadSequenceRef.current;
+
+    // Clear the current scene immediately so scene-scoped viewers/stores do not
+    // re-mount with stale scene content while the next scene payload is loading.
+    setSceneDesc(null);
+    setMeshVisibility({});
+
+    try {
+      const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
+        credentials: 'include'
+      });
+
+      if (sceneRes.ok) {
+        const scene = await sceneRes.json();
+        if (sceneLoadSequenceRef.current !== requestId) {
+          return;
+        }
+        console.log('📥 Scene loaded from backend:', scene.environment);
+        if (!scene.projectId) {
+          scene.projectId = projectId;
+        }
+        setSceneDesc(scene);
+
+        setShowGround(scene.environment?.showGround ?? false);
+        setBackgroundColor(scene.environment?.background || '#404040');
+        setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
+
+        const initialVisibility: Record<string, boolean> = {};
+        if (scene.models) {
+          scene.models.forEach((model: any) => {
+            initialVisibility[model.id] = model.visible !== false;
+          });
+        }
+        setMeshVisibility(initialVisibility);
+      } else if (sceneLoadSequenceRef.current === requestId) {
+        setSceneDesc(null);
+      }
+    } catch (err) {
+      if (sceneLoadSequenceRef.current === requestId) {
+        console.error('Failed to load selected scene:', err);
+      }
+    }
+  }, [projectId, selectedSceneId]);
 
   // Ensure HDT document and default scene exist before updating
   const ensureHDTDocument = async (projectId: string): Promise<boolean> => {
@@ -122,33 +223,20 @@ export default function ProjectPage() {
     }
   };
 
-  // Download RDF export
-  const handleDownloadRdf = async () => {
-    if (!projectId) return;
-
-    setDownloadingRdf(true);
+  const handleExportSceneJson = async () => {
+    if (!projectId || !selectedSceneId) return;
     try {
-      // Create a temporary anchor element to trigger download
-      const url = `${getApiBase()}/api/projects/${projectId}/export/rdf`;
+      const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hdt-${projectId}.rdf`;
+      a.download = `${projectId}-${selectedSceneId}.json`;
       a.style.display = 'none';
-
-      // Add to DOM and click
       document.body.appendChild(a);
       a.click();
-
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(a);
-      }, 100);
-
+      setTimeout(() => document.body.removeChild(a), 100);
     } catch (err: any) {
-      console.error('Error downloading RDF:', err);
-      alert('Failed to download RDF export: ' + (err.message || 'Unknown error'));
-    } finally {
-      setDownloadingRdf(false);
+      console.error('Error exporting scene:', err);
+      alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -303,7 +391,7 @@ export default function ProjectPage() {
   };
 
   // Save edited model properties
-  const saveModelProperties = async (modelId: string, fileName: string) => {
+  const saveModelProperties = async (modelId: string, _fileName: string) => {
     setSaveError(null);
     try {
       // Parse the input values
@@ -332,76 +420,50 @@ export default function ProjectPage() {
         }
       }
 
-      // Update the scene description
-      const updatedScene = { ...sceneDesc } as SceneDescription;
-      if (!updatedScene.models) updatedScene.models = [];
-
-      // Ensure rotation units are specified as degrees
-      updatedScene.rotationUnits = 'deg';
-
-      // Find or create the model entry - improved HDT-compatible matching
-      let modelIndex = updatedScene.models.findIndex((m: any) => {
-        // Direct ID match
-        if (m.id === modelId) return true;
-        // Legacy direct file match
-        if (m.file === fileName) return true;
-        // HDT URL matching: check if URL ends with filename
-        if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
-        return false;
-      });
-      if (modelIndex === -1) {
-        // Only create new model if no existing model found
-        // This should NOT happen with HDT scenes, but keep as fallback
-        console.warn(`⚠️ Creating new model entry for ${modelId}/${fileName} - this may indicate a matching issue`);
-        updatedScene.models.push({
-          id: modelId,
-          file: fileName,
-          ...(position && { position }),
-          ...(rotation && { rotation }),
-          ...(scale !== undefined && { scale })
-        });
-      } else {
-        // Update existing model
-        const model = updatedScene.models[modelIndex] as any;
-        if (position) model.position = position;
-        else delete model.position;
-
-        if (rotation) model.rotation = rotation;
-        else delete model.rotation;
-
-        if (scale !== undefined) model.scale = scale;
-        else delete model.scale;
-      }
-
       // Ensure HDT document exists before saving
       if (!await ensureHDTDocument(projectId!)) {
         throw new Error('Failed to ensure HDT document exists');
       }
 
-      // Save to backend using HDT scenes endpoint
-      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedScene)
-      });
+      // Build asset update payload (rotation stored in degrees; backend's generateSceneFile
+      // returns rotationUnits: 'deg' so three-presenter converts correctly on reload)
+      const assetUpdate: Record<string, any> = {};
+      if (position) assetUpdate.position = position;
+      if (rotation) assetUpdate.rotation = rotation;
+      if (scale !== undefined) assetUpdate.scale = scale;
+
+      // Save to the asset-specific endpoint so the update lands in scene.assets[]
+      // (the canonical storage read by generateSceneFile), not as an alien field.
+      const response = await fetch(
+        `${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}/assets/${modelId}`,
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assetUpdate)
+        }
+      );
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to save changes');
       }
 
-      // Update local state
-      setSceneDesc(updatedScene);
+      // Update local sceneDesc so the viewer reflects the change without a full reload
+      if (sceneDesc) {
+        const updatedModels = (sceneDesc.models || []).map((m: any) => {
+          if (m.id !== modelId) return m;
+          const updated = { ...m };
+          if (position) updated.position = position; else delete updated.position;
+          if (rotation) updated.rotation = rotation; else delete updated.rotation;
+          if (scale !== undefined) updated.scale = scale; else delete updated.scale;
+          return updated;
+        });
+        setSceneDesc({ ...sceneDesc, models: updatedModels } as SceneDescription);
+      }
 
       // Exit edit mode
       setEditingModelId(null);
-
-      // Reload the scene in the viewer without resetting camera
-      if (viewerRef.current) {
-        // The viewer will reload with the updated scene description
-        // Camera position is preserved since we're not reloading the page
-      }
 
     } catch (err: any) {
       setSaveError(err?.message || 'Failed to save changes');
@@ -587,52 +649,24 @@ export default function ProjectPage() {
 
   // Reload scene when selected scene changes
   useEffect(() => {
-    const loadSelectedScene = async () => {
-      if (!projectId || !selectedSceneId) return;
-
-      try {
-        // Use endpoint that always regenerates from MongoDB (source of truth)
-        const sceneRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}`, {
-          credentials: 'include'
-        });
-
-        if (sceneRes.ok) {
-          const scene = await sceneRes.json();
-          console.log('📥 Scene loaded from backend:', scene.environment);
-          // Add projectId to scene if not present
-          if (!scene.projectId) {
-            scene.projectId = projectId;
-          }
-          setSceneDesc(scene);
-
-          // Initialize local environment settings from scene
-          setShowGround(scene.environment?.showGround ?? false);
-          setBackgroundColor(scene.environment?.background || '#404040');
-          setHeadlightOffset(scene.environment?.headLightOffset || [0, 0]);
-
-          // Initialize visibility state for all models
-          const initialVisibility: Record<string, boolean> = {};
-          if (scene.models) {
-            scene.models.forEach((model: any) => {
-              initialVisibility[model.id] = model.visible !== false;
-            });
-          }
-          setMeshVisibility(initialVisibility);
-        }
-      } catch (err) {
-        console.error('Failed to load selected scene:', err);
-      }
-    };
-
     loadSelectedScene();
-  }, [projectId, selectedSceneId]);
+  }, [loadSelectedScene]);
 
   // Show/hide annotation button based on active tab
   useEffect(() => {
+    if (annotationTestMode) {
+      return;
+    }
     if (viewerRef.current) {
       viewerRef.current.setAnnotationButtonVisible(activeTab === 'annotations');
     }
-  }, [activeTab]);
+  }, [activeTab, annotationTestMode]);
+
+  useEffect(() => {
+    if (annotationTestMode && activeTab === 'annotations') {
+      setActiveTab('scene');
+    }
+  }, [annotationTestMode, activeTab]);
 
   // isManager now comes from backend API
 
@@ -646,76 +680,66 @@ export default function ProjectPage() {
     return <div className="container py-5">Project not found</div>;
   }
 
-  return (
-    <AnnotationProvider
-      projectId={projectId || ''}
-      selectedSceneId={selectedSceneId || ''}
-      sceneDesc={sceneDesc}
-      user={user}
-    >
-      {/* Viewer-specific annotation handling is now performed inside Viewer3DPanel */}
-
+  const projectPageBody = (
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
         {/* Project Header */}
         <div className="bg-white border-bottom shadow-sm p-3 flex-shrink-0">
+          {(activeDrainingEvent || presenceError) && (
+            <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <strong>Structuring...</strong>{' '}
+                {activeDrainingEvent
+                    ? 'Another session is preparing a project-wide structuring operation. Editing and remote saves are temporarily blocked until draining completes. You can leave this project and continue working in other projects.'
+                  : presenceError}
+                {activeDrainingEvent?.username && (
+                  <div className="small mt-2 text-muted">
+                    Requested by: {activeDrainingEvent.username}
+                  </div>
+                )}
+                {activeDrainingEvent?.drainDeadlineAt && drainingCountdownSeconds !== null && (
+                  <div className="small mt-2 fw-semibold text-dark">
+                    Automatic exit in {drainingCountdownSeconds} second{drainingCountdownSeconds === 1 ? '' : 's'}.
+                  </div>
+                )}
+                {activeDrainingEvent?.operationType && (
+                  <div className="small mt-2 text-muted">
+                    Operation: {activeDrainingEvent.operationType}
+                  </div>
+                )}
+              </div>
+              <div className="d-flex gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => clearDrainingEvent()}
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-warning btn-sm"
+                  onClick={() => navigate('/projects')}
+                >
+                    Leave This Project
+                </button>
+              </div>
+            </div>
+          )}
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center">
-              <h1 className="h3 mb-0 me-3">{project.name}</h1>
-              {project.description && <p className="text-muted mb-0">{project.description}</p>}
+              <div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <h1 className="h3 mb-0 me-1">{project.name}</h1>
+                  <span className={`badge ${projectLockBadgeClass}`}>{projectLockBadgeLabel}</span>
+                  {annotationTestMode && (
+                    <span className="badge bg-primary">Annotation Store Lab</span>
+                  )}
+                </div>
+                {project.description && <p className="text-muted mb-0">{project.description}</p>}
+              </div>
             </div>
             <div className="d-flex align-items-center gap-3">
-              <Link
-                to={`/projects/${projectId}/hdt`}
-                className="btn btn-outline-secondary btn-sm"
-                title="Manage HDT metadata and default 3D model"
-              >
-                <i className="bi bi-sliders me-2"></i>
-                Manage HDT
-              </Link>
-              <button
-                onClick={handleDownloadRdf}
-                disabled={downloadingRdf}
-                className="btn btn-outline-primary btn-sm"
-                title="Download Heritage Digital Twin metadata as RDF/Turtle"
-              >
-                {downloadingRdf ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-download me-2"></i>
-                    Download RDF
-                  </>
-                )}
-              </button>
-              <button
-                onClick={async () => {
-                  if (!projectId || !selectedSceneId) return;
-                  try {
-                    const url = `${getApiBase()}/api/projects/${projectId}/scenes/${selectedSceneId}/export`;
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${projectId}-${selectedSceneId}.json`;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => document.body.removeChild(a), 100);
-                  } catch (err: any) {
-                    console.error('Error exporting scene:', err);
-                    alert('Failed to export scene JSON: ' + (err.message || 'Unknown error'));
-                  }
-                }}
-                className="btn btn-outline-secondary btn-sm"
-                title="Export current scene as JSON file (for debugging)"
-              >
-                <i className="bi bi-file-earmark-code me-2"></i>
-                Export Scene JSON
-              </button>
-              <div className="text-secondary">
-                Manager: {project.manager ? project.manager.displayName : <span className="text-warning">Unassigned</span>}
-              </div>
+              {/* Header actions intentionally minimized to reduce duplication with top navigation */}
             </div>
           </div>
         </div>
@@ -723,8 +747,21 @@ export default function ProjectPage() {
         {/* Main content */}
         <div className="flex-grow-1 d-flex overflow-hidden">
           {/* 3D/2D Viewer */}
-          <div className="bg-light border-end" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, position: 'relative' }}>
-            {mode === '3d' && (
+          <div
+            className="bg-light border-end h-100 overflow-hidden"
+            style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, minHeight: 0, position: 'relative' }}
+          >
+            {annotationTestMode && (
+              selectedSceneId
+                ? <AnnotationStoreTestPanel />
+                : (
+                  <div className="h-100 d-flex align-items-center justify-content-center text-muted p-4">
+                    Select a scene in the sidebar to start the annotation store lab.
+                  </div>
+                )
+            )}
+
+            {!annotationTestMode && mode === '3d' && (
               <Viewer3DPanel
                 ref={viewerRef}
                 sceneDesc={sceneDesc}
@@ -762,8 +799,9 @@ export default function ProjectPage() {
               />
             )}
 
-            {mode === '2d' && (
+            {!annotationTestMode && mode === '2d' && (
               <Viewer2DPanel
+                key={`viewer-2d-${selectedSceneId ?? 'none'}`}
                 ref={openLimeRef}
                 sceneDesc={sceneDesc}
                 digitalAssets={digitalAssets}
@@ -806,17 +844,19 @@ export default function ProjectPage() {
                     Models
                   </button>
                 </li>
-                <li className="nav-item" role="presentation">
-                  <button
-                    className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('annotations')}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === 'annotations'}
-                  >
-                    Annotations
-                  </button>
-                </li>
+                {!annotationTestMode && (
+                  <li className="nav-item" role="presentation">
+                    <button
+                      className={`nav-link ${activeTab === 'annotations' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('annotations')}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === 'annotations'}
+                    >
+                      Annotations
+                    </button>
+                  </li>
+                )}
               </ul>
 
               {/* Tab Content */}
@@ -1058,7 +1098,8 @@ export default function ProjectPage() {
                                               <button
                                                 className="btn btn-sm btn-outline-primary"
                                                 onClick={() => startEditingModel(modelId, sceneModel)}
-                                                title="Edit transformation"
+                                                title={hasExclusiveLock ? 'Edit transformation' : 'Acquire the project lock to edit'}
+                                                disabled={!hasExclusiveLock}
                                               >
                                                 <i className="bi bi-pencil"></i> Edit
                                               </button>
@@ -1108,6 +1149,11 @@ export default function ProjectPage() {
                     <h6 className="mb-3">Scene Settings</h6>
                     {isManager ? (
                       <div className="flex-grow-1">
+                        {!hasExclusiveLock && (
+                          <div className="alert alert-light py-2 px-3 small mb-3">
+                            Acquire the project lock from the top bar to edit scene settings.
+                          </div>
+                        )}
                         {/* Ground Grid Setting */}
                         <div className="mb-3">
                           <div className="form-check">
@@ -1116,6 +1162,7 @@ export default function ProjectPage() {
                               type="checkbox"
                               id="showGroundCheckbox"
                               checked={showGround}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newShowGround = e.target.checked;
 
@@ -1181,6 +1228,7 @@ export default function ProjectPage() {
                               className="form-control form-control-color"
                               id="backgroundColorInput"
                               value={backgroundColor}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newBackground = e.target.value;
 
@@ -1231,6 +1279,7 @@ export default function ProjectPage() {
                               className="form-control"
                               style={{ maxWidth: '100px' }}
                               value={backgroundColor}
+                              disabled={!canEditSceneSettings}
                               onChange={async (e) => {
                                 const newBackground = e.target.value;
                                 // Validate hex color format
@@ -1297,6 +1346,7 @@ export default function ProjectPage() {
                                 className="form-control"
                                 step="1"
                                 value={String(headlightOffset[0])}
+                                disabled={!canEditSceneSettings}
                                 onChange={async (e) => {
                                   const newThetaDeg = parseFloat(e.target.value || '0');
                                   const phiDeg = headlightOffset[1];
@@ -1349,6 +1399,7 @@ export default function ProjectPage() {
                                 className="form-control"
                                 step="1"
                                 value={String(headlightOffset[1])}
+                                disabled={!canEditSceneSettings}
                                 onChange={async (e) => {
                                   const newPhiDeg = parseFloat(e.target.value || '0');
                                   const thetaDeg = headlightOffset[0];
@@ -1402,32 +1453,44 @@ export default function ProjectPage() {
                         <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
                       </div>
                     )}
+
+                    <div className="mt-auto pt-3 border-top">
+                      <button
+                        onClick={handleExportSceneJson}
+                        className="btn btn-outline-secondary btn-sm w-100"
+                        title="Export current scene as JSON file (for debugging)"
+                      >
+                        <i className="bi bi-file-earmark-code me-2"></i>
+                        Export Scene JSON
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Annotations Tab */}
-                {activeTab === 'annotations' && (
-                  <AnnotationPanel
-                    onSelectionChanged={(selectedIds) => {
-                      // Notify the active viewer about selection changes
-                      if (mode === '3d' && viewerRef.current) {
-                        const annotationMgr = viewerRef.current.getAnnotationManager();
-                        if (annotationMgr) {
-                          annotationMgr.clearSelection();
-                          annotationMgr.select(selectedIds, false);
-                        }
-                      } else if (mode === '2d' && openLimeRef.current) {
-                        // For 2D viewer, if needed
-                        console.log('2D viewer selection update:', selectedIds);
-                      }
-                    }}
-                  />
+                {!annotationTestMode && activeTab === 'annotations' && (
+                  <div className="h-100 overflow-auto">
+                    <AnnotationPanel />
+                  </div>
                 )}
               </div>
             </div>
           </div>
         </div>
       </div>
-    </AnnotationProvider>
   );
+
+  if (projectId && selectedSceneId && (annotationTestMode || mode === '3d' || mode === '2d')) {
+    return (
+      <AnnotationStoreProvider
+        key={`annotation-scene-${selectedSceneId}`}
+        projectId={projectId}
+        sceneId={selectedSceneId}
+      >
+        {projectPageBody}
+      </AnnotationStoreProvider>
+    );
+  }
+
+  return projectPageBody;
 }

@@ -1,0 +1,642 @@
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type {
+  AnnotationConnectedEvent,
+  AnnotationEventResourceType,
+  AnnotationMutationEvent,
+  AnnotationSocialLockEvent,
+  AnnotationSocialLockState,
+} from 'shared/annotation-events';
+import type {
+  AnnotationData,
+  AnnotationGeometry,
+  AnnotationLink,
+} from 'shared/annotation-types';
+import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
+import {
+  createEmptyActiveSelection,
+  EMPTY_SELECTION_CRITERIA,
+  type ActiveAnnotationSelection,
+  type SelectionCriteria,
+} from '../stores/annotation-selection';
+import {
+  AnnotationStore,
+  type GeometryUpdateOptions,
+  type AnnotationUpdateOptions,
+  createAnnotationStore,
+  type CreateAnnotationInput,
+  type UpdateDataInput,
+} from '../stores/AnnotationStore';
+import AppMessageModal from '../shared/ui/AppMessageModal';
+import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
+
+export type AnnotationStoreLogTone = 'info' | 'success' | 'warning' | 'error';
+
+export interface AnnotationStoreLogEntry {
+  id: string;
+  tone: AnnotationStoreLogTone;
+  timestamp: string;
+  message: string;
+}
+
+export interface AnnotationFocusState {
+  focusedGeometryIds: ReadonlySet<string>;
+  focusedDataIds: ReadonlySet<string>;
+  setFocusedGeometryIds: (geometryIds: Iterable<string>) => void;
+  setFocusedDataIds: (dataIds: Iterable<string>) => void;
+  focusGeometry: (geometryId: string, multiSelect: boolean) => void;
+  focusData: (dataId: string, multiSelect: boolean) => void;
+  clearFocus: () => void;
+  isDataFocused: (dataId: string) => boolean;
+  isGeometryFocused: (geometryId: string) => boolean;
+}
+
+export interface AnnotationStoreContextValue extends AnnotationFocusState {
+  store: AnnotationStore | null;
+  revision: number;
+  /** Full loaded store snapshot (scene + merged project data). */
+  allGeometries: AnnotationGeometry[];
+  allData: AnnotationData[];
+  allLinks: AnnotationLink[];
+  /** Query-filtered active sets for viewer (geometries) and panel (data). */
+  activeGeometries: AnnotationGeometry[];
+  activeData: AnnotationData[];
+  activeLinks: AnnotationLink[];
+  activeAnnotationSelection: ActiveAnnotationSelection;
+  currentSelectionCriteria: Readonly<SelectionCriteria>;
+  selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
+  realtimeState: AnnotationRealtimeState;
+  loadingAdditionalData: boolean;
+  creating: boolean;
+  eventLog: AnnotationStoreLogEntry[];
+  activeSocialLocks: AnnotationSocialLockState[];
+  currentStreamId: string | null;
+  clearEventLog: () => void;
+  getLatestMutationForEntity: (
+    kind: AnnotationEventResourceType,
+    id: string,
+  ) => { mutation: string; username: string; timestamp: string } | null;
+  setFocusSelection: (input: FocusSelectionInput, onApplied?: () => void) => void;
+  loadScene: (sceneId: string) => Promise<void>;
+  updateGeometry: (
+    geometryId: string,
+    shapes: CreateAnnotationInput['shapes'],
+    options?: number | GeometryUpdateOptions,
+  ) => Promise<void>;
+  updateData: (dataId: string, input: UpdateDataInput, options?: AnnotationUpdateOptions) => Promise<void>;
+  createAnnotation: (input: CreateAnnotationInput) => Promise<void>;
+  loadProjectData: () => Promise<void>;
+  markGeometryErasable: (geometryId: string) => Promise<void>;
+  markGeometryNonErasable: (geometryId: string) => Promise<void>;
+  markDataErasable: (dataId: string) => Promise<void>;
+  markDataNonErasable: (dataId: string) => Promise<void>;
+  markAnnotationTripletErasable: (dataId: string) => Promise<void>;
+  markLinkErasable: (linkId: string) => Promise<void>;
+  markLinkNonErasable: (linkId: string) => Promise<void>;
+  startEditorLock: (
+    resourceType: AnnotationEventResourceType,
+    resourceId: string,
+    activity?: string,
+  ) => Promise<void>;
+  stopEditorLock: (
+    resourceType: AnnotationEventResourceType,
+    resourceId: string,
+    activity?: string,
+  ) => Promise<void>;
+}
+
+const AnnotationStoreContext = createContext<AnnotationStoreContextValue | undefined>(undefined);
+
+function socialLockKey(lock: {
+  streamId: string;
+  lockKind: string;
+  resourceType: string | null;
+  resourceId: string | null;
+}): string {
+  return `${lock.streamId}:${lock.lockKind}:${lock.resourceType ?? 'none'}:${lock.resourceId ?? 'none'}`;
+}
+
+function appendLog(
+  setter: React.Dispatch<React.SetStateAction<AnnotationStoreLogEntry[]>>,
+  tone: AnnotationStoreLogTone,
+  message: string,
+  timestamp = new Date().toISOString(),
+) {
+  setter((current) => {
+    const next = [...current, { id: `${Date.now()}-${Math.random()}`, tone, timestamp, message }];
+    return next.slice(-200);
+  });
+}
+
+interface FocusSelectionInput {
+  geometryIds?: Iterable<string>;
+  dataIds?: Iterable<string>;
+}
+
+interface AnnotationStoreProviderProps {
+  projectId: string;
+  sceneId: string;
+  children: React.ReactNode;
+}
+
+interface MutationSummary {
+  mutation: string;
+  username: string;
+  timestamp: string;
+}
+
+export function AnnotationStoreProvider({
+  projectId,
+  sceneId,
+  children,
+}: AnnotationStoreProviderProps) {
+  const storeRef = useRef<AnnotationStore | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [realtimeState, setRealtimeState] = useState<AnnotationRealtimeState>('idle');
+  const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
+  const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+  const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
+  const [latestMutationsByEntity, setLatestMutationsByEntity] = useState<Map<string, MutationSummary>>(
+    () => new Map(),
+  );
+
+  const pendingSelectionRef = useRef<(() => void) | null>(null);
+
+  const bump = useCallback(() => setRevision((r) => r + 1), []);
+  const clearEventLog = useCallback(() => setEventLog([]), []);
+
+  const [focusedGeometryIds, setFocusedGeometryIdsState] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [focusedDataIds, setFocusedDataIdsState] = useState<ReadonlySet<string>>(() => new Set());
+  const focusedGeometryIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const focusedDataIdsRef = useRef<ReadonlySet<string>>(new Set());
+
+  const setFocusedGeometryIds = useCallback((geometryIds: Iterable<string>) => {
+    setFocusedGeometryIdsState(new Set(geometryIds));
+  }, []);
+
+  const setFocusedDataIds = useCallback((dataIds: Iterable<string>) => {
+    setFocusedDataIdsState(new Set(dataIds));
+  }, []);
+
+  useEffect(() => {
+    focusedGeometryIdsRef.current = focusedGeometryIds;
+  }, [focusedGeometryIds]);
+
+  useEffect(() => {
+    focusedDataIdsRef.current = focusedDataIds;
+  }, [focusedDataIds]);
+
+  const collectSelectionConflicts = useCallback(
+    (input: FocusSelectionInput): AnnotationSocialLockState[] => {
+      const geometryIds = new Set(input.geometryIds ?? []);
+      const dataIds = new Set(input.dataIds ?? []);
+      const linkIds = new Set<string>();
+
+      if (geometryIds.size > 0 || dataIds.size > 0) {
+        const links = storeRef.current?.linksById;
+        if (links) {
+          for (const link of links.values()) {
+            if (geometryIds.has(link.geometryId) || dataIds.has(link.dataId)) {
+              linkIds.add(link.id);
+            }
+          }
+        }
+      }
+
+      return activeSocialLocks.filter((lock) => {
+        if (!lock.resourceType || !lock.resourceId) {
+          return false;
+        }
+        if (currentStreamId && lock.streamId === currentStreamId) {
+          return false;
+        }
+        if (lock.resourceType === 'geometry') {
+          return geometryIds.has(lock.resourceId);
+        }
+        if (lock.resourceType === 'data') {
+          return dataIds.has(lock.resourceId);
+        }
+        if (lock.resourceType === 'link') {
+          return linkIds.has(lock.resourceId);
+        }
+        return false;
+      });
+    },
+    [activeSocialLocks, currentStreamId],
+  );
+
+  const runSelectionWithLockGuard = useCallback(
+    (input: FocusSelectionInput, applySelection: () => void) => {
+      const conflicts = collectSelectionConflicts(input);
+      if (conflicts.length === 0) {
+        applySelection();
+        return;
+      }
+      pendingSelectionRef.current = applySelection;
+      setSelectionConflictLocks(conflicts);
+    },
+    [collectSelectionConflicts],
+  );
+
+  const setFocusSelection = useCallback(
+    (input: FocusSelectionInput, onApplied?: () => void) => {
+      runSelectionWithLockGuard(input, () => {
+        setFocusedGeometryIdsState(new Set(input.geometryIds ?? []));
+        setFocusedDataIdsState(new Set(input.dataIds ?? []));
+        onApplied?.();
+      });
+    },
+    [runSelectionWithLockGuard],
+  );
+
+  const focusGeometry = useCallback((geometryId: string, multiSelect: boolean) => {
+    const nextGeometryIds = new Set(focusedGeometryIdsRef.current);
+    if (multiSelect) {
+      if (nextGeometryIds.has(geometryId)) {
+        nextGeometryIds.delete(geometryId);
+      } else {
+        nextGeometryIds.add(geometryId);
+      }
+    } else {
+      nextGeometryIds.clear();
+      nextGeometryIds.add(geometryId);
+    }
+
+    runSelectionWithLockGuard({ geometryIds: nextGeometryIds, dataIds: [] }, () => {
+      setFocusedGeometryIdsState(nextGeometryIds);
+      setFocusedDataIdsState(new Set());
+    });
+  }, [runSelectionWithLockGuard]);
+
+  const focusData = useCallback((dataId: string, multiSelect: boolean) => {
+    const nextDataIds = new Set(focusedDataIdsRef.current);
+    if (multiSelect) {
+      if (nextDataIds.has(dataId)) {
+        nextDataIds.delete(dataId);
+      } else {
+        nextDataIds.add(dataId);
+      }
+    } else {
+      nextDataIds.clear();
+      nextDataIds.add(dataId);
+    }
+
+    runSelectionWithLockGuard({ geometryIds: [], dataIds: nextDataIds }, () => {
+      setFocusedGeometryIdsState(new Set());
+      setFocusedDataIdsState(nextDataIds);
+    });
+  }, [runSelectionWithLockGuard]);
+
+  const clearFocus = useCallback(() => {
+    setFocusedGeometryIdsState(new Set());
+    setFocusedDataIdsState(new Set());
+  }, []);
+
+  const isDataFocused = useCallback(
+    (dataId: string) => focusedDataIds.has(dataId),
+    [focusedDataIds],
+  );
+
+  const isGeometryFocused = useCallback(
+    (geometryId: string) => focusedGeometryIds.has(geometryId),
+    [focusedGeometryIds],
+  );
+
+  useEffect(() => {
+    clearFocus();
+  }, [sceneId, clearFocus]);
+
+  useEffect(() => {
+    if (!projectId || !sceneId) {
+      storeRef.current = null;
+      setRealtimeState('idle');
+      setActiveSocialLocks([]);
+      setLatestMutationsByEntity(new Map());
+      return;
+    }
+
+    const store = createAnnotationStore(projectId, sceneId, {
+      onUpdate: bump,
+      onRealtimeStateChange: (state) => {
+        setRealtimeState(state);
+        appendLog(setEventLog, 'info', `SSE connection: ${state}`);
+      },
+      onConflict: (id) => {
+        appendLog(setEventLog, 'warning', `Conflict on entity ${id} — local edit was not saved`);
+      },
+      onError: (err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        appendLog(setEventLog, 'error', `Store error: ${message}`);
+      },
+      onEditsCancelled: () => {
+        appendLog(setEventLog, 'warning', 'Reconnect cancelled in-flight local edits');
+      },
+      onConnected: (event: AnnotationConnectedEvent) => {
+        setActiveSocialLocks(event.activeSocialLocks);
+        setCurrentStreamId(event.streamId);
+        appendLog(
+          setEventLog,
+          'success',
+          `SSE connected (stream ${event.streamId}, ${event.activeSocialLocks.length} active lock(s))`,
+          event.timestamp,
+        );
+      },
+      onMutation: (event: AnnotationMutationEvent) => {
+        const key = `${event.entity.kind}:${event.entity.id}`;
+        setLatestMutationsByEntity((prev) => {
+          const next = new Map(prev);
+          next.set(key, {
+            mutation: event.mutation,
+            username: event.username,
+            timestamp: event.timestamp,
+          });
+          return next;
+        });
+        appendLog(
+          setEventLog,
+          'success',
+          `Remote ${event.mutation} on ${event.entity.kind} ${event.entity.id} by ${event.username}`,
+          event.timestamp,
+        );
+      },
+      onSocialLockStarted: (event: AnnotationSocialLockEvent) => {
+        setActiveSocialLocks((prev) => {
+          const key = socialLockKey(event);
+          const next = prev.filter((item) => socialLockKey(item) !== key);
+          next.push(event);
+          return next;
+        });
+        appendLog(
+          setEventLog,
+          'info',
+          `Social lock started (${event.lockKind}) by ${event.username}`,
+          event.timestamp,
+        );
+      },
+      onSocialLockStopped: (event: AnnotationSocialLockEvent) => {
+        setActiveSocialLocks((prev) => {
+          const key = socialLockKey(event);
+          return prev.filter((item) => socialLockKey(item) !== key);
+        });
+        appendLog(
+          setEventLog,
+          'info',
+          `Social lock stopped (${event.lockKind}) by ${event.username}`,
+          event.timestamp,
+        );
+      },
+      onReconnect: () => {
+        appendLog(setEventLog, 'warning', 'SSE reconnect — store will hard-reset from server');
+      },
+    });
+
+    storeRef.current = store;
+    appendLog(setEventLog, 'info', `Initializing store for scene ${sceneId}`);
+    void store.init().catch(() => {
+      // onError callback already logs
+    });
+
+    return () => {
+      storeRef.current = null;
+      store.destroy();
+      setRealtimeState('idle');
+      setActiveSocialLocks([]);
+      setCurrentStreamId(null);
+      setSelectionConflictLocks([]);
+      setLatestMutationsByEntity(new Map());
+      pendingSelectionRef.current = null;
+    };
+  }, [projectId, sceneId, bump]);
+
+  const store = storeRef.current;
+
+  const allGeometries = useMemo(
+    () => (store ? [...store.geometriesById.values()] : []),
+    [store, revision],
+  );
+  const allData = useMemo(
+    () => (store ? [...store.dataById.values()] : []),
+    [store, revision],
+  );
+  const allLinks = useMemo(
+    () => (store ? [...store.linksById.values()] : []),
+    [store, revision],
+  );
+
+  const activeAnnotationSelection = useMemo(
+    () => store?.activeAnnotationSelection ?? createEmptyActiveSelection(),
+    [store, revision],
+  );
+
+  const currentSelectionCriteria = useMemo(
+    () => store?.currentSelectionCriteria ?? EMPTY_SELECTION_CRITERIA,
+    [store, revision],
+  );
+
+  const activeGeometries = useMemo(
+    () => [...activeAnnotationSelection.geometriesById.values()],
+    [activeAnnotationSelection],
+  );
+  const activeData = useMemo(
+    () => [...activeAnnotationSelection.dataById.values()],
+    [activeAnnotationSelection],
+  );
+  const activeLinks = useMemo(
+    () => [...activeAnnotationSelection.linksById.values()],
+    [activeAnnotationSelection],
+  );
+
+  const selectActiveAnnotations = useCallback((criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA) => {
+    storeRef.current?.selectActiveAnnotations(criteria);
+  }, []);
+
+  const loadScene = useCallback(async (nextSceneId: string) => {
+    const current = storeRef.current;
+    if (!current) {
+      return;
+    }
+    appendLog(setEventLog, 'info', `Loading scene ${nextSceneId}`);
+    await current.loadScene(nextSceneId);
+  }, []);
+
+  const updateGeometry = useCallback(async (
+    geometryId: string,
+    shapes: CreateAnnotationInput['shapes'],
+    options?: number | GeometryUpdateOptions,
+  ) => {
+    await storeRef.current?.updateGeometry(geometryId, shapes, options);
+  }, []);
+
+  const updateData = useCallback(async (
+    dataId: string,
+    input: UpdateDataInput,
+    options?: AnnotationUpdateOptions,
+  ) => {
+    await storeRef.current?.updateData(dataId, input, options);
+  }, []);
+
+  const createAnnotation = useCallback(async (input: CreateAnnotationInput) => {
+    await storeRef.current?.createAnnotation(input);
+  }, []);
+
+  const loadProjectData = useCallback(async () => {
+    await storeRef.current?.loadProjectData();
+  }, []);
+
+  const markGeometryErasable = useCallback(async (geometryId: string) => {
+    await storeRef.current?.markGeometryErasable(geometryId);
+  }, []);
+
+  const markGeometryNonErasable = useCallback(async (geometryId: string) => {
+    await storeRef.current?.markGeometryNonErasable(geometryId);
+  }, []);
+
+  const markDataErasable = useCallback(async (dataId: string) => {
+    await storeRef.current?.markDataErasable(dataId);
+  }, []);
+
+  const markDataNonErasable = useCallback(async (dataId: string) => {
+    await storeRef.current?.markDataNonErasable(dataId);
+  }, []);
+
+  const markAnnotationTripletErasable = useCallback(async (dataId: string) => {
+    await storeRef.current?.markAnnotationTripletErasable(dataId);
+  }, []);
+
+  const markLinkErasable = useCallback(async (linkId: string) => {
+    await storeRef.current?.markLinkErasable(linkId);
+  }, []);
+
+  const markLinkNonErasable = useCallback(async (linkId: string) => {
+    await storeRef.current?.markLinkNonErasable(linkId);
+  }, []);
+
+  const startEditorLock = useCallback(
+    async (
+      resourceType: AnnotationEventResourceType,
+      resourceId: string,
+      activity?: string,
+    ) => {
+      await storeRef.current?.notifyEditorLockStart({ resourceType, resourceId, activity });
+    },
+    [],
+  );
+
+  const stopEditorLock = useCallback(
+    async (
+      resourceType: AnnotationEventResourceType,
+      resourceId: string,
+      activity?: string,
+    ) => {
+      await storeRef.current?.notifyEditorLockStop({ resourceType, resourceId, activity });
+    },
+    [],
+  );
+
+  const getLatestMutationForEntity = useCallback((kind: AnnotationEventResourceType, id: string) => {
+    return latestMutationsByEntity.get(`${kind}:${id}`) ?? null;
+  }, [latestMutationsByEntity]);
+
+  const value: AnnotationStoreContextValue = {
+    focusedGeometryIds,
+    focusedDataIds,
+    setFocusedGeometryIds,
+    setFocusedDataIds,
+    focusGeometry,
+    focusData,
+    clearFocus,
+    isDataFocused,
+    isGeometryFocused,
+    store,
+    revision,
+    allGeometries,
+    allData,
+    allLinks,
+    activeGeometries,
+    activeData,
+    activeLinks,
+    activeAnnotationSelection,
+    currentSelectionCriteria,
+    selectActiveAnnotations,
+    realtimeState,
+    loadingAdditionalData: store?.loadingAdditionalData ?? false,
+    creating: store?.creating ?? false,
+    eventLog,
+    activeSocialLocks,
+    currentStreamId,
+    clearEventLog,
+    getLatestMutationForEntity,
+    loadScene,
+    updateGeometry,
+    updateData,
+    createAnnotation,
+    loadProjectData,
+    markGeometryErasable,
+    markGeometryNonErasable,
+    markDataErasable,
+    markDataNonErasable,
+    markAnnotationTripletErasable,
+    markLinkErasable,
+    markLinkNonErasable,
+    startEditorLock,
+    stopEditorLock,
+    setFocusSelection,
+  };
+
+  const selectionConflictModalDescriptor = useMemo(
+    () => (selectionConflictLocks.length > 0
+      ? AnnotationMessageModalCatalog.lockConflict(selectionConflictLocks)
+      : null),
+    [selectionConflictLocks],
+  );
+
+  const clearSelectionConflict = useCallback(() => {
+    pendingSelectionRef.current = null;
+    setSelectionConflictLocks([]);
+  }, []);
+
+  return (
+    <>
+      <AnnotationStoreContext value={value}>
+        {children}
+      </AnnotationStoreContext>
+      <AppMessageModal
+        descriptor={selectionConflictModalDescriptor}
+        onClose={() => {
+          clearFocus();
+          clearSelectionConflict();
+        }}
+        onAction={(actionKey) => {
+          if (actionKey === 'continue') {
+            const pending = pendingSelectionRef.current;
+            pendingSelectionRef.current = null;
+            setSelectionConflictLocks([]);
+            pending?.();
+            return;
+          }
+
+          clearFocus();
+          clearSelectionConflict();
+        }}
+      />
+    </>
+  );
+}
+
+export function useAnnotationStore(): AnnotationStoreContextValue {
+  const context = useContext(AnnotationStoreContext);
+  if (!context) {
+    throw new Error('useAnnotationStore must be used within an AnnotationStoreProvider');
+  }
+  return context;
+}

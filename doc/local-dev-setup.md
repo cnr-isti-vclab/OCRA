@@ -11,7 +11,7 @@ Guide to run **Keycloak**, **PostgreSQL**, **MongoDB**, backend and frontend loc
   - PostgreSQL: `5432`
   - MongoDB: `27017`
   - Backend: `3002`
-  - Frontend: `5173` (Vite)
+   - Frontend: `3001`
 
 Repository cloned to:
 
@@ -47,7 +47,7 @@ CLIENT_SECRET=
 
 # Backend
 PORT=3002
-CORS_ORIGINS=http://localhost:5173,http://localhost:3001,http://localhost:5174,http://localhost:5175
+CORS_ORIGINS=http://localhost:3001,http://localhost:5173
 
 # PostgreSQL (REQUIRED for Prisma)
 DATABASE_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
@@ -56,10 +56,11 @@ DIRECT_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
 # Optional admin
 SYS_ADMIN_EMAIL=admin@ocra.it
 
-# MongoDB for audit logs
-MONGO_URL=mongodb://localhost:27017
-MONGO_DB=ocra_audit
-MONGO_COLLECTION=audit
+# MongoDB
+MONGO_URL=mongodb://127.0.0.1:27017/?replicaSet=rs0
+MONGO_AUDIT_DB=ocra_audit
+MONGO_AUDIT_COLLECTION=audit
+MONGO_CONTENT_DB=ocra_content
 
 # Local directory for project files (relative to backend/)
 PROJECT_FILES_PATH=../project_files
@@ -109,7 +110,8 @@ npm run services:stop
 
 This will create or start:
 - `bare-ocra-postgres` with `ocra_user:ocra_pass@localhost:5432/ocra`
-- `bare-ocra-mongo` at `localhost:27017`
+- PostgreSQL test database `ocra_test` owned by `ocra_user`
+- `bare-ocra-mongo` at `localhost:27017` with single-node replica set `rs0`
 - `bare-keycloak` at `localhost:8081`
 
 ### 3.3 Manual PostgreSQL setup (alternative)
@@ -140,12 +142,13 @@ docker run -d \
   --name bare-ocra-mongo \
   -p 27017:27017 \
   -v ocra-mongo-data:/data/db \
-  mongo:7
+   mongo:7 \
+   --replSet rs0 --bind_ip_all
 
 npm run mongo:init
 ```
 
-The `mongo:init` step is idempotent. Run it again if the container already existed before the annotation collections were introduced.
+The `mongo:init` step is idempotent. It also initializes the single-node replica set `rs0`, so run it again if the container already existed before replica set support was introduced.
 
 ### 3.5 Manual Keycloak setup (alternative)
 
@@ -294,6 +297,14 @@ This uses workspaces configuration to install dependencies for both `frontend` a
 
 **Important:** The PostgreSQL container automatically creates the `ocra` database when first started (via `POSTGRES_DB=ocra` environment variable). Prisma then creates the tables inside this existing database.
 
+When you pull a branch that contains committed Prisma migrations, use this team command from the repository backend folder:
+
+```bash
+cd /home/<user>/git/OCRA/backend && npx prisma migrate deploy && npx prisma generate
+```
+
+Use `migrate deploy` for shared committed migrations. Do not replace this with `db push` when the schema change is meant to be tracked and shared with the rest of the team.
+
 From the repo root (using npm workspace scripts):
 
 ```bash
@@ -359,8 +370,8 @@ The backend uses this path via `PROJECT_FILES_PATH` in `backend/.env`.
    - Check **Users** and **Clients** → **Import**
 3. Verify the client:
    - **Clients → react-oauth**
-   - Check that **Valid redirect URIs** includes `http://localhost:5173/*`
-   - Check that **Web origins** includes `http://localhost:5173`
+   - Check that **Valid redirect URIs** includes `http://localhost:3001/*`
+   - Check that **Web origins** includes `http://localhost:3001`
 
 Reference OIDC endpoints:
 
@@ -404,14 +415,14 @@ From the repo root in a **separate terminal window**:
 npm run dev:frontend
 ```
 
-This typically starts Vite on `http://localhost:5173`.
+The expected dev URL is `http://localhost:3001` — bare and non-bare environments use the same frontend port.
 
 Expected logs:
-- `Local: http://localhost:5173/`
-- `Network: http://192.168.x.x:5173/`
+- `Local: http://localhost:3001/`
+- `Network: http://192.168.x.x:3001/`
 - Hot reload ready
 
-Open `http://localhost:5173/` in the browser.
+Open `http://localhost:3001/` in the browser.
 
 ### 8.3 Why separate terminals?
 
@@ -567,7 +578,7 @@ lsof -i :5432  # PostgreSQL
 lsof -i :27017 # MongoDB
 lsof -i :8081  # Keycloak
 lsof -i :3002  # Backend
-lsof -i :5173  # Frontend
+lsof -i :3001  # Frontend
 ```
 
 ### 11.6 Project files permissions
@@ -620,7 +631,7 @@ With this setup you can develop locally with hot-reload (backend via `tsx watch`
 
 ***
 
-## 12. Production Build (Optional)
+## 13. Production Build (Optional)
 
 For production builds:
 
@@ -638,7 +649,7 @@ npm run install:backend
 
 ***
 
-## 13. Alternative: Full Docker Compose Setup
+## 14. Alternative: Full Docker Compose Setup
 
 If you prefer to run everything in containers (including frontend/backend):
 
@@ -654,3 +665,7 @@ npm run clean
 ```
 
 **Note:** With Docker Compose, you'll need to rebuild containers after code changes, so the bare-metal approach above is recommended for active development.
+
+---
+
+*Last reviewed: 2026-05-20*

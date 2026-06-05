@@ -1,3 +1,40 @@
+const replicaSetName = process.env.MONGO_REPLICA_SET_NAME || 'rs0';
+const replicaHost = process.env.MONGO_REPLICA_HOST || 'mongodb:27017';
+
+function ensureReplicaSet() {
+  let initialized = false;
+
+  try {
+    const status = rs.status();
+    initialized = status?.ok === 1;
+  } catch (error) {
+    const message = error?.codeName || error?.message || String(error);
+    if (!String(message).includes('NotYetInitialized')) {
+      throw error;
+    }
+  }
+
+  if (!initialized) {
+    rs.initiate({
+      _id: replicaSetName,
+      members: [{ _id: 0, host: replicaHost }]
+    });
+  }
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const hello = db.hello();
+    if (hello?.setName === replicaSetName && hello?.isWritablePrimary) {
+      print(`Replica set ready: ${replicaSetName} (${replicaHost})`);
+      return;
+    }
+    sleep(1000);
+  }
+
+  throw new Error(`Replica set ${replicaSetName} did not become writable in time`);
+}
+
+ensureReplicaSet();
+
 const auditDb = db.getSiblingDB('ocra_audit');
 const contentDb = db.getSiblingDB('ocra_content');
 
@@ -8,6 +45,13 @@ function ensureCollection(database, name) {
   }
 }
 
+function dropIndexIfExists(collection, name) {
+  const indexes = collection.getIndexes();
+  if (Object.prototype.hasOwnProperty.call(indexes, name)) {
+    void collection.dropIndex(name);
+  }
+}
+
 ensureCollection(auditDb, 'audit');
 
 ensureCollection(contentDb, 'hdt_collection');
@@ -15,11 +59,17 @@ ensureCollection(contentDb, 'annotation_geometry');
 ensureCollection(contentDb, 'annotation_data');
 ensureCollection(contentDb, 'annotation_link');
 
+dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationGeometry_1_annotationData_1');
+dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationGeometry_1');
+dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationData_1');
+
 void contentDb.annotation_geometry.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_geometry.createIndex({ projectId: 1, referenceType: 1, referenceId: 1 });
+void contentDb.annotation_geometry.createIndex({ projectId: 1, erasableAt: 1 });
 
 void contentDb.annotation_data.createIndex({ projectId: 1, id: 1 }, { unique: true });
-void contentDb.annotation_data.createIndex({ projectId: 1, privateToScene: 1 });
+void contentDb.annotation_data.createIndex({ projectId: 1, visibilityType: 1, visibilityId: 1 });
+void contentDb.annotation_data.createIndex({ projectId: 1, erasableAt: 1 });
 
 void contentDb.annotation_link.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_link.createIndex(
@@ -28,7 +78,8 @@ void contentDb.annotation_link.createIndex(
 );
 void contentDb.annotation_link.createIndex({ projectId: 1, geometryId: 1 });
 void contentDb.annotation_link.createIndex({ projectId: 1, dataId: 1 });
+void contentDb.annotation_link.createIndex({ projectId: 1, erasableAt: 1 });
 
 void contentDb.hdt_collection.createIndex({ projectId: 1 }, { unique: true });
 
-print('Initialized MongoDB databases: ocra_audit, ocra_content');
+print(`Initialized MongoDB replica set ${replicaSetName} with databases: ocra_audit, ocra_content`);

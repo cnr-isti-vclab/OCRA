@@ -5,17 +5,25 @@ on:
     # Run on all branches (allows testing on feature branches)
     paths:
       - 'backend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/test.yml'
   pull_request:
     # PRs only to main/develop
     branches: [ main, develop ]
     paths:
       - 'backend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/test.yml'
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=public
     
     # Service containers for databases
     services:
@@ -54,38 +62,40 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       
       - name: Generate Prisma Client
         working-directory: backend
         run: npx prisma generate
       
-      - name: Create test database
+      - name: Create test role and database
         env:
-          PGPASSWORD: postgres
-        run: |
-          psql -h localhost -U postgres -c "CREATE DATABASE oauth_demo_test;"
-          echo "✅ Test database created"
+          POSTGRES_ADMIN_PASSWORD: postgres
+        run: bash scripts/bootstrap-test-db.sh
       
-      - name: Setup test database schema
+      - name: Apply Prisma migrations
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          DATABASE_URL_TEST: ${{ env.TEST_DATABASE_URL }}
         run: |
-          echo "📦 Pushing database schema..."
-          npx prisma db push --skip-generate --accept-data-loss
-          echo "✅ Database schema created"
-          echo "📊 Checking database tables..."
-          psql postgresql://postgres:postgres@localhost:5432/oauth_demo_test -c "\dt"
+          npx prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
       
       - name: Run tests
         working-directory: backend
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oauth_demo_test
-          MONGODB_URI: mongodb://localhost:27017/ocra_audit_test
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          DATABASE_URL_TEST: ${{ env.TEST_DATABASE_URL }}
+          MONGO_URL: mongodb://localhost:27017
+          MONGO_AUDIT_DB: ocra_audit_test
+          MONGO_CONTENT_DB: ocra_content_test
         run: |
-          npm test -- src/test/comprehensive-workflow.e2e.test.ts
+          npm run test:integration
       
       - name: Test Summary
         if: always()
@@ -93,5 +103,5 @@ jobs:
           echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tests:** 56 comprehensive E2E tests" >> $GITHUB_STEP_SUMMARY
-          echo "- **Duration:** ~1.3-1.5 seconds" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build:** backend TypeScript build" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests:** backend integration suite under backend/src/test" >> $GITHUB_STEP_SUMMARY

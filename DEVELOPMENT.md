@@ -10,7 +10,10 @@ This project supports three primary workflows:
 
 - **Production**: same Docker stack, without local Keycloak, deployed behind a reverse proxy with strong credentials. (see `DEPLOYMENT_GUIDE.md` for details)
 
-
+Canonical local ports are shared across all workflows:
+- frontend: `3001`
+- backend: `3002`
+- Keycloak: `8081`
 
 Quick start - Docker-based development
 ---------------------------------------

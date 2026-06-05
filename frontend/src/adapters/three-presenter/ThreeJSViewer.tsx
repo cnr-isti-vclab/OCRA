@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from 'three-presenter';
 import type { SceneDescription } from 'three-presenter';
-import type { Annotation } from 'shared/scene-types';
+import type { ViewerAnnotation } from 'shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
 
 export interface ThreeJSViewerRef {
@@ -17,7 +17,7 @@ export interface ThreeJSViewerRef {
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
   getAnnotationManager: () => AnnotationManager;
-  renderAnnotations: (annotations: Annotation[]) => void;
+  renderAnnotations: (annotations: ViewerAnnotation[]) => void;
   // Efficient environment setters (no scene reload)
   setBackgroundColor: (color: string) => void;
   setGroundVisible: (visible: boolean) => void;
@@ -80,7 +80,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         }
         return presenterRef.current.getAnnotationManager();
       },
-      renderAnnotations: (annotations: Annotation[]) => {
+      renderAnnotations: (annotations: ViewerAnnotation[]) => {
         if (!presenterRef.current) return;
         presenterRef.current.getAnnotationManager().render(annotations);
       },

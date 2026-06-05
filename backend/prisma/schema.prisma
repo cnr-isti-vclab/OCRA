@@ -23,6 +23,10 @@ model User {
   sub       String   @unique // OAuth subject identifier - this is the true unique ID
   sys_admin Boolean  @default(false) // System administrator flag
   sys_creator Boolean @default(false) // Creator flag: can create new projects
+  isActive  Boolean  @default(true)
+  disabledAt DateTime?
+  disabledBy String?
+  disableReason String?
   lastLoginAt DateTime? // Last successful login timestamp
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -31,6 +35,8 @@ model User {
   sessions Session[]
   // projectAssignments removed; use projectRoles only
   projectRoles ProjectRole[] // User roles per project
+  ownedStructuringLocks StructuringLock[] @relation("StructuringLockOwner")
+  projectPresenceLeases ProjectPresenceLease[] @relation("ProjectPresenceUser")
 
   @@map("users")
 }
@@ -41,6 +47,19 @@ enum RoleEnum {
   manager // Project manager, assigns users to projects, but not a sysadmin, can change roles of users within the project, and change the basic info about the project 
   editor // can add documents and models, and can add annotations
   viewer // can view the project and download data
+}
+
+// Presence mode for project-scoped concurrency coordination
+enum ProjectConcurrencyMode {
+  viewing
+  editing
+  structuring
+}
+
+// State of the project-wide structuring lock
+enum StructuringLockState {
+  draining
+  exclusive
 }
 
 // Session model - stores OAuth tokens and session data
@@ -69,14 +88,65 @@ model Project {
   name        String @unique // Project name (e.g., "Marble Head", "Stanford Bunny")
   description String // Project description
   public      Boolean @default(false) // Whether the project is publicly visible
+  counter     BigInt @default(0) // Monotonic per-project counter, never reset by API
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations - list of users assigned to this project
   // userAssignments removed; use projectRoles only
   projectRoles ProjectRole[] // User roles within this project
+  structuringLock StructuringLock?
+  projectPresenceLeases ProjectPresenceLease[]
 
   @@map("projects")
+}
+
+// Project-wide exclusive lock for structuring operations
+model StructuringLock {
+  id                 String               @id @default(cuid())
+  projectId          String               @unique
+  ownerSessionId     String
+  ownerUserId        String
+  state              StructuringLockState
+  fencingToken       Int                  @default(1)
+  operationType      String?
+  operationContext   Json?
+  heartbeatExpiresAt DateTime
+  acquiredAt         DateTime             @default(now())
+  releasedAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerUser User    @relation("StructuringLockOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([ownerSessionId])
+  @@index([heartbeatExpiresAt])
+  @@map("structuring_locks")
+}
+
+// Expiring lease that records project activity for a specific session
+model ProjectPresenceLease {
+  id                 String                 @id @default(cuid())
+  leaseKey           String                 @unique
+  projectId          String
+  sessionId          String
+  userId             String
+  mode               ProjectConcurrencyMode
+  sceneId            String?
+  clientInstanceId   String?
+  lastHeartbeatAt    DateTime
+  heartbeatExpiresAt DateTime
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation("ProjectPresenceUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, heartbeatExpiresAt])
+  @@index([projectId, mode, heartbeatExpiresAt])
+  @@index([sessionId])
+  @@map("project_presence_leases")
 }
 
 // Junction table for many-to-many relationship between users and projects

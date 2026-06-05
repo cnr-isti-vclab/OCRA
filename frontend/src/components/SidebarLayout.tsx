@@ -2,6 +2,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { logout, getCurrentUser } from '../backend';
+import { getApiBase } from '../config/oauth';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 
 /**
  * SIDEBAR LAYOUT COMPONENT
@@ -30,6 +32,7 @@ interface User {
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isProjectManager, setIsProjectManager] = useState(false);
   const location = useLocation();
 
   // Fetch current user information to check admin status
@@ -56,6 +59,68 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Parse project context from the current URL
+  const projectMatch = location.pathname.match(/^\/projects\/([^/]+)(\/[^?#]*)?$/);
+  const currentProjectId = projectMatch?.[1] ?? null;
+  const projectSubPath = projectMatch?.[2] ?? '';
+  const viewerMode = new URLSearchParams(location.search).get('mode') ?? '3d';
+  const isViewerRoute = currentProjectId !== null && projectSubPath === '';
+  const canAcquireProjectLock = !!currentUser?.sys_admin || isProjectManager;
+  const showEditLockButton = currentProjectId !== null && canAcquireProjectLock && !isViewerRoute;
+
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [has3d, setHas3d] = useState<boolean | null>(null);
+  const [has2d, setHas2d] = useState<boolean | null>(null);
+  const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
+  const lockState = getProjectLockState(currentProjectId ?? undefined);
+
+  useEffect(() => {
+    if (!currentProjectId) { setProjectName(null); setHas3d(null); setHas2d(null); return; }
+    fetch(`${getApiBase()}/api/projects/${currentProjectId}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setProjectName(data?.project?.name ?? data?.name ?? null))
+      .catch(() => setProjectName(null));
+    fetch(`${getApiBase()}/api/projects/${currentProjectId}/hdt`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(doc => {
+        const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
+        setHas3d(assets.some((a: any) => typeof a?.type === 'string' && (a.type === '3d-model' || a.type.includes('3d'))));
+        setHas2d(assets.some((a: any) => a?.type === 'rti'));
+      })
+      .catch(() => { setHas3d(null); setHas2d(null); });
+  }, [currentProjectId]);
+
+  useEffect(() => {
+    if (!currentProjectId) {
+      setIsProjectManager(false);
+      return;
+    }
+
+    if (currentUser?.sys_admin) {
+      setIsProjectManager(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`${getApiBase()}/api/projects/${currentProjectId}/is-manager`, { credentials: 'include' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!cancelled) {
+          setIsProjectManager(!!data?.isManager);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsProjectManager(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId, currentUser?.sys_admin]);
+
   // Get display name for user
   const getDisplayName = (user: User) => {
     if (user.given_name || user.family_name) {
@@ -70,7 +135,33 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       <nav className="navbar navbar-expand navbar-light bg-white border-bottom shadow-sm px-3 flex-shrink-0" style={{zIndex: 1000}}>
         <div className="d-flex align-items-center gap-3">
           <img src="/echoes-logo.png" alt="Echoes" style={{ height: '40px' }} />
-          <span className="navbar-brand fw-bold fs-4 mb-0">OCRA Demo</span>
+          {currentProjectId ? (
+            <>
+              <span className="text-secondary" style={{ fontSize: '1.1rem' }}>|</span>
+              <Link
+                to={`/projects/${currentProjectId}`}
+                className="fw-bold text-dark text-decoration-none"
+                style={{ fontSize: '1rem', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={projectName ?? ''}
+              >
+                {projectName ?? '\u2026'}
+              </Link>
+              <div className="d-flex gap-1">
+                <ProjectNavTab to={`/projects/${currentProjectId}`}           label="3D"       active={projectSubPath === '' && viewerMode !== '2d'} disabled={has3d === false} />
+                <ProjectNavTab to={`/projects/${currentProjectId}?mode=2d`}  label="2D"       active={projectSubPath === '' && viewerMode === '2d'}  disabled={has2d === false} />
+                <ProjectNavTab to={`/projects/${currentProjectId}/hdt`}      label="HDT"      active={projectSubPath === '/hdt'} />
+                <ProjectNavTab to={`/projects/${currentProjectId}/edit`}     label="Settings" active={projectSubPath === '/edit'} />
+                {showEditLockButton && (
+                  <EditLockButton
+                    lockStatus={lockState.status}
+                    onToggle={() => toggleProjectLock(currentProjectId!, lockState.status === 'inactive')}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <span className="navbar-brand fw-bold fs-4 mb-0">OCRA</span>
+          )}
         </div>
         <div className="ms-auto d-flex align-items-center gap-3">
           {currentUser && (
@@ -167,6 +258,63 @@ interface SidebarItemProps {
   label: string;
   isActive: boolean;
   sidebarOpen: boolean;
+}
+
+interface ProjectNavTabProps { to: string; label: string; active: boolean; disabled?: boolean; }
+function ProjectNavTab({ to, label, active, disabled }: ProjectNavTabProps) {
+  if (disabled) {
+    return (
+      <span
+        className="btn btn-sm btn-outline-secondary disabled"
+        style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', opacity: 0.4, pointerEvents: 'none', cursor: 'default' }}
+        aria-disabled="true"
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      to={to}
+      className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`}
+      style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+    >
+      {label}
+    </Link>
+  );
+}
+
+interface EditLockButtonProps {
+  lockStatus: 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing' | 'canceling';
+  onToggle: () => void;
+}
+
+function EditLockButton({ lockStatus, onToggle }: EditLockButtonProps) {
+  const busy = lockStatus === 'acquiring' || lockStatus === 'releasing' || lockStatus === 'canceling';
+  const active = lockStatus === 'exclusive' || lockStatus === 'draining';
+
+  let title = 'Enable editing (acquire project lock)';
+  if (active) title = 'Stop editing (release project lock)';
+  else if (lockStatus === 'acquiring') title = 'Acquiring lock…';
+  else if (lockStatus === 'draining') title = 'Waiting for other sessions to finish. Click to cancel.';
+  else if (lockStatus === 'releasing') title = 'Releasing lock…';
+  else if (lockStatus === 'canceling') title = 'Canceling draining…';
+
+  return (
+    <button
+      className={`btn btn-sm ${active ? 'btn-warning' : 'btn-outline-secondary'}`}
+      style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}
+      onClick={onToggle}
+      disabled={busy}
+      title={title}
+    >
+      {busy ? (
+        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+      ) : (
+        <i className={`bi ${active ? 'bi-pencil-fill' : 'bi-pencil'}`}></i>
+      )}
+    </button>
+  );
 }
 
 function SidebarItem({ to, icon, label, isActive, sidebarOpen }: SidebarItemProps) {

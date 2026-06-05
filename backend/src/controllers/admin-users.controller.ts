@@ -55,13 +55,18 @@ async function getCurrentUser(req: Request): Promise<User | null> {
  */
 export async function createUser(req: Request, res: Response): Promise<void> {
   try {
-    const { sub, email, username, name, given_name, family_name, sys_admin, sys_creator } = req.body;
-    
+    const { sub: providedSub, email, username, name, given_name, family_name, sys_admin, sys_creator } = req.body;
+
     // Validate required fields
-    if (!sub || !email) {
-      res.status(400).json({ error: 'sub and email are required' });
+    if (!email) {
+      res.status(400).json({ error: 'email is required' });
       return;
     }
+
+    // If no sub provided (pre-registration by email), use a placeholder
+    // It will be replaced by the real OAuth sub on first login (see db.ts createUserSession)
+    const { randomUUID } = await import('crypto');
+    const sub = providedSub || `pending:${randomUUID()}`;
     
     const currentUser = await getCurrentUser(req);
     if (!currentUser) {
@@ -89,14 +94,15 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     const existingUser = await db.user.findFirst({
       where: {
         OR: [
-          { sub },
+          // Only check sub if a real one was provided (pending: placeholders are always unique)
+          ...(providedSub ? [{ sub }] : []),
           { email }
         ]
       }
     });
     
     if (existingUser) {
-      res.status(409).json({ error: 'User with this sub or email already exists' });
+      res.status(409).json({ error: 'User with this email already exists' });
       return;
     }
     
@@ -252,6 +258,145 @@ export async function updateUserPrivileges(req: Request, res: Response): Promise
     console.error('Error updating user privileges:', error);
     res.status(500).json({
       error: 'Failed to update user privileges',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Update user active status (admin only)
+ * PUT /api/admin/users/:userId/status
+ * Body: { isActive: boolean, disableReason?: string }
+ */
+export async function updateUserStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const { userId } = req.params;
+    const { isActive, disableReason } = req.body;
+
+    if (!userId) {
+      res.status(400).json({ error: 'User ID is required' });
+      return;
+    }
+
+    if (typeof isActive !== 'boolean') {
+      res.status(400).json({ error: 'isActive must be a boolean value' });
+      return;
+    }
+
+    if (disableReason !== undefined && disableReason !== null && typeof disableReason !== 'string') {
+      res.status(400).json({ error: 'disableReason must be a string if provided' });
+      return;
+    }
+
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    if (!currentUser.sys_admin) {
+      await auditBestEffort({
+        req,
+        userSub: currentUser.sub,
+        action: 'user.status.update',
+        success: false,
+        payload: { targetUserId: userId, error: 'Unauthorized - not admin' }
+      });
+      res.status(403).json({ error: 'Only administrators can update user status' });
+      return;
+    }
+
+    if (!isActive && currentUser.id === userId) {
+      res.status(400).json({ error: 'You cannot disable your own user account' });
+      return;
+    }
+
+    const db = getPrismaClient();
+    const targetUser = await db.user.findUnique({ where: { id: userId } });
+    if (!targetUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!isActive && targetUser.sys_admin) {
+      res.status(400).json({ error: 'System administrators cannot be disabled' });
+      return;
+    }
+
+    const now = new Date();
+    const updatedUser = await db.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: isActive
+          ? {
+              isActive: true,
+              disabledAt: null,
+              disabledBy: null,
+              disableReason: null,
+              updatedAt: now,
+            }
+          : {
+              isActive: false,
+              disabledAt: now,
+              disabledBy: currentUser.id,
+              disableReason: typeof disableReason === 'string' && disableReason.trim().length > 0 ? disableReason.trim() : null,
+              updatedAt: now,
+            },
+        select: {
+          id: true,
+          sub: true,
+          email: true,
+          username: true,
+          name: true,
+          given_name: true,
+          family_name: true,
+          sys_admin: true,
+          sys_creator: true,
+          isActive: true,
+          disabledAt: true,
+          disabledBy: true,
+          disableReason: true,
+          updatedAt: true,
+        }
+      });
+
+      if (!isActive) {
+        await Promise.all([
+          tx.session.deleteMany({ where: { userId } }),
+          tx.projectPresenceLease.deleteMany({ where: { userId } }),
+          tx.structuringLock.deleteMany({ where: { ownerUserId: userId } }),
+        ]);
+      }
+
+      return user;
+    });
+
+    await auditBestEffort({
+      req,
+      userSub: currentUser.sub,
+      action: 'user.status.update',
+      success: true,
+      payload: {
+        targetUserId: userId,
+        targetEmail: updatedUser.email,
+        previousStatus: { isActive: targetUser.isActive },
+        newStatus: {
+          isActive: updatedUser.isActive,
+          disabledAt: updatedUser.disabledAt,
+          disabledBy: updatedUser.disabledBy,
+          disableReason: updatedUser.disableReason,
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    res.status(500).json({
+      error: 'Failed to update user status',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }

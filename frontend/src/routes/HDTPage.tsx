@@ -2,6 +2,13 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
+import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
+import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
+import AppMessageModal from '../shared/ui/AppMessageModal';
+import {
+  AppMessageModalCatalog,
+  MessageModalDescriptor,
+} from '../shared/ui/AppMessageModalModel';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -104,12 +111,21 @@ export default function HDTPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
 
   // Digital Assets state
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showUrlImportForm, setShowUrlImportForm] = useState(false);
+  const [importSourceUrl, setImportSourceUrl] = useState('');
+  const [urlImportLabel, setUrlImportLabel] = useState('');
+  const [urlImportTitle, setUrlImportTitle] = useState('');
+  const [urlImportAuthEnabled, setUrlImportAuthEnabled] = useState(false);
+  const [urlImportUsername, setUrlImportUsername] = useState('');
+  const [urlImportPassword, setUrlImportPassword] = useState('');
+  const [importingFromUrl, setImportingFromUrl] = useState(false);
 
   // Scenes state
   const [scenes, setScenes] = useState<SceneConfig[]>([]);
@@ -118,6 +134,17 @@ export default function HDTPage() {
 
   const [dataLoaded, setDataLoaded] = useState(false);
   const initialLoadRef = useRef(true);
+  const {
+    activeDrainingEvent,
+    clearDrainingEvent,
+    presenceError,
+  } = useProjectStructuringAwareness({
+    projectId,
+    mode: 'viewing',
+    enabled: !!projectId,
+  });
+  const { getProjectLockState } = useProjectStructuringLock();
+  const projectLockState = getProjectLockState(projectId);
 
   // Form state for Dublin Core
   const [dcTitle, setDcTitle] = useState('');
@@ -130,6 +157,9 @@ export default function HDTPage() {
   const [dcCoverage, setDcCoverage] = useState('');
   const [dcRights, setDcRights] = useState('');
   const [dcSource, setDcSource] = useState('');
+  const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
+  const structuringInProgress = !!activeDrainingEvent || !!presenceError;
+  const ingestingAsset = uploading || importingFromUrl;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -334,6 +364,80 @@ export default function HDTPage() {
     }
   };
 
+  const rollbackPartialImportedAsset = async (assetId: string): Promise<string> => {
+    try {
+      await deleteHdtAsset(assetId);
+      return 'The partially created asset entry was removed automatically.';
+    } catch (cleanupError: any) {
+      return `Automatic cleanup failed: ${cleanupError?.message || 'Unable to delete the partial asset.'}`;
+    }
+  };
+
+  const toScenePayload = (scene: SceneConfig): Record<string, any> => ({
+    label: scene.label?.trim() || '',
+    description: scene.description || '',
+    type: scene.type || '3D',
+    isDefault: !!scene.isDefault,
+    assets: Array.isArray(scene.assets) ? scene.assets : [],
+    environment: scene.environment || {},
+  });
+
+  const createHdtScene = async (scene: SceneConfig): Promise<string | null> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toScenePayload(scene)),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create scene');
+    }
+
+    const updatedDoc = await response.json();
+    const createdScene = Array.isArray(updatedDoc?.scenes)
+      ? updatedDoc.scenes[updatedDoc.scenes.length - 1]
+      : null;
+
+    return createdScene?.id || null;
+  };
+
+  const updateHdtScene = async (sceneId: string, patch: Partial<SceneConfig>): Promise<void> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const payload: Record<string, any> = { ...patch };
+    delete payload.id;
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${encodeURIComponent(sceneId)}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update scene');
+    }
+  };
+
+  const deleteHdtScene = async (sceneId: string): Promise<void> => {
+    if (!projectId) throw new Error('Missing projectId');
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${encodeURIComponent(sceneId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete scene');
+    }
+  };
+
   const fetchProjectAndMetadata = async () => {
     if (!projectId) return;
 
@@ -492,7 +596,7 @@ export default function HDTPage() {
 
   if (loading) {
     return (
-      <div className="container py-5 text-center">
+      <div className="container-fluid py-5 text-center">
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -503,7 +607,7 @@ export default function HDTPage() {
 
   if (error) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-danger mb-3">
           <h3 className="h5">Error Loading HDT Management</h3>
           <p className="mb-3">{error}</p>
@@ -515,7 +619,7 @@ export default function HDTPage() {
 
   if (!project) {
     return (
-      <div className="container py-5">
+      <div className="container-fluid py-5">
         <div className="alert alert-warning mb-3">
           <h3 className="h5">Project Not Found</h3>
           <p className="mb-3">The requested project could not be found.</p>
@@ -525,40 +629,47 @@ export default function HDTPage() {
     );
   }
 
+  const deriveAssetNameSuggestion = (sourceName: string) => {
+    const fallback = 'remote_asset';
+    const sanitizedSource = sourceName.trim().split('/').pop() || fallback;
+    const fileName = sanitizedSource || fallback;
+    const title = fileName.replace(/\.[^/.]+$/, '') || fallback;
+    return {
+      label: fileName,
+      title,
+    };
+  };
+
   /**
-   * Determine asset type from file extension and name, 
-   * it handles zip archives checking if it contains RTI keywords or not.
-   * - used in unified upload handler
-   * @returns '3d-model' | 'rti'
+   * Determine asset type from file extension and name.
+   * ZIP archives with RTI-related keywords are classified as RTI, otherwise as 3D archives.
    */
-  const determineAssetType = (file: File): '3d-model' | 'rti' => {
-    const fileName = file.name.toLowerCase();
+  const determineAssetTypeFromName = (sourceName: string): '3d-model' | 'rti' => {
+    const fileName = sourceName.toLowerCase();
     const ext = fileName.split('.').pop() || '';
 
-    // Check for ZIP archives first
-    // If ZIP contains RTI-related keywords, classify as 'rti'
-    // Otherwise, classify as '3d-model' archive
-  
     if (ext === 'zip') {
       const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
-      const hasRtiKeyword = rtiKeywords.some(keyword => fileName.includes(keyword));
+      const hasRtiKeyword = rtiKeywords.some((keyword) => fileName.includes(keyword));
       if (hasRtiKeyword) {
-        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${file.name}`);
+        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${sourceName}`);
         return 'rti';
       }
-      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${file.name}`);
+      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${sourceName}`);
       return '3d-model';
     }
 
     const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'nxz', 'ase', 'ifc'];
     if (model3dExtensions.includes(ext)) {
-      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
+      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${sourceName}`);
       return '3d-model';
     }
 
-    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${file.name}`);
+    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${sourceName}`);
     return '3d-model';
   };
+
+  const determineAssetType = (file: File): '3d-model' | 'rti' => determineAssetTypeFromName(file.name);
 
   /**
    * Unified asset upload handler (2-step flow preserved)
@@ -670,12 +781,172 @@ export default function HDTPage() {
     }
   };
 
+  const populateUrlImportSuggestions = (rawUrl: string) => {
+    try {
+      const parsed = new URL(rawUrl);
+      const suggestions = deriveAssetNameSuggestion(decodeURIComponent(parsed.pathname));
+      setUrlImportLabel((current) => current.trim() ? current : suggestions.label);
+      setUrlImportTitle((current) => current.trim() ? current : suggestions.title);
+    } catch {
+      // Ignore incomplete URLs while the user is typing.
+    }
+  };
+
+  const resetUrlImportForm = () => {
+    setImportSourceUrl('');
+    setUrlImportLabel('');
+    setUrlImportTitle('');
+    setUrlImportAuthEnabled(false);
+    setUrlImportUsername('');
+    setUrlImportPassword('');
+    setShowUrlImportForm(false);
+  };
+
+  const handleImportAssetFromUrl = async () => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+
+    const trimmedUrl = importSourceUrl.trim();
+    if (!trimmedUrl) {
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Please provide a source URL before starting the import.',
+          'Missing URL',
+        ),
+      );
+      return;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(trimmedUrl);
+    } catch {
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Please provide a valid absolute URL, including the http:// or https:// scheme.',
+          'Invalid URL',
+        ),
+      );
+      return;
+    }
+
+    const sourceName = decodeURIComponent(parsedUrl.pathname.split('/').pop() || 'remote_asset');
+    const assetLabel = (urlImportLabel.trim() || deriveAssetNameSuggestion(sourceName).label);
+    const assetTitle = (urlImportTitle.trim() || deriveAssetNameSuggestion(sourceName).title);
+
+    if (urlImportAuthEnabled && !urlImportUsername.trim()) {
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Username is required when HTTP Basic Auth is enabled.',
+          'Missing credentials',
+        ),
+      );
+      return;
+    }
+
+    let createdAssetId: string | null = null;
+
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      setWarningMessages([]);
+      setMessageModal(null);
+      setImportingFromUrl(true);
+
+      const assetType = determineAssetTypeFromName(sourceName);
+      const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+      createdAssetId = assetId;
+
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/files/import-url`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId,
+          sourceUrl: trimmedUrl,
+          authType: urlImportAuthEnabled ? 'basic' : 'none',
+          ...(urlImportAuthEnabled
+            ? {
+              username: urlImportUsername.trim(),
+              password: urlImportPassword,
+            }
+            : {}),
+        }),
+      });
+
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json.message || json.error || 'Failed to import asset from URL');
+      }
+
+      const responseData = json.value || json;
+      const importWarnings = Array.isArray(responseData.warnings)
+        ? responseData.warnings.filter((warning: unknown): warning is string => typeof warning === 'string' && warning.trim().length > 0)
+        : [];
+
+      const updatePayload: Record<string, any> = {
+        fileName: responseData.fileName || sourceName,
+        entrySize: responseData.entrySize,
+        entryPointUrl: responseData.entryPointUrl,
+        entryPoint: responseData.entryPoint,
+        mimeType: responseData.mimeType || 'application/octet-stream',
+        uploadedAt: new Date().toISOString(),
+        ...(responseData.metadata !== undefined ? { metadata: responseData.metadata } : {}),
+      };
+
+      switch (responseData.type) {
+        case 'rti':
+          updatePayload.type = 'rti';
+          break;
+        case '3d-model':
+        case '3d-model-archive':
+          updatePayload.type = '3d-model';
+          break;
+        default:
+          throw new Error(`Unsupported import response type: ${responseData.type}`);
+      }
+
+      await updateHdtAsset(assetId, updatePayload);
+      await fetchProjectAndMetadata();
+
+      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      setSuccessMessage(`✓ ${typeLabel} asset imported successfully from URL!`);
+      setWarningMessages(importWarnings);
+      resetUrlImportForm();
+    } catch (err: any) {
+      console.error('[UnifiedUpload] Remote import error:', err);
+      setError(null);
+
+      const details: string[] = [];
+      if (typeof err?.message === 'string' && err.message.trim()) {
+        details.push(err.message.trim());
+      }
+
+      if (createdAssetId) {
+        const cleanupResult = await rollbackPartialImportedAsset(createdAssetId);
+        details.push(cleanupResult);
+      }
+
+      setMessageModal(
+        AppMessageModalCatalog.error(
+          'The asset could not be imported from the provided URL.',
+          'Asset import failed',
+          details,
+        ),
+      );
+    } finally {
+      setImportingFromUrl(false);
+    }
+  };
+
   return (
-    <div className="container py-4">
+    <>
+    <div className="container-fluid py-4 px-4">
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
         <div className="flex-grow-1">
-          <h1 className="h3 mb-0">🏛️ HDT Metadata</h1>
+          <h1 className="h3 mb-0">HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
           <a
@@ -688,6 +959,34 @@ export default function HDTPage() {
           </a>
         </div>
       </div>
+
+      {structuringInProgress && (
+        <div className="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <strong>Structuring...</strong>{' '}
+            {activeDrainingEvent
+              ? 'Another session is preparing a project-wide structuring operation. Asset upload is temporarily blocked until draining completes.'
+              : presenceError}
+            {activeDrainingEvent?.username && (
+              <div className="small mt-2 text-muted">
+                Requested by: {activeDrainingEvent.username}
+              </div>
+            )}
+            {activeDrainingEvent?.operationType && (
+              <div className="small mt-2 text-muted">
+                Operation: {activeDrainingEvent.operationType}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm flex-shrink-0"
+            onClick={() => clearDrainingEvent()}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Success/Error Messages */}
       {successMessage && (
@@ -774,8 +1073,10 @@ export default function HDTPage() {
                 Basic descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836).
               </p>
 
+              <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
+
               <div className="mb-3">
-                <label htmlFor="dc-title" className="form-label">Title</label>
+                <label htmlFor="dc-title" className="form-label">Title <span className="text-muted fw-normal small">(dc:title)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -784,11 +1085,10 @@ export default function HDTPage() {
                   onChange={(e) => setDcTitle(e.target.value)}
                   placeholder="Heritage Digital Twin title"
                 />
-                <small className="form-text text-muted">dc:title</small>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-description" className="form-label">Description</label>
+                <label htmlFor="dc-description" className="form-label">Description <span className="text-muted fw-normal small">(dc:description)</span></label>
                 <textarea
                   className="form-control"
                   id="dc-description"
@@ -797,12 +1097,11 @@ export default function HDTPage() {
                   onChange={(e) => setDcDescription(e.target.value)}
                   placeholder="Detailed description of the heritage object"
                 ></textarea>
-                <small className="form-text text-muted">dc:description</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-creator" className="form-label">Creator(s)</label>
+                  <label htmlFor="dc-creator" className="form-label">Creator(s) <span className="text-muted fw-normal small">(dc:creator, comma-separated)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -811,11 +1110,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcCreator(e.target.value)}
                     placeholder="Artist, sculptor, architect (comma-separated)"
                   />
-                  <small className="form-text text-muted">dc:creator (comma-separated)</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-date" className="form-label">Date</label>
+                  <label htmlFor="dc-date" className="form-label">Date <span className="text-muted fw-normal small">(dc:date — year, year-month, or ISO 8601)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -824,12 +1122,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcDate(e.target.value)}
                     placeholder="e.g., 1924, 1924-05, 1924-05-15"
                   />
-                  <small className="form-text text-muted">dc:date (flexible format: year, year-month, or ISO 8601 date)</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-subject" className="form-label">Subject / Keywords</label>
+                <label htmlFor="dc-subject" className="form-label">Subject / Keywords <span className="text-muted fw-normal small">(dc:subject, comma-separated)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -838,12 +1135,11 @@ export default function HDTPage() {
                   onChange={(e) => setDcSubject(e.target.value)}
                   placeholder="sculpture, renaissance, marble, religious art (comma-separated)"
                 />
-                <small className="form-text text-muted">dc:subject (comma-separated keywords)</small>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-type" className="form-label">Type(s)</label>
+                  <label htmlFor="dc-type" className="form-label">Type(s) <span className="text-muted fw-normal small">(dc:type, comma-separated)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -852,11 +1148,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcType(e.target.value)}
                     placeholder="3D Model, Sculpture, Artifact (comma-separated)"
                   />
-                  <small className="form-text text-muted">dc:type (comma-separated)</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-language" className="form-label">Language(s)</label>
+                  <label htmlFor="dc-language" className="form-label">Language(s) <span className="text-muted fw-normal small">(dc:language, ISO 639 codes)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -865,13 +1160,12 @@ export default function HDTPage() {
                     onChange={(e) => setDcLanguage(e.target.value)}
                     placeholder="en, it, la (comma-separated ISO 639 codes)"
                   />
-                  <small className="form-text text-muted">dc:language (ISO 639 codes)</small>
                 </div>
               </div>
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-coverage" className="form-label">Coverage</label>
+                  <label htmlFor="dc-coverage" className="form-label">Coverage <span className="text-muted fw-normal small">(dc:coverage)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -880,11 +1174,10 @@ export default function HDTPage() {
                     onChange={(e) => setDcCoverage(e.target.value)}
                     placeholder="Spatial or temporal coverage"
                   />
-                  <small className="form-text text-muted">dc:coverage</small>
                 </div>
 
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="dc-source" className="form-label">Source</label>
+                  <label htmlFor="dc-source" className="form-label">Source <span className="text-muted fw-normal small">(dc:source)</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -893,12 +1186,11 @@ export default function HDTPage() {
                     onChange={(e) => setDcSource(e.target.value)}
                     placeholder="Original source or reference"
                   />
-                  <small className="form-text text-muted">dc:source</small>
                 </div>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="dc-rights" className="form-label">Rights Statement</label>
+                <label htmlFor="dc-rights" className="form-label">Rights Statement <span className="text-muted fw-normal small">(dc:rights)</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -907,7 +1199,6 @@ export default function HDTPage() {
                   onChange={(e) => setDcRights(e.target.value)}
                   placeholder="Copyright statement or rights information"
                 />
-                <small className="form-text text-muted">dc:rights</small>
               </div>
 
               {/* Save Button for Dublin Core */}
@@ -925,6 +1216,7 @@ export default function HDTPage() {
                   </div>
                 )}
               </div>
+              </fieldset>
             </div>
           )}
 
@@ -942,6 +1234,9 @@ export default function HDTPage() {
                   <span className="badge bg-primary">RTI</span>
                   <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
+                </div>
+                <div className="form-text mt-2">
+                  Asset upload is still allowed without the project lock, but only when no structuring session is already in progress.
                 </div>
               </div>
 
@@ -1050,6 +1345,7 @@ export default function HDTPage() {
 
                                     <button
                                       className="btn btn-sm btn-outline-danger"
+                                      disabled={hdtReadOnlyWithoutProjectLock}
                                       onClick={async () => {
                                         const displayName = name;
                                         if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
@@ -1126,14 +1422,14 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
-                  disabled={uploading}
+                  disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                 />
 
                 <div className="d-flex gap-2">
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
-                    disabled={uploading}
+                    disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                   >
                     {uploading ? (
                       <>
@@ -1144,7 +1440,133 @@ export default function HDTPage() {
                       <>📁 Upload Asset (3D or RTI)</>
                     )}
                   </button>
+
+                  <button
+                    className="btn btn-outline-primary"
+                    type="button"
+                    onClick={() => setShowUrlImportForm((current) => !current)}
+                    disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                  >
+                    {importingFromUrl ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Importing...
+                      </>
+                    ) : (
+                      <>🔗 Import Asset from URL</>
+                    )}
+                  </button>
                 </div>
+
+                {showUrlImportForm && (
+                  <div className="card border-primary-subtle mt-3">
+                    <div className="card-body">
+                      <div className="mb-3">
+                        <label htmlFor="assetImportUrl" className="form-label">Remote URL</label>
+                        <input
+                          id="assetImportUrl"
+                          type="url"
+                          className="form-control"
+                          placeholder="https://example.org/path/to/asset.zip"
+                          value={importSourceUrl}
+                          onChange={(e) => setImportSourceUrl(e.target.value)}
+                          onBlur={(e) => populateUrlImportSuggestions(e.target.value)}
+                          disabled={importingFromUrl}
+                        />
+                        <div className="form-text">
+                          The backend will download the remote file and ingest it as a 3D model or RTI dataset.
+                        </div>
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label htmlFor="assetImportLabel" className="form-label">Asset label</label>
+                          <input
+                            id="assetImportLabel"
+                            type="text"
+                            className="form-control"
+                            value={urlImportLabel}
+                            onChange={(e) => setUrlImportLabel(e.target.value)}
+                            disabled={importingFromUrl}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label htmlFor="assetImportTitle" className="form-label">Asset title</label>
+                          <input
+                            id="assetImportTitle"
+                            type="text"
+                            className="form-control"
+                            value={urlImportTitle}
+                            onChange={(e) => setUrlImportTitle(e.target.value)}
+                            disabled={importingFromUrl}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-check mt-3">
+                        <input
+                          id="assetImportBasicAuth"
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={urlImportAuthEnabled}
+                          onChange={(e) => setUrlImportAuthEnabled(e.target.checked)}
+                          disabled={importingFromUrl}
+                        />
+                        <label className="form-check-label" htmlFor="assetImportBasicAuth">
+                          This URL requires HTTP Basic Auth (.htaccess / .htpasswd)
+                        </label>
+                      </div>
+
+                      {urlImportAuthEnabled && (
+                        <div className="row g-3 mt-1">
+                          <div className="col-md-6">
+                            <label htmlFor="assetImportUsername" className="form-label">Username</label>
+                            <input
+                              id="assetImportUsername"
+                              type="text"
+                              className="form-control"
+                              value={urlImportUsername}
+                              onChange={(e) => setUrlImportUsername(e.target.value)}
+                              disabled={importingFromUrl}
+                              autoComplete="username"
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <label htmlFor="assetImportPassword" className="form-label">Password</label>
+                            <input
+                              id="assetImportPassword"
+                              type="password"
+                              className="form-control"
+                              value={urlImportPassword}
+                              onChange={(e) => setUrlImportPassword(e.target.value)}
+                              disabled={importingFromUrl}
+                              autoComplete="current-password"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="d-flex gap-2 mt-3">
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => void handleImportAssetFromUrl()}
+                          disabled={importingFromUrl}
+                        >
+                          Import from URL
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={resetUrlImportForm}
+                          disabled={importingFromUrl}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1163,6 +1585,7 @@ export default function HDTPage() {
                   <h6 className="mb-0">Scenes ({scenes.length})</h6>
                   <button
                     className="btn btn-sm btn-primary"
+                    disabled={hdtReadOnlyWithoutProjectLock}
                     onClick={() => {
                       const newScene: SceneConfig = {
                         id: `scene_${Date.now()}`,
@@ -1202,6 +1625,7 @@ export default function HDTPage() {
                               <div className="btn-group btn-group-sm">
                                 <button
                                   className="btn btn-outline-primary"
+                                  disabled={hdtReadOnlyWithoutProjectLock}
                                   onClick={() => {
                                     setEditingScene(scene);
                                     setShowSceneEditor(true);
@@ -1212,18 +1636,22 @@ export default function HDTPage() {
                                 </button>
                                 <button
                                   className="btn btn-outline-danger"
-                                  onClick={() => {
+                                  disabled={hdtReadOnlyWithoutProjectLock}
+                                  onClick={async () => {
                                     if (scenes.length === 1) {
                                       alert('Cannot delete the last scene. Projects must have at least one scene.');
                                       return;
                                     }
                                     if (confirm(`Delete scene "${scene.label}"?`)) {
-                                      const updatedScenes = scenes.filter((_, i) => i !== index);
-                                      if (scene.isDefault && updatedScenes.length > 0) {
-                                        updatedScenes[0].isDefault = true;
+                                      try {
+                                        setError(null);
+                                        setSuccessMessage(null);
+                                        await deleteHdtScene(scene.id);
+                                        await fetchProjectAndMetadata();
+                                        setSuccessMessage('✓ Scene deleted');
+                                      } catch (err: any) {
+                                        setError(err?.message || 'Failed to delete scene');
                                       }
-                                      setScenes(updatedScenes);
-                                      setSuccessMessage('✓ Scene deleted');
                                     }
                                   }}
                                   title="Delete Scene"
@@ -1280,6 +1708,7 @@ export default function HDTPage() {
                         ></button>
                       </div>
                       <div className="modal-body">
+                        <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
                         <div className="mb-3">
                           <label className="form-label">Scene Name *</label>
                           <input
@@ -1438,6 +1867,7 @@ export default function HDTPage() {
                             Show ground plane
                           </label>
                         </div>
+                        </fieldset>
                       </div>
                       <div className="modal-footer">
                         <button
@@ -1453,32 +1883,41 @@ export default function HDTPage() {
                         <button
                           type="button"
                           className="btn btn-primary"
-                          onClick={() => {
+                          disabled={hdtReadOnlyWithoutProjectLock}
+                          onClick={async () => {
                             if (!editingScene.label.trim()) {
                               alert('Please enter a scene name');
                               return;
                             }
 
-                            const existingIndex = scenes.findIndex(s => s.id === editingScene.id);
-                            let updatedScenes: any[];
+                            const isExisting = scenes.some((s) => s.id === editingScene.id);
 
-                            if (existingIndex >= 0) {
-                              updatedScenes = [...scenes];
-                              updatedScenes[existingIndex] = editingScene;
-                            } else {
-                              updatedScenes = [...scenes, editingScene];
+                            try {
+                              setError(null);
+                              setSuccessMessage(null);
+
+                              if (editingScene.isDefault) {
+                                const scenesToUnset = scenes.filter(
+                                  (s) => s.id !== editingScene.id && s.isDefault
+                                );
+                                await Promise.all(
+                                  scenesToUnset.map((s) => updateHdtScene(s.id, { isDefault: false }))
+                                );
+                              }
+
+                              if (isExisting) {
+                                await updateHdtScene(editingScene.id, toScenePayload(editingScene));
+                              } else {
+                                await createHdtScene(editingScene);
+                              }
+
+                              await fetchProjectAndMetadata();
+                              setShowSceneEditor(false);
+                              setEditingScene(null);
+                              setSuccessMessage('✓ Scene saved');
+                            } catch (err: any) {
+                              setError(err?.message || 'Failed to save scene');
                             }
-
-                            if (editingScene.isDefault) {
-                              updatedScenes = updatedScenes.map(s =>
-                                s.id === editingScene.id ? s : { ...s, isDefault: false }
-                              );
-                            }
-
-                            setScenes(updatedScenes);
-                            setShowSceneEditor(false);
-                            setEditingScene(null);
-                            setSuccessMessage('✓ Scene saved');
                           }}
                         >
                           {scenes.find(s => s.id === editingScene.id) ? 'Update Scene' : 'Create Scene'}
@@ -1505,5 +1944,11 @@ export default function HDTPage() {
         </div>
       </div>
     </div>
+    <AppMessageModal
+      descriptor={messageModal}
+      onClose={() => setMessageModal(null)}
+      onAction={() => setMessageModal(null)}
+    />
+    </>
   );
 }

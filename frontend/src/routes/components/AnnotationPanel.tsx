@@ -1,78 +1,69 @@
 /**
- * AnnotationPanel Component
- * Displays list of annotations with interactive features:
- * - Single/multi-selection (CTRL+click)
- * - Edit and delete operations
- * - Real-time synchronization with viewers and backend
+ * AnnotationPanel — lists active {@link AnnotationData} from the store and drives UI focus.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import type { Annotation } from '../../../../shared/scene-types';
-import { useAnnotations } from '../../context/AnnotationContext';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { AnnotationData } from 'shared/annotation-types';
+import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import { AnnotationApiError } from '../../services/AnnotationApiClient';
+import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
+import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts';
+import {
+  areAnyDataIdsUnderRemoteEditorLock,
+  isDataIdUnderEditorLock,
+  isDataIdUnderRemoteEditorLock,
+} from '../../stores/annotation-social-locks';
+import AppMessageModal from '../../shared/ui/AppMessageModal';
+import {
+  AnnotationMessageModalCatalog,
+} from '../../shared/ui/AnnotationMessageModalCatalog';
+import {
+  MessageModalDescriptor,
+} from '../../shared/ui/AppMessageModalModel';
 
 interface AnnotationPanelProps {
-  /**
-   * Callback when a viewer should highlight annotations
-   * Called after selection changes
-   */
-  onSelectionChanged?: (selectedIds: string[]) => void;
+  /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
+  onSelectionChanged?: (geometryIds: string[]) => void;
 }
 
-/**
- * Modal for editing an annotation
- */
-function EditAnnotationModal({
-  annotation,
-  isOpen,
+interface AnnotationDataDraft {
+  dataId: string;
+  expectedVersion: number;
+  label: string;
+  description: string;
+  annotationClass: string | null;
+  content: Record<string, unknown>;
+}
+
+function EditDataModal({
+  draft,
   onSave,
-  onCancel
+  onChange,
+  onCancel,
 }: {
-  annotation: Annotation | null;
-  isOpen: boolean;
-  onSave: (annotation: Annotation) => void;
+  draft: AnnotationDataDraft | null;
+  onSave: () => void;
+  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description'>>) => void;
   onCancel: () => void;
 }) {
-  const [editedLabel, setEditedLabel] = useState('');
-  const [editedDescription, setEditedDescription] = useState('');
-
-  useEffect(() => {
-    if (annotation) {
-      setEditedLabel(annotation.label);
-      // Optional description field
-      setEditedDescription(annotation.description || '');
-    }
-  }, [annotation, isOpen]);
-
-  if (!isOpen || !annotation) return null;
-
-  const handleSave = () => {
-    const updated: Annotation = {
-      ...annotation,
-      label: editedLabel,
-      description: editedDescription
-    };
-    onSave(updated);
-  };
+  if (!draft) {
+    return null;
+  }
 
   return (
     <div
       className="modal d-block"
+      role="dialog"
+      aria-modal="true"
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: isOpen ? 'block' : 'none'
+        display: 'block',
       }}
-      onClick={onCancel}
     >
-      <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+      <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">Edit Annotation</h5>
-            <button
-              type="button"
-              className="btn-close"
-              onClick={onCancel}
-              aria-label="Close"
-            />
+            <h5 className="modal-title">Edit annotation data</h5>
           </div>
           <div className="modal-body">
             <div className="mb-3">
@@ -83,9 +74,8 @@ function EditAnnotationModal({
                 type="text"
                 className="form-control"
                 id="annotationLabel"
-                value={editedLabel}
-                onChange={e => setEditedLabel(e.target.value)}
-                placeholder="Enter annotation label"
+                value={draft.label}
+                onChange={(e) => onChange({ label: e.target.value })}
               />
             </div>
             <div className="mb-3">
@@ -96,38 +86,24 @@ function EditAnnotationModal({
                 type="text"
                 className="form-control"
                 id="annotationDescription"
-                value={editedDescription}
-                onChange={e => setEditedDescription(e.target.value)}
-                placeholder="Enter annotation description"
+                value={draft.description}
+                onChange={(e) => onChange({ description: e.target.value })}
               />
             </div>
-            <div className="mb-3">
-              <label className="form-label">Type</label>
-              <p className="text-muted small">
-                {annotation.type.charAt(0).toUpperCase() + annotation.type.slice(1)}
-              </p>
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Geometry</label>
-              <p className="text-muted small font-monospace" style={{ wordBreak: 'break-all' }}>
-                {JSON.stringify(annotation.geometry)}
-              </p>
-            </div>
+            <p className="small text-muted mb-0">
+              Class: {draft.annotationClass ?? '(none)'}
+            </p>
           </div>
           <div className="modal-footer">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onCancel}
-            >
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>
               Cancel
             </button>
             <button
               type="button"
               className="btn btn-primary"
-              onClick={handleSave}
+              onClick={onSave}
             >
-              Save Changes
+              Save
             </button>
           </div>
         </div>
@@ -136,256 +112,505 @@ function EditAnnotationModal({
   );
 }
 
-/**
- * Main AnnotationPanel component
- */
 export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelProps) {
   const {
-    annotations,
-    selectedAnnotationIds,
-    isLoading,
-    deleteAnnotations,
-    updateAnnotationData,
-    selectAnnotation,
-    clearSelection
-  } = useAnnotations();
+    activeData,
+    allData,
+    allLinks,
+    activeAnnotationSelection,
+    activeSocialLocks,
+    currentStreamId,
+    getLatestMutationForEntity,
+    focusedGeometryIds,
+    focusedDataIds,
+    focusData,
+    setFocusSelection,
+    clearFocus,
+    isDataFocused,
+    realtimeState,
+    creating,
+    updateData,
+    markDataErasable,
+    markAnnotationTripletErasable,
+    startEditorLock,
+    stopEditorLock,
+  } = useAnnotationStore();
 
-  const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [expandedGeomIds, setExpandedGeomIds] = useState<Set<string>>(new Set());
-  const annotationListRef = useRef<HTMLDivElement>(null);
+  const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
+  const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
+  const editingDataIdRef = useRef<string | null>(null);
 
-  const toggleGeom = (id: string) => {
-    setExpandedGeomIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const realtimeBadgeClass =
+    realtimeState === 'connected'
+      ? 'bg-success-subtle text-success'
+      : realtimeState === 'reconnecting' || realtimeState === 'connecting'
+        ? 'bg-warning-subtle text-warning'
+        : realtimeState === 'error'
+          ? 'bg-danger-subtle text-danger'
+          : 'bg-secondary-subtle text-secondary';
 
-  /**
-   * Handle annotation item click with Ctrl/Cmd for multi-select
-   */
-  const handleAnnotationClick = (id: string, e: React.MouseEvent) => {
-    const multiSelect = e.ctrlKey || e.metaKey;
-    selectAnnotation(id, multiSelect);
-  };
+  const realtimeLabel =
+    realtimeState === 'connected'
+      ? 'Connected'
+      : realtimeState === 'reconnecting'
+        ? 'Reconnecting...'
+        : realtimeState === 'connecting'
+          ? 'Connecting...'
+          : realtimeState === 'error'
+            ? 'Network error'
+            : 'Disconnected';
 
-  /**
-   * Notify parent (viewer) when selection changes
-   */
+  const focusedDataIdList = [...focusedDataIds];
+
+  const deleteBlockedTitle =
+    'Cannot delete while another user is editing this annotation';
+
+  const deleteButtonClass = (disabled: boolean, size: 'sm' | 'md' = 'sm') =>
+    [
+      'btn',
+      size === 'sm' ? 'btn-sm' : '',
+      disabled
+        ? 'btn-outline-secondary text-muted annotation-delete-btn--inactive'
+        : 'btn-outline-danger',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  const bulkDeleteBlocked = useMemo(
+    () =>
+      areAnyDataIdsUnderRemoteEditorLock(
+        focusedDataIdList,
+        activeSocialLocks,
+        currentStreamId,
+        activeAnnotationSelection.geometryIdsByDataId,
+        allLinks,
+      ),
+    [
+      focusedDataIdList,
+      activeSocialLocks,
+      currentStreamId,
+      activeAnnotationSelection.geometryIdsByDataId,
+      allLinks,
+    ],
+  );
+
+  const collaborativeEditInfo = useMemo(() => {
+    if (!currentStreamId) {
+      return '';
+    }
+
+    const dataById = new Map(allData.map((datum) => [datum.id, datum]));
+    const linkById = new Map(allLinks.map((link) => [link.id, link]));
+    const dataIdsByGeometryId = new Map<string, Set<string>>();
+    const geometryIdsByDataId = new Map<string, Set<string>>();
+
+    for (const link of allLinks) {
+      const byGeometry = dataIdsByGeometryId.get(link.geometryId) ?? new Set<string>();
+      byGeometry.add(link.dataId);
+      dataIdsByGeometryId.set(link.geometryId, byGeometry);
+
+      const byData = geometryIdsByDataId.get(link.dataId) ?? new Set<string>();
+      byData.add(link.geometryId);
+      geometryIdsByDataId.set(link.dataId, byData);
+    }
+
+    const targetGeometryIds = new Set<string>(focusedGeometryIds);
+    const targetDataIds = new Set<string>(focusedDataIds);
+
+    for (const dataId of targetDataIds) {
+      for (const geometryId of geometryIdsByDataId.get(dataId) ?? []) {
+        targetGeometryIds.add(geometryId);
+      }
+    }
+
+    for (const geometryId of targetGeometryIds) {
+      for (const dataId of dataIdsByGeometryId.get(geometryId) ?? []) {
+        targetDataIds.add(dataId);
+      }
+    }
+
+    if (targetGeometryIds.size === 0 && targetDataIds.size === 0) {
+      return '';
+    }
+
+    const overlapUsers = new Set<string>();
+    const overlapTitles = new Set<string>();
+    const overlapResourceTypes = new Set<'geometry' | 'data' | 'link'>();
+
+    for (const lock of activeSocialLocks) {
+      if (lock.lockKind !== 'editor' || !lock.resourceType || !lock.resourceId) {
+        continue;
+      }
+      if (lock.streamId === currentStreamId) {
+        continue;
+      }
+
+      let conflictsWithFocus = false;
+      if (lock.resourceType === 'geometry') {
+        conflictsWithFocus = targetGeometryIds.has(lock.resourceId);
+        if (conflictsWithFocus) {
+          overlapResourceTypes.add('geometry');
+          for (const dataId of dataIdsByGeometryId.get(lock.resourceId) ?? []) {
+            const datum = dataById.get(dataId);
+            if (datum?.label?.trim()) {
+              overlapTitles.add(datum.label.trim());
+            }
+          }
+        }
+      } else if (lock.resourceType === 'data') {
+        conflictsWithFocus = targetDataIds.has(lock.resourceId);
+        if (conflictsWithFocus) {
+          overlapResourceTypes.add('data');
+          const datum = dataById.get(lock.resourceId);
+          if (datum?.label?.trim()) {
+            overlapTitles.add(datum.label.trim());
+          }
+        }
+      } else if (lock.resourceType === 'link') {
+        const link = linkById.get(lock.resourceId);
+        if (!link) {
+          continue;
+        }
+        conflictsWithFocus = targetGeometryIds.has(link.geometryId) || targetDataIds.has(link.dataId);
+        if (conflictsWithFocus) {
+          overlapResourceTypes.add('link');
+          const datum = dataById.get(link.dataId);
+          if (datum?.label?.trim()) {
+            overlapTitles.add(datum.label.trim());
+          }
+        }
+      }
+
+      if (conflictsWithFocus) {
+        overlapUsers.add(lock.username);
+      }
+    }
+
+    if (overlapUsers.size === 0) {
+      return '';
+    }
+
+    const users = [...overlapUsers];
+    const titles = [...overlapTitles];
+    const quotedUsers = users.map((user) => `"${user}"`);
+    const usersText = quotedUsers.length === 1
+      ? quotedUsers[0]
+      : `${quotedUsers.slice(0, -1).join(', ')} and ${quotedUsers[quotedUsers.length - 1]}`;
+
+    const overlapHasGeometry = overlapResourceTypes.has('geometry');
+    const overlapHasData = overlapResourceTypes.has('data');
+    const overlapHasLink = overlapResourceTypes.has('link');
+
+    const annotationScope = overlapHasGeometry && !overlapHasData && !overlapHasLink
+      ? 'geometry annotation'
+      : overlapHasData && !overlapHasGeometry && !overlapHasLink
+        ? 'data annotation'
+        : 'annotation';
+
+    const userNoun = users.length === 1 ? 'User' : 'Users';
+    const verb = users.length === 1 ? 'is' : 'are';
+
+    if (titles.length === 0) {
+      return `${userNoun} ${usersText} ${verb} editing the same ${annotationScope}.`;
+    }
+
+    const shownTitles = titles.map((title) => `"${title}"`).join(', ');
+    return `${userNoun} ${usersText} ${verb} editing the same ${annotationScope}: ${shownTitles}.`;
+  }, [
+    activeSocialLocks,
+    allData,
+    allLinks,
+    currentStreamId,
+    focusedDataIds,
+    focusedGeometryIds,
+  ]);
+
   useEffect(() => {
     if (onSelectionChanged) {
-      onSelectionChanged(selectedAnnotationIds);
+      onSelectionChanged(
+        getViewerHighlightGeometryIds(
+          focusedGeometryIds,
+          focusedDataIds,
+          activeAnnotationSelection,
+        ),
+      );
     }
-  }, [selectedAnnotationIds, onSelectionChanged]);
+  }, [focusedGeometryIds, focusedDataIds, activeAnnotationSelection, onSelectionChanged]);
 
-  /**
-   * Handle delete operation with confirmation
-   */
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this annotation?')) {
+  const handleDataClick = (dataId: string, e: React.MouseEvent) => {
+    focusData(dataId, e.ctrlKey || e.metaKey);
+  };
+
+  const handleDelete = async (dataId: string) => {
+    if (
+      isDataIdUnderRemoteEditorLock(
+        dataId,
+        activeSocialLocks,
+        currentStreamId,
+        activeAnnotationSelection.geometryIdsByDataId,
+        allLinks,
+      )
+    ) {
+      return;
+    }
+    if (window.confirm('Mark annotation triplet (data + link + geometry) as erasable (soft delete)?')) {
       try {
-        await deleteAnnotations([id]);
+        await markAnnotationTripletErasable(dataId);
       } catch (err) {
-        console.error('Failed to delete annotation:', err);
-        alert('Failed to delete annotation');
+        console.error('Failed to mark data erasable:', err);
+        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data'));
       }
     }
   };
 
-  /**
-   * Handle bulk delete of selected annotations
-   */
   const handleBulkDelete = async () => {
-    if (selectedAnnotationIds.length === 0) {
-      alert('No annotations selected');
+    if (focusedDataIdList.length === 0 || bulkDeleteBlocked) {
+      return;
+    }
+    const count = focusedDataIdList.length;
+    if (window.confirm(`Mark ${count} annotation triplet${count > 1 ? 's' : ''} as erasable?`)) {
+      try {
+        await Promise.all(focusedDataIdList.map((id) => markAnnotationTripletErasable(id)));
+        clearFocus();
+      } catch (err) {
+        console.error('Failed to delete annotation data:', err);
+        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data_bulk'));
+      }
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editingDraft) {
       return;
     }
 
-    const count = selectedAnnotationIds.length;
-    if (window.confirm(`Delete ${count} annotation${count > 1 ? 's' : ''}?`)) {
+    try {
+      await updateData(editingDraft.dataId, {
+        label: editingDraft.label,
+        description: editingDraft.description,
+      }, {
+        expectedVersion: editingDraft.expectedVersion,
+      });
+      setEditingDraft(null);
+    } catch (err) {
+      console.error('Failed to update annotation data:', err);
+      if (err instanceof AnnotationApiError && err.status === 409 && err.code === 'annotation.data.version_conflict') {
+        const latestMutation = getLatestMutationForEntity('data', editingDraft.dataId);
+        if (latestMutation?.mutation === 'data.erasable') {
+          setMessageModal(new MessageModalDescriptor({
+            tone: 'warning',
+            title: 'Annotation deleted',
+            message: `This annotation was deleted by User "${latestMutation.username}" while you were editing. Your changes were not applied.`,
+          }));
+        } else if (latestMutation?.username) {
+          setMessageModal(new MessageModalDescriptor({
+            tone: 'warning',
+            title: 'Version conflict (409)',
+            message: `User "${latestMutation.username}" saved a newer version while you were editing. Your changes were not applied. Please review the latest data and retry.`,
+          }));
+        } else {
+          setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+        }
+      } else {
+        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+      }
+    } finally {
       try {
-        await deleteAnnotations(selectedAnnotationIds);
-      } catch (err) {
-        console.error('Failed to delete annotations:', err);
-        alert('Failed to delete annotations');
+        await stopEditorLock('data', editingDraft.dataId, 'editing annotation data');
+      } catch (lockErr) {
+        console.warn('Failed to release data editor lock:', lockErr);
       }
     }
   };
 
-  /**
-   * Handle edit modal save
-   */
-  const handleEditSave = async (annotation: Annotation) => {
+  const handleEditStart = async (datum: AnnotationData) => {
+    setEditingDraft({
+      dataId: datum.id,
+      expectedVersion: datum.version,
+      label: datum.label,
+      description: datum.description ?? '',
+      annotationClass: datum.class ?? null,
+      content: { ...datum.content },
+    });
     try {
-      await updateAnnotationData(annotation.id, {
-        label: annotation.label,
-        description: annotation.description
-      });
-      setIsEditModalOpen(false);
-      setEditingAnnotation(null);
-    } catch (err) {
-      console.error('Failed to update annotation:', err);
-      alert('Failed to update annotation');
+      await startEditorLock('data', datum.id, 'editing annotation data');
+    } catch (lockErr) {
+      console.warn('Failed to publish data editor lock:', lockErr);
+      setMessageModal(AnnotationMessageModalCatalog.fromError(lockErr, 'editor_lock_start'));
     }
   };
+
+  const handleEditCancel = async () => {
+    const datumId = editingDraft?.dataId;
+    setEditingDraft(null);
+    if (!datumId) {
+      return;
+    }
+    try {
+      await stopEditorLock('data', datumId, 'editing annotation data');
+    } catch (lockErr) {
+      console.warn('Failed to release data editor lock:', lockErr);
+      setMessageModal(AnnotationMessageModalCatalog.fromError(lockErr, 'editor_lock_stop'));
+    }
+  };
+
+  useEffect(() => {
+    editingDataIdRef.current = editingDraft?.dataId ?? null;
+  }, [editingDraft?.dataId]);
+
+  useEffect(() => {
+    return () => {
+      if (editingDataIdRef.current) {
+        void stopEditorLock('data', editingDataIdRef.current, 'editing annotation data');
+      }
+    };
+  }, [stopEditorLock]);
 
   return (
     <div className="p-3 h-100 d-flex flex-column">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4 className="h4 mb-0">Annotations</h4>
-        {selectedAnnotationIds.length > 0 && (
+        {focusedDataIdList.length > 0 && (
           <div className="btn-group btn-group-sm" role="group">
             <button
               type="button"
-              className="btn btn-outline-danger"
-              onClick={handleBulkDelete}
-              disabled={isLoading}
-              title={`Delete ${selectedAnnotationIds.length} selected annotation${selectedAnnotationIds.length > 1 ? 's' : ''}`}
+              className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
+              onClick={() => void handleBulkDelete()}
+              disabled={creating || bulkDeleteBlocked}
+              title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
             >
-              <i className="bi bi-trash me-1"></i>
-              Delete ({selectedAnnotationIds.length})
+              <i className="bi bi-trash me-1" aria-hidden />
+              Delete ({focusedDataIdList.length})
             </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={clearSelection}
-              title="Clear selection"
-            >
+            <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
               <i className="bi bi-x-lg"></i>
             </button>
           </div>
         )}
       </div>
 
-      {annotations.length === 0 ? (
+      {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
+
+      <div
+        className={`mb-3 p-2 border rounded small ${
+          collaborativeEditInfo
+            ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
+            : 'bg-light-subtle text-muted'
+        }`}
+        style={{ minHeight: '36px' }}
+      >
+        <div className="d-flex flex-column gap-1 align-items-start">
+          <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
+          {collaborativeEditInfo ? <div>{collaborativeEditInfo}</div> : null}
+        </div>
+      </div>
+
+      {activeData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-          <p className="text-muted fst-italic">
-            No annotations yet. Double-click on the model to add an annotation point.
+          <p className="text-muted fst-italic text-center">
+            No active annotation data. Adjust the query filter or create annotations in the viewer.
           </p>
         </div>
       ) : (
-        <div className="flex-grow-1 overflow-auto" ref={annotationListRef}>
+        <div className="flex-grow-1 overflow-auto">
           <div className="list-group">
-            {annotations.map((annotation: Annotation) => {
-              const isSelected = selectedAnnotationIds.includes(annotation.id);
+            {activeData.map((datum) => {
+              const linkedCount =
+                activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
+              const isSelected = isDataFocused(datum.id);
+              const isUnderEditing = isDataIdUnderEditorLock(
+                datum.id,
+                activeSocialLocks,
+                activeAnnotationSelection.geometryIdsByDataId,
+                allLinks,
+              );
+              const deleteDisabled =
+                creating ||
+                isDataIdUnderRemoteEditorLock(
+                  datum.id,
+                  activeSocialLocks,
+                  currentStreamId,
+                  activeAnnotationSelection.geometryIdsByDataId,
+                  allLinks,
+                );
+
+              const itemColors = isUnderEditing
+                ? {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundUnderEditing,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textUnderEditing,
+                  }
+                : isSelected
+                ? {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundSelected,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textSelected,
+                  }
+                : {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.background,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.text,
+                  };
               return (
                 <div
-                  key={annotation.id}
-                  className={`list-group-item list-group-item-action d-flex flex-column align-items-stretch ${isSelected ? 'bg-warning' : 'bg-light'
-                    }`}
-                  onClick={(e) => handleAnnotationClick(annotation.id, e)}
-                  style={{ cursor: 'pointer' }}
+                  key={datum.id}
+                  className="list-group-item list-group-item-action d-flex flex-column align-items-stretch"
+                  onClick={(e) => handleDataClick(datum.id, e)}
+                  style={{
+                    cursor: 'pointer',
+                    backgroundColor: itemColors.background,
+                    color: itemColors.text,
+                  }}
                 >
-                  {/* Top row: title (truncated) and action buttons */}
                   <div className="d-flex justify-content-between align-items-center w-100">
-                    <div className="flex-grow-1" style={{ minWidth: 0, overflow: 'hidden' }}>
-                      <h5
-                        className="mb-1"
-                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      >
-                        {annotation.label}
-                      </h5>
-                    </div>
-
-                    <div className="ms-2 d-flex gap-1 align-items-center flex-shrink-0">
-                      <span
-                        className={`badge ${annotation.type === 'point'
-                          ? 'bg-danger'
-                          : annotation.type === 'line'
-                            ? 'bg-success'
-                            : 'bg-primary'
-                          }`}
-                      >
-                        {annotation.type}
+                    <h5
+                      className="mb-1 flex-grow-1"
+                      style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: itemColors.text,
+                      }}
+                    >
+                      {datum.label}
+                    </h5>
+                    <div className="ms-2 d-flex gap-1 flex-shrink-0">
+                      <span className="badge bg-secondary">
+                        {linkedCount} geom{linkedCount === 1 ? '' : 's'}
                       </span>
-
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-secondary"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingAnnotation(annotation);
-                          setIsEditModalOpen(true);
+                          setFocusSelection(
+                            { geometryIds: [], dataIds: [datum.id] },
+                            () => {
+                              void handleEditStart(datum);
+                            },
+                          );
                         }}
-                        disabled={isLoading}
-                        title="Edit annotation"
+                        disabled={creating}
                       >
                         <i className="bi bi-pencil"></i>
                       </button>
-
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-danger"
+                        className={deleteButtonClass(deleteDisabled)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(annotation.id);
+                          void handleDelete(datum.id);
                         }}
-                        disabled={isLoading}
-                        title="Delete annotation"
+                        disabled={deleteDisabled}
+                        title={deleteDisabled ? deleteBlockedTitle : undefined}
+                        aria-label={
+                          deleteDisabled ? 'Delete unavailable (annotation under edit)' : 'Delete annotation'
+                        }
                       >
-                        <i className="bi bi-trash"></i>
+                        <i className="bi bi-trash" aria-hidden />
                       </button>
                     </div>
                   </div>
-
-                  {/* Second row: full-width details */}
-                  <div className="mt-2 w-100">
-                    <p className="mb-1 small text-muted">ID: {annotation.id}</p>
-                    <p className="mb-1 small text-muted">Description: {annotation.description}</p>
-                    <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      Created by: {annotation.createdBy}
-                    </p>
-                    <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      Type: {annotation.type}
-                    </p>
-                    {annotation.type === 'point' &&
-                      Array.isArray(annotation.geometry) &&
-                      annotation.geometry.length === 3 && (
-                        <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          [{annotation.geometry[0].toFixed(1)}, {annotation.geometry[1].toFixed(1)}, {annotation.geometry[2].toFixed(1)}]
-                        </p>
-                      )}
-
-                    {annotation.type !== 'point' &&
-                      Array.isArray(annotation.geometry) && (
-                        <div className="mt-2">
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
-                            type="button"
-                            aria-expanded={expandedGeomIds.has(annotation.id)}
-                            onClick={(e) => { e.stopPropagation(); toggleGeom(annotation.id); }}
-                          >
-                            {expandedGeomIds.has(annotation.id) ? 'Hide Geometry' : 'Show Geometry'}
-                          </button>
-                          {expandedGeomIds.has(annotation.id) && (
-                            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                              <p className="mb-1 small">
-                                {(annotation.geometry as [number, number, number][]).length} points
-                              </p>
-                              <p className="mb-0 small font-monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                [
-                                {(annotation.geometry as [number, number, number][]).map((point, i) => (
-                                  <span key={i}>
-                                    {point[0].toFixed(1)}, {point[1].toFixed(1)}, {point[2].toFixed(1)}
-                                    {i < (annotation.geometry as [number, number, number][]).length - 1 && (
-                                      <>
-                                        ],
-                                        <br />
-                                        [
-                                      </>
-                                    )}
-                                  </span>
-                                ))}
-                                ]
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                  </div>
+                  <p className="mb-0 small" style={{ color: itemColors.text }}>
+                    {datum.description || '(no description)'}
+                  </p>
                 </div>
               );
             })}
@@ -393,13 +618,22 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         </div>
       )}
 
-      <EditAnnotationModal
-        annotation={editingAnnotation}
-        isOpen={isEditModalOpen}
-        onSave={handleEditSave}
+      <EditDataModal
+        draft={editingDraft}
+        onSave={() => {
+          void handleEditSave();
+        }}
+        onChange={(patch) => {
+          setEditingDraft((current) => (current ? { ...current, ...patch } : current));
+        }}
         onCancel={() => {
-          setIsEditModalOpen(false);
-          setEditingAnnotation(null);
+          void handleEditCancel();
+        }}
+      />
+      <AppMessageModal
+        descriptor={messageModal}
+        onClose={() => {
+          setMessageModal(null);
         }}
       />
     </div>

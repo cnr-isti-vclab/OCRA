@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { StructuringLockState } from '@prisma/client';
 import request from 'supertest';
 import { createApp } from '../app.js';
 import {
@@ -42,6 +43,58 @@ describe.sequential('Complete Application Workflow E2E Test', () => {
   let sharedProject: any;
   
   let testHdtFile: any;
+
+  async function grantExclusiveDeleteLock(projectId: string, sessionIdValue: string, userId: string) {
+    const prisma = await ensurePrisma();
+
+    await prisma.structuringLock.upsert({
+      where: { projectId },
+      update: {
+        ownerSessionId: sessionIdValue,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.delete',
+        operationContext: { projectId },
+        releasedAt: null,
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+      create: {
+        projectId,
+        ownerSessionId: sessionIdValue,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.delete',
+        operationContext: { projectId },
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+  }
+
+  async function grantExclusiveProjectUpdateLock(projectId: string, sessionIdValue: string, userId: string) {
+    const prisma = await ensurePrisma();
+
+    await prisma.structuringLock.upsert({
+      where: { projectId },
+      update: {
+        ownerSessionId: sessionIdValue,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.update',
+        operationContext: { projectId },
+        releasedAt: null,
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+      create: {
+        projectId,
+        ownerSessionId: sessionIdValue,
+        ownerUserId: userId,
+        state: StructuringLockState.exclusive,
+        operationType: 'project.update',
+        operationContext: { projectId },
+        heartbeatExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+  }
 
   beforeAll(async () => {
     await setupTestDB();
@@ -169,6 +222,8 @@ describe.sequential('Complete Application Workflow E2E Test', () => {
   });
 
   it('Step 8: Update project information', async () => {
+    await grantExclusiveProjectUpdateLock(testProject.id, sessionId, testUser.id);
+
     const updates = {
       name: testProject.name + ' (Updated)',
       description: 'Updated description during E2E test',
@@ -204,6 +259,8 @@ describe.sequential('Complete Application Workflow E2E Test', () => {
   });
 
   it('Step 11: Delete the project', async () => {
+    await grantExclusiveDeleteLock(testProject.id, sessionId, testUser.id);
+
     await request(app)
       .delete(`/api/projects/${testProject.id}`)
       .set('Cookie', `session_id=${sessionId}`)

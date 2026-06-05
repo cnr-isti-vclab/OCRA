@@ -11,7 +11,11 @@ This document defines the concurrency model and collaborative editing strategy f
 - The **Social Lock** mechanism used to reduce conflict probability while preserving architectural simplicity.
 - The **real-time synchronisation** layer that keeps concurrent clients aware of remote changes.
 
-Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same channel as the Social Lock, while remaining a separate concept.
+The OCC, Social Lock, and annotation mutation broadcast-network rules described here match the current implementation. Read-session coordination for structuring remains documented separately.
+
+The dedicated design for project-wide exclusive structuring lock, persistent presence tracking, and future structuring APIs is documented separately in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
+
+Real-time synchronisation is informational only, not a locking mechanism. It can be used to notify users and to let passive viewers explicitly refresh changed annotations, but it does not enforce consistency. It uses the same Broadcast Network channel as the Social Lock, while remaining a separate concept.
 
 For annotation editing, the model is intentionally stateless: there are no long-lived database locks, no server-side session ownership of records, and no heartbeat infrastructure. Consistency is guaranteed at commit time through atomic conditional writes. This does not apply to structuring operations, which follow a different concurrency model.
 
@@ -23,13 +27,19 @@ OCRA distinguishes two fundamentally different categories of operations, each wi
 
 ### Structuring Operations
 
+**Required role**: `manager` (or `sys_admin`). The `editor` role cannot perform structuring operations.
+
 Structuring operations modify the project's organizational structure: creating or deleting scenes, adding or removing digital assets from scenes, repositioning assets, and publishing HDT data. These operations can change the reference spaces and containment relationships on which annotation geometry and data depend.
+
+In the adopted design, project-wide structuring coordination is handled by a persistent exclusive lock plus project presence leases. The detailed model, state machine, invariants, and minimal API surface are documented in [Structuring Lock and Project Presence](./a04-structuring-lock.md).
 
 Because structuring operations may invalidate annotations (e.g. deleting a scene that annotations reference), they require **exclusive access**: no other user may read or edit the project while a structuring operation is in progress.
 
 **Concurrency Rule 1 — Exclusive structuring lock**: when a structuring operation is in progress, all other operations (read, view, edit) are blocked until the structuring operation completes.
 
 ### Annotation Editing Operations
+
+**Required role**: `editor` or above (`editor`, `manager`, or `sys_admin`). The `editor` role is the primary annotation role. Editors can create, update, and change the erasable state of annotations, but cannot perform any structuring operation.
 
 Annotation editing operations act on `annotationGeometry`, `annotationData`, and `annotationLink` records. `annotationGeometry` and `annotationData` may be created, updated, or transitioned between `non-erasable` and `erasable`. `annotationLink` keeps its two endpoints (`geometryId` and `dataId`) immutable after creation, but it also participates in the same `non-erasable` / `erasable` lifecycle and OCC model. 
 
@@ -65,7 +75,7 @@ The **optimistic approach** shines in this scenario: it imposes zero blocking co
 
 ### How It Works
 
-Every mutable annotation entity (`annotationGeometry`, `annotationData`, and `annotationLink`) carries a `version` integer and an `updatedAt` server-assigned timestamp. The OCC check works as follows:
+Every mutable annotation entity (`annotationGeometry`, `annotationData`, and `annotationLink`) carries a `version` integer and an `updatedAt` server-assigned timestamp. All three entity types support OCC-protected writes; the specific operations differ by type (see [Scope of the OCC Check](#scope-of-the-occ-check) below). The OCC check works as follows:
 
 1. **Read**: the client loads the entity and records its current `version` value as `expectedVersion`.
 2. **Edit**: the user modifies the entity locally. No lock is acquired.
@@ -78,19 +88,30 @@ The `version` integer is updated atomically in the same write operation as the m
 
 ### Scope of the OCC Check
 
-The OCC check applies to all mutating operations on `annotationGeometry`, `annotationData`, and `annotationLink`:
+The OCC check applies to all mutating operations on `annotationGeometry`, `annotationData`, and `annotationLink`. The allowed operations differ by entity type:
 
-- `update` (modifying fields)
-- `markErasable` (transitioning to `erasable` state)
-- `markNonErasable` (restoring to `non-erasable` state)
+**`annotationGeometry` and `annotationData`**:
+- `update` — modify the entity's content fields (shapes, label, description, class, content, …)
+- `markErasable` — transition to `erasable` state (writes `erasableAt` / `erasableBy`)
+- `markNonErasable` — restore to `non-erasable` state (clears `erasableAt` / `erasableBy`)
 
-For `annotationLink`, only the erasability transitions are allowed. Its `geometryId` and `dataId` references remain immutable after creation.
+**`annotationLink`**:
+- `markErasable` — transition to `erasable` state (writes `erasableAt` / `erasableBy`)
+- `markNonErasable` — restore to `non-erasable` state (clears `erasableAt` / `erasableBy`)
+
+`annotationLink` does support update operations — specifically the two erasable-state transitions above, which are full OCC-protected writes that increment `version` and set `updatedAt`/`updatedBy`. What is immutable on a link after creation is its structural identity: the `geometryId` and `dataId` endpoints. To change an association, the existing link must be marked as `erasable` and a new link must be created.
 
 Physical deletion of `annotationGeometry` and `annotationData` is **never triggered by a user action** through the annotation API. It is performed exclusively by garbage collection routines or superuser maintenance operations, both of which operate outside the normal editing workflow.
 
-Physical deletion of `annotationLink` is likewise **not part of the normal editing workflow**. Ordinary link removal is expressed by marking the link as `erasable`, leaving its referenced `annotationGeometry` and `annotationData` unchanged. Restoring a link to `non-erasable` is also an OCC-protected operation and restores the referenced geometry and data to `non-erasable` as part of the same logical undelete flow.
+Physical deletion of `annotationLink` is likewise **not part of the normal editing workflow**. Ordinary link removal is expressed by marking the link as `erasable`, leaving its referenced `annotationGeometry` and `annotationData` unchanged. Restoring a link to `non-erasable` is an OCC-protected write and changes only the link itself.
 
-Because link restore touches multiple documents, that undelete flow must run inside a short MongoDB transaction. This avoids partial restores while still preserving the stateless optimistic model: there are no long-lived locks or server-held edit sessions.
+In the adopted model, `erasable` and `non-erasable` should be read semantically as `weak` and `strong`:
+
+- `non-erasable` means `strong / not collectible`
+- `erasable` means `weak / collectible if not kept alive`
+- a non-erasable `annotationLink` is itself a strong relationship and keeps its referenced geometry and data alive for maintenance purposes
+
+All flag combinations are therefore valid in the database. The backend does not rely on automatic cascades between collections to enforce a stronger semantic invariant.
 
 No operation type has automatic priority over the others. A stale `markErasable` request fails in the same way as a stale `update` request.
 
@@ -110,7 +131,18 @@ When a conditional write is rejected because the entity has been modified in the
    - **Proceed with the current version**: let the user review their change against the latest saved state and explicitly re-submit, issuing a new intentional operation against the new `expectedVersion`.
 3. **Do not silently overwrite**: blindly replaying a stale operation is not permitted. The user must make an explicit decision.
 
-In the specific case where the target entity has become `erasable` in the meantime, the UI should additionally ask whether the user wants to restore it to `non-erasable` before continuing.
+In the specific case where the target entity has become `erasable` in the meantime, the UI should additionally ask whether the user wants to restore it to `non-erasable` before continuing. The frontend is also responsible for explaining whether the entity is weak but still retained by a strong link, or weak and eligible for cleanup.
+
+### Weak/Strong Operational Semantics
+
+The adopted annotation model uses the following operational rules:
+
+1. All combinations of `erasable` / `non-erasable` across geometry, data, and link are valid in the database.
+2. `non-erasable` means `strong / not collectible`; `erasable` means `weak / collectible if not kept alive`.
+3. A non-erasable `annotationLink` keeps its referenced geometry and data alive for maintenance purposes.
+4. Primitive state transitions on geometry, data, and link act only on the targeted document. They do not cascade automatically.
+5. Composite user intentions such as "delete annotation", "restore annotation", "make this cluster weak", or "recover from trash" are higher-level operations and may be implemented later as dedicated APIs and guided UX flows.
+6. Cleanup of weak entities and links is not ordinary editing; it belongs to maintenance/structuring because it can physically remove persisted records.
 
 ---
 
@@ -120,17 +152,22 @@ The OCC mechanism guarantees correctness but does not reduce the probability of 
 
 ### What It Is and What It Is Not
 
-The Social Lock is a **purely informational, presence-based indicator**. It does not block saves, does not hold database records, and does not prevent concurrent edits. It is a best-effort notification mechanism.
+The Social Lock is a **purely informational indicator**. It does not block saves, does not hold database records, and does not prevent concurrent edits. It is a best-effort notification mechanism.
+
+The Social Lock uses two explicit kinds:
+
+- `presence`: session-level activity in a scene/asset scope
+- `editor`: editing intent on one concrete annotation resource (`geometry`, `data`, or `link`)
 
 The backend does not enforce access control based on Social Lock state. The annotation model works correctly even if Social Lock messages are delayed, lost, or never sent.
 
 ### How It Works
 
-1. When a user begins editing an annotation, the client sends a `notifyEditingStart` notification, optionally identifying the specific entity being edited.
-2. Other active clients in the same scene receive this notification and display a visual cue — for example, a padlock icon or a tooltip — indicating that another editor is working on that element.
-3. A second editor, seeing the cue, can choose to work on a different annotation to avoid a potential conflict.
-4. When the first editor finishes (saves or cancels), the client sends `notifyEditingStop`. The visual cue is removed from other clients.
-5. If the editor disconnects without sending `notifyEditingStop`, the Social Lock expires automatically via a TTL (time-to-live) mechanism, preventing stale indicators from persisting indefinitely.
+1. When a client enters a scene/asset context, it may send a `presence` lock (scope-level awareness).
+2. When a user starts editing one concrete annotation resource, the client sends an `editor` lock for that `resourceType/resourceId`.
+3. Other clients whose current scene is affected by the event `impact` receive the notification and display a visual cue.
+4. A second editor, seeing the cue, can choose to work on a different annotation to avoid a potential conflict.
+5. When editing ends (save/cancel/close), the client sends a stop notification. If the stream closes unexpectedly, backend stream cleanup removes that stream's active social locks.
 
 The Social Lock does **not** prevent the second editor from continuing. If the second editor proceeds, the standard OCC check at save time will handle the conflict correctly.
 
@@ -161,7 +198,7 @@ If the notification concerns an annotation that the user is actively editing, th
 
 ### Relationship to Social Locks
 
-The synchronisation notification and the Social Lock use the same communication channel. They serve complementary purposes:
+The synchronisation notification and the Social Lock use the same Broadcast Network channel. They serve complementary purposes:
 
 - **Social Lock** warns about *intent to edit* (before a change is committed).
 - **Synchronisation notification** informs about *committed changes* (after a change is saved).
@@ -190,7 +227,7 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 1. The initiating user requests the exclusive structuring lock via `startStructuring(projectId)`.
 2. The system verifies that no other session is active (no reads, edits, or other structuring operations).
 3. If granted, all other operations are blocked until `stopStructuring(projectId)` is called.
-4. The structuring operation is performed, including all cascading side effects required to preserve referential integrity. For example, deleting an asset must trigger the removal of all `annotationGeometry` and `annotationData` records scoped to that asset, and of all `annotationLink` records that reference them. The databases must be in a fully consistent state before the lock is released.
+4. The structuring operation is performed, including any maintenance or structural cleanup that physically removes project content. For example, deleting an asset must still remove annotation records whose scope depends on that asset, because they no longer have a valid reference space.
 5. The lock is released. Normal operations may resume.
 
 ### Workflow 2: Annotation Editing (Optimistic)
@@ -199,16 +236,18 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 **Precondition**: No structuring operation is in progress.
 
 1. The user loads the scene. Active annotations are fetched, including `version` for each mutable entity. `updatedAt` is returned for audit and debugging.
-2. *(Optional)* The user sends `notifyEditingStart(projectId, sceneId, targetId?)` to broadcast a Social Lock.
-3. The user creates or modifies annotations locally.  
+2. *(Optional)* The client sends a `presence` social lock for the current scope.
+3. When the user starts editing a concrete resource, the client sends an `editor` social lock for that resource.
+4. The user creates or modifies annotations locally.  
    - **Create**: new IDs are generated; no conflict possible.  
-   - **Update / change erasability**: the user records `expectedVersion` at load time.
+   - **Update fields or change erasability**: the user records `expectedVersion` at load time.
 
-4. On save: the backend handles the operation according to its type.  
+5. On save: the backend handles the operation according to its type.  
    - **Create**: the backend inserts a new document with its initial `version`; no `expectedVersion` check is needed.  
-   - **Update / change erasability**: the backend performs a conditional write using `expectedVersion`. If the write succeeds, it returns the new `version`; otherwise it returns a conflict error and the client shows a resolution dialog.
-   - **Link restore**: if an `annotationLink` is restored to `non-erasable`, the backend also restores the referenced `annotationGeometry` and `annotationData` to `non-erasable` as part of the same logical operation, executed inside one short transaction.
-5. The user sends `notifyEditingStop(projectId, sceneId, targetId?)` to release the Social Lock.
+   - **Update fields** (geometry and data only): the backend performs a conditional write using `expectedVersion`. If the write succeeds, it returns the new `version`; otherwise it returns a conflict error and the client shows a resolution dialog.  
+   - **Change erasability** (geometry, data, and link): the backend performs a conditional write on `erasableAt`/`erasableBy` using `expectedVersion`. Succeeds or returns a conflict error identically to a field update. For `annotationLink` this is the only supported in-place mutation.  
+   - **Link restore**: restoring an `annotationLink` to `non-erasable` changes only the link itself. Whether geometry or data should also be promoted back to `non-erasable` is a higher-level workflow decision, not a primitive backend side effect.
+6. The client sends an `editor` stop lock after save/cancel/close and may keep or stop the `presence` lock depending on whether the user remains active in the scope.
 
 ### Workflow 3: Scene Viewing
 
@@ -230,6 +269,10 @@ Conflicts only arise when two users attempt to modify the **same document** at t
 | 1 | While a structuring operation is in progress, all other operations (read, view, edit) are blocked. |
 | 2 | Any user may view any scene whenever no structuring operation is in progress, regardless of concurrent edits. |
 | 3 | Multiple users may edit annotations in the same scene concurrently (optimistic strategy). |
-| 4 | All mutating operations (`update`, `markErasable`, `markNonErasable`) use the same `expectedVersion` OCC check. For `annotationLink`, the mutating operations are its erasability transitions only. No operation type has automatic priority. |
+| 4 | All mutating operations use the same `expectedVersion` OCC check. `annotationGeometry` and `annotationData` support `update`, `markErasable`, and `markNonErasable`. `annotationLink` supports `markErasable` and `markNonErasable` (its `geometryId`/`dataId` endpoints are immutable after creation). No operation type has automatic priority. |
 | 5 | Both the `version` value and the persisted `erasableAt` state are validated atomically before any write is applied. |
 | 6 | Social Lock messages are best-effort informational only. The model is correct even if those messages are delayed or absent. |
+
+---
+
+*Last reviewed: 2026-05-20*

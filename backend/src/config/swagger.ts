@@ -16,9 +16,9 @@ OCRA (Open Collaborative Research Archive) Backend API provides comprehensive en
 
 ## Authentication
 
-Most endpoints require authentication via session cookies or bearer tokens:
+Most endpoints require authentication via a session id, passed either as a cookie or in the Authorization header:
 - **Session Cookie**: Set automatically after login, used for browser-based clients
-- **Bearer Token**: Include in Authorization header as \`Bearer <token>\` for API clients
+- **Session Bearer**: Include the session id in the Authorization header as \`Bearer <session_id>\` for API clients
 
 ## Rate Limiting
 
@@ -54,17 +54,16 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
     ],
     components: {
       securitySchemes: {
-        sessionAuth: {
+        sessionCookie: {
           type: 'apiKey',
           in: 'cookie',
-          name: 'connect.sid',
+          name: 'session_id',
           description: 'Session cookie set after login',
         },
-        bearerAuth: {
+        sessionBearer: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Bearer token for API authentication',
+          description: 'Session id forwarded in the Authorization header as Bearer <session_id>',
         },
       },
       schemas: {
@@ -172,6 +171,12 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               example: 'Draft project created from UI',
             },
             public: { type: 'boolean', example: false },
+            activeUserCount: {
+              type: 'integer',
+              minimum: 0,
+              description: 'Number of distinct active users currently connected to the project through viewing or editing presence leases.',
+              example: 3,
+            },
             createdAt: {
               type: 'string',
               format: 'date-time',
@@ -275,10 +280,191 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           }
         },
         Error: {
+          allOf: [
+            { $ref: '#/components/schemas/ApiErrorResponse' },
+          ],
+        },
+        ApiErrorResponse: {
+          type: 'object',
+          required: ['success', 'error', 'code', 'status', 'timestamp'],
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: { type: 'string', example: 'An error occurred' },
+            code: { type: 'string', example: 'common.internal_error' },
+            status: { type: 'integer', example: 500 },
+            requestId: { type: 'string', example: '0d16a4d4-5d6f-4d80-a511-8e883eff2d73' },
+            details: {
+              oneOf: [
+                { type: 'string', example: 'Additional error information' },
+                { type: 'object', additionalProperties: true },
+              ],
+            },
+            timestamp: { type: 'string', format: 'date-time', example: '2026-04-25T10:30:00.000Z' },
+            path: { type: 'string', example: '/api/sessions/current' },
+            method: { type: 'string', example: 'GET' },
+          },
+        },
+        AnnotationVertex3D: {
+          type: 'array',
+          minItems: 3,
+          maxItems: 3,
+          items: { type: 'number' },
+          example: [0.42, 0.31, 0.12],
+        },
+        AnnotationShapePoints: {
+          type: 'object',
+          required: ['type', 'vertices'],
+          properties: {
+            type: { type: 'string', enum: ['ShapePoints'] },
+            vertices: {
+              type: 'array',
+              minItems: 1,
+              items: { $ref: '#/components/schemas/AnnotationVertex3D' },
+            },
+          },
+        },
+        AnnotationShapePolyline: {
+          type: 'object',
+          required: ['type', 'vertices'],
+          properties: {
+            type: { type: 'string', enum: ['ShapePolyline'] },
+            vertices: {
+              type: 'array',
+              minItems: 2,
+              items: { $ref: '#/components/schemas/AnnotationVertex3D' },
+            },
+          },
+        },
+        AnnotationShapePolygon: {
+          type: 'object',
+          required: ['type', 'vertices'],
+          properties: {
+            type: { type: 'string', enum: ['ShapePolygon'] },
+            vertices: {
+              type: 'array',
+              minItems: 3,
+              items: { $ref: '#/components/schemas/AnnotationVertex3D' },
+            },
+          },
+        },
+        AnnotationShape: {
+          oneOf: [
+            { $ref: '#/components/schemas/AnnotationShapePoints' },
+            { $ref: '#/components/schemas/AnnotationShapePolyline' },
+            { $ref: '#/components/schemas/AnnotationShapePolygon' },
+          ],
+        },
+        AnnotationGeometry: {
+          type: 'object',
+          required: [
+            'id',
+            'projectId',
+            'shapes',
+            'referenceType',
+            'referenceId',
+            'version',
+            'createdAt',
+            'createdBy',
+            'updatedAt',
+            'updatedBy',
+          ],
+          properties: {
+            id: { type: 'string', example: 'ag_123e4567-e89b-12d3-a456-426614174000' },
+            projectId: { type: 'string', example: 'cmproject123' },
+            shapes: {
+              type: 'array',
+              minItems: 1,
+              items: { $ref: '#/components/schemas/AnnotationShape' },
+            },
+            referenceType: { type: 'string', enum: ['scene', 'asset'], example: 'scene' },
+            referenceId: { type: 'string', example: 'scene-main' },
+            version: { type: 'integer', example: 0 },
+            erasableAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+            erasableBy: { type: 'string', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-04-24T10:00:00.000Z' },
+            createdBy: { type: 'string', example: 'cmuser123' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-04-24T10:00:00.000Z' },
+            updatedBy: { type: 'string', example: 'cmuser123' },
+          },
+        },
+        AnnotationData: {
+          type: 'object',
+          required: [
+            'id',
+            'projectId',
+            'label',
+            'description',
+            'class',
+            'content',
+            'visibilityType',
+            'visibilityId',
+            'version',
+            'createdAt',
+            'createdBy',
+            'updatedAt',
+            'updatedBy',
+          ],
+          properties: {
+            id: { type: 'string', example: 'ad_123e4567-e89b-12d3-a456-426614174000' },
+            projectId: { type: 'string', example: 'cmproject123' },
+            label: { type: 'string', example: 'Crack on column base' },
+            description: { type: 'string', example: 'Horizontal crack, approx 3 cm' },
+            class: { type: 'string', nullable: true, example: 'damage' },
+            content: { type: 'object', additionalProperties: true, example: { severity: 'medium' } },
+            visibilityType: { type: 'string', enum: ['scene', 'asset'], example: 'asset' },
+            visibilityId: { type: 'string', example: 'asset-col-01' },
+            version: { type: 'integer', example: 0 },
+            erasableAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+            erasableBy: { type: 'string', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-04-24T10:00:00.000Z' },
+            createdBy: { type: 'string', example: 'cmuser123' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-04-24T10:00:00.000Z' },
+            updatedBy: { type: 'string', example: 'cmuser123' },
+          },
+        },
+        AnnotationLink: {
+          type: 'object',
+          required: [
+            'id',
+            'projectId',
+            'geometryId',
+            'dataId',
+            'version',
+            'createdAt',
+            'createdBy',
+            'updatedAt',
+            'updatedBy',
+          ],
+          properties: {
+            id: { type: 'string', example: 'al_123e4567-e89b-12d3-a456-426614174000' },
+            projectId: { type: 'string', example: 'cmproject123' },
+            geometryId: { type: 'string', example: 'ag_123e4567-e89b-12d3-a456-426614174000' },
+            dataId: { type: 'string', example: 'ad_123e4567-e89b-12d3-a456-426614174000' },
+            version: { type: 'integer', example: 0 },
+            erasableAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+            erasableBy: { type: 'string', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-04-24T10:00:00.000Z' },
+            createdBy: { type: 'string', example: 'cmuser123' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-04-24T10:00:00.000Z' },
+            updatedBy: { type: 'string', example: 'cmuser123' },
+          },
+        },
+        AnnotationSceneBundle: {
           type: 'object',
           properties: {
-            error: { type: 'string', example: 'An error occurred' },
-            details: { type: 'string', example: 'Additional error information' },
+            success: { type: 'boolean', example: true },
+            geometries: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/AnnotationGeometry' },
+            },
+            data: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/AnnotationData' },
+            },
+            links: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/AnnotationLink' },
+            },
           },
         },
       },
@@ -311,6 +497,22 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
       {
         name: 'User Administration',
         description: 'User management and privilege administration (admin only)',
+      },
+      {
+        name: 'Annotations',
+        description: 'Scene-facing annotation read and mutation endpoints',
+      },
+      {
+        name: 'Annotation Geometry',
+        description: 'Annotation geometry read and mutation endpoints',
+      },
+      {
+        name: 'Annotation Data',
+        description: 'Annotation data read and mutation endpoints',
+      },
+      {
+        name: 'Annotation Links',
+        description: 'Annotation link read and mutation endpoints',
       },
     ],
   },

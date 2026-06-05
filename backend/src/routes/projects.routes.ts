@@ -18,18 +18,35 @@ import {
   deleteProjectFile,
   isManagerOfProject,
   getProjectScene,
-  updateProjectScene
+  updateProjectScene,
+  subscribeProjectCatalogEventsHandler,
+  consumeProjectCounter,
 } from '../controllers/projects.controller.js';
+import {
+  heartbeatPresence,
+  heartbeatStructuring,
+  notifyStructuringDrainingStart,
+  notifyStructuringDrainingStop,
+  subscribeStructuringEvents,
+  startPresence,
+  startStructuring,
+  stopPresence,
+  stopStructuring,
+} from '../controllers/project-concurrency.controller.js';
 
 import { requireAuth } from '../middleware/auth.js';
 import { unifiedAssetUploadMiddleware } from '../middleware/unified-asset-upload-middleware.js';
-import { unifiedAssetUploadHandler } from '../controllers/unified-asset-upload.controller.js';
+import {
+  unifiedAssetImportFromUrlHandler,
+  unifiedAssetUploadHandler,
+} from '../controllers/unified-asset-upload.controller.js';
 
 import {
   listProjectMembers,
   addProjectMember,
   removeProjectMember
 } from '../controllers/project-members.controller.js';
+import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
 
 const router = express.Router();
 
@@ -71,6 +88,29 @@ const router = express.Router();
  *         description: Authentication required
  */
 router.get('/', getAllProjects);
+
+/**
+ * @openapi
+ * /api/projects/events:
+ *   get:
+ *     summary: Subscribe to project catalog SSE events
+ *     description: Opens a Server-Sent Events stream that notifies clients when the visible project catalog may have changed after project create, update, or delete operations.
+ *     tags:
+ *       - Projects
+ *     responses:
+ *       200:
+ *         description: SSE stream established
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: |
+ *                 retry: 5000
+ *
+ *                 event: project.catalog.changed
+ *                 data: {"type":"project.catalog.changed","projectId":"proj-123","changeType":"created"}
+ */
+router.get('/events', subscribeProjectCatalogEventsHandler);
 
 /**
  * @openapi
@@ -164,6 +204,56 @@ router.get('/:projectId', getProjectById);
 
 /**
  * @openapi
+ * /api/projects/{projectId}/counter:
+ *   post:
+ *     summary: Consume next project counter value
+ *     description: |
+ *       Atomically increments the per-project persistent counter and returns the assigned value.
+ *
+ *       **Counter semantics:**
+ *       - Starts from `0` for each project.
+ *       - First call returns `0`, second returns `1`, and so on.
+ *       - Value is never reset by any API endpoint.
+ *       - Returned as string to preserve full integer precision.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     responses:
+ *       200:
+ *         description: Counter value successfully consumed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 counter:
+ *                   type: string
+ *                   example: "0"
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Access denied for this project
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Counter operation failed
+ */
+router.post('/:projectId/counter', requireAuth, consumeProjectCounter);
+
+/**
+ * @openapi
  * /api/projects/{projectId}:
  *   put:
  *     summary: Update an existing project
@@ -174,7 +264,7 @@ router.get('/:projectId', getProjectById);
  *       - The project is identified **only** by `projectId` in the URL.
  *       - The request body supports **partial updates** (PATCH-like semantics).
  *       - The following fields are **forbidden** in the request body:
- *         `id`, `createdAt`, `updatedAt`.
+ *         `id`, `createdAt`, `updatedAt`, `counter`.
  *       - `updatedAt` is managed automatically by the backend.
  *
  *       An audit event `project.update` is generated with the applied patch only.
@@ -243,6 +333,9 @@ router.put('/:projectId', requireAuth, updateProject);
  *
  *       **Important notes:**
  *       - The project is identified **only** by `projectId` in the URL.
+ *       - The authenticated caller must be a project manager.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - Acquire the lock with `POST /api/projects/{projectId}/structuring/start` and keep it alive with `POST /api/projects/{projectId}/structuring/heartbeat` until the lock state becomes `exclusive`.
  *       - This operation is irreversible.
  *
  *       An audit event `project.delete` is generated containing:
@@ -274,10 +367,469 @@ router.put('/:projectId', requireAuth, updateProject);
  *         description: Authentication required
  *       403:
  *         description: Only project managers can delete the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: No active structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: Project not found
  */
 router.delete('/:projectId', requireAuth, deleteProject);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/events:
+ *   get:
+ *     summary: Subscribe to project structuring SSE events
+ *     description: Opens a Server-Sent Events stream for project-wide structuring lifecycle notifications such as draining start and stop.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     responses:
+ *       200:
+ *         description: SSE stream established
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *               example: |
+ *                 retry: 5000
+ *
+ *                 event: structuring.connected
+ *                 data: {"type":"structuring.connected","streamId":"9b63d0b8-a5b9-4a70-94d4-bd9c984e4a15","projectId":"proj-123"}
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Project access denied
+ */
+router.get('/:projectId/structuring/events', requireAuth, subscribeStructuringEvents);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/events/draining/start:
+ *   post:
+ *     summary: Broadcast structuring draining start
+ *     description: Announces that the current lock owner has started draining the project before a structuring commit.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [streamId]
+ *             properties:
+ *               streamId:
+ *                 type: string
+ *                 format: uuid
+ *               operationType:
+ *                 type: string
+ *               operationContext:
+ *                 type: object
+ *     responses:
+ *       202:
+ *         description: Draining notification accepted
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Referenced structuring SSE stream not found
+ *       409:
+ *         description: No active structuring lock exists for the caller session
+ *       423:
+ *         description: The caller does not own the active structuring lock
+ */
+router.post('/:projectId/structuring/events/draining/start', requireAuth, notifyStructuringDrainingStart);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/events/draining/stop:
+ *   post:
+ *     summary: Broadcast structuring draining stop
+ *     description: Clears a previously announced project draining signal emitted by the active lock owner.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [streamId]
+ *             properties:
+ *               streamId:
+ *                 type: string
+ *                 format: uuid
+ *               operationType:
+ *                 type: string
+ *               operationContext:
+ *                 type: object
+ *     responses:
+ *       202:
+ *         description: Draining removal accepted
+ *       400:
+ *         description: Invalid payload
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Referenced structuring SSE stream not found
+ *       409:
+ *         description: Draining signal not found for the provided stream
+ *       423:
+ *         description: The caller does not own the active structuring lock
+ */
+router.post('/:projectId/structuring/events/draining/stop', requireAuth, notifyStructuringDrainingStop);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/start:
+ *   post:
+ *     summary: Start structuring lock acquisition
+ *     description: |
+ *       Requests the project structuring lock for the authenticated session.
+ *
+ *       **Important notes:**
+ *       - Only project managers can start structuring.
+ *       - The lock may start in `draining` state while other presence leases are still active.
+ *       - Destructive operations guarded by the exclusive lock can proceed only after the state becomes `exclusive`.
+ *       - Use `POST /api/projects/{projectId}/structuring/heartbeat` to refresh the lease and observe the transition from `draining` to `exclusive`.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               operationType:
+ *                 type: string
+ *                 description: Optional semantic label for the protected operation, for example `project.delete` or `scene.delete`.
+ *               operationContext:
+ *                 type: object
+ *                 description: Optional JSON object with contextual details for the protected operation.
+ *     responses:
+ *       200:
+ *         description: Structuring lock acquired or resumed for the caller session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 state:
+ *                   type: string
+ *                   enum: [draining, exclusive]
+ *                 projectId:
+ *                   type: string
+ *                 ownerSessionId:
+ *                   type: string
+ *                 fencingToken:
+ *                   type: integer
+ *                 heartbeatExpiresAt:
+ *                   type: string
+ *                   format: date-time
+ *                 remainingPresenceCount:
+ *                   type: integer
+ *       400:
+ *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: Only project managers can start structuring
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       404:
+ *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: Another active structuring lock already exists for a different session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Another active structuring lock already exists
+ *               code: structuring.lock_already_active
+ *               status: 409
+ */
+router.post('/:projectId/structuring/start', requireAuth, startStructuring);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/heartbeat:
+ *   post:
+ *     summary: Refresh structuring lock ownership
+ *     description: |
+ *       Refreshes the structuring lock lease for the authenticated owner session.
+ *
+ *       **Important notes:**
+ *       - The caller must already own the project structuring lock.
+ *       - A successful heartbeat may promote the lock state from `draining` to `exclusive` once remaining presence leases leave the project.
+ *       - The `fencingToken` from `structuring/start` must be echoed back on every heartbeat.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fencingToken
+ *             properties:
+ *               fencingToken:
+ *                 type: integer
+ *                 description: Current fencing token returned by `structuring/start` or the previous heartbeat.
+ *     responses:
+ *       200:
+ *         description: Structuring lock heartbeat accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 state:
+ *                   type: string
+ *                   enum: [draining, exclusive]
+ *                 projectId:
+ *                   type: string
+ *                 fencingToken:
+ *                   type: integer
+ *                 heartbeatExpiresAt:
+ *                   type: string
+ *                   format: date-time
+ *                 remainingPresenceCount:
+ *                   type: integer
+ *       400:
+ *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: The caller does not own the active structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: Fencing token mismatch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock fencing token mismatch
+ *               code: structuring.fencing_token_mismatch
+ *               status: 409
+ *       410:
+ *         description: Structuring lock expired or missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock expired or missing
+ *               code: structuring.lock_missing
+ *               status: 410
+ */
+router.post('/:projectId/structuring/heartbeat', requireAuth, heartbeatStructuring);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/structuring/stop:
+ *   post:
+ *     summary: Release structuring lock ownership
+ *     description: |
+ *       Releases the active structuring lock owned by the authenticated session.
+ *
+ *       **Important notes:**
+ *       - The caller must already own the project structuring lock.
+ *       - The `fencingToken` from `structuring/start` must be echoed back when stopping the lock.
+ *     tags:
+ *       - Project Structuring
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fencingToken
+ *             properties:
+ *               fencingToken:
+ *                 type: integer
+ *                 description: Current fencing token returned by `structuring/start` or the previous heartbeat.
+ *     responses:
+ *       200:
+ *         description: Structuring lock released successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 projectId:
+ *                   type: string
+ *                 releasedAt:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: The caller does not own the active structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       409:
+ *         description: Fencing token mismatch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock fencing token mismatch
+ *               code: structuring.fencing_token_mismatch
+ *               status: 409
+ *       410:
+ *         description: Structuring lock expired or missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Structuring lock expired or missing
+ *               code: structuring.lock_missing
+ *               status: 410
+ */
+router.post('/:projectId/structuring/stop', requireAuth, stopStructuring);
+
+router.post('/:projectId/presence/start', requireAuth, startPresence);
+router.post('/:projectId/presence/heartbeat', requireAuth, heartbeatPresence);
+router.post('/:projectId/presence/stop', requireAuth, stopPresence);
+
+router.use('/:projectId', enforceStructuringLock);
 
 /* ============================================================================
  * PROJECT PERMISSIONS
@@ -314,6 +866,16 @@ router.delete('/:projectId', requireAuth, deleteProject);
  *         description: Authentication required
  *       404:
  *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Project ID is required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/:projectId/is-manager', isManagerOfProject);
 
@@ -354,10 +916,34 @@ router.get('/:projectId/is-manager', isManagerOfProject);
  *                     type: string
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Project ID is required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Failed to list project members
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/:projectId/members', listProjectMembers);
 
@@ -396,12 +982,34 @@ router.get('/:projectId/members', listProjectMembers);
  *         description: Member added
  *       400:
  *         description: Invalid request body
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: Project or user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Failed to add project member
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post('/:projectId/members', addProjectMember);
 
@@ -431,10 +1039,34 @@ router.post('/:projectId/members', addProjectMember);
  *         description: Member removed
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: Project or member not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Project ID and User ID are required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Failed to remove project member
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.delete('/:projectId/members/:userId', removeProjectMember);
 
@@ -497,10 +1129,22 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  *                   description: Total number of assets
  *       400:
  *         description: Project ID is required
- *       401:
- *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       404:
+ *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       500:
  *         description: Failed to list project assets
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/:projectId/files', listProjectFiles);
 
@@ -555,6 +1199,71 @@ router.post(
   requireAuth,                  // Auth middleware
   unifiedAssetUploadMiddleware, // File processing middleware
   unifiedAssetUploadHandler     // Upload controller
+);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/files/import-url:
+ *   post:
+ *     summary: Import a 3D or RTI asset from a remote URL
+ *     description: |
+ *       Downloads a remote asset on the backend and ingests it through the same
+ *       storage pipeline used for direct uploads. Only project managers can use
+ *       this endpoint. The remote URL must use HTTP or HTTPS and must not resolve
+ *       to localhost or private network addresses. Optional HTTP Basic Auth can
+ *       be supplied as separate fields when the remote server is protected by
+ *       .htaccess/.htpasswd.
+ *     tags:
+ *       - Projects
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - assetId
+ *               - sourceUrl
+ *             properties:
+ *               assetId:
+ *                 type: string
+ *               sourceUrl:
+ *                 type: string
+ *                 format: uri
+ *               authType:
+ *                 type: string
+ *                 enum: [none, basic]
+ *               username:
+ *                 type: string
+ *                 description: Required when authType is basic
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Required when authType is basic
+ *     responses:
+ *       201:
+ *         description: Asset imported
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized or URL is not allowed
+ *       404:
+ *         description: Project or asset not found
+ */
+router.post(
+  '/:projectId/files/import-url',
+  requireAuth,
+  unifiedAssetImportFromUrlHandler,
 );
 
 // FIXME: currently unused (commented out)

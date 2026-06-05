@@ -29,6 +29,10 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -68,6 +72,10 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -86,6 +94,15 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
         projectId: true
       }
     });
+
+    // Find users with at least one non-expired session (currently logged in)
+    const now = new Date();
+    const activeSessions = await db.session.findMany({
+      where: { expiresAt: { gt: now } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    const activeUserIds = new Set(activeSessions.map((s: any) => s.userId));
 
     // Get last login information for all users from Mongo audit collection
     const { getLatestLogins } = await import('../services/audit.service.js');
@@ -111,7 +128,8 @@ export async function getAllUsersWithStats(req: Request, res: Response): Promise
     const usersWithStats = users.map((user: any) => ({
       ...user,
       managedProjectsCount: projectCountMap.get(user.id) || 0,
-      lastLoginAt: lastLoginMap.get(user.sub) || null
+      lastLoginAt: lastLoginMap.get(user.sub) || null,
+      hasActiveSession: activeUserIds.has(user.id),
     }));
 
     res.json(usersWithStats);
@@ -153,6 +171,10 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -218,6 +240,10 @@ export async function updateUserAdminStatus(req: Request, res: Response): Promis
         middle_name: true,
         sys_admin: true,
         sys_creator: true,
+        isActive: true,
+        disabledAt: true,
+        disabledBy: true,
+        disableReason: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -255,6 +281,9 @@ export async function getUsersForDropdown(req: Request, res: Response): Promise<
     
     // Get basic user information for dropdowns
     const users = await db.user.findMany({
+      where: {
+        isActive: true,
+      },
       select: {
         id: true,
         email: true,

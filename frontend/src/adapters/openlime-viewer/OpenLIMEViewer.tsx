@@ -19,7 +19,9 @@ import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } f
 import * as OpenLIME from 'openlime';
 import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
-import { Annotation, AnnotationType, AnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
+import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
+import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.ts';
+import type { OpenLimeLabelVisibility } from '../annotation-store/openlimeAnnotationAdapter.ts';
 
 /**
  * Simplified annotation interface for CRUD operations
@@ -34,21 +36,30 @@ export interface SimplifiedAnnotation {
   state?: any;
 }
 
-function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
+function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   console.log('Converting SimplifiedAnnotation to OCRA Annotation:', anno);
-  let annoType: AnnotationType = 'point';
-  let geometry: AnnotationGeometry = ([]);
+  let annoType: ViewerAnnotationShapeType = 'point';
+  let geometry: ViewerAnnotationGeometry = ([]);
 
-  if (anno.type === 'disk') {
+  // OpenLIME's ManagerSvgAnnotation uses `annotation.type = 'point'` for disk annotations,
+  // while the actual marker is stored in `data._markerType = 'disk'`.
+  // Prefer marker type when present, and treat 'point' as a disk.
+  const markerType = anno.data?._markerType ?? anno.type;
+
+  const markerClosed = Boolean(anno.data?._markerClosed);
+
+  if (markerType === 'disk' || markerType === 'point') {
     annoType = 'point';
     geometry = [anno.data?._x || 0, anno.data?._y || 0, 0];
-  } else if (anno.type === 'polyline') {
-    annoType = 'line';
+  } else if (markerType === 'polyline') {
+    // OpenLIME uses markerType 'polyline' for both open polylines and closed polygons.
+    // Closed-ness is stored in `data._markerClosed` (and may also appear as anno.type === 'polygon').
+    annoType = markerClosed || anno.type === 'polygon' ? 'area' : 'line';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
-  } else if (anno.type === 'polygon') {
+  } else if (markerType === 'polygon') {
     annoType = 'area';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
-  } else if (anno.type === 'rect') {
+  } else if (markerType === 'rect') {
     annoType = 'area';
     //geometry = anno.data?._markerCorners.map((point: any) => [point.x, point.y, 0]);
     // Convert the two markerCorners into 4 explicit points
@@ -57,11 +68,11 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[0].y, 0]);
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[1].y, 0]);
     geometry.push([anno.data?._markerCorners[0].x, anno.data?._markerCorners[1].y, 0]);
-  } else if (anno.type === 'freehand') {
+  } else if (markerType === 'freehand') {
     annoType = 'line';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
   } else {
-    console.log('Unknown annotation type:', anno.type);
+    console.log('Unknown annotation type:', anno.type, 'markerType:', markerType);
   }
 
   if (geometry.length === 0) {
@@ -72,9 +83,9 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): Annotation {
   // console.log('MarkerPoints:', anno.data?._markerPoints);
   // console.log('Extracted geometry:', geometry);
 
-  const ocraAnno: Annotation = {
+  const ocraAnno: ViewerAnnotation = {
     id: anno.id || `anno-${Date.now()}`,
-    label: anno.label || 'New ' + anno.type + ' annotation',
+    label: anno.label || '',
     type: annoType,
     geometry: geometry,
     createdAt: new Date().toISOString(),
@@ -94,6 +105,9 @@ export interface OpenLIMEViewerRef {
   deleteAnnotationById: (id: string) => SimplifiedAnnotation | null;
 
   getAnnotationManager: () => OpenLIME.ManagerSvgAnnotation | null;
+
+  /** Enables/disables the OpenLIME pencil tool (annotation system). */
+  enableEditing: (enabled: boolean) => void;
 }
 
 
@@ -105,17 +119,35 @@ const OpenLIMEViewer = forwardRef<
     onReady?: () => void;
     onError?: (error: Error) => void;
     // Annotation callbacks
-    onAnnotationCreated?: (annotation: Annotation) => void;
-    onAnnotationUpdated?: (annotation: Annotation) => void;
-    onAnnotationDeleted?: (annotation: Annotation) => void;
+    onAnnotationCreated?: (annotation: ViewerAnnotation) => void;
+    onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
+    onAnnotationDeleted?: (annotation: ViewerAnnotation) => void;
     onAnnotationSelectionChanged?: (ids: string[]) => void;
+    /** Fired when the user starts dragging a vertex or disc handle (pointerdown). */
+    onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
+    /** Fired when the OpenLIME pencil (annotation tool) is enabled or disabled. */
+    onPencilActiveChange?: (active: boolean) => void;
+    /** Fired when the OpenLIME settings button is pressed. */
+    onSettingsRequested?: () => void;
+    annotationLabelVisibility?: OpenLimeLabelVisibility;
   }>(
     (
-      { sceneDesc, digitalAssets, onReady, onError, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onAnnotationSelectionChanged },
+      {
+        sceneDesc,
+        digitalAssets,
+        onReady,
+        onError,
+        onAnnotationCreated,
+        onAnnotationUpdated,
+        onAnnotationDeleted,
+        onAnnotationSelectionChanged,
+        onAnnotationEditStart,
+        onPencilActiveChange,
+        onSettingsRequested,
+        annotationLabelVisibility = 'selected',
+      },
       ref
     ) => {
-      const [isEditing, setIsEditing] = useState(false);
-      const [activeAnnotationClass, setActiveAnnotationClass] = useState<number>(0);
       const mountRef = useRef<HTMLDivElement | null>(null);
       const viewerRef = useRef<OpenLIME.Viewer | null>(null);
       const uiRef = useRef<OpenLIME.UIBasic | null>(null);
@@ -126,6 +158,16 @@ const OpenLIMEViewer = forwardRef<
       const onAnnotationUpdatedRef = useRef<typeof onAnnotationUpdated>(onAnnotationUpdated);
       const onAnnotationDeletedRef = useRef<typeof onAnnotationDeleted>(onAnnotationDeleted);
       const onAnnotationSelectionChangedRef = useRef<typeof onAnnotationSelectionChanged>(onAnnotationSelectionChanged);
+      const onAnnotationEditStartRef = useRef<typeof onAnnotationEditStart>(onAnnotationEditStart);
+      const onPencilActiveChangeRef = useRef<typeof onPencilActiveChange>(onPencilActiveChange);
+      const onSettingsRequestedRef = useRef<typeof onSettingsRequested>(onSettingsRequested);
+      /** Panel-driven `enableEditing` must not clear selection via UIBasic `pencilEnabled`. */
+      const skipDeselectOnPencilEnableRef = useRef(false);
+
+      const notifyPencilActive = (active: boolean) => {
+        onPencilActiveChangeRef.current?.(active);
+      };
+
       useEffect(() => {
         onReadyRef.current = onReady;
       }, [onReady]);
@@ -149,6 +191,27 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         onAnnotationSelectionChangedRef.current = onAnnotationSelectionChanged;
       }, [onAnnotationSelectionChanged]);
+
+      useEffect(() => {
+        onAnnotationEditStartRef.current = onAnnotationEditStart;
+      }, [onAnnotationEditStart]);
+
+      useEffect(() => {
+        onPencilActiveChangeRef.current = onPencilActiveChange;
+      }, [onPencilActiveChange]);
+
+      useEffect(() => {
+        onSettingsRequestedRef.current = onSettingsRequested;
+      }, [onSettingsRequested]);
+
+      useEffect(() => {
+        const manager = annotationManagerRef.current as
+          | (OpenLIME.ManagerSvgAnnotation & {
+              setLabelVisibility?: (mode: OpenLimeLabelVisibility, repaint?: boolean) => OpenLimeLabelVisibility;
+            })
+          | null;
+        manager?.setLabelVisibility?.(annotationLabelVisibility, true);
+      }, [annotationLabelVisibility]);
 
       // Initialize viewer on mount
       useEffect(() => {
@@ -226,17 +289,29 @@ const OpenLIMEViewer = forwardRef<
 
           const getMatrix = (model: SceneDescription['models'][number]) => {
             console.log(`Calculating transformation matrix for model ${model.id} with properties:`, model);
-            const scale = model.scale || 1;
+            const scale = Array.isArray(model.scale)
+              ? model.scale[0] ?? 1
+              : model.scale ?? 1;
             const pos = model.position || [0, 0, 0];
             const rotScale = (model.rotationUnits && model.rotationUnits === 'rad') ? 180 / Math.PI : 1;
             const rot = model.rotation ? model.rotation[2] * rotScale : 0;
+
+            if (
+              Array.isArray(model.scale) &&
+              (model.scale[1] !== scale || model.scale[2] !== scale)
+            ) {
+              console.warn(
+                `OpenLIME uses uniform scaling; model ${model.id} has non-uniform scale`,
+                model.scale,
+                `and will use ${scale}`,
+              );
+            }
 
             let t = new OpenLIME.Transform();
             t.x = pos[0];
             t.y = pos[1];
             t.a = rot;
-            t.sx = scale;
-            t.sy = scale;
+            t.z = scale;
             t.t = 0;
             //
             t.print();
@@ -335,24 +410,16 @@ const OpenLIMEViewer = forwardRef<
 
           // Setup annotation manager
           console.log('🎬 Setting up OpenLIME annotation manager');
+
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
+            ...OPENLIME_ANNOTATION_STYLE_CONFIG,
+            labelVisibility: annotationLabelVisibility,
             activeMarker: 'disk',
-            markerOptions: { radius: 14 },
-            // Colour classes — annotation.class (0/1/2) selects the style
-            classes: [
-              { label: 'Disk', fill: '#e63946', stroke: '#e63946', fillOpacity: 0.75, strokeWidth: 2, fillSelected: '#ffd700', strokeSelected: '#ffd700' },
-              { label: 'Polyline', fill: 'none', stroke: '#22bb55', fillOpacity: 1, strokeWidth: 2, fillSelected: 'none', strokeSelected: '#ffd700' },
-              { label: 'Polygon', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
-              { label: 'Rect', fill: 'rgba(0,160,255,0.3)', stroke: '#00aaff', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
-              { label: 'Freehand', fill: 'rgba(255, 140, 0, 0.45)', stroke: '#ff8c00', fillOpacity: 1, strokeWidth: 2, fillSelected: 'rgba(255,215,0,0.15)', strokeSelected: '#ffd700' },
-            ],
-            defaultAnnotationClass: 0,
-            showVertexHandles: true,
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.
             singleEditMode: true,
-            // Capture viewer state (light direction, render mode, …) in each annotation
-            enableState: true,
+            // Avoid per-annotation state capture during viewer redraws (can become O(N) at idle).
+            enableState: false,
 
             // Called whenever a new annotation is created
             onCreate: (anno: SimplifiedAnnotation) => {
@@ -362,6 +429,10 @@ const OpenLIMEViewer = forwardRef<
               } else {
                 console.log('OpenLIMEViewerRef:onCreate Missing Annotation Callback', anno);
               }
+              // Some OpenLIME builds create elements without inline paint attributes and rely on
+              // ManagerSvgAnnotation's style application pass (triggered on selection updates).
+              // Force a style refresh so the freshly created annotation doesn't render with SVG defaults (black).
+              annotationManager.deselectAll();
             },
 
             onDelete: (anno: SimplifiedAnnotation) => {
@@ -370,6 +441,12 @@ const OpenLIMEViewer = forwardRef<
                 onAnnotationDeletedRef.current(getOcraAnnotation(anno));
               } else {
                 console.log('OpenLIMEViewerRef:onDelete Missing Annotation Callback', anno);
+              }
+            },
+
+            onEditStart: (anno: SimplifiedAnnotation) => {
+              if (onAnnotationEditStartRef.current) {
+                onAnnotationEditStartRef.current(getOcraAnnotation(anno));
               }
             },
 
@@ -398,27 +475,17 @@ const OpenLIMEViewer = forwardRef<
           // Before creating the UI create a lensLayer which could be activated for each layer, to be passed to the UIBasic interface
           if (!uiRef.current) {
             console.log("Create new OpenLIME.UIBasic");
-            const lensLayer = new OpenLIME.Layer({
-              type: "lens",
+            const lensLayer = new OpenLIME.LayerLens({
               layers: [],
               camera: viewer.camera,
               radius: 300,
               borderEnable: true,
               borderColor: [0.5, 0.5, 0.5, 1],
               borderWidth: 5,
-              visible: false,
-              zindex: selectedAssets.length + 1, // Ensure lens is always on top
             });
+            lensLayer.setVisible(false);
+            lensLayer.zindex = selectedAssets.length + 1; // Ensure lens is always on top
             viewer.addLayer('lens', lensLayer);
-
-            // Create a lens controller for focus and context exploration when lenses are enabled.
-            const controllerLens = new OpenLIME.ControllerFocusContext({
-              lensLayer: lensLayer,
-              camera: viewer.camera,
-              canvas: viewer.canvas,
-            });
-            viewer.pointerManager.onEvent(controllerLens);
-            lensLayer.controllers.push(controllerLens);
 
             // Here we are: create the UI
             uiRef.current = new OpenLIME.UIBasic(viewer, {
@@ -439,12 +506,13 @@ const OpenLIMEViewer = forwardRef<
           }
 
           if (uiRef.current) {
-            uiRef.current.actions.zoomin.display = true;
-            uiRef.current.actions.zoomout.display = true;
+            uiRef.current.actions.zoomin.display = false;
+            uiRef.current.actions.zoomout.display = false;
             uiRef.current.toggleLightController(true);
             // Show pencil tool but don't activate it by default
             // This allows single-click selection to work
             uiRef.current.actions.pencil.display = true;
+            uiRef.current.actions.settings.display = true;
             console.log('🎬 Toolbar setup: pencil displayed');
 
             // Leave the annotation manager in 'idle' mode at startup.
@@ -458,81 +526,21 @@ const OpenLIMEViewer = forwardRef<
 
 
             // ── Marker selector panel ────────────────────────────────────────
-            type MarkerType = 'disk' | 'polyline' | 'polygon' | 'rect' | 'freehand';
-            const markerType: MarkerType = 'disk';
-            const markerConfigs = {
-              'disk': { type: 'disk', opts: { radius: 14 }, classIdx: 0 },
-              'polyline': { type: 'polyline', opts: { closed: false, vertexRadius: 5 }, classIdx: 1 },
-              'polygon': { type: 'polyline', opts: { closed: true, vertexRadius: 5 }, classIdx: 2 },
-              'rect': { type: 'rect', opts: { vertexRadius: 5 }, classIdx: 3 },
-              'freehand': { type: 'freehand', opts: { vertexRadius: 5 }, classIdx: 4 },
-            };
-
-            function setMarker(key: MarkerType) {
-              const manager = annotationManagerRef.current;
-              if (!manager) return;
-              const cfg = markerConfigs[key];
-              if (cfg) {
-                manager.setActiveMarker(cfg.type, cfg.opts);
-                manager.defaultAnnotationClass = cfg.classIdx;
-                setActiveAnnotationClass(cfg.classIdx);
-              } else {
-                manager.defaultAnnotationClass = 0;
-                setActiveAnnotationClass(0);
-              }
-            }
-
-            let programmaticPencilEnabled = false;
-
-            // When pencil mode is activated, deselect all annotations
             uiRef.current.addEvent('pencilEnabled', () => {
-              console.log('🎬 Pencil tool activated - deselecting all annotations');
-              if (annotationManagerRef.current) {
+              if (annotationManagerRef.current && !skipDeselectOnPencilEnableRef.current) {
                 annotationManagerRef.current.deselectAll();
-                if (!programmaticPencilEnabled) {
-                  let marker = annotationManagerRef.current.activeMarker;
-                  console.log('Set marker', marker);
-                  if (marker) {
-                    setMarker(marker);
-                  }
-                }
               }
-              programmaticPencilEnabled = false;
-              setIsEditing(true);
+              skipDeselectOnPencilEnableRef.current = false;
+              notifyPencilActive(true);
             });
 
             uiRef.current.addEvent('pencilDisabled', () => {
-              console.log('🎬 Pencil tool deactivated');
-              setIsEditing(false);
+              notifyPencilActive(false);
             });
 
-            document.addEventListener('keydown', (e: KeyboardEvent) => {
-              let markerType: MarkerType | undefined;
-              if (e.key === '0') {
-                markerType = 'disk';
-              } else if (e.key === '1') {
-                markerType = 'polyline';
-              } else if (e.key === '2') {
-                markerType = 'polygon';
-              } else if (e.key === '3') {
-                markerType = 'rect';
-              } else if (e.key === '4') {
-                markerType = 'freehand';
-              } else if (e.key == '5') {
-                programmaticPencilEnabled = true;
-                annotationManagerRef.current?.setMode('edit');
-
-
-                console.log('Edit mode')
-              } else {
-                console.log('Pressed', e.key, 'Annotation mode: 0=disk, 1=polyline, 2=polygon, 3=rect, 4=freehand 5=edit');
-              }
-              if (markerType) {
-                setMarker(markerType);
-                console.log('Annotation mode set to', markerType);
-              }
+            uiRef.current.addEvent('settings', () => {
+              onSettingsRequestedRef.current?.();
             });
-
           }
 
           // Setup event listeners for annotation layer events (update, delete)
@@ -571,7 +579,9 @@ const OpenLIMEViewer = forwardRef<
       useImperativeHandle(ref, () => ({
         resetCamera() {
           if (viewerRef.current != null) {
-            viewerRef.current.camera.reset();
+            const camera = viewerRef.current.camera;
+            camera.setPosition(0, 0, 0, 1, 0);
+            viewerRef.current.redraw();
           }
         },
 
@@ -628,6 +638,45 @@ const OpenLIMEViewer = forwardRef<
         getAnnotationManager() {
           return annotationManagerRef.current;
         },
+
+        enableEditing(enabled: boolean) {
+          const on = Boolean(enabled);
+          const ui = uiRef.current as any;
+          const manager = annotationManagerRef.current as any;
+          const wasAlreadyEditing = Boolean(manager?.active);
+
+          if (on) {
+            skipDeselectOnPencilEnableRef.current = true;
+          }
+
+          // Try the official UI pathway first (keeps controllers in sync).
+          if (ui && typeof ui.toggleAnnotations === 'function') {
+            ui.toggleAnnotations(on);
+          } else if (manager && typeof manager.toggle === 'function') {
+            manager.toggle(on);
+          } else if (manager && typeof manager.setMode === 'function') {
+            manager.setMode(on ? 'edit' : 'idle');
+          }
+
+          // `pencilEnabled` only fires on idle→edit; clear the guard if we were already editing.
+          if (on && wasAlreadyEditing) {
+            skipDeselectOnPencilEnableRef.current = false;
+          }
+
+          // Defensive: keep the pencil button visual state in sync even if
+          // modeChange events are missed for any reason.
+          const container = viewerRef.current?.containerElement as HTMLElement | undefined;
+          const pencilButton = container?.querySelector?.('.openlime-button.openlime-pencil') as
+            | HTMLElement
+            | null
+            | undefined;
+          pencilButton?.classList.toggle('openlime-pencil-active', on);
+
+          // UIBasic modeChange may not fire when already in 'edit' (e.g. panel focus ran first).
+          // Safe to notify here: onPencilActiveChange only updates toolbar visibility.
+          const isActive = Boolean(manager?.active);
+          notifyPencilActive(on ? isActive : false);
+        },
       }));
 
       return (
@@ -643,32 +692,6 @@ const OpenLIMEViewer = forwardRef<
               backgroundColor: '#404040',
             }}
           />
-          {isEditing && (
-            <div style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: '#fff',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              pointerEvents: 'none',
-              fontFamily: 'sans-serif',
-              fontSize: '14px',
-              zIndex: 100,
-              backdropFilter: 'blur(4px)',
-            }}>
-
-              <strong>Geometry</strong> &middot; Keys:
-              <code>0</code> {activeAnnotationClass == 0 ? (<strong>Disk</strong>) : (<span>Disk</span>)} |
-              <code>1</code> {activeAnnotationClass == 1 ? (<strong>Polyline</strong>) : (<span>Polyline</span>)} |
-              <code>2</code> {activeAnnotationClass == 2 ? (<strong>Polygon</strong>) : (<span>Polygon</span>)} |
-              <code>3</code> {activeAnnotationClass == 3 ? (<strong>Rect</strong>) : (<span>Rect</span>)} |
-              <code>4</code> {activeAnnotationClass == 4 ? (<strong>Freehand</strong>) : (<span>Freehand</span>)} |
-              <code>5</code> {activeAnnotationClass == 5 ? (<strong>Select/Edit</strong>) : (<span>Select/Edit</span>)}
-            </div>
-          )}
         </div>
       );
     }

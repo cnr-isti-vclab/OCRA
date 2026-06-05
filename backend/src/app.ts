@@ -7,6 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
@@ -26,6 +27,7 @@ declare global {
       cookies?: Record<string, string>;
       user?: import('./types/index.js').User;
       sessionId?: string;
+      requestId?: string;
     }
   }
 }
@@ -45,17 +47,24 @@ export function createApp(): Express {
   // Get allowed origins from environment or use defaults
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
-    : ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'];
+    : ['http://localhost:3001'];
 
   app.use(cors({
     origin: allowedOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   }));
 
   // Basic middleware
   app.use(express.json());
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const headerRequestId = typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : null;
+    req.requestId = headerRequestId || randomUUID();
+    res.setHeader('X-Request-Id', req.requestId);
+    next();
+  });
 
   // (mongo debug route removed)
 
@@ -82,6 +91,13 @@ export function createApp(): Express {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'OCRA API Documentation',
+    swaggerOptions: {
+      persistAuthorization: true,
+      requestInterceptor: (request: { credentials?: string }) => {
+        request.credentials = 'include';
+        return request;
+      },
+    },
   }));
 
   // Swagger JSON spec

@@ -1,3 +1,6 @@
+# vscode
+.vscode/settings.json
+
 # Node / Vite
 node_modules/
 dist/
@@ -23,6 +26,12 @@ media/LargeModels/
 #Directory for local dev
 project_files
 prisma
+!backend/prisma/
+!backend/prisma/schema.prisma
+!backend/prisma/migrations/
+!backend/prisma/migrations/**
 
 /doc/Deliverables
-/tmp/slides
+/tmp
+
+AGENTS.md

@@ -36,9 +36,12 @@ import {
   exportSceneFileHandler
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
+import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
 
 const router = Router();
+
+router.use('/:projectId', enforceStructuringLock);
 
 /* ============================================================================
  * DIGITAL ASSETS (in HDT document) + RTI upload
@@ -62,140 +65,6 @@ const router = Router();
  *         schema:
  *           type: string
  *         description: Project ID.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/DigitalAssetCreate'
- *     responses:
- *       201:
- *         description: HDT document updated (asset added)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/HDTDocument'
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Not authorized (manager only)
- *       404:
- *         description: HDT document not found
- *       500:
- *         description: Server error
- */
-router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
-
-/**
- * @openapi
- * /api/projects/{projectId}/hdt/assets/{assetId}:
- *   put:
- *     summary: Update a digital asset
- *     description: Updates a digital asset in the HDT document (manager only).
- *     tags:
- *       - HDT Assets
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: Project ID.
- *       - in: path
- *         name: assetId
- *         required: true
- *         schema:
- *           type: string
- *         description: Asset ID.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *             schema:
- *               $ref: '#/components/schemas/DigitalAssetUpdate'
- *     responses:
- *       200:
- *         description: HDT document updated (asset updated)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/HDTDocument'
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Not authorized (manager only)
- *       404:
- *         description: HDT document or asset not found
- *       500:
- *         description: Server error
- */
-router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
-
-/**
- * @openapi
- * /api/projects/{projectId}/hdt/assets/{assetId}:
- *   delete:
- *     summary: Remove a digital asset
- *     description: Removes a digital asset from the HDT document (and all scenes). For RTI assets, also removes files on disk (manager only).
- *     tags:
- *       - HDT Assets
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: Project ID.
- *       - in: path
- *         name: assetId
- *         required: true
- *         schema:
- *           type: string
- *         description: Asset ID.
- *     responses:
- *       200:
- *         description: HDT document updated (asset removed)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/HDTDocument'
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Not authorized (manager only)
- *       404:
- *         description: HDT document or asset not found
- *       500:
- *         description: Server error
- */
-router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler);
-
-/* ============================================================================
- * HDT DOCUMENT (MongoDB)
- * ============================================================================
- */
-
-/**
- * @openapi
- * /api/projects/{projectId}/hdt:
- *   get:
- *     summary: Get HDT document
- *     description: Retrieves the full HDT document for a project from MongoDB.
- *     tags:
- *       - HDT
- *     security:
- *       - sessionCookie: []
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: Project ID.
  *     responses:
  *       200:
  *         description: HDT document
@@ -205,10 +74,22 @@ router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/:projectId/hdt', requireAuth, getHDTMetadataHandler);
 
@@ -257,14 +138,40 @@ router.get('/:projectId/hdt', requireAuth, getHDTMetadataHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       409:
  *         description: HDT document already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Invalid physical object metadata payload or missing project id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
 
@@ -313,12 +220,34 @@ router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Invalid physical object metadata payload, missing project id, or empty metadata update
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
 
@@ -372,14 +301,40 @@ router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       400:
  *         description: Invalid request payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       404:
+ *         description: Project or HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       501:
  *         description: Source adapter not implemented
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post('/:projectId/hdt/physical-object/import', requireAuth, importPhysicalObjectMetadataHandler);
 
@@ -405,12 +360,34 @@ router.post('/:projectId/hdt/physical-object/import', requireAuth, importPhysica
  *         description: HDT document deleted
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       404:
  *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       400:
+ *         description: Missing project id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
 
@@ -451,12 +428,59 @@ router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers can add assets
+ *               code: hdt.asset_manager_required
+ *               status: 403
  *       404:
  *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document not found
+ *               code: hdt.asset_document_not_found
+ *               status: 404
+ *       400:
+ *         description: Invalid asset payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Asset "type" is required
+ *               code: hdt.asset_invalid_type
+ *               status: 400
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to add asset
+ *               code: hdt.asset_create_failed
+ *               status: 500
  */
 router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
 
@@ -498,12 +522,48 @@ router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers can update assets
+ *               code: hdt.asset_manager_required
+ *               status: 403
  *       404:
  *         description: HDT document or asset not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document or asset not found
+ *               code: hdt.asset_or_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to update asset
+ *               code: hdt.asset_update_failed
+ *               status: 500
  */
 router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
 
@@ -512,7 +572,13 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  * /api/projects/{projectId}/hdt/assets/{assetId}:
  *   delete:
  *     summary: Remove a digital asset
- *     description: Removes a digital asset from the HDT document (and all scenes). For RTI assets, also removes files on disk (manager only).
+ *     description: |
+ *       Removes a digital asset from the HDT document and from all scenes. For RTI assets, this also removes files on disk.
+ *
+ *       **Important notes:**
+ *       - Only project managers can remove assets.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - HDT Assets
  *     security:
@@ -539,12 +605,70 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers can remove assets
+ *               code: hdt.asset_manager_required
+ *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or asset not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Asset not found in HDT document
+ *               code: hdt.asset_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to remove asset
+ *               code: hdt.asset_delete_failed
+ *               status: 500
  */
 router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler);
 
@@ -590,8 +714,26 @@ router.delete('/:projectId/hdt/assets/:assetId', requireAuth, removeAssetHandler
  *                     type: boolean
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to list scenes
+ *               code: hdt.list_scenes_failed
+ *               status: 500
  */
 router.get('/:projectId/scenes', requireAuth, listScenesHandler);
 
@@ -627,10 +769,37 @@ router.get('/:projectId/scenes', requireAuth, listScenesHandler);
  *               $ref: '#/components/schemas/SceneDescription'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       404:
  *         description: Scene not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Scene not found in database
+ *               code: hdt.scene_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to serve scene file
+ *               code: hdt.scene_modify_failed
+ *               status: 500
  */
 router.get('/:projectId/scenes/:sceneId', requireAuth, getSceneFileHandler);
 
@@ -666,10 +835,48 @@ router.get('/:projectId/scenes/:sceneId', requireAuth, getSceneFileHandler);
  *               $ref: '#/components/schemas/SceneDescription'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       404:
  *         description: Scene not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Scene not found
+ *               code: hdt.scene_not_found
+ *               status: 404
+ *       400:
+ *         description: Missing project or scene id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Project ID and Scene ID are required
+ *               code: hdt.project_and_scene_id_required
+ *               status: 400
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to export scene
+ *               code: hdt.scene_modify_failed
+ *               status: 500
  */
 router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHandler);
 
@@ -678,7 +885,13 @@ router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHan
  * /api/projects/{projectId}/hdt/scenes:
  *   post:
  *     summary: Create a scene
- *     description: Creates a new scene in the project's HDT document (manager only).
+ *     description: |
+ *       Creates a new scene in the project's HDT document.
+ *
+ *       **Important notes:**
+ *       - Only project managers can create scenes.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - Scenes
  *     security:
@@ -705,12 +918,70 @@ router.get('/:projectId/scenes/:sceneId/export', requireAuth, exportSceneFileHan
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers can create scenes
+ *               code: hdt.scene_manager_required
+ *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document not found
+ *               code: hdt.scene_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to create scene
+ *               code: hdt.scene_create_failed
+ *               status: 500
  */
 router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
 
@@ -719,7 +990,13 @@ router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
  * /api/projects/{projectId}/hdt/scenes/{sceneId}:
  *   put:
  *     summary: Update a scene
- *     description: Updates a scene in the project's HDT document (manager only).
+ *     description: |
+ *       Updates a scene in the project's HDT document.
+ *
+ *       **Important notes:**
+ *       - Only project managers can update scenes.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - Scenes
  *     security:
@@ -752,12 +1029,70 @@ router.post('/:projectId/hdt/scenes', requireAuth, createSceneHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers can update scenes
+ *               code: hdt.scene_manager_required
+ *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or scene not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document or scene not found
+ *               code: hdt.scene_or_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to update scene
+ *               code: hdt.scene_update_failed
+ *               status: 500
  */
 router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
 
@@ -766,7 +1101,13 @@ router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
  * /api/projects/{projectId}/hdt/scenes/{sceneId}:
  *   delete:
  *     summary: Delete a scene
- *     description: Deletes a scene from the project's HDT document (manager only).
+ *     description: |
+ *       Deletes a scene from the project's HDT document.
+ *
+ *       **Important notes:**
+ *       - Only project managers can delete scenes.
+ *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
+ *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
  *       - Scenes
  *     security:
@@ -793,12 +1134,70 @@ router.put('/:projectId/hdt/scenes/:sceneId', requireAuth, updateSceneHandler);
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers can delete scenes
+ *               code: hdt.scene_manager_required
+ *               status: 403
+ *       409:
+ *         description: No active exclusive structuring lock exists for the project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock required
+ *               code: structuring.lock_missing
+ *               status: 409
+ *       423:
+ *         description: The caller does not own the active exclusive structuring lock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Active exclusive structuring lock owned by the caller is required
+ *               code: structuring.owner_required
+ *               status: 423
  *       404:
  *         description: HDT document or scene not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document not found
+ *               code: hdt.scene_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to delete scene
+ *               code: hdt.scene_delete_failed
+ *               status: 500
  */
 router.delete('/:projectId/hdt/scenes/:sceneId', requireAuth, deleteSceneHandler);
 
@@ -845,12 +1244,48 @@ router.delete('/:projectId/hdt/scenes/:sceneId', requireAuth, deleteSceneHandler
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers or editors can modify scenes
+ *               code: hdt.scene_editor_or_manager_required
+ *               status: 403
  *       404:
  *         description: HDT document or scene not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document not found
+ *               code: hdt.scene_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to add asset to scene
+ *               code: hdt.scene_modify_failed
+ *               status: 500
  */
 router.post('/:projectId/hdt/scenes/:sceneId/assets', requireAuth, addAssetToSceneHandler);
 
@@ -898,12 +1333,48 @@ router.post('/:projectId/hdt/scenes/:sceneId/assets', requireAuth, addAssetToSce
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers or editors can modify scenes
+ *               code: hdt.scene_editor_or_manager_required
+ *               status: 403
  *       404:
  *         description: HDT document, scene or asset reference not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document not found
+ *               code: hdt.scene_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to update asset in scene
+ *               code: hdt.scene_modify_failed
+ *               status: 500
  */
 router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updateAssetInSceneHandler);
 
@@ -945,12 +1416,48 @@ router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updat
  *               $ref: '#/components/schemas/HDTDocument'
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       403:
  *         description: Not authorized (manager only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Only project managers or editors can modify scenes
+ *               code: hdt.scene_editor_or_manager_required
+ *               status: 403
  *       404:
  *         description: HDT document or scene not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT document not found
+ *               code: hdt.scene_document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to remove asset from scene
+ *               code: hdt.scene_modify_failed
+ *               status: 500
  */
 router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, removeAssetFromSceneHandler);
 
@@ -985,10 +1492,37 @@ router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, re
  *               type: string
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: hdt.authentication_required
+ *               status: 401
  *       404:
  *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: HDT metadata not found
+ *               code: hdt.document_not_found
+ *               status: 404
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to export RDF
+ *               code: hdt.fetch_failed
+ *               status: 500
  */
 router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   try {
@@ -1116,10 +1650,37 @@ ${(hdtDoc.digitalAssets || [])
  *               type: object
  *       400:
  *         description: Missing endpoint or payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Missing endpoint or payload
+ *               code: common.bad_request
+ *               status: 400
  *       401:
  *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Authentication required
+ *               code: common.authentication_required
+ *               status: 401
  *       500:
  *         description: Proxy error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *             example:
+ *               success: false
+ *               error: Failed to query SPARQL endpoint
+ *               code: common.internal_error
+ *               status: 500
  */
 router.post('/sparql-proxy', requireAuth, async (req, res) => {
   try {

@@ -1,9 +1,13 @@
-import { forwardRef, useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useMemo, useRef } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
-import { LoadingProgress } from '../../lib/ThreePresenter/src';
+import { LoadingProgress } from 'three-presenter';
 import type { SceneDescription } from '../../../../shared/scene-types';
-import type { Annotation } from '../../../../shared/scene-types';
-import { useAnnotations } from '../../context/AnnotationContext';
+import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import {
+  activeGeometriesToViewerAnnotations,
+  dataIdsForFocusedGeometries,
+  getViewerHighlightGeometryIds,
+} from '../../adapters/annotation-store/geometryToViewerAnnotation';
 
 interface Viewer3DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -16,7 +20,7 @@ interface Viewer3DPanelProps {
 }
 
 /**
- * Component that encapsulates the 3D viewer with loading overlay
+ * 3D viewer wired to {@link AnnotationStore} active geometries and UI focus state.
  */
 const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
   (
@@ -31,29 +35,54 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     },
     ref
   ) => {
-    // Annotation integration (moved from AnnotationPickerController)
-    const { createAnnotation, annotations, setSelectedAnnotationIds } = useAnnotations();
+    const {
+      activeGeometries,
+      activeAnnotationSelection,
+      focusedDataIds,
+      focusedGeometryIds,
+      setFocusedGeometryIds,
+      setFocusedDataIds,
+      setFocusSelection,
+      clearFocus,
+      createAnnotation,
+    } = useAnnotationStore();
+
     const prevSelectedRef = useRef<string[]>([]);
 
-    // Set up 3D viewer point picking callback. Re-register when createAnnotation changes
+    const viewerAnnotations = useMemo(
+      () =>
+        activeGeometriesToViewerAnnotations(
+          activeGeometries,
+          activeAnnotationSelection,
+          focusedDataIds,
+        ),
+      [activeGeometries, activeAnnotationSelection, focusedDataIds],
+    );
+
+    const highlightGeometryIds = useMemo(
+      () =>
+        getViewerHighlightGeometryIds(
+          focusedGeometryIds,
+          focusedDataIds,
+          activeAnnotationSelection,
+        ),
+      [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
+    );
+
     useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
       if (!viewer) {
-        console.warn('Viewer3DPanel: Viewer ref not available for setting up annotation picker');
         return;
       }
 
       const handler = (point: [number, number, number]) => {
-        const newAnnotation: Annotation = {
-          id: `annotation-${Date.now()}`,
-          label: `Point ${new Date().toLocaleString()}`,
-          type: 'point',
-          geometry: point,
-          createdAt: new Date().toISOString()
-        } as Annotation;
-
-        // call the latest createAnnotation
-        createAnnotation(newAnnotation).catch(err => {
+        void createAnnotation({
+          shapes: [{ type: 'ShapePoints', vertices: [point] }],
+          label: '',
+          description: '',
+          class: null,
+          content: {},
+        }).catch((err) => {
           console.error('Failed to create annotation from 3D viewer:', err);
         });
       };
@@ -62,47 +91,79 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
       return () => {
         try {
-          // only clear handler if still the same viewer
           viewer.setOnPointPicked(null);
-        } catch (e) {
+        } catch {
           // ignore
         }
       };
     }, [ref, createAnnotation]);
 
-    // Render annotations when they change
     useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
-      if (!viewer) return;
+      if (!viewer) {
+        return;
+      }
       try {
-        viewer.renderAnnotations(annotations);
-      } catch (e) {
+        viewer.renderAnnotations(viewerAnnotations);
+      } catch {
         // ignore render errors
       }
-    }, [annotations, ref]);
+    }, [viewerAnnotations, ref]);
 
-    // Poll 3D viewer annotation manager for selection changes
+    // Panel / focus → viewer geometry highlight
     useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
-      if (!viewer) return;
+      if (!viewer) {
+        return;
+      }
+      try {
+        const annotationMgr = viewer.getAnnotationManager?.();
+        if (!annotationMgr) {
+          return;
+        }
+        annotationMgr.clearSelection();
+        if (highlightGeometryIds.length > 0) {
+          annotationMgr.select(highlightGeometryIds, false);
+        }
+      } catch {
+        // ignore
+      }
+    }, [highlightGeometryIds, ref]);
+
+    // Viewer pick → geometry / linked data focus
+    useEffect(() => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) {
+        return;
+      }
 
       const interval = setInterval(() => {
         try {
           const annotationMgr = viewer.getAnnotationManager?.();
-          if (annotationMgr) {
-            const selectedIds: string[] = annotationMgr.getSelected?.() || [];
-            if (JSON.stringify(selectedIds) !== JSON.stringify(prevSelectedRef.current)) {
-              prevSelectedRef.current = selectedIds;
-              setSelectedAnnotationIds(selectedIds);
-            }
+          if (!annotationMgr) {
+            return;
           }
-        } catch (err) {
+          const selectedIds: string[] = annotationMgr.getSelected?.() || [];
+          if (JSON.stringify(selectedIds) === JSON.stringify(prevSelectedRef.current)) {
+            return;
+          }
+          prevSelectedRef.current = selectedIds;
+
+          if (selectedIds.length === 0) {
+            clearFocus();
+          } else {
+            setFocusSelection({
+              geometryIds: selectedIds,
+              dataIds: dataIdsForFocusedGeometries(selectedIds, activeAnnotationSelection),
+            });
+          }
+        } catch {
           // ignore
         }
       }, 200);
 
       return () => clearInterval(interval);
-    }, [ref, setSelectedAnnotationIds]);
+    }, [ref, clearFocus, setFocusSelection, activeAnnotationSelection]);
 
     if (!sceneDesc) {
       return (
@@ -118,7 +179,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📦</div>
             <p style={{ color: '#666', marginBottom: '8px' }}>No 3D models available</p>
-            <p style={{ color: '#999', fontSize: '14px' }}>Please add 3D assets to this project</p>
+            <p style={{ color: '#999', fontSize: '14px' }}>Upload 3D models to this project to view them</p>
           </div>
         </div>
       );
@@ -135,7 +196,6 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onLoadComplete={onLoadComplete}
           onLoadError={onLoadError}
         />
-        {/* Loading overlay */}
         {loadingModels && Object.keys(modelLoadProgress).length > 0 && (
           <div
             style={{

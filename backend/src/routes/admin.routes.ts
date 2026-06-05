@@ -1,7 +1,7 @@
 import express from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getRecentAuditEvents } from '../controllers/admin.controller.js';
-import { createUser, updateUserPrivileges, batchCreateUsers } from '../controllers/admin-users.controller.js';
+import { createUser, updateUserPrivileges, updateUserStatus, batchCreateUsers } from '../controllers/admin-users.controller.js';
 
 const router = express.Router();
 
@@ -14,8 +14,8 @@ const router = express.Router();
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: query
  *         name: limit
@@ -51,8 +51,8 @@ router.get('/audit', requireAuth, requireAdmin, getRecentAuditEvents);
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     requestBody:
  *       required: true
  *       content:
@@ -101,8 +101,8 @@ router.post('/users', requireAuth, requireAdmin, createUser);
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     requestBody:
  *       required: true
  *       content:
@@ -172,8 +172,8 @@ router.post('/users/batch', requireAuth, requireAdmin, batchCreateUsers);
  *     tags:
  *       - User Administration
  *     security:
- *       - sessionAuth: []
- *       - bearerAuth: []
+ *       - sessionCookie: []
+ *       - sessionBearer: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -212,5 +212,7 @@ router.post('/users/batch', requireAuth, requireAdmin, batchCreateUsers);
  *         description: User not found
  */
 router.put('/users/:userId/privileges', requireAuth, requireAdmin, updateUserPrivileges);
+
+router.put('/users/:userId/status', requireAuth, requireAdmin, updateUserStatus);
 
 export default router;

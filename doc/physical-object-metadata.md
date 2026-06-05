@@ -35,11 +35,15 @@ Required fields:
 - `sourceUri`
 - `sourceType`
 
-Supported `sourceType` values in current code:
+Supported persisted `sourceType` values in backend/shared contracts:
 - `echoes`
 - `arco`
 - `wikidata`
 - `other` (backend-level fallback)
+
+Notes:
+- Frontend source adapters include `file` as a UI source type.
+- The `file` adapter maps to backend import request `sourceType: other` and stores metadata in the same `physicalObjectMetadata` structure.
 
 ## Runtime Behavior
 
@@ -88,6 +92,8 @@ Supported `sourceType` values in current code:
 	[`frontend/src/features/physical-object-sources/arco.tsx`](../frontend/src/features/physical-object-sources/arco.tsx)
 - Wikidata source adapter:
 	[`frontend/src/features/physical-object-sources/wikidata.tsx`](../frontend/src/features/physical-object-sources/wikidata.tsx)
+- File (RDF) source adapter:
+	[`frontend/src/features/physical-object-sources/file.tsx`](../frontend/src/features/physical-object-sources/file.tsx)
 - Import UI integration:
 	[`frontend/src/routes/EditProject.tsx`](../frontend/src/routes/EditProject.tsx)
 
@@ -107,6 +113,7 @@ This keeps source logic isolated and allows adding new sources without touching 
 - ECHOES: implemented.
 - ARCO: implemented.
 - Wikidata: implemented (Reasonator-compatible QID resolution).
+- File (RDF): implemented (frontend adapter, persisted as backend `sourceType: other`).
 
 ## ARCO Samples
 
@@ -115,3 +122,7 @@ Sample payloads for ARCO (for adapter development and tests) should be kept in:
 
 Reference endpoint example:
 - `https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty/0901078520.html?output=application%2Fld%2Bjson`
+
+---
+
+*Last reviewed: 2026-05-20*
