@@ -1,13 +1,25 @@
-import { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
 import { LoadingProgress } from 'three-presenter';
-import type { SceneDescription } from '../../../../shared/scene-types';
+import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
+import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import AnnotationToolbar, {
+  type AnnotationToolbarMode,
+} from '../../components/AnnotationToolbar';
+import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import {
   activeGeometriesToViewerAnnotations,
   dataIdsForFocusedGeometries,
   getViewerHighlightGeometryIds,
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
+import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
+import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
+import AppMessageModal from '../../shared/ui/AppMessageModal';
+import {
+  AnnotationMessageModalCatalog,
+} from '../../shared/ui/AnnotationMessageModalCatalog';
+import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 
 interface Viewer3DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -17,6 +29,19 @@ interface Viewer3DPanelProps {
   onLoadProgress: (progress: LoadingProgress) => void;
   onLoadComplete: (modelId: string) => void;
   onLoadError: (modelId: string, error: Error) => void;
+  annotationToolsVisible: boolean;
+}
+
+interface GeometryEditSnapshot {
+  version: number;
+  shapes: AnnotationShape[];
+}
+
+function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
+  return shapes.map((shape) => ({
+    ...shape,
+    vertices: shape.vertices.map((vertex) => [vertex[0], vertex[1], vertex[2]]),
+  }));
 }
 
 /**
@@ -31,7 +56,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       onReady,
       onLoadProgress,
       onLoadComplete,
-      onLoadError
+      onLoadError,
+      annotationToolsVisible,
     },
     ref
   ) => {
@@ -40,14 +66,18 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       activeAnnotationSelection,
       focusedDataIds,
       focusedGeometryIds,
-      setFocusedGeometryIds,
-      setFocusedDataIds,
       setFocusSelection,
       clearFocus,
       createAnnotation,
+      updateGeometry,
     } = useAnnotationStore();
 
-    const prevSelectedRef = useRef<string[]>([]);
+    const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+    const activeGeometriesRef = useRef(activeGeometries);
+    activeGeometriesRef.current = activeGeometries;
+    const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
+    const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
+    const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
 
     const viewerAnnotations = useMemo(
       () =>
@@ -68,6 +98,26 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         ),
       [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
     );
+
+    function normalizeIds(ids: string[]): string[] {
+      return [...ids].sort();
+    }
+
+    const applyToolbarMode = useCallback((mode: AnnotationToolbarMode) => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) {
+        return;
+      }
+
+      if (mode === 'point') {
+        viewer.setPickingMode(true);
+        setToolbarMode('point');
+        return;
+      }
+
+      viewer.setPickingMode(false);
+      setToolbarMode('edit');
+    }, [ref]);
 
     useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
@@ -99,6 +149,18 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     }, [ref, createAnnotation]);
 
     useEffect(() => {
+      if (annotationToolsVisible) {
+        return;
+      }
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) {
+        return;
+      }
+      viewer.setPickingMode(false);
+      setToolbarMode('edit');
+    }, [annotationToolsVisible, ref]);
+
+    useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
       if (!viewer) {
         return;
@@ -121,49 +183,104 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         if (!annotationMgr) {
           return;
         }
-        annotationMgr.clearSelection();
-        if (highlightGeometryIds.length > 0) {
-          annotationMgr.select(highlightGeometryIds, false);
+        const currentSelection = normalizeIds(annotationMgr.getSelected?.() || []);
+        const nextSelection = normalizeIds(highlightGeometryIds);
+        if (
+          currentSelection.length === nextSelection.length &&
+          currentSelection.every((id, index) => id === nextSelection[index])
+        ) {
+          return;
+        }
+
+        expectedProgrammaticSelectionRef.current = nextSelection;
+        if (nextSelection.length === 0) {
+          annotationMgr.clearSelection();
+        } else {
+          annotationMgr.clearSelection();
+          annotationMgr.select(nextSelection, false);
         }
       } catch {
         // ignore
       }
     }, [highlightGeometryIds, ref]);
 
-    // Viewer pick → geometry / linked data focus
-    useEffect(() => {
-      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
-      if (!viewer) {
+    const handleAnnotationSelectionChanged = (ids: string[]) => {
+      const expected = expectedProgrammaticSelectionRef.current;
+      if (expected) {
+        const normalized = normalizeIds(ids);
+        if (
+          normalized.length === expected.length &&
+          normalized.every((id, index) => id === expected[index])
+        ) {
+          expectedProgrammaticSelectionRef.current = null;
+          return;
+        }
+        if (expected.length > 0 && ids.length === 0) {
+          return;
+        }
+        expectedProgrammaticSelectionRef.current = null;
+      }
+
+      if (ids.length === 0) {
+        clearFocus();
         return;
       }
 
-      const interval = setInterval(() => {
-        try {
-          const annotationMgr = viewer.getAnnotationManager?.();
-          if (!annotationMgr) {
+      setFocusSelection({
+        geometryIds: ids,
+        dataIds: dataIdsForFocusedGeometries(ids, activeAnnotationSelection),
+      });
+    };
+
+    const handlePickingModeChange = (enabled: boolean) => {
+      setToolbarMode(enabled ? 'point' : 'edit');
+    };
+
+    const handleAnnotationEditStart = (annotation: ViewerAnnotation) => {
+      if (editSnapshotsRef.current.has(annotation.id)) {
+        return;
+      }
+      const geometry = activeGeometriesRef.current.find((item) => item.id === annotation.id);
+      if (!geometry) {
+        return;
+      }
+      editSnapshotsRef.current.set(annotation.id, {
+        version: geometry.version,
+        shapes: cloneShapes(geometry.shapes),
+      });
+    };
+
+    const handleAnnotationUpdated = (annotation: ViewerAnnotation) => {
+      const nextShapes = viewerGeometryToShapes(annotation.type, annotation.geometry);
+      const snapshot = editSnapshotsRef.current.get(annotation.id);
+      const baselineShapes =
+        snapshot?.shapes ?? activeGeometriesRef.current.find((item) => item.id === annotation.id)?.shapes;
+      if (baselineShapes && shapesEqual(baselineShapes, nextShapes)) {
+        editSnapshotsRef.current.delete(annotation.id);
+        return;
+      }
+
+      void updateGeometry(annotation.id, nextShapes, {
+        expectedVersion: snapshot?.version,
+        optimistic: false,
+      })
+        .then(() => {
+          editSnapshotsRef.current.delete(annotation.id);
+        })
+        .catch((err) => {
+          if (err instanceof AnnotationApiError && err.status === 409) {
+            setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_geometry'));
             return;
           }
-          const selectedIds: string[] = annotationMgr.getSelected?.() || [];
-          if (JSON.stringify(selectedIds) === JSON.stringify(prevSelectedRef.current)) {
-            return;
-          }
-          prevSelectedRef.current = selectedIds;
+          editSnapshotsRef.current.delete(annotation.id);
+          console.error('Failed to update 3D annotation geometry:', err);
+        });
+    };
 
-          if (selectedIds.length === 0) {
-            clearFocus();
-          } else {
-            setFocusSelection({
-              geometryIds: selectedIds,
-              dataIds: dataIdsForFocusedGeometries(selectedIds, activeAnnotationSelection),
-            });
-          }
-        } catch {
-          // ignore
-        }
-      }, 200);
-
-      return () => clearInterval(interval);
-    }, [ref, clearFocus, setFocusSelection, activeAnnotationSelection]);
+    const releaseConflictSnapshot = () => {
+      editSnapshotsRef.current.clear();
+      setMessageModal(null);
+    };
 
     if (!sceneDesc) {
       return (
@@ -186,7 +303,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     }
 
     return (
-      <>
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <ThreeJSViewer
           ref={ref}
           height="100%"
@@ -195,7 +312,29 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onLoadProgress={onLoadProgress}
           onLoadComplete={onLoadComplete}
           onLoadError={onLoadError}
+          onAnnotationSelectionChanged={handleAnnotationSelectionChanged}
+          onPickingModeChange={handlePickingModeChange}
+          onAnnotationEditStart={handleAnnotationEditStart}
+          onAnnotationUpdated={handleAnnotationUpdated}
         />
+        {annotationToolsVisible && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              pointerEvents: 'auto',
+            }}
+          >
+            <AnnotationToolbar
+              mode={toolbarMode}
+              onModeChange={applyToolbarMode}
+              disabledModes={['line', 'area']}
+            />
+          </div>
+        )}
         {loadingModels && Object.keys(modelLoadProgress).length > 0 && (
           <div
             style={{
@@ -250,7 +389,12 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             </div>
           </div>
         )}
-      </>
+        <AppMessageModal
+          descriptor={messageModal}
+          onClose={releaseConflictSnapshot}
+          onAction={releaseConflictSnapshot}
+        />
+      </div>
     );
   }
 );

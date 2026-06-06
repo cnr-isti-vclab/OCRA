@@ -16,6 +16,8 @@ export interface ThreeJSViewerRef {
   ) => void;
   setAnnotationButtonVisible: (visible: boolean) => void;
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
+  setPickingMode: (enabled: boolean) => void;
+  getPickingMode: () => boolean;
   getAnnotationManager: () => AnnotationManager;
   renderAnnotations: (annotations: ViewerAnnotation[]) => void;
   // Efficient environment setters (no scene reload)
@@ -33,8 +35,24 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
   onLoadProgress?: (progress: LoadingProgress) => void; // Model loading progress
   onLoadComplete?: (modelId: string) => void; // Model loading complete
   onLoadError?: (modelId: string, error: Error) => void; // Model loading error
+  onAnnotationSelectionChanged?: (ids: string[]) => void;
+  onPickingModeChange?: (enabled: boolean) => void;
+  onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
+  onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
 }>(
-  ({ width = '100%', height = '100%', sceneDesc, onReady, onLoadProgress, onLoadComplete, onLoadError }, ref) => {
+  ({
+    width = '100%',
+    height = '100%',
+    sceneDesc,
+    onReady,
+    onLoadProgress,
+    onLoadComplete,
+    onLoadError,
+    onAnnotationSelectionChanged,
+    onPickingModeChange,
+    onAnnotationEditStart,
+    onAnnotationUpdated,
+  }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
     const uiRef = useRef<DefaultUI | null>(null);
@@ -73,6 +91,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         if (presenterRef.current) {
           presenterRef.current.onPointPicked = callback;
         }
+      },
+      setPickingMode: (enabled: boolean) => {
+        presenterRef.current?.setPickingMode(enabled);
+      },
+      getPickingMode: () => {
+        return presenterRef.current?.getPickingMode() ?? false;
       },
       getAnnotationManager: () => {
         if (!presenterRef.current) {
@@ -134,6 +158,59 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         presenterRef.current.onLoadError = onLoadError;
       }
     }, [onLoadProgress, onLoadComplete, onLoadError]);
+
+    useEffect(() => {
+      const presenter = presenterRef.current;
+      if (!presenter || !onAnnotationSelectionChanged) {
+        return;
+      }
+
+      return presenter
+        .getAnnotationManager()
+        .onSelectionChange(onAnnotationSelectionChanged);
+    }, [onAnnotationSelectionChanged]);
+
+    useEffect(() => {
+      const presenter = presenterRef.current;
+      if (!presenter || !onAnnotationEditStart) {
+        return;
+      }
+
+      return presenter
+        .getAnnotationManager()
+        .onAnnotationEditStart((annotation) => onAnnotationEditStart(annotation as ViewerAnnotation));
+    }, [onAnnotationEditStart]);
+
+    useEffect(() => {
+      const presenter = presenterRef.current;
+      if (!presenter || !onAnnotationUpdated) {
+        return;
+      }
+
+      return presenter
+        .getAnnotationManager()
+        .onAnnotationUpdated((annotation) => onAnnotationUpdated(annotation as ViewerAnnotation));
+    }, [onAnnotationUpdated]);
+
+    useEffect(() => {
+      const presenter = presenterRef.current;
+      if (!presenter) {
+        return;
+      }
+
+      const originalOnPickingModeChange = presenter.onPickingModeChange;
+      const wrappedOnPickingModeChange = (enabled: boolean) => {
+        onPickingModeChange?.(enabled);
+        originalOnPickingModeChange?.(enabled);
+      };
+      presenter.onPickingModeChange = wrappedOnPickingModeChange;
+
+      return () => {
+        if (presenter.onPickingModeChange === wrappedOnPickingModeChange) {
+          presenter.onPickingModeChange = originalOnPickingModeChange;
+        }
+      };
+    }, [onPickingModeChange]);
 
     // Filter sceneDesc to exclude annotations (3D viewer doesn't need them for model loading)
     const filteredSceneDesc = useMemo(() => {
