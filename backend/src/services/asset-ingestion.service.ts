@@ -1,11 +1,11 @@
 import path from 'path';
 import fsp from 'fs/promises';
-import extract from 'extract-zip';
 import {
   collectObjPackagingWarnings,
   selectPrimary3DModelFile,
   type DetectedArchiveFile,
 } from './model-archive-utils.js';
+import { extractZipArchive } from './zip-extraction.service.js';
 
 export interface PreparedAssetFile {
   path: string;
@@ -132,7 +132,7 @@ export async function prepareAssetProcessingFromLocalFile(input: {
   );
 
   try {
-    await extract(file.path, { dir: extractedPath });
+    await extractZipArchive(file.path, extractedPath);
 
     const analysis = await analyzeZipContents(extractedPath);
     const warnings: string[] = [];

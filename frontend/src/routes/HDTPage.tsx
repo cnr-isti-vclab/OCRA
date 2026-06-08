@@ -51,6 +51,7 @@ interface DublinCoreMetadata {
 }
 
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
+type UploadAssetType = '3d-model' | 'rti';
 
 export interface DigitalAsset {
   id: string;
@@ -119,6 +120,7 @@ export default function HDTPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showUrlImportForm, setShowUrlImportForm] = useState(false);
+  const [selectedAssetType, setSelectedAssetType] = useState<UploadAssetType>('3d-model');
   const [importSourceUrl, setImportSourceUrl] = useState('');
   const [urlImportLabel, setUrlImportLabel] = useState('');
   const [urlImportTitle, setUrlImportTitle] = useState('');
@@ -641,40 +643,14 @@ export default function HDTPage() {
   };
 
   /**
-   * Determine asset type from file extension and name.
-   * ZIP archives with RTI-related keywords are classified as RTI, otherwise as 3D archives.
-   */
-  const determineAssetTypeFromName = (sourceName: string): '3d-model' | 'rti' => {
-    const fileName = sourceName.toLowerCase();
-    const ext = fileName.split('.').pop() || '';
-
-    if (ext === 'zip') {
-      const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
-      const hasRtiKeyword = rtiKeywords.some((keyword) => fileName.includes(keyword));
-      if (hasRtiKeyword) {
-        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${sourceName}`);
-        return 'rti';
-      }
-      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${sourceName}`);
-      return '3d-model';
-    }
-
-    const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'nxz', 'ase', 'ifc'];
-    if (model3dExtensions.includes(ext)) {
-      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${sourceName}`);
-      return '3d-model';
-    }
-
-    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${sourceName}`);
-    return '3d-model';
-  };
-
-  const determineAssetType = (file: File): '3d-model' | 'rti' => determineAssetTypeFromName(file.name);
-
-  /**
    * Unified asset upload handler (2-step flow preserved)
    */
-  const handleUnifiedAssetUpload = async (file: File, assetLabel: string, assetTitle: string) => {
+  const handleUnifiedAssetUpload = async (
+    file: File,
+    assetType: UploadAssetType,
+    assetLabel: string,
+    assetTitle: string,
+  ) => {
     if (!projectId) throw new Error('Missing projectId');
 
     try {
@@ -684,9 +660,8 @@ export default function HDTPage() {
       setUploading(true);
       setUploadProgress(0);
 
-      // 1) Create asset entry in HDT first
-      const assetType = determineAssetType(file);
-      console.log(`🔍 [UnifiedUpload] Detected asset type: ${assetType} for file: ${file.name}`);
+      // 1) Create asset entry in HDT first using the explicit user-selected type.
+      console.log(`🔍 [UnifiedUpload] Using selected asset type: ${assetType} for file: ${file.name}`);
       const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
 
       // 2) Upload file to unified endpoint with progress tracking
@@ -854,7 +829,7 @@ export default function HDTPage() {
       setMessageModal(null);
       setImportingFromUrl(true);
 
-      const assetType = determineAssetTypeFromName(sourceName);
+      const assetType = selectedAssetType;
       const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
       createdAssetId = assetId;
 
@@ -1404,6 +1379,12 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                       return;
                     }
+                    if (selectedAssetType === 'rti' && !isZip) {
+                      setError('RTI uploads must be ZIP archives containing an RTI dataset.');
+                      setWarningMessages([]);
+                      (e.target as HTMLInputElement).value = '';
+                      return;
+                    }
                     if (isDirectObj) {
                       setWarningMessages([
                         `Direct OBJ upload selected ("${file.name}"). If this model requires external materials/textures, upload a ZIP containing .obj + .mtl + texture files.`
@@ -1417,7 +1398,7 @@ export default function HDTPage() {
                     const assetTitle = file.name.replace(/\.[^/.]+$/, '');
 
                     try {
-                      await handleUnifiedAssetUpload(file, assetLabel.trim(), assetTitle.trim());
+                      await handleUnifiedAssetUpload(file, selectedAssetType, assetLabel.trim(), assetTitle.trim());
                     } finally {
                       (e.target as HTMLInputElement).value = '';
                     }
@@ -1425,7 +1406,21 @@ export default function HDTPage() {
                   disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
                 />
 
-                <div className="d-flex gap-2">
+                <div className="d-flex flex-wrap align-items-end gap-2">
+                  <div style={{ width: '11rem' }}>
+                    <label htmlFor="assetTypeSelector" className="form-label mb-1 small">Asset type</label>
+                    <select
+                      id="assetTypeSelector"
+                      className="form-select form-select-sm"
+                      value={selectedAssetType}
+                      onChange={(e) => setSelectedAssetType(e.target.value as UploadAssetType)}
+                      disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                    >
+                      <option value="3d-model">3D Model</option>
+                      <option value="rti">RTI</option>
+                    </select>
+                  </div>
+
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
@@ -1474,7 +1469,7 @@ export default function HDTPage() {
                           disabled={importingFromUrl}
                         />
                         <div className="form-text">
-                          The backend will download the remote file and ingest it as a 3D model or RTI dataset.
+                          The backend will download the remote file and validate that it matches the selected asset type.
                         </div>
                       </div>
 
