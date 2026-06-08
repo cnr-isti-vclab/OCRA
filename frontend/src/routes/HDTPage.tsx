@@ -496,16 +496,18 @@ export default function HDTPage() {
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
     const dublinCore = meta.physicalObjectMetadata?.dublinCore;
+    const toCommaSeparated = (value: string | string[] | undefined) =>
+      Array.isArray(value) ? value.join(', ') : (value || '');
 
     // Dublin Core
     if (dublinCore) {
       setDcTitle(dublinCore.title || '');
       setDcDescription(dublinCore.description || '');
-      setDcCreator(Array.isArray(dublinCore.creator) ? dublinCore.creator.join(', ') : '');
-      setDcSubject(Array.isArray(dublinCore.subject) ? dublinCore.subject.join(', ') : '');
+      setDcCreator(toCommaSeparated(dublinCore.creator));
+      setDcSubject(toCommaSeparated(dublinCore.subject));
       setDcDate(dublinCore.date || '');
-      setDcType(Array.isArray(dublinCore.type) ? dublinCore.type.join(', ') : '');
-      setDcLanguage(Array.isArray(dublinCore.language) ? dublinCore.language.join(', ') : '');
+      setDcType(toCommaSeparated(dublinCore.type));
+      setDcLanguage(toCommaSeparated(dublinCore.language));
       setDcCoverage(dublinCore.coverage || '');
       setDcRights(dublinCore.rights || '');
       setDcSource(dublinCore.source || '');

@@ -71,6 +71,11 @@ export default function Projects() {
   const navigate = useNavigate();
   const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
 
+  const buildSuggestedProjectName = useCallback(() => {
+    const nextProjectNumber = projects.length + 1;
+    return `PRJ${String(nextProjectNumber).padStart(6, '0')}`;
+  }, [projects.length]);
+
   const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
     const showLoading = options?.showLoading ?? true;
 
@@ -172,7 +177,7 @@ export default function Projects() {
 
   const openCreateProjectModal = () => {
     setCreateError(null);
-    setNewProjectName('');
+    setNewProjectName(buildSuggestedProjectName());
     setNewProjectDescription('');
     setNewProjectPublic(false);
     setShowCreateModal(true);
