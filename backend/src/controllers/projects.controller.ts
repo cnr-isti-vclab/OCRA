@@ -460,7 +460,7 @@ export async function listProjectFiles(req: Request, res: Response) {
 }
 
 /**
- * Upload a 3D file to a project (manager only)
+ * Upload a 3D file to a project (project manager or system administrator only)
  * POST /api/projects/:projectId/files
  *
  * Expects multipart/form-data:
@@ -489,7 +489,7 @@ export async function uploadProjectFile(req: Request, res: Response) {
       success: false,
       payload: { projectId, error: 'Unauthorized: not project manager' },
     });
-    return sendProjectError(req, res, 403, 'fileUploadManagerRequired', 'Only the project manager can upload files');
+    return sendProjectError(req, res, 403, 'fileUploadManagerRequired', 'Only project managers and system administrators can upload files');
   }
 
   const file = (req as any).file as Express.Multer.File | undefined;

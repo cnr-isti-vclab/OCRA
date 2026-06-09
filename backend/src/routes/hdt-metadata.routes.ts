@@ -53,7 +53,7 @@ router.use('/:projectId', enforceStructuringLock);
  * /api/projects/{projectId}/hdt/assets:
  *   post:
  *     summary: Add a digital asset
- *     description: Adds a digital asset to the project's HDT document (manager only).
+ *     description: Adds a digital asset to the project's HDT document (project manager or system administrator only).
  *     tags:
  *       - HDT Assets
  *     security:
@@ -401,7 +401,7 @@ router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
  * /api/projects/{projectId}/hdt/assets:
  *   post:
  *     summary: Add a digital asset
- *     description: Adds a digital asset to the project's HDT document (manager only).
+ *     description: Adds a digital asset to the project's HDT document (project manager or system administrator only).
  *     tags:
  *       - HDT Assets
  *     security:
@@ -438,14 +438,14 @@ router.delete('/:projectId/hdt', requireAuth, deleteHDTMetadataHandler);
  *               code: hdt.authentication_required
  *               status: 401
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers can add assets
+ *               error: Only project managers and system administrators can add assets
  *               code: hdt.asset_manager_required
  *               status: 403
  *       404:
@@ -489,7 +489,7 @@ router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
  * /api/projects/{projectId}/hdt/assets/{assetId}:
  *   put:
  *     summary: Update a digital asset
- *     description: Updates a digital asset in the HDT document (manager only).
+ *     description: Updates a digital asset in the HDT document (project manager or system administrator only).
  *     tags:
  *       - HDT Assets
  *     security:
@@ -532,14 +532,14 @@ router.post('/:projectId/hdt/assets', requireAuth, addAssetHandler);
  *               code: hdt.authentication_required
  *               status: 401
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers can update assets
+ *               error: Only project managers and system administrators can update assets
  *               code: hdt.asset_manager_required
  *               status: 403
  *       404:
@@ -576,7 +576,7 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  *       Removes a digital asset from the HDT document and from all scenes. For RTI assets, this also removes files on disk.
  *
  *       **Important notes:**
- *       - Only project managers can remove assets.
+ *       - Only project managers and system administrators can remove assets.
  *       - The authenticated session must own an active **exclusive structuring lock** for the same project.
  *       - If no lock exists the endpoint returns `409`; if the active lock belongs to another session it returns `423`.
  *     tags:
@@ -615,14 +615,14 @@ router.put('/:projectId/hdt/assets/:assetId', requireAuth, updateAssetHandler);
  *               code: hdt.authentication_required
  *               status: 401
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers can remove assets
+ *               error: Only project managers and system administrators can remove assets
  *               code: hdt.asset_manager_required
  *               status: 403
  *       409:
@@ -1211,7 +1211,7 @@ router.delete('/:projectId/hdt/scenes/:sceneId', requireAuth, deleteSceneHandler
  * /api/projects/{projectId}/hdt/scenes/{sceneId}/assets:
  *   post:
  *     summary: Add asset to scene
- *     description: Adds an existing asset reference to a scene (manager only).
+ *     description: Adds an existing asset reference to a scene (project manager or system administrator only).
  *     tags:
  *       - Scenes
  *     security:
@@ -1254,15 +1254,15 @@ router.delete('/:projectId/hdt/scenes/:sceneId', requireAuth, deleteSceneHandler
  *               code: hdt.authentication_required
  *               status: 401
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers or editors can modify scenes
- *               code: hdt.scene_editor_or_manager_required
+ *               error: Only project managers and system administrators can modify scenes
+ *               code: hdt.scene_manager_required
  *               status: 403
  *       404:
  *         description: HDT document or scene not found
@@ -1294,7 +1294,7 @@ router.post('/:projectId/hdt/scenes/:sceneId/assets', requireAuth, addAssetToSce
  * /api/projects/{projectId}/hdt/scenes/{sceneId}/assets/{assetId}:
  *   put:
  *     summary: Update asset reference in scene
- *     description: Updates an asset reference (transform/visibility) inside a scene (manager only).
+ *     description: Updates an asset reference (transform/visibility) inside a scene (project manager or system administrator only).
  *     tags:
  *       - Scenes
  *     security:
@@ -1343,15 +1343,15 @@ router.post('/:projectId/hdt/scenes/:sceneId/assets', requireAuth, addAssetToSce
  *               code: hdt.authentication_required
  *               status: 401
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers or editors can modify scenes
- *               code: hdt.scene_editor_or_manager_required
+ *               error: Only project managers and system administrators can modify scenes
+ *               code: hdt.scene_manager_required
  *               status: 403
  *       404:
  *         description: HDT document, scene or asset reference not found
@@ -1383,7 +1383,7 @@ router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updat
  * /api/projects/{projectId}/hdt/scenes/{sceneId}/assets/{assetId}:
  *   delete:
  *     summary: Remove asset from scene
- *     description: Removes an asset reference from a scene (manager only).
+ *     description: Removes an asset reference from a scene (project manager or system administrator only).
  *     tags:
  *       - Scenes
  *     security:
@@ -1426,15 +1426,15 @@ router.put('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, updat
  *               code: hdt.authentication_required
  *               status: 401
  *       403:
- *         description: Not authorized (manager only)
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *             example:
  *               success: false
- *               error: Only project managers or editors can modify scenes
- *               code: hdt.scene_editor_or_manager_required
+ *               error: Only project managers and system administrators can modify scenes
+ *               code: hdt.scene_manager_required
  *               status: 403
  *       404:
  *         description: HDT document or scene not found

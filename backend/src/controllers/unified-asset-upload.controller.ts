@@ -163,10 +163,10 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
     const { assetProcessing } = assetReq;
     const { type, originalFile, extractedPath, detectedFiles, primaryModelFile, warnings = [] } = assetProcessing;
 
-    // Authorization: uploads are manager-only (sys_admin allowed).
+    // Authorization: uploads are restricted to project managers and system administrators.
     const isManager = await checkIsManagerOfProject(currentUserSub, projectId);
     if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers can upload files.' });
+      return res.status(403).json({ error: 'Only project managers and system administrators can upload files.' });
     }
 
     // Consistency: ensure asset exists before writing files, to avoid orphaned files.

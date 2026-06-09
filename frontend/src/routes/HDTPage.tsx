@@ -101,6 +101,7 @@ export default function HDTPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [metadata, setMetadata] = useState<HDTMetadata | null>(null);
+  const [canManageAssets, setCanManageAssets] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +146,8 @@ export default function HDTPage() {
   const [dcSource, setDcSource] = useState('');
   const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
+  const assetUploadDisabled = !canManageAssets || uploading || (structuringInProgress && !projectLockState.hasExclusiveLock);
+  const assetMutationDisabled = !canManageAssets || hdtReadOnlyWithoutProjectLock;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -434,6 +437,19 @@ export default function HDTPage() {
       const projectData = await projectResponse.json();
       const proj: Project = (projectData?.project ?? projectData) as Project;
       setProject(proj);
+
+      const managerResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (managerResponse.ok) {
+        const managerData = await managerResponse.json();
+        setCanManageAssets(!!managerData?.isManager);
+      } else if (managerResponse.status === 401) {
+        setCanManageAssets(false);
+      } else {
+        throw new Error(`Failed to fetch project permissions: ${managerResponse.status}`);
+      }
 
       // Fetch HDT metadata (might not exist yet)
       const metadataResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
@@ -1045,7 +1061,10 @@ export default function HDTPage() {
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
                 </div>
                 <div className="form-text mt-2">
-                  Asset upload is still allowed without the project lock, but only when no structuring session is already in progress.
+                  Asset creation and upload are available only to project managers and system administrators.
+                </div>
+                <div className="form-text">
+                  Upload is still allowed without the project lock, but only when no structuring session is already in progress.
                 </div>
               </div>
 
@@ -1154,7 +1173,7 @@ export default function HDTPage() {
 
                                     <button
                                       className="btn btn-sm btn-outline-danger"
-                                      disabled={hdtReadOnlyWithoutProjectLock}
+                                      disabled={assetMutationDisabled}
                                       onClick={async () => {
                                         const displayName = name;
                                         if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
@@ -1193,12 +1212,22 @@ export default function HDTPage() {
               {/* Upload New Asset */}
               <div className="mb-4">
                 <h6 className="text-primary mb-2">Add a new asset</h6>
+                {!canManageAssets && (
+                  <p className="text-muted fst-italic mb-2">
+                    Only project managers and system administrators can create or upload assets.
+                  </p>
+                )}
                 <input
                   id="unifiedAssetInput"
                   type="file"
                   className="d-none"
                   accept=".ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip"
                   onChange={async (e) => {
+                    if (!canManageAssets) {
+                      (e.target as HTMLInputElement).value = '';
+                      return;
+                    }
+
                     const file = e.target.files?.[0];
                     if (!file) return;
 
@@ -1231,14 +1260,14 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
-                  disabled={uploading || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                  disabled={assetUploadDisabled}
                 />
 
                 <div className="d-flex gap-2">
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
-                    disabled={uploading || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                    disabled={assetUploadDisabled}
                   >
                     {uploading ? (
                       <>

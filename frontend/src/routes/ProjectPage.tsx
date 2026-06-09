@@ -1450,7 +1450,7 @@ export default function ProjectPage() {
                       </div>
                     ) : (
                       <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                        <p className="text-muted fst-italic">Only project managers can edit scene settings</p>
+                        <p className="text-muted fst-italic">Only project managers and system administrators can edit scene settings</p>
                       </div>
                     )}
 
