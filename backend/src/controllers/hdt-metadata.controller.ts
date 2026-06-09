@@ -26,6 +26,7 @@
  */
 
 import { Request, Response } from 'express';
+import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 import { sendApiError } from '../lib/api-error.js';
 import {
@@ -1347,10 +1348,19 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
   try {
     const { projectId, sceneId, assetId } = req.params;
     const currentUser = getCurrentUser(req);
-    const updates = req.body;
+    const updatesResult = sceneAssetReferenceUpdateSchema.safeParse(req.body);
 
     if (!currentUser) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
+    }
+
+    if (!updatesResult.success) {
+      return sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.common.validationError,
+        error: 'Invalid scene asset update payload',
+        details: formatZodIssues(updatesResult.error),
+      });
     }
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
@@ -1358,7 +1368,7 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers and system administrators can modify scenes');
     }
 
-    const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updates, currentUser.sub);
+    const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updatesResult.data, currentUser.sub);
     if (!updatedDoc) {
       return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }

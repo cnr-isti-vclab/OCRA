@@ -66,7 +66,8 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const viewerMode = new URLSearchParams(location.search).get('mode') ?? '3d';
   const isViewerRoute = currentProjectId !== null && projectSubPath === '';
   const canAcquireProjectLock = !!currentUser?.sys_admin || isProjectManager;
-  const showEditLockButton = currentProjectId !== null && canAcquireProjectLock && !isViewerRoute;
+  //  const showEditLockButton = currentProjectId !== null && canAcquireProjectLock && !isViewerRoute;
+  const showEditLockButton = currentProjectId !== null && canAcquireProjectLock;
 
   const [projectName, setProjectName] = useState<string | null>(null);
   const [has3d, setHas3d] = useState<boolean | null>(null);
@@ -293,8 +294,8 @@ function EditLockButton({ lockStatus, onToggle }: EditLockButtonProps) {
   const busy = lockStatus === 'acquiring' || lockStatus === 'releasing' || lockStatus === 'canceling';
   const active = lockStatus === 'exclusive' || lockStatus === 'draining';
 
-  let title = 'Enable editing (acquire project lock)';
-  if (active) title = 'Stop editing (release project lock)';
+  let title = 'Acquire structuring lock)';
+  if (active) title = 'Release structuring lock)';
   else if (lockStatus === 'acquiring') title = 'Acquiring lock…';
   else if (lockStatus === 'draining') title = 'Waiting for other sessions to finish. Click to cancel.';
   else if (lockStatus === 'releasing') title = 'Releasing lock…';

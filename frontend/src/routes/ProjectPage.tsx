@@ -1,5 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAw
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanel from './components/AnnotationPanel';
 import type { SceneDescription } from 'shared/scene-types';
+import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 
 interface Project {
   id: string;
@@ -39,6 +40,111 @@ interface HDTModelMeta {
   fileUrl?: string;
 }
 
+type SceneModelTransform = Pick<NonNullable<SceneDescription['models']>[number], 'position' | 'rotation' | 'scale'>;
+type SceneModelTransformMap = Record<string, SceneModelTransform>;
+
+function cloneVector3(value?: [number, number, number]): [number, number, number] | undefined {
+  return value ? [value[0], value[1], value[2]] : undefined;
+}
+
+function cloneScale(value?: number | [number, number, number]): number | [number, number, number] | undefined {
+  if (typeof value === 'number' || value === undefined) {
+    return value;
+  }
+  return [value[0], value[1], value[2]];
+}
+
+function extractModelTransform(model: NonNullable<SceneDescription['models']>[number]): SceneModelTransform {
+  return {
+    position: cloneVector3(model.position),
+    rotation: cloneVector3(model.rotation),
+    scale: cloneScale(model.scale),
+  };
+}
+
+function buildSceneModelTransformMap(scene: SceneDescription | null): SceneModelTransformMap {
+  if (!scene?.models) {
+    return {};
+  }
+
+  return scene.models.reduce<SceneModelTransformMap>((acc, model) => {
+    acc[model.id] = extractModelTransform(model);
+    return acc;
+  }, {});
+}
+
+function mergeSceneModelTransforms(
+  scene: SceneDescription | null,
+  transforms: SceneModelTransformMap,
+): SceneDescription | null {
+  if (!scene) {
+    return null;
+  }
+
+  return {
+    ...scene,
+    models: (scene.models || []).map((model) => {
+      const transform = transforms[model.id];
+      if (!transform) {
+        return model;
+      }
+
+      return {
+        ...model,
+        position: transform.position ?? model.position,
+        rotation: transform.rotation ?? model.rotation,
+        scale: transform.scale ?? model.scale,
+      };
+    }),
+  };
+}
+
+function formatVector3Input(value?: [number, number, number], fallback: string = '0, 0, 0'): string {
+  return value ? value.join(', ') : fallback;
+}
+
+function formatScaleInput(value?: number | [number, number, number], fallback: string = '1'): string {
+  if (value === undefined) {
+    return fallback;
+  }
+  return Array.isArray(value) ? value.join(', ') : String(value);
+}
+
+function parseOptionalVector3Input(value: string, label: string): [number, number, number] | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const parts = trimmed.split(',').map((part) => parseFloat(part.trim()));
+  if (parts.length !== 3) {
+    throw new Error(`${label} must have exactly 3 values.`);
+  }
+  if (parts.some((part) => Number.isNaN(part))) {
+    throw new Error(`${label} contains an invalid number.`);
+  }
+
+  return [parts[0], parts[1], parts[2]];
+}
+
+function parseOptionalScaleInput(value: string): number | [number, number, number] | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.includes(',')) {
+    return parseOptionalVector3Input(trimmed, 'Scale');
+  }
+
+  const parsed = parseFloat(trimmed);
+  if (Number.isNaN(parsed)) {
+    throw new Error('Scale contains an invalid number.');
+  }
+
+  return parsed;
+}
+
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -53,6 +159,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sceneDesc, setSceneDesc] = useState<SceneDescription | null>(null);
+  const [sceneModelTransforms, setSceneModelTransforms] = useState<SceneModelTransformMap>({});
   const [availableScenes, setAvailableScenes] = useState<Array<{ id: string; label: string; isDefault?: boolean }>>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
@@ -95,10 +202,29 @@ export default function ProjectPage() {
   const { getProjectLockState } = useProjectStructuringLock();
   const projectLockState = getProjectLockState(projectId);
   const hasExclusiveLock = projectLockState.hasExclusiveLock;
-  const canEditSceneSettings = isManager && hasExclusiveLock;
+  const isSystemAdministrator = !!user?.sys_admin;
+  const canEditProjectSceneData = (isManager || isSystemAdministrator) && hasExclusiveLock;
+  const canEditSceneSettings = canEditProjectSceneData;
   const projectLockBadgeClass = hasExclusiveLock ? 'bg-success' : 'bg-secondary';
   const projectLockBadgeLabel = hasExclusiveLock ? 'Structuring Lock: Active' : 'Structuring Lock: Inactive';
   const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
+  // TODO: when 2D/3D viewers expose transform getters/setters, route this state through them
+  // so the sidebar can read live viewer transforms instead of relying only on current-scene data.
+  const viewerSceneDesc = useMemo(
+    () => mergeSceneModelTransforms(sceneDesc, sceneModelTransforms),
+    [sceneDesc, sceneModelTransforms],
+  );
+  const currentSceneModels = viewerSceneDesc?.models ?? [];
+
+  const applyLoadedScene = useCallback((scene: SceneDescription | null) => {
+    setSceneDesc(scene);
+    setSceneModelTransforms(buildSceneModelTransformMap(scene));
+    setEditingModelId(null);
+    setSaveError(null);
+    setEditedPosition('');
+    setEditedRotation('');
+    setEditedScale('');
+  }, []);
 
   useEffect(() => {
     if (!activeDrainingEvent?.drainDeadlineAt) {
@@ -138,7 +264,7 @@ export default function ProjectPage() {
 
     // Clear the current scene immediately so scene-scoped viewers/stores do not
     // re-mount with stale scene content while the next scene payload is loading.
-    setSceneDesc(null);
+    applyLoadedScene(null);
     setMeshVisibility({});
 
     try {
@@ -155,7 +281,7 @@ export default function ProjectPage() {
         if (!scene.projectId) {
           scene.projectId = projectId;
         }
-        setSceneDesc(scene);
+        applyLoadedScene(scene);
 
         setShowGround(scene.environment?.showGround ?? false);
         setBackgroundColor(scene.environment?.background || '#404040');
@@ -169,14 +295,14 @@ export default function ProjectPage() {
         }
         setMeshVisibility(initialVisibility);
       } else if (sceneLoadSequenceRef.current === requestId) {
-        setSceneDesc(null);
+        applyLoadedScene(null);
       }
     } catch (err) {
       if (sceneLoadSequenceRef.current === requestId) {
         console.error('Failed to load selected scene:', err);
       }
     }
-  }, [projectId, selectedSceneId]);
+  }, [applyLoadedScene, projectId, selectedSceneId]);
 
   // Ensure HDT document and default scene exist before updating
   const ensureHDTDocument = async (projectId: string): Promise<boolean> => {
@@ -249,9 +375,9 @@ export default function ProjectPage() {
 
   // Cycle through models, showing one at a time
   const cycleModels = () => {
-    if (!sceneDesc?.models || sceneDesc.models.length === 0) return;
+    if (!viewerSceneDesc?.models || viewerSceneDesc.models.length === 0) return;
 
-    const modelIds = sceneDesc.models.map((m: any) => m.id);
+    const modelIds = viewerSceneDesc.models.map((m: any) => m.id);
 
     // Find the first visible model
     let currentVisibleIndex = modelIds.findIndex((id: string) => meshVisibility[id] !== false);
@@ -293,35 +419,26 @@ export default function ProjectPage() {
 
   // Start editing a model
   const startEditingModel = (modelId: string, sceneModel: any) => {
+    const modelTransform = sceneModelTransforms[modelId] ?? (sceneModel ? extractModelTransform(sceneModel) : {});
     setEditingModelId(modelId);
     setSaveError(null);
-    // Initialize edit fields with current values or defaults
-    if (sceneModel?.position) {
-      setEditedPosition(sceneModel.position.join(', '));
-    } else {
-      setEditedPosition('0, 0, 0');
+    setEditedPosition(formatVector3Input(modelTransform.position));
+    setEditedRotation(formatVector3Input(modelTransform.rotation));
+    setEditedScale(formatScaleInput(modelTransform.scale));
+  };
+
+  const ensureEditingModel = (modelId: string, sceneModel: any) => {
+    if (!canEditProjectSceneData || editingModelId === modelId) {
+      return;
     }
-    if (sceneModel?.rotation) {
-      setEditedRotation(sceneModel.rotation.join(', '));
-    } else {
-      setEditedRotation('0, 0, 0');
-    }
-    if (sceneModel?.scale !== undefined) {
-      if (Array.isArray(sceneModel.scale)) {
-        setEditedScale(sceneModel.scale.join(', '));
-      } else {
-        setEditedScale(String(sceneModel.scale));
-      }
-    } else {
-      setEditedScale('1');
-    }
+    startEditingModel(modelId, sceneModel);
   };
 
   // Cancel editing
   const cancelEditing = () => {
     // Restore original transformation from scene
-    if (editingModelId && sceneDesc) {
-      const sceneModel = sceneDesc.models?.find((m: any) => m.id === editingModelId);
+    if (editingModelId && viewerSceneDesc) {
+      const sceneModel = viewerSceneDesc.models?.find((m: any) => m.id === editingModelId);
       if (sceneModel && viewerRef.current) {
         // Convert rotation from degrees to radians
         let rotation: [number, number, number] | null = null;
@@ -354,34 +471,17 @@ export default function ProjectPage() {
     if (!viewerRef.current) return;
 
     try {
-      const parseArray = (str: string): [number, number, number] | null => {
-        const trimmed = str.trim();
-        if (!trimmed) return null;
-        const parts = trimmed.split(',').map(p => parseFloat(p.trim()));
-        if (parts.some(isNaN) || parts.length !== 3) return null;
-        return parts as [number, number, number];
-      };
-
-      const position = parseArray(posStr);
+      const position = parseOptionalVector3Input(posStr, 'Position') ?? null;
 
       // Parse rotation and convert degrees to radians for Three.js
-      const rotationDeg = parseArray(rotStr);
+      const rotationDeg = parseOptionalVector3Input(rotStr, 'Rotation');
       const rotation = rotationDeg ? [
         rotationDeg[0] * Math.PI / 180,
         rotationDeg[1] * Math.PI / 180,
         rotationDeg[2] * Math.PI / 180
       ] as [number, number, number] : null;
 
-      let scale: number | [number, number, number] | null = null;
-      const trimmedScale = scaleStr.trim();
-      if (trimmedScale) {
-        if (trimmedScale.includes(',')) {
-          scale = parseArray(trimmedScale);
-        } else {
-          const scaleNum = parseFloat(trimmedScale);
-          if (!isNaN(scaleNum)) scale = scaleNum;
-        }
-      }
+      const scale = parseOptionalScaleInput(scaleStr) ?? null;
 
       viewerRef.current.applyModelTransform(modelId, position, rotation, scale);
     } catch (err) {
@@ -394,31 +494,9 @@ export default function ProjectPage() {
   const saveModelProperties = async (modelId: string, _fileName: string) => {
     setSaveError(null);
     try {
-      // Parse the input values
-      const parseArray = (str: string): [number, number, number] | null => {
-        const trimmed = str.trim();
-        if (!trimmed) return null;
-        const parts = trimmed.split(',').map(p => parseFloat(p.trim()));
-        if (parts.some(isNaN)) throw new Error('Invalid number format');
-        if (parts.length !== 3) throw new Error('Position and rotation must have exactly 3 values');
-        return parts as [number, number, number];
-      };
-
-      const position = parseArray(editedPosition);
-      const rotation = parseArray(editedRotation);
-      let scale: number | [number, number, number] | undefined = undefined;
-
-      const scaleStr = editedScale.trim();
-      if (scaleStr) {
-        if (scaleStr.includes(',')) {
-          const scaleArray = parseArray(scaleStr);
-          if (scaleArray) scale = scaleArray;
-        } else {
-          const scaleNum = parseFloat(scaleStr);
-          if (isNaN(scaleNum)) throw new Error('Invalid scale value');
-          scale = scaleNum;
-        }
-      }
+      const position = parseOptionalVector3Input(editedPosition, 'Position');
+      const rotation = parseOptionalVector3Input(editedRotation, 'Rotation');
+      const scale = parseOptionalScaleInput(editedScale);
 
       // Ensure HDT document exists before saving
       if (!await ensureHDTDocument(projectId!)) {
@@ -427,10 +505,15 @@ export default function ProjectPage() {
 
       // Build asset update payload (rotation stored in degrees; backend's generateSceneFile
       // returns rotationUnits: 'deg' so three-presenter converts correctly on reload)
-      const assetUpdate: Record<string, any> = {};
+      const assetUpdate: Record<string, unknown> = {};
       if (position) assetUpdate.position = position;
       if (rotation) assetUpdate.rotation = rotation;
       if (scale !== undefined) assetUpdate.scale = scale;
+
+      const assetUpdateResult = sceneAssetReferenceUpdateSchema.safeParse(assetUpdate);
+      if (!assetUpdateResult.success) {
+        throw new Error(formatZodIssues(assetUpdateResult.error).join(' '));
+      }
 
       // Save to the asset-specific endpoint so the update lands in scene.assets[]
       // (the canonical storage read by generateSceneFile), not as an alien field.
@@ -440,30 +523,31 @@ export default function ProjectPage() {
           method: 'PUT',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(assetUpdate)
+          body: JSON.stringify(assetUpdateResult.data)
         }
       );
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to save changes');
+        const details = Array.isArray(err.details) ? err.details.join(' ') : null;
+        throw new Error(details || err.error || 'Failed to save changes');
       }
 
-      // Update local sceneDesc so the viewer reflects the change without a full reload
-      if (sceneDesc) {
-        const updatedModels = (sceneDesc.models || []).map((m: any) => {
-          if (m.id !== modelId) return m;
-          const updated = { ...m };
-          if (position) updated.position = position; else delete updated.position;
-          if (rotation) updated.rotation = rotation; else delete updated.rotation;
-          if (scale !== undefined) updated.scale = scale; else delete updated.scale;
-          return updated;
-        });
-        setSceneDesc({ ...sceneDesc, models: updatedModels } as SceneDescription);
-      }
+      // Keep the current scene transforms in sync locally.
+      setSceneModelTransforms((prev) => ({
+        ...prev,
+        [modelId]: {
+          position,
+          rotation,
+          scale,
+        },
+      }));
 
       // Exit edit mode
       setEditingModelId(null);
+      setEditedPosition('');
+      setEditedRotation('');
+      setEditedScale('');
 
     } catch (err: any) {
       setSaveError(err?.message || 'Failed to save changes');
@@ -570,15 +654,13 @@ export default function ProjectPage() {
         const sceneRes = await fetch(sceneEndpoint, {
           credentials: 'include'
         });
-        let fetchedScene: SceneDescription | null = null;
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
           // Add projectId to scene if not present
           if (!scene.projectId) {
             scene.projectId = projectId;
           }
-          fetchedScene = scene;
-          setSceneDesc(scene);
+          applyLoadedScene(scene);
           // Initialize visibility state for all models (all visible by default)
           const initialVisibility: Record<string, boolean> = {};
           if (scene.models) {
@@ -588,7 +670,7 @@ export default function ProjectPage() {
           }
           setMeshVisibility(initialVisibility);
         } else {
-          setSceneDesc(null);
+          applyLoadedScene(null);
         }
 
         // Fetch HDT metadata (read-only): keep a reference for UI, do NOT inject models into the scene.
@@ -645,7 +727,7 @@ export default function ProjectPage() {
     };
     if (projectId) fetchAll();
     // eslint-disable-next-line
-  }, [projectId, mode]);
+  }, [applyLoadedScene, projectId, mode]);
 
   // Reload scene when selected scene changes
   useEffect(() => {
@@ -764,7 +846,7 @@ export default function ProjectPage() {
             {!annotationTestMode && mode === '3d' && (
               <Viewer3DPanel
                 ref={viewerRef}
-                sceneDesc={sceneDesc}
+                sceneDesc={viewerSceneDesc}
                 loadingModels={loadingModels}
                 modelLoadProgress={modelLoadProgress}
                 annotationToolsVisible={activeTab === 'annotations'}
@@ -804,7 +886,7 @@ export default function ProjectPage() {
               <Viewer2DPanel
                 key={`viewer-2d-${selectedSceneId ?? 'none'}`}
                 ref={openLimeRef}
-                sceneDesc={sceneDesc}
+                sceneDesc={viewerSceneDesc}
                 digitalAssets={digitalAssets}
                 rtiAvailable={rtiAvailable}
                 onReady={() => {
@@ -871,7 +953,7 @@ export default function ProjectPage() {
                         onClick={cycleModels}
                         className="btn btn-sm btn-outline-secondary"
                         title="Cycle through models (show one at a time)"
-                        disabled={!sceneDesc?.models || sceneDesc.models.length === 0}
+                        disabled={!viewerSceneDesc?.models || viewerSceneDesc.models.length === 0}
                       >
                         <i className="bi bi-arrow-repeat"></i>
                       </button>
@@ -879,45 +961,40 @@ export default function ProjectPage() {
 
 
                     <div className="flex-grow-1 overflow-auto">
-                      {files.length === 0 ? (
-                        <p className="text-muted fst-italic">No files uploaded yet.</p>
+                      {currentSceneModels.length === 0 ? (
+                        <p className="text-muted fst-italic">No models in the current scene.</p>
                       ) : (
                         <div className="list-group list-group-flush">
-                          {files.map(f => {
-                            // Handle diverse response formats (legacy name vs new assetId/entryPointUrl)
-                            const entryUrl = (f as any).entryPointUrl || (f as any).fileUrl || f.name || '';
-                            const safeAssetId = (f as any).assetId || f.name || 'unknown';
-
-                            // Derive filename from URL if possible
-                            let fileName = f.name;
-                            if (!fileName && entryUrl) {
-                              fileName = entryUrl.split('/').pop() || safeAssetId;
-                            }
-                            if (!fileName) fileName = safeAssetId;
-
-                            // Determine display name: prefer model.title from scene
-                            const fileBase = fileName.replace(/\.[^/.]+$/, '');
-                            let displayName = fileBase;
-
-                            // Find corresponding model in sceneDesc
-                            const sceneModel = sceneDesc?.models?.find((m: any) => {
-                              // Direct match for legacy scenes
-                              if (m.file === fileName) return true;
-                              // HDT URL matching: check if URL ends with filename
-                              if (typeof m.file === 'string' && m.file.includes('/') && m.file.endsWith('/' + fileName)) return true;
-                              // Match by ID if possible
-                              if (m.id === safeAssetId) return true;
-                              return false;
+                          {currentSceneModels.map((sceneModel) => {
+                            const modelId = sceneModel.id;
+                            const matchingAsset = digitalAssets.find((asset) => asset.id === modelId);
+                            const matchingFile = files.find((file) => {
+                              if ((file as any).assetId === modelId) {
+                                return true;
+                              }
+                              if (typeof sceneModel.file === 'string' && file.url === sceneModel.file) {
+                                return true;
+                              }
+                              if (typeof sceneModel.file === 'string' && file.name === sceneModel.file) {
+                                return true;
+                              }
+                              return typeof sceneModel.file === 'string' && sceneModel.file.endsWith(`/${file.name}`);
                             });
-                            if (sceneModel && sceneModel.title) displayName = sceneModel.title;
 
-                            // Use the actual model ID from the scene for visibility control
-                            const modelId = sceneModel?.id || fileBase;
+                            const fileName =
+                              matchingAsset?.entryPoint ||
+                              matchingFile?.name ||
+                              sceneModel.file.split('/').pop() ||
+                              modelId;
+                            const fileBase = fileName.replace(/\.[^/.]+$/, '');
+                            const displayName = sceneModel.title || matchingAsset?.title || matchingAsset?.label || fileBase;
+                            const downloadUrl = matchingFile?.url || matchingAsset?.entryPointUrl || sceneModel.file;
+                            const fileSize = matchingFile?.size || matchingAsset?.entrySize;
                             const isVisible = meshVisibility[modelId] !== false;
                             const isSelected = selectedModelId === modelId;
 
                             return (
-                              <div key={(f as any).assetId || f.name || Math.random()} className="list-group-item p-0">
+                              <div key={modelId} className="list-group-item p-0">
                                 <div className="d-flex align-items-center p-2">
                                   <button
                                     onClick={() => toggleMeshVisibility(modelId)}
@@ -950,23 +1027,25 @@ export default function ProjectPage() {
                                   >
                                     {displayName}
                                   </button>
-                                  <a
-                                    href={f.url}
-                                    download
-                                    className="btn btn-sm btn-link p-0 ms-2"
-                                    title="Download file"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <i className="bi bi-download"></i>
-                                  </a>
+                                  {downloadUrl && (
+                                    <a
+                                      href={downloadUrl}
+                                      download
+                                      className="btn btn-sm btn-link p-0 ms-2"
+                                      title="Download file"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <i className="bi bi-download"></i>
+                                    </a>
+                                  )}
                                 </div>
 
                                 {/* Model Details (expandable) */}
                                 {isSelected && (
                                   <div className="px-2 pb-2 pt-1" style={{ fontSize: '0.85em', color: '#666' }}>
                                     <div className="border-top pt-2">
-                                      <div><strong>Filename:</strong> {f.name}</div>
-                                      <div><strong>File Size:</strong> {f.size ? formatFileSize(f.size) : 'Unknown'}</div>
+                                      <div><strong>Filename:</strong> {fileName}</div>
+                                      <div><strong>File Size:</strong> {fileSize ? formatFileSize(fileSize) : 'Unknown'}</div>
                                       {(() => {
                                         const stats = viewerRef.current?.getModelStats(modelId);
                                         if (stats) {
@@ -1004,16 +1083,17 @@ export default function ProjectPage() {
                                             type="text"
                                             className="form-control form-control-sm"
                                             placeholder="x, y, z"
-                                            value={editingModelId === modelId ? editedPosition : (sceneModel?.position?.join(', ') || '0, 0, 0')}
-                                            disabled={editingModelId !== modelId}
+                                            value={editingModelId === modelId ? editedPosition : formatVector3Input(sceneModel?.position)}
+                                            disabled={!canEditProjectSceneData}
+                                            onFocus={() => ensureEditingModel(modelId, sceneModel)}
                                             onChange={(e) => {
                                               const newValue = e.target.value;
                                               setEditedPosition(newValue);
                                               applyLiveTransform(modelId, newValue, editedRotation, editedScale);
                                             }}
                                             style={{
-                                              backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
-                                              cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                              backgroundColor: canEditProjectSceneData ? 'white' : '#f8f9fa',
+                                              cursor: canEditProjectSceneData ? 'text' : 'not-allowed',
                                               padding: '0.2rem 0.4rem',
                                               fontSize: '0.85em'
                                             }}
@@ -1025,16 +1105,17 @@ export default function ProjectPage() {
                                             type="text"
                                             className="form-control form-control-sm"
                                             placeholder="x, y, z"
-                                            value={editingModelId === modelId ? editedRotation : (sceneModel?.rotation?.join(', ') || '0, 0, 0')}
-                                            disabled={editingModelId !== modelId}
+                                            value={editingModelId === modelId ? editedRotation : formatVector3Input(sceneModel?.rotation)}
+                                            disabled={!canEditProjectSceneData}
+                                            onFocus={() => ensureEditingModel(modelId, sceneModel)}
                                             onChange={(e) => {
                                               const newValue = e.target.value;
                                               setEditedRotation(newValue);
                                               applyLiveTransform(modelId, editedPosition, newValue, editedScale);
                                             }}
                                             style={{
-                                              backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
-                                              cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                              backgroundColor: canEditProjectSceneData ? 'white' : '#f8f9fa',
+                                              cursor: canEditProjectSceneData ? 'text' : 'not-allowed',
                                               padding: '0.2rem 0.4rem',
                                               fontSize: '0.85em'
                                             }}
@@ -1048,20 +1129,17 @@ export default function ProjectPage() {
                                             placeholder="1 or x, y, z"
                                             value={editingModelId === modelId
                                               ? editedScale
-                                              : (sceneModel?.scale !== undefined
-                                                ? (Array.isArray(sceneModel.scale)
-                                                  ? sceneModel.scale.join(', ')
-                                                  : String(sceneModel.scale))
-                                                : '1')}
-                                            disabled={editingModelId !== modelId}
+                                              : formatScaleInput(sceneModel?.scale)}
+                                            disabled={!canEditProjectSceneData}
+                                            onFocus={() => ensureEditingModel(modelId, sceneModel)}
                                             onChange={(e) => {
                                               const newValue = e.target.value;
                                               setEditedScale(newValue);
                                               applyLiveTransform(modelId, editedPosition, editedRotation, newValue);
                                             }}
                                             style={{
-                                              backgroundColor: editingModelId === modelId ? 'white' : '#f8f9fa',
-                                              cursor: editingModelId === modelId ? 'text' : 'not-allowed',
+                                              backgroundColor: canEditProjectSceneData ? 'white' : '#f8f9fa',
+                                              cursor: canEditProjectSceneData ? 'text' : 'not-allowed',
                                               padding: '0.2rem 0.4rem',
                                               fontSize: '0.85em'
                                             }}
@@ -1074,13 +1152,13 @@ export default function ProjectPage() {
                                           </div>
                                         )}
 
-                                        {isManager && (
+                                        {(isManager || isSystemAdministrator) && (
                                           <div className="d-flex gap-2 align-items-center">
                                             {editingModelId === modelId ? (
                                               <>
                                                 <button
                                                   className="btn btn-sm btn-success"
-                                                  onClick={() => saveModelProperties(modelId, f.name)}
+                                                  onClick={() => saveModelProperties(modelId, fileName)}
                                                   title="Save changes"
                                                   style={{ width: '32px', height: '32px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                 >
@@ -1099,8 +1177,8 @@ export default function ProjectPage() {
                                               <button
                                                 className="btn btn-sm btn-outline-primary"
                                                 onClick={() => startEditingModel(modelId, sceneModel)}
-                                                title={hasExclusiveLock ? 'Edit transformation' : 'Acquire the project lock to edit'}
-                                                disabled={!hasExclusiveLock}
+                                                title={canEditProjectSceneData ? 'Edit transformation' : 'Acquire the project lock to edit'}
+                                                disabled={!canEditProjectSceneData}
                                               >
                                                 <i className="bi bi-pencil"></i> Edit
                                               </button>
