@@ -6,6 +6,7 @@ export interface AnnotationToolbarProps {
   onModeChange: (mode: AnnotationToolbarMode) => void;
   className?: string;
   disabled?: boolean;
+  disabledModes?: ReadonlyArray<AnnotationToolbarMode>;
 }
 
 const TOOL_BUTTONS: ReadonlyArray<{
@@ -27,6 +28,7 @@ export default function AnnotationToolbar({
   onModeChange,
   className = '',
   disabled = false,
+  disabledModes = [],
 }: AnnotationToolbarProps) {
   return (
     <div
@@ -44,13 +46,14 @@ export default function AnnotationToolbar({
       <div className="btn-group" role="group">
         {TOOL_BUTTONS.map(({ mode: toolMode, label, icon }) => {
           const active = mode === toolMode;
+          const disabledForMode = disabledModes.includes(toolMode);
           return (
             <button
               key={toolMode}
               type="button"
               className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline-light'}`}
               onClick={() => onModeChange(toolMode)}
-              disabled={disabled}
+              disabled={disabled || disabledForMode}
               aria-pressed={active}
               title={label}
             >

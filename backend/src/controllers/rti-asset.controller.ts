@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import fse from 'fs-extra';
 import fsp from 'fs/promises';
-import extract from 'extract-zip';
+import { extractZipArchive } from '../services/zip-extraction.service.js';
 
 
 /**
@@ -60,7 +60,7 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     await fsp.mkdir(targetDir, { recursive: true });
 
     // Extract ZIP content into the final directory
-    await extract(zipPath, { dir: targetDir });
+    await extractZipArchive(zipPath, targetDir);
 
     // Cleanup ONLY the uploaded ZIP file.
     // Do NOT empty a shared tmp directory (race condition with concurrent uploads).

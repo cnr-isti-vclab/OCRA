@@ -10,10 +10,13 @@ import { RoleEnum } from '@prisma/client';
 import {
   ensureProjectSkeleton,
   projectModel3dAssetDir,
-  projectRtiAssetDir
+  projectRtiAssetDir,
 } from '../utils/project-static-paths.js';
 import { getPrismaClient } from '../../db.js';
 import { getHDTDocument, updateDigitalAsset } from '../services/hdt-metadata.service.js';
+import type { PreparedAssetFile, PreparedAssetProcessing } from '../services/asset-ingestion.service.js';
+import { prepareAssetProcessingFromLocalFile } from '../services/asset-ingestion.service.js';
+import { downloadRemoteAssetToProjectTemp } from '../services/remote-asset-import.service.js';
 import { selectPrimary3DModelFile } from '../services/model-archive-utils.js';
 
 /**
@@ -100,6 +103,62 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
   return !!role;
 }
 
+function statusForRemoteImportError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (
+    message.includes('sourceUrl')
+    || message.includes('private or disallowed network address')
+    || message.includes('disallowed host')
+  ) {
+    return 400;
+  }
+
+  if (
+    message.includes('Remote server responded with HTTP')
+    || message.includes('Remote server returned')
+    || message.includes('download timed out')
+  ) {
+    return 502;
+  }
+
+  return 500;
+}
+
+function parseOptionalBasicAuthPayload(body: unknown) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { ok: true as const, value: null };
+  }
+
+  const authType = 'authType' in body ? (body as Record<string, unknown>).authType : undefined;
+  const username = 'username' in body ? (body as Record<string, unknown>).username : undefined;
+  const password = 'password' in body ? (body as Record<string, unknown>).password : undefined;
+
+  if (authType === undefined || authType === null || authType === '' || authType === 'none') {
+    return { ok: true as const, value: null };
+  }
+
+  if (authType !== 'basic') {
+    return { ok: false as const, error: 'authType must be either "none" or "basic".' };
+  }
+
+  if (typeof username !== 'string' || !username.trim()) {
+    return { ok: false as const, error: 'username is required when authType is "basic".' };
+  }
+
+  if (typeof password !== 'string') {
+    return { ok: false as const, error: 'password is required when authType is "basic".' };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      username: username.trim(),
+      password,
+    },
+  };
+}
+
 /**
  * Compute the total size of a directory (recursive).
  * This is used for RTI assets after unzip, because the ZIP size is not representative.
@@ -144,6 +203,27 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
   const cleanupPaths: string[] = [];
 
   try {
+    const response = await processPreparedAssetIngestionRequest(req, res, assetReq.assetProcessing, cleanupPaths);
+    await cleanupFiles(cleanupPaths);
+    return response;
+  } catch (error: any) {
+    console.error('[UnifiedUpload] Error processing upload:', error);
+    await cleanupFiles(cleanupPaths);
+
+    return res.status(500).json({
+      error: 'Failed to process upload.',
+      message: error?.message ?? String(error),
+    });
+  }
+}
+
+/**
+ * Import a 3D or RTI asset by downloading it from a remote URL on the backend.
+ */
+export async function unifiedAssetImportFromUrlHandler(req: express.Request, res: express.Response) {
+  const cleanupPaths: string[] = [];
+
+  try {
     const { projectId } = req.params;
     if (!projectId) {
       return res.status(400).json({ error: 'Project ID is required.' });
@@ -155,68 +235,119 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
       return res.status(400).json({ error: 'assetId is required.' });
     }
 
-    const currentUserSub = (req as any).user?.sub;
-    if (!currentUserSub) {
-      return res.status(401).json({ error: 'Authentication required.' });
+    const sourceUrlRaw = req.body?.sourceUrl;
+    const sourceUrl = typeof sourceUrlRaw === 'string' ? sourceUrlRaw.trim() : '';
+    if (!sourceUrl) {
+      return res.status(400).json({ error: 'sourceUrl is required.' });
     }
 
-    const { assetProcessing } = assetReq;
-    const { type, originalFile, extractedPath, detectedFiles, primaryModelFile, warnings = [] } = assetProcessing;
-
-    // Authorization: uploads are restricted to project managers and system administrators.
-    const isManager = await checkIsManagerOfProject(currentUserSub, projectId);
-    if (!isManager) {
-      return res.status(403).json({ error: 'Only project managers and system administrators can upload files.' });
+    const authParse = parseOptionalBasicAuthPayload(req.body);
+    if (!authParse.ok) {
+      return res.status(400).json({ error: authParse.error });
     }
 
-    // Consistency: ensure asset exists before writing files, to avoid orphaned files.
-    const hdtDoc = await getHDTDocument(projectId);
-    if (!hdtDoc) {
-      return res.status(404).json({ error: 'HDT document not found for this project.' });
+    const download = await downloadRemoteAssetToProjectTemp(projectId, sourceUrl, authParse.value);
+    cleanupPaths.push(download.file.path);
+
+    const prepared = await prepareAssetProcessingFromLocalFile({ file: download.file });
+    if (prepared.extractedPath) {
+      cleanupPaths.push(prepared.extractedPath);
     }
 
-    const existingAsset = (hdtDoc.digitalAssets || []).find((a: any) => a.id === assetId);
-    if (!existingAsset) {
-      return res.status(404).json({ error: `Asset "${assetId}" not found in HDT document.` });
-    }
-
-    // Enforce coherence between upload kind and declared HDT asset type.
-    const expectedType = type === 'rti' ? 'rti' : '3d-model';
-    if (existingAsset.type !== expectedType) {
-      return res.status(409).json({
-        error: `Asset type mismatch: upload is "${expectedType}" but asset "${assetId}" is "${existingAsset.type}".`
-      });
-    }
-
-    console.log(`🚀 [UnifiedUpload] Processing ${type} upload for project ${projectId}, asset ${assetId}`);
-
-    ensureProjectSkeleton(projectId);
-
-    // Track cleanup paths
-    cleanupPaths.push(originalFile.path);
-    if (extractedPath) cleanupPaths.push(extractedPath);
-
-    switch (type) {
-      case '3d-direct':
-        return await handle3DDirectUpload(req, projectId, assetId, originalFile, currentUserSub, res, cleanupPaths, warnings);
-
-      case '3d':
-        return await handle3DFromZipUpload(req, projectId, assetId, extractedPath!, detectedFiles!, currentUserSub, res, cleanupPaths, primaryModelFile, warnings);
-
-      case 'rti':
-        return await handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, currentUserSub, res, cleanupPaths);
-
-      default:
-        return res.status(400).json({ error: `Unsupported upload type: ${type}` });
-    }
+    const response = await processPreparedAssetIngestionRequest(req, res, prepared, cleanupPaths);
+    await cleanupFiles(cleanupPaths);
+    return response;
   } catch (error: any) {
-    console.error('[UnifiedUpload] Error processing upload:', error);
+    console.error('[UnifiedUpload] Error importing remote asset:', error);
     await cleanupFiles(cleanupPaths);
 
-    return res.status(500).json({
-      error: 'Failed to process upload.',
+    return res.status(statusForRemoteImportError(error)).json({
+      error: 'Failed to import remote asset.',
       message: error?.message ?? String(error),
     });
+  }
+}
+
+async function processPreparedAssetIngestionRequest(
+  req: express.Request,
+  res: express.Response,
+  assetProcessing: PreparedAssetProcessing,
+  cleanupPaths: string[],
+) {
+  const { projectId } = req.params;
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project ID is required.' });
+  }
+
+  const assetIdRaw = req.body?.assetId;
+  const assetId = typeof assetIdRaw === 'string' ? assetIdRaw.trim() : '';
+  if (!assetId) {
+    return res.status(400).json({ error: 'assetId is required.' });
+  }
+
+  const currentUserSub = (req as any).user?.sub;
+  if (!currentUserSub) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  const { type, originalFile, extractedPath, detectedFiles, primaryModelFile, warnings = [] } = assetProcessing;
+
+  const isManager = await checkIsManagerOfProject(currentUserSub, projectId);
+  if (!isManager) {
+    return res.status(403).json({ error: 'Only project managers and system administrators can upload files.' });
+  }
+
+  const hdtDoc = await getHDTDocument(projectId);
+  if (!hdtDoc) {
+    return res.status(404).json({ error: 'HDT document not found for this project.' });
+  }
+
+  const existingAsset = (hdtDoc.digitalAssets || []).find((asset: any) => asset.id === assetId);
+  if (!existingAsset) {
+    return res.status(404).json({ error: `Asset "${assetId}" not found in HDT document.` });
+  }
+
+  const expectedType = type === 'rti' ? 'rti' : '3d-model';
+  if (existingAsset.type !== expectedType) {
+    return res.status(409).json({
+      error: `Asset type mismatch: upload is "${expectedType}" but asset "${assetId}" is "${existingAsset.type}".`,
+    });
+  }
+
+  console.log(`🚀 [UnifiedUpload] Processing ${type} upload for project ${projectId}, asset ${assetId}`);
+
+  ensureProjectSkeleton(projectId);
+
+  if (originalFile.path && !cleanupPaths.includes(originalFile.path)) {
+    cleanupPaths.push(originalFile.path);
+  }
+  if (extractedPath && !cleanupPaths.includes(extractedPath)) {
+    cleanupPaths.push(extractedPath);
+  }
+
+  switch (type) {
+    case '3d-direct':
+      return handle3DDirectUpload(req, projectId, assetId, originalFile, currentUserSub, res, cleanupPaths, warnings);
+
+    case '3d':
+      return handle3DFromZipUpload(
+        req,
+        projectId,
+        assetId,
+        extractedPath!,
+        detectedFiles!,
+        currentUserSub,
+        res,
+        cleanupPaths,
+        primaryModelFile,
+        warnings,
+      );
+
+    case 'rti':
+      return handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, currentUserSub, res, cleanupPaths);
+
+    default:
+      return res.status(400).json({ error: `Unsupported upload type: ${type}` });
   }
 }
 
@@ -231,7 +362,7 @@ async function handle3DDirectUpload(
   req: any,
   projectId: string,
   assetId: string,
-  file: Express.Multer.File,
+  file: PreparedAssetFile,
   userId: string,
   res: Response,
   cleanupPaths: string[],
@@ -377,7 +508,7 @@ async function handleRTIUpload(
   projectId: string,
   assetId: string,
   extractedPath: string,
-  originalFile: Express.Multer.File,
+  originalFile: PreparedAssetFile,
   userId: string,
   res: Response,
   cleanupPaths: string[]

@@ -13,7 +13,20 @@ export interface FileFormState {
   parsing: boolean;
 }
 
-function extractDublinCoreFromQuads(quads: N3.Quad[]): Record<string, unknown> {
+const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+const HC1_CLASS = 'http://echoes-eccch.eu/hdt#HC1';
+
+function findPrimaryHc1Subject(quads: N3.Quad[]): string | null {
+  for (const quad of quads) {
+    if (quad.predicate.value === RDF_TYPE && quad.object.value === HC1_CLASS) {
+      return quad.subject.value;
+    }
+  }
+
+  return null;
+}
+
+function extractDublinCoreFromSubject(quads: N3.Quad[], subject: string): Record<string, unknown> {
   const getValue = (term: N3.Term | null): string => {
     if (!term) return '';
     return term.value;
@@ -25,6 +38,10 @@ function extractDublinCoreFromQuads(quads: N3.Quad[]): Record<string, unknown> {
   const creatorNodes = new Set<string>();
 
   for (const quad of quads) {
+    if (quad.subject.value !== subject) {
+      continue;
+    }
+
     const p = quad.predicate.value;
     if (p === dcNamespace + 'title') {
       dublinCore.title = getValue(quad.object);
@@ -57,6 +74,9 @@ function extractDublinCoreFromQuads(quads: N3.Quad[]): Record<string, unknown> {
 
   if (creatorNodes.size > 0 && !dublinCore.creator) {
     for (const quad of quads) {
+      if (quad.subject.value !== subject && !creatorNodes.has(quad.subject.value)) {
+        continue;
+      }
       if (creatorNodes.has(quad.subject.value) && quad.predicate.value === foafNamespace + 'name') {
         dublinCore.creator = getValue(quad.object);
         break;
@@ -101,10 +121,24 @@ function FileImportForm({
                 onChange({ ...state, file, parsing: false, parseError: 'No RDF data found in file. Please check the format.', dublinCore: null, sourceRecord: null });
                 return;
               }
-              const dublinCore = extractDublinCoreFromQuads(quads);
+              const hc1Subject = findPrimaryHc1Subject(quads);
+              if (!hc1Subject) {
+                onChange({
+                  ...state,
+                  file,
+                  parsing: false,
+                  parseError: 'No HC1 resource found in RDF file. The file source imports Dublin Core only from the HC1 subject.',
+                  dublinCore: null,
+                  sourceRecord: null,
+                });
+                return;
+              }
+
+              const dublinCore = extractDublinCoreFromSubject(quads, hc1Subject);
               const sourceRecord: Record<string, unknown> = {
                 importedFrom: 'rdf-file',
                 fileName: file.name,
+                hc1Subject,
                 quadCount: quads.length,
                 importedAt: new Date().toISOString(),
               };
@@ -129,6 +163,9 @@ function FileImportForm({
           {(state.dublinCore.title as string | undefined) && (
             <> Title: <strong>{String(state.dublinCore.title)}</strong></>
           )}
+          {(state.sourceRecord?.hc1Subject as string | undefined) && (
+            <> HC1: <code>{String(state.sourceRecord.hc1Subject)}</code></>
+          )}
         </div>
       )}
     </div>
@@ -148,6 +185,10 @@ function FileMetadataView({ metadata }: { metadata: import('./types').PhysicalOb
         <li className="list-group-item d-flex justify-content-between">
           <span>Quad count</span>
           <span>{getSourceRecordField(metadata, 'quadCount') || '-'}</span>
+        </li>
+        <li className="list-group-item d-flex justify-content-between">
+          <span>HC1 subject</span>
+          <span className="text-break">{asText(sr?.hc1Subject) || '-'}</span>
         </li>
         <li className="list-group-item d-flex justify-content-between">
           <span>Imported At</span>

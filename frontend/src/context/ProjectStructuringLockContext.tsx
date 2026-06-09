@@ -6,6 +6,7 @@ import {
 import { ProjectStructuringService } from '../services/ProjectStructuringService';
 import { StructuringDrainingNotifier } from '../services/StructuringDrainingNotifier';
 import { StructuringEventsService, type StructuringRealtimeState } from '../services/StructuringEventsService';
+import { ProjectStructuringApiError } from '../services/ProjectStructuringService';
 
 export type ProjectStructuringStatus = 'inactive' | 'acquiring' | 'draining' | 'exclusive' | 'releasing' | 'canceling';
 
@@ -34,6 +35,22 @@ const defaultLockState: ProjectStructuringLockState = {
   realtimeState: 'idle',
   error: null,
 };
+
+function describeLeaseLost(error: ProjectStructuringApiError) {
+  if (error.status === 410 || error.code === 'structuring.lock_missing') {
+    return 'The structuring lock expired and was released. You can enable it again.';
+  }
+
+  if (error.code === 'structuring.owner_required') {
+    return 'The structuring lock is no longer owned by this session. You can enable it again.';
+  }
+
+  if (error.code === 'structuring.fencing_token_mismatch') {
+    return 'The structuring lock became stale and was released. You can enable it again.';
+  }
+
+  return error.message || 'The structuring lock was lost. You can enable it again.';
+}
 
 const ProjectStructuringLockContext = createContext<ProjectStructuringLockContextValue | null>(null);
 
@@ -169,6 +186,16 @@ export function ProjectStructuringLockProvider({ children }: { children: ReactNo
               hasExclusiveLock: lock.state === 'exclusive',
               status: lock.state === 'exclusive' ? 'exclusive' : 'draining',
               error: null,
+            });
+          },
+          onLeaseLost: (error) => {
+            delete heldLocksRef.current[projectId];
+            disposeProjectResources(projectId);
+            updateProjectLockState(projectId, {
+              enabled: false,
+              hasExclusiveLock: false,
+              status: 'inactive',
+              error: describeLeaseLost(error),
             });
           },
         });

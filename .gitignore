@@ -22,6 +22,7 @@ src/generated/
 # internal development doc
 internaldoc/
 media/LargeModels/
+media/private
 
 #Directory for local dev
 project_files

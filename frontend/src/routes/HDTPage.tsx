@@ -4,6 +4,11 @@ import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
+import AppMessageModal from '../shared/ui/AppMessageModal';
+import {
+  AppMessageModalCatalog,
+  MessageModalDescriptor,
+} from '../shared/ui/AppMessageModalModel';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -46,6 +51,7 @@ interface DublinCoreMetadata {
 }
 
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
+type UploadAssetType = '3d-model' | 'rti';
 
 export interface DigitalAsset {
   id: string;
@@ -107,12 +113,22 @@ export default function HDTPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
 
   // Digital Assets state
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showUrlImportForm, setShowUrlImportForm] = useState(false);
+  const [selectedAssetType, setSelectedAssetType] = useState<UploadAssetType>('3d-model');
+  const [importSourceUrl, setImportSourceUrl] = useState('');
+  const [urlImportLabel, setUrlImportLabel] = useState('');
+  const [urlImportTitle, setUrlImportTitle] = useState('');
+  const [urlImportAuthEnabled, setUrlImportAuthEnabled] = useState(false);
+  const [urlImportUsername, setUrlImportUsername] = useState('');
+  const [urlImportPassword, setUrlImportPassword] = useState('');
+  const [importingFromUrl, setImportingFromUrl] = useState(false);
 
   // Scenes state
   const [scenes, setScenes] = useState<SceneConfig[]>([]);
@@ -146,7 +162,8 @@ export default function HDTPage() {
   const [dcSource, setDcSource] = useState('');
   const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
-  const assetUploadDisabled = !canManageAssets || uploading || (structuringInProgress && !projectLockState.hasExclusiveLock);
+  const ingestingAsset = uploading || importingFromUrl;
+  const assetUploadDisabled = !canManageAssets || ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock);
   const assetMutationDisabled = !canManageAssets || hdtReadOnlyWithoutProjectLock;
 
   useEffect(() => {
@@ -352,6 +369,15 @@ export default function HDTPage() {
     }
   };
 
+  const rollbackPartialImportedAsset = async (assetId: string): Promise<string> => {
+    try {
+      await deleteHdtAsset(assetId);
+      return 'The partially created asset entry was removed automatically.';
+    } catch (cleanupError: any) {
+      return `Automatic cleanup failed: ${cleanupError?.message || 'Unable to delete the partial asset.'}`;
+    }
+  };
+
   const toScenePayload = (scene: SceneConfig): Record<string, any> => ({
     label: scene.label?.trim() || '',
     description: scene.description || '',
@@ -486,16 +512,18 @@ export default function HDTPage() {
 
   const populateFormFromMetadata = (meta: HDTMetadata) => {
     const dublinCore = meta.physicalObjectMetadata?.dublinCore;
+    const toCommaSeparated = (value: string | string[] | undefined) =>
+      Array.isArray(value) ? value.join(', ') : (value || '');
 
     // Dublin Core
     if (dublinCore) {
       setDcTitle(dublinCore.title || '');
       setDcDescription(dublinCore.description || '');
-      setDcCreator(Array.isArray(dublinCore.creator) ? dublinCore.creator.join(', ') : '');
-      setDcSubject(Array.isArray(dublinCore.subject) ? dublinCore.subject.join(', ') : '');
+      setDcCreator(toCommaSeparated(dublinCore.creator));
+      setDcSubject(toCommaSeparated(dublinCore.subject));
       setDcDate(dublinCore.date || '');
-      setDcType(Array.isArray(dublinCore.type) ? dublinCore.type.join(', ') : '');
-      setDcLanguage(Array.isArray(dublinCore.language) ? dublinCore.language.join(', ') : '');
+      setDcType(toCommaSeparated(dublinCore.type));
+      setDcLanguage(toCommaSeparated(dublinCore.language));
       setDcCoverage(dublinCore.coverage || '');
       setDcRights(dublinCore.rights || '');
       setDcSource(dublinCore.source || '');
@@ -621,45 +649,26 @@ export default function HDTPage() {
     );
   }
 
-  /**
-   * Determine asset type from file extension and name, 
-   * it handles zip archives checking if it contains RTI keywords or not.
-   * - used in unified upload handler
-   * @returns '3d-model' | 'rti'
-   */
-  const determineAssetType = (file: File): '3d-model' | 'rti' => {
-    const fileName = file.name.toLowerCase();
-    const ext = fileName.split('.').pop() || '';
-
-    // Check for ZIP archives first
-    // If ZIP contains RTI-related keywords, classify as 'rti'
-    // Otherwise, classify as '3d-model' archive
-  
-    if (ext === 'zip') {
-      const rtiKeywords = ['rti', 'reflectance', 'ptm', 'hsh'];
-      const hasRtiKeyword = rtiKeywords.some(keyword => fileName.includes(keyword));
-      if (hasRtiKeyword) {
-        console.log(`🎯 [TypeDetection] ZIP file with RTI keyword detected: ${file.name}`);
-        return 'rti';
-      }
-      console.log(`📦 [TypeDetection] ZIP file assumed to be 3D model archive: ${file.name}`);
-      return '3d-model';
-    }
-
-    const model3dExtensions = ['ply', 'obj', 'gltf', 'glb', 'fbx', 'dae', 'x3d', 'stl', '3ds', 'nxz', 'ase', 'ifc'];
-    if (model3dExtensions.includes(ext)) {
-      console.log(`🎲 [TypeDetection] Direct 3D model file detected: ${file.name}`);
-      return '3d-model';
-    }
-
-    console.log(`❓ [TypeDetection] Unknown file type, defaulting to 3d-model: ${file.name}`);
-    return '3d-model';
+  const deriveAssetNameSuggestion = (sourceName: string) => {
+    const fallback = 'remote_asset';
+    const sanitizedSource = sourceName.trim().split('/').pop() || fallback;
+    const fileName = sanitizedSource || fallback;
+    const title = fileName.replace(/\.[^/.]+$/, '') || fallback;
+    return {
+      label: fileName,
+      title,
+    };
   };
 
   /**
    * Unified asset upload handler (2-step flow preserved)
    */
-  const handleUnifiedAssetUpload = async (file: File, assetLabel: string, assetTitle: string) => {
+  const handleUnifiedAssetUpload = async (
+    file: File,
+    assetType: UploadAssetType,
+    assetLabel: string,
+    assetTitle: string,
+  ) => {
     if (!projectId) throw new Error('Missing projectId');
 
     try {
@@ -669,9 +678,8 @@ export default function HDTPage() {
       setUploading(true);
       setUploadProgress(0);
 
-      // 1) Create asset entry in HDT first
-      const assetType = determineAssetType(file);
-      console.log(`🔍 [UnifiedUpload] Detected asset type: ${assetType} for file: ${file.name}`);
+      // 1) Create asset entry in HDT first using the explicit user-selected type.
+      console.log(`🔍 [UnifiedUpload] Using selected asset type: ${assetType} for file: ${file.name}`);
       const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
 
       // 2) Upload file to unified endpoint with progress tracking
@@ -766,7 +774,167 @@ export default function HDTPage() {
     }
   };
 
+  const populateUrlImportSuggestions = (rawUrl: string) => {
+    try {
+      const parsed = new URL(rawUrl);
+      const suggestions = deriveAssetNameSuggestion(decodeURIComponent(parsed.pathname));
+      setUrlImportLabel((current) => current.trim() ? current : suggestions.label);
+      setUrlImportTitle((current) => current.trim() ? current : suggestions.title);
+    } catch {
+      // Ignore incomplete URLs while the user is typing.
+    }
+  };
+
+  const resetUrlImportForm = () => {
+    setImportSourceUrl('');
+    setUrlImportLabel('');
+    setUrlImportTitle('');
+    setUrlImportAuthEnabled(false);
+    setUrlImportUsername('');
+    setUrlImportPassword('');
+    setShowUrlImportForm(false);
+  };
+
+  const handleImportAssetFromUrl = async () => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+
+    const trimmedUrl = importSourceUrl.trim();
+    if (!trimmedUrl) {
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Please provide a source URL before starting the import.',
+          'Missing URL',
+        ),
+      );
+      return;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(trimmedUrl);
+    } catch {
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Please provide a valid absolute URL, including the http:// or https:// scheme.',
+          'Invalid URL',
+        ),
+      );
+      return;
+    }
+
+    const sourceName = decodeURIComponent(parsedUrl.pathname.split('/').pop() || 'remote_asset');
+    const assetLabel = (urlImportLabel.trim() || deriveAssetNameSuggestion(sourceName).label);
+    const assetTitle = (urlImportTitle.trim() || deriveAssetNameSuggestion(sourceName).title);
+
+    if (urlImportAuthEnabled && !urlImportUsername.trim()) {
+      setMessageModal(
+        AppMessageModalCatalog.warning(
+          'Username is required when HTTP Basic Auth is enabled.',
+          'Missing credentials',
+        ),
+      );
+      return;
+    }
+
+    let createdAssetId: string | null = null;
+
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      setWarningMessages([]);
+      setMessageModal(null);
+      setImportingFromUrl(true);
+
+      const assetType = selectedAssetType;
+      const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+      createdAssetId = assetId;
+
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/files/import-url`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId,
+          sourceUrl: trimmedUrl,
+          authType: urlImportAuthEnabled ? 'basic' : 'none',
+          ...(urlImportAuthEnabled
+            ? {
+              username: urlImportUsername.trim(),
+              password: urlImportPassword,
+            }
+            : {}),
+        }),
+      });
+
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json.message || json.error || 'Failed to import asset from URL');
+      }
+
+      const responseData = json.value || json;
+      const importWarnings = Array.isArray(responseData.warnings)
+        ? responseData.warnings.filter((warning: unknown): warning is string => typeof warning === 'string' && warning.trim().length > 0)
+        : [];
+
+      const updatePayload: Record<string, any> = {
+        fileName: responseData.fileName || sourceName,
+        entrySize: responseData.entrySize,
+        entryPointUrl: responseData.entryPointUrl,
+        entryPoint: responseData.entryPoint,
+        mimeType: responseData.mimeType || 'application/octet-stream',
+        uploadedAt: new Date().toISOString(),
+        ...(responseData.metadata !== undefined ? { metadata: responseData.metadata } : {}),
+      };
+
+      switch (responseData.type) {
+        case 'rti':
+          updatePayload.type = 'rti';
+          break;
+        case '3d-model':
+        case '3d-model-archive':
+          updatePayload.type = '3d-model';
+          break;
+        default:
+          throw new Error(`Unsupported import response type: ${responseData.type}`);
+      }
+
+      await updateHdtAsset(assetId, updatePayload);
+      await fetchProjectAndMetadata();
+
+      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      setSuccessMessage(`✓ ${typeLabel} asset imported successfully from URL!`);
+      setWarningMessages(importWarnings);
+      resetUrlImportForm();
+    } catch (err: any) {
+      console.error('[UnifiedUpload] Remote import error:', err);
+      setError(null);
+
+      const details: string[] = [];
+      if (typeof err?.message === 'string' && err.message.trim()) {
+        details.push(err.message.trim());
+      }
+
+      if (createdAssetId) {
+        const cleanupResult = await rollbackPartialImportedAsset(createdAssetId);
+        details.push(cleanupResult);
+      }
+
+      setMessageModal(
+        AppMessageModalCatalog.error(
+          'The asset could not be imported from the provided URL.',
+          'Asset import failed',
+          details,
+        ),
+      );
+    } finally {
+      setImportingFromUrl(false);
+    }
+  };
+
   return (
+    <>
     <div className="container-fluid py-4 px-4">
       {/* Header */}
       <div className="d-flex align-items-center mb-4">
@@ -1242,6 +1410,12 @@ export default function HDTPage() {
                       (e.target as HTMLInputElement).value = '';
                       return;
                     }
+                    if (selectedAssetType === 'rti' && !isZip) {
+                      setError('RTI uploads must be ZIP archives containing an RTI dataset.');
+                      setWarningMessages([]);
+                      (e.target as HTMLInputElement).value = '';
+                      return;
+                    }
                     if (isDirectObj) {
                       setWarningMessages([
                         `Direct OBJ upload selected ("${file.name}"). If this model requires external materials/textures, upload a ZIP containing .obj + .mtl + texture files.`
@@ -1255,7 +1429,7 @@ export default function HDTPage() {
                     const assetTitle = file.name.replace(/\.[^/.]+$/, '');
 
                     try {
-                      await handleUnifiedAssetUpload(file, assetLabel.trim(), assetTitle.trim());
+                      await handleUnifiedAssetUpload(file, selectedAssetType, assetLabel.trim(), assetTitle.trim());
                     } finally {
                       (e.target as HTMLInputElement).value = '';
                     }
@@ -1263,7 +1437,21 @@ export default function HDTPage() {
                   disabled={assetUploadDisabled}
                 />
 
-                <div className="d-flex gap-2">
+                <div className="d-flex flex-wrap align-items-end gap-2">
+                  <div style={{ width: '11rem' }}>
+                    <label htmlFor="assetTypeSelector" className="form-label mb-1 small">Asset type</label>
+                    <select
+                      id="assetTypeSelector"
+                      className="form-select form-select-sm"
+                      value={selectedAssetType}
+                      onChange={(e) => setSelectedAssetType(e.target.value as UploadAssetType)}
+                      disabled={assetUploadDisabled}
+                    >
+                      <option value="3d-model">3D Model</option>
+                      <option value="rti">RTI</option>
+                    </select>
+                  </div>
+
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
@@ -1278,7 +1466,133 @@ export default function HDTPage() {
                       <>📁 Upload Asset (3D or RTI)</>
                     )}
                   </button>
+
+                  <button
+                    className="btn btn-outline-primary"
+                    type="button"
+                    onClick={() => setShowUrlImportForm((current) => !current)}
+                    disabled={assetUploadDisabled}
+                  >
+                    {importingFromUrl ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Importing...
+                      </>
+                    ) : (
+                      <>🔗 Import Asset from URL</>
+                    )}
+                  </button>
                 </div>
+
+                {showUrlImportForm && (
+                  <div className="card border-primary-subtle mt-3">
+                    <div className="card-body">
+                      <div className="mb-3">
+                        <label htmlFor="assetImportUrl" className="form-label">Remote URL</label>
+                        <input
+                          id="assetImportUrl"
+                          type="url"
+                          className="form-control"
+                          placeholder="https://example.org/path/to/asset.zip"
+                          value={importSourceUrl}
+                          onChange={(e) => setImportSourceUrl(e.target.value)}
+                          onBlur={(e) => populateUrlImportSuggestions(e.target.value)}
+                          disabled={assetUploadDisabled}
+                        />
+                        <div className="form-text">
+                          The backend will download the remote file and validate that it matches the selected asset type.
+                        </div>
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label htmlFor="assetImportLabel" className="form-label">Asset label</label>
+                          <input
+                            id="assetImportLabel"
+                            type="text"
+                            className="form-control"
+                            value={urlImportLabel}
+                            onChange={(e) => setUrlImportLabel(e.target.value)}
+                            disabled={assetUploadDisabled}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label htmlFor="assetImportTitle" className="form-label">Asset title</label>
+                          <input
+                            id="assetImportTitle"
+                            type="text"
+                            className="form-control"
+                            value={urlImportTitle}
+                            onChange={(e) => setUrlImportTitle(e.target.value)}
+                            disabled={assetUploadDisabled}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-check mt-3">
+                        <input
+                          id="assetImportBasicAuth"
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={urlImportAuthEnabled}
+                          onChange={(e) => setUrlImportAuthEnabled(e.target.checked)}
+                          disabled={assetUploadDisabled}
+                        />
+                        <label className="form-check-label" htmlFor="assetImportBasicAuth">
+                          This URL requires HTTP Basic Auth (.htaccess / .htpasswd)
+                        </label>
+                      </div>
+
+                      {urlImportAuthEnabled && (
+                        <div className="row g-3 mt-1">
+                          <div className="col-md-6">
+                            <label htmlFor="assetImportUsername" className="form-label">Username</label>
+                            <input
+                              id="assetImportUsername"
+                              type="text"
+                              className="form-control"
+                              value={urlImportUsername}
+                              onChange={(e) => setUrlImportUsername(e.target.value)}
+                              disabled={assetUploadDisabled}
+                              autoComplete="username"
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <label htmlFor="assetImportPassword" className="form-label">Password</label>
+                            <input
+                              id="assetImportPassword"
+                              type="password"
+                              className="form-control"
+                              value={urlImportPassword}
+                              onChange={(e) => setUrlImportPassword(e.target.value)}
+                              disabled={assetUploadDisabled}
+                              autoComplete="current-password"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="d-flex gap-2 mt-3">
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => void handleImportAssetFromUrl()}
+                          disabled={assetUploadDisabled}
+                        >
+                          Import from URL
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={resetUrlImportForm}
+                          disabled={assetUploadDisabled}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1656,5 +1970,11 @@ export default function HDTPage() {
         </div>
       </div>
     </div>
+    <AppMessageModal
+      descriptor={messageModal}
+      onClose={() => setMessageModal(null)}
+      onAction={() => setMessageModal(null)}
+    />
+    </>
   );
 }

@@ -299,8 +299,12 @@ export default function EditProject() {
       setShowImportModal(false);
       setHasHdt(true);
 
-      if (dublinCore.title) {
+      if (typeof dublinCore.title === 'string' && dublinCore.title.trim().length > 0) {
         setName(dublinCore.title);
+      }
+
+      if (typeof dublinCore.description === 'string' && dublinCore.description.trim().length > 0) {
+        setDescription(dublinCore.description);
       }
 
       alert(`✅ Successfully imported metadata from ${adapter.label}.`);

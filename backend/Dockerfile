@@ -3,8 +3,8 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Deps for Prisma / OpenSSL
-RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Deps for Prisma / OpenSSL / robust ZIP extraction
+RUN apt-get update -y && apt-get install -y openssl ca-certificates unzip && rm -rf /var/lib/apt/lists/*
 
 # 1) Copy workspace manifests (better layer caching)
 COPY package.json package-lock.json ./

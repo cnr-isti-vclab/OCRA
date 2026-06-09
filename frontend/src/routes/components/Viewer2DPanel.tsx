@@ -28,8 +28,8 @@ import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
-  type MessageModalDescriptor,
-} from '../../shared/ui/AnnotationMessageModalModel';
+} from '../../shared/ui/AnnotationMessageModalCatalog';
+import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 
 interface Viewer2DPanelProps {
@@ -109,6 +109,18 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const handlePencilActiveChange = useCallback((active: boolean) => {
       setPencilActive(active);
     }, []);
+
+    /** Full pencil + edit mode (UIBasic sync + selectable geometries). Use for panel-driven focus. */
+    const enableAnnotationEditInteraction = useCallback(() => {
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+      if (!viewer || !manager) {
+        return null;
+      }
+      setToolbarMode('edit');
+      applyOpenLimeToolbarMode(manager, viewer, 'edit');
+      return manager;
+    }, [ref]);
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
@@ -331,11 +343,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       runStoreOpenLimeSync(annotationManager);
       const idsToSelect = highlightGeometryIdsRef.current;
       if (idsToSelect.length > 0) {
+        const managerForSelect =
+          enableAnnotationEditInteraction() ?? annotationManager;
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
-        applyOpenLimeSelection(annotationManager, idsToSelect);
+        applyOpenLimeSelection(managerForSelect, idsToSelect);
       }
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
-    }, [lockedGeometryIds, ref, viewerAnnotationsForSync]);
+    }, [lockedGeometryIds, ref, viewerAnnotationsForSync, enableAnnotationEditInteraction]);
 
     const syncGeometryEditorLocks = useCallback(
       async (geometryIds: string[]) => {
@@ -379,12 +393,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       // Re-apply selection after shape sync — import/redraw can strip the selected CSS class.
       const idsToSelect = highlightGeometryIdsRef.current;
       if (idsToSelect.length > 0) {
+        const managerForSelect =
+          enableAnnotationEditInteraction() ?? annotationManager;
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
-        applyOpenLimeSelection(annotationManager, idsToSelect);
+        applyOpenLimeSelection(managerForSelect, idsToSelect);
       }
       // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
-    }, [viewerAnnotationsForSync, lockedGeometryIds, ref]);
+    }, [viewerAnnotationsForSync, lockedGeometryIds, ref, enableAnnotationEditInteraction]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
@@ -403,9 +419,19 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (highlightGeometryIds.length === 0) {
         return;
       }
+      const managerForSelect =
+        enableAnnotationEditInteraction() ?? annotationManager;
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
-      applyOpenLimeSelection(annotationManager, highlightGeometryIds);
-    }, [highlightGeometryIds, focusedDataIds, ref]);
+      applyOpenLimeSelection(managerForSelect, highlightGeometryIds);
+    }, [highlightGeometryIds, focusedDataIds, ref, enableAnnotationEditInteraction]);
+
+    // When the OpenLIME pencil is enabled (toolbar button or panel), apply the React toolbar mode.
+    useEffect(() => {
+      if (!pencilActive || !viewerReady) {
+        return;
+      }
+      applyToolbarMode(toolbarMode);
+    }, [pencilActive, viewerReady, toolbarMode, applyToolbarMode]);
 
     // Keep editor social locks aligned with this viewer's focused geometries.
     useEffect(() => {

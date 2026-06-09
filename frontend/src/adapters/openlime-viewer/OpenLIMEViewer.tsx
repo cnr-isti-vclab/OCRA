@@ -23,6 +23,61 @@ import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, 
 import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.ts';
 import type { OpenLimeLabelVisibility } from '../annotation-store/openlimeAnnotationAdapter.ts';
 
+const RTI_LAYOUT_PROBES = [
+  { layout: 'tarzoom', fileName: 'plane_0.tzi' },
+  { layout: 'deepzoom', fileName: 'plane_0.dzi' },
+  { layout: 'itarzoom', fileName: 'planes.tzi' },
+  { layout: 'image', fileName: 'plane_0.jpg' },
+] as const;
+
+/**
+ * Resolve the extracted RTI dataset root from the public `info.json` entry point URL.
+ */
+function getRtiAssetBaseUrl(entryPointUrl: string): string {
+  const resolvedUrl = new URL(entryPointUrl, window.location.href);
+  resolvedUrl.search = '';
+  resolvedUrl.hash = '';
+  resolvedUrl.pathname = resolvedUrl.pathname.replace(/\/[^/]*$/, '/');
+  return resolvedUrl.toString();
+}
+
+async function resourceExists(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    if (response.ok) {
+      return true;
+    }
+    if (response.status !== 405 && response.status !== 501) {
+      return false;
+    }
+  } catch {
+    // Fall back to GET when HEAD is not accepted or filtered by the server/proxy.
+  }
+
+  try {
+    const response = await fetch(url);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Detect the OpenLIME plane layout from the files exposed from the extracted RTI ZIP.
+ */
+async function autodetectRtiLayout(entryPointUrl: string): Promise<string | null> {
+  const baseUrl = getRtiAssetBaseUrl(entryPointUrl);
+
+  for (const probe of RTI_LAYOUT_PROBES) {
+    const probeUrl = new URL(probe.fileName, baseUrl).toString();
+    if (await resourceExists(probeUrl)) {
+      return probe.layout;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Simplified annotation interface for CRUD operations
  */
@@ -360,7 +415,7 @@ const OpenLIMEViewer = forwardRef<
             // Read Header data if available
             let pixelSizeInMM: number | null = null;
             let layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
-            let layout = 'deepzoom'; // FIXME parameterize this based on asset type or scene description
+            let layout = 'deepzoom';
             try {
               const response = await fetch(url);
               if (response.ok) {
@@ -374,13 +429,29 @@ const OpenLIMEViewer = forwardRef<
                 }
 
                 //layerType = info?.type || layerType;
-                layout = info?.layout || layout;
+                if (typeof info?.layout === 'string' && info.layout.trim().length > 0) {
+                  layout = info.layout.trim();
+                } else {
+                  const detectedLayout = await autodetectRtiLayout(url);
+                  if (detectedLayout) {
+                    layout = detectedLayout;
+                  } else {
+                    console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                  }
+                }
 
                 console.log(`🎬 Read header info from ${url}: pixelSizeInMM=${pixelSizeInMM}, type=${layerType}, layout=${layout}`);
               }
 
             } catch (error) {
               console.warn(`⚠️ Could not read pixelSizeInMM from ${url}:`, error);
+              const detectedLayout = await autodetectRtiLayout(url);
+              if (detectedLayout) {
+                layout = detectedLayout;
+                console.log(`🎬 Autodetected RTI layout for ${url}: ${layout}`);
+              } else {
+                console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+              }
             }
 
             if (cancelled) return;
@@ -486,15 +557,6 @@ const OpenLIMEViewer = forwardRef<
             lensLayer.setVisible(false);
             lensLayer.zindex = selectedAssets.length + 1; // Ensure lens is always on top
             viewer.addLayer('lens', lensLayer);
-
-            // Create a lens controller for focus and context exploration when lenses are enabled.
-            const controllerLens = new OpenLIME.ControllerFocusContext({
-              lensLayer: lensLayer,
-              camera: viewer.camera,
-              canvas: viewer.canvas,
-            });
-            viewer.pointerManager.onEvent(controllerLens);
-            lensLayer.controllers.push(controllerLens);
 
             // Here we are: create the UI
             uiRef.current = new OpenLIME.UIBasic(viewer, {

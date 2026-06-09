@@ -658,7 +658,7 @@ export default function ProjectPage() {
       return;
     }
     if (viewerRef.current) {
-      viewerRef.current.setAnnotationButtonVisible(activeTab === 'annotations');
+      viewerRef.current.setAnnotationButtonVisible(false);
     }
   }, [activeTab, annotationTestMode]);
 
@@ -767,6 +767,7 @@ export default function ProjectPage() {
                 sceneDesc={sceneDesc}
                 loadingModels={loadingModels}
                 modelLoadProgress={modelLoadProgress}
+                annotationToolsVisible={activeTab === 'annotations'}
                 onReady={() => {
                   console.log('✅ 3D viewer ready');
                 }}

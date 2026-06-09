@@ -190,6 +190,13 @@ docker compose exec backend ping postgres
 **CORS errors:**
 - Check `CORS_ORIGINS` in .env.prod matches your domain
 
+**`CLIENT_SECRET` warning during `docker compose up`:**
+- Compose is not reading your production env file.
+- Start production with:
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+  ```
+
 **"npm error code EUSAGE" or "npm ci" failed during build:**
 - This means `package-lock.json` is out of sync with `package.json`.
 - **Fix**:
