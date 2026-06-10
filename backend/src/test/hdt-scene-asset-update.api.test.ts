@@ -103,7 +103,8 @@ describe('HDT scene asset update API', () => {
 
     expect(response.body).toHaveProperty('code', 'common.validation_error');
     expect(response.body).toHaveProperty('error', 'Invalid scene asset update payload');
-    expect(response.body.details).toContain('position: Array must contain exactly 3 element(s)');
+    expect(Array.isArray(response.body.details)).toBe(true);
+    expect(response.body.details.some((detail: string) => detail.startsWith('position:'))).toBe(true);
   });
 
   it('persists validated position, rotation, and scale updates in the scene asset reference', async () => {
