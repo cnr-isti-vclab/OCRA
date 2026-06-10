@@ -921,7 +921,7 @@ router.get('/:projectId/is-manager', isManagerOfProject);
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *       403:
- *         description: Not authorized
+ *         description: Not authorized (project manager or system administrator only)
  *         content:
  *           application/json:
  *             schema:

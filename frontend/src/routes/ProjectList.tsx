@@ -71,11 +71,6 @@ export default function Projects() {
   const navigate = useNavigate();
   const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
 
-  const buildSuggestedProjectName = useCallback(() => {
-    const nextProjectNumber = projects.length + 1;
-    return `PRJ${String(nextProjectNumber).padStart(6, '0')}`;
-  }, [projects.length]);
-
   const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
     const showLoading = options?.showLoading ?? true;
 
@@ -177,7 +172,7 @@ export default function Projects() {
 
   const openCreateProjectModal = () => {
     setCreateError(null);
-    setNewProjectName(buildSuggestedProjectName());
+    setNewProjectName('');
     setNewProjectDescription('');
     setNewProjectPublic(false);
     setShowCreateModal(true);
@@ -564,7 +559,7 @@ export default function Projects() {
                     className="form-control"
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
-                    placeholder="Enter project name"
+                    placeholder="Enter a unique project name"
                     disabled={creatingProject}
                   />
                 </div>

@@ -51,7 +51,6 @@ interface DublinCoreMetadata {
 }
 
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
-type UploadAssetType = '3d-model' | 'rti';
 
 export interface DigitalAsset {
   id: string;
@@ -107,6 +106,7 @@ export default function HDTPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [metadata, setMetadata] = useState<HDTMetadata | null>(null);
+  const [canManageAssets, setCanManageAssets] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +120,6 @@ export default function HDTPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showUrlImportForm, setShowUrlImportForm] = useState(false);
-  const [selectedAssetType, setSelectedAssetType] = useState<UploadAssetType>('3d-model');
   const [importSourceUrl, setImportSourceUrl] = useState('');
   const [urlImportLabel, setUrlImportLabel] = useState('');
   const [urlImportTitle, setUrlImportTitle] = useState('');
@@ -162,6 +161,8 @@ export default function HDTPage() {
   const hdtReadOnlyWithoutProjectLock = !projectLockState.hasExclusiveLock;
   const structuringInProgress = !!activeDrainingEvent || !!presenceError;
   const ingestingAsset = uploading || importingFromUrl;
+  const assetUploadDisabled = !canManageAssets || ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock);
+  const assetMutationDisabled = !canManageAssets || hdtReadOnlyWithoutProjectLock;
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -282,7 +283,7 @@ export default function HDTPage() {
   ): Promise<string> => {
     if (!projectId) throw new Error('Missing projectId');
 
-    const actualType = type === 'auto' ? '3d-model' : type;
+    const actualType = type === 'auto' ? 'other' : type;
     console.log(`🔧 [CreateHDTAsset] Creating ${actualType} asset: ${label}`);
 
     const res = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/assets`, {
@@ -460,6 +461,19 @@ export default function HDTPage() {
       const projectData = await projectResponse.json();
       const proj: Project = (projectData?.project ?? projectData) as Project;
       setProject(proj);
+
+      const managerResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (managerResponse.ok) {
+        const managerData = await managerResponse.json();
+        setCanManageAssets(!!managerData?.isManager);
+      } else if (managerResponse.status === 401) {
+        setCanManageAssets(false);
+      } else {
+        throw new Error(`Failed to fetch project permissions: ${managerResponse.status}`);
+      }
 
       // Fetch HDT metadata (might not exist yet)
       const metadataResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
@@ -649,7 +663,6 @@ export default function HDTPage() {
    */
   const handleUnifiedAssetUpload = async (
     file: File,
-    assetType: UploadAssetType,
     assetLabel: string,
     assetTitle: string,
   ) => {
@@ -662,9 +675,8 @@ export default function HDTPage() {
       setUploading(true);
       setUploadProgress(0);
 
-      // 1) Create asset entry in HDT first using the explicit user-selected type.
-      console.log(`🔍 [UnifiedUpload] Using selected asset type: ${assetType} for file: ${file.name}`);
-      const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+      // 1) Create a neutral asset entry in HDT first; backend upload autodetects the concrete type.
+      const assetId = await createHdtAsset('auto', assetLabel, assetTitle);
 
       // 2) Upload file to unified endpoint with progress tracking
       const uploadResponse = await new Promise<Response>((resolve, reject) => {
@@ -831,8 +843,7 @@ export default function HDTPage() {
       setMessageModal(null);
       setImportingFromUrl(true);
 
-      const assetType = selectedAssetType;
-      const assetId = await createHdtAsset(assetType, assetLabel, assetTitle);
+      const assetId = await createHdtAsset('auto', assetLabel, assetTitle);
       createdAssetId = assetId;
 
       const response = await fetch(`${getApiBase()}/api/projects/${projectId}/files/import-url`, {
@@ -1213,7 +1224,10 @@ export default function HDTPage() {
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
                 </div>
                 <div className="form-text mt-2">
-                  Asset upload is still allowed without the project lock, but only when no structuring session is already in progress.
+                  Asset creation and upload are available only to project managers and system administrators.
+                </div>
+                <div className="form-text">
+                  Upload is still allowed without the project lock, but only when no structuring session is already in progress.
                 </div>
               </div>
 
@@ -1322,7 +1336,7 @@ export default function HDTPage() {
 
                                     <button
                                       className="btn btn-sm btn-outline-danger"
-                                      disabled={hdtReadOnlyWithoutProjectLock}
+                                      disabled={assetMutationDisabled}
                                       onClick={async () => {
                                         const displayName = name;
                                         if (!confirm(`Delete "${displayName}"? This will remove the asset and its stored files and cannot be undone.`)) {
@@ -1361,12 +1375,22 @@ export default function HDTPage() {
               {/* Upload New Asset */}
               <div className="mb-4">
                 <h6 className="text-primary mb-2">Add a new asset</h6>
+                {!canManageAssets && (
+                  <p className="text-muted fst-italic mb-2">
+                    Only project managers and system administrators can create or upload assets.
+                  </p>
+                )}
                 <input
                   id="unifiedAssetInput"
                   type="file"
                   className="d-none"
                   accept=".ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip"
                   onChange={async (e) => {
+                    if (!canManageAssets) {
+                      (e.target as HTMLInputElement).value = '';
+                      return;
+                    }
+
                     const file = e.target.files?.[0];
                     if (!file) return;
 
@@ -1377,12 +1401,6 @@ export default function HDTPage() {
 
                     if (!isZip && !is3DFile) {
                       setError('Please select a 3D model file or ZIP archive.');
-                      setWarningMessages([]);
-                      (e.target as HTMLInputElement).value = '';
-                      return;
-                    }
-                    if (selectedAssetType === 'rti' && !isZip) {
-                      setError('RTI uploads must be ZIP archives containing an RTI dataset.');
                       setWarningMessages([]);
                       (e.target as HTMLInputElement).value = '';
                       return;
@@ -1400,33 +1418,19 @@ export default function HDTPage() {
                     const assetTitle = file.name.replace(/\.[^/.]+$/, '');
 
                     try {
-                      await handleUnifiedAssetUpload(file, selectedAssetType, assetLabel.trim(), assetTitle.trim());
+                      await handleUnifiedAssetUpload(file, assetLabel.trim(), assetTitle.trim());
                     } finally {
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
-                  disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                  disabled={assetUploadDisabled}
                 />
 
                 <div className="d-flex flex-wrap align-items-end gap-2">
-                  <div style={{ width: '11rem' }}>
-                    <label htmlFor="assetTypeSelector" className="form-label mb-1 small">Asset type</label>
-                    <select
-                      id="assetTypeSelector"
-                      className="form-select form-select-sm"
-                      value={selectedAssetType}
-                      onChange={(e) => setSelectedAssetType(e.target.value as UploadAssetType)}
-                      disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
-                    >
-                      <option value="3d-model">3D Model</option>
-                      <option value="rti">RTI</option>
-                    </select>
-                  </div>
-
                   <button
                     className="btn btn-primary"
                     onClick={() => document.getElementById('unifiedAssetInput')?.click()}
-                    disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                    disabled={assetUploadDisabled}
                   >
                     {uploading ? (
                       <>
@@ -1434,7 +1438,7 @@ export default function HDTPage() {
                         Uploading... {uploadProgress}%
                       </>
                     ) : (
-                      <>📁 Upload Asset (3D or RTI)</>
+                      <>📁 Upload Asset</>
                     )}
                   </button>
 
@@ -1442,7 +1446,7 @@ export default function HDTPage() {
                     className="btn btn-outline-primary"
                     type="button"
                     onClick={() => setShowUrlImportForm((current) => !current)}
-                    disabled={ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock)}
+                    disabled={assetUploadDisabled}
                   >
                     {importingFromUrl ? (
                       <>
@@ -1468,10 +1472,10 @@ export default function HDTPage() {
                           value={importSourceUrl}
                           onChange={(e) => setImportSourceUrl(e.target.value)}
                           onBlur={(e) => populateUrlImportSuggestions(e.target.value)}
-                          disabled={importingFromUrl}
+                          disabled={assetUploadDisabled}
                         />
                         <div className="form-text">
-                          The backend will download the remote file and validate that it matches the selected asset type.
+                          The backend will download the remote file and detect the asset type automatically.
                         </div>
                       </div>
 
@@ -1484,7 +1488,7 @@ export default function HDTPage() {
                             className="form-control"
                             value={urlImportLabel}
                             onChange={(e) => setUrlImportLabel(e.target.value)}
-                            disabled={importingFromUrl}
+                            disabled={assetUploadDisabled}
                           />
                         </div>
                         <div className="col-md-6">
@@ -1495,7 +1499,7 @@ export default function HDTPage() {
                             className="form-control"
                             value={urlImportTitle}
                             onChange={(e) => setUrlImportTitle(e.target.value)}
-                            disabled={importingFromUrl}
+                            disabled={assetUploadDisabled}
                           />
                         </div>
                       </div>
@@ -1507,7 +1511,7 @@ export default function HDTPage() {
                           type="checkbox"
                           checked={urlImportAuthEnabled}
                           onChange={(e) => setUrlImportAuthEnabled(e.target.checked)}
-                          disabled={importingFromUrl}
+                          disabled={assetUploadDisabled}
                         />
                         <label className="form-check-label" htmlFor="assetImportBasicAuth">
                           This URL requires HTTP Basic Auth (.htaccess / .htpasswd)
@@ -1524,7 +1528,7 @@ export default function HDTPage() {
                               className="form-control"
                               value={urlImportUsername}
                               onChange={(e) => setUrlImportUsername(e.target.value)}
-                              disabled={importingFromUrl}
+                              disabled={assetUploadDisabled}
                               autoComplete="username"
                             />
                           </div>
@@ -1536,7 +1540,7 @@ export default function HDTPage() {
                               className="form-control"
                               value={urlImportPassword}
                               onChange={(e) => setUrlImportPassword(e.target.value)}
-                              disabled={importingFromUrl}
+                              disabled={assetUploadDisabled}
                               autoComplete="current-password"
                             />
                           </div>
@@ -1548,7 +1552,7 @@ export default function HDTPage() {
                           className="btn btn-primary"
                           type="button"
                           onClick={() => void handleImportAssetFromUrl()}
-                          disabled={importingFromUrl}
+                          disabled={assetUploadDisabled}
                         >
                           Import from URL
                         </button>
@@ -1556,7 +1560,7 @@ export default function HDTPage() {
                           className="btn btn-outline-secondary"
                           type="button"
                           onClick={resetUrlImportForm}
-                          disabled={importingFromUrl}
+                          disabled={assetUploadDisabled}
                         >
                           Cancel
                         </button>

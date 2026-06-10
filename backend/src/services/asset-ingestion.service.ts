@@ -5,7 +5,7 @@ import {
   selectPrimary3DModelFile,
   type DetectedArchiveFile,
 } from './model-archive-utils.js';
-import { extractZipArchive } from './zip-extraction.service.js';
+import { extractZipArchive, listZipEntries } from './zip-extraction.service.js';
 
 export interface PreparedAssetFile {
   path: string;
@@ -19,6 +19,7 @@ export interface PreparedAssetProcessing {
   originalFile: PreparedAssetFile;
   detectedFiles?: DetectedArchiveFile[];
   primaryModelFile?: DetectedArchiveFile;
+  rtiDatasetRootRelativePath?: string;
   warnings?: string[];
 }
 
@@ -44,12 +45,76 @@ function isTextureFile(filename: string): boolean {
   return textureExts.includes(ext);
 }
 
+export const RTI_DATASET_INFO_FILE = 'info.json';
+
+function isRootFileEntry(entryName: string, expectedFileName: string): boolean {
+  return entryName.replace(/\\/g, '/') === expectedFileName;
+}
+
+function normalizeArchiveEntry(entryName: string): string {
+  return entryName
+    .replace(/\\/g, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function isArchiveDirectoryPlaceholder(entryName: string): boolean {
+  return entryName.replace(/\\/g, '/').trim().endsWith('/');
+}
+
+function isIgnoredArchiveEntry(entryName: string): boolean {
+  return (
+    entryName === '' ||
+    entryName === '.' ||
+    entryName === '..' ||
+    entryName === '.DS_Store' ||
+    entryName.startsWith('__MACOSX/')
+  );
+}
+
+export function resolveRtiDatasetRootRelativePath(entryNames: string[]): string | null {
+  const normalizedEntries = entryNames
+    .filter((entry) => !isArchiveDirectoryPlaceholder(entry))
+    .map(normalizeArchiveEntry)
+    .filter((entry) => !isIgnoredArchiveEntry(entry));
+
+  if (normalizedEntries.some((entry) => isRootFileEntry(entry, RTI_DATASET_INFO_FILE))) {
+    return '';
+  }
+
+  const topLevelDirectories = new Set<string>();
+
+  for (const entry of normalizedEntries) {
+    const slashIndex = entry.indexOf('/');
+    if (slashIndex === -1) {
+      return null;
+    }
+    topLevelDirectories.add(entry.slice(0, slashIndex));
+  }
+
+  if (topLevelDirectories.size !== 1) {
+    return null;
+  }
+
+  const [topLevelDirectory] = Array.from(topLevelDirectories);
+  return normalizedEntries.includes(`${topLevelDirectory}/${RTI_DATASET_INFO_FILE}`)
+    ? topLevelDirectory
+    : null;
+}
+
+export async function isRtiZipPackage(zipPath: string): Promise<boolean> {
+  const entries = await listZipEntries(zipPath);
+  return resolveRtiDatasetRootRelativePath(entries) !== null;
+}
+
 /**
  * Analyze extracted ZIP contents to determine whether they contain RTI or 3D assets.
  */
 export async function analyzeZipContents(extractedPath: string): Promise<{
   type: 'rti' | '3d';
   files: DetectedArchiveFile[];
+  rtiDatasetRootRelativePath: string | null;
 }> {
   const files: DetectedArchiveFile[] = [];
 
@@ -71,7 +136,7 @@ export async function analyzeZipContents(extractedPath: string): Promise<{
 
       let fileType: '3d-model' | 'rti-info' | 'texture' | 'other' = 'other';
 
-      if (entry.name === 'info.json') {
+      if (entry.name === RTI_DATASET_INFO_FILE) {
         fileType = 'rti-info';
       } else if (is3DModelFile(entry.name)) {
         fileType = '3d-model';
@@ -89,18 +154,18 @@ export async function analyzeZipContents(extractedPath: string): Promise<{
 
   await scanDirectory(extractedPath);
 
-  const hasRtiInfo = files.some((file) => file.type === 'rti-info');
+  const rtiDatasetRootRelativePath = resolveRtiDatasetRootRelativePath(files.map((file) => file.name));
   const has3DModels = files.some((file) => file.type === '3d-model');
 
-  if (hasRtiInfo) {
-    return { type: 'rti', files };
+  if (rtiDatasetRootRelativePath !== null) {
+    return { type: 'rti', files, rtiDatasetRootRelativePath };
   }
 
   if (has3DModels) {
-    return { type: '3d', files };
+    return { type: '3d', files, rtiDatasetRootRelativePath: null };
   }
 
-  throw new Error('ZIP archive contains neither RTI data (info.json) nor 3D models');
+  throw new Error(`ZIP archive contains neither RTI package entry point (${RTI_DATASET_INFO_FILE}) nor 3D models`);
 }
 
 /**
@@ -132,11 +197,20 @@ export async function prepareAssetProcessingFromLocalFile(input: {
   );
 
   try {
+    const isRtiPackage = await isRtiZipPackage(file.path);
     await extractZipArchive(file.path, extractedPath);
 
     const analysis = await analyzeZipContents(extractedPath);
     const warnings: string[] = [];
     let primaryModelFile: DetectedArchiveFile | undefined;
+
+    if (isRtiPackage && analysis.type !== 'rti') {
+      throw new Error(`RTI ZIP archive is missing required ${RTI_DATASET_INFO_FILE} at dataset root after extraction`);
+    }
+
+    if (!isRtiPackage && analysis.type === 'rti') {
+      throw new Error(`RTI ZIP archive must declare ${RTI_DATASET_INFO_FILE} at the archive root`);
+    }
 
     if (analysis.type === '3d') {
       const selectedPrimary = selectPrimary3DModelFile(analysis.files);
@@ -155,6 +229,7 @@ export async function prepareAssetProcessingFromLocalFile(input: {
       originalFile: file,
       detectedFiles: analysis.files,
       primaryModelFile,
+      rtiDatasetRootRelativePath: analysis.rtiDatasetRootRelativePath ?? undefined,
       warnings,
     };
   } catch (error) {

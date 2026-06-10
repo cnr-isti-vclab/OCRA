@@ -26,6 +26,7 @@
  */
 
 import { Request, Response } from 'express';
+import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 import { sendApiError } from '../lib/api-error.js';
 import {
@@ -727,7 +728,7 @@ export async function addAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can add assets');
+      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers and system administrators can add assets');
     }
 
     const updatedDoc = await addDigitalAsset(projectId, normalizedAsset, currentUser.sub);
@@ -841,7 +842,7 @@ export async function updateAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can update assets');
+      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers and system administrators can update assets');
     }
 
     const updatedDoc = await updateDigitalAsset(projectId, assetId, updates, currentUser.sub);
@@ -948,7 +949,7 @@ export async function removeAssetHandler(req: Request, res: Response) {
         }
       });
 
-      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers can remove assets');
+      return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers and system administrators can remove assets');
     }
 
     if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
@@ -1307,7 +1308,7 @@ export async function deleteSceneHandler(req: Request, res: Response) {
 
 /**
  * POST /api/projects/:projectId/hdt/scenes/:sceneId/assets
- * Add an asset reference to a scene (manager only).
+ * Add an asset reference to a scene (project manager or system administrator only).
  * This updates MongoDB and then refreshes the derived scene description.
  */
 export async function addAssetToSceneHandler(req: Request, res: Response) {
@@ -1322,7 +1323,7 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can modify scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers and system administrators can modify scenes');
     }
 
     const updatedDoc = await addAssetToScene(projectId, sceneId, assetReference, currentUser.sub);
@@ -1341,24 +1342,33 @@ export async function addAssetToSceneHandler(req: Request, res: Response) {
 
 /**
  * PUT /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * Update a scene-asset reference (manager only), then refresh derived scene description.
+ * Update a scene-asset reference (project manager or system administrator only), then refresh derived scene description.
  */
 export async function updateAssetInSceneHandler(req: Request, res: Response) {
   try {
     const { projectId, sceneId, assetId } = req.params;
     const currentUser = getCurrentUser(req);
-    const updates = req.body;
+    const updatesResult = sceneAssetReferenceUpdateSchema.safeParse(req.body);
 
     if (!currentUser) {
       return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
     }
 
-    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
-    if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can modify scenes');
+    if (!updatesResult.success) {
+      return sendApiError(req, res, {
+        status: 400,
+        code: API_ERROR_CODES.common.validationError,
+        error: 'Invalid scene asset update payload',
+        details: formatZodIssues(updatesResult.error),
+      });
     }
 
-    const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updates, currentUser.sub);
+    const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
+    if (!isManager) {
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers and system administrators can modify scenes');
+    }
+
+    const updatedDoc = await updateAssetInScene(projectId, sceneId, assetId, updatesResult.data, currentUser.sub);
     if (!updatedDoc) {
       return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
@@ -1374,7 +1384,7 @@ export async function updateAssetInSceneHandler(req: Request, res: Response) {
 
 /**
  * DELETE /api/projects/:projectId/hdt/scenes/:sceneId/assets/:assetId
- * Remove an asset reference from a scene (manager only), then refresh derived scene description.
+ * Remove an asset reference from a scene (project manager or system administrator only), then refresh derived scene description.
  */
 export async function removeAssetFromSceneHandler(req: Request, res: Response) {
   try {
@@ -1387,7 +1397,7 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
 
     const isManager = await checkIsManagerOfProject(currentUser.sub, projectId);
     if (!isManager) {
-      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers can modify scenes');
+      return sendHdtError(req, res, 403, 'sceneManagerRequired', 'Only project managers and system administrators can modify scenes');
     }
 
     const updatedDoc = await removeAssetFromScene(projectId, sceneId, assetId, currentUser.sub);

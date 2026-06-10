@@ -7,6 +7,15 @@ import fs from 'fs';
 import fse from 'fs-extra';
 import fsp from 'fs/promises';
 import { extractZipArchive } from '../services/zip-extraction.service.js';
+import { analyzeZipContents, RTI_DATASET_INFO_FILE } from '../services/asset-ingestion.service.js';
+
+async function copyDirectoryContents(sourceDir: string, targetDir: string): Promise<void> {
+  await fse.emptyDir(targetDir);
+  const entries = await fsp.readdir(sourceDir);
+  await Promise.all(
+    entries.map((entry) => fse.copy(path.join(sourceDir, entry), path.join(targetDir, entry))),
+  );
+}
 
 
 /**
@@ -17,9 +26,9 @@ import { extractZipArchive } from '../services/zip-extraction.service.js';
  * Responsibilities:
  * - Handles the uploaded RTI ZIP file (provided by rtiUploadMiddleware)
  * - Extracts the ZIP into: project_files/PROJECT_ID/rti/ASSET_ID/
- * - Validates the presence of info.json
- * - Parses info.json and extracts minimal metadata
- * - Returns a public URL for info.json and a metadata summary
+ * - Validates the presence of `info.json`
+ * - Parses `info.json` and extracts minimal metadata
+ * - Returns a public URL for `info.json` and a metadata summary
  *
  * Note:
  * This does NOT add the asset to the HDT metadata document.
@@ -27,6 +36,9 @@ import { extractZipArchive } from '../services/zip-extraction.service.js';
  * depending on your workflow), but it MUST provide assetId to this endpoint.
  */
 export async function uploadRtiAssetHandler(req: Request, res: Response) {
+  let zipPathForCleanup: string | null = null;
+  let extractedDirForCleanup: string | null = null;
+
   try {
     const { projectId } = req.params;
 
@@ -49,34 +61,40 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     }
 
     const zipPath = file.path;
+    zipPathForCleanup = zipPath;
 
     // Ensure project directory skeleton exists:
     // project_files/PROJECT_ID/{3d-model,rti,tmp}
     ensureProjectSkeleton(projectId);
 
-    // Final destination directory for this asset:
-    // project_files/PROJECT_ID/rti/ASSET_ID/
+    const extractedDir = path.join(path.dirname(zipPath), `rti_extract_${Date.now()}`);
+    extractedDirForCleanup = extractedDir;
     const targetDir = projectRtiAssetDir(projectId, assetId);
     await fsp.mkdir(targetDir, { recursive: true });
 
-    // Extract ZIP content into the final directory
-    await extractZipArchive(zipPath, targetDir);
+    // Extract ZIP content into a temporary directory, then normalize the dataset root
+    await extractZipArchive(zipPath, extractedDir);
+    const analysis = await analyzeZipContents(extractedDir);
+    if (analysis.type !== 'rti') {
+      return res.status(400).json({
+        error: `Invalid RTI asset: ${RTI_DATASET_INFO_FILE} not found at archive root or within a single top-level directory.`,
+      });
+    }
+
+    const datasetRootPath = analysis.rtiDatasetRootRelativePath
+      ? path.join(extractedDir, analysis.rtiDatasetRootRelativePath)
+      : extractedDir;
+
+    await copyDirectoryContents(datasetRootPath, targetDir);
 
     // Cleanup ONLY the uploaded ZIP file.
     // Do NOT empty a shared tmp directory (race condition with concurrent uploads).
-    try {
-      await fse.remove(zipPath);
-    } catch (cleanupErr) {
-      console.warn('Failed to remove temporary RTI ZIP:', cleanupErr);
-    }
-
-    // Validate presence of info.json
-    const infoPath = path.join(targetDir, 'info.json');
+    const infoPath = path.join(targetDir, RTI_DATASET_INFO_FILE);
     try {
       await fsp.access(infoPath);
     } catch {
       return res.status(400).json({
-        error: 'Invalid RTI asset: info.json not found in archive.',
+        error: `Invalid RTI asset: ${RTI_DATASET_INFO_FILE} not found in archive root.`,
       });
     }
 
@@ -140,7 +158,7 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
     // With: app.use('/assets/projects', express.static(PROJECT_FILES_ROOT))
     // the file becomes:
     // /assets/projects/PROJECT_ID/rti/ASSET_ID/info.json
-    const infoJsonUrl = `/assets/projects/${encodeURIComponent(projectId)}/rti/${encodeURIComponent(assetId)}/info.json`;
+    const infoJsonUrl = `/assets/projects/${encodeURIComponent(projectId)}/rti/${encodeURIComponent(assetId)}/${RTI_DATASET_INFO_FILE}`;
 
     return res.status(201).json({
       success: true,
@@ -165,5 +183,14 @@ export async function uploadRtiAssetHandler(req: Request, res: Response) {
       error: 'Failed to upload RTI asset.',
       message: error?.message ?? String(error),
     });
+  } finally {
+    if (zipPathForCleanup) {
+      await fse.remove(zipPathForCleanup).catch((cleanupErr) => {
+        console.warn('Failed to remove temporary RTI ZIP:', cleanupErr);
+      });
+    }
+    if (extractedDirForCleanup) {
+      await fse.remove(extractedDirForCleanup).catch(() => undefined);
+    }
   }
 }

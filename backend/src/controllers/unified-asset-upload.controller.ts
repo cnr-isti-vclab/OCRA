@@ -15,7 +15,10 @@ import {
 import { getPrismaClient } from '../../db.js';
 import { getHDTDocument, updateDigitalAsset } from '../services/hdt-metadata.service.js';
 import type { PreparedAssetFile, PreparedAssetProcessing } from '../services/asset-ingestion.service.js';
-import { prepareAssetProcessingFromLocalFile } from '../services/asset-ingestion.service.js';
+import {
+  prepareAssetProcessingFromLocalFile,
+  RTI_DATASET_INFO_FILE,
+} from '../services/asset-ingestion.service.js';
 import { downloadRemoteAssetToProjectTemp } from '../services/remote-asset-import.service.js';
 import { selectPrimary3DModelFile } from '../services/model-archive-utils.js';
 
@@ -76,6 +79,14 @@ function normalizeRelativeAssetPath(rawPath: string): string {
   }
 
   return normalized;
+}
+
+async function copyDirectoryContents(sourceDir: string, targetDir: string): Promise<void> {
+  await fse.emptyDir(targetDir);
+  const entries = await fsp.readdir(sourceDir);
+  await Promise.all(
+    entries.map((entry) => fse.copy(path.join(sourceDir, entry), path.join(targetDir, entry))),
+  );
 }
 
 /**
@@ -190,7 +201,7 @@ async function getDirectorySizeBytes(dir: string): Promise<number> {
  * The middleware classifies uploads into:
  * - '3d-direct': a single 3D file
  * - '3d': a ZIP containing one or more 3D files
- * - 'rti': a ZIP containing RTI dataset (info.json + tiles/images/etc.)
+ * - 'rti': a ZIP containing a relightable dataset package (`info.json` at archive root)
  *
  * IMPORTANT CONTRACT:
  * We do NOT publish `fileUrl` anymore.
@@ -294,7 +305,7 @@ async function processPreparedAssetIngestionRequest(
 
   const isManager = await checkIsManagerOfProject(currentUserSub, projectId);
   if (!isManager) {
-    return res.status(403).json({ error: 'Only project managers can upload files.' });
+    return res.status(403).json({ error: 'Only project managers and system administrators can upload files.' });
   }
 
   const hdtDoc = await getHDTDocument(projectId);
@@ -308,7 +319,7 @@ async function processPreparedAssetIngestionRequest(
   }
 
   const expectedType = type === 'rti' ? 'rti' : '3d-model';
-  if (existingAsset.type !== expectedType) {
+  if (existingAsset.type !== expectedType && existingAsset.type !== 'other') {
     return res.status(409).json({
       error: `Asset type mismatch: upload is "${expectedType}" but asset "${assetId}" is "${existingAsset.type}".`,
     });
@@ -344,7 +355,17 @@ async function processPreparedAssetIngestionRequest(
       );
 
     case 'rti':
-      return handleRTIUpload(req, projectId, assetId, extractedPath!, originalFile, currentUserSub, res, cleanupPaths);
+      return handleRTIUpload(
+        req,
+        projectId,
+        assetId,
+        extractedPath!,
+        assetProcessing.rtiDatasetRootRelativePath,
+        originalFile,
+        currentUserSub,
+        res,
+        cleanupPaths,
+      );
 
     default:
       return res.status(400).json({ error: `Unsupported upload type: ${type}` });
@@ -508,6 +529,7 @@ async function handleRTIUpload(
   projectId: string,
   assetId: string,
   extractedPath: string,
+  rtiDatasetRootRelativePath: string | undefined,
   originalFile: PreparedAssetFile,
   userId: string,
   res: Response,
@@ -516,20 +538,23 @@ async function handleRTIUpload(
   const targetDir = projectRtiAssetDir(projectId, assetId);
   await fsp.mkdir(targetDir, { recursive: true });
 
-  await fse.copy(extractedPath, targetDir);
+  const datasetRootPath = rtiDatasetRootRelativePath
+    ? path.join(extractedPath, rtiDatasetRootRelativePath)
+    : extractedPath;
 
-  // Validate that info.json exists
-  const infoJsonPath = path.join(targetDir, 'info.json');
+  await copyDirectoryContents(datasetRootPath, targetDir);
+
+  const infoJsonPath = path.join(targetDir, RTI_DATASET_INFO_FILE);
   const infoExists = await fse.pathExists(infoJsonPath);
   if (!infoExists) {
-    throw new Error('RTI archive missing required info.json at dataset root');
+    throw new Error(`RTI archive missing required ${RTI_DATASET_INFO_FILE} at dataset root`);
   }
 
   // Compute total dataset size AFTER extraction
   const totalSize = await getDirectorySizeBytes(targetDir);
 
   const baseUrl = getPublicBaseUrl(req);
-  const entryPoint = `/assets/projects/${encodeURIComponent(projectId)}/rti/${encodeURIComponent(assetId)}/info.json`;
+  const entryPoint = `/assets/projects/${encodeURIComponent(projectId)}/rti/${encodeURIComponent(assetId)}/${RTI_DATASET_INFO_FILE}`;
   const entryPointUrl = `${baseUrl}${entryPoint}`;
 
   console.log(`✅ [UnifiedUpload] RTI ZIP processed, entry: ${entryPointUrl}`);
