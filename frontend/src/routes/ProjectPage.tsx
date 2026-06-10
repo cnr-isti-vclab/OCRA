@@ -205,6 +205,7 @@ export default function ProjectPage() {
   const isSystemAdministrator = !!user?.sys_admin;
   const canEditProjectSceneData = (isManager || isSystemAdministrator) && hasExclusiveLock;
   const canEditSceneSettings = canEditProjectSceneData;
+  const showsSceneEnvironmentSettings = mode === '3d';
   const projectLockBadgeClass = hasExclusiveLock ? 'bg-success' : 'bg-secondary';
   const projectLockBadgeLabel = hasExclusiveLock ? 'Structuring Lock: Active' : 'Structuring Lock: Inactive';
   const [drainingCountdownSeconds, setDrainingCountdownSeconds] = useState<number | null>(null);
@@ -1222,315 +1223,319 @@ export default function ProjectPage() {
                       </div>
                     )}
 
-                    <hr className="my-3" />
+                    {showsSceneEnvironmentSettings && (
+                      <>
+                        <hr className="my-3" />
 
-                    {/* Scene Settings */}
-                    <h6 className="mb-3">Scene Settings</h6>
-                    {isManager ? (
-                      <div className="flex-grow-1">
-                        {!hasExclusiveLock && (
-                          <div className="alert alert-light py-2 px-3 small mb-3">
-                            Acquire the project lock from the top bar to edit scene settings.
+                        {/* Scene Settings */}
+                        <h6 className="mb-3">Scene Settings</h6>
+                        {isManager ? (
+                          <div className="flex-grow-1">
+                            {!hasExclusiveLock && (
+                              <div className="alert alert-light py-2 px-3 small mb-3">
+                                Acquire the project lock from the top bar to edit scene settings.
+                              </div>
+                            )}
+                            {/* Ground Grid Setting */}
+                            <div className="mb-3">
+                              <div className="form-check">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="showGroundCheckbox"
+                                  checked={showGround}
+                                  disabled={!canEditSceneSettings}
+                                  onChange={async (e) => {
+                                    const newShowGround = e.target.checked;
+
+                                    // Update local state immediately for UI
+                                    setShowGround(newShowGround);
+
+                                    // Update 3D scene directly
+                                    viewerRef.current?.setGroundVisible(newShowGround);
+
+                                    // Ensure HDT document exists before saving
+                                    if (!await ensureHDTDocument(projectId!)) {
+                                      console.error('Failed to ensure HDT document exists');
+                                      return;
+                                    }
+
+                                    // Save to backend
+                                    const updatedScene = {
+                                      ...sceneDesc,
+                                      environment: {
+                                        ...sceneDesc?.environment,
+                                        showGround: newShowGround
+                                      }
+                                    } as SceneDescription;
+
+                                    try {
+                                      console.log('💾 Saving ground grid setting to backend:', updatedScene.environment);
+                                      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                        method: 'PUT',
+                                        credentials: 'include',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedScene)
+                                      });
+
+                                      if (!response.ok) {
+                                        const errorText = await response.text();
+                                        console.error('❌ Backend response:', errorText);
+                                        throw new Error('Failed to save scene settings');
+                                      }
+
+                                      // Do NOT update sceneDesc to avoid viewer re-initialization
+                                      console.log('✅ Ground grid setting saved:', newShowGround);
+                                    } catch (err: any) {
+                                      console.error('❌ Failed to save ground setting:', err);
+                                      alert('Failed to save ground setting: ' + err.message);
+                                    }
+                                  }}
+                                  title="Display a reference grid at the base of the scene"
+                                />
+                                <label className="form-check-label" htmlFor="showGroundCheckbox" title="Display a reference grid at the base of the scene">
+                                  Show Ground Grid
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Background Color Setting */}
+                            <div className="mb-3">
+                              <div className="d-flex gap-2 align-items-center">
+                                <label htmlFor="backgroundColorInput" className="form-label mb-0" style={{ whiteSpace: 'nowrap' }}>
+                                  Background Color
+                                </label>
+                                <input
+                                  type="color"
+                                  className="form-control form-control-color"
+                                  id="backgroundColorInput"
+                                  value={backgroundColor}
+                                  disabled={!canEditSceneSettings}
+                                  onChange={async (e) => {
+                                    const newBackground = e.target.value;
+
+                                    // Update local state immediately for UI
+                                    setBackgroundColor(newBackground);
+
+                                    // Update 3D scene directly
+                                    viewerRef.current?.setBackgroundColor(newBackground);
+
+                                    // Ensure HDT document exists before saving
+                                    if (!await ensureHDTDocument(projectId!)) {
+                                      console.error('Failed to ensure HDT document exists');
+                                      return;
+                                    }
+
+                                    // Save to backend
+                                    const updatedScene = {
+                                      ...sceneDesc,
+                                      environment: {
+                                        ...sceneDesc?.environment,
+                                        background: newBackground
+                                      }
+                                    } as SceneDescription;
+
+                                    try {
+                                      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                        method: 'PUT',
+                                        credentials: 'include',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedScene)
+                                      });
+
+                                      if (!response.ok) {
+                                        throw new Error('Failed to save scene settings');
+                                      }
+
+                                      // Do NOT update sceneDesc
+                                      console.log('✅ Background color saved:', newBackground);
+                                    } catch (err: any) {
+                                      console.error('❌ Failed to save background color:', err);
+                                      alert('Failed to save background color: ' + err.message);
+                                    }
+                                  }}
+                                  title="Set the background color of the 3D viewer"
+                                />
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  style={{ maxWidth: '100px' }}
+                                  value={backgroundColor}
+                                  disabled={!canEditSceneSettings}
+                                  onChange={async (e) => {
+                                    const newBackground = e.target.value;
+                                    // Validate hex color format
+                                    if (!/^#[0-9A-Fa-f]{6}$/.test(newBackground)) return;
+
+                                    // Update local state immediately for UI
+                                    setBackgroundColor(newBackground);
+
+                                    // Update 3D scene directly
+                                    viewerRef.current?.setBackgroundColor(newBackground);
+
+                                    // Ensure HDT document exists before saving
+                                    if (!await ensureHDTDocument(projectId!)) {
+                                      console.error('Failed to ensure HDT document exists');
+                                      return;
+                                    }
+
+                                    // Save to backend
+                                    const updatedScene = {
+                                      ...sceneDesc,
+                                      environment: {
+                                        ...sceneDesc?.environment,
+                                        background: newBackground
+                                      }
+                                    } as SceneDescription;
+
+                                    try {
+                                      const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                        method: 'PUT',
+                                        credentials: 'include',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedScene)
+                                      });
+
+                                      if (!response.ok) {
+                                        throw new Error('Failed to save scene settings');
+                                      }
+
+                                      // Do NOT update sceneDesc
+                                      console.log('✅ Background color saved:', newBackground);
+                                    } catch (err: any) {
+                                      console.error('❌ Failed to save background color:', err);
+                                    }
+                                  }}
+                                  placeholder="#404040"
+                                  title="Set the background color of the 3D viewer"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Headlight Offset Setting */}
+                            <div className="mb-3">
+                              <label className="form-label">
+                                Headlight Direction Offset (degrees)
+                              </label>
+                              <div className="d-flex gap-2 align-items-center">
+                                <div className="flex-fill">
+                                  <label htmlFor="headlightHorizontal" className="form-label small mb-1">
+                                    Horizontal
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id="headlightHorizontal"
+                                    className="form-control"
+                                    step="1"
+                                    value={String(headlightOffset[0])}
+                                    disabled={!canEditSceneSettings}
+                                    onChange={async (e) => {
+                                      const newThetaDeg = parseFloat(e.target.value || '0');
+                                      const phiDeg = headlightOffset[1];
+                                      const updatedScene = {
+                                        ...sceneDesc,
+                                        environment: {
+                                          ...sceneDesc?.environment,
+                                          headLightOffset: [newThetaDeg, phiDeg]
+                                        }
+                                      } as SceneDescription;
+
+                                      try {
+                                        // Update local state first
+                                        setHeadlightOffset([newThetaDeg, phiDeg]);
+
+                                        // Update 3D scene directly
+                                        viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
+
+                                        // Ensure HDT document exists before saving
+                                        if (!await ensureHDTDocument(projectId!)) {
+                                          console.error('Failed to ensure HDT document exists');
+                                          return;
+                                        }
+
+                                        // Save to backend
+                                        const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                          method: 'PUT',
+                                          credentials: 'include',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify(updatedScene)
+                                        });
+                                        if (!response.ok) throw new Error('Failed to save headlight offset');
+
+                                        console.log('✅ Headlight horizontal offset saved:', newThetaDeg);
+                                      } catch (err: any) {
+                                        console.error('❌ Failed to save headlight offset:', err);
+                                        alert('Failed to save headlight offset: ' + err.message);
+                                      }
+                                    }}
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div className="flex-fill">
+                                  <label htmlFor="headlightVertical" className="form-label small mb-1">
+                                    Vertical
+                                  </label>
+                                  <input
+                                    type="number"
+                                    id="headlightVertical"
+                                    className="form-control"
+                                    step="1"
+                                    value={String(headlightOffset[1])}
+                                    disabled={!canEditSceneSettings}
+                                    onChange={async (e) => {
+                                      const newPhiDeg = parseFloat(e.target.value || '0');
+                                      const thetaDeg = headlightOffset[0];
+                                      const updatedScene = {
+                                        ...sceneDesc,
+                                        environment: {
+                                          ...sceneDesc?.environment,
+                                          headLightOffset: [thetaDeg, newPhiDeg]
+                                        }
+                                      } as SceneDescription;
+
+                                      try {
+                                        // Update local state first
+                                        setHeadlightOffset([thetaDeg, newPhiDeg]);
+
+                                        // Update 3D scene directly
+                                        viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
+
+                                        // Ensure HDT document exists before saving
+                                        if (!await ensureHDTDocument(projectId!)) {
+                                          console.error('Failed to ensure HDT document exists');
+                                          return;
+                                        }
+
+                                        // Save to backend
+                                        const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
+                                          method: 'PUT',
+                                          credentials: 'include',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify(updatedScene)
+                                        });
+                                        if (!response.ok) throw new Error('Failed to save headlight offset');
+
+                                        console.log('✅ Headlight vertical offset saved:', newPhiDeg);
+                                      } catch (err: any) {
+                                        console.error('❌ Failed to save headlight offset:', err);
+                                        alert('Failed to save headlight offset: ' + err.message);
+                                      }
+                                    }}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                              <small className="text-muted d-block mt-1">
+                                Adjust the headlight direction relative to the camera (0, 0 = aligned with camera)
+                              </small>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                            <p className="text-muted fst-italic">Only project managers and system administrators can edit scene settings</p>
                           </div>
                         )}
-                        {/* Ground Grid Setting */}
-                        <div className="mb-3">
-                          <div className="form-check">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              id="showGroundCheckbox"
-                              checked={showGround}
-                              disabled={!canEditSceneSettings}
-                              onChange={async (e) => {
-                                const newShowGround = e.target.checked;
-
-                                // Update local state immediately for UI
-                                setShowGround(newShowGround);
-
-                                // Update 3D scene directly
-                                viewerRef.current?.setGroundVisible(newShowGround);
-
-                                // Ensure HDT document exists before saving
-                                if (!await ensureHDTDocument(projectId!)) {
-                                  console.error('Failed to ensure HDT document exists');
-                                  return;
-                                }
-
-                                // Save to backend
-                                const updatedScene = {
-                                  ...sceneDesc,
-                                  environment: {
-                                    ...sceneDesc?.environment,
-                                    showGround: newShowGround
-                                  }
-                                } as SceneDescription;
-
-                                try {
-                                  console.log('💾 Saving ground grid setting to backend:', updatedScene.environment);
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                    method: 'PUT',
-                                    credentials: 'include',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedScene)
-                                  });
-
-                                  if (!response.ok) {
-                                    const errorText = await response.text();
-                                    console.error('❌ Backend response:', errorText);
-                                    throw new Error('Failed to save scene settings');
-                                  }
-
-                                  // Do NOT update sceneDesc to avoid viewer re-initialization
-                                  console.log('✅ Ground grid setting saved:', newShowGround);
-                                } catch (err: any) {
-                                  console.error('❌ Failed to save ground setting:', err);
-                                  alert('Failed to save ground setting: ' + err.message);
-                                }
-                              }}
-                              title="Display a reference grid at the base of the scene"
-                            />
-                            <label className="form-check-label" htmlFor="showGroundCheckbox" title="Display a reference grid at the base of the scene">
-                              Show Ground Grid
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Background Color Setting */}
-                        <div className="mb-3">
-                          <div className="d-flex gap-2 align-items-center">
-                            <label htmlFor="backgroundColorInput" className="form-label mb-0" style={{ whiteSpace: 'nowrap' }}>
-                              Background Color
-                            </label>
-                            <input
-                              type="color"
-                              className="form-control form-control-color"
-                              id="backgroundColorInput"
-                              value={backgroundColor}
-                              disabled={!canEditSceneSettings}
-                              onChange={async (e) => {
-                                const newBackground = e.target.value;
-
-                                // Update local state immediately for UI
-                                setBackgroundColor(newBackground);
-
-                                // Update 3D scene directly
-                                viewerRef.current?.setBackgroundColor(newBackground);
-
-                                // Ensure HDT document exists before saving
-                                if (!await ensureHDTDocument(projectId!)) {
-                                  console.error('Failed to ensure HDT document exists');
-                                  return;
-                                }
-
-                                // Save to backend
-                                const updatedScene = {
-                                  ...sceneDesc,
-                                  environment: {
-                                    ...sceneDesc?.environment,
-                                    background: newBackground
-                                  }
-                                } as SceneDescription;
-
-                                try {
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                    method: 'PUT',
-                                    credentials: 'include',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedScene)
-                                  });
-
-                                  if (!response.ok) {
-                                    throw new Error('Failed to save scene settings');
-                                  }
-
-                                  // Do NOT update sceneDesc
-                                  console.log('✅ Background color saved:', newBackground);
-                                } catch (err: any) {
-                                  console.error('❌ Failed to save background color:', err);
-                                  alert('Failed to save background color: ' + err.message);
-                                }
-                              }}
-                              title="Set the background color of the 3D viewer"
-                            />
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ maxWidth: '100px' }}
-                              value={backgroundColor}
-                              disabled={!canEditSceneSettings}
-                              onChange={async (e) => {
-                                const newBackground = e.target.value;
-                                // Validate hex color format
-                                if (!/^#[0-9A-Fa-f]{6}$/.test(newBackground)) return;
-
-                                // Update local state immediately for UI
-                                setBackgroundColor(newBackground);
-
-                                // Update 3D scene directly
-                                viewerRef.current?.setBackgroundColor(newBackground);
-
-                                // Ensure HDT document exists before saving
-                                if (!await ensureHDTDocument(projectId!)) {
-                                  console.error('Failed to ensure HDT document exists');
-                                  return;
-                                }
-
-                                // Save to backend
-                                const updatedScene = {
-                                  ...sceneDesc,
-                                  environment: {
-                                    ...sceneDesc?.environment,
-                                    background: newBackground
-                                  }
-                                } as SceneDescription;
-
-                                try {
-                                  const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                    method: 'PUT',
-                                    credentials: 'include',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedScene)
-                                  });
-
-                                  if (!response.ok) {
-                                    throw new Error('Failed to save scene settings');
-                                  }
-
-                                  // Do NOT update sceneDesc
-                                  console.log('✅ Background color saved:', newBackground);
-                                } catch (err: any) {
-                                  console.error('❌ Failed to save background color:', err);
-                                }
-                              }}
-                              placeholder="#404040"
-                              title="Set the background color of the 3D viewer"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Headlight Offset Setting */}
-                        <div className="mb-3">
-                          <label className="form-label">
-                            Headlight Direction Offset (degrees)
-                          </label>
-                          <div className="d-flex gap-2 align-items-center">
-                            <div className="flex-fill">
-                              <label htmlFor="headlightHorizontal" className="form-label small mb-1">
-                                Horizontal
-                              </label>
-                              <input
-                                type="number"
-                                id="headlightHorizontal"
-                                className="form-control"
-                                step="1"
-                                value={String(headlightOffset[0])}
-                                disabled={!canEditSceneSettings}
-                                onChange={async (e) => {
-                                  const newThetaDeg = parseFloat(e.target.value || '0');
-                                  const phiDeg = headlightOffset[1];
-                                  const updatedScene = {
-                                    ...sceneDesc,
-                                    environment: {
-                                      ...sceneDesc?.environment,
-                                      headLightOffset: [newThetaDeg, phiDeg]
-                                    }
-                                  } as SceneDescription;
-
-                                  try {
-                                    // Update local state first
-                                    setHeadlightOffset([newThetaDeg, phiDeg]);
-
-                                    // Update 3D scene directly
-                                    viewerRef.current?.setHeadLightOffset(newThetaDeg, phiDeg);
-
-                                    // Ensure HDT document exists before saving
-                                    if (!await ensureHDTDocument(projectId!)) {
-                                      console.error('Failed to ensure HDT document exists');
-                                      return;
-                                    }
-
-                                    // Save to backend
-                                    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                      method: 'PUT',
-                                      credentials: 'include',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify(updatedScene)
-                                    });
-                                    if (!response.ok) throw new Error('Failed to save headlight offset');
-
-                                    console.log('✅ Headlight horizontal offset saved:', newThetaDeg);
-                                  } catch (err: any) {
-                                    console.error('❌ Failed to save headlight offset:', err);
-                                    alert('Failed to save headlight offset: ' + err.message);
-                                  }
-                                }}
-                                placeholder="0"
-                              />
-                            </div>
-                            <div className="flex-fill">
-                              <label htmlFor="headlightVertical" className="form-label small mb-1">
-                                Vertical
-                              </label>
-                              <input
-                                type="number"
-                                id="headlightVertical"
-                                className="form-control"
-                                step="1"
-                                value={String(headlightOffset[1])}
-                                disabled={!canEditSceneSettings}
-                                onChange={async (e) => {
-                                  const newPhiDeg = parseFloat(e.target.value || '0');
-                                  const thetaDeg = headlightOffset[0];
-                                  const updatedScene = {
-                                    ...sceneDesc,
-                                    environment: {
-                                      ...sceneDesc?.environment,
-                                      headLightOffset: [thetaDeg, newPhiDeg]
-                                    }
-                                  } as SceneDescription;
-
-                                  try {
-                                    // Update local state first
-                                    setHeadlightOffset([thetaDeg, newPhiDeg]);
-
-                                    // Update 3D scene directly
-                                    viewerRef.current?.setHeadLightOffset(thetaDeg, newPhiDeg);
-
-                                    // Ensure HDT document exists before saving
-                                    if (!await ensureHDTDocument(projectId!)) {
-                                      console.error('Failed to ensure HDT document exists');
-                                      return;
-                                    }
-
-                                    // Save to backend
-                                    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt/scenes/${selectedSceneId}`, {
-                                      method: 'PUT',
-                                      credentials: 'include',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify(updatedScene)
-                                    });
-                                    if (!response.ok) throw new Error('Failed to save headlight offset');
-
-                                    console.log('✅ Headlight vertical offset saved:', newPhiDeg);
-                                  } catch (err: any) {
-                                    console.error('❌ Failed to save headlight offset:', err);
-                                    alert('Failed to save headlight offset: ' + err.message);
-                                  }
-                                }}
-                                placeholder="0"
-                              />
-                            </div>
-                          </div>
-                          <small className="text-muted d-block mt-1">
-                            Adjust the headlight direction relative to the camera (0, 0 = aligned with camera)
-                          </small>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                        <p className="text-muted fst-italic">Only project managers and system administrators can edit scene settings</p>
-                      </div>
+                      </>
                     )}
 
                     <div className="mt-auto pt-3 border-top">
