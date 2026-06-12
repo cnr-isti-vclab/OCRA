@@ -1,6 +1,7 @@
 @prefix ocra-voc: <https://ocra.example.org/vocabulary/> .
 @prefix ocra:     <https://ocra.example.org/ontology/> .
 @prefix aat:      <http://vocab.getty.edu/aat/> .
+@prefix wd:       <http://www.wikidata.org/entity/> .
 @prefix skos:     <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd:      <http://www.w3.org/2001/XMLSchema#> .
 
@@ -1185,7 +1186,13 @@ ocra-voc:tears
     ocra:defaultColor "#A93226"^^xsd:string .
 
 # ============================================================
-# ICONOGRAPHY — motivi iconografici specifici
+# ICONOGRAPHY — motivi iconografici
+# Strategia di allineamento:
+#   - AAT (skos:exactMatch) dove esiste record autonomo verificato
+#   - Wikidata (skos:exactMatch / skos:closeMatch) per simboli
+#     non coperti dall'AAT come concetti autonomi
+#   - skos:scopeNote segnala i casi in cui il Getty IA
+#     potrà in futuro sostituire/affiancare il QID Wikidata
 # ============================================================
 
 ocra-voc:iconography
@@ -1197,54 +1204,9 @@ ocra-voc:iconography
     skos:exactMatch aat:300015638 ;
     ocra:defaultColor "#6C3483"^^xsd:string .
 
-ocra-voc:solarDisk
-    a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:iconography ;
-    skos:prefLabel "Solar disk"@en ;
-    skos:prefLabel "Disco solare"@it ;
-    skos:exactMatch aat:300263722 ;
-    ocra:defaultColor "#F39C12"^^xsd:string .
-
-ocra-voc:uraeus
-    a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:iconography ;
-    skos:prefLabel "Uraeus / cobra"@en ;
-    skos:prefLabel "Ureo / cobra sacro"@it ;
-    skos:exactMatch aat:300263712 ;
-    skos:scopeNote "Rearing cobra symbol, Egyptian and Egyptianizing art"@en ;
-    skos:scopeNote "Cobra eretto, simbolo della regalità egiziana; frequente nell'arte punica egittizzante"@it ;
-    ocra:defaultColor "#27AE60"^^xsd:string .
-
-ocra-voc:rosette
-    a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:iconography ;
-    skos:prefLabel "Rosette"@en ;
-    skos:prefLabel "Rosetta"@it ;
-    skos:exactMatch aat:300010778 ;
-    ocra:defaultColor "#E74C3C"^^xsd:string .
-
-ocra-voc:egyptianizingMotif
-    a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:iconography ;
-    skos:prefLabel "Egyptianizing motif"@en ;
-    skos:prefLabel "Motivo egittizzante"@it ;
-    skos:exactMatch aat:300020072 ;
-    skos:scopeNote "Decorative elements derived from or inspired by ancient Egyptian visual culture"@en ;
-    skos:scopeNote "Elementi decorativi derivati o ispirati dalla cultura visiva dell'antico Egitto; tipici dell'arte punica e fenicia"@it ;
-    ocra:defaultColor "#D4AC0D"^^xsd:string .
-
-ocra-voc:palmette
-    a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:iconography ;
-    skos:prefLabel "Palmette"@en ;
-    skos:prefLabel "Palmetta"@it ;
-    skos:exactMatch aat:300010269 ;
-    ocra:defaultColor "#8E44AD"^^xsd:string .
+# ------------------------------------------------------------
+# Categorie trasversali
+# ------------------------------------------------------------
 
 ocra-voc:geometricPattern
     a skos:Concept ;
@@ -1271,6 +1233,463 @@ ocra-voc:anthropomorphicMotif
     skos:prefLabel "Anthropomorphic motif"@en ;
     skos:prefLabel "Motivo antropomorfo"@it ;
     skos:exactMatch aat:300164162 ;
+    ocra:defaultColor "#1A5276"^^xsd:string .
+
+ocra-voc:astralmotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Astral motif"@en ;
+    skos:prefLabel "Motivo astrale"@it ;
+    skos:exactMatch aat:300264598 ;
+    skos:scopeNote "Sun, moon, stars, and related celestial symbols"@en ;
+    skos:scopeNote "Sole, luna, stelle e simboli celesti correlati"@it ;
+    ocra:defaultColor "#1B2631"^^xsd:string .
+
+ocra-voc:vegetalMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Vegetal motif"@en ;
+    skos:prefLabel "Motivo vegetale"@it ;
+    skos:exactMatch aat:300264599 ;
+    ocra:defaultColor "#1E8449"^^xsd:string .
+
+ocra-voc:palmette
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:vegetalMotif ;
+    skos:prefLabel "Palmette"@en ;
+    skos:prefLabel "Palmetta"@it ;
+    skos:exactMatch aat:300010269 ;
+    skos:exactMatch wd:Q677655 ;           # verificato: decorative motif in the form of a palm leaf
+    skos:scopeNote "decorative motif in the form of a palm leaf"@en ;
+    skos:scopeNote "Motivo decorativo a forma di foglia di palma"@it ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
+
+ocra-voc:rosette
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:vegetalMotif ;
+    skos:prefLabel "Rosette"@en ;
+    skos:prefLabel "Rosetta"@it ;
+    skos:exactMatch aat:300010778 ;
+    skos:exactMatch aat:300010778 ; # rosette - nessun QID Wikidata specifico per motivo decorativo, solo AAT
+    skos:scopeNote "Circular floral motif"@en ;
+    skos:scopeNote "Motivo floreale circolare"@it ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:lotusMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:vegetalMotif ;
+    skos:prefLabel "Lotus"@en ;
+    skos:prefLabel "Loto"@it ;
+    skos:exactMatch aat:300132798 ;
+    skos:closeMatch wd:Q2450068 ;           # Q2450068 = lotus (pianta), DA VERIFICARE per motivo decorativo
+    skos:scopeNote "Lotus flower motif, often associated with rebirth in ancient Egyptian symbolism"@en ;
+    skos:scopeNote "Motivo del fiore di loto, spesso associato alla rinascita nella simbologia dell'antico Egitto"@it ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
+
+# ------------------------------------------------------------
+# Iconografia egiziana e egittizzante
+# ------------------------------------------------------------
+
+ocra-voc:egyptianizingMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Egyptianizing motif"@en ;
+    skos:prefLabel "Motivo egittizzante"@it ;
+    skos:exactMatch aat:300020072 ;
+    skos:scopeNote "Decorative elements derived from ancient Egyptian visual culture"@en ;
+    skos:scopeNote "Elementi decorativi derivati dalla cultura visiva dell'antico Egitto"@it ;
+    ocra:defaultColor "#D4AC0D"^^xsd:string .
+
+ocra-voc:solarDisk
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Solar disk"@en ;
+    skos:prefLabel "Disco solare"@it ;
+    skos:exactMatch aat:300263722 ;
+    skos:exactMatch wd:Q3030604 ;           # verificato: symbolic object of Egyptian mythology
+    ocra:defaultColor "#F39C12"^^xsd:string .
+
+ocra-voc:wingedSolarDisk
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Winged sun disk"@en ;
+    skos:prefLabel "Disco solare alato"@it ;
+    skos:broadMatch aat:300263722 ;
+    skos:exactMatch wd:Q814461 ;            # verificato: deity / winged sun
+    skos:scopeNote "Winged solar disk, often depicted with uraeus serpents; symbol of Egyptian origin"@en ;
+    skos:scopeNote "Disco solare alato, spesso raffigurato con serpenti urei; simbolo di origine egizia"@it ;
+    ocra:defaultColor "#E67E22"^^xsd:string .
+
+ocra-voc:uraeus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Uraeus"@en ;
+    skos:prefLabel "Ureo"@it ;
+    skos:exactMatch aat:300263712 ;
+    skos:exactMatch wd:Q756990 ;           # verificato: https://www.wikidata.org/wiki/Q756990
+    skos:scopeNote "stylized, upright form of an Egyptian cobra used as a symbol of sovereignty, royalty, deity and divine authority in Ancient Egypt"@en ;
+    skos:scopeNote "Forma stilizzata ed eretta del cobra egizio, usata nell'antico Egitto come simbolo di sovranità, regalità, divinità e autorità divina"@it ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
+
+ocra-voc:ankh
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Ankh"@en ;
+    skos:prefLabel "Ankh (croce ansata)"@it ;
+    skos:exactMatch wd:Q180439 ;           # verificato: ancient Egyptian hieroglyphic symbol
+    skos:scopeNote "Ancient Egyptian hieroglyphic symbol of life and immortality"@en ;
+    skos:scopeNote "Simbolo geroglifico dell'antico Egitto della vita e dell'immortalità"@it ;
+    ocra:defaultColor "#F1C40F"^^xsd:string .
+
+ocra-voc:djedPillar
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Djed pillar"@en ;
+    skos:prefLabel "Pilastro djed"@it ;
+    skos:closeMatch wd:Q664689 ;           # DA VERIFICARE: non restituito dalla query, verificare manualmente
+    skos:scopeNote "Egyptian symbol of stability and resurrection, associated with Osiris"@en ;
+    skos:scopeNote "Simbolo egizio di stabilità e resurrezione, associato a Osiride"@it ;
+    ocra:defaultColor "#8B6914"^^xsd:string .
+
+ocra-voc:eyeOfHorus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Eye of Horus (Wedjat)"@en ;
+    skos:prefLabel "Occhio di Horus (Wedjat)"@it ;
+    skos:exactMatch wd:Q211286 ;           # verificato: ancient Egyptian symbol of protection, royal power
+    skos:scopeNote "Ancient Egyptian protective symbol associated with royal power and good health"@en ;
+    skos:scopeNote "Simbolo protettivo dell'antico Egitto associato al potere regale e alla buona salute"@it ;
+    ocra:defaultColor "#2471A3"^^xsd:string .
+
+ocra-voc:scarabMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Scarab"@en ;
+    skos:prefLabel "Scarabeo"@it ;
+    skos:closeMatch aat:300263773 ;
+    skos:exactMatch wd:Q2442735 ;          # verificato: scarab beetle-shaped amulets and impression seals
+    skos:scopeNote "Scarab motif or amulet in the form of a sacred dung beetle, associated in ancient Egypt with rebirth and regeneration"@en ;
+    skos:scopeNote "Motivo o amuleto a forma di scarabeo sacro, associato nell'antico Egitto alla rinascita e alla rigenerazione"@it ;
+    ocra:defaultColor "#117A65"^^xsd:string .
+
+ocra-voc:wasScepter
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Was scepter"@en ;
+    skos:prefLabel "Scettro was"@it ;
+    skos:closeMatch wd:Q372218 ;           # DA VERIFICARE: non restituito dalla query (termine: "was sceptre")
+    skos:scopeNote "Ancient Egyptian scepter symbolizing divine power and dominion"@en ;
+    skos:scopeNote "Scettro dell'antico Egitto che simboleggia il potere e il dominio divini"@it ;
+    ocra:defaultColor "#4A1942"^^xsd:string .
+
+ocra-voc:horusChild
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Horus the child (Harpocrates)"@en ;
+    skos:prefLabel "Horo bambino (Harpocrate)"@it ;
+    skos:closeMatch wd:Q190289 ;           # DA VERIFICARE manualmente su wikidata.org
+    skos:scopeNote "Child form of Horus, often depicted seated or standing with a finger to the lips"@en ;
+    skos:scopeNote "Forma infantile di Horus, spesso raffigurata seduta o in piedi con un dito alle labbra"@it ;
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
+
+ocra-voc:ptah
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Ptah / Ptah-Sokar"@en ;
+    skos:prefLabel "Ptah / Ptah-Sokar"@it ;
+    skos:closeMatch wd:Q47776 ;            # DA VERIFICARE manualmente su wikidata.org
+    skos:scopeNote "Ancient Egyptian creator and craftsman deity, also represented in syncretic forms such as Ptah-Sokar"@en ;
+    skos:scopeNote "Divinità creatrice e protettrice degli artigiani dell'antico Egitto, rappresentata anche in forme sincretiche come Ptah-Sokar"@it ;
+    ocra:defaultColor "#884EA0"^^xsd:string .
+
+ocra-voc:isisHathor
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:egyptianizingMotif ;
+    skos:prefLabel "Isis / Hathor"@en ;
+    skos:prefLabel "Iside / Hathor"@it ;
+    skos:closeMatch wd:Q79876 ;            # DA VERIFICARE manualmente su wikidata.org
+    skos:scopeNote "Egyptian goddesses Isis and Hathor, often identified by a crown with a solar disk between cow horns"@en ;
+    skos:scopeNote "Dee egizie Iside e Hathor, spesso riconoscibili dalla corona con disco solare tra corna bovine"@it ;
+    ocra:defaultColor "#C0392B"^^xsd:string .
+
+# ------------------------------------------------------------
+# Iconografia fenicio-punica propria
+# ------------------------------------------------------------
+
+ocra-voc:punicIconography
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Phoenician / Punic iconography"@en ;
+    skos:prefLabel "Iconografia fenicio-punica"@it ;
+    skos:exactMatch aat:300020101 ;
+    skos:scopeNote "Iconographic tradition of the Phoenician and Punic world, V cent. BCE – II cent. CE"@en ;
+    skos:scopeNote "Tradizione iconografica del mondo fenicio e punico, V sec. a.C. – II sec. d.C."@it ;
+    ocra:defaultColor "#A04000"^^xsd:string .
+
+ocra-voc:signOfTanit
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Sign of Tanit"@en ;
+    skos:prefLabel "Segno di Tanit"@it ;
+    skos:closeMatch wd:Q655362 ;           # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Anthropomorphic symbol of the Punic goddess Tanit: triangle surmounted by horizontal bar and disk; ubiquitous on votive stelae and funerary contexts"@en ;
+    skos:scopeNote "Simbolo antropomorfo della dea punica Tanit: triangolo sormontato da barra orizzontale e disco; onnipresente su stele votive e in contesti funerari"@it ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:crescentAndDisk
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Crescent and disk"@en ;
+    skos:prefLabel "Mezzaluna e disco"@it ;
+    skos:closeMatch wd:Q3040517 ;          # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Astral symbol of Baal Hammon (or Tanit-Baal Hammon pair); standard motif on Punic stelae and jewellery"@en ;
+    skos:scopeNote "Simbolo astrale di Baal Hammon (o della coppia Tanit-Baal Hammon); motivo standard su stele e oreficeria punica"@it ;
+    ocra:defaultColor "#2C3E50"^^xsd:string .
+
+ocra-voc:caduceus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Caduceus"@en ;
+    skos:prefLabel "Caduceo"@it ;
+    skos:exactMatch wd:Q238577 ;           # verificato: staff carried by Hermes in Greek mythology
+    skos:scopeNote "Staff with two intertwined snakes; in Punic iconography associated with the divine sphere of Baal Hammon and Tanit"@en ;
+    skos:scopeNote "Bastone con due serpenti intrecciati; nell'iconografia punica associato alla sfera divina di Baal Hammon e Tanit"@it ;
+    ocra:defaultColor "#1A5276"^^xsd:string .
+
+ocra-voc:betylos
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Betyl / baetyl"@en ;
+    skos:prefLabel "Betilo"@it ;
+    skos:closeMatch wd:Q833760 ;           # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Sacred stone or conical idol housing a deity; characteristic of Phoenician and Punic cult; frequent on stelae as the divine presence of Baal Hammon"@en ;
+    skos:scopeNote "Pietra sacra o idolo conico dimora di una divinità; caratteristico del culto fenicio e punico; frequente su stele come presenza divina di Baal Hammon"@it ;
+    ocra:defaultColor "#717D7E"^^xsd:string .
+
+ocra-voc:bottleIdol
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Bottle idol"@en ;
+    skos:prefLabel "Idolo a bottiglia"@it ;
+    skos:closeMatch wd:Q3661516 ;          # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Schematic anthropomorphic figure in bottle shape; recurring on Punic votive stelae, associated with the mother goddess"@en ;
+    skos:scopeNote "Figura antropomorfa schematica a forma di bottiglia; ricorrente su stele votive puniche, associata alla dea madre"@it ;
+    ocra:defaultColor "#884EA0"^^xsd:string .
+
+ocra-voc:openHand
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Open / raised hand"@en ;
+    skos:prefLabel "Mano aperta / alzata"@it ;
+    skos:closeMatch wd:Q1198919 ;          # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Apotropaic hand symbol; in Punic art the raised hand is a gesture of adoration or divine blessing"@en ;
+    skos:scopeNote "Mano apotropaica; nell'arte punica la mano alzata è gesto di adorazione o benedizione divina"@it ;
+    ocra:defaultColor "#E8B400"^^xsd:string .
+
+ocra-voc:thymiaterion
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Thymiaterion / incense burner"@en ;
+    skos:prefLabel "Tymaterion / bruciaprofumi"@it ;
+    skos:closeMatch wd:Q2312697 ;          # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Incense burner depicted on Punic votive stelae as an element of the ritual scene"@en ;
+    skos:scopeNote "Bruciaprofumi raffigurato su stele votive puniche come elemento della scena rituale"@it ;
+    ocra:defaultColor "#C39D74"^^xsd:string .
+
+ocra-voc:punicPalmTree
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Palm tree"@en ;
+    skos:prefLabel "Palma"@it ;
+    skos:closeMatch wd:Q34763 ;            # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Date palm as symbol; eponym of Phoenicia; frequent on Punic stelae and coins from Sardinia and Sicily"@en ;
+    skos:scopeNote "Palma da dattero come simbolo; associata etimologicamente alla Fenicia; frequente su stele puniche e monete di Sardegna e Sicilia"@it ;
+    ocra:defaultColor "#196F3D"^^xsd:string .
+
+ocra-voc:punicMask
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Punic mask"@en ;
+    skos:prefLabel "Maschera punica"@it ;
+    skos:closeMatch wd:Q2001305 ;          # DA VERIFICARE su wikidata.org
+    skos:scopeNote "Grotesque apotropaic terracotta mask; characteristic of Punic funerary and votive contexts"@en ;
+    skos:scopeNote "Maschera grottesca apotropaica in terracotta; caratteristica dei contesti funerari e votivi punici"@it ;
+    ocra:defaultColor "#C65A1E"^^xsd:string .
+
+ocra-voc:priestFigure
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:punicIconography ;
+    skos:prefLabel "Priest figure / orant"@en ;
+    skos:prefLabel "Figura di sacerdote / orante"@it ;
+    skos:closeMatch aat:300179452 ;
+    skos:scopeNote "Figure of a priest or worshipper with raised arms in adoration; common on late Punic stelae"@en ;
+    skos:scopeNote "Figura di sacerdote o adorante con braccia alzate; comune nelle stele puniche tardive"@it ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
+
+# ------------------------------------------------------------
+# Iconografia greca e greco-punica
+# ------------------------------------------------------------
+
+ocra-voc:greekIconography
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Greek / Hellenistic iconography"@en ;
+    skos:prefLabel "Iconografia greca / ellenistica"@it ;
+    skos:exactMatch aat:300020123 ;
+    ocra:defaultColor "#1F618D"^^xsd:string .
+
+ocra-voc:gorgoneion
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:greekIconography ;
+    skos:prefLabel "Gorgoneion"@en ;
+    skos:prefLabel "Gorgoneion"@it ;
+    skos:exactMatch wd:Q1161687 ;           # verificato: amulet showing the Gorgon head
+    skos:scopeNote "Apotropaic face of the Gorgon Medusa; frequent on metalwork, shields, architectural elements"@en ;
+    skos:scopeNote "Volto apotropaico della Gorgone Medusa; frequente su manufatti metallici, scudi, elementi architettonici"@it ;
+    ocra:defaultColor "#2C3E50"^^xsd:string .
+
+ocra-voc:acanthus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:greekIconography ;
+    skos:prefLabel "Acanthus"@en ;
+    skos:prefLabel "Acanto"@it ;
+    skos:exactMatch aat:300010357 ;
+    skos:exactMatch wd:Q2741156 ;
+    ocra:defaultColor "#117A65"^^xsd:string .
+
+ocra-voc:meander
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:greekIconography ;
+    skos:prefLabel "Meander / Greek key"@en ;
+    skos:prefLabel "Meandro / greca"@it ;
+    skos:exactMatch aat:300010336 ;
+    skos:exactMatch wd:Q898879 ;            # verificato: decorative border motif constructed from a continuous line
+    ocra:defaultColor "#2980B9"^^xsd:string .
+
+ocra-voc:pegasus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:greekIconography ;
+    skos:prefLabel "Pegasus"@en ;
+    skos:prefLabel "Pegaso"@it ;
+    skos:exactMatch wd:Q75422 ;
+    ocra:defaultColor "#5DADE2"^^xsd:string .
+
+# ------------------------------------------------------------
+# Iconografia romana e tardo-antica
+# ------------------------------------------------------------
+
+ocra-voc:romanIconography
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Roman iconography"@en ;
+    skos:prefLabel "Iconografia romana"@it ;
+    skos:exactMatch aat:300020153 ;
+    ocra:defaultColor "#922B21"^^xsd:string .
+
+ocra-voc:eagleRoman
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:romanIconography ;
+    skos:prefLabel "Eagle (Roman imperial)"@en ;
+    skos:prefLabel "Aquila (simbolo imperiale romano)"@it ;
+    skos:exactMatch wd:Q2092297 ;
+    ocra:defaultColor "#7B241C"^^xsd:string .
+
+ocra-voc:cornucopia
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:romanIconography ;
+    skos:prefLabel "Cornucopia"@en ;
+    skos:prefLabel "Cornucopia"@it ;
+    skos:exactMatch aat:300264584 ;
+    skos:exactMatch wd:Q332682 ;           # verificato: mythological symbol of abundance
+    ocra:defaultColor "#D4AC0D"^^xsd:string .
+
+ocra-voc:labarum
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:romanIconography ;
+    skos:prefLabel "Labarum / Chi-Rho"@en ;
+    skos:prefLabel "Labaro / Chi-Rho"@it ;
+    skos:closeMatch wd:Q46081 ;           # DA VERIFICARE: Q11963526/Q11963530 = disambiguation/album, Q46081 da controllare
+    skos:scopeNote "Christian monogram of Christ; appears on late antique and early medieval metalwork"@en ;
+    skos:scopeNote "Monogramma cristiano di Cristo; compare su manufatti metallici tardo-antichi e altomedievali"@it ;
+    ocra:defaultColor "#C0392B"^^xsd:string .
+
+# ------------------------------------------------------------
+# Iconografia medievale e religiosa
+# ------------------------------------------------------------
+
+ocra-voc:christianCross
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Christian cross"@en ;
+    skos:prefLabel "Croce cristiana"@it ;
+    skos:exactMatch aat:300264661 ;
+    skos:exactMatch wd:Q179704 ;
+    ocra:defaultColor "#922B21"^^xsd:string .
+
+ocra-voc:agnus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Agnus Dei"@en ;
+    skos:prefLabel "Agnus Dei"@it ;
+    skos:exactMatch wd:Q309378 ;
+    ocra:defaultColor "#F4F6F7"^^xsd:string .
+
+ocra-voc:fleurDeLis
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Fleur-de-lis"@en ;
+    skos:prefLabel "Giglio araldico / fiordaliso"@it ;
+    skos:exactMatch aat:300264671 ;
+    skos:exactMatch wd:Q211568 ;           # verificato: stylized iris flower used as a heraldic symbol
+    ocra:defaultColor "#2471A3"^^xsd:string .
+
+ocra-voc:heraldryMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Heraldic motif"@en ;
+    skos:prefLabel "Motivo araldico"@it ;
+    skos:exactMatch aat:300264576 ;
     ocra:defaultColor "#1A5276"^^xsd:string .
 
 # ============================================================
@@ -1354,7 +1773,7 @@ ocra-voc:rtiExamination
     skos:prefLabel "Esame RTI (Reflectance Transformation Imaging)"@it ;
     skos:exactMatch aat:300379400 ;
     skos:scopeNote "Computational photography method that enables interactive relighting of a surface to reveal detail"@en ;
-    skos:scopeNote "Metodo di fotografia computazionale che consente il relighting interattivo per rivelare dettagli superficiali"@it ;
+    skos:scopeNote "Metodo di fotografia computazionale che consente di variare interattivamente l'illuminazione della superficie per rivelarne i dettagli"@it ;
     ocra:defaultColor "#2471A3"^^xsd:string .
 
 ocra-voc:scanning3D
