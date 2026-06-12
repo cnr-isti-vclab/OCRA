@@ -19,23 +19,25 @@ data, referencing annotations to scene/asset reference spaces over
 digital representations of CH objects (3D models and 2D relightable
 imagery).
 
-Using advanced multiresolution techniques, and specialized 3D
-visualization, it is possible to work on complex, high-resolution 3D
-assets of CH objects, enabling the users to annotate directly on
-detailed geometries from the browser, in a collaborative, multi-user
-environment.
+Using advanced multiresolution techniques and specialized visualization
+components, it is possible to work on complex, high-resolution 3D models
+and high-resolution 2D imagery (including relightable datasets). Users can
+annotate directly on detailed geometries or on image-based assets from the
+browser, in a collaborative, multi-user environment.
 
 The platform allows the users to set up a project by defining
 hierarchical roles and tasks, to establish a working area populated with
-3D assets, and to define the semantic mapping of the annotations.
+spatial assets (3D models and/or 2D imagery), and to define the semantic
+mapping of the annotations.
 
-Advanced editing function enables the users to trace spatial annotations
-onto the geometries of 3D assets with multiple primitives (points,
-polylines, areas) and then map these annotations to semantic data. The
-semantic mapping links spatial annotations to the concepts used in the
-project, and ensures interoperability across tools and institutions. The
-3D spatial nature of these annotations makes them metric, enabling an
-easy and accurate extraction of measurements and statistics.
+Advanced editing functions enable the users to trace spatial annotations
+onto the geometries of 3D assets or onto 2D imagery using multiple
+primitives (points, polylines, areas) and then map these annotations to
+semantic data. The semantic mapping links spatial annotations to the
+concepts used in the project and ensures interoperability across tools and
+institutions. When annotations are attached to calibrated 3D models they
+are metric; 2D annotations can also support metric workflows when
+appropriate calibration or georeferencing is available.
 
 Annotations and mappings can be browsed and are presented online
 interactively, they can be exported as 3D structures to other tools, but
@@ -51,34 +53,22 @@ Provisional name: **OCRA** - **O**nline **C**onservation-**R**estoration
 | <img src="./media/image1.jpg"
 style="width:3.73438in;height:2.02723in" /><img src="./media/image2.png"
 style="width:2.27083in;height:2.06635in" /> |
-| Examples of online systems mapping with spatial annotations on 3D surfaces with semantic-rich data describing conservation-restoration actions. |
+| Examples of online systems mapping with spatial annotations on 2D imagery and 3D surfaces with semantic-rich data describing conservation-restoration actions. |
 
 ### Scope, context, and concepts
 
-This VA is primarily oriented in managing 3D assets of “objects”, i.e.,
-entities that exists on their own, and can be represented effectively
-with the kind of non-structured, non-semantic 3D models produced by 3D
-scanning and photogrammetry (unstructured, dense polygonal meshes). This
-category encompasses a variety of CH objects like movable artefacts
-(from small to large), statues, architectural elements, portions of
-built structures. This concept is not limited by size, but more by
-identity / purpose / point of view. This annotation workflow treats the
-CH object as a geometric entity, without other levels of representation
-and meaning. In this sense, it would not be a problem to manage a
-façade, an intricately carved column, or a large fountain, but it would
-be well suited to manage a structured *building* (i.e., where the focus
-of the work would also need to consider what makes a structure a
-*building*, from its geographical presence to its functional structure).
-The aim of this VA is not to replicate or surpass what is already
-available in BIM or GIS tools, that are used to manage annotations and
-information mapping on architectural structures and terrains from a
-different perspective. Similarly, restoring an antique steam engine or a
-clock mechanism, taking care also of their workings, would probably
-require a completely different kind of digital representation, and a set
-of instruments normally found in parametric CAD tools. While the support
-of this class of objects this could be useful, the initial focus of this
-VA is the management of non-structured, typical result of 3D scanning
-acquisition campaigns.
+This VA is primarily oriented in managing spatial assets representing
+CH objects, with an initial emphasis on non-structured 3D models produced
+by 3D scanning and photogrammetry (dense polygonal meshes) and on
+high-resolution 2D imagery (including RTI and multi-layer images). The
+3D category encompasses movable artefacts, statues, architectural
+elements and portions of built structures. The 2D category includes
+relightable imagery and other image-based captures used to document
+surface appearance and diagnostic information. The platform is not meant
+to replace BIM or GIS tools for large-scale architectural or territorial
+workflows, nor parametric CAD for mechanical systems; instead it focuses
+on the spatial annotation of surfaces and imagery typically used in
+conservation-restoration.
 
 In the current OCRA model, one logical annotation is decomposed into
 three first-class entities:
@@ -98,23 +88,17 @@ interpretation patterns. Annotation entities are versioned and updated
 through optimistic concurrency control (OCC), and support soft-delete
 semantics through erasable/non-erasable state.
 
-To populate the workspace, and as target of the spatial 3D annotations,
-the VA will use 3D assets created through digitization, primarily via 3D
-scanning and/or photogrammetry. These 3D models only represent the
-visible surface of the object, as a thin shell of triangles; even in
-those cases where the surface is completely closed, the inner volume is
-not explicitly represented. Moreover, due to the limitations of said
-digitization technologies, some parts of the physical object might not
-be represented in the 3D model, because the area was occluded, not
-reached by the sensor or made of an uncooperative material. This limited
-representation will also limit the placement and management of 3D
-spatial annotations. The VA will only allow the annotation of the
-surface of the 3D models, thus limiting the geometrical mapping of
-annotation process to the external, visible surface of the objects.
-While it is technically possible to add geometric entities “inside” the
-objects, or on areas not explicitly represented in the 3D model, this
-would significantly complicate the interface, making it less usable, and
-would break the idea of visually annotate the objective data.
+To populate the workspace, and as target of spatial annotations, the VA
+will use both 3D assets (from 3D scanning/photogrammetry) and 2D image
+assets (high-resolution, relightable, or multi-layer imagery). 3D models
+typically represent the visible surface as a thin shell of triangles;
+parts of the physical object may be missing due to occlusion or sensor
+limits, which constrains where surface-based annotations can be placed.
+For 2D assets the annotation surface is the image plane and may require
+different interaction patterns (e.g., pixel-based selection, relighting
+controls). The VA focuses on annotating visible surface representations
+— for 3D this is the external surface, for 2D this is the captured image
+representation — keeping the interaction simple and visually driven.
 
 In this description of the VA, the terms “map” and “mapping” are used
 with different meanings and contexts, causing ambiguity. The following
@@ -124,6 +108,10 @@ in this document.
 - *A 3D spatial annotation is mapped on a 3D asset*: it means that the
   geometric information in the annotation data structure is in the 3D
   space of the asset.
+
+- *A 2D spatial annotation is mapped on an imagery asset*: it means the
+  geometric information is expressed in image coordinates (pixel or
+  normalized space) of the 2D asset.
 
 - *An annotation is* *semantically-mapped*: it means the annotation data
   structure is linked to a semantic concept in the project ontology, and
@@ -139,18 +127,18 @@ in this document.
 The Collaborative Conservation-Restoration Platform is primarily focused
 at helping the standard workflow of conservator-restorers.
 
-**Assessment of the condition of a CH object**. The 3D spatial
-annotations are suitable to map onto the 3D surface of the CH object all
-the analyses, autoptic observation, and notes taken during the field
-assessment. The platform can effectively support and store the mapping
-of alteration over the 3D surface.
+**Assessment of the condition of a CH object**. Spatial annotations
+(2D and 3D) are suitable to map onto the surface or imagery of the CH
+object all the analyses, autoptic observations, and notes taken during
+the field assessment. The platform can effectively support and store the
+mapping of alterations either on 3D surfaces or on 2D imagery.
 
 **Documenting** **a conservation-restoration action**. A
 conservation-restoration action produces a large amount of
-documentation. The platform, through the mapping on the 3D asset, can
-help organize the corpus of data in a spatial way, following the
-workflow of object study and analyses, mapping of degradation,
-conservation–restoration action, assessment of the result.
+documentation. The platform, by mapping annotations on 3D assets or 2D
+imagery, can help organize the corpus of data in a spatial way, following
+the workflow of object study and analyses, mapping degradation,
+conservation–restoration actions, and assessment of results.
 
 **Monitoring** a CH object. By comparing successive data mappings, it is
 possible to assess the evolution of the condition of an object and track
@@ -160,13 +148,12 @@ While designed to support the work of conservation-restoration, the
 platform can also be exploited in different ways, building on the idea
 of a flexible, semantic system to annotate 3D assets of CH objects:
 
-**Spatial study of a CH object**. Being able to spatially explore the 3D
-asset and annotate its surface using semantically-rich data makes it
-possible to use the 3D data as a support to study the geometry and
-appearance characteristics of a CH object. The user can use annotations
-on the surface of the object to mark ROIs, highlight traces of its
-manufacturing process, add spatial notes, and assign specific semantic
-meanings to its parts.
+**Spatial study of a CH object**. Being able to spatially explore 3D
+assets or inspect high-resolution imagery and annotate them using
+semantically-rich data makes it possible to study geometry and
+appearance characteristics of a CH object. Users can mark ROIs, highlight
+manufacturing traces, add spatial notes, and assign semantic meanings
+either on 3D surfaces or on 2D images.
 
 **Annotation for dissemination purposes**. The annotations over a 3D
 asset produced using this tool can then be used in interactive systems
@@ -175,10 +162,11 @@ localized information on the very geometry of the object.
 
 ### Key features and functionalities
 
-**3D-centric.** 3D is the core of the project, all the annotations must
-be mapped in a 3D reference space, on the 3D surface of the 3D models of
-the artefact. All data mapped in the system is somehow referenced into
-this working space and can be explored and visualized spatially.
+**Spatial-centric (2D & 3D).** Spatial representation is the core of the
+project: annotations can be mapped in 3D reference spaces on model
+surfaces, or in 2D image spaces on relightable/multi-layer imagery. Data
+mapped in the system is referenced to the chosen spatial substrate and
+can be explored and visualized accordingly.
 
 **Hierarchical, collaborative approach**. The tool supports
 collaborative work of multiple users using a hierarchical paradigm. The
@@ -187,9 +175,9 @@ roles, to support the collaborative interaction, task assignment and
 coordination, and track the provenance of authored data.
 
 **Customizable workspace**. The workspace of the project is defined as a
-3D reference space, populated by 3D assets. The project leader, and a
-small group of administrators, setup this space and assets at the
-beginning of the project.
+spatial reference space, populated by spatial assets (3D models and/or
+2D imagery). The project leader, and a small group of administrators,
+setup this space and assets at the beginning of the project.
 
 **Semantic management of annotations**. All mapped information is
 semantically structured in `annotationData` records and linked to spatial
@@ -226,15 +214,15 @@ The platform will exploit services offered by the ECCCH platform:
   the annotation and reporting, and where the working data is stored is
   part of ECCCH.
 
-- **Knowledge Base**: all the 3D annotations are semantically mapped.
-  While each CH institution has its own standards, everything must be
+- **Knowledge Base**: all annotations are semantically mapped. While
+  each CH institution has its own standards, everything must be
   interoperable at EU level, and must be mapped on ECCCH knowledge base
   for interoperability.
 
-- **Visualization components**: the 3D data is visualized and
-  manipulated using the components and libraries provided by ECCCH. Some
-  of the specific interaction mechanisms, e.g., the process of 3D area
-  mappings may also rely on components and libraries provided by ECCCH.
+- **Visualization components**: 3D models and 2D imagery are visualized
+  and manipulated using components and libraries provided by ECCCH. Some
+  interaction mechanisms (e.g., 3D area mappings or RTI relighting)
+  may rely on ECCCH-provided components.
 
 #### Deployment. 
 
@@ -260,25 +248,24 @@ other shards of the same VA, or by other tools/services.
 
 The VA will have to deal with different classes of data.
 
-**The 3D data used as a substrate/reference space for the annotations**.
-This is the core 3D used in visualization, to display the CH objects,
-and as a base to create the annotations. It is also used internally as
-3D geometrical information for measurement and geometrical processing
-purposes.
+**Spatial data (3D models and 2D imagery) used as a substrate/reference
+space for the annotations**. This includes 3D geometry used for
+visualization and measurement, and 2D imagery used for appearance-based
+inspection and annotation (including RTI and multi-layer captures).
+Both kinds of assets serve as bases for creating annotations and for
+some internal measurement or processing tasks.
 
 For visualization and interaction purposes, as the VA works as an online
-tool, this 3D data should be available in a format that is suitable for
-remote streaming and rendering. This means that the file(s) must reside
-on a web server, accessible to the web application. This storage and
-access paradigm is the most basic one, and will be certainly needed in
-this VA, to enable most of the functionalities.
+tool, spatial assets (3D model files and high-resolution imagery) should
+be available in formats suitable for remote streaming and rendering.
+Files must reside on a web server accessible to the web application to
+enable efficient streaming and interactive annotation.
 
-Depending on the needed VA features, some geometrical
-checks/measurements/processing may also require direct access to the
-whole geometric/texture dataset, and computational power to carry out
-the operation. This would require a different storage method, and the
-possibility of having services that, on demand, would apply the required
-operation/calculation, and send the result to the web-app.
+Depending on the needed VA features, some geometrical checks,
+measurements, or image-processing operations may require direct access
+to full-resolution datasets and extra computational power. Such tasks
+may be executed by backend services on demand, which then provide
+processed results back to the web application.
 
 Ideally, the 3D models should already be part of ECCCH (i.e., exist as
 entities in the knowledge graph). If not, the possible choices are: (a)
@@ -328,11 +315,10 @@ level of connection and expressiveness.
 Most of this external data may be referenced with an URI or some other
 identifier.
 
-2D data is not generic in the current implementation: OCRA supports
-relightable and multi-layer image assets (including RTI datasets) through
-OpenLIME integration. These assets are managed as digital assets in HDT,
-streamed in the 2D viewer, and can participate in the same scene/asset
-annotation workflows used for 3D assets.
+OCRA supports relightable and multi-layer image assets (including RTI
+datasets) through OpenLIME integration. These assets are managed as
+digital assets in HDT, streamed in the 2D viewer, and participate in the
+same scene/asset annotation workflows used for 3D assets.
 
 ### Implementation 
 
