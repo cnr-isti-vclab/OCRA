@@ -505,16 +505,18 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
 
       <div
-        className={`mb-3 p-2 border rounded small ${
+        className={`mb-3 p-2 border rounded small annotation-panel-status ${
           collaborativeEditInfo
             ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
             : 'bg-light-subtle text-muted'
         }`}
-        style={{ minHeight: '36px' }}
+        style={{ minHeight: collaborativeEditInfo ? '64px' : '48px' }}
       >
-        <div className="d-flex flex-column gap-1 align-items-start">
-          <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
-          {collaborativeEditInfo ? <div>{collaborativeEditInfo}</div> : null}
+        <div className="d-flex flex-column gap-1 annotation-panel-status__content">
+          <span className={`badge annotation-panel-status__badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
+          {collaborativeEditInfo ? (
+            <div className="annotation-panel-status__message">{collaborativeEditInfo}</div>
+          ) : null}
         </div>
       </div>
 

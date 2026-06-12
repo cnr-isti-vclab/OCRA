@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 14px;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -66,6 +70,36 @@ a:hover {
 .annotation-delete-btn--inactive:disabled .bi,
 .annotation-delete-btn--inactive[disabled] .bi {
   color: var(--bs-secondary-color, #6c757d);
+}
+
+.annotation-panel-status,
+.annotation-panel-status__content,
+.annotation-panel-status__message {
+  min-width: 0;
+}
+
+.annotation-panel-status {
+  overflow-x: hidden;
+}
+
+.annotation-panel-status__content {
+  align-items: flex-start;
+  max-width: 100%;
+}
+
+.annotation-panel-status__badge {
+  align-self: flex-start;
+}
+
+.annotation-panel-status__message {
+  align-self: stretch;
+  display: block;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Button styling */
