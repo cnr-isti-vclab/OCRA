@@ -13,6 +13,7 @@ This page is the index for technical documentation in `doc/`.
 - [Local Development Setup](./local-dev-setup.md)
 - [Frontend OpenLIME Integration](./frontend-openlime.md)
 - [Physical Object Metadata](./physical-object-metadata.md)
+- [Asset Grouping Proposal](./asset-grouping-proposal.md)
 
 ## Domain and Use Cases
 

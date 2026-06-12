@@ -66,12 +66,12 @@ function buildTarget(projectHdt: {
   scenes?: Array<{ id: string }>;
   digitalAssets?: Array<{ id: string }>;
 } | null): AnnotationTarget | null {
-  const firstSceneId = projectHdt?.scenes[0]?.id;
+  const firstSceneId = projectHdt?.scenes?.[0]?.id;
   if (firstSceneId) {
     return { scopeType: 'scene', scopeId: firstSceneId };
   }
 
-  const firstAssetId = projectHdt?.digitalAssets[0]?.id;
+  const firstAssetId = projectHdt?.digitalAssets?.[0]?.id;
   if (firstAssetId) {
     return { scopeType: 'asset', scopeId: firstAssetId };
   }
