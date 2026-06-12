@@ -43,7 +43,7 @@ function EditDataModal({
 }: {
   draft: AnnotationDataDraft | null;
   onSave: () => void;
-  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description'>>) => void;
+  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass'>>) => void;
   onCancel: () => void;
 }) {
   if (!draft) {
@@ -90,9 +90,19 @@ function EditDataModal({
                 onChange={(e) => onChange({ description: e.target.value })}
               />
             </div>
-            <p className="small text-muted mb-0">
-              Class: {draft.annotationClass ?? '(none)'}
-            </p>
+            <div className="mb-0">
+              <label htmlFor="annotationClass" className="form-label">
+                Class
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                id="annotationClass"
+                value={draft.annotationClass ?? ''}
+                onChange={(e) => onChange({ annotationClass: e.target.value })}
+                placeholder="Optional classification"
+              />
+            </div>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onCancel}>
@@ -388,6 +398,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       await updateData(editingDraft.dataId, {
         label: editingDraft.label,
         description: editingDraft.description,
+        class: editingDraft.annotationClass?.trim().length
+          ? editingDraft.annotationClass.trim()
+          : null,
       }, {
         expectedVersion: editingDraft.expectedVersion,
       });

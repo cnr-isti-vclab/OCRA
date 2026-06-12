@@ -1,0 +1,1405 @@
+@prefix ocra-voc: <https://ocra.example.org/vocabulary/> .
+@prefix ocra:     <https://ocra.example.org/ontology/> .
+@prefix aat:      <http://vocab.getty.edu/aat/> .
+@prefix skos:     <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:      <http://www.w3.org/2001/XMLSchema#> .
+
+ocra-voc:ConservationAnnotationVocabulary
+    a skos:ConceptScheme ;
+    skos:prefLabel "OCRA conservation annotation vocabulary"@en ;
+    skos:prefLabel "Vocabolario OCRA per annotazioni conservative"@it .
+
+ocra:defaultColor
+    a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
+    skos:prefLabel "default display color"@en ;
+    skos:prefLabel "colore di visualizzazione predefinito"@it .
+
+# ============================================================
+# TOP CONCEPTS
+# ============================================================
+
+ocra-voc:conditionAlteration
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Condition / alteration"@en ;
+    skos:prefLabel "Stato conservativo / alterazione"@it ;
+    ocra:defaultColor "#999999"^^xsd:string .
+
+ocra-voc:lossDamage
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Loss / damage"@en ;
+    skos:prefLabel "Mancanza / danno"@it ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:surfaceFeature
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Surface feature"@en ;
+    skos:prefLabel "Caratteristica superficiale"@it ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
+
+ocra-voc:decoration
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Decoration"@en ;
+    skos:prefLabel "Decorazione"@it ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
+
+ocra-voc:techniqueFinish
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Technique / finish"@en ;
+    skos:prefLabel "Tecnica / finitura"@it ;
+    ocra:defaultColor "#F1C40F"^^xsd:string .
+
+ocra-voc:conservationTreatment
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Conservation treatment"@en ;
+    skos:prefLabel "Intervento conservativo"@it ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
+
+ocra-voc:materialComposition
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Material / composition"@en ;
+    skos:prefLabel "Materiale / composizione"@it ;
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
+
+# ============================================================
+# CONDITIONS AND ALTERATIONS (original + extended)
+# ============================================================
+
+ocra-voc:rustCondition
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Rust"@en ;
+    skos:prefLabel "Ruggine"@it ;
+    skos:exactMatch aat:300213355 ;
+    ocra:defaultColor "#C65A1E"^^xsd:string .
+
+ocra-voc:corrosionProcess
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Corrosion"@en ;
+    skos:prefLabel "Corrosione"@it ;
+    skos:exactMatch aat:300054107 ;
+    ocra:defaultColor "#D35400"^^xsd:string .
+
+ocra-voc:corrosionResidue
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Corrosion product"@en ;
+    skos:prefLabel "Prodotto di corrosione"@it ;
+    skos:exactMatch aat:300258515 ;
+    ocra:defaultColor "#B9770E"^^xsd:string .
+
+ocra-voc:abrasion
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Abrasion"@en ;
+    skos:prefLabel "Abrasione"@it ;
+    skos:exactMatch aat:300053077 ;
+    ocra:defaultColor "#7F8C8D"^^xsd:string .
+
+ocra-voc:wear
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Wear"@en ;
+    skos:prefLabel "Usura"@it ;
+    skos:exactMatch aat:300219449 ;
+    ocra:defaultColor "#95A5A6"^^xsd:string .
+
+# -- Biodeterioration --
+
+ocra-voc:biodeterioration
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Biodeterioration"@en ;
+    skos:prefLabel "Biodeterioramento"@it ;
+    skos:exactMatch aat:300379254 ;
+    ocra:defaultColor "#196F3D"^^xsd:string .
+
+ocra-voc:biologicalGrowth
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:biodeterioration ;
+    skos:prefLabel "Biological growth"@en ;
+    skos:prefLabel "Colonizzazione biologica"@it ;
+    skos:exactMatch aat:300379253 ;
+    ocra:defaultColor "#1E8449"^^xsd:string .
+
+ocra-voc:moldGrowth
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:biodeterioration ;
+    skos:prefLabel "Mold growth"@en ;
+    skos:prefLabel "Muffa"@it ;
+    skos:exactMatch aat:300379257 ;
+    ocra:defaultColor "#117A65"^^xsd:string .
+
+ocra-voc:lichens
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:biodeterioration ;
+    skos:prefLabel "Lichens"@en ;
+    skos:prefLabel "Licheni"@it ;
+    skos:exactMatch aat:300379259 ;
+    ocra:defaultColor "#148F77"^^xsd:string .
+
+ocra-voc:algae
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:biodeterioration ;
+    skos:prefLabel "Algae"@en ;
+    skos:prefLabel "Alghe"@it ;
+    skos:exactMatch aat:300379258 ;
+    ocra:defaultColor "#0E6655"^^xsd:string .
+
+# -- Deposits and encrustations --
+
+ocra-voc:deposit
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Deposit"@en ;
+    skos:prefLabel "Deposito"@it ;
+    skos:exactMatch aat:300379229 ;
+    ocra:defaultColor "#616A6B"^^xsd:string .
+
+ocra-voc:encrustation
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deposit ;
+    skos:prefLabel "Encrustation"@en ;
+    skos:prefLabel "Incrostazione"@it ;
+    skos:exactMatch aat:300379232 ;
+    ocra:defaultColor "#717D7E"^^xsd:string .
+
+ocra-voc:soot
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deposit ;
+    skos:prefLabel "Soot"@en ;
+    skos:prefLabel "Fuliggine"@it ;
+    skos:exactMatch aat:300011833 ;
+    ocra:defaultColor "#212121"^^xsd:string .
+
+ocra-voc:dust
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deposit ;
+    skos:prefLabel "Dust"@en ;
+    skos:prefLabel "Polvere"@it ;
+    skos:exactMatch aat:300379230 ;
+    ocra:defaultColor "#BFC9CA"^^xsd:string .
+
+ocra-voc:calcareousDeposit
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deposit ;
+    skos:prefLabel "Calcareous deposit"@en ;
+    skos:prefLabel "Deposito calcareo"@it ;
+    skos:exactMatch aat:300379233 ;
+    ocra:defaultColor "#D5DBDB"^^xsd:string .
+
+# -- Patina --
+
+ocra-voc:patina
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Patina"@en ;
+    skos:prefLabel "Patina"@it ;
+    skos:exactMatch aat:300178785 ;
+    ocra:defaultColor "#73C6B6"^^xsd:string .
+
+ocra-voc:noblePatinaAlt
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:patina ;
+    skos:prefLabel "Noble patina"@en ;
+    skos:prefLabel "Patina nobile"@it ;
+    skos:exactMatch aat:300379246 ;
+    ocra:defaultColor "#76D7C4"^^xsd:string .
+
+ocra-voc:artificialPatina
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:patina ;
+    skos:prefLabel "Artificial patina"@en ;
+    skos:prefLabel "Patina artificiale"@it ;
+    skos:exactMatch aat:300379247 ;
+    ocra:defaultColor "#48C9B0"^^xsd:string .
+
+# -- Detachment and cohesion loss --
+
+ocra-voc:detachment
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Detachment"@en ;
+    skos:prefLabel "Distacco"@it ;
+    skos:exactMatch aat:300379207 ;
+    ocra:defaultColor "#E59866"^^xsd:string .
+
+ocra-voc:flaking
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:detachment ;
+    skos:prefLabel "Flaking"@en ;
+    skos:prefLabel "Scagliatura"@it ;
+    skos:exactMatch aat:300379208 ;
+    ocra:defaultColor "#F0A27A"^^xsd:string .
+
+ocra-voc:peeling
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:detachment ;
+    skos:prefLabel "Peeling"@en ;
+    skos:prefLabel "Pellicola sollevata / esfoliazione"@it ;
+    skos:exactMatch aat:300379209 ;
+    ocra:defaultColor "#E8967A"^^xsd:string .
+
+ocra-voc:blistering
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:detachment ;
+    skos:prefLabel "Blistering"@en ;
+    skos:prefLabel "Rigonfiamento / bolla"@it ;
+    skos:exactMatch aat:300379215 ;
+    ocra:defaultColor "#DC7633"^^xsd:string .
+
+ocra-voc:powdering
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:detachment ;
+    skos:prefLabel "Powdering"@en ;
+    skos:prefLabel "Polverizzazione / disgregazione"@it ;
+    skos:exactMatch aat:300379210 ;
+    ocra:defaultColor "#D98880"^^xsd:string .
+
+# -- Efflorescence and salt damage --
+
+ocra-voc:efflorescence
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Efflorescence"@en ;
+    skos:prefLabel "Efflorescenza"@it ;
+    skos:exactMatch aat:300379237 ;
+    ocra:defaultColor "#FDFEFE"^^xsd:string .
+
+ocra-voc:saltDamage
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Salt damage"@en ;
+    skos:prefLabel "Danno da sali solubili"@it ;
+    skos:exactMatch aat:300379238 ;
+    ocra:defaultColor "#F4F6F7"^^xsd:string .
+
+ocra-voc:subflorescence
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Subflorescence"@en ;
+    skos:prefLabel "Subflorescenza / cristallizzazione subsuperficiale"@it ;
+    skos:exactMatch aat:300379239 ;
+    ocra:defaultColor "#EBF5FB"^^xsd:string .
+
+# -- Stains and discolouration --
+
+ocra-voc:staining
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Staining"@en ;
+    skos:prefLabel "Macchia / imbrattamento"@it ;
+    skos:exactMatch aat:300379244 ;
+    ocra:defaultColor "#A04000"^^xsd:string .
+
+ocra-voc:discolouration
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Discolouration"@en ;
+    skos:prefLabel "Discromia / alterazione cromatica"@it ;
+    skos:exactMatch aat:300379243 ;
+    ocra:defaultColor "#922B21"^^xsd:string .
+
+ocra-voc:yellowing
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:discolouration ;
+    skos:prefLabel "Yellowing"@en ;
+    skos:prefLabel "Ingiallimento"@it ;
+    skos:exactMatch aat:300379245 ;
+    ocra:defaultColor "#F4D03F"^^xsd:string .
+
+ocra-voc:blackening
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:discolouration ;
+    skos:prefLabel "Blackening"@en ;
+    skos:prefLabel "Annerimento"@it ;
+    skos:exactMatch aat:300264831 ;
+    ocra:defaultColor "#1C2833"^^xsd:string .
+
+# -- Oxidation --
+
+ocra-voc:oxidation
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Oxidation"@en ;
+    skos:prefLabel "Ossidazione"@it ;
+    skos:exactMatch aat:300379249 ;
+    ocra:defaultColor "#A9682A"^^xsd:string .
+
+ocra-voc:tarnishing
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:oxidation ;
+    skos:prefLabel "Tarnishing"@en ;
+    skos:prefLabel "Appannamento / ossidazione superficiale"@it ;
+    skos:exactMatch aat:300379250 ;
+    ocra:defaultColor "#784212"^^xsd:string .
+
+# -- Deformation --
+
+ocra-voc:deformation
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conditionAlteration ;
+    skos:prefLabel "Deformation"@en ;
+    skos:prefLabel "Deformazione"@it ;
+    skos:exactMatch aat:300379218 ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
+
+ocra-voc:warping
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deformation ;
+    skos:prefLabel "Warping"@en ;
+    skos:prefLabel "Incurvamento / svergolamento"@it ;
+    skos:exactMatch aat:300379220 ;
+    ocra:defaultColor "#4A6274"^^xsd:string .
+
+ocra-voc:denting
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deformation ;
+    skos:prefLabel "Denting"@en ;
+    skos:prefLabel "Ammaccatura"@it ;
+    skos:exactMatch aat:300379221 ;
+    ocra:defaultColor "#566573"^^xsd:string .
+
+# ============================================================
+# LOSS AND DAMAGE (original + extended)
+# ============================================================
+
+ocra-voc:cracks
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Cracks"@en ;
+    skos:prefLabel "Fessurazioni"@it ;
+    skos:exactMatch aat:300209168 ;
+    ocra:defaultColor "#000000"^^xsd:string .
+
+ocra-voc:mechanicalCracks
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:cracks ;
+    skos:prefLabel "Mechanical cracks"@en ;
+    skos:prefLabel "Fessurazioni meccaniche"@it ;
+    skos:exactMatch aat:300228353 ;
+    ocra:defaultColor "#111111"^^xsd:string .
+
+ocra-voc:crackle
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:cracks ;
+    skos:prefLabel "Crackle"@en ;
+    skos:prefLabel "Crettatura"@it ;
+    skos:exactMatch aat:300228345 ;
+    ocra:defaultColor "#2C3E50"^^xsd:string .
+
+ocra-voc:holes
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Holes"@en ;
+    skos:prefLabel "Fori"@it ;
+    skos:exactMatch aat:300458785 ;
+    ocra:defaultColor "#8E0000"^^xsd:string .
+
+# -- Fractures --
+
+ocra-voc:fracture
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Fracture"@en ;
+    skos:prefLabel "Frattura"@it ;
+    skos:exactMatch aat:300379203 ;
+    ocra:defaultColor "#641E16"^^xsd:string .
+
+ocra-voc:break
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:fracture ;
+    skos:prefLabel "Break"@en ;
+    skos:prefLabel "Rottura"@it ;
+    skos:exactMatch aat:300379204 ;
+    ocra:defaultColor "#7B241C"^^xsd:string .
+
+ocra-voc:fragmentary
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Fragmentary"@en ;
+    skos:prefLabel "Frammentario"@it ;
+    skos:exactMatch aat:300379205 ;
+    ocra:defaultColor "#922B21"^^xsd:string .
+
+# -- Loss / lacuna --
+
+ocra-voc:lacuna
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Lacuna"@en ;
+    skos:prefLabel "Lacuna"@it ;
+    skos:exactMatch aat:300379196 ;
+    ocra:defaultColor "#CB4335"^^xsd:string .
+
+ocra-voc:materialLoss
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lacuna ;
+    skos:prefLabel "Material loss"@en ;
+    skos:prefLabel "Perdita di materiale"@it ;
+    skos:exactMatch aat:300379197 ;
+    ocra:defaultColor "#B03A2E"^^xsd:string .
+
+# -- Fire and burn damage --
+
+ocra-voc:fireDamage
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Fire damage"@en ;
+    skos:prefLabel "Danno da fuoco"@it ;
+    skos:exactMatch aat:300379268 ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:scorching
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:fireDamage ;
+    skos:prefLabel "Scorching"@en ;
+    skos:prefLabel "Bruciatura / annerimento da calore"@it ;
+    skos:exactMatch aat:300379269 ;
+    ocra:defaultColor "#C0392B"^^xsd:string .
+
+# -- Vandalism --
+
+ocra-voc:graffiti
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Graffiti"@en ;
+    skos:prefLabel "Graffiti / vandalismo"@it ;
+    skos:exactMatch aat:300015613 ;
+    ocra:defaultColor "#AF7AC5"^^xsd:string .
+
+# ============================================================
+# SURFACE FEATURES (original + extended)
+# ============================================================
+
+ocra-voc:inscription
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Inscription"@en ;
+    skos:prefLabel "Iscrizione"@it ;
+    skos:exactMatch aat:300028702 ;
+    ocra:defaultColor "#2471A3"^^xsd:string .
+
+ocra-voc:stamping
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Stamps / hallmarks"@en ;
+    skos:prefLabel "Punzonature / marchi"@it ;
+    skos:exactMatch aat:300028744 ;
+    ocra:defaultColor "#1F618D"^^xsd:string .
+
+ocra-voc:fingerprint
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Fingerprint"@en ;
+    skos:prefLabel "Impronta digitale"@it ;
+    skos:exactMatch aat:300404878 ;
+    ocra:defaultColor "#154360"^^xsd:string .
+
+ocra-voc:toolmarks
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Tool marks"@en ;
+    skos:prefLabel "Tracce di lavorazione"@it ;
+    skos:exactMatch aat:300379282 ;
+    ocra:defaultColor "#1A5276"^^xsd:string .
+
+ocra-voc:surfaceTexture
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Surface texture"@en ;
+    skos:prefLabel "Texture superficiale"@it ;
+    skos:exactMatch aat:300056508 ;
+    ocra:defaultColor "#2E86C1"^^xsd:string .
+
+ocra-voc:scratches
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Scratches"@en ;
+    skos:prefLabel "Graffi"@it ;
+    skos:exactMatch aat:300379285 ;
+    ocra:defaultColor "#5DADE2"^^xsd:string .
+
+ocra-voc:pittingCondition
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Pitting"@en ;
+    skos:prefLabel "Vaiolatura / puntinatura"@it ;
+    skos:exactMatch aat:300379287 ;
+    ocra:defaultColor "#2980B9"^^xsd:string .
+
+ocra-voc:weld
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Weld / join"@en ;
+    skos:prefLabel "Giunzione / saldatura originale"@it ;
+    skos:exactMatch aat:300379290 ;
+    ocra:defaultColor "#117DB8"^^xsd:string .
+
+ocra-voc:repair
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Repair (ancient)"@en ;
+    skos:prefLabel "Riparazione antica"@it ;
+    skos:exactMatch aat:300054098 ;
+    ocra:defaultColor "#1565C0"^^xsd:string .
+
+# ============================================================
+# DECORATION (original + extended)
+# ============================================================
+
+ocra-voc:motifs
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Motifs"@en ;
+    skos:prefLabel "Motivi ornamentali"@it ;
+    skos:exactMatch aat:300009700 ;
+    ocra:defaultColor "#8E44AD"^^xsd:string .
+
+ocra-voc:engraving
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Engraving"@en ;
+    skos:prefLabel "Incisione"@it ;
+    skos:exactMatch aat:300053225 ;
+    ocra:defaultColor "#7D3C98"^^xsd:string .
+
+ocra-voc:chasing
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Chasing"@en ;
+    skos:prefLabel "Cesellatura"@it ;
+    skos:exactMatch aat:300053886 ;
+    ocra:defaultColor "#6C3483"^^xsd:string .
+
+ocra-voc:repoussé
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Repoussé"@en ;
+    skos:prefLabel "Sbalzo / repoussé"@it ;
+    skos:exactMatch aat:300053614 ;
+    ocra:defaultColor "#76448A"^^xsd:string .
+
+ocra-voc:punchwork
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Punchwork"@en ;
+    skos:prefLabel "Punzonatura decorativa"@it ;
+    skos:exactMatch aat:300053621 ;
+    ocra:defaultColor "#884EA0"^^xsd:string .
+
+ocra-voc:inlay
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Inlay"@en ;
+    skos:prefLabel "Intarsio"@it ;
+    skos:exactMatch aat:300053578 ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
+
+ocra-voc:filigree
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Filigree"@en ;
+    skos:prefLabel "Filigrana"@it ;
+    skos:exactMatch aat:300053585 ;
+    ocra:defaultColor "#A569BD"^^xsd:string .
+
+ocra-voc:niello
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Niello"@en ;
+    skos:prefLabel "Niello"@it ;
+    skos:exactMatch aat:300053605 ;
+    ocra:defaultColor "#2C3E50"^^xsd:string .
+
+ocra-voc:enamel
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Enamel"@en ;
+    skos:prefLabel "Smalto"@it ;
+    skos:exactMatch aat:300010900 ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:cloisonné
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:enamel ;
+    skos:prefLabel "Cloisonné"@en ;
+    skos:prefLabel "Smalto cloisonné"@it ;
+    skos:exactMatch aat:300053577 ;
+    ocra:defaultColor "#C0392B"^^xsd:string .
+
+ocra-voc:champlevé
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:enamel ;
+    skos:prefLabel "Champlevé"@en ;
+    skos:prefLabel "Smalto champlevé"@it ;
+    skos:exactMatch aat:300053576 ;
+    ocra:defaultColor "#A93226"^^xsd:string .
+
+ocra-voc:relief
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Relief"@en ;
+    skos:prefLabel "Rilievo"@it ;
+    skos:exactMatch aat:300047090 ;
+    ocra:defaultColor "#BB8FCE"^^xsd:string .
+
+ocra-voc:pigment
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Pigment / paint layer"@en ;
+    skos:prefLabel "Pigmento / strato pittorico"@it ;
+    skos:exactMatch aat:300014404 ;
+    ocra:defaultColor "#D2B4DE"^^xsd:string .
+
+# ============================================================
+# TECHNIQUE AND FINISH (original + extended)
+# ============================================================
+
+ocra-voc:infills
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Infills"@en ;
+    skos:prefLabel "Integrazioni / stuccature"@it ;
+    skos:exactMatch aat:300264840 ;
+    ocra:defaultColor "#F5B041"^^xsd:string .
+
+ocra-voc:gilding
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Gilding"@en ;
+    skos:prefLabel "Doratura"@it ;
+    skos:exactMatch aat:300053789 ;
+    ocra:defaultColor "#D4AF37"^^xsd:string .
+
+ocra-voc:parcelGilding
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:gilding ;
+    skos:prefLabel "Parcel gilding"@en ;
+    skos:prefLabel "Doratura parziale"@it ;
+    skos:exactMatch aat:300233409 ;
+    ocra:defaultColor "#F4D03F"^^xsd:string .
+
+ocra-voc:fireGilding
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:gilding ;
+    skos:prefLabel "Fire gilding"@en ;
+    skos:prefLabel "Doratura a fuoco (amalgama)"@it ;
+    skos:exactMatch aat:300379301 ;
+    ocra:defaultColor "#F0B015"^^xsd:string .
+
+ocra-voc:leafGilding
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:gilding ;
+    skos:prefLabel "Gold leaf gilding"@en ;
+    skos:prefLabel "Doratura a foglia"@it ;
+    skos:exactMatch aat:300053797 ;
+    ocra:defaultColor "#E8B400"^^xsd:string .
+
+ocra-voc:silvering
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Silvering"@en ;
+    skos:prefLabel "Argentatura"@it ;
+    skos:exactMatch aat:300053858 ;
+    ocra:defaultColor "#C0C0C0"^^xsd:string .
+
+ocra-voc:tinning
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Tinning"@en ;
+    skos:prefLabel "Stagnatura"@it ;
+    skos:exactMatch aat:300379303 ;
+    ocra:defaultColor "#D5D8DC"^^xsd:string .
+
+ocra-voc:casting
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Casting"@en ;
+    skos:prefLabel "Fusione"@it ;
+    skos:exactMatch aat:300053104 ;
+    ocra:defaultColor "#F7DC6F"^^xsd:string .
+
+ocra-voc:hammeringTechnique
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Hammering"@en ;
+    skos:prefLabel "Martellatura"@it ;
+    skos:exactMatch aat:300053572 ;
+    ocra:defaultColor "#F9E79F"^^xsd:string .
+
+ocra-voc:solderingTechnique
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Soldering"@en ;
+    skos:prefLabel "Saldatura"@it ;
+    skos:exactMatch aat:300053795 ;
+    ocra:defaultColor "#F8C471"^^xsd:string .
+
+ocra-voc:inpainting
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Inpainting"@en ;
+    skos:prefLabel "Reintegrazione pittorica"@it ;
+    skos:exactMatch aat:300053723 ;
+    ocra:defaultColor "#58D68D"^^xsd:string .
+
+ocra-voc:fillingProcess
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Filling"@en ;
+    skos:prefLabel "Stuccatura / riempimento"@it ;
+    skos:exactMatch aat:300053092 ;
+    ocra:defaultColor "#F8C471"^^xsd:string .
+
+ocra-voc:polishing
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Polishing"@en ;
+    skos:prefLabel "Lucidatura"@it ;
+    skos:exactMatch aat:300053593 ;
+    ocra:defaultColor "#FDEBD0"^^xsd:string .
+
+ocra-voc:burnishing
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Burnishing"@en ;
+    skos:prefLabel "Brunitura"@it ;
+    skos:exactMatch aat:300053864 ;
+    ocra:defaultColor "#F0E6C8"^^xsd:string .
+
+# ============================================================
+# CONSERVATION TREATMENTS (new top concept)
+# ============================================================
+
+ocra-voc:cleaning
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Cleaning"@en ;
+    skos:prefLabel "Pulitura"@it ;
+    skos:exactMatch aat:300053597 ;
+    ocra:defaultColor "#A9DFBF"^^xsd:string .
+
+ocra-voc:mechanicalCleaning
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:cleaning ;
+    skos:prefLabel "Mechanical cleaning"@en ;
+    skos:prefLabel "Pulitura meccanica"@it ;
+    skos:exactMatch aat:300379322 ;
+    ocra:defaultColor "#82E0AA"^^xsd:string .
+
+ocra-voc:chemicalCleaning
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:cleaning ;
+    skos:prefLabel "Chemical cleaning"@en ;
+    skos:prefLabel "Pulitura chimica"@it ;
+    skos:exactMatch aat:300379323 ;
+    ocra:defaultColor "#58D68D"^^xsd:string .
+
+ocra-voc:laserCleaning
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:cleaning ;
+    skos:prefLabel "Laser cleaning"@en ;
+    skos:prefLabel "Pulitura laser"@it ;
+    skos:exactMatch aat:300379325 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
+
+ocra-voc:consolidation
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Consolidation"@en ;
+    skos:prefLabel "Consolidamento"@it ;
+    skos:exactMatch aat:300053753 ;
+    ocra:defaultColor "#2ECC71"^^xsd:string .
+
+ocra-voc:adhesiveBonding
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Adhesive bonding"@en ;
+    skos:prefLabel "Incollaggio / giunzione con adesivo"@it ;
+    skos:exactMatch aat:300379330 ;
+    ocra:defaultColor "#1E8449"^^xsd:string .
+
+ocra-voc:desalination
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Desalination"@en ;
+    skos:prefLabel "Desalinizzazione"@it ;
+    skos:exactMatch aat:300379336 ;
+    ocra:defaultColor "#17A589"^^xsd:string .
+
+ocra-voc:protectiveCoating
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Protective coating"@en ;
+    skos:prefLabel "Strato protettivo / verniciatura"@it ;
+    skos:exactMatch aat:300053765 ;
+    ocra:defaultColor "#148F77"^^xsd:string .
+
+ocra-voc:corrosionInhibitor
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Corrosion inhibitor treatment"@en ;
+    skos:prefLabel "Trattamento con inibitore di corrosione"@it ;
+    skos:exactMatch aat:300379339 ;
+    ocra:defaultColor "#0E6655"^^xsd:string .
+
+ocra-voc:restructuring
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:conservationTreatment ;
+    skos:prefLabel "Restructuring / reassembly"@en ;
+    skos:prefLabel "Riassemblaggio / ricostruzione"@it ;
+    skos:exactMatch aat:300053798 ;
+    ocra:defaultColor "#0B5345"^^xsd:string .
+
+# ============================================================
+# MATERIAL COMPOSITION (new top concept)
+# ============================================================
+
+ocra-voc:metalMaterial
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Metal"@en ;
+    skos:prefLabel "Metallo"@it ;
+    skos:exactMatch aat:300010900 ;
+    ocra:defaultColor "#717D7E"^^xsd:string .
+
+ocra-voc:copperAlloy
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:metalMaterial ;
+    skos:prefLabel "Copper alloy"@en ;
+    skos:prefLabel "Lega di rame"@it ;
+    skos:exactMatch aat:300010942 ;
+    ocra:defaultColor "#BA6A2C"^^xsd:string .
+
+ocra-voc:bronze
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:copperAlloy ;
+    skos:prefLabel "Bronze"@en ;
+    skos:prefLabel "Bronzo"@it ;
+    skos:exactMatch aat:300010957 ;
+    ocra:defaultColor "#CD7F32"^^xsd:string .
+
+ocra-voc:brass
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:copperAlloy ;
+    skos:prefLabel "Brass"@en ;
+    skos:prefLabel "Ottone"@it ;
+    skos:exactMatch aat:300010947 ;
+    ocra:defaultColor "#D4AC0D"^^xsd:string .
+
+ocra-voc:iron
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:metalMaterial ;
+    skos:prefLabel "Iron"@en ;
+    skos:prefLabel "Ferro"@it ;
+    skos:exactMatch aat:300011002 ;
+    ocra:defaultColor "#4D4D4D"^^xsd:string .
+
+ocra-voc:silver
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:metalMaterial ;
+    skos:prefLabel "Silver"@en ;
+    skos:prefLabel "Argento"@it ;
+    skos:exactMatch aat:300011029 ;
+    ocra:defaultColor "#C0C0C0"^^xsd:string .
+
+ocra-voc:gold
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:metalMaterial ;
+    skos:prefLabel "Gold"@en ;
+    skos:prefLabel "Oro"@it ;
+    skos:exactMatch aat:300011021 ;
+    ocra:defaultColor "#FFD700"^^xsd:string .
+
+ocra-voc:lead
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:metalMaterial ;
+    skos:prefLabel "Lead"@en ;
+    skos:prefLabel "Piombo"@it ;
+    skos:exactMatch aat:300011014 ;
+    ocra:defaultColor "#707B7C"^^xsd:string .
+
+ocra-voc:ceramicMaterial
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Ceramic"@en ;
+    skos:prefLabel "Ceramica"@it ;
+    skos:exactMatch aat:300235507 ;
+    ocra:defaultColor "#C39D74"^^xsd:string .
+
+ocra-voc:terracotta
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:ceramicMaterial ;
+    skos:prefLabel "Terracotta"@en ;
+    skos:prefLabel "Terracotta"@it ;
+    skos:exactMatch aat:300010669 ;
+    ocra:defaultColor "#C1440E"^^xsd:string .
+
+ocra-voc:stoneMaterial
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Stone"@en ;
+    skos:prefLabel "Pietra"@it ;
+    skos:exactMatch aat:300011176 ;
+    ocra:defaultColor "#808B96"^^xsd:string .
+
+ocra-voc:marble
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:stoneMaterial ;
+    skos:prefLabel "Marble"@en ;
+    skos:prefLabel "Marmo"@it ;
+    skos:exactMatch aat:300011443 ;
+    ocra:defaultColor "#D5D8DC"^^xsd:string .
+
+ocra-voc:limestone
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:stoneMaterial ;
+    skos:prefLabel "Limestone"@en ;
+    skos:prefLabel "Calcare"@it ;
+    skos:exactMatch aat:300011183 ;
+    ocra:defaultColor "#CACFD2"^^xsd:string .
+
+ocra-voc:woodMaterial
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Wood"@en ;
+    skos:prefLabel "Legno"@it ;
+    skos:exactMatch aat:300011914 ;
+    ocra:defaultColor "#9C6B3C"^^xsd:string .
+
+ocra-voc:ivoryBone
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Ivory / bone"@en ;
+    skos:prefLabel "Avorio / osso"@it ;
+    skos:exactMatch aat:300011798 ;
+    ocra:defaultColor "#FDFEFE"^^xsd:string .
+
+ocra-voc:glass
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Glass"@en ;
+    skos:prefLabel "Vetro"@it ;
+    skos:exactMatch aat:300010797 ;
+    ocra:defaultColor "#AED6F1"^^xsd:string .
+
+ocra-voc:textile
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Textile"@en ;
+    skos:prefLabel "Tessuto"@it ;
+    skos:exactMatch aat:300014063 ;
+    ocra:defaultColor "#8E6C88"^^xsd:string .
+
+ocra-voc:organicMaterial
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialComposition ;
+    skos:prefLabel "Organic material"@en ;
+    skos:prefLabel "Materiale organico"@it ;
+    skos:exactMatch aat:300379097 ;
+    ocra:defaultColor "#A2856A"^^xsd:string .
+
+# ============================================================
+# THIN SHEET METAL — condizioni e tecniche specifiche per lamine
+# ============================================================
+
+ocra-voc:thinSheet
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Thin sheet / foil"@en ;
+    skos:prefLabel "Lamina / foglia metallica"@it ;
+    skos:exactMatch aat:300014184 ;
+    ocra:defaultColor "#C8C8C8"^^xsd:string .
+
+ocra-voc:cutting
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:techniqueFinish ;
+    skos:prefLabel "Cutting"@en ;
+    skos:prefLabel "Ritaglio / incisione di contorno"@it ;
+    skos:exactMatch aat:300053225 ;
+    skos:scopeNote "Trimming of metal sheet to achieve final shape"@en ;
+    skos:scopeNote "Ritaglio della lamina metallica per ottenere la forma finale"@it ;
+    ocra:defaultColor "#A8A8A8"^^xsd:string .
+
+ocra-voc:sewingHoles
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:surfaceFeature ;
+    skos:prefLabel "Sewing holes / attachment holes"@en ;
+    skos:prefLabel "Fori di cucitura / attacco"@it ;
+    skos:exactMatch aat:300379283 ;
+    skos:scopeNote "Holes intentionally made to sew or attach the object to a support (e.g. textile)"@en ;
+    skos:scopeNote "Fori realizzati intenzionalmente per cucire o fissare il manufatto a un supporto (es. tessuto)"@it ;
+    ocra:defaultColor "#5D8AA8"^^xsd:string .
+
+ocra-voc:crinkling
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deformation ;
+    skos:prefLabel "Crinkling / wrinkling"@en ;
+    skos:prefLabel "Raggrinzimento / increspatura"@it ;
+    skos:exactMatch aat:300379222 ;
+    skos:scopeNote "Localised buckling or wrinkling typical of very thin metal sheets"@en ;
+    skos:scopeNote "Deformazione localizzata tipica delle lamine metalliche di estrema sottigliezza"@it ;
+    ocra:defaultColor "#808B96"^^xsd:string .
+
+ocra-voc:folding
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:deformation ;
+    skos:prefLabel "Folding / bending"@en ;
+    skos:prefLabel "Piega / piegatura"@it ;
+    skos:exactMatch aat:300379219 ;
+    ocra:defaultColor "#717D7E"^^xsd:string .
+
+ocra-voc:tears
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Tears"@en ;
+    skos:prefLabel "Strappi / lacerazioni"@it ;
+    skos:exactMatch aat:300379206 ;
+    skos:scopeNote "Irregular breaks typical of thin metal sheets or textile"@en ;
+    skos:scopeNote "Rotture irregolari tipiche delle lamine metalliche o dei tessuti"@it ;
+    ocra:defaultColor "#A93226"^^xsd:string .
+
+# ============================================================
+# ICONOGRAPHY — motivi iconografici specifici
+# ============================================================
+
+ocra-voc:iconography
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:decoration ;
+    skos:prefLabel "Iconography"@en ;
+    skos:prefLabel "Iconografia"@it ;
+    skos:exactMatch aat:300015638 ;
+    ocra:defaultColor "#6C3483"^^xsd:string .
+
+ocra-voc:solarDisk
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Solar disk"@en ;
+    skos:prefLabel "Disco solare"@it ;
+    skos:exactMatch aat:300263722 ;
+    ocra:defaultColor "#F39C12"^^xsd:string .
+
+ocra-voc:uraeus
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Uraeus / cobra"@en ;
+    skos:prefLabel "Ureo / cobra sacro"@it ;
+    skos:exactMatch aat:300263712 ;
+    skos:scopeNote "Rearing cobra symbol, Egyptian and Egyptianizing art"@en ;
+    skos:scopeNote "Cobra eretto, simbolo della regalità egiziana; frequente nell'arte punica egittizzante"@it ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
+
+ocra-voc:rosette
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Rosette"@en ;
+    skos:prefLabel "Rosetta"@it ;
+    skos:exactMatch aat:300010778 ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:egyptianizingMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Egyptianizing motif"@en ;
+    skos:prefLabel "Motivo egittizzante"@it ;
+    skos:exactMatch aat:300020072 ;
+    skos:scopeNote "Decorative elements derived from or inspired by ancient Egyptian visual culture"@en ;
+    skos:scopeNote "Elementi decorativi derivati o ispirati dalla cultura visiva dell'antico Egitto; tipici dell'arte punica e fenicia"@it ;
+    ocra:defaultColor "#D4AC0D"^^xsd:string .
+
+ocra-voc:palmette
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Palmette"@en ;
+    skos:prefLabel "Palmetta"@it ;
+    skos:exactMatch aat:300010269 ;
+    ocra:defaultColor "#8E44AD"^^xsd:string .
+
+ocra-voc:geometricPattern
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Geometric pattern"@en ;
+    skos:prefLabel "Motivo geometrico"@it ;
+    skos:exactMatch aat:300009125 ;
+    ocra:defaultColor "#2980B9"^^xsd:string .
+
+ocra-voc:zoomorphicMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Zoomorphic motif"@en ;
+    skos:prefLabel "Motivo zoomorfo"@it ;
+    skos:exactMatch aat:300164167 ;
+    ocra:defaultColor "#117A65"^^xsd:string .
+
+ocra-voc:anthropomorphicMotif
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:iconography ;
+    skos:prefLabel "Anthropomorphic motif"@en ;
+    skos:prefLabel "Motivo antropomorfo"@it ;
+    skos:exactMatch aat:300164162 ;
+    ocra:defaultColor "#1A5276"^^xsd:string .
+
+# ============================================================
+# CONTEXT OF USE — funzione e contesto d'uso dell'oggetto
+# ============================================================
+
+ocra-voc:contextOfUse
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Context of use"@en ;
+    skos:prefLabel "Contesto d'uso"@it ;
+    skos:exactMatch aat:300068766 ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
+
+ocra-voc:funeraryContext
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:contextOfUse ;
+    skos:prefLabel "Funerary context"@en ;
+    skos:prefLabel "Contesto funerario"@it ;
+    skos:exactMatch aat:300066204 ;
+    ocra:defaultColor "#2C3E50"^^xsd:string .
+
+ocra-voc:ceremonialUse
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:contextOfUse ;
+    skos:prefLabel "Ceremonial use"@en ;
+    skos:prefLabel "Uso cerimoniale / rituale"@it ;
+    skos:exactMatch aat:300178656 ;
+    ocra:defaultColor "#4A235A"^^xsd:string .
+
+ocra-voc:applique
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:contextOfUse ;
+    skos:prefLabel "Appliqué / ornament sewn onto support"@en ;
+    skos:prefLabel "Applique / ornamento cucito su supporto"@it ;
+    skos:exactMatch aat:300264581 ;
+    skos:scopeNote "Object designed to be attached or sewn onto a textile or other surface"@en ;
+    skos:scopeNote "Oggetto concepito per essere fissato o cucito su tessuto o altra superficie"@it ;
+    ocra:defaultColor "#7D3C98"^^xsd:string .
+
+ocra-voc:garmentsOrnamentation
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:contextOfUse ;
+    skos:prefLabel "Garment ornamentation"@en ;
+    skos:prefLabel "Ornamento d'abbigliamento"@it ;
+    skos:exactMatch aat:300209285 ;
+    ocra:defaultColor "#6C3483"^^xsd:string .
+
+ocra-voc:organicSupportLoss
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:lossDamage ;
+    skos:prefLabel "Organic support loss"@en ;
+    skos:prefLabel "Perdita del supporto organico (tessuto, legno, cuoio)"@it ;
+    skos:exactMatch aat:300379198 ;
+    skos:scopeNote "Loss of the original organic backing material (textile, leather, wood) to which the object was attached"@en ;
+    skos:scopeNote "Perdita del materiale di supporto organico originale (tessuto, cuoio, legno) a cui l'oggetto era fissato"@it ;
+    ocra:defaultColor "#873600"^^xsd:string .
+
+# ============================================================
+# SCIENTIFIC EXAMINATION — metodi di analisi e documentazione
+# ============================================================
+
+ocra-voc:scientificExamination
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:prefLabel "Scientific examination"@en ;
+    skos:prefLabel "Esame scientifico"@it ;
+    skos:exactMatch aat:300053986 ;
+    ocra:defaultColor "#1F618D"^^xsd:string .
+
+ocra-voc:rtiExamination
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:scientificExamination ;
+    skos:prefLabel "Reflectance Transformation Imaging (RTI)"@en ;
+    skos:prefLabel "Esame RTI (Reflectance Transformation Imaging)"@it ;
+    skos:exactMatch aat:300379400 ;
+    skos:scopeNote "Computational photography method that enables interactive relighting of a surface to reveal detail"@en ;
+    skos:scopeNote "Metodo di fotografia computazionale che consente il relighting interattivo per rivelare dettagli superficiali"@it ;
+    ocra:defaultColor "#2471A3"^^xsd:string .
+
+ocra-voc:scanning3D
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:scientificExamination ;
+    skos:prefLabel "3D scanning"@en ;
+    skos:prefLabel "Scansione 3D"@it ;
+    skos:exactMatch aat:300379401 ;
+    ocra:defaultColor "#1A5276"^^xsd:string .
+
+ocra-voc:xrayExamination
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:scientificExamination ;
+    skos:prefLabel "X-ray examination"@en ;
+    skos:prefLabel "Radiografia X"@it ;
+    skos:exactMatch aat:300419613 ;
+    ocra:defaultColor "#117A65"^^xsd:string .
+
+ocra-voc:xrfAnalysis
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:scientificExamination ;
+    skos:prefLabel "X-ray fluorescence (XRF)"@en ;
+    skos:prefLabel "Fluorescenza a raggi X (XRF)"@it ;
+    skos:exactMatch aat:300379402 ;
+    skos:scopeNote "Non-destructive elemental analysis technique for identifying metal alloy composition"@en ;
+    skos:scopeNote "Tecnica di analisi elementale non distruttiva per la caratterizzazione delle leghe metalliche"@it ;
+    ocra:defaultColor "#0E6655"^^xsd:string .
+
+ocra-voc:multispectralImaging
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:scientificExamination ;
+    skos:prefLabel "Multispectral imaging"@en ;
+    skos:prefLabel "Imaging multispettrale"@it ;
+    skos:exactMatch aat:300379403 ;
+    ocra:defaultColor "#0B5345"^^xsd:string .
+
+ocra-voc:photogrammetry
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:scientificExamination ;
+    skos:prefLabel "Photogrammetry"@en ;
+    skos:prefLabel "Fotogrammetria"@it ;
+    skos:exactMatch aat:300053580 ;
+    ocra:defaultColor "#154360"^^xsd:string .
