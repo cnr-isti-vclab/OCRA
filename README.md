@@ -3,7 +3,7 @@
 ![Backend Tests](https://github.com/cnr-isti-vclab/OCRA/workflows/Backend%20Tests/badge.svg)
 [![Annotation Schema Checks](https://github.com/cnr-isti-vclab/OCRA/actions/workflows/annotation-schema.yml/badge.svg)](https://github.com/cnr-isti-vclab/OCRA/actions/workflows/annotation-schema.yml)
 
-OCRA is a small full-stack platform for collaborative annotation and management of 3D assets.
+OCRA, the Online Conservation-Restoration Annotator, is a collaborative full-stack platform for supporting structured documentation, analysis, and semantic enrichment of two- and three-dimensional representations of tangible cultural heritage assets. It currently targets 3D mesh representations and relightable/RTI models.
 OCRA is developed within the frame of the [ECHOES project](https://www.echoes-eccch.eu/), and is open-source under the MIT License.
 
 ## Architecture (short)
