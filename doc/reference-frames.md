@@ -344,8 +344,8 @@ type SceneFrame =
       parentHdtFrameId?: never;
     })
   | (SceneFrameBase & {
-      parentHdtFrameId: string;
       parentFrameId?: never;
+      parentHdtFrameId: string;
     })
   | (SceneFrameBase & {
       parentFrameId?: never;
@@ -380,7 +380,6 @@ type SceneAssetPlacement = {
   assetId: string;
   sceneFrameId: string;
   transformInFrame: SimilarityTransform3;
-  visible?: boolean;
 };
 ```
 
@@ -389,7 +388,6 @@ Semantics:
 - `assetId` identifies the digital asset
 - `sceneFrameId` identifies the scene-local frame where the asset is placed
 - `transformInFrame` maps asset-local coordinates to the chosen scene-local frame
-- `visible` remains a scene-level presentation property
 
 Asset placements are always owned by a scene.
 An asset is never placed directly in the HDT spatial layer.
@@ -506,7 +504,6 @@ const scene = {
         rotation: [0, 0, 0, 1],
         scale: 1,
       },
-      visible: true,
     },
   ],
 };
@@ -975,7 +972,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          visible: true,
         },
       ],
     },
@@ -1141,7 +1137,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          visible: true,
         },
         {
           assetId: 'asset-right-rti',
@@ -1151,7 +1146,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          visible: true,
         },
       ],
     },
@@ -1204,7 +1198,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          visible: true,
         },
       ],
     },
