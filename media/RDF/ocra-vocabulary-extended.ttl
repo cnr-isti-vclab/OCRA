@@ -752,6 +752,7 @@ ocra-voc:parcelGilding
     skos:prefLabel "Parcel gilding"@en ;
     skos:prefLabel "Doratura parziale"@it ;
     skos:exactMatch aat:300233409 ;
+    skos:closeMatch wd:Q1334300 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:fireGilding
@@ -761,6 +762,7 @@ ocra-voc:fireGilding
     skos:prefLabel "Fire gilding"@en ;
     skos:prefLabel "Doratura a fuoco (amalgama)"@it ;
     skos:closeMatch aat:300053790 ;
+    skos:closeMatch wd:Q1334300 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:leafGilding
@@ -769,6 +771,7 @@ ocra-voc:leafGilding
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Gold leaf gilding"@en ;
     skos:prefLabel "Doratura a foglia"@it ;
+    skos:closeMatch wd:Q1334300 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:silvering
@@ -804,6 +807,7 @@ ocra-voc:hammeringTechnique
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Hammering"@en ;
     skos:prefLabel "Martellatura"@it ;
+    skos:exactMatch wd:Q104344344 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:solderingTechnique
@@ -813,6 +817,7 @@ ocra-voc:solderingTechnique
     skos:prefLabel "Soldering"@en ;
     skos:prefLabel "Saldatura"@it ;
     skos:exactMatch aat:300053949 ;
+    skos:exactMatch wd:Q67131697 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:inpainting
@@ -821,6 +826,7 @@ ocra-voc:inpainting
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Inpainting"@en ;
     skos:prefLabel "Reintegrazione pittorica"@it ;
+    skos:exactMatch wd:Q117021514 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:fillingProcess
@@ -830,6 +836,7 @@ ocra-voc:fillingProcess
     skos:prefLabel "Filling"@en ;
     skos:prefLabel "Stuccatura / riempimento"@it ;
     skos:exactMatch aat:300053092 ;
+    skos:exactMatch wd:Q62069734 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:polishing
@@ -838,6 +845,7 @@ ocra-voc:polishing
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Polishing"@en ;
     skos:prefLabel "Lucidatura"@it ;
+    skos:exactMatch wd:Q1054722 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:burnishing
@@ -846,6 +854,7 @@ ocra-voc:burnishing
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Burnishing"@en ;
     skos:prefLabel "Brunitura"@it ;
+    skos:exactMatch wd:Q30907279 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 # ============================================================
