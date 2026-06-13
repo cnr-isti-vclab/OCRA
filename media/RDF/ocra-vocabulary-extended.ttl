@@ -5,6 +5,14 @@
 @prefix skos:     <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd:      <http://www.w3.org/2001/XMLSchema#> .
 
+# Mapping policy:
+# - Use skos:exactMatch only when Getty AAT or Wikidata exposes a concept
+#   that is semantically equivalent to the local OCRA concept.
+# - Use skos:closeMatch when the external concept is only approximate,
+#   broader, narrower, or phrased differently but still useful for alignment.
+# - Keep the detailed local OCRA concept even when no trustworthy external
+#   match exists yet; never force a false exactMatch.
+
 ocra-voc:ConservationAnnotationVocabulary
     a skos:ConceptScheme ;
     skos:prefLabel "OCRA conservation annotation vocabulary"@en ;
@@ -79,7 +87,7 @@ ocra-voc:rustCondition
     skos:prefLabel "Rust"@en ;
     skos:prefLabel "Ruggine"@it ;
     skos:exactMatch aat:300213355 ;
-    ocra:defaultColor "#C65A1E"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:corrosionProcess
     a skos:Concept ;
@@ -88,7 +96,7 @@ ocra-voc:corrosionProcess
     skos:prefLabel "Corrosion"@en ;
     skos:prefLabel "Corrosione"@it ;
     skos:exactMatch aat:300054107 ;
-    ocra:defaultColor "#D35400"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:corrosionResidue
     a skos:Concept ;
@@ -97,7 +105,7 @@ ocra-voc:corrosionResidue
     skos:prefLabel "Corrosion product"@en ;
     skos:prefLabel "Prodotto di corrosione"@it ;
     skos:exactMatch aat:300258515 ;
-    ocra:defaultColor "#B9770E"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:abrasion
     a skos:Concept ;
@@ -106,7 +114,7 @@ ocra-voc:abrasion
     skos:prefLabel "Abrasion"@en ;
     skos:prefLabel "Abrasione"@it ;
     skos:exactMatch aat:300053077 ;
-    ocra:defaultColor "#7F8C8D"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:wear
     a skos:Concept ;
@@ -115,7 +123,7 @@ ocra-voc:wear
     skos:prefLabel "Wear"@en ;
     skos:prefLabel "Usura"@it ;
     skos:exactMatch aat:300219449 ;
-    ocra:defaultColor "#95A5A6"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Biodeterioration --
 
@@ -125,8 +133,8 @@ ocra-voc:biodeterioration
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Biodeterioration"@en ;
     skos:prefLabel "Biodeterioramento"@it ;
-    skos:exactMatch aat:300379254 ;
-    ocra:defaultColor "#196F3D"^^xsd:string .
+    skos:exactMatch aat:300219639 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:biologicalGrowth
     a skos:Concept ;
@@ -134,8 +142,8 @@ ocra-voc:biologicalGrowth
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Biological growth"@en ;
     skos:prefLabel "Colonizzazione biologica"@it ;
-    skos:exactMatch aat:300379253 ;
-    ocra:defaultColor "#1E8449"^^xsd:string .
+    skos:closeMatch aat:300219639 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:moldGrowth
     a skos:Concept ;
@@ -143,8 +151,8 @@ ocra-voc:moldGrowth
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Mold growth"@en ;
     skos:prefLabel "Muffa"@it ;
-    skos:exactMatch aat:300379257 ;
-    ocra:defaultColor "#117A65"^^xsd:string .
+    skos:closeMatch aat:300219639 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:lichens
     a skos:Concept ;
@@ -152,8 +160,8 @@ ocra-voc:lichens
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Lichens"@en ;
     skos:prefLabel "Licheni"@it ;
-    skos:exactMatch aat:300379259 ;
-    ocra:defaultColor "#148F77"^^xsd:string .
+    skos:closeMatch aat:300219639 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:algae
     a skos:Concept ;
@@ -161,8 +169,8 @@ ocra-voc:algae
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Algae"@en ;
     skos:prefLabel "Alghe"@it ;
-    skos:exactMatch aat:300379258 ;
-    ocra:defaultColor "#0E6655"^^xsd:string .
+    skos:closeMatch aat:300219639 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Deposits and encrustations --
 
@@ -172,8 +180,8 @@ ocra-voc:deposit
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Deposit"@en ;
     skos:prefLabel "Deposito"@it ;
-    skos:exactMatch aat:300379229 ;
-    ocra:defaultColor "#616A6B"^^xsd:string .
+    skos:exactMatch aat:300264846 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:encrustation
     a skos:Concept ;
@@ -181,8 +189,8 @@ ocra-voc:encrustation
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Encrustation"@en ;
     skos:prefLabel "Incrostazione"@it ;
-    skos:exactMatch aat:300379232 ;
-    ocra:defaultColor "#717D7E"^^xsd:string .
+    skos:closeMatch aat:300264846 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:soot
     a skos:Concept ;
@@ -190,8 +198,8 @@ ocra-voc:soot
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Soot"@en ;
     skos:prefLabel "Fuliggine"@it ;
-    skos:exactMatch aat:300011833 ;
-    ocra:defaultColor "#212121"^^xsd:string .
+    skos:exactMatch aat:300049017 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:dust
     a skos:Concept ;
@@ -199,8 +207,8 @@ ocra-voc:dust
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Dust"@en ;
     skos:prefLabel "Polvere"@it ;
-    skos:exactMatch aat:300379230 ;
-    ocra:defaultColor "#BFC9CA"^^xsd:string .
+    skos:exactMatch aat:300014646 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:calcareousDeposit
     a skos:Concept ;
@@ -208,8 +216,8 @@ ocra-voc:calcareousDeposit
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Calcareous deposit"@en ;
     skos:prefLabel "Deposito calcareo"@it ;
-    skos:exactMatch aat:300379233 ;
-    ocra:defaultColor "#D5DBDB"^^xsd:string .
+    skos:closeMatch aat:300264846 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Patina --
 
@@ -219,8 +227,7 @@ ocra-voc:patina
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Patina"@en ;
     skos:prefLabel "Patina"@it ;
-    skos:exactMatch aat:300178785 ;
-    ocra:defaultColor "#73C6B6"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:noblePatinaAlt
     a skos:Concept ;
@@ -228,8 +235,7 @@ ocra-voc:noblePatinaAlt
     skos:broader ocra-voc:patina ;
     skos:prefLabel "Noble patina"@en ;
     skos:prefLabel "Patina nobile"@it ;
-    skos:exactMatch aat:300379246 ;
-    ocra:defaultColor "#76D7C4"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:artificialPatina
     a skos:Concept ;
@@ -237,8 +243,7 @@ ocra-voc:artificialPatina
     skos:broader ocra-voc:patina ;
     skos:prefLabel "Artificial patina"@en ;
     skos:prefLabel "Patina artificiale"@it ;
-    skos:exactMatch aat:300379247 ;
-    ocra:defaultColor "#48C9B0"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Detachment and cohesion loss --
 
@@ -248,8 +253,8 @@ ocra-voc:detachment
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Detachment"@en ;
     skos:prefLabel "Distacco"@it ;
-    skos:exactMatch aat:300379207 ;
-    ocra:defaultColor "#E59866"^^xsd:string .
+    skos:closeMatch aat:300264843 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:flaking
     a skos:Concept ;
@@ -257,8 +262,8 @@ ocra-voc:flaking
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Flaking"@en ;
     skos:prefLabel "Scagliatura"@it ;
-    skos:exactMatch aat:300379208 ;
-    ocra:defaultColor "#F0A27A"^^xsd:string .
+    skos:exactMatch aat:300054129 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:peeling
     a skos:Concept ;
@@ -266,8 +271,8 @@ ocra-voc:peeling
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Peeling"@en ;
     skos:prefLabel "Pellicola sollevata / esfoliazione"@it ;
-    skos:exactMatch aat:300379209 ;
-    ocra:defaultColor "#E8967A"^^xsd:string .
+    skos:exactMatch aat:300054127 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:blistering
     a skos:Concept ;
@@ -275,8 +280,7 @@ ocra-voc:blistering
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Blistering"@en ;
     skos:prefLabel "Rigonfiamento / bolla"@it ;
-    skos:exactMatch aat:300379215 ;
-    ocra:defaultColor "#DC7633"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:powdering
     a skos:Concept ;
@@ -284,8 +288,7 @@ ocra-voc:powdering
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Powdering"@en ;
     skos:prefLabel "Polverizzazione / disgregazione"@it ;
-    skos:exactMatch aat:300379210 ;
-    ocra:defaultColor "#D98880"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Efflorescence and salt damage --
 
@@ -295,8 +298,8 @@ ocra-voc:efflorescence
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Efflorescence"@en ;
     skos:prefLabel "Efflorescenza"@it ;
-    skos:exactMatch aat:300379237 ;
-    ocra:defaultColor "#FDFEFE"^^xsd:string .
+    skos:exactMatch aat:300214748 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:saltDamage
     a skos:Concept ;
@@ -304,8 +307,8 @@ ocra-voc:saltDamage
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Salt damage"@en ;
     skos:prefLabel "Danno da sali solubili"@it ;
-    skos:exactMatch aat:300379238 ;
-    ocra:defaultColor "#F4F6F7"^^xsd:string .
+    skos:closeMatch aat:300214748 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:subflorescence
     a skos:Concept ;
@@ -313,8 +316,8 @@ ocra-voc:subflorescence
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Subflorescence"@en ;
     skos:prefLabel "Subflorescenza / cristallizzazione subsuperficiale"@it ;
-    skos:exactMatch aat:300379239 ;
-    ocra:defaultColor "#EBF5FB"^^xsd:string .
+    skos:closeMatch aat:300214748 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Stains and discolouration --
 
@@ -324,8 +327,7 @@ ocra-voc:staining
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Staining"@en ;
     skos:prefLabel "Macchia / imbrattamento"@it ;
-    skos:exactMatch aat:300379244 ;
-    ocra:defaultColor "#A04000"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:discolouration
     a skos:Concept ;
@@ -333,8 +335,7 @@ ocra-voc:discolouration
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Discolouration"@en ;
     skos:prefLabel "Discromia / alterazione cromatica"@it ;
-    skos:exactMatch aat:300379243 ;
-    ocra:defaultColor "#922B21"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:yellowing
     a skos:Concept ;
@@ -342,8 +343,8 @@ ocra-voc:yellowing
     skos:broader ocra-voc:discolouration ;
     skos:prefLabel "Yellowing"@en ;
     skos:prefLabel "Ingiallimento"@it ;
-    skos:exactMatch aat:300379245 ;
-    ocra:defaultColor "#F4D03F"^^xsd:string .
+    skos:exactMatch aat:300225196 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:blackening
     a skos:Concept ;
@@ -351,8 +352,8 @@ ocra-voc:blackening
     skos:broader ocra-voc:discolouration ;
     skos:prefLabel "Blackening"@en ;
     skos:prefLabel "Annerimento"@it ;
-    skos:exactMatch aat:300264831 ;
-    ocra:defaultColor "#1C2833"^^xsd:string .
+    skos:closeMatch aat:300379491 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Oxidation --
 
@@ -362,8 +363,8 @@ ocra-voc:oxidation
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Oxidation"@en ;
     skos:prefLabel "Ossidazione"@it ;
-    skos:exactMatch aat:300379249 ;
-    ocra:defaultColor "#A9682A"^^xsd:string .
+    skos:exactMatch aat:300220235 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:tarnishing
     a skos:Concept ;
@@ -371,8 +372,7 @@ ocra-voc:tarnishing
     skos:broader ocra-voc:oxidation ;
     skos:prefLabel "Tarnishing"@en ;
     skos:prefLabel "Appannamento / ossidazione superficiale"@it ;
-    skos:exactMatch aat:300379250 ;
-    ocra:defaultColor "#784212"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Deformation --
 
@@ -382,8 +382,8 @@ ocra-voc:deformation
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Deformation"@en ;
     skos:prefLabel "Deformazione"@it ;
-    skos:exactMatch aat:300379218 ;
-    ocra:defaultColor "#5D6D7E"^^xsd:string .
+    skos:exactMatch aat:300072976 ;
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:warping
     a skos:Concept ;
@@ -391,8 +391,7 @@ ocra-voc:warping
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Warping"@en ;
     skos:prefLabel "Incurvamento / svergolamento"@it ;
-    skos:exactMatch aat:300379220 ;
-    ocra:defaultColor "#4A6274"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:denting
     a skos:Concept ;
@@ -400,8 +399,7 @@ ocra-voc:denting
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Denting"@en ;
     skos:prefLabel "Ammaccatura"@it ;
-    skos:exactMatch aat:300379221 ;
-    ocra:defaultColor "#566573"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 # ============================================================
 # LOSS AND DAMAGE (original + extended)
@@ -414,7 +412,7 @@ ocra-voc:cracks
     skos:prefLabel "Cracks"@en ;
     skos:prefLabel "Fessurazioni"@it ;
     skos:exactMatch aat:300209168 ;
-    ocra:defaultColor "#000000"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:mechanicalCracks
     a skos:Concept ;
@@ -423,7 +421,7 @@ ocra-voc:mechanicalCracks
     skos:prefLabel "Mechanical cracks"@en ;
     skos:prefLabel "Fessurazioni meccaniche"@it ;
     skos:exactMatch aat:300228353 ;
-    ocra:defaultColor "#111111"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:crackle
     a skos:Concept ;
@@ -432,7 +430,7 @@ ocra-voc:crackle
     skos:prefLabel "Crackle"@en ;
     skos:prefLabel "Crettatura"@it ;
     skos:exactMatch aat:300228345 ;
-    ocra:defaultColor "#2C3E50"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:holes
     a skos:Concept ;
@@ -441,7 +439,7 @@ ocra-voc:holes
     skos:prefLabel "Holes"@en ;
     skos:prefLabel "Fori"@it ;
     skos:exactMatch aat:300458785 ;
-    ocra:defaultColor "#8E0000"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # -- Fractures --
 
@@ -451,8 +449,7 @@ ocra-voc:fracture
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fracture"@en ;
     skos:prefLabel "Frattura"@it ;
-    skos:exactMatch aat:300379203 ;
-    ocra:defaultColor "#641E16"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:break
     a skos:Concept ;
@@ -460,8 +457,7 @@ ocra-voc:break
     skos:broader ocra-voc:fracture ;
     skos:prefLabel "Break"@en ;
     skos:prefLabel "Rottura"@it ;
-    skos:exactMatch aat:300379204 ;
-    ocra:defaultColor "#7B241C"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:fragmentary
     a skos:Concept ;
@@ -469,28 +465,40 @@ ocra-voc:fragmentary
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fragmentary"@en ;
     skos:prefLabel "Frammentario"@it ;
-    skos:exactMatch aat:300379205 ;
-    ocra:defaultColor "#922B21"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # -- Loss / lacuna --
-
-ocra-voc:lacuna
-    a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:lossDamage ;
-    skos:prefLabel "Lacuna"@en ;
-    skos:prefLabel "Lacuna"@it ;
-    skos:exactMatch aat:300379196 ;
-    ocra:defaultColor "#CB4335"^^xsd:string .
 
 ocra-voc:materialLoss
     a skos:Concept ;
     skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
-    skos:broader ocra-voc:lacuna ;
+    skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Material loss"@en ;
     skos:prefLabel "Perdita di materiale"@it ;
-    skos:exactMatch aat:300379197 ;
-    ocra:defaultColor "#B03A2E"^^xsd:string .
+    skos:scopeNote "General loss of original material from the object, including both localized lacunae and losses affecting recognizable parts."@en ;
+    skos:scopeNote "Perdita generale di materiale originale dal manufatto, comprendente sia lacune localizzate sia perdite che interessano parti riconoscibili."@it ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:lacuna
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialLoss ;
+    skos:prefLabel "Lacuna"@en ;
+    skos:prefLabel "Lacuna"@it ;
+    skos:exactMatch aat:300263354 ;
+    skos:scopeNote "Localized loss of original material or surface that does not imply the absence of a distinct structural part of the object."@en ;
+    skos:scopeNote "Perdita localizzata di materiale originale o di superficie che non implica l'assenza di una parte strutturale distinta dell'oggetto."@it ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
+
+ocra-voc:missingPart
+    a skos:Concept ;
+    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:broader ocra-voc:materialLoss ;
+    skos:prefLabel "Missing part"@en ;
+    skos:prefLabel "Parte mancante"@it ;
+    skos:scopeNote "Loss of a recognizable structural, morphological, or functional part of the object, such as a limb, handle, appliqué, or other identifiable component."@en ;
+    skos:scopeNote "Perdita di una parte strutturale, morfologica o funzionale riconoscibile dell'oggetto, come un arto, un'ansa, un'applique o un altro componente identificabile."@it ;
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # -- Fire and burn damage --
 
@@ -500,7 +508,6 @@ ocra-voc:fireDamage
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fire damage"@en ;
     skos:prefLabel "Danno da fuoco"@it ;
-    skos:exactMatch aat:300379268 ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:scorching
@@ -509,8 +516,7 @@ ocra-voc:scorching
     skos:broader ocra-voc:fireDamage ;
     skos:prefLabel "Scorching"@en ;
     skos:prefLabel "Bruciatura / annerimento da calore"@it ;
-    skos:exactMatch aat:300379269 ;
-    ocra:defaultColor "#C0392B"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # -- Vandalism --
 
@@ -521,7 +527,7 @@ ocra-voc:graffiti
     skos:prefLabel "Graffiti"@en ;
     skos:prefLabel "Graffiti / vandalismo"@it ;
     skos:exactMatch aat:300015613 ;
-    ocra:defaultColor "#AF7AC5"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # ============================================================
 # SURFACE FEATURES (original + extended)
@@ -534,7 +540,7 @@ ocra-voc:inscription
     skos:prefLabel "Inscription"@en ;
     skos:prefLabel "Iscrizione"@it ;
     skos:exactMatch aat:300028702 ;
-    ocra:defaultColor "#2471A3"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:stamping
     a skos:Concept ;
@@ -542,8 +548,8 @@ ocra-voc:stamping
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Stamps / hallmarks"@en ;
     skos:prefLabel "Punzonature / marchi"@it ;
-    skos:exactMatch aat:300028744 ;
-    ocra:defaultColor "#1F618D"^^xsd:string .
+    skos:closeMatch aat:300028767 ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:fingerprint
     a skos:Concept ;
@@ -551,8 +557,8 @@ ocra-voc:fingerprint
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Fingerprint"@en ;
     skos:prefLabel "Impronta digitale"@it ;
-    skos:exactMatch aat:300404878 ;
-    ocra:defaultColor "#154360"^^xsd:string .
+    skos:exactMatch aat:300251471 ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:toolmarks
     a skos:Concept ;
@@ -560,8 +566,8 @@ ocra-voc:toolmarks
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Tool marks"@en ;
     skos:prefLabel "Tracce di lavorazione"@it ;
-    skos:exactMatch aat:300379282 ;
-    ocra:defaultColor "#1A5276"^^xsd:string .
+    skos:exactMatch aat:300379817 ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:surfaceTexture
     a skos:Concept ;
@@ -569,8 +575,8 @@ ocra-voc:surfaceTexture
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Surface texture"@en ;
     skos:prefLabel "Texture superficiale"@it ;
-    skos:exactMatch aat:300056508 ;
-    ocra:defaultColor "#2E86C1"^^xsd:string .
+    skos:exactMatch aat:300219406 ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:scratches
     a skos:Concept ;
@@ -578,8 +584,7 @@ ocra-voc:scratches
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Scratches"@en ;
     skos:prefLabel "Graffi"@it ;
-    skos:exactMatch aat:300379285 ;
-    ocra:defaultColor "#5DADE2"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:pittingCondition
     a skos:Concept ;
@@ -587,8 +592,8 @@ ocra-voc:pittingCondition
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Pitting"@en ;
     skos:prefLabel "Vaiolatura / puntinatura"@it ;
-    skos:exactMatch aat:300379287 ;
-    ocra:defaultColor "#2980B9"^^xsd:string .
+    skos:exactMatch aat:300054130 ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:weld
     a skos:Concept ;
@@ -596,8 +601,7 @@ ocra-voc:weld
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Weld / join"@en ;
     skos:prefLabel "Giunzione / saldatura originale"@it ;
-    skos:exactMatch aat:300379290 ;
-    ocra:defaultColor "#117DB8"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:repair
     a skos:Concept ;
@@ -605,8 +609,7 @@ ocra-voc:repair
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Repair (ancient)"@en ;
     skos:prefLabel "Riparazione antica"@it ;
-    skos:exactMatch aat:300054098 ;
-    ocra:defaultColor "#1565C0"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 # ============================================================
 # DECORATION (original + extended)
@@ -619,7 +622,7 @@ ocra-voc:motifs
     skos:prefLabel "Motifs"@en ;
     skos:prefLabel "Motivi ornamentali"@it ;
     skos:exactMatch aat:300009700 ;
-    ocra:defaultColor "#8E44AD"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:engraving
     a skos:Concept ;
@@ -628,7 +631,7 @@ ocra-voc:engraving
     skos:prefLabel "Engraving"@en ;
     skos:prefLabel "Incisione"@it ;
     skos:exactMatch aat:300053225 ;
-    ocra:defaultColor "#7D3C98"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:chasing
     a skos:Concept ;
@@ -636,8 +639,7 @@ ocra-voc:chasing
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Chasing"@en ;
     skos:prefLabel "Cesellatura"@it ;
-    skos:exactMatch aat:300053886 ;
-    ocra:defaultColor "#6C3483"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:repoussé
     a skos:Concept ;
@@ -645,8 +647,7 @@ ocra-voc:repoussé
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Repoussé"@en ;
     skos:prefLabel "Sbalzo / repoussé"@it ;
-    skos:exactMatch aat:300053614 ;
-    ocra:defaultColor "#76448A"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:punchwork
     a skos:Concept ;
@@ -654,8 +655,8 @@ ocra-voc:punchwork
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Punchwork"@en ;
     skos:prefLabel "Punzonatura decorativa"@it ;
-    skos:exactMatch aat:300053621 ;
-    ocra:defaultColor "#884EA0"^^xsd:string .
+    skos:exactMatch aat:300186214 ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:inlay
     a skos:Concept ;
@@ -663,7 +664,6 @@ ocra-voc:inlay
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Inlay"@en ;
     skos:prefLabel "Intarsio"@it ;
-    skos:exactMatch aat:300053578 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:filigree
@@ -672,8 +672,7 @@ ocra-voc:filigree
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Filigree"@en ;
     skos:prefLabel "Filigrana"@it ;
-    skos:exactMatch aat:300053585 ;
-    ocra:defaultColor "#A569BD"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:niello
     a skos:Concept ;
@@ -681,8 +680,7 @@ ocra-voc:niello
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Niello"@en ;
     skos:prefLabel "Niello"@it ;
-    skos:exactMatch aat:300053605 ;
-    ocra:defaultColor "#2C3E50"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:enamel
     a skos:Concept ;
@@ -690,8 +688,7 @@ ocra-voc:enamel
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Enamel"@en ;
     skos:prefLabel "Smalto"@it ;
-    skos:exactMatch aat:300010900 ;
-    ocra:defaultColor "#E74C3C"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:cloisonné
     a skos:Concept ;
@@ -699,8 +696,7 @@ ocra-voc:cloisonné
     skos:broader ocra-voc:enamel ;
     skos:prefLabel "Cloisonné"@en ;
     skos:prefLabel "Smalto cloisonné"@it ;
-    skos:exactMatch aat:300053577 ;
-    ocra:defaultColor "#C0392B"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:champlevé
     a skos:Concept ;
@@ -708,8 +704,7 @@ ocra-voc:champlevé
     skos:broader ocra-voc:enamel ;
     skos:prefLabel "Champlevé"@en ;
     skos:prefLabel "Smalto champlevé"@it ;
-    skos:exactMatch aat:300053576 ;
-    ocra:defaultColor "#A93226"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:relief
     a skos:Concept ;
@@ -717,8 +712,7 @@ ocra-voc:relief
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Relief"@en ;
     skos:prefLabel "Rilievo"@it ;
-    skos:exactMatch aat:300047090 ;
-    ocra:defaultColor "#BB8FCE"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:pigment
     a skos:Concept ;
@@ -726,8 +720,8 @@ ocra-voc:pigment
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Pigment / paint layer"@en ;
     skos:prefLabel "Pigmento / strato pittorico"@it ;
-    skos:exactMatch aat:300014404 ;
-    ocra:defaultColor "#D2B4DE"^^xsd:string .
+    skos:closeMatch aat:300013109 ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ============================================================
 # TECHNIQUE AND FINISH (original + extended)
@@ -740,7 +734,7 @@ ocra-voc:infills
     skos:prefLabel "Infills"@en ;
     skos:prefLabel "Integrazioni / stuccature"@it ;
     skos:exactMatch aat:300264840 ;
-    ocra:defaultColor "#F5B041"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:gilding
     a skos:Concept ;
@@ -749,7 +743,7 @@ ocra-voc:gilding
     skos:prefLabel "Gilding"@en ;
     skos:prefLabel "Doratura"@it ;
     skos:exactMatch aat:300053789 ;
-    ocra:defaultColor "#D4AF37"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:parcelGilding
     a skos:Concept ;
@@ -758,7 +752,7 @@ ocra-voc:parcelGilding
     skos:prefLabel "Parcel gilding"@en ;
     skos:prefLabel "Doratura parziale"@it ;
     skos:exactMatch aat:300233409 ;
-    ocra:defaultColor "#F4D03F"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:fireGilding
     a skos:Concept ;
@@ -766,8 +760,8 @@ ocra-voc:fireGilding
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Fire gilding"@en ;
     skos:prefLabel "Doratura a fuoco (amalgama)"@it ;
-    skos:exactMatch aat:300379301 ;
-    ocra:defaultColor "#F0B015"^^xsd:string .
+    skos:closeMatch aat:300053790 ;
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:leafGilding
     a skos:Concept ;
@@ -775,8 +769,7 @@ ocra-voc:leafGilding
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Gold leaf gilding"@en ;
     skos:prefLabel "Doratura a foglia"@it ;
-    skos:exactMatch aat:300053797 ;
-    ocra:defaultColor "#E8B400"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:silvering
     a skos:Concept ;
@@ -784,8 +777,8 @@ ocra-voc:silvering
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Silvering"@en ;
     skos:prefLabel "Argentatura"@it ;
-    skos:exactMatch aat:300053858 ;
-    ocra:defaultColor "#C0C0C0"^^xsd:string .
+    skos:exactMatch aat:300053989 ;
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:tinning
     a skos:Concept ;
@@ -793,8 +786,8 @@ ocra-voc:tinning
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Tinning"@en ;
     skos:prefLabel "Stagnatura"@it ;
-    skos:exactMatch aat:300379303 ;
-    ocra:defaultColor "#D5D8DC"^^xsd:string .
+    skos:exactMatch aat:300258493 ;
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:casting
     a skos:Concept ;
@@ -803,7 +796,7 @@ ocra-voc:casting
     skos:prefLabel "Casting"@en ;
     skos:prefLabel "Fusione"@it ;
     skos:exactMatch aat:300053104 ;
-    ocra:defaultColor "#F7DC6F"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:hammeringTechnique
     a skos:Concept ;
@@ -811,8 +804,7 @@ ocra-voc:hammeringTechnique
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Hammering"@en ;
     skos:prefLabel "Martellatura"@it ;
-    skos:exactMatch aat:300053572 ;
-    ocra:defaultColor "#F9E79F"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:solderingTechnique
     a skos:Concept ;
@@ -820,8 +812,8 @@ ocra-voc:solderingTechnique
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Soldering"@en ;
     skos:prefLabel "Saldatura"@it ;
-    skos:exactMatch aat:300053795 ;
-    ocra:defaultColor "#F8C471"^^xsd:string .
+    skos:exactMatch aat:300053949 ;
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:inpainting
     a skos:Concept ;
@@ -829,8 +821,7 @@ ocra-voc:inpainting
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Inpainting"@en ;
     skos:prefLabel "Reintegrazione pittorica"@it ;
-    skos:exactMatch aat:300053723 ;
-    ocra:defaultColor "#58D68D"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:fillingProcess
     a skos:Concept ;
@@ -839,7 +830,7 @@ ocra-voc:fillingProcess
     skos:prefLabel "Filling"@en ;
     skos:prefLabel "Stuccatura / riempimento"@it ;
     skos:exactMatch aat:300053092 ;
-    ocra:defaultColor "#F8C471"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:polishing
     a skos:Concept ;
@@ -847,8 +838,7 @@ ocra-voc:polishing
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Polishing"@en ;
     skos:prefLabel "Lucidatura"@it ;
-    skos:exactMatch aat:300053593 ;
-    ocra:defaultColor "#FDEBD0"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:burnishing
     a skos:Concept ;
@@ -856,8 +846,7 @@ ocra-voc:burnishing
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Burnishing"@en ;
     skos:prefLabel "Brunitura"@it ;
-    skos:exactMatch aat:300053864 ;
-    ocra:defaultColor "#F0E6C8"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 # ============================================================
 # CONSERVATION TREATMENTS (new top concept)
@@ -869,8 +858,8 @@ ocra-voc:cleaning
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Cleaning"@en ;
     skos:prefLabel "Pulitura"@it ;
-    skos:exactMatch aat:300053597 ;
-    ocra:defaultColor "#A9DFBF"^^xsd:string .
+    skos:exactMatch aat:300053027 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:mechanicalCleaning
     a skos:Concept ;
@@ -878,8 +867,8 @@ ocra-voc:mechanicalCleaning
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Mechanical cleaning"@en ;
     skos:prefLabel "Pulitura meccanica"@it ;
-    skos:exactMatch aat:300379322 ;
-    ocra:defaultColor "#82E0AA"^^xsd:string .
+    skos:closeMatch aat:300053027 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:chemicalCleaning
     a skos:Concept ;
@@ -887,8 +876,8 @@ ocra-voc:chemicalCleaning
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Chemical cleaning"@en ;
     skos:prefLabel "Pulitura chimica"@it ;
-    skos:exactMatch aat:300379323 ;
-    ocra:defaultColor "#58D68D"^^xsd:string .
+    skos:closeMatch aat:300053027 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:laserCleaning
     a skos:Concept ;
@@ -896,7 +885,7 @@ ocra-voc:laserCleaning
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Laser cleaning"@en ;
     skos:prefLabel "Pulitura laser"@it ;
-    skos:exactMatch aat:300379325 ;
+    skos:exactMatch aat:300379417 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:consolidation
@@ -905,8 +894,8 @@ ocra-voc:consolidation
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Consolidation"@en ;
     skos:prefLabel "Consolidamento"@it ;
-    skos:exactMatch aat:300053753 ;
-    ocra:defaultColor "#2ECC71"^^xsd:string .
+    skos:exactMatch aat:300219960 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:adhesiveBonding
     a skos:Concept ;
@@ -914,8 +903,7 @@ ocra-voc:adhesiveBonding
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Adhesive bonding"@en ;
     skos:prefLabel "Incollaggio / giunzione con adesivo"@it ;
-    skos:exactMatch aat:300379330 ;
-    ocra:defaultColor "#1E8449"^^xsd:string .
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:desalination
     a skos:Concept ;
@@ -923,8 +911,8 @@ ocra-voc:desalination
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Desalination"@en ;
     skos:prefLabel "Desalinizzazione"@it ;
-    skos:exactMatch aat:300379336 ;
-    ocra:defaultColor "#17A589"^^xsd:string .
+    skos:exactMatch aat:300053754 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:protectiveCoating
     a skos:Concept ;
@@ -932,8 +920,8 @@ ocra-voc:protectiveCoating
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Protective coating"@en ;
     skos:prefLabel "Strato protettivo / verniciatura"@it ;
-    skos:exactMatch aat:300053765 ;
-    ocra:defaultColor "#148F77"^^xsd:string .
+    skos:exactMatch aat:300224445 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:corrosionInhibitor
     a skos:Concept ;
@@ -941,8 +929,7 @@ ocra-voc:corrosionInhibitor
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Corrosion inhibitor treatment"@en ;
     skos:prefLabel "Trattamento con inibitore di corrosione"@it ;
-    skos:exactMatch aat:300379339 ;
-    ocra:defaultColor "#0E6655"^^xsd:string .
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:restructuring
     a skos:Concept ;
@@ -950,8 +937,8 @@ ocra-voc:restructuring
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Restructuring / reassembly"@en ;
     skos:prefLabel "Riassemblaggio / ricostruzione"@it ;
-    skos:exactMatch aat:300053798 ;
-    ocra:defaultColor "#0B5345"^^xsd:string .
+    skos:closeMatch aat:300379615 ;
+    ocra:defaultColor "#27AE60"^^xsd:string .
 
 # ============================================================
 # MATERIAL COMPOSITION (new top concept)
@@ -964,7 +951,7 @@ ocra-voc:metalMaterial
     skos:prefLabel "Metal"@en ;
     skos:prefLabel "Metallo"@it ;
     skos:exactMatch aat:300010900 ;
-    ocra:defaultColor "#717D7E"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:copperAlloy
     a skos:Concept ;
@@ -973,7 +960,7 @@ ocra-voc:copperAlloy
     skos:prefLabel "Copper alloy"@en ;
     skos:prefLabel "Lega di rame"@it ;
     skos:exactMatch aat:300010942 ;
-    ocra:defaultColor "#BA6A2C"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:bronze
     a skos:Concept ;
@@ -982,7 +969,7 @@ ocra-voc:bronze
     skos:prefLabel "Bronze"@en ;
     skos:prefLabel "Bronzo"@it ;
     skos:exactMatch aat:300010957 ;
-    ocra:defaultColor "#CD7F32"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:brass
     a skos:Concept ;
@@ -991,7 +978,7 @@ ocra-voc:brass
     skos:prefLabel "Brass"@en ;
     skos:prefLabel "Ottone"@it ;
     skos:exactMatch aat:300010947 ;
-    ocra:defaultColor "#D4AC0D"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:iron
     a skos:Concept ;
@@ -1000,7 +987,7 @@ ocra-voc:iron
     skos:prefLabel "Iron"@en ;
     skos:prefLabel "Ferro"@it ;
     skos:exactMatch aat:300011002 ;
-    ocra:defaultColor "#4D4D4D"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:silver
     a skos:Concept ;
@@ -1009,7 +996,7 @@ ocra-voc:silver
     skos:prefLabel "Silver"@en ;
     skos:prefLabel "Argento"@it ;
     skos:exactMatch aat:300011029 ;
-    ocra:defaultColor "#C0C0C0"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:gold
     a skos:Concept ;
@@ -1018,7 +1005,7 @@ ocra-voc:gold
     skos:prefLabel "Gold"@en ;
     skos:prefLabel "Oro"@it ;
     skos:exactMatch aat:300011021 ;
-    ocra:defaultColor "#FFD700"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:lead
     a skos:Concept ;
@@ -1026,8 +1013,7 @@ ocra-voc:lead
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Lead"@en ;
     skos:prefLabel "Piombo"@it ;
-    skos:exactMatch aat:300011014 ;
-    ocra:defaultColor "#707B7C"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:ceramicMaterial
     a skos:Concept ;
@@ -1036,7 +1022,7 @@ ocra-voc:ceramicMaterial
     skos:prefLabel "Ceramic"@en ;
     skos:prefLabel "Ceramica"@it ;
     skos:exactMatch aat:300235507 ;
-    ocra:defaultColor "#C39D74"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:terracotta
     a skos:Concept ;
@@ -1045,7 +1031,7 @@ ocra-voc:terracotta
     skos:prefLabel "Terracotta"@en ;
     skos:prefLabel "Terracotta"@it ;
     skos:exactMatch aat:300010669 ;
-    ocra:defaultColor "#C1440E"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:stoneMaterial
     a skos:Concept ;
@@ -1054,7 +1040,7 @@ ocra-voc:stoneMaterial
     skos:prefLabel "Stone"@en ;
     skos:prefLabel "Pietra"@it ;
     skos:exactMatch aat:300011176 ;
-    ocra:defaultColor "#808B96"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:marble
     a skos:Concept ;
@@ -1063,7 +1049,7 @@ ocra-voc:marble
     skos:prefLabel "Marble"@en ;
     skos:prefLabel "Marmo"@it ;
     skos:exactMatch aat:300011443 ;
-    ocra:defaultColor "#D5D8DC"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:limestone
     a skos:Concept ;
@@ -1071,8 +1057,8 @@ ocra-voc:limestone
     skos:broader ocra-voc:stoneMaterial ;
     skos:prefLabel "Limestone"@en ;
     skos:prefLabel "Calcare"@it ;
-    skos:exactMatch aat:300011183 ;
-    ocra:defaultColor "#CACFD2"^^xsd:string .
+    skos:exactMatch aat:300011286 ;
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:woodMaterial
     a skos:Concept ;
@@ -1081,7 +1067,7 @@ ocra-voc:woodMaterial
     skos:prefLabel "Wood"@en ;
     skos:prefLabel "Legno"@it ;
     skos:exactMatch aat:300011914 ;
-    ocra:defaultColor "#9C6B3C"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:ivoryBone
     a skos:Concept ;
@@ -1090,7 +1076,7 @@ ocra-voc:ivoryBone
     skos:prefLabel "Ivory / bone"@en ;
     skos:prefLabel "Avorio / osso"@it ;
     skos:exactMatch aat:300011798 ;
-    ocra:defaultColor "#FDFEFE"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:glass
     a skos:Concept ;
@@ -1099,7 +1085,7 @@ ocra-voc:glass
     skos:prefLabel "Glass"@en ;
     skos:prefLabel "Vetro"@it ;
     skos:exactMatch aat:300010797 ;
-    ocra:defaultColor "#AED6F1"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:textile
     a skos:Concept ;
@@ -1108,7 +1094,7 @@ ocra-voc:textile
     skos:prefLabel "Textile"@en ;
     skos:prefLabel "Tessuto"@it ;
     skos:exactMatch aat:300014063 ;
-    ocra:defaultColor "#8E6C88"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:organicMaterial
     a skos:Concept ;
@@ -1116,8 +1102,7 @@ ocra-voc:organicMaterial
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Organic material"@en ;
     skos:prefLabel "Materiale organico"@it ;
-    skos:exactMatch aat:300379097 ;
-    ocra:defaultColor "#A2856A"^^xsd:string .
+    ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 # ============================================================
 # THIN SHEET METAL — conditions and techniques specific to thin sheets
@@ -1129,8 +1114,7 @@ ocra-voc:thinSheet
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Thin sheet / foil"@en ;
     skos:prefLabel "Lamina / foglia metallica"@it ;
-    skos:exactMatch aat:300014184 ;
-    ocra:defaultColor "#C8C8C8"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:cutting
     a skos:Concept ;
@@ -1138,10 +1122,9 @@ ocra-voc:cutting
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Cutting"@en ;
     skos:prefLabel "Ritaglio / incisione di contorno"@it ;
-    skos:exactMatch aat:300053225 ;
     skos:scopeNote "Trimming of metal sheet to achieve final shape"@en ;
     skos:scopeNote "Ritaglio della lamina metallica per ottenere la forma finale"@it ;
-    ocra:defaultColor "#A8A8A8"^^xsd:string .
+    ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:sewingHoles
     a skos:Concept ;
@@ -1149,10 +1132,9 @@ ocra-voc:sewingHoles
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Sewing holes / attachment holes"@en ;
     skos:prefLabel "Fori di cucitura / attacco"@it ;
-    skos:exactMatch aat:300379283 ;
     skos:scopeNote "Holes intentionally made to sew or attach the object to a support (e.g. textile)"@en ;
     skos:scopeNote "Fori realizzati intenzionalmente per cucire o fissare il manufatto a un supporto (es. tessuto)"@it ;
-    ocra:defaultColor "#5D8AA8"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:crinkling
     a skos:Concept ;
@@ -1160,10 +1142,10 @@ ocra-voc:crinkling
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Crinkling / wrinkling"@en ;
     skos:prefLabel "Raggrinzimento / increspatura"@it ;
-    skos:exactMatch aat:300379222 ;
+    skos:closeMatch aat:300054132 ;
     skos:scopeNote "Localised buckling or wrinkling typical of very thin metal sheets"@en ;
     skos:scopeNote "Deformazione localizzata tipica delle lamine metalliche di estrema sottigliezza"@it ;
-    ocra:defaultColor "#808B96"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:folding
     a skos:Concept ;
@@ -1171,8 +1153,7 @@ ocra-voc:folding
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Folding / bending"@en ;
     skos:prefLabel "Piega / piegatura"@it ;
-    skos:exactMatch aat:300379219 ;
-    ocra:defaultColor "#717D7E"^^xsd:string .
+    ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:tears
     a skos:Concept ;
@@ -1180,10 +1161,9 @@ ocra-voc:tears
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Tears"@en ;
     skos:prefLabel "Strappi / lacerazioni"@it ;
-    skos:exactMatch aat:300379206 ;
     skos:scopeNote "Irregular breaks typical of thin metal sheets or textile"@en ;
     skos:scopeNote "Rotture irregolari tipiche delle lamine metalliche o dei tessuti"@it ;
-    ocra:defaultColor "#A93226"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # ============================================================
 # ICONOGRAPHY — iconographic motifs
@@ -1201,8 +1181,8 @@ ocra-voc:iconography
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Iconography"@en ;
     skos:prefLabel "Iconografia"@it ;
-    skos:exactMatch aat:300015638 ;
-    ocra:defaultColor "#6C3483"^^xsd:string .
+    skos:exactMatch aat:300055859 ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ------------------------------------------------------------
 # Cross-cutting categories
@@ -1214,8 +1194,8 @@ ocra-voc:geometricPattern
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Geometric pattern"@en ;
     skos:prefLabel "Motivo geometrico"@it ;
-    skos:exactMatch aat:300009125 ;
-    ocra:defaultColor "#2980B9"^^xsd:string .
+    skos:exactMatch aat:300165213 ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:zoomorphicMotif
     a skos:Concept ;
@@ -1223,8 +1203,7 @@ ocra-voc:zoomorphicMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Zoomorphic motif"@en ;
     skos:prefLabel "Motivo zoomorfo"@it ;
-    skos:exactMatch aat:300164167 ;
-    ocra:defaultColor "#117A65"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:anthropomorphicMotif
     a skos:Concept ;
@@ -1232,8 +1211,7 @@ ocra-voc:anthropomorphicMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Anthropomorphic motif"@en ;
     skos:prefLabel "Motivo antropomorfo"@it ;
-    skos:exactMatch aat:300164162 ;
-    ocra:defaultColor "#1A5276"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:astralmotif
     a skos:Concept ;
@@ -1241,10 +1219,9 @@ ocra-voc:astralmotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Astral motif"@en ;
     skos:prefLabel "Motivo astrale"@it ;
-    skos:exactMatch aat:300264598 ;
     skos:scopeNote "Sun, moon, stars, and related celestial symbols"@en ;
     skos:scopeNote "Sole, luna, stelle e simboli celesti correlati"@it ;
-    ocra:defaultColor "#1B2631"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:vegetalMotif
     a skos:Concept ;
@@ -1252,8 +1229,7 @@ ocra-voc:vegetalMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Vegetal motif"@en ;
     skos:prefLabel "Motivo vegetale"@it ;
-    skos:exactMatch aat:300264599 ;
-    ocra:defaultColor "#1E8449"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:palmette
     a skos:Concept ;
@@ -1261,11 +1237,10 @@ ocra-voc:palmette
     skos:broader ocra-voc:vegetalMotif ;
     skos:prefLabel "Palmette"@en ;
     skos:prefLabel "Palmetta"@it ;
-    skos:exactMatch aat:300010269 ;
     skos:exactMatch wd:Q677655 ;           # verified: decorative motif in the form of a palm leaf
     skos:scopeNote "decorative motif in the form of a palm leaf"@en ;
     skos:scopeNote "Motivo decorativo a forma di foglia di palma"@it ;
-    ocra:defaultColor "#27AE60"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:rosette
     a skos:Concept ;
@@ -1273,11 +1248,9 @@ ocra-voc:rosette
     skos:broader ocra-voc:vegetalMotif ;
     skos:prefLabel "Rosette"@en ;
     skos:prefLabel "Rosetta"@it ;
-    skos:exactMatch aat:300010778 ;
-    skos:exactMatch aat:300010778 ; # rosette - no specific Wikidata QID for the decorative motif, AAT only
     skos:scopeNote "Circular floral motif"@en ;
     skos:scopeNote "Motivo floreale circolare"@it ;
-    ocra:defaultColor "#E74C3C"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:lotusMotif
     a skos:Concept ;
@@ -1285,11 +1258,10 @@ ocra-voc:lotusMotif
     skos:broader ocra-voc:vegetalMotif ;
     skos:prefLabel "Lotus"@en ;
     skos:prefLabel "Loto"@it ;
-    skos:exactMatch aat:300132798 ;
-    skos:closeMatch wd:Q2450068 ;           # Q2450068 = lotus (plant), TO BE VERIFIED for the decorative motif
+    skos:closeMatch wd:Q64034366 ;          # lotus motif
     skos:scopeNote "Lotus flower motif, often associated with rebirth in ancient Egyptian symbolism"@en ;
     skos:scopeNote "Motivo del fiore di loto, spesso associato alla rinascita nella simbologia dell'antico Egitto"@it ;
-    ocra:defaultColor "#3498DB"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ------------------------------------------------------------
 # Egyptian and Egyptianizing iconography
@@ -1301,10 +1273,9 @@ ocra-voc:egyptianizingMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Egyptianizing motif"@en ;
     skos:prefLabel "Motivo egittizzante"@it ;
-    skos:exactMatch aat:300020072 ;
     skos:scopeNote "Decorative elements derived from ancient Egyptian visual culture"@en ;
     skos:scopeNote "Elementi decorativi derivati dalla cultura visiva dell'antico Egitto"@it ;
-    ocra:defaultColor "#D4AC0D"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:solarDisk
     a skos:Concept ;
@@ -1312,11 +1283,10 @@ ocra-voc:solarDisk
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Solar disk"@en ;
     skos:prefLabel "Disco solare"@it ;
-    skos:exactMatch aat:300263722 ;
     skos:exactMatch wd:Q3030604 ;           # verified: symbolic object of Egyptian mythology
     skos:scopeNote "Symbolic disk representing the sun in ancient Egyptian iconography"@en ;
     skos:scopeNote "Disco simbolico che rappresenta il sole nell'iconografia dell'antico Egitto"@it ;
-    ocra:defaultColor "#F39C12"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:wingedSolarDisk
     a skos:Concept ;
@@ -1324,11 +1294,10 @@ ocra-voc:wingedSolarDisk
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Winged sun disk"@en ;
     skos:prefLabel "Disco solare alato"@it ;
-    skos:broadMatch aat:300263722 ;
     skos:exactMatch wd:Q814461 ;            # verified: deity / winged sun
     skos:scopeNote "Winged solar disk, often depicted with uraeus serpents; symbol of Egyptian origin"@en ;
     skos:scopeNote "Disco solare alato, spesso raffigurato con serpenti urei; simbolo di origine egizia"@it ;
-    ocra:defaultColor "#E67E22"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:uraeus
     a skos:Concept ;
@@ -1336,11 +1305,10 @@ ocra-voc:uraeus
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Uraeus"@en ;
     skos:prefLabel "Ureo"@it ;
-    skos:exactMatch aat:300263712 ;
     skos:exactMatch wd:Q756990 ;           # verified: https://www.wikidata.org/wiki/Q756990
     skos:scopeNote "stylized, upright form of an Egyptian cobra used as a symbol of sovereignty, royalty, deity and divine authority in Ancient Egypt"@en ;
     skos:scopeNote "Forma stilizzata ed eretta del cobra egizio, usata nell'antico Egitto come simbolo di sovranità, regalità, divinità e autorità divina"@it ;
-    ocra:defaultColor "#27AE60"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:ankh
     a skos:Concept ;
@@ -1351,7 +1319,7 @@ ocra-voc:ankh
     skos:exactMatch wd:Q180439 ;           # verified: ancient Egyptian hieroglyphic symbol
     skos:scopeNote "Ancient Egyptian hieroglyphic symbol of life and immortality"@en ;
     skos:scopeNote "Simbolo geroglifico dell'antico Egitto della vita e dell'immortalità"@it ;
-    ocra:defaultColor "#F1C40F"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:djedPillar
     a skos:Concept ;
@@ -1359,10 +1327,10 @@ ocra-voc:djedPillar
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Djed pillar"@en ;
     skos:prefLabel "Pilastro djed"@it ;
-    skos:closeMatch wd:Q664689 ;           # TO BE VERIFIED: not returned by the query, check manually
+    skos:closeMatch wd:Q622585 ;           
     skos:scopeNote "Egyptian symbol of stability and resurrection, associated with Osiris"@en ;
     skos:scopeNote "Simbolo egizio di stabilità e resurrezione, associato a Osiride"@it ;
-    ocra:defaultColor "#8B6914"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:eyeOfHorus
     a skos:Concept ;
@@ -1373,7 +1341,7 @@ ocra-voc:eyeOfHorus
     skos:exactMatch wd:Q211286 ;           # verified: ancient Egyptian symbol of protection, royal power
     skos:scopeNote "Ancient Egyptian protective symbol associated with royal power and good health"@en ;
     skos:scopeNote "Simbolo protettivo dell'antico Egitto associato al potere regale e alla buona salute"@it ;
-    ocra:defaultColor "#2471A3"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:scarabMotif
     a skos:Concept ;
@@ -1385,7 +1353,7 @@ ocra-voc:scarabMotif
     skos:exactMatch wd:Q2442735 ;          # verified: scarab beetle-shaped amulets and impression seals
     skos:scopeNote "Scarab motif or amulet in the form of a sacred dung beetle, associated in ancient Egypt with rebirth and regeneration"@en ;
     skos:scopeNote "Motivo o amuleto a forma di scarabeo sacro, associato nell'antico Egitto alla rinascita e alla rigenerazione"@it ;
-    ocra:defaultColor "#117A65"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:wasScepter
     a skos:Concept ;
@@ -1393,10 +1361,10 @@ ocra-voc:wasScepter
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Was scepter"@en ;
     skos:prefLabel "Scettro was"@it ;
-    skos:closeMatch wd:Q372218 ;           # TO BE VERIFIED: not returned by the query (label: "was sceptre")
+    skos:exactMatch wd:Q2341121 ;
     skos:scopeNote "Ancient Egyptian scepter symbolizing divine power and dominion"@en ;
     skos:scopeNote "Scettro dell'antico Egitto che simboleggia il potere e il dominio divini"@it ;
-    ocra:defaultColor "#4A1942"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:horusChild
     a skos:Concept ;
@@ -1404,10 +1372,10 @@ ocra-voc:horusChild
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Horus the child (Harpocrates)"@en ;
     skos:prefLabel "Horo bambino (Harpocrate)"@it ;
-    skos:closeMatch wd:Q190289 ;           # TO BE VERIFIED manually on wikidata.org
+    skos:closeMatch wd:Q787492 ;
     skos:scopeNote "Child form of Horus, often depicted seated or standing with a finger to the lips"@en ;
     skos:scopeNote "Forma infantile di Horus, spesso raffigurata seduta o in piedi con un dito alle labbra"@it ;
-    ocra:defaultColor "#1ABC9C"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:ptah
     a skos:Concept ;
@@ -1415,10 +1383,10 @@ ocra-voc:ptah
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Ptah / Ptah-Sokar"@en ;
     skos:prefLabel "Ptah / Ptah-Sokar"@it ;
-    skos:closeMatch wd:Q47776 ;            # TO BE VERIFIED manually on wikidata.org
+    skos:closeMatch wd:Q146321 ;
     skos:scopeNote "Ancient Egyptian creator and craftsman deity, also represented in syncretic forms such as Ptah-Sokar"@en ;
     skos:scopeNote "Divinità creatrice e protettrice degli artigiani dell'antico Egitto, rappresentata anche in forme sincretiche come Ptah-Sokar"@it ;
-    ocra:defaultColor "#884EA0"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:isisHathor
     a skos:Concept ;
@@ -1426,10 +1394,11 @@ ocra-voc:isisHathor
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Isis / Hathor"@en ;
     skos:prefLabel "Iside / Hathor"@it ;
-    skos:closeMatch wd:Q79876 ;            # TO BE VERIFIED manually on wikidata.org
-    skos:scopeNote "Egyptian goddesses Isis and Hathor, often identified by a crown with a solar disk between cow horns"@en ;
-    skos:scopeNote "Dee egizie Iside e Hathor, spesso riconoscibili dalla corona con disco solare tra corna bovine"@it ;
-    ocra:defaultColor "#C0392B"^^xsd:string .
+    skos:closeMatch wd:Q133343 ;   # Isis
+    skos:closeMatch wd:Q79876 ;    # Hathor
+    skos:scopeNote "Syncretic figure of Egyptian mythology combining features of Isis, goddess of magic and motherhood, and Hathor, goddess of love, music, and joy. Used as a local concept when the iconographic reading merges the two goddesses or leaves the identification intentionally shared between them."@en ;
+    skos:scopeNote "Figura sincretica della mitologia egizia che fonde le caratteristiche di Iside, dea della magia e della maternita, e di Hathor, dea dell'amore, della musica e della gioia. Usato come concetto locale quando la lettura iconografica unisce le due divinita o ne mantiene intenzionalmente condivisa l'identificazione."@it ;
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ------------------------------------------------------------
 # Distinctively Phoenician-Punic iconography
@@ -1441,10 +1410,9 @@ ocra-voc:punicIconography
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Phoenician / Punic iconography"@en ;
     skos:prefLabel "Iconografia fenicio-punica"@it ;
-    skos:exactMatch aat:300020101 ;
     skos:scopeNote "Iconographic tradition of the Phoenician and Punic world, V cent. BCE – II cent. CE"@en ;
     skos:scopeNote "Tradizione iconografica del mondo fenicio e punico, V sec. a.C. – II sec. d.C."@it ;
-    ocra:defaultColor "#A04000"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:signOfTanit
     a skos:Concept ;
@@ -1452,10 +1420,10 @@ ocra-voc:signOfTanit
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Sign of Tanit"@en ;
     skos:prefLabel "Segno di Tanit"@it ;
-    skos:closeMatch wd:Q655362 ;           # TO BE VERIFIED on wikidata.org
+    skos:exactMatch wd:Q3483675 ;          # Sign of Tanit
     skos:scopeNote "Anthropomorphic symbol of the Punic goddess Tanit: triangle surmounted by horizontal bar and disk; ubiquitous on votive stelae and funerary contexts"@en ;
     skos:scopeNote "Simbolo antropomorfo della dea punica Tanit: triangolo sormontato da barra orizzontale e disco; onnipresente su stele votive e in contesti funerari"@it ;
-    ocra:defaultColor "#E74C3C"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:crescentAndDisk
     a skos:Concept ;
@@ -1463,10 +1431,9 @@ ocra-voc:crescentAndDisk
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Crescent and disk"@en ;
     skos:prefLabel "Mezzaluna e disco"@it ;
-    skos:closeMatch wd:Q3040517 ;          # TO BE VERIFIED on wikidata.org
     skos:scopeNote "Astral symbol of Baal Hammon (or Tanit-Baal Hammon pair); standard motif on Punic stelae and jewellery"@en ;
     skos:scopeNote "Simbolo astrale di Baal Hammon (o della coppia Tanit-Baal Hammon); motivo standard su stele e oreficeria punica"@it ;
-    ocra:defaultColor "#2C3E50"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:caduceus
     a skos:Concept ;
@@ -1477,7 +1444,7 @@ ocra-voc:caduceus
     skos:exactMatch wd:Q238577 ;           # verified: staff carried by Hermes in Greek mythology
     skos:scopeNote "Staff with two intertwined snakes; in Punic iconography associated with the divine sphere of Baal Hammon and Tanit"@en ;
     skos:scopeNote "Bastone con due serpenti intrecciati; nell'iconografia punica associato alla sfera divina di Baal Hammon e Tanit"@it ;
-    ocra:defaultColor "#1A5276"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:betylos
     a skos:Concept ;
@@ -1485,10 +1452,9 @@ ocra-voc:betylos
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Betyl / baetyl"@en ;
     skos:prefLabel "Betilo"@it ;
-    skos:closeMatch wd:Q833760 ;           # TO BE VERIFIED on wikidata.org
     skos:scopeNote "Sacred stone or conical idol housing a deity; characteristic of Phoenician and Punic cult; frequent on stelae as the divine presence of Baal Hammon"@en ;
     skos:scopeNote "Pietra sacra o idolo conico dimora di una divinità; caratteristico del culto fenicio e punico; frequente su stele come presenza divina di Baal Hammon"@it ;
-    ocra:defaultColor "#717D7E"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:bottleIdol
     a skos:Concept ;
@@ -1496,10 +1462,9 @@ ocra-voc:bottleIdol
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Bottle idol"@en ;
     skos:prefLabel "Idolo a bottiglia"@it ;
-    skos:closeMatch wd:Q3661516 ;          # TO BE VERIFIED on wikidata.org
     skos:scopeNote "Schematic anthropomorphic figure in bottle shape; recurring on Punic votive stelae, associated with the mother goddess"@en ;
     skos:scopeNote "Figura antropomorfa schematica a forma di bottiglia; ricorrente su stele votive puniche, associata alla dea madre"@it ;
-    ocra:defaultColor "#884EA0"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:openHand
     a skos:Concept ;
@@ -1507,10 +1472,9 @@ ocra-voc:openHand
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Open / raised hand"@en ;
     skos:prefLabel "Mano aperta / alzata"@it ;
-    skos:closeMatch wd:Q1198919 ;          # TO BE VERIFIED on wikidata.org
     skos:scopeNote "Apotropaic hand symbol; in Punic art the raised hand is a gesture of adoration or divine blessing"@en ;
     skos:scopeNote "Mano apotropaica; nell'arte punica la mano alzata è gesto di adorazione o benedizione divina"@it ;
-    ocra:defaultColor "#E8B400"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:thymiaterion
     a skos:Concept ;
@@ -1518,10 +1482,10 @@ ocra-voc:thymiaterion
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Thymiaterion / incense burner"@en ;
     skos:prefLabel "Tymaterion / bruciaprofumi"@it ;
-    skos:closeMatch wd:Q2312697 ;          # TO BE VERIFIED on wikidata.org
+    skos:closeMatch wd:Q111514811 ;        # incense burner
     skos:scopeNote "Incense burner depicted on Punic votive stelae as an element of the ritual scene"@en ;
     skos:scopeNote "Bruciaprofumi raffigurato su stele votive puniche come elemento della scena rituale"@it ;
-    ocra:defaultColor "#C39D74"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:punicPalmTree
     a skos:Concept ;
@@ -1529,10 +1493,10 @@ ocra-voc:punicPalmTree
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Palm tree"@en ;
     skos:prefLabel "Palma"@it ;
-    skos:closeMatch wd:Q34763 ;            # TO BE VERIFIED on wikidata.org
+    skos:closeMatch wd:Q2048179 ;          # palm tree as heraldic/symbolic figure
     skos:scopeNote "Date palm as symbol; eponym of Phoenicia; frequent on Punic stelae and coins from Sardinia and Sicily"@en ;
     skos:scopeNote "Palma da dattero come simbolo; associata etimologicamente alla Fenicia; frequente su stele puniche e monete di Sardegna e Sicilia"@it ;
-    ocra:defaultColor "#196F3D"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:punicMask
     a skos:Concept ;
@@ -1540,10 +1504,9 @@ ocra-voc:punicMask
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Punic mask"@en ;
     skos:prefLabel "Maschera punica"@it ;
-    skos:closeMatch wd:Q2001305 ;          # TO BE VERIFIED on wikidata.org
     skos:scopeNote "Grotesque apotropaic terracotta mask; characteristic of Punic funerary and votive contexts"@en ;
     skos:scopeNote "Maschera grottesca apotropaica in terracotta; caratteristica dei contesti funerari e votivi punici"@it ;
-    ocra:defaultColor "#C65A1E"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:priestFigure
     a skos:Concept ;
@@ -1554,7 +1517,7 @@ ocra-voc:priestFigure
     skos:closeMatch aat:300179452 ;
     skos:scopeNote "Figure of a priest or worshipper with raised arms in adoration; common on late Punic stelae"@en ;
     skos:scopeNote "Figura di sacerdote o adorante con braccia alzate; comune nelle stele puniche tardive"@it ;
-    ocra:defaultColor "#5D6D7E"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ------------------------------------------------------------
 # Greek and Greco-Punic iconography
@@ -1566,8 +1529,7 @@ ocra-voc:greekIconography
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Greek / Hellenistic iconography"@en ;
     skos:prefLabel "Iconografia greca / ellenistica"@it ;
-    skos:exactMatch aat:300020123 ;
-    ocra:defaultColor "#1F618D"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:gorgoneion
     a skos:Concept ;
@@ -1578,7 +1540,7 @@ ocra-voc:gorgoneion
     skos:exactMatch wd:Q1161687 ;           # verified: amulet showing the Gorgon head
     skos:scopeNote "Apotropaic face of the Gorgon Medusa; frequent on metalwork, shields, architectural elements"@en ;
     skos:scopeNote "Volto apotropaico della Gorgone Medusa; frequente su manufatti metallici, scudi, elementi architettonici"@it ;
-    ocra:defaultColor "#2C3E50"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:acanthus
     a skos:Concept ;
@@ -1586,11 +1548,10 @@ ocra-voc:acanthus
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Acanthus"@en ;
     skos:prefLabel "Acanto"@it ;
-    skos:exactMatch aat:300010357 ;
     skos:exactMatch wd:Q415908 ;
     skos:scopeNote "Ornamental motif derived from the leaves of the acanthus plant, common in classical decoration"@en ;
     skos:scopeNote "Motivo ornamentale derivato dalle foglie dell'acanto, comune nella decorazione classica"@it ;
-    ocra:defaultColor "#117A65"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:meander
     a skos:Concept ;
@@ -1598,11 +1559,10 @@ ocra-voc:meander
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Meander / Greek key"@en ;
     skos:prefLabel "Meandro / greca"@it ;
-    skos:exactMatch aat:300010336 ;
     skos:exactMatch wd:Q898879 ;            # verified: decorative border motif constructed from a continuous line
     skos:scopeNote "Decorative border motif constructed from a continuous line, popular in Greek, Roman, and other artistic traditions"@en ;
     skos:scopeNote "Motivo decorativo di bordo costituito da una linea continua, diffuso nell'arte greca, romana e in altre tradizioni artistiche"@it ;
-    ocra:defaultColor "#2980B9"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:pegasus
     a skos:Concept ;
@@ -1610,10 +1570,10 @@ ocra-voc:pegasus
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Pegasus"@en ;
     skos:prefLabel "Pegaso"@it ;
-    skos:exactMatch wd:Q75422 ;
+    skos:exactMatch wd:Q162797 ;
     skos:scopeNote "Winged horse of Greek mythology"@en ;
     skos:scopeNote "Cavallo alato della mitologia greca"@it ;
-    ocra:defaultColor "#5DADE2"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ------------------------------------------------------------
 # Roman and Late Antique iconography
@@ -1625,8 +1585,7 @@ ocra-voc:romanIconography
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Roman iconography"@en ;
     skos:prefLabel "Iconografia romana"@it ;
-    skos:exactMatch aat:300020153 ;
-    ocra:defaultColor "#922B21"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:eagleRoman
     a skos:Concept ;
@@ -1634,10 +1593,10 @@ ocra-voc:eagleRoman
     skos:broader ocra-voc:romanIconography ;
     skos:prefLabel "Eagle (Roman imperial)"@en ;
     skos:prefLabel "Aquila (simbolo imperiale romano)"@it ;
-    skos:exactMatch wd:Q2092297 ;
+    skos:closeMatch wd:Q2092297 ;
     skos:scopeNote "Eagle used as an emblem of Roman imperial power and military authority"@en ;
     skos:scopeNote "Aquila usata come emblema del potere imperiale e dell'autorita militare romana"@it ;
-    ocra:defaultColor "#7B241C"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:cornucopia
     a skos:Concept ;
@@ -1649,7 +1608,7 @@ ocra-voc:cornucopia
     skos:exactMatch wd:Q332682 ;           # verified: mythological symbol of abundance
     skos:scopeNote "Mythological symbol of abundance and prosperity, represented as a horn overflowing with produce"@en ;
     skos:scopeNote "Simbolo mitologico di abbondanza e prosperita, rappresentato come un corno colmo di frutti e prodotti"@it ;
-    ocra:defaultColor "#D4AC0D"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:labarum
     a skos:Concept ;
@@ -1657,10 +1616,10 @@ ocra-voc:labarum
     skos:broader ocra-voc:romanIconography ;
     skos:prefLabel "Labarum / Chi-Rho"@en ;
     skos:prefLabel "Labaro / Chi-Rho"@it ;
-    skos:closeMatch wd:Q46081 ;           # TO BE VERIFIED: Q11963526/Q11963530 = disambiguation/album, Q46081 to check
+    skos:closeMatch wd:Q118117 ;          # labarum
     skos:scopeNote "Christian monogram of Christ; appears on late antique and early medieval metalwork"@en ;
     skos:scopeNote "Monogramma cristiano di Cristo; compare su manufatti metallici tardo-antichi e altomedievali"@it ;
-    ocra:defaultColor "#C0392B"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ------------------------------------------------------------
 # Medieval and religious iconography
@@ -1672,11 +1631,10 @@ ocra-voc:christianCross
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Christian cross"@en ;
     skos:prefLabel "Croce cristiana"@it ;
-    skos:exactMatch aat:300264661 ;
     skos:exactMatch wd:Q392371 ;
     skos:scopeNote "Principal symbol of Christianity, representing the crucifixion of Jesus Christ"@en ;
     skos:scopeNote "Simbolo principale del cristianesimo, che rappresenta la crocifissione di Gesu Cristo"@it ;
-    ocra:defaultColor "#922B21"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:agnus
     a skos:Concept ;
@@ -1684,10 +1642,11 @@ ocra-voc:agnus
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Agnus Dei"@en ;
     skos:prefLabel "Agnus Dei"@it ;
-    skos:exactMatch wd:Q309378 ;
+    skos:closeMatch wd:Q76157029 ;        # Lamb of God as heraldic/iconographic figure
+    skos:closeMatch wd:Q201171 ;          # Lamb of God as title for Jesus
     skos:scopeNote "Lamb of God symbol in Christian iconography"@en ;
     skos:scopeNote "Simbolo dell'Agnello di Dio nell'iconografia cristiana"@it ;
-    ocra:defaultColor "#F4F6F7"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:fleurDeLis
     a skos:Concept ;
@@ -1695,11 +1654,10 @@ ocra-voc:fleurDeLis
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Fleur-de-lis"@en ;
     skos:prefLabel "Giglio araldico / fiordaliso"@it ;
-    skos:exactMatch aat:300264671 ;
     skos:exactMatch wd:Q211568 ;           # verified: stylized iris flower used as a heraldic symbol
     skos:scopeNote "Stylized lily or iris motif widely used in heraldry and decorative art"@en ;
     skos:scopeNote "Motivo stilizzato di giglio o iris ampiamente usato nell'araldica e nelle arti decorative"@it ;
-    ocra:defaultColor "#2471A3"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:heraldryMotif
     a skos:Concept ;
@@ -1707,8 +1665,7 @@ ocra-voc:heraldryMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Heraldic motif"@en ;
     skos:prefLabel "Motivo araldico"@it ;
-    skos:exactMatch aat:300264576 ;
-    ocra:defaultColor "#1A5276"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ============================================================
 # CONTEXT OF USE — function and context of use of the object
@@ -1719,8 +1676,7 @@ ocra-voc:contextOfUse
     skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
     skos:prefLabel "Context of use"@en ;
     skos:prefLabel "Contesto d'uso"@it ;
-    skos:exactMatch aat:300068766 ;
-    ocra:defaultColor "#5D6D7E"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:funeraryContext
     a skos:Concept ;
@@ -1728,8 +1684,7 @@ ocra-voc:funeraryContext
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Funerary context"@en ;
     skos:prefLabel "Contesto funerario"@it ;
-    skos:exactMatch aat:300066204 ;
-    ocra:defaultColor "#2C3E50"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:ceremonialUse
     a skos:Concept ;
@@ -1737,8 +1692,7 @@ ocra-voc:ceremonialUse
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Ceremonial use"@en ;
     skos:prefLabel "Uso cerimoniale / rituale"@it ;
-    skos:exactMatch aat:300178656 ;
-    ocra:defaultColor "#4A235A"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:applique
     a skos:Concept ;
@@ -1746,10 +1700,9 @@ ocra-voc:applique
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Appliqué / ornament sewn onto support"@en ;
     skos:prefLabel "Applique / ornamento cucito su supporto"@it ;
-    skos:exactMatch aat:300264581 ;
     skos:scopeNote "Object designed to be attached or sewn onto a textile or other surface"@en ;
     skos:scopeNote "Oggetto concepito per essere fissato o cucito su tessuto o altra superficie"@it ;
-    ocra:defaultColor "#7D3C98"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:garmentsOrnamentation
     a skos:Concept ;
@@ -1757,8 +1710,7 @@ ocra-voc:garmentsOrnamentation
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Garment ornamentation"@en ;
     skos:prefLabel "Ornamento d'abbigliamento"@it ;
-    skos:exactMatch aat:300209285 ;
-    ocra:defaultColor "#6C3483"^^xsd:string .
+    ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:organicSupportLoss
     a skos:Concept ;
@@ -1766,10 +1718,9 @@ ocra-voc:organicSupportLoss
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Organic support loss"@en ;
     skos:prefLabel "Perdita del supporto organico (tessuto, legno, cuoio)"@it ;
-    skos:exactMatch aat:300379198 ;
     skos:scopeNote "Loss of the original organic backing material (textile, leather, wood) to which the object was attached"@en ;
     skos:scopeNote "Perdita del materiale di supporto organico originale (tessuto, cuoio, legno) a cui l'oggetto era fissato"@it ;
-    ocra:defaultColor "#873600"^^xsd:string .
+    ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # ============================================================
 # SCIENTIFIC EXAMINATION — analysis and documentation methods
@@ -1780,8 +1731,7 @@ ocra-voc:scientificExamination
     skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
     skos:prefLabel "Scientific examination"@en ;
     skos:prefLabel "Esame scientifico"@it ;
-    skos:exactMatch aat:300053986 ;
-    ocra:defaultColor "#1F618D"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:rtiExamination
     a skos:Concept ;
@@ -1789,10 +1739,10 @@ ocra-voc:rtiExamination
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Reflectance Transformation Imaging (RTI)"@en ;
     skos:prefLabel "Esame RTI (Reflectance Transformation Imaging)"@it ;
-    skos:exactMatch aat:300379400 ;
+    skos:exactMatch aat:300390594 ;
     skos:scopeNote "Computational photography method that enables interactive relighting of a surface to reveal detail"@en ;
     skos:scopeNote "Metodo di fotografia computazionale che consente di variare interattivamente l'illuminazione della superficie per rivelarne i dettagli"@it ;
-    ocra:defaultColor "#2471A3"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:scanning3D
     a skos:Concept ;
@@ -1800,8 +1750,7 @@ ocra-voc:scanning3D
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "3D scanning"@en ;
     skos:prefLabel "Scansione 3D"@it ;
-    skos:exactMatch aat:300379401 ;
-    ocra:defaultColor "#1A5276"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:xrayExamination
     a skos:Concept ;
@@ -1809,8 +1758,7 @@ ocra-voc:xrayExamination
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "X-ray examination"@en ;
     skos:prefLabel "Radiografia X"@it ;
-    skos:exactMatch aat:300419613 ;
-    ocra:defaultColor "#117A65"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:xrfAnalysis
     a skos:Concept ;
@@ -1818,10 +1766,9 @@ ocra-voc:xrfAnalysis
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "X-ray fluorescence (XRF)"@en ;
     skos:prefLabel "Fluorescenza a raggi X (XRF)"@it ;
-    skos:exactMatch aat:300379402 ;
     skos:scopeNote "Non-destructive elemental analysis technique for identifying metal alloy composition"@en ;
     skos:scopeNote "Tecnica di analisi elementale non distruttiva per la caratterizzazione delle leghe metalliche"@it ;
-    ocra:defaultColor "#0E6655"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:multispectralImaging
     a skos:Concept ;
@@ -1829,8 +1776,8 @@ ocra-voc:multispectralImaging
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Multispectral imaging"@en ;
     skos:prefLabel "Imaging multispettrale"@it ;
-    skos:exactMatch aat:300379403 ;
-    ocra:defaultColor "#0B5345"^^xsd:string .
+    skos:exactMatch aat:300380539 ;
+    ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:photogrammetry
     a skos:Concept ;
@@ -1839,4 +1786,5 @@ ocra-voc:photogrammetry
     skos:prefLabel "Photogrammetry"@en ;
     skos:prefLabel "Fotogrammetria"@it ;
     skos:exactMatch aat:300053580 ;
-    ocra:defaultColor "#154360"^^xsd:string .
+    ocra:defaultColor "#3498DB"^^xsd:string .
+
