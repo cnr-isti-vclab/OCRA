@@ -13,10 +13,12 @@
 # - Keep the detailed local OCRA concept even when no trustworthy external
 #   match exists yet; never force a false exactMatch.
 
-ocra-voc:ConservationAnnotationVocabulary
+ocra-voc:CulturalHeritageAnnotationVocabulary
     a skos:ConceptScheme ;
-    skos:prefLabel "OCRA conservation annotation vocabulary"@en ;
-    skos:prefLabel "Vocabolario OCRA per annotazioni conservative"@it .
+    skos:prefLabel "OCRA vocabulary for cultural heritage annotation"@en ;
+    skos:prefLabel "Vocabolario OCRA per l'annotazione del patrimonio culturale"@it ;
+    skos:scopeNote "Example concept scheme for annotating cultural heritage objects in OCRA. The vocabulary is intentionally limited but extensible during use. When possible, local concepts should be aligned with broader external vocabularies such as Getty AAT, Wikidata, or other relevant knowledge organization systems."@en ;
+    skos:scopeNote "Schema di concetti di esempio per annotare beni culturali in OCRA. Il vocabolario e' intenzionalmente limitato ma puo' essere ampliato durante l'uso. Quando possibile, i concetti locali dovrebbero essere allineati a vocabolari esterni piu' ampi, come Getty AAT, Wikidata o altri sistemi di organizzazione della conoscenza pertinenti."@it .
 
 ocra:defaultColor
     a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
@@ -29,49 +31,49 @@ ocra:defaultColor
 
 ocra-voc:conditionAlteration
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Condition / alteration"@en ;
     skos:prefLabel "Stato conservativo / alterazione"@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:lossDamage
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Loss / damage"@en ;
     skos:prefLabel "Mancanza / danno"@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:surfaceFeature
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Surface feature"@en ;
     skos:prefLabel "Caratteristica superficiale"@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:decoration
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Decoration"@en ;
     skos:prefLabel "Decorazione"@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:techniqueFinish
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Technique / finish"@en ;
     skos:prefLabel "Tecnica / finitura"@it ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:conservationTreatment
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Conservation treatment"@en ;
     skos:prefLabel "Intervento conservativo"@it ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:materialComposition
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Material / composition"@en ;
     skos:prefLabel "Materiale / composizione"@it ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
@@ -82,7 +84,7 @@ ocra-voc:materialComposition
 
 ocra-voc:rustCondition
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Rust"@en ;
     skos:prefLabel "Ruggine"@it ;
@@ -91,7 +93,7 @@ ocra-voc:rustCondition
 
 ocra-voc:corrosionProcess
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Corrosion"@en ;
     skos:prefLabel "Corrosione"@it ;
@@ -100,7 +102,7 @@ ocra-voc:corrosionProcess
 
 ocra-voc:corrosionResidue
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Corrosion product"@en ;
     skos:prefLabel "Prodotto di corrosione"@it ;
@@ -109,7 +111,7 @@ ocra-voc:corrosionResidue
 
 ocra-voc:abrasion
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Abrasion"@en ;
     skos:prefLabel "Abrasione"@it ;
@@ -118,7 +120,7 @@ ocra-voc:abrasion
 
 ocra-voc:wear
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Wear"@en ;
     skos:prefLabel "Usura"@it ;
@@ -129,7 +131,7 @@ ocra-voc:wear
 
 ocra-voc:biodeterioration
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Biodeterioration"@en ;
     skos:prefLabel "Biodeterioramento"@it ;
@@ -138,7 +140,7 @@ ocra-voc:biodeterioration
 
 ocra-voc:biologicalGrowth
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Biological growth"@en ;
     skos:prefLabel "Colonizzazione biologica"@it ;
@@ -147,7 +149,7 @@ ocra-voc:biologicalGrowth
 
 ocra-voc:moldGrowth
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Mold growth"@en ;
     skos:prefLabel "Muffa"@it ;
@@ -156,7 +158,7 @@ ocra-voc:moldGrowth
 
 ocra-voc:lichens
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Lichens"@en ;
     skos:prefLabel "Licheni"@it ;
@@ -165,7 +167,7 @@ ocra-voc:lichens
 
 ocra-voc:algae
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Algae"@en ;
     skos:prefLabel "Alghe"@it ;
@@ -176,7 +178,7 @@ ocra-voc:algae
 
 ocra-voc:deposit
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Deposit"@en ;
     skos:prefLabel "Deposito"@it ;
@@ -185,7 +187,7 @@ ocra-voc:deposit
 
 ocra-voc:encrustation
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Encrustation"@en ;
     skos:prefLabel "Incrostazione"@it ;
@@ -194,7 +196,7 @@ ocra-voc:encrustation
 
 ocra-voc:soot
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Soot"@en ;
     skos:prefLabel "Fuliggine"@it ;
@@ -203,7 +205,7 @@ ocra-voc:soot
 
 ocra-voc:dust
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Dust"@en ;
     skos:prefLabel "Polvere"@it ;
@@ -212,7 +214,7 @@ ocra-voc:dust
 
 ocra-voc:calcareousDeposit
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Calcareous deposit"@en ;
     skos:prefLabel "Deposito calcareo"@it ;
@@ -223,7 +225,7 @@ ocra-voc:calcareousDeposit
 
 ocra-voc:patina
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Patina"@en ;
     skos:prefLabel "Patina"@it ;
@@ -231,7 +233,7 @@ ocra-voc:patina
 
 ocra-voc:noblePatinaAlt
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:patina ;
     skos:prefLabel "Noble patina"@en ;
     skos:prefLabel "Patina nobile"@it ;
@@ -239,7 +241,7 @@ ocra-voc:noblePatinaAlt
 
 ocra-voc:artificialPatina
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:patina ;
     skos:prefLabel "Artificial patina"@en ;
     skos:prefLabel "Patina artificiale"@it ;
@@ -249,7 +251,7 @@ ocra-voc:artificialPatina
 
 ocra-voc:detachment
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Detachment"@en ;
     skos:prefLabel "Distacco"@it ;
@@ -258,7 +260,7 @@ ocra-voc:detachment
 
 ocra-voc:flaking
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Flaking"@en ;
     skos:prefLabel "Scagliatura"@it ;
@@ -267,7 +269,7 @@ ocra-voc:flaking
 
 ocra-voc:peeling
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Peeling"@en ;
     skos:prefLabel "Pellicola sollevata / esfoliazione"@it ;
@@ -276,7 +278,7 @@ ocra-voc:peeling
 
 ocra-voc:blistering
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Blistering"@en ;
     skos:prefLabel "Rigonfiamento / bolla"@it ;
@@ -284,7 +286,7 @@ ocra-voc:blistering
 
 ocra-voc:powdering
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Powdering"@en ;
     skos:prefLabel "Polverizzazione / disgregazione"@it ;
@@ -294,7 +296,7 @@ ocra-voc:powdering
 
 ocra-voc:efflorescence
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Efflorescence"@en ;
     skos:prefLabel "Efflorescenza"@it ;
@@ -303,7 +305,7 @@ ocra-voc:efflorescence
 
 ocra-voc:saltDamage
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Salt damage"@en ;
     skos:prefLabel "Danno da sali solubili"@it ;
@@ -312,7 +314,7 @@ ocra-voc:saltDamage
 
 ocra-voc:subflorescence
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Subflorescence"@en ;
     skos:prefLabel "Subflorescenza / cristallizzazione subsuperficiale"@it ;
@@ -323,7 +325,7 @@ ocra-voc:subflorescence
 
 ocra-voc:staining
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Staining"@en ;
     skos:prefLabel "Macchia / imbrattamento"@it ;
@@ -331,7 +333,7 @@ ocra-voc:staining
 
 ocra-voc:discolouration
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Discolouration"@en ;
     skos:prefLabel "Discromia / alterazione cromatica"@it ;
@@ -339,7 +341,7 @@ ocra-voc:discolouration
 
 ocra-voc:yellowing
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:discolouration ;
     skos:prefLabel "Yellowing"@en ;
     skos:prefLabel "Ingiallimento"@it ;
@@ -348,7 +350,7 @@ ocra-voc:yellowing
 
 ocra-voc:blackening
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:discolouration ;
     skos:prefLabel "Blackening"@en ;
     skos:prefLabel "Annerimento"@it ;
@@ -359,7 +361,7 @@ ocra-voc:blackening
 
 ocra-voc:oxidation
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Oxidation"@en ;
     skos:prefLabel "Ossidazione"@it ;
@@ -368,7 +370,7 @@ ocra-voc:oxidation
 
 ocra-voc:tarnishing
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:oxidation ;
     skos:prefLabel "Tarnishing"@en ;
     skos:prefLabel "Appannamento / ossidazione superficiale"@it ;
@@ -378,7 +380,7 @@ ocra-voc:tarnishing
 
 ocra-voc:deformation
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Deformation"@en ;
     skos:prefLabel "Deformazione"@it ;
@@ -387,7 +389,7 @@ ocra-voc:deformation
 
 ocra-voc:warping
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Warping"@en ;
     skos:prefLabel "Incurvamento / svergolamento"@it ;
@@ -395,7 +397,7 @@ ocra-voc:warping
 
 ocra-voc:denting
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Denting"@en ;
     skos:prefLabel "Ammaccatura"@it ;
@@ -407,7 +409,7 @@ ocra-voc:denting
 
 ocra-voc:cracks
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Cracks"@en ;
     skos:prefLabel "Fessurazioni"@it ;
@@ -416,7 +418,7 @@ ocra-voc:cracks
 
 ocra-voc:mechanicalCracks
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:cracks ;
     skos:prefLabel "Mechanical cracks"@en ;
     skos:prefLabel "Fessurazioni meccaniche"@it ;
@@ -425,7 +427,7 @@ ocra-voc:mechanicalCracks
 
 ocra-voc:crackle
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:cracks ;
     skos:prefLabel "Crackle"@en ;
     skos:prefLabel "Crettatura"@it ;
@@ -434,7 +436,7 @@ ocra-voc:crackle
 
 ocra-voc:holes
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Holes"@en ;
     skos:prefLabel "Fori"@it ;
@@ -445,7 +447,7 @@ ocra-voc:holes
 
 ocra-voc:fracture
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fracture"@en ;
     skos:prefLabel "Frattura"@it ;
@@ -453,7 +455,7 @@ ocra-voc:fracture
 
 ocra-voc:break
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:fracture ;
     skos:prefLabel "Break"@en ;
     skos:prefLabel "Rottura"@it ;
@@ -461,7 +463,7 @@ ocra-voc:break
 
 ocra-voc:fragmentary
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fragmentary"@en ;
     skos:prefLabel "Frammentario"@it ;
@@ -471,7 +473,7 @@ ocra-voc:fragmentary
 
 ocra-voc:materialLoss
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Material loss"@en ;
     skos:prefLabel "Perdita di materiale"@it ;
@@ -481,7 +483,7 @@ ocra-voc:materialLoss
 
 ocra-voc:lacuna
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialLoss ;
     skos:prefLabel "Lacuna"@en ;
     skos:prefLabel "Lacuna"@it ;
@@ -492,7 +494,7 @@ ocra-voc:lacuna
 
 ocra-voc:missingPart
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialLoss ;
     skos:prefLabel "Missing part"@en ;
     skos:prefLabel "Parte mancante"@it ;
@@ -504,7 +506,7 @@ ocra-voc:missingPart
 
 ocra-voc:fireDamage
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fire damage"@en ;
     skos:prefLabel "Danno da fuoco"@it ;
@@ -512,7 +514,7 @@ ocra-voc:fireDamage
 
 ocra-voc:scorching
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:fireDamage ;
     skos:prefLabel "Scorching"@en ;
     skos:prefLabel "Bruciatura / annerimento da calore"@it ;
@@ -522,7 +524,7 @@ ocra-voc:scorching
 
 ocra-voc:graffiti
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Graffiti"@en ;
     skos:prefLabel "Graffiti / vandalismo"@it ;
@@ -535,7 +537,7 @@ ocra-voc:graffiti
 
 ocra-voc:inscription
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Inscription"@en ;
     skos:prefLabel "Iscrizione"@it ;
@@ -544,7 +546,7 @@ ocra-voc:inscription
 
 ocra-voc:stamping
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Stamps / hallmarks"@en ;
     skos:prefLabel "Punzonature / marchi"@it ;
@@ -553,7 +555,7 @@ ocra-voc:stamping
 
 ocra-voc:fingerprint
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Fingerprint"@en ;
     skos:prefLabel "Impronta digitale"@it ;
@@ -562,7 +564,7 @@ ocra-voc:fingerprint
 
 ocra-voc:toolmarks
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Tool marks"@en ;
     skos:prefLabel "Tracce di lavorazione"@it ;
@@ -571,7 +573,7 @@ ocra-voc:toolmarks
 
 ocra-voc:surfaceTexture
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Surface texture"@en ;
     skos:prefLabel "Texture superficiale"@it ;
@@ -580,7 +582,7 @@ ocra-voc:surfaceTexture
 
 ocra-voc:scratches
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Scratches"@en ;
     skos:prefLabel "Graffi"@it ;
@@ -588,7 +590,7 @@ ocra-voc:scratches
 
 ocra-voc:pittingCondition
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Pitting"@en ;
     skos:prefLabel "Vaiolatura / puntinatura"@it ;
@@ -597,7 +599,7 @@ ocra-voc:pittingCondition
 
 ocra-voc:weld
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Weld / join"@en ;
     skos:prefLabel "Giunzione / saldatura originale"@it ;
@@ -605,7 +607,7 @@ ocra-voc:weld
 
 ocra-voc:repair
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Repair (ancient)"@en ;
     skos:prefLabel "Riparazione antica"@it ;
@@ -617,7 +619,7 @@ ocra-voc:repair
 
 ocra-voc:motifs
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Motifs"@en ;
     skos:prefLabel "Motivi ornamentali"@it ;
@@ -626,7 +628,7 @@ ocra-voc:motifs
 
 ocra-voc:engraving
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Engraving"@en ;
     skos:prefLabel "Incisione"@it ;
@@ -635,7 +637,7 @@ ocra-voc:engraving
 
 ocra-voc:chasing
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Chasing"@en ;
     skos:prefLabel "Cesellatura"@it ;
@@ -643,7 +645,7 @@ ocra-voc:chasing
 
 ocra-voc:repoussé
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Repoussé"@en ;
     skos:prefLabel "Sbalzo / repoussé"@it ;
@@ -651,7 +653,7 @@ ocra-voc:repoussé
 
 ocra-voc:punchwork
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Punchwork"@en ;
     skos:prefLabel "Punzonatura decorativa"@it ;
@@ -660,7 +662,7 @@ ocra-voc:punchwork
 
 ocra-voc:inlay
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Inlay"@en ;
     skos:prefLabel "Intarsio"@it ;
@@ -668,7 +670,7 @@ ocra-voc:inlay
 
 ocra-voc:filigree
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Filigree"@en ;
     skos:prefLabel "Filigrana"@it ;
@@ -676,7 +678,7 @@ ocra-voc:filigree
 
 ocra-voc:niello
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Niello"@en ;
     skos:prefLabel "Niello"@it ;
@@ -684,7 +686,7 @@ ocra-voc:niello
 
 ocra-voc:enamel
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Enamel"@en ;
     skos:prefLabel "Smalto"@it ;
@@ -692,7 +694,7 @@ ocra-voc:enamel
 
 ocra-voc:cloisonné
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:enamel ;
     skos:prefLabel "Cloisonné"@en ;
     skos:prefLabel "Smalto cloisonné"@it ;
@@ -700,7 +702,7 @@ ocra-voc:cloisonné
 
 ocra-voc:champlevé
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:enamel ;
     skos:prefLabel "Champlevé"@en ;
     skos:prefLabel "Smalto champlevé"@it ;
@@ -708,7 +710,7 @@ ocra-voc:champlevé
 
 ocra-voc:relief
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Relief"@en ;
     skos:prefLabel "Rilievo"@it ;
@@ -716,7 +718,7 @@ ocra-voc:relief
 
 ocra-voc:pigment
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Pigment / paint layer"@en ;
     skos:prefLabel "Pigmento / strato pittorico"@it ;
@@ -729,7 +731,7 @@ ocra-voc:pigment
 
 ocra-voc:infills
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Infills"@en ;
     skos:prefLabel "Integrazioni / stuccature"@it ;
@@ -738,7 +740,7 @@ ocra-voc:infills
 
 ocra-voc:gilding
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Gilding"@en ;
     skos:prefLabel "Doratura"@it ;
@@ -747,7 +749,7 @@ ocra-voc:gilding
 
 ocra-voc:parcelGilding
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Parcel gilding"@en ;
     skos:prefLabel "Doratura parziale"@it ;
@@ -757,7 +759,7 @@ ocra-voc:parcelGilding
 
 ocra-voc:fireGilding
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Fire gilding"@en ;
     skos:prefLabel "Doratura a fuoco (amalgama)"@it ;
@@ -767,7 +769,7 @@ ocra-voc:fireGilding
 
 ocra-voc:leafGilding
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Gold leaf gilding"@en ;
     skos:prefLabel "Doratura a foglia"@it ;
@@ -776,7 +778,7 @@ ocra-voc:leafGilding
 
 ocra-voc:silvering
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Silvering"@en ;
     skos:prefLabel "Argentatura"@it ;
@@ -785,7 +787,7 @@ ocra-voc:silvering
 
 ocra-voc:tinning
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Tinning"@en ;
     skos:prefLabel "Stagnatura"@it ;
@@ -794,7 +796,7 @@ ocra-voc:tinning
 
 ocra-voc:casting
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Casting"@en ;
     skos:prefLabel "Fusione"@it ;
@@ -803,7 +805,7 @@ ocra-voc:casting
 
 ocra-voc:hammeringTechnique
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Hammering"@en ;
     skos:prefLabel "Martellatura"@it ;
@@ -812,7 +814,7 @@ ocra-voc:hammeringTechnique
 
 ocra-voc:solderingTechnique
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Soldering"@en ;
     skos:prefLabel "Saldatura"@it ;
@@ -822,7 +824,7 @@ ocra-voc:solderingTechnique
 
 ocra-voc:inpainting
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Inpainting"@en ;
     skos:prefLabel "Reintegrazione pittorica"@it ;
@@ -831,7 +833,7 @@ ocra-voc:inpainting
 
 ocra-voc:fillingProcess
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Filling"@en ;
     skos:prefLabel "Stuccatura / riempimento"@it ;
@@ -841,7 +843,7 @@ ocra-voc:fillingProcess
 
 ocra-voc:polishing
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Polishing"@en ;
     skos:prefLabel "Lucidatura"@it ;
@@ -850,7 +852,7 @@ ocra-voc:polishing
 
 ocra-voc:burnishing
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Burnishing"@en ;
     skos:prefLabel "Brunitura"@it ;
@@ -863,7 +865,7 @@ ocra-voc:burnishing
 
 ocra-voc:cleaning
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Cleaning"@en ;
     skos:prefLabel "Pulitura"@it ;
@@ -872,7 +874,7 @@ ocra-voc:cleaning
 
 ocra-voc:mechanicalCleaning
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Mechanical cleaning"@en ;
     skos:prefLabel "Pulitura meccanica"@it ;
@@ -881,7 +883,7 @@ ocra-voc:mechanicalCleaning
 
 ocra-voc:chemicalCleaning
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Chemical cleaning"@en ;
     skos:prefLabel "Pulitura chimica"@it ;
@@ -890,7 +892,7 @@ ocra-voc:chemicalCleaning
 
 ocra-voc:laserCleaning
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Laser cleaning"@en ;
     skos:prefLabel "Pulitura laser"@it ;
@@ -899,7 +901,7 @@ ocra-voc:laserCleaning
 
 ocra-voc:consolidation
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Consolidation"@en ;
     skos:prefLabel "Consolidamento"@it ;
@@ -908,7 +910,7 @@ ocra-voc:consolidation
 
 ocra-voc:adhesiveBonding
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Adhesive bonding"@en ;
     skos:prefLabel "Incollaggio / giunzione con adesivo"@it ;
@@ -916,7 +918,7 @@ ocra-voc:adhesiveBonding
 
 ocra-voc:desalination
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Desalination"@en ;
     skos:prefLabel "Desalinizzazione"@it ;
@@ -925,7 +927,7 @@ ocra-voc:desalination
 
 ocra-voc:protectiveCoating
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Protective coating"@en ;
     skos:prefLabel "Strato protettivo / verniciatura"@it ;
@@ -934,7 +936,7 @@ ocra-voc:protectiveCoating
 
 ocra-voc:corrosionInhibitor
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Corrosion inhibitor treatment"@en ;
     skos:prefLabel "Trattamento con inibitore di corrosione"@it ;
@@ -942,7 +944,7 @@ ocra-voc:corrosionInhibitor
 
 ocra-voc:restructuring
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Restructuring / reassembly"@en ;
     skos:prefLabel "Riassemblaggio / ricostruzione"@it ;
@@ -955,7 +957,7 @@ ocra-voc:restructuring
 
 ocra-voc:metalMaterial
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Metal"@en ;
     skos:prefLabel "Metallo"@it ;
@@ -964,7 +966,7 @@ ocra-voc:metalMaterial
 
 ocra-voc:copperAlloy
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Copper alloy"@en ;
     skos:prefLabel "Lega di rame"@it ;
@@ -973,7 +975,7 @@ ocra-voc:copperAlloy
 
 ocra-voc:bronze
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:copperAlloy ;
     skos:prefLabel "Bronze"@en ;
     skos:prefLabel "Bronzo"@it ;
@@ -982,7 +984,7 @@ ocra-voc:bronze
 
 ocra-voc:brass
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:copperAlloy ;
     skos:prefLabel "Brass"@en ;
     skos:prefLabel "Ottone"@it ;
@@ -991,7 +993,7 @@ ocra-voc:brass
 
 ocra-voc:iron
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Iron"@en ;
     skos:prefLabel "Ferro"@it ;
@@ -1000,7 +1002,7 @@ ocra-voc:iron
 
 ocra-voc:silver
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Silver"@en ;
     skos:prefLabel "Argento"@it ;
@@ -1009,7 +1011,7 @@ ocra-voc:silver
 
 ocra-voc:gold
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Gold"@en ;
     skos:prefLabel "Oro"@it ;
@@ -1018,7 +1020,7 @@ ocra-voc:gold
 
 ocra-voc:lead
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Lead"@en ;
     skos:prefLabel "Piombo"@it ;
@@ -1026,7 +1028,7 @@ ocra-voc:lead
 
 ocra-voc:ceramicMaterial
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Ceramic"@en ;
     skos:prefLabel "Ceramica"@it ;
@@ -1035,7 +1037,7 @@ ocra-voc:ceramicMaterial
 
 ocra-voc:terracotta
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:ceramicMaterial ;
     skos:prefLabel "Terracotta"@en ;
     skos:prefLabel "Terracotta"@it ;
@@ -1044,7 +1046,7 @@ ocra-voc:terracotta
 
 ocra-voc:stoneMaterial
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Stone"@en ;
     skos:prefLabel "Pietra"@it ;
@@ -1053,7 +1055,7 @@ ocra-voc:stoneMaterial
 
 ocra-voc:marble
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:stoneMaterial ;
     skos:prefLabel "Marble"@en ;
     skos:prefLabel "Marmo"@it ;
@@ -1062,7 +1064,7 @@ ocra-voc:marble
 
 ocra-voc:limestone
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:stoneMaterial ;
     skos:prefLabel "Limestone"@en ;
     skos:prefLabel "Calcare"@it ;
@@ -1071,7 +1073,7 @@ ocra-voc:limestone
 
 ocra-voc:woodMaterial
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Wood"@en ;
     skos:prefLabel "Legno"@it ;
@@ -1080,7 +1082,7 @@ ocra-voc:woodMaterial
 
 ocra-voc:ivoryBone
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Ivory / bone"@en ;
     skos:prefLabel "Avorio / osso"@it ;
@@ -1089,7 +1091,7 @@ ocra-voc:ivoryBone
 
 ocra-voc:glass
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Glass"@en ;
     skos:prefLabel "Vetro"@it ;
@@ -1098,7 +1100,7 @@ ocra-voc:glass
 
 ocra-voc:textile
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Textile"@en ;
     skos:prefLabel "Tessuto"@it ;
@@ -1107,7 +1109,7 @@ ocra-voc:textile
 
 ocra-voc:organicMaterial
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Organic material"@en ;
     skos:prefLabel "Materiale organico"@it ;
@@ -1119,7 +1121,7 @@ ocra-voc:organicMaterial
 
 ocra-voc:thinSheet
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Thin sheet / foil"@en ;
     skos:prefLabel "Lamina / foglia metallica"@it ;
@@ -1127,7 +1129,7 @@ ocra-voc:thinSheet
 
 ocra-voc:cutting
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Cutting"@en ;
     skos:prefLabel "Ritaglio / incisione di contorno"@it ;
@@ -1137,7 +1139,7 @@ ocra-voc:cutting
 
 ocra-voc:sewingHoles
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Sewing holes / attachment holes"@en ;
     skos:prefLabel "Fori di cucitura / attacco"@it ;
@@ -1147,7 +1149,7 @@ ocra-voc:sewingHoles
 
 ocra-voc:crinkling
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Crinkling / wrinkling"@en ;
     skos:prefLabel "Raggrinzimento / increspatura"@it ;
@@ -1158,7 +1160,7 @@ ocra-voc:crinkling
 
 ocra-voc:folding
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Folding / bending"@en ;
     skos:prefLabel "Piega / piegatura"@it ;
@@ -1166,7 +1168,7 @@ ocra-voc:folding
 
 ocra-voc:tears
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Tears"@en ;
     skos:prefLabel "Strappi / lacerazioni"@it ;
@@ -1186,7 +1188,7 @@ ocra-voc:tears
 
 ocra-voc:iconography
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Iconography"@en ;
     skos:prefLabel "Iconografia"@it ;
@@ -1199,7 +1201,7 @@ ocra-voc:iconography
 
 ocra-voc:geometricPattern
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Geometric pattern"@en ;
     skos:prefLabel "Motivo geometrico"@it ;
@@ -1208,7 +1210,7 @@ ocra-voc:geometricPattern
 
 ocra-voc:zoomorphicMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Zoomorphic motif"@en ;
     skos:prefLabel "Motivo zoomorfo"@it ;
@@ -1216,7 +1218,7 @@ ocra-voc:zoomorphicMotif
 
 ocra-voc:anthropomorphicMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Anthropomorphic motif"@en ;
     skos:prefLabel "Motivo antropomorfo"@it ;
@@ -1224,7 +1226,7 @@ ocra-voc:anthropomorphicMotif
 
 ocra-voc:astralmotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Astral motif"@en ;
     skos:prefLabel "Motivo astrale"@it ;
@@ -1234,7 +1236,7 @@ ocra-voc:astralmotif
 
 ocra-voc:vegetalMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Vegetal motif"@en ;
     skos:prefLabel "Motivo vegetale"@it ;
@@ -1242,7 +1244,7 @@ ocra-voc:vegetalMotif
 
 ocra-voc:palmette
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:vegetalMotif ;
     skos:prefLabel "Palmette"@en ;
     skos:prefLabel "Palmetta"@it ;
@@ -1253,7 +1255,7 @@ ocra-voc:palmette
 
 ocra-voc:rosette
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:vegetalMotif ;
     skos:prefLabel "Rosette"@en ;
     skos:prefLabel "Rosetta"@it ;
@@ -1263,7 +1265,7 @@ ocra-voc:rosette
 
 ocra-voc:lotusMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:vegetalMotif ;
     skos:prefLabel "Lotus"@en ;
     skos:prefLabel "Loto"@it ;
@@ -1278,7 +1280,7 @@ ocra-voc:lotusMotif
 
 ocra-voc:egyptianizingMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Egyptianizing motif"@en ;
     skos:prefLabel "Motivo egittizzante"@it ;
@@ -1288,7 +1290,7 @@ ocra-voc:egyptianizingMotif
 
 ocra-voc:solarDisk
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Solar disk"@en ;
     skos:prefLabel "Disco solare"@it ;
@@ -1299,7 +1301,7 @@ ocra-voc:solarDisk
 
 ocra-voc:wingedSolarDisk
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Winged sun disk"@en ;
     skos:prefLabel "Disco solare alato"@it ;
@@ -1310,7 +1312,7 @@ ocra-voc:wingedSolarDisk
 
 ocra-voc:uraeus
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Uraeus"@en ;
     skos:prefLabel "Ureo"@it ;
@@ -1321,7 +1323,7 @@ ocra-voc:uraeus
 
 ocra-voc:ankh
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Ankh"@en ;
     skos:prefLabel "Ankh (croce ansata)"@it ;
@@ -1332,7 +1334,7 @@ ocra-voc:ankh
 
 ocra-voc:djedPillar
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Djed pillar"@en ;
     skos:prefLabel "Pilastro djed"@it ;
@@ -1343,7 +1345,7 @@ ocra-voc:djedPillar
 
 ocra-voc:eyeOfHorus
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Eye of Horus (Wedjat)"@en ;
     skos:prefLabel "Occhio di Horus (Wedjat)"@it ;
@@ -1354,7 +1356,7 @@ ocra-voc:eyeOfHorus
 
 ocra-voc:scarabMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Scarab"@en ;
     skos:prefLabel "Scarabeo"@it ;
@@ -1366,7 +1368,7 @@ ocra-voc:scarabMotif
 
 ocra-voc:wasScepter
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Was scepter"@en ;
     skos:prefLabel "Scettro was"@it ;
@@ -1377,7 +1379,7 @@ ocra-voc:wasScepter
 
 ocra-voc:horusChild
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Horus the child (Harpocrates)"@en ;
     skos:prefLabel "Horo bambino (Harpocrate)"@it ;
@@ -1388,7 +1390,7 @@ ocra-voc:horusChild
 
 ocra-voc:ptah
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Ptah / Ptah-Sokar"@en ;
     skos:prefLabel "Ptah / Ptah-Sokar"@it ;
@@ -1399,7 +1401,7 @@ ocra-voc:ptah
 
 ocra-voc:isisHathor
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:egyptianizingMotif ;
     skos:prefLabel "Isis / Hathor"@en ;
     skos:prefLabel "Iside / Hathor"@it ;
@@ -1415,7 +1417,7 @@ ocra-voc:isisHathor
 
 ocra-voc:punicIconography
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Phoenician / Punic iconography"@en ;
     skos:prefLabel "Iconografia fenicio-punica"@it ;
@@ -1425,7 +1427,7 @@ ocra-voc:punicIconography
 
 ocra-voc:signOfTanit
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Sign of Tanit"@en ;
     skos:prefLabel "Segno di Tanit"@it ;
@@ -1436,7 +1438,7 @@ ocra-voc:signOfTanit
 
 ocra-voc:crescentAndDisk
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Crescent and disk"@en ;
     skos:prefLabel "Mezzaluna e disco"@it ;
@@ -1446,7 +1448,7 @@ ocra-voc:crescentAndDisk
 
 ocra-voc:caduceus
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Caduceus"@en ;
     skos:prefLabel "Caduceo"@it ;
@@ -1457,7 +1459,7 @@ ocra-voc:caduceus
 
 ocra-voc:betylos
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Betyl / baetyl"@en ;
     skos:prefLabel "Betilo"@it ;
@@ -1467,7 +1469,7 @@ ocra-voc:betylos
 
 ocra-voc:bottleIdol
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Bottle idol"@en ;
     skos:prefLabel "Idolo a bottiglia"@it ;
@@ -1477,7 +1479,7 @@ ocra-voc:bottleIdol
 
 ocra-voc:openHand
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Open / raised hand"@en ;
     skos:prefLabel "Mano aperta / alzata"@it ;
@@ -1487,7 +1489,7 @@ ocra-voc:openHand
 
 ocra-voc:thymiaterion
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Thymiaterion / incense burner"@en ;
     skos:prefLabel "Tymaterion / bruciaprofumi"@it ;
@@ -1498,7 +1500,7 @@ ocra-voc:thymiaterion
 
 ocra-voc:punicPalmTree
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Palm tree"@en ;
     skos:prefLabel "Palma"@it ;
@@ -1509,7 +1511,7 @@ ocra-voc:punicPalmTree
 
 ocra-voc:punicMask
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Punic mask"@en ;
     skos:prefLabel "Maschera punica"@it ;
@@ -1519,7 +1521,7 @@ ocra-voc:punicMask
 
 ocra-voc:priestFigure
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:punicIconography ;
     skos:prefLabel "Priest figure / orant"@en ;
     skos:prefLabel "Figura di sacerdote / orante"@it ;
@@ -1534,7 +1536,7 @@ ocra-voc:priestFigure
 
 ocra-voc:greekIconography
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Greek / Hellenistic iconography"@en ;
     skos:prefLabel "Iconografia greca / ellenistica"@it ;
@@ -1542,7 +1544,7 @@ ocra-voc:greekIconography
 
 ocra-voc:gorgoneion
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Gorgoneion"@en ;
     skos:prefLabel "Gorgoneion"@it ;
@@ -1553,7 +1555,7 @@ ocra-voc:gorgoneion
 
 ocra-voc:acanthus
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Acanthus"@en ;
     skos:prefLabel "Acanto"@it ;
@@ -1564,7 +1566,7 @@ ocra-voc:acanthus
 
 ocra-voc:meander
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Meander / Greek key"@en ;
     skos:prefLabel "Meandro / greca"@it ;
@@ -1575,7 +1577,7 @@ ocra-voc:meander
 
 ocra-voc:pegasus
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:greekIconography ;
     skos:prefLabel "Pegasus"@en ;
     skos:prefLabel "Pegaso"@it ;
@@ -1590,7 +1592,7 @@ ocra-voc:pegasus
 
 ocra-voc:romanIconography
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Roman iconography"@en ;
     skos:prefLabel "Iconografia romana"@it ;
@@ -1598,7 +1600,7 @@ ocra-voc:romanIconography
 
 ocra-voc:eagleRoman
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:romanIconography ;
     skos:prefLabel "Eagle (Roman imperial)"@en ;
     skos:prefLabel "Aquila (simbolo imperiale romano)"@it ;
@@ -1609,7 +1611,7 @@ ocra-voc:eagleRoman
 
 ocra-voc:cornucopia
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:romanIconography ;
     skos:prefLabel "Cornucopia"@en ;
     skos:prefLabel "Cornucopia"@it ;
@@ -1621,7 +1623,7 @@ ocra-voc:cornucopia
 
 ocra-voc:labarum
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:romanIconography ;
     skos:prefLabel "Labarum / Chi-Rho"@en ;
     skos:prefLabel "Labaro / Chi-Rho"@it ;
@@ -1636,7 +1638,7 @@ ocra-voc:labarum
 
 ocra-voc:christianCross
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Christian cross"@en ;
     skos:prefLabel "Croce cristiana"@it ;
@@ -1647,7 +1649,7 @@ ocra-voc:christianCross
 
 ocra-voc:agnus
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Agnus Dei"@en ;
     skos:prefLabel "Agnus Dei"@it ;
@@ -1659,7 +1661,7 @@ ocra-voc:agnus
 
 ocra-voc:fleurDeLis
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Fleur-de-lis"@en ;
     skos:prefLabel "Giglio araldico / fiordaliso"@it ;
@@ -1670,7 +1672,7 @@ ocra-voc:fleurDeLis
 
 ocra-voc:heraldryMotif
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Heraldic motif"@en ;
     skos:prefLabel "Motivo araldico"@it ;
@@ -1682,14 +1684,14 @@ ocra-voc:heraldryMotif
 
 ocra-voc:contextOfUse
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Context of use"@en ;
     skos:prefLabel "Contesto d'uso"@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:funeraryContext
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Funerary context"@en ;
     skos:prefLabel "Contesto funerario"@it ;
@@ -1697,7 +1699,7 @@ ocra-voc:funeraryContext
 
 ocra-voc:ceremonialUse
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Ceremonial use"@en ;
     skos:prefLabel "Uso cerimoniale / rituale"@it ;
@@ -1705,7 +1707,7 @@ ocra-voc:ceremonialUse
 
 ocra-voc:applique
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Appliqué / ornament sewn onto support"@en ;
     skos:prefLabel "Applique / ornamento cucito su supporto"@it ;
@@ -1715,7 +1717,7 @@ ocra-voc:applique
 
 ocra-voc:garmentsOrnamentation
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Garment ornamentation"@en ;
     skos:prefLabel "Ornamento d'abbigliamento"@it ;
@@ -1723,7 +1725,7 @@ ocra-voc:garmentsOrnamentation
 
 ocra-voc:organicSupportLoss
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Organic support loss"@en ;
     skos:prefLabel "Perdita del supporto organico (tessuto, legno, cuoio)"@it ;
@@ -1737,14 +1739,14 @@ ocra-voc:organicSupportLoss
 
 ocra-voc:scientificExamination
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Scientific examination"@en ;
     skos:prefLabel "Esame scientifico"@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:rtiExamination
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Reflectance Transformation Imaging (RTI)"@en ;
     skos:prefLabel "Esame RTI (Reflectance Transformation Imaging)"@it ;
@@ -1755,7 +1757,7 @@ ocra-voc:rtiExamination
 
 ocra-voc:scanning3D
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "3D scanning"@en ;
     skos:prefLabel "Scansione 3D"@it ;
@@ -1763,7 +1765,7 @@ ocra-voc:scanning3D
 
 ocra-voc:xrayExamination
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "X-ray examination"@en ;
     skos:prefLabel "Radiografia X"@it ;
@@ -1771,7 +1773,7 @@ ocra-voc:xrayExamination
 
 ocra-voc:xrfAnalysis
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "X-ray fluorescence (XRF)"@en ;
     skos:prefLabel "Fluorescenza a raggi X (XRF)"@it ;
@@ -1781,7 +1783,7 @@ ocra-voc:xrfAnalysis
 
 ocra-voc:multispectralImaging
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Multispectral imaging"@en ;
     skos:prefLabel "Imaging multispettrale"@it ;
@@ -1790,10 +1792,9 @@ ocra-voc:multispectralImaging
 
 ocra-voc:photogrammetry
     a skos:Concept ;
-    skos:inScheme ocra-voc:ConservationAnnotationVocabulary ;
+    skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Photogrammetry"@en ;
     skos:prefLabel "Fotogrammetria"@it ;
     skos:exactMatch aat:300053580 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
-
