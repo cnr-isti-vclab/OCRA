@@ -2,6 +2,8 @@
 @prefix ocra:     <https://ocra.example.org/ontology/> .
 @prefix aat:      <http://vocab.getty.edu/aat/> .
 @prefix wd:       <http://www.wikidata.org/entity/> .
+@prefix dcterms:  <http://purl.org/dc/terms/> .
+@prefix rdfs:     <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos:     <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd:      <http://www.w3.org/2001/XMLSchema#> .
 
@@ -24,6 +26,44 @@ ocra:defaultColor
     a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
     skos:prefLabel "default display color"@en ;
     skos:prefLabel "colore di visualizzazione predefinito"@it .
+
+# Descriptive metadata properties aligned with Dublin Core.
+
+ocra:generalDescription
+    a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
+    rdfs:subPropertyOf dcterms:description ;
+    skos:prefLabel "general description"@en ;
+    skos:prefLabel "descrizione generale"@it ;
+    skos:scopeNote "Free-text general description of the cultural heritage object, aligned with Dublin Core description."@en ;
+    skos:scopeNote "Descrizione testuale generale del bene culturale, allineata a Dublin Core description."@it ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
+
+ocra:artisticDescription
+    a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
+    rdfs:subPropertyOf ocra:generalDescription ;
+    skos:prefLabel "artistic description"@en ;
+    skos:prefLabel "descrizione artistica"@it ;
+    skos:scopeNote "Free-text note describing style, visual language, iconographic reading, or other art-historical aspects of the object."@en ;
+    skos:scopeNote "Nota testuale che descrive stile, linguaggio figurativo, lettura iconografica o altri aspetti storico-artistici del bene."@it ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
+
+ocra:historicalDescription
+    a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
+    rdfs:subPropertyOf ocra:generalDescription ;
+    skos:prefLabel "historical description"@en ;
+    skos:prefLabel "descrizione storica"@it ;
+    skos:scopeNote "Free-text note for chronology, historical context, use history, provenance summary, or other historically relevant information."@en ;
+    skos:scopeNote "Nota testuale per cronologia, contesto storico, storia d'uso, sintesi della provenienza o altre informazioni storicamente rilevanti."@it ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
+
+ocra:technicalDescription
+    a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> ;
+    rdfs:subPropertyOf ocra:generalDescription ;
+    skos:prefLabel "technical description"@en ;
+    skos:prefLabel "descrizione tecnico-materiale"@it ;
+    skos:scopeNote "Free-text note describing manufacture, materials, construction, or other technical features not already captured by controlled terms."@en ;
+    skos:scopeNote "Nota testuale che descrive manifattura, materiali, costruzione o altre caratteristiche tecniche non gia catturate da termini controllati."@it ;
+    ocra:defaultColor "#5D6D7E"^^xsd:string .
 
 # ============================================================
 # TOP CONCEPTS
