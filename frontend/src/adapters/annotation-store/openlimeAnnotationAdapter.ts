@@ -15,16 +15,41 @@ export type OpenLimeSyncedAnnotation = {
   label?: string;
   class?: string | number | null;
   semanticClass?: string | null;
+  strokeDasharray?: string | null;
   type?: string;
   data?: Record<string, unknown>;
   svg?: string | null;
   elements?: Array<{
     classList?: { contains: (c: string) => boolean };
     getAttribute?: (name: string) => string | null;
+    setAttribute?: (name: string, value: string) => void;
+    removeAttribute?: (name: string) => void;
+    style?: CSSStyleDeclaration;
   }>;
   ready?: boolean;
   needsUpdate?: boolean;
 };
+
+function applyStrokeDasharray(
+  anno: OpenLimeSyncedAnnotation,
+  strokeDasharray: string | null | undefined,
+): void {
+  for (const element of anno.elements ?? []) {
+    const isStrokeElement =
+      element.classList?.contains('annotation-disk') ||
+      element.classList?.contains('annotation-polyline') ||
+      element.classList?.contains('annotation-rect') ||
+      element.classList?.contains('annotation-freehand');
+    if (!isStrokeElement) {
+      continue;
+    }
+    if (strokeDasharray) {
+      element.setAttribute?.('stroke-dasharray', strokeDasharray);
+    } else {
+      element.removeAttribute?.('stroke-dasharray');
+    }
+  }
+}
 
 function ensureElementsFromSvg(anno: OpenLimeSyncedAnnotation): void {
   if (anno.ready && anno.elements && anno.elements.length > 0) {
@@ -138,6 +163,12 @@ export function syncOpenLimeAnnotations(
           existing.needsUpdate = true;
           stylesUpdated = true;
         }
+        if ((existing.strokeDasharray ?? null) !== (viewerAnno.strokeDasharray ?? null)) {
+          existing.strokeDasharray = viewerAnno.strokeDasharray ?? null;
+          applyStrokeDasharray(existing, existing.strokeDasharray);
+          existing.needsUpdate = true;
+          stylesUpdated = true;
+        }
         continue;
       }
 
@@ -158,6 +189,12 @@ export function syncOpenLimeAnnotations(
 
       if (existing && (existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
         existing.semanticClass = viewerAnno.semanticClass ?? null;
+        existing.needsUpdate = true;
+        stylesUpdated = true;
+      }
+      if (existing && (existing.strokeDasharray ?? null) !== (viewerAnno.strokeDasharray ?? null)) {
+        existing.strokeDasharray = viewerAnno.strokeDasharray ?? null;
+        applyStrokeDasharray(existing, existing.strokeDasharray);
         existing.needsUpdate = true;
         stylesUpdated = true;
       }
@@ -186,6 +223,7 @@ export function syncOpenLimeAnnotations(
         // Make SVG elements available immediately so OpenLIME's style application
         // (triggered by deselect/select) can affect them without waiting for prefetch().
         ensureElementsFromSvg(anno);
+        applyStrokeDasharray(anno, viewerAnno.strokeDasharray ?? null);
       }
     }
 

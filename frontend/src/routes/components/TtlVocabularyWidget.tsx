@@ -18,15 +18,14 @@ import { getApiBase } from '../../config/oauth';
 interface VocabularyConcept {
   curie: string;
   prefLabelEn: string;
-  prefLabelIt: string;
   color: string;
   broader: string | null;
+  scopeNoteEn: string;
 }
 
 interface VocabularyScheme {
   curie: string;
   prefLabelEn: string;
-  prefLabelIt: string;
   scopeNoteEn: string;
 }
 
@@ -55,38 +54,70 @@ function ColorDot({ color, size = 12 }: { color: string; size?: number }) {
 function ConceptTree({
   root,
   all,
+  selectedCurie,
+  onSelect,
   depth = 0,
 }: {
   root: VocabularyConcept;
   all: VocabularyConcept[];
+  selectedCurie: string | null;
+  onSelect: (concept: VocabularyConcept) => void;
   depth?: number;
 }) {
   const [open, setOpen] = useState(false);
   const children = all.filter((c) => c.broader === root.curie);
   const hasChildren = children.length > 0;
+  const isSelected = selectedCurie === root.curie;
 
   return (
     <div style={{ marginLeft: depth * 14 }}>
       <div
         className="d-flex align-items-center gap-2 py-1 rounded px-1"
-        style={{ cursor: hasChildren ? 'pointer' : 'default', userSelect: 'none' }}
-        onClick={() => hasChildren && setOpen((o) => !o)}
+        style={{ userSelect: 'none' }}
+        title={root.curie}
       >
         <ColorDot color={root.color} size={depth === 0 ? 14 : 11} />
-        <span className={depth === 0 ? 'fw-semibold' : ''}>{root.prefLabelEn}</span>
-        {root.prefLabelIt && (
-          <span className="text-muted small fst-italic">({root.prefLabelIt})</span>
-        )}
+        <button
+          type="button"
+          className={`btn btn-link p-0 text-start text-decoration-none ${depth === 0 ? 'fw-semibold' : ''}`}
+          onClick={() => onSelect(root)}
+          title={root.curie}
+          style={{ color: 'inherit' }}
+        >
+          {root.prefLabelEn}
+        </button>
         {hasChildren && (
-          <i
-            className={`bi bi-chevron-${open ? 'up' : 'down'} ms-auto text-muted`}
-            style={{ fontSize: '0.7rem' }}
-          />
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary ms-auto py-0 px-1"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? `Collapse ${root.prefLabelEn}` : `Expand ${root.prefLabelEn}`}
+          >
+            <i
+              className={`bi bi-chevron-${open ? 'up' : 'down'} text-muted`}
+              style={{ fontSize: '0.7rem' }}
+            />
+          </button>
         )}
       </div>
+      {isSelected && (
+        <div className="mt-1 mb-2 ms-4 small border-start ps-2 text-muted">
+          <div><strong>{root.prefLabelEn}</strong></div>
+          <div><code>{root.curie}</code></div>
+          {root.scopeNoteEn && <div>{root.scopeNoteEn}</div>}
+        </div>
+      )}
       {open &&
         children.map((child) => (
-          <ConceptTree key={child.curie} root={child} all={all} depth={depth + 1} />
+          <ConceptTree
+            key={child.curie}
+            root={child}
+            all={all}
+            selectedCurie={selectedCurie}
+            onSelect={onSelect}
+            depth={depth + 1}
+          />
         ))}
     </div>
   );
@@ -96,6 +127,7 @@ export default function TtlVocabularyWidget() {
   const [data, setData] = useState<ConceptsResponse | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCurie, setSelectedCurie] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${getApiBase()}/api/vocabulary/concepts`, { credentials: 'include' })
@@ -116,14 +148,7 @@ export default function TtlVocabularyWidget() {
         style={{ backgroundColor: 'var(--bs-warning-bg-subtle, #fff8e1)' }}
       >
         <span className="badge bg-warning text-dark">spike</span>
-        <strong className="flex-grow-1">
-          {data ? data.scheme.prefLabelEn : 'TTL Vocabulary'}
-          {data?.scheme.prefLabelIt && (
-            <span className="text-muted fw-normal small ms-2 fst-italic">
-              — {data.scheme.prefLabelIt}
-            </span>
-          )}
-        </strong>
+        <strong className="flex-grow-1">{data ? data.scheme.prefLabelEn : 'TTL Vocabulary'}</strong>
         {data && (
           <small className="text-muted me-1">{data.concepts.length} concepts</small>
         )}
@@ -158,7 +183,15 @@ export default function TtlVocabularyWidget() {
                 {topConcepts.map((top) => (
                   <div key={top.curie} className="col">
                     <div className="border rounded p-2 h-100">
-                      <ConceptTree root={top} all={data.concepts} depth={0} />
+                      <ConceptTree
+                        root={top}
+                        all={data.concepts}
+                        selectedCurie={selectedCurie}
+                        onSelect={(concept) =>
+                          setSelectedCurie((current) => (current === concept.curie ? null : concept.curie))
+                        }
+                        depth={0}
+                      />
                     </div>
                   </div>
                 ))}

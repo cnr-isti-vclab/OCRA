@@ -37,6 +37,8 @@ export interface ViewerAnnotation {
   label: string;
   /** Optional semantic class reference used by viewers for class-driven styling. */
   semanticClass?: string | null;
+  /** Optional dashed stroke pattern for viewer-side semantic overlays. */
+  strokeDasharray?: string | null;
   /** Type of annotation */
   type: ViewerAnnotationShapeType;
   /** Geometric data for the annotation */

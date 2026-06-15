@@ -3,9 +3,9 @@ import { getApiBase } from '../config/oauth';
 export interface VocabularyConcept {
   curie: string;
   prefLabelEn: string;
-  prefLabelIt: string;
   color: string;
   broader: string | null;
+  scopeNoteEn: string;
 }
 
 interface VocabularyConceptsResponse {

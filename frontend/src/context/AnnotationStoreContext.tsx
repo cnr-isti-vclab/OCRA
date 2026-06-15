@@ -20,6 +20,7 @@ import type {
   AnnotationLink,
 } from 'shared/annotation-types';
 import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
+import { fetchVocabularyConcepts, type VocabularyConcept } from '../services/VocabularyConceptApi';
 import {
   createEmptyActiveSelection,
   EMPTY_SELECTION_CRITERIA,
@@ -44,6 +45,14 @@ export interface AnnotationStoreLogEntry {
   tone: AnnotationStoreLogTone;
   timestamp: string;
   message: string;
+}
+
+export interface SceneAnnotationClassOption {
+  curie: string;
+  label: string;
+  color: string;
+  dataCount: number;
+  geometryCount: number;
 }
 
 export interface AnnotationFocusState {
@@ -72,9 +81,13 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   activeAnnotationSelection: ActiveAnnotationSelection;
   currentSelectionCriteria: Readonly<SelectionCriteria>;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
-  annotationClassFilterInput: string;
+  sceneAnnotationClassPool: SceneAnnotationClassOption[];
+  annotationClassFilterMode: 'none' | 'custom' | 'all';
   annotationClassFilterValues: string[];
-  setAnnotationClassFilterInput: (value: string) => void;
+  setAnnotationClassFilterValues: (values: string[]) => void;
+  toggleAnnotationClassFilterValue: (curie: string) => void;
+  selectAllAnnotationClassFilters: () => void;
+  clearAnnotationClassFilter: () => void;
   realtimeState: AnnotationRealtimeState;
   loadingAdditionalData: boolean;
   creating: boolean;
@@ -166,7 +179,9 @@ export function AnnotationStoreProvider({
   const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
   const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
-  const [annotationClassFilterInput, setAnnotationClassFilterInput] = useState('');
+  const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<'none' | 'custom' | 'all'>('none');
+  const [customAnnotationClassFilterValues, setCustomAnnotationClassFilterValues] = useState<string[]>([]);
+  const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
   const [latestMutationsByEntity, setLatestMutationsByEntity] = useState<Map<string, MutationSummary>>(
     () => new Map(),
@@ -321,6 +336,27 @@ export function AnnotationStoreProvider({
   }, [sceneId, clearFocus]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    void fetchVocabularyConcepts()
+      .then((concepts) => {
+        if (!cancelled) {
+          setVocabularyConcepts(concepts);
+        }
+      })
+      .catch((error) => {
+        console.warn('Failed to load vocabulary concepts:', error);
+        if (!cancelled) {
+          setVocabularyConcepts([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!projectId || !sceneId) {
       storeRef.current = null;
       setRealtimeState('idle');
@@ -447,19 +483,6 @@ export function AnnotationStoreProvider({
     [store, revision],
   );
 
-  const annotationClassFilterValues = useMemo(() => {
-    const tokens = annotationClassFilterInput
-      .split(/[,\n]+/)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-
-    return [...new Set(tokens)];
-  }, [annotationClassFilterInput]);
-
-  useEffect(() => {
-    clearFocus();
-  }, [annotationClassFilterValues, clearFocus]);
-
   const activeGeometries = useMemo(
     () => [...activeAnnotationSelection.geometriesById.values()],
     [activeAnnotationSelection],
@@ -472,6 +495,151 @@ export function AnnotationStoreProvider({
     () => [...activeAnnotationSelection.linksById.values()],
     [activeAnnotationSelection],
   );
+
+  const sceneAnnotationClassPool = useMemo<SceneAnnotationClassOption[]>(() => {
+    const geometryIdsByClass = new Map<string, Set<string>>();
+    const dataCountsByClass = new Map<string, number>();
+    const conceptByCurie = new Map(vocabularyConcepts.map((concept) => [concept.curie, concept]));
+
+    for (const datum of activeData) {
+      if (!datum.class) {
+        continue;
+      }
+      dataCountsByClass.set(datum.class, (dataCountsByClass.get(datum.class) ?? 0) + 1);
+
+      const geometryIds = geometryIdsByClass.get(datum.class) ?? new Set<string>();
+      for (const geometryId of activeAnnotationSelection.geometryIdsByDataId.get(datum.id) ?? []) {
+        geometryIds.add(geometryId);
+      }
+      geometryIdsByClass.set(datum.class, geometryIds);
+    }
+
+    return [...dataCountsByClass.entries()]
+      .map(([curie, dataCount]) => {
+        const concept = conceptByCurie.get(curie);
+        return {
+          curie,
+          label: concept?.prefLabelEn || curie,
+          color: concept?.color || '#808080',
+          dataCount,
+          geometryCount: geometryIdsByClass.get(curie)?.size ?? 0,
+        };
+      })
+      .sort((left, right) => {
+        if (right.dataCount !== left.dataCount) {
+          return right.dataCount - left.dataCount;
+        }
+        return left.label.localeCompare(right.label);
+      });
+  }, [activeAnnotationSelection.geometryIdsByDataId, activeData, vocabularyConcepts]);
+
+  const annotationClassFilterValues = useMemo(() => {
+    if (annotationClassFilterMode === 'all') {
+      return sceneAnnotationClassPool.map((option) => option.curie);
+    }
+    if (annotationClassFilterMode === 'custom') {
+      const validValues = new Set(sceneAnnotationClassPool.map((option) => option.curie));
+      return customAnnotationClassFilterValues.filter((curie) => validValues.has(curie));
+    }
+    return [];
+  }, [annotationClassFilterMode, customAnnotationClassFilterValues, sceneAnnotationClassPool]);
+
+  const clearAnnotationClassFilter = useCallback(() => {
+    setAnnotationClassFilterMode('none');
+    setCustomAnnotationClassFilterValues([]);
+  }, []);
+
+  const selectAllAnnotationClassFilters = useCallback(() => {
+    if (sceneAnnotationClassPool.length === 0) {
+      clearAnnotationClassFilter();
+      return;
+    }
+    setAnnotationClassFilterMode('all');
+    setCustomAnnotationClassFilterValues([]);
+  }, [clearAnnotationClassFilter, sceneAnnotationClassPool.length]);
+
+  const toggleAnnotationClassFilterValue = useCallback((curie: string) => {
+    const poolValues = sceneAnnotationClassPool.map((option) => option.curie);
+    const next = new Set(annotationClassFilterValues);
+    if (next.has(curie)) {
+      next.delete(curie);
+    } else {
+      next.add(curie);
+    }
+
+    if (next.size === 0) {
+      clearAnnotationClassFilter();
+      return;
+    }
+
+    if (next.size === poolValues.length) {
+      setAnnotationClassFilterMode('all');
+      setCustomAnnotationClassFilterValues([]);
+      return;
+    }
+
+    setAnnotationClassFilterMode('custom');
+    setCustomAnnotationClassFilterValues(poolValues.filter((value) => next.has(value)));
+  }, [annotationClassFilterValues, clearAnnotationClassFilter, sceneAnnotationClassPool]);
+
+  const setAnnotationClassFilterValues = useCallback((values: string[]) => {
+    const poolValues = sceneAnnotationClassPool.map((option) => option.curie);
+    const validValues = new Set(poolValues);
+    const next = [...new Set(values.map((value) => value.trim()).filter((value) => validValues.has(value)))];
+
+    if (next.length === 0) {
+      clearAnnotationClassFilter();
+      return;
+    }
+
+    if (next.length === poolValues.length) {
+      setAnnotationClassFilterMode('all');
+      setCustomAnnotationClassFilterValues([]);
+      return;
+    }
+
+    setAnnotationClassFilterMode('custom');
+    setCustomAnnotationClassFilterValues(poolValues.filter((value) => next.includes(value)));
+  }, [clearAnnotationClassFilter, sceneAnnotationClassPool]);
+
+  useEffect(() => {
+    if (annotationClassFilterMode === 'none') {
+      return;
+    }
+
+    const validValues = new Set(sceneAnnotationClassPool.map((option) => option.curie));
+    const filtered = annotationClassFilterValues.filter((curie) => validValues.has(curie));
+
+    if (filtered.length === 0) {
+      clearAnnotationClassFilter();
+      return;
+    }
+
+    if (filtered.length === sceneAnnotationClassPool.length) {
+      if (annotationClassFilterMode !== 'all') {
+        setAnnotationClassFilterMode('all');
+        setCustomAnnotationClassFilterValues([]);
+      }
+      return;
+    }
+
+    if (
+      annotationClassFilterMode === 'custom' &&
+      filtered.length !== customAnnotationClassFilterValues.length
+    ) {
+      setCustomAnnotationClassFilterValues(filtered);
+    }
+  }, [
+    annotationClassFilterMode,
+    annotationClassFilterValues,
+    clearAnnotationClassFilter,
+    customAnnotationClassFilterValues.length,
+    sceneAnnotationClassPool,
+  ]);
+
+  useEffect(() => {
+    clearFocus();
+  }, [annotationClassFilterMode, annotationClassFilterValues, clearFocus]);
 
   const selectActiveAnnotations = useCallback((criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA) => {
     storeRef.current?.selectActiveAnnotations(criteria);
@@ -585,9 +753,13 @@ export function AnnotationStoreProvider({
     activeAnnotationSelection,
     currentSelectionCriteria,
     selectActiveAnnotations,
-    annotationClassFilterInput,
+    sceneAnnotationClassPool,
+    annotationClassFilterMode,
     annotationClassFilterValues,
-    setAnnotationClassFilterInput,
+    setAnnotationClassFilterValues,
+    toggleAnnotationClassFilterValue,
+    selectAllAnnotationClassFilters,
+    clearAnnotationClassFilter,
     realtimeState,
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,

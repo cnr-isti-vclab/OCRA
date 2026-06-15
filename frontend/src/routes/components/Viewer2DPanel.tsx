@@ -25,7 +25,6 @@ import {
   type OpenLimeAnnotationManager,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
-import { fetchVocabularyConcepts, type VocabularyConcept } from '../../services/VocabularyConceptApi';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -80,6 +79,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       activeSocialLocks,
       currentStreamId,
       revision,
+      sceneAnnotationClassPool,
       annotationClassFilterValues,
       focusedDataIds,
       focusedGeometryIds,
@@ -108,7 +108,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
-    const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
 
@@ -167,31 +166,31 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return {};
       }
 
-      const conceptColorByCurie = new Map(
-        vocabularyConcepts.map((concept) => [concept.curie, concept.color]),
+      const classOptionsByCurie = new Map(
+        sceneAnnotationClassPool.map((option) => [option.curie, option]),
       );
 
       return Object.fromEntries(
         annotationClassFilterValues
           .map((classId) => {
-            const color = conceptColorByCurie.get(classId);
-            if (!color) {
+            const option = classOptionsByCurie.get(classId);
+            if (!option) {
               return null;
             }
             return [
               classId,
               {
-                label: classId,
-                stroke: color,
-                fill: hexToRgba(color, 0.3),
-                fillSelected: hexToRgba(color, 0.4),
-                strokeSelected: color,
+                label: option.label,
+                stroke: option.color,
+                fill: hexToRgba(option.color, 0.3),
+                fillSelected: hexToRgba(option.color, 0.4),
+                strokeSelected: option.color,
               },
             ];
           })
           .filter((entry): entry is [string, Record<string, string>] => entry !== null),
       );
-    }, [annotationClassFilterValues, vocabularyConcepts]);
+    }, [annotationClassFilterValues, sceneAnnotationClassPool]);
 
     const highlightGeometryIds = useMemo(
       () =>
@@ -293,27 +292,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         window.removeEventListener('pointercancel', handleGlobalPointerEnd);
       };
     }, [handleViewerPointerUpOrCancel]);
-
-    useEffect(() => {
-      let cancelled = false;
-
-      void fetchVocabularyConcepts()
-        .then((concepts) => {
-          if (!cancelled) {
-            setVocabularyConcepts(concepts);
-          }
-        })
-        .catch((error) => {
-          console.warn('Failed to load vocabulary concepts for annotation coloring:', error);
-          if (!cancelled) {
-            setVocabularyConcepts([]);
-          }
-        });
-
-      return () => {
-        cancelled = true;
-      };
-    }, []);
 
     const handleAnnotationUpdated = (anno: ViewerAnnotation) => {
       if (isStoreSyncRef.current) {

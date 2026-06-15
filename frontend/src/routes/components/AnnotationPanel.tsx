@@ -2,7 +2,7 @@
  * AnnotationPanel — lists active {@link AnnotationData} from the store and drives UI focus.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
@@ -82,12 +82,13 @@ function EditDataModal({
               <label htmlFor="annotationDescription" className="form-label">
                 Description
               </label>
-              <input
-                type="text"
+              <textarea
                 className="form-control"
                 id="annotationDescription"
                 value={draft.description}
                 onChange={(e) => onChange({ description: e.target.value })}
+                rows={6}
+                style={{ resize: 'vertical', overflowY: 'auto' }}
               />
             </div>
             <div className="mb-0">
@@ -130,9 +131,13 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
-    annotationClassFilterInput,
+    sceneAnnotationClassPool,
+    annotationClassFilterMode,
     annotationClassFilterValues,
-    setAnnotationClassFilterInput,
+    setAnnotationClassFilterValues,
+    toggleAnnotationClassFilterValue,
+    selectAllAnnotationClassFilters,
+    clearAnnotationClassFilter,
     getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
@@ -151,6 +156,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
+  const [classPoolSearch, setClassPoolSearch] = useState('');
+  const [classPoolExpanded, setClassPoolExpanded] = useState(false);
+  const [manualClassFilterInput, setManualClassFilterInput] = useState('');
   const editingDataIdRef = useRef<string | null>(null);
 
   const filteredActiveData = useMemo(() => {
@@ -161,6 +169,28 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     const allowedClasses = new Set(annotationClassFilterValues);
     return activeData.filter((datum) => datum.class !== null && allowedClasses.has(datum.class));
   }, [activeData, annotationClassFilterValues]);
+
+  const visibleClassPool = useMemo(() => {
+    const needle = classPoolSearch.trim().toLowerCase();
+    if (!needle) {
+      return sceneAnnotationClassPool;
+    }
+    return sceneAnnotationClassPool.filter((option) =>
+      option.curie.toLowerCase().includes(needle) || option.label.toLowerCase().includes(needle),
+    );
+  }, [classPoolSearch, sceneAnnotationClassPool]);
+
+  useEffect(() => {
+    setManualClassFilterInput(annotationClassFilterValues.join(', '));
+  }, [annotationClassFilterValues]);
+
+  const commitManualClassFilterInput = useCallback(() => {
+    const values = manualClassFilterInput
+      .split(/[,\n]+/)
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    setAnnotationClassFilterValues(values);
+  }, [manualClassFilterInput, setAnnotationClassFilterValues]);
 
   const realtimeBadgeClass =
     realtimeState === 'connected'
@@ -532,21 +562,101 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         </div>
       </div>
 
-      <div className="mb-3">
-        <label htmlFor="annotation-class-filter" className="form-label small fw-semibold mb-1">
-          Class filter
-        </label>
+      <div className="mb-3 d-flex flex-column gap-2">
+        <div className="d-flex justify-content-between align-items-center gap-2">
+          <label htmlFor="annotation-class-filter-input" className="form-label small fw-semibold mb-0">
+            Class filter
+          </label>
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm py-0 px-2"
+              onClick={clearAnnotationClassFilter}
+              disabled={annotationClassFilterMode === 'none' && annotationClassFilterValues.length === 0}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm py-0 px-2"
+              onClick={() => setClassPoolExpanded((current) => !current)}
+              aria-expanded={classPoolExpanded}
+              aria-controls="annotation-class-chip-pool"
+            >
+              {classPoolExpanded ? 'Hide classes' : 'Show classes'}
+            </button>
+          </div>
+        </div>
         <input
-          id="annotation-class-filter"
+          id="annotation-class-filter-input"
           type="text"
           className="form-control form-control-sm"
-          value={annotationClassFilterInput}
-          onChange={(e) => setAnnotationClassFilterInput(e.target.value)}
-          placeholder="Leave empty to show all. Separate multiple classes with commas."
+          value={manualClassFilterInput}
+          onChange={(e) => setManualClassFilterInput(e.target.value)}
+          onBlur={commitManualClassFilterInput}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitManualClassFilterInput();
+            }
+          }}
+          placeholder="CURIEs separated by commas"
         />
-        <div className="form-text">
-          Filters the current list by exact class reference. Multiple values use OR logic.
-        </div>
+        {classPoolExpanded && (
+          <div
+            id="annotation-class-chip-pool"
+            className="border rounded p-2 bg-light-subtle d-flex flex-column gap-2"
+          >
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              value={classPoolSearch}
+              onChange={(e) => setClassPoolSearch(e.target.value)}
+              placeholder="Search among classes present in this scene"
+            />
+            <div className="d-flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`btn btn-sm ${annotationClassFilterMode === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+                onClick={selectAllAnnotationClassFilters}
+                disabled={sceneAnnotationClassPool.length === 0}
+              >
+                ALL
+              </button>
+              {visibleClassPool.map((option) => {
+                const selected = annotationClassFilterValues.includes(option.curie);
+                return (
+                  <button
+                    key={option.curie}
+                    type="button"
+                    className={`btn btn-sm ${selected ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => toggleAnnotationClassFilterValue(option.curie)}
+                    title={option.curie}
+                    style={{
+                      borderColor: option.color,
+                      boxShadow: selected ? `inset 0 0 0 1px ${option.color}` : 'none',
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      className="me-1 align-middle d-inline-block rounded-circle"
+                      style={{
+                        width: '0.7rem',
+                        height: '0.7rem',
+                        backgroundColor: option.color,
+                        verticalAlign: 'middle',
+                      }}
+                    />
+                    {option.label} ({option.dataCount})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {sceneAnnotationClassPool.length === 0 && (
+          <div className="text-muted small">No classified annotation data in this scene.</div>
+        )}
       </div>
 
       {filteredActiveData.length === 0 ? (
@@ -658,7 +768,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                     {datum.description || '(no description)'}
                   </p>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
-                    Class: {datum.class ?? '(no class)'}
+                    <strong>Class:</strong> {datum.class ?? '(no class)'}
                   </p>
                 </div>
               );

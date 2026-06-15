@@ -23,9 +23,9 @@ const OCRA_DEFAULT_COLOR = 'https://ocra.example.org/ontology/defaultColor';
 export interface VocabularyConcept {
   curie: string;
   prefLabelEn: string;
-  prefLabelIt: string;
   color: string;
   broader: string | null;
+  scopeNoteEn: string;
 }
 
 export interface VocabularyScheme {
@@ -195,9 +195,9 @@ export function loadVocabularyData(): VocabularyData {
       concepts.push({
         curie,
         prefLabelEn: b.prefLabelEn || curie.split(/[:/#]/).pop() || curie,
-        prefLabelIt: b.prefLabelIt || '',
         color: b.color || '#808080',
         broader: b.broader,
+        scopeNoteEn: b.scopeNoteEn || '',
       });
     }
   }
