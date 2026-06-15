@@ -35,6 +35,8 @@ export interface ViewerAnnotation {
   id: string;
   /** User-visible label/name for the annotation */
   label: string;
+  /** Optional semantic class reference used by viewers for class-driven styling. */
+  semanticClass?: string | null;
   /** Type of annotation */
   type: ViewerAnnotationShapeType;
   /** Geometric data for the annotation */

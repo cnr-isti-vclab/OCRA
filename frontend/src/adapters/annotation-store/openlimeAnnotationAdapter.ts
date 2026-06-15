@@ -14,6 +14,7 @@ export type OpenLimeSyncedAnnotation = {
   id: string;
   label?: string;
   class?: string | number | null;
+  semanticClass?: string | null;
   type?: string;
   data?: Record<string, unknown>;
   svg?: string | null;
@@ -63,6 +64,8 @@ export type OpenLimeAnnotationManager = {
   deleteAnnotation: (id: string) => void;
   importAnnotations: (jsonLdArray: OpenLimeJsonLdImportEntry[]) => void;
   setMode: (mode: 'idle' | 'create' | 'edit') => string;
+  setSemanticClasses?: (classes: Record<string, Record<string, unknown>>, repaint?: boolean) => void;
+  setAnnotationSemanticClass?: (id: string, classId: string | number | null) => void;
   setSelectedIds?: (ids: string[]) => void;
   deselectAll: () => void;
   setSelected: (id: string, on?: boolean) => void;
@@ -107,6 +110,7 @@ export function syncOpenLimeAnnotations(
   const targetIds = new Set(viewerAnnotations.map((a) => a.id));
   const existingIds = manager.getAnnotations().map((a) => a.id);
   let labelsUpdated = false;
+  let stylesUpdated = false;
 
   for (const id of existingIds) {
     if (!targetIds.has(id)) {
@@ -129,6 +133,11 @@ export function syncOpenLimeAnnotations(
           existing.needsUpdate = true;
           labelsUpdated = true;
         }
+        if ((existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
+          existing.semanticClass = viewerAnno.semanticClass ?? null;
+          existing.needsUpdate = true;
+          stylesUpdated = true;
+        }
         continue;
       }
 
@@ -145,6 +154,12 @@ export function syncOpenLimeAnnotations(
         delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
         existing.needsUpdate = true;
         labelsUpdated = true;
+      }
+
+      if (existing && (existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
+        existing.semanticClass = viewerAnno.semanticClass ?? null;
+        existing.needsUpdate = true;
+        stylesUpdated = true;
       }
     }
 
@@ -185,7 +200,7 @@ export function syncOpenLimeAnnotations(
     labelsUpdated = true;
   }
 
-  if (labelsUpdated) {
+  if (labelsUpdated || stylesUpdated) {
     manager.viewer?.redraw?.();
     if (toImport.length > 0) {
       // getBBox() returns 0 until the browser paints; double-RAF fires after the first

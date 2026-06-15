@@ -2,6 +2,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
+// @spike feature/vocabulary-color-spike — remove this import when vocabulary data is in DB
+import TtlVocabularyWidget from './components/TtlVocabularyWidget';
 
 /**
  * VOCABULARIES COMPONENT
@@ -132,6 +134,9 @@ export default function VocabularyList() {
           </Link>
         </div>
       </div>
+
+      {/* @spike feature/vocabulary-color-spike — remove <TtlVocabularyWidget /> when vocabulary data is in DB */}
+      <TtlVocabularyWidget />
 
       {/* Vocabularies Table */}
       {vocabularies.length === 0 ? (

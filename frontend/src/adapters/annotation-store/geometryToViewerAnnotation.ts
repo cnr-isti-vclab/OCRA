@@ -57,15 +57,21 @@ export function geometryToViewerAnnotation(
   geometry: AnnotationGeometry,
   selection: ActiveAnnotationSelection,
   focusedDataIds: ReadonlySet<string> = new Set(),
+  semanticClassPreference: readonly string[] = [],
 ): ViewerAnnotation {
   const shape = primaryShape(geometry);
   const dataIds = selection.dataIdsByGeometryId.get(geometry.id) ?? [];
   const primaryDataId = [...focusedDataIds].find((id) => dataIds.includes(id)) ?? dataIds[0];
   const datum = primaryDataId ? selection.dataById.get(primaryDataId) : undefined;
+  const semanticClass =
+    semanticClassPreference.find((classId) =>
+      dataIds.some((dataId) => selection.dataById.get(dataId)?.class === classId),
+    ) ?? null;
 
   return {
     id: geometry.id,
     label: pickDisplayLabel(geometry.id, selection, focusedDataIds),
+    semanticClass,
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
     description: datum?.description,
@@ -78,9 +84,10 @@ export function activeGeometriesToViewerAnnotations(
   geometries: AnnotationGeometry[],
   selection: ActiveAnnotationSelection,
   focusedDataIds: ReadonlySet<string> = new Set(),
+  semanticClassPreference: readonly string[] = [],
 ): ViewerAnnotation[] {
   return geometries.map((geometry) =>
-    geometryToViewerAnnotation(geometry, selection, focusedDataIds),
+    geometryToViewerAnnotation(geometry, selection, focusedDataIds, semanticClassPreference),
   );
 }
 

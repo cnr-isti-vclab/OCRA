@@ -72,6 +72,9 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   activeAnnotationSelection: ActiveAnnotationSelection;
   currentSelectionCriteria: Readonly<SelectionCriteria>;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
+  annotationClassFilterInput: string;
+  annotationClassFilterValues: string[];
+  setAnnotationClassFilterInput: (value: string) => void;
   realtimeState: AnnotationRealtimeState;
   loadingAdditionalData: boolean;
   creating: boolean;
@@ -163,6 +166,7 @@ export function AnnotationStoreProvider({
   const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
   const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+  const [annotationClassFilterInput, setAnnotationClassFilterInput] = useState('');
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
   const [latestMutationsByEntity, setLatestMutationsByEntity] = useState<Map<string, MutationSummary>>(
     () => new Map(),
@@ -443,6 +447,19 @@ export function AnnotationStoreProvider({
     [store, revision],
   );
 
+  const annotationClassFilterValues = useMemo(() => {
+    const tokens = annotationClassFilterInput
+      .split(/[,\n]+/)
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+
+    return [...new Set(tokens)];
+  }, [annotationClassFilterInput]);
+
+  useEffect(() => {
+    clearFocus();
+  }, [annotationClassFilterValues, clearFocus]);
+
   const activeGeometries = useMemo(
     () => [...activeAnnotationSelection.geometriesById.values()],
     [activeAnnotationSelection],
@@ -568,6 +585,9 @@ export function AnnotationStoreProvider({
     activeAnnotationSelection,
     currentSelectionCriteria,
     selectActiveAnnotations,
+    annotationClassFilterInput,
+    annotationClassFilterValues,
+    setAnnotationClassFilterInput,
     realtimeState,
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,

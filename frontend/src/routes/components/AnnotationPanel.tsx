@@ -130,6 +130,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
+    annotationClassFilterInput,
+    annotationClassFilterValues,
+    setAnnotationClassFilterInput,
     getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
@@ -149,6 +152,15 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const editingDataIdRef = useRef<string | null>(null);
+
+  const filteredActiveData = useMemo(() => {
+    if (annotationClassFilterValues.length === 0) {
+      return activeData;
+    }
+
+    const allowedClasses = new Set(annotationClassFilterValues);
+    return activeData.filter((datum) => datum.class !== null && allowedClasses.has(datum.class));
+  }, [activeData, annotationClassFilterValues]);
 
   const realtimeBadgeClass =
     realtimeState === 'connected'
@@ -520,16 +532,35 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         </div>
       </div>
 
-      {activeData.length === 0 ? (
+      <div className="mb-3">
+        <label htmlFor="annotation-class-filter" className="form-label small fw-semibold mb-1">
+          Class filter
+        </label>
+        <input
+          id="annotation-class-filter"
+          type="text"
+          className="form-control form-control-sm"
+          value={annotationClassFilterInput}
+          onChange={(e) => setAnnotationClassFilterInput(e.target.value)}
+          placeholder="Leave empty to show all. Separate multiple classes with commas."
+        />
+        <div className="form-text">
+          Filters the current list by exact class reference. Multiple values use OR logic.
+        </div>
+      </div>
+
+      {filteredActiveData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <p className="text-muted fst-italic text-center">
-            No active annotation data. Adjust the query filter or create annotations in the viewer.
+            {activeData.length === 0
+              ? 'No active annotation data. Adjust the query filter or create annotations in the viewer.'
+              : 'No annotation data matches the class filter.'}
           </p>
         </div>
       ) : (
         <div className="flex-grow-1 overflow-auto">
           <div className="list-group">
-            {activeData.map((datum) => {
+            {filteredActiveData.map((datum) => {
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
               const isSelected = isDataFocused(datum.id);
@@ -625,6 +656,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                   </div>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
                     {datum.description || '(no description)'}
+                  </p>
+                  <p className="mb-0 small" style={{ color: itemColors.text }}>
+                    Class: {datum.class ?? '(no class)'}
                   </p>
                 </div>
               );

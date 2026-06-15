@@ -15,6 +15,8 @@ import adminRoutes from './admin.routes.js';
 import vocabulariesRoutes from './vocabularies.routes.js';
 import hdtMetadataRoutes from './hdt-metadata.routes.js';
 import annotationRoutes from './annotation.routes.js';
+// @spike feature/vocabulary-color-spike — remove this import when vocabulary data is in DB
+import vocabularyConceptsRoutes from './vocabulary-concepts.routes.js';
 
 const router = express.Router();
 
@@ -36,5 +38,7 @@ router.use('/projects', annotationRoutes); // Annotations: /api/projects/:id/ann
 router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
+// @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB
+router.use('/vocabulary', vocabularyConceptsRoutes);
 
 export default router;

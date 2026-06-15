@@ -25,6 +25,7 @@ import {
   type OpenLimeAnnotationManager,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
+import { fetchVocabularyConcepts, type VocabularyConcept } from '../../services/VocabularyConceptApi';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -52,6 +53,22 @@ function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
   }));
 }
 
+function hexToRgba(color: string, alpha: number): string {
+  const normalized = color.trim();
+  const hex = normalized.startsWith('#') ? normalized.slice(1) : normalized;
+  if (!(hex.length === 3 || hex.length === 6) || !/^[0-9a-fA-F]+$/.test(hex)) {
+    return color;
+  }
+
+  const expanded = hex.length === 3
+    ? hex.split('').map((char) => `${char}${char}`).join('')
+    : hex;
+  const red = Number.parseInt(expanded.slice(0, 2), 16);
+  const green = Number.parseInt(expanded.slice(2, 4), 16);
+  const blue = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 /**
  * 2D (RTI) viewer wired to {@link AnnotationStore} active geometries and UI focus state.
  */
@@ -63,6 +80,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       activeSocialLocks,
       currentStreamId,
       revision,
+      annotationClassFilterValues,
       focusedDataIds,
       focusedGeometryIds,
       setFocusedGeometryIds,
@@ -90,6 +108,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
+    const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
 
@@ -138,9 +157,41 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           activeGeometries,
           activeAnnotationSelection,
           new Set(),
+          annotationClassFilterValues,
         ),
-      [activeGeometries, activeAnnotationSelection, revision],
+      [activeGeometries, activeAnnotationSelection, annotationClassFilterValues, revision],
     );
+
+    const semanticClassesForFilter = useMemo(() => {
+      if (annotationClassFilterValues.length === 0) {
+        return {};
+      }
+
+      const conceptColorByCurie = new Map(
+        vocabularyConcepts.map((concept) => [concept.curie, concept.color]),
+      );
+
+      return Object.fromEntries(
+        annotationClassFilterValues
+          .map((classId) => {
+            const color = conceptColorByCurie.get(classId);
+            if (!color) {
+              return null;
+            }
+            return [
+              classId,
+              {
+                label: classId,
+                stroke: color,
+                fill: hexToRgba(color, 0.3),
+                fillSelected: hexToRgba(color, 0.4),
+                strokeSelected: color,
+              },
+            ];
+          })
+          .filter((entry): entry is [string, Record<string, string>] => entry !== null),
+      );
+    }, [annotationClassFilterValues, vocabularyConcepts]);
 
     const highlightGeometryIds = useMemo(
       () =>
@@ -242,6 +293,27 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         window.removeEventListener('pointercancel', handleGlobalPointerEnd);
       };
     }, [handleViewerPointerUpOrCancel]);
+
+    useEffect(() => {
+      let cancelled = false;
+
+      void fetchVocabularyConcepts()
+        .then((concepts) => {
+          if (!cancelled) {
+            setVocabularyConcepts(concepts);
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to load vocabulary concepts for annotation coloring:', error);
+          if (!cancelled) {
+            setVocabularyConcepts([]);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, []);
 
     const handleAnnotationUpdated = (anno: ViewerAnnotation) => {
       if (isStoreSyncRef.current) {
@@ -401,6 +473,25 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
     }, [viewerAnnotationsForSync, lockedGeometryIds, ref, enableAnnotationEditInteraction]);
+
+    useEffect(() => {
+      if (!ref || !('current' in ref) || !ref.current) {
+        return;
+      }
+      const annotationManager = ref.current.getAnnotationManager() as OpenLimeAnnotationManager | null;
+      if (!annotationManager) {
+        return;
+      }
+
+      annotationManager.setSemanticClasses?.(semanticClassesForFilter, false);
+      for (const annotation of viewerAnnotationsForSync) {
+        annotationManager.setAnnotationSemanticClass?.(
+          annotation.id,
+          annotation.semanticClass ?? null,
+        );
+      }
+      annotationManager.viewer?.redraw?.();
+    }, [semanticClassesForFilter, viewerAnnotationsForSync, ref]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
