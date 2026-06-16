@@ -134,6 +134,15 @@
 	fill: white !important
 }
 
+.openlime-toolbar .openlime-info path[style] {
+	fill: none !important;
+	stroke: white !important;
+}
+
+.openlime-toolbar .openlime-info.openlime-info-active path[style] {
+	stroke: #ff0 !important;
+}
+
 .openlime-toolbar text {
 	stroke: white !important;
 	fill: white !important

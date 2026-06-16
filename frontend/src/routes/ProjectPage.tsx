@@ -15,7 +15,14 @@ import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanel from './components/AnnotationPanel';
+import AnnotationViewerPanel from '../features/annotation-viewer/AnnotationViewerPanel';
+import {
+  resolveAnnotationMode,
+  selectionPolicyForAnnotationMode,
+  type AnnotationMode,
+} from '../features/annotation-modes/resolveAnnotationMode';
 import type { SceneDescription } from 'shared/scene-types';
+import type { RoleEnum } from 'shared/types';
 import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 
 interface Project {
@@ -32,6 +39,11 @@ interface Project {
     username?: string;
     displayName: string;
   } | null;
+}
+
+interface ProjectMember {
+  userId: string;
+  role: RoleEnum;
 }
 
 // Minimal type to read the 3D model defined in HDT metadata
@@ -155,6 +167,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
+  const [projectRole, setProjectRole] = useState<RoleEnum | null>(null);
   const [files, setFiles] = useState<Array<{ name: string; url: string; size?: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,6 +216,14 @@ export default function ProjectPage() {
   const projectLockState = getProjectLockState(projectId);
   const hasExclusiveLock = projectLockState.hasExclusiveLock;
   const isSystemAdministrator = !!user?.sys_admin;
+  const annotationMode: AnnotationMode = useMemo(
+    () =>
+      resolveAnnotationMode({
+        projectRole,
+        isSystemAdministrator,
+      }),
+    [projectRole, isSystemAdministrator],
+  );
   const canEditProjectSceneData = (isManager || isSystemAdministrator) && hasExclusiveLock;
   const canEditSceneSettings = canEditProjectSceneData;
   const showsSceneEnvironmentSettings = mode === '3d';
@@ -594,6 +615,23 @@ export default function ProjectPage() {
           setIsManager(false);
         }
 
+        if (userData?.id) {
+          const membersRes = await fetch(`${getApiBase()}/api/projects/${projectId}/members`, {
+            credentials: 'include',
+          });
+          if (membersRes.ok) {
+            const membersJson = await membersRes.json();
+            const currentMember = (membersJson.members as ProjectMember[] | undefined)?.find(
+              (member) => member.userId === userData.id,
+            );
+            setProjectRole(currentMember?.role ?? null);
+          } else {
+            setProjectRole(null);
+          }
+        } else {
+          setProjectRole(null);
+        }
+
         // Fetch available scenes (new multi-scene architecture)
         try {
           const scenesListRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes`, {
@@ -850,7 +888,7 @@ export default function ProjectPage() {
                 sceneDesc={viewerSceneDesc}
                 loadingModels={loadingModels}
                 modelLoadProgress={modelLoadProgress}
-                annotationToolsVisible={activeTab === 'annotations'}
+                annotationToolsVisible={activeTab === 'annotations' && annotationMode === 'edit'}
                 onReady={() => {
                   console.log('✅ 3D viewer ready');
                 }}
@@ -890,6 +928,7 @@ export default function ProjectPage() {
                 sceneDesc={viewerSceneDesc}
                 digitalAssets={digitalAssets}
                 rtiAvailable={rtiAvailable}
+                annotationMode={annotationMode}
                 onReady={() => {
                   console.log('📸 2D RTI viewer ready');
                 }}
@@ -1554,7 +1593,7 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    <AnnotationPanel />
+                    {annotationMode === 'viewer' ? <AnnotationViewerPanel /> : <AnnotationPanel />}
                   </div>
                 )}
               </div>
@@ -1570,6 +1609,7 @@ export default function ProjectPage() {
         key={`annotation-scene-${selectedSceneId}`}
         projectId={projectId}
         sceneId={selectedSceneId}
+        selectionPolicy={selectionPolicyForAnnotationMode(annotationMode)}
       >
         {projectPageBody}
       </AnnotationStoreProvider>

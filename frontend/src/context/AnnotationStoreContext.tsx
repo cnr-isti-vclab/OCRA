@@ -159,6 +159,7 @@ interface FocusSelectionInput {
 interface AnnotationStoreProviderProps {
   projectId: string;
   sceneId: string;
+  selectionPolicy?: 'collaborative' | 'readOnly';
   children: React.ReactNode;
 }
 
@@ -171,6 +172,7 @@ interface MutationSummary {
 export function AnnotationStoreProvider({
   projectId,
   sceneId,
+  selectionPolicy = 'collaborative',
   children,
 }: AnnotationStoreProviderProps) {
   const storeRef = useRef<AnnotationStore | null>(null);
@@ -256,6 +258,13 @@ export function AnnotationStoreProvider({
 
   const runSelectionWithLockGuard = useCallback(
     (input: FocusSelectionInput, applySelection: () => void) => {
+      if (selectionPolicy === 'readOnly') {
+        setSelectionConflictLocks([]);
+        pendingSelectionRef.current = null;
+        applySelection();
+        return;
+      }
+
       const conflicts = collectSelectionConflicts(input);
       if (conflicts.length === 0) {
         applySelection();
@@ -264,7 +273,7 @@ export function AnnotationStoreProvider({
       pendingSelectionRef.current = applySelection;
       setSelectionConflictLocks(conflicts);
     },
-    [collectSelectionConflicts],
+    [collectSelectionConflicts, selectionPolicy],
   );
 
   const setFocusSelection = useCallback(

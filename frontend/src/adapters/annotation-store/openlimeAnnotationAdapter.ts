@@ -8,6 +8,7 @@ import {
 } from './viewerAnnotationToOpenLimeImport';
 
 export type OpenLimeLabelVisibility = 'none' | 'all' | 'selected';
+export type OpenLimeSelectionInteractionMode = 'preserve' | 'edit';
 
 /** OpenLIME annotation instance (structural typing). */
 export type OpenLimeSyncedAnnotation = {
@@ -80,6 +81,7 @@ export type OpenLimeAnnotationManager = {
   mode: string;
   /** True when the OpenLIME pencil is enabled (`ManagerSvgAnnotation.toggle`). */
   active?: boolean;
+  toggle?: (force?: boolean) => boolean;
   /** In-progress draw session; skip layer sync while set. */
   _session?: unknown;
   layer?: { selected?: Set<string> };
@@ -91,7 +93,23 @@ export type OpenLimeAnnotationManager = {
   setMode: (mode: 'idle' | 'create' | 'edit') => string;
   setSemanticClasses?: (classes: Record<string, Record<string, unknown>>, repaint?: boolean) => void;
   setAnnotationSemanticClass?: (id: string, classId: string | number | null) => void;
-  setSelectedIds?: (ids: string[]) => void;
+  selectAnnotations?: (
+    ids: string[],
+    append?: boolean,
+    options?: {
+      source?: string;
+      originalEvent?: Event | PointerEvent | null;
+      interactionMode?: OpenLimeSelectionInteractionMode;
+    },
+  ) => unknown;
+  setSelectedIds?: (
+    ids: string[],
+    options?: {
+      source?: string;
+      originalEvent?: Event | PointerEvent | null;
+      interactionMode?: OpenLimeSelectionInteractionMode;
+    },
+  ) => void;
   deselectAll: () => void;
   setSelected: (id: string, on?: boolean) => void;
   setAnnotationStructuralClass?: (id: string, classId: string | null) => void;
@@ -255,6 +273,7 @@ export function syncOpenLimeAnnotations(
 export function applyOpenLimeSelection(
   manager: OpenLimeAnnotationManager | null,
   geometryIds: string[],
+  interactionMode: OpenLimeSelectionInteractionMode = 'edit',
 ): void {
   if (!manager) {
     return;
@@ -265,10 +284,25 @@ export function applyOpenLimeSelection(
     return;
   }
 
-  ensureEditModeForSelection(manager);
+  if (interactionMode === 'edit') {
+    ensureEditModeForSelection(manager);
+  }
+
+  if (typeof manager.selectAnnotations === 'function') {
+    manager.selectAnnotations(geometryIds, false, {
+      source: 'programmatic',
+      originalEvent: null,
+      interactionMode,
+    });
+    return;
+  }
 
   if (typeof manager.setSelectedIds === 'function') {
-    manager.setSelectedIds(geometryIds);
+    manager.setSelectedIds(geometryIds, {
+      source: 'programmatic',
+      originalEvent: null,
+      interactionMode,
+    });
     return;
   }
 
@@ -287,6 +321,7 @@ export function applyViewerSelectionFromStore(
   manager: OpenLimeAnnotationManager | null,
   geometryIds: string[],
   viewerAnnotationsForSync: ViewerAnnotation[],
+  interactionMode: OpenLimeSelectionInteractionMode = 'edit',
 ): void {
   if (!manager) {
     return;
@@ -297,9 +332,11 @@ export function applyViewerSelectionFromStore(
     return;
   }
 
-  ensureEditModeForSelection(manager);
+  if (interactionMode === 'edit') {
+    ensureEditModeForSelection(manager);
+  }
   syncOpenLimeAnnotations(manager, viewerAnnotationsForSync);
-  applyOpenLimeSelection(manager, geometryIds);
+  applyOpenLimeSelection(manager, geometryIds, interactionMode);
 }
 
 /**
