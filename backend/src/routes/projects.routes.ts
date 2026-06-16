@@ -169,6 +169,10 @@ router.post('/', createProject);
  *     description: |
  *       Returns project details for the given `projectId`, if the authenticated user
  *       is allowed to access it.
+ *
+ *       The response includes `project.currentUserRole`, which is the authenticated
+ *       caller's effective project-scoped role for this specific project (`manager`,
+ *       `editor`, `viewer`) or `null` when no explicit project role applies.
  *     tags:
  *       - Projects
  *     security:

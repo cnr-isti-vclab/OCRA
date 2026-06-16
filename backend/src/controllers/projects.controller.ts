@@ -897,6 +897,26 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
 
     const db = getPrismaClient();
     const currentUser = await getCurrentUser(req);
+    let currentUserProjectRole: RoleEnum | null = null;
+
+    if (currentUser && !currentUser.sys_admin) {
+      const dbUser = await db.user.findUnique({
+        where: { sub: currentUser.sub },
+        select: { id: true },
+      });
+
+      if (dbUser) {
+        const roleAssignment = await db.projectRole.findFirst({
+          where: {
+            projectId,
+            userId: dbUser.id,
+            role: { in: [RoleEnum.manager, RoleEnum.editor, RoleEnum.viewer] },
+          },
+          select: { role: true },
+        });
+        currentUserProjectRole = roleAssignment?.role ?? null;
+      }
+    }
 
     const whereClause = currentUser ? { id: projectId } : { id: projectId, public: true };
 
@@ -964,6 +984,7 @@ export async function getProjectById(req: Request, res: Response): Promise<void>
             project.projectRoles[0].user.email,
         }
         : null,
+      currentUserRole: currentUser?.sys_admin ? 'manager' : currentUserProjectRole,
       projectRoles: undefined,
       structuringLock: undefined,
     };

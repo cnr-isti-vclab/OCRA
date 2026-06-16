@@ -32,6 +32,7 @@ interface Project {
   public: boolean;
   createdAt: string;
   updatedAt: string;
+  currentUserRole?: RoleEnum | null;
   manager?: {
     id: string;
     name?: string;
@@ -39,11 +40,6 @@ interface Project {
     username?: string;
     displayName: string;
   } | null;
-}
-
-interface ProjectMember {
-  userId: string;
-  role: RoleEnum;
 }
 
 // Minimal type to read the 3D model defined in HDT metadata
@@ -167,7 +163,6 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
-  const [projectRole, setProjectRole] = useState<RoleEnum | null>(null);
   const [files, setFiles] = useState<Array<{ name: string; url: string; size?: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,10 +214,10 @@ export default function ProjectPage() {
   const annotationMode: AnnotationMode = useMemo(
     () =>
       resolveAnnotationMode({
-        projectRole,
+        projectRole: project?.currentUserRole ?? null,
         isSystemAdministrator,
       }),
-    [projectRole, isSystemAdministrator],
+    [project?.currentUserRole, isSystemAdministrator],
   );
   const canEditProjectSceneData = (isManager || isSystemAdministrator) && hasExclusiveLock;
   const canEditSceneSettings = canEditProjectSceneData;
@@ -615,23 +610,6 @@ export default function ProjectPage() {
           setIsManager(false);
         }
 
-        if (userData?.id) {
-          const membersRes = await fetch(`${getApiBase()}/api/projects/${projectId}/members`, {
-            credentials: 'include',
-          });
-          if (membersRes.ok) {
-            const membersJson = await membersRes.json();
-            const currentMember = (membersJson.members as ProjectMember[] | undefined)?.find(
-              (member) => member.userId === userData.id,
-            );
-            setProjectRole(currentMember?.role ?? null);
-          } else {
-            setProjectRole(null);
-          }
-        } else {
-          setProjectRole(null);
-        }
-
         // Fetch available scenes (new multi-scene architecture)
         try {
           const scenesListRes = await fetch(`${getApiBase()}/api/projects/${projectId}/scenes`, {
@@ -923,7 +901,7 @@ export default function ProjectPage() {
 
             {!annotationTestMode && mode === '2d' && (
               <Viewer2DPanel
-                key={`viewer-2d-${selectedSceneId ?? 'none'}`}
+                key={`viewer-2d-${projectId ?? 'none'}-${selectedSceneId ?? 'none'}-${annotationMode}`}
                 ref={openLimeRef}
                 sceneDesc={viewerSceneDesc}
                 digitalAssets={digitalAssets}
@@ -1606,7 +1584,7 @@ export default function ProjectPage() {
   if (projectId && selectedSceneId && (annotationTestMode || mode === '3d' || mode === '2d')) {
     return (
       <AnnotationStoreProvider
-        key={`annotation-scene-${selectedSceneId}`}
+        key={`annotation-scene-${projectId ?? 'none'}-${selectedSceneId}`}
         projectId={projectId}
         sceneId={selectedSceneId}
         selectionPolicy={selectionPolicyForAnnotationMode(annotationMode)}

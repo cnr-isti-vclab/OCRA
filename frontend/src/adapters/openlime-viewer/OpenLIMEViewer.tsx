@@ -646,7 +646,7 @@ const OpenLIMEViewer = forwardRef<
         return () => {
           cancelled = true;
         };
-      }, [sceneDesc, digitalAssets]);
+      }, [sceneDesc, digitalAssets, annotationInteractionMode]);
 
       // Helper function to get annotation layer
       const getAnnotationLayer = () => {

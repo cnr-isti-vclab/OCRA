@@ -190,6 +190,13 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             manager: {
               $ref: '#/components/schemas/ProjectManager',
             },
+            currentUserRole: {
+              type: 'string',
+              enum: ['manager', 'editor', 'viewer'],
+              nullable: true,
+              description: 'Role of the current authenticated user on this specific project. Null when the user has access without an explicit project role.',
+              example: 'editor',
+            },
           },
         },
         ProjectMember: {
