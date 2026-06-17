@@ -74,6 +74,8 @@ ocra-voc:conditionAlteration
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Condition / alteration"@en ;
     skos:prefLabel "Stato conservativo / alterazione"@it ;
+    skos:scopeNote "General category for observable conditions, deterioration phenomena, and alterations affecting the object or its surface."@en ;
+    skos:scopeNote "Categoria generale per condizioni osservabili, fenomeni di degrado e alterazioni che interessano l'oggetto o la sua superficie."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:lossDamage
@@ -81,6 +83,8 @@ ocra-voc:lossDamage
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Loss / damage"@en ;
     skos:prefLabel "Mancanza / danno"@it ;
+    skos:scopeNote "General category for losses of material, fractures, structural failures, and other forms of physical damage affecting the object."@en ;
+    skos:scopeNote "Categoria generale per perdite di materiale, fratture, cedimenti strutturali e altre forme di danno fisico che interessano l'oggetto."@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:surfaceFeature
@@ -88,6 +92,8 @@ ocra-voc:surfaceFeature
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Surface feature"@en ;
     skos:prefLabel "Caratteristica superficiale"@it ;
+    skos:scopeNote "General category for marks, traces, textures, and other features visible on the object's surface."@en ;
+    skos:scopeNote "Categoria generale per segni, tracce, texture e altre caratteristiche visibili sulla superficie dell'oggetto."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:decoration
@@ -95,6 +101,8 @@ ocra-voc:decoration
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Decoration"@en ;
     skos:prefLabel "Decorazione"@it ;
+    skos:scopeNote "General category for decorative elements, motifs, iconography, and surface embellishment techniques."@en ;
+    skos:scopeNote "Categoria generale per elementi decorativi, motivi, iconografia e tecniche di arricchimento della superficie."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:techniqueFinish
@@ -102,6 +110,8 @@ ocra-voc:techniqueFinish
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Technique / finish"@en ;
     skos:prefLabel "Tecnica / finitura"@it ;
+    skos:scopeNote "General category for manufacturing techniques, finishing processes, and intentional surface treatments."@en ;
+    skos:scopeNote "Categoria generale per tecniche di manifattura, processi di finitura e trattamenti superficiali intenzionali."@it ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:conservationTreatment
@@ -109,6 +119,8 @@ ocra-voc:conservationTreatment
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Conservation treatment"@en ;
     skos:prefLabel "Intervento conservativo"@it ;
+    skos:scopeNote "General category for conservation actions undertaken to clean, stabilize, reassemble, or otherwise preserve the object."@en ;
+    skos:scopeNote "Categoria generale per azioni conservative finalizzate a pulire, stabilizzare, riassemblare o altrimenti preservare l'oggetto."@it ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:materialComposition
@@ -116,6 +128,8 @@ ocra-voc:materialComposition
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Material / composition"@en ;
     skos:prefLabel "Materiale / composizione"@it ;
+    skos:scopeNote "General category for the constituent materials of the object or of significant parts of it."@en ;
+    skos:scopeNote "Categoria generale per i materiali costitutivi dell'oggetto o di sue parti significative."@it ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 # ============================================================
@@ -128,6 +142,8 @@ ocra-voc:rustCondition
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Rust"@en ;
     skos:prefLabel "Ruggine"@it ;
+    skos:scopeNote "Visible iron corrosion products forming on ferrous surfaces, typically reddish or brownish in appearance."@en ;
+    skos:scopeNote "Prodotti di corrosione del ferro visibili su superfici ferrose, tipicamente di colore rossastro o brunastro."@it ;
     skos:exactMatch aat:300213355 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -137,6 +153,8 @@ ocra-voc:corrosionProcess
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Corrosion"@en ;
     skos:prefLabel "Corrosione"@it ;
+    skos:scopeNote "Chemical or electrochemical deterioration of a material through reaction with the surrounding environment."@en ;
+    skos:scopeNote "Deterioramento chimico o elettrochimico di un materiale dovuto alla reazione con l'ambiente circostante."@it ;
     skos:exactMatch aat:300054107 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -146,6 +164,8 @@ ocra-voc:corrosionResidue
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Corrosion product"@en ;
     skos:prefLabel "Prodotto di corrosione"@it ;
+    skos:scopeNote "Residual material generated by corrosion processes and deposited on or replacing parts of the original surface."@en ;
+    skos:scopeNote "Materiale residuo generato dai processi di corrosione e depositato sulla superficie o in sostituzione di parti originali."@it ;
     skos:exactMatch aat:300258515 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -155,6 +175,8 @@ ocra-voc:abrasion
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Abrasion"@en ;
     skos:prefLabel "Abrasione"@it ;
+    skos:scopeNote "Surface wear caused by rubbing, friction, or contact with another material, often resulting in smoothing or loss of detail."@en ;
+    skos:scopeNote "Usura superficiale causata da sfregamento, attrito o contatto con un altro materiale, spesso con levigatura o perdita di dettaglio."@it ;
     skos:exactMatch aat:300053077 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -164,6 +186,8 @@ ocra-voc:wear
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Wear"@en ;
     skos:prefLabel "Usura"@it ;
+    skos:scopeNote "Gradual deterioration caused by repeated handling, use, or environmental exposure over time."@en ;
+    skos:scopeNote "Deterioramento graduale causato da uso, manipolazione ripetuta o esposizione ambientale nel tempo."@it ;
     skos:exactMatch aat:300219449 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -175,6 +199,8 @@ ocra-voc:biodeterioration
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Biodeterioration"@en ;
     skos:prefLabel "Biodeterioramento"@it ;
+    skos:scopeNote "Deterioration caused by biological organisms such as fungi, lichens, algae, bacteria, or plants."@en ;
+    skos:scopeNote "Deterioramento causato da organismi biologici come funghi, licheni, alghe, batteri o piante."@it ;
     skos:exactMatch aat:300219639 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -184,6 +210,8 @@ ocra-voc:biologicalGrowth
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Biological growth"@en ;
     skos:prefLabel "Colonizzazione biologica"@it ;
+    skos:scopeNote "Visible growth or colonization by living organisms on the object's surface."@en ;
+    skos:scopeNote "Crescita o colonizzazione visibile di organismi viventi sulla superficie dell'oggetto."@it ;
     skos:closeMatch aat:300219639 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -193,6 +221,8 @@ ocra-voc:moldGrowth
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Mold growth"@en ;
     skos:prefLabel "Muffa"@it ;
+    skos:scopeNote "Fungal growth appearing as mold on the surface, often associated with humidity and poor ventilation."@en ;
+    skos:scopeNote "Crescita fungina sotto forma di muffa sulla superficie, spesso associata a umidita e scarsa ventilazione."@it ;
     skos:closeMatch aat:300219639 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -202,6 +232,8 @@ ocra-voc:lichens
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Lichens"@en ;
     skos:prefLabel "Licheni"@it ;
+    skos:scopeNote "Lichen colonies adhering to the surface, especially on stone and outdoor materials."@en ;
+    skos:scopeNote "Colonie di licheni aderenti alla superficie, soprattutto su pietra e materiali esposti all'aperto."@it ;
     skos:closeMatch aat:300219639 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -211,6 +243,8 @@ ocra-voc:algae
     skos:broader ocra-voc:biodeterioration ;
     skos:prefLabel "Algae"@en ;
     skos:prefLabel "Alghe"@it ;
+    skos:scopeNote "Algal growth on the surface, typically encouraged by moisture and light exposure."@en ;
+    skos:scopeNote "Crescita di alghe sulla superficie, generalmente favorita da umidita ed esposizione alla luce."@it ;
     skos:closeMatch aat:300219639 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -222,6 +256,8 @@ ocra-voc:deposit
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Deposit"@en ;
     skos:prefLabel "Deposito"@it ;
+    skos:scopeNote "Accumulation of foreign material on the surface of the object."@en ;
+    skos:scopeNote "Accumulo di materiale estraneo sulla superficie dell'oggetto."@it ;
     skos:exactMatch aat:300264846 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -231,6 +267,8 @@ ocra-voc:encrustation
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Encrustation"@en ;
     skos:prefLabel "Incrostazione"@it ;
+    skos:scopeNote "Hard, adherent deposit forming a crust on the object's surface."@en ;
+    skos:scopeNote "Deposito duro e aderente che forma una crosta sulla superficie dell'oggetto."@it ;
     skos:closeMatch aat:300264846 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -240,6 +278,8 @@ ocra-voc:soot
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Soot"@en ;
     skos:prefLabel "Fuliggine"@it ;
+    skos:scopeNote "Black carbonaceous deposit produced by incomplete combustion and deposited on the surface."@en ;
+    skos:scopeNote "Deposito nero carbonioso prodotto da combustione incompleta e depositato sulla superficie."@it ;
     skos:exactMatch aat:300049017 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -249,6 +289,8 @@ ocra-voc:dust
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Dust"@en ;
     skos:prefLabel "Polvere"@it ;
+    skos:scopeNote "Loose particulate matter settled on the surface of the object."@en ;
+    skos:scopeNote "Materia particellare sciolta depositata sulla superficie dell'oggetto."@it ;
     skos:exactMatch aat:300014646 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -258,6 +300,8 @@ ocra-voc:calcareousDeposit
     skos:broader ocra-voc:deposit ;
     skos:prefLabel "Calcareous deposit"@en ;
     skos:prefLabel "Deposito calcareo"@it ;
+    skos:scopeNote "Deposit rich in calcium compounds, often formed by water circulation or mineral precipitation."@en ;
+    skos:scopeNote "Deposito ricco di composti del calcio, spesso formato da circolazione d'acqua o precipitazione minerale."@it ;
     skos:closeMatch aat:300264846 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -269,6 +313,8 @@ ocra-voc:patina
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Patina"@en ;
     skos:prefLabel "Patina"@it ;
+    skos:scopeNote "Surface layer that develops naturally or intentionally over time through aging, use, or chemical treatment."@en ;
+    skos:scopeNote "Strato superficiale che si sviluppa naturalmente o intenzionalmente nel tempo per invecchiamento, uso o trattamento chimico."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:noblePatinaAlt
@@ -277,6 +323,8 @@ ocra-voc:noblePatinaAlt
     skos:broader ocra-voc:patina ;
     skos:prefLabel "Noble patina"@en ;
     skos:prefLabel "Patina nobile"@it ;
+    skos:scopeNote "Stable and historically valued patina considered compatible with the object's age, material, and conservation significance."@en ;
+    skos:scopeNote "Patina stabile e storicamente apprezzata, considerata coerente con l'eta, il materiale e il valore conservativo dell'oggetto."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:artificialPatina
@@ -285,6 +333,8 @@ ocra-voc:artificialPatina
     skos:broader ocra-voc:patina ;
     skos:prefLabel "Artificial patina"@en ;
     skos:prefLabel "Patina artificiale"@it ;
+    skos:scopeNote "Patina intentionally produced by treatment or manufacture rather than by natural aging alone."@en ;
+    skos:scopeNote "Patina prodotta intenzionalmente tramite trattamento o manifattura, e non solo per invecchiamento naturale."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Detachment and cohesion loss --
@@ -295,6 +345,8 @@ ocra-voc:detachment
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Detachment"@en ;
     skos:prefLabel "Distacco"@it ;
+    skos:scopeNote "Separation of a layer, fragment, or surface component from the underlying material or support."@en ;
+    skos:scopeNote "Separazione di uno strato, di un frammento o di una componente superficiale dal materiale o supporto sottostante."@it ;
     skos:closeMatch aat:300264843 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -304,6 +356,8 @@ ocra-voc:flaking
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Flaking"@en ;
     skos:prefLabel "Scagliatura"@it ;
+    skos:scopeNote "Detachment occurring in small flakes or scales from a surface layer."@en ;
+    skos:scopeNote "Distacco che avviene in piccole scaglie o lamelle da uno strato superficiale."@it ;
     skos:exactMatch aat:300054129 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -313,6 +367,8 @@ ocra-voc:peeling
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Peeling"@en ;
     skos:prefLabel "Pellicola sollevata / esfoliazione"@it ;
+    skos:scopeNote "Lifting or separation of a thin surface layer in sheets or films."@en ;
+    skos:scopeNote "Sollevamento o separazione di un sottile strato superficiale in fogli o pellicole."@it ;
     skos:exactMatch aat:300054127 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -322,6 +378,8 @@ ocra-voc:blistering
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Blistering"@en ;
     skos:prefLabel "Rigonfiamento / bolla"@it ;
+    skos:scopeNote "Raised bubble-like deformation caused by local separation of a surface layer from the substrate."@en ;
+    skos:scopeNote "Deformazione rigonfia a bolla causata da un distacco localizzato dello strato superficiale dal supporto."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:powdering
@@ -330,6 +388,8 @@ ocra-voc:powdering
     skos:broader ocra-voc:detachment ;
     skos:prefLabel "Powdering"@en ;
     skos:prefLabel "Polverizzazione / disgregazione"@it ;
+    skos:scopeNote "Loss of cohesion causing the surface material to disaggregate into powder or loose grains."@en ;
+    skos:scopeNote "Perdita di coesione che porta il materiale superficiale a disgregarsi in polvere o granuli sciolti."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Efflorescence and salt damage --
@@ -340,6 +400,8 @@ ocra-voc:efflorescence
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Efflorescence"@en ;
     skos:prefLabel "Efflorescenza"@it ;
+    skos:scopeNote "Crystalline salt deposit appearing on the surface as salts migrate outward and crystallize."@en ;
+    skos:scopeNote "Deposito cristallino di sali che compare sulla superficie quando i sali migrano verso l'esterno e cristallizzano."@it ;
     skos:exactMatch aat:300214748 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -349,6 +411,8 @@ ocra-voc:saltDamage
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Salt damage"@en ;
     skos:prefLabel "Danno da sali solubili"@it ;
+    skos:scopeNote "Damage caused by the presence, migration, or crystallization of soluble salts within or on the object."@en ;
+    skos:scopeNote "Danno causato dalla presenza, migrazione o cristallizzazione di sali solubili all'interno o sulla superficie dell'oggetto."@it ;
     skos:closeMatch aat:300214748 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -358,6 +422,8 @@ ocra-voc:subflorescence
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Subflorescence"@en ;
     skos:prefLabel "Subflorescenza / cristallizzazione subsuperficiale"@it ;
+    skos:scopeNote "Crystallization of salts beneath the surface, often causing internal pressure and structural damage."@en ;
+    skos:scopeNote "Cristallizzazione di sali sotto la superficie, spesso con pressione interna e danni strutturali."@it ;
     skos:closeMatch aat:300214748 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -369,6 +435,8 @@ ocra-voc:staining
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Staining"@en ;
     skos:prefLabel "Macchia / imbrattamento"@it ;
+    skos:scopeNote "Localized discoloration or soiling caused by the deposition, absorption, or transfer of foreign substances."@en ;
+    skos:scopeNote "Alterazione cromatica o imbrattamento localizzato causato da deposito, assorbimento o trasferimento di sostanze estranee."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:discolouration
@@ -377,6 +445,8 @@ ocra-voc:discolouration
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Discolouration"@en ;
     skos:prefLabel "Discromia / alterazione cromatica"@it ;
+    skos:scopeNote "General alteration of the original color or tonal balance of a material or surface."@en ;
+    skos:scopeNote "Alterazione generale del colore originale o dell'equilibrio tonale di un materiale o di una superficie."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:yellowing
@@ -385,6 +455,8 @@ ocra-voc:yellowing
     skos:broader ocra-voc:discolouration ;
     skos:prefLabel "Yellowing"@en ;
     skos:prefLabel "Ingiallimento"@it ;
+    skos:scopeNote "Discoloration in which the surface or material acquires a yellow tone over time."@en ;
+    skos:scopeNote "Discromia in cui la superficie o il materiale assumono nel tempo una tonalita gialla."@it ;
     skos:exactMatch aat:300225196 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -394,6 +466,8 @@ ocra-voc:blackening
     skos:broader ocra-voc:discolouration ;
     skos:prefLabel "Blackening"@en ;
     skos:prefLabel "Annerimento"@it ;
+    skos:scopeNote "Discoloration in which the surface darkens to a black or very dark tone."@en ;
+    skos:scopeNote "Discromia in cui la superficie scurisce fino a una tonalita nera o molto scura."@it ;
     skos:closeMatch aat:300379491 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -405,6 +479,8 @@ ocra-voc:oxidation
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Oxidation"@en ;
     skos:prefLabel "Ossidazione"@it ;
+    skos:scopeNote "Chemical reaction with oxygen that alters the material and may produce visible surface changes."@en ;
+    skos:scopeNote "Reazione chimica con l'ossigeno che altera il materiale e puo produrre cambiamenti visibili sulla superficie."@it ;
     skos:exactMatch aat:300220235 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -414,6 +490,8 @@ ocra-voc:tarnishing
     skos:broader ocra-voc:oxidation ;
     skos:prefLabel "Tarnishing"@en ;
     skos:prefLabel "Appannamento / ossidazione superficiale"@it ;
+    skos:scopeNote "Superficial dulling or discoloration of metal caused by oxidation or other atmospheric reactions."@en ;
+    skos:scopeNote "Opacizzazione o alterazione superficiale del metallo causata da ossidazione o da altre reazioni atmosferiche."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 # -- Deformation --
@@ -424,6 +502,8 @@ ocra-voc:deformation
     skos:broader ocra-voc:conditionAlteration ;
     skos:prefLabel "Deformation"@en ;
     skos:prefLabel "Deformazione"@it ;
+    skos:scopeNote "Change in the original shape, profile, or geometry of the object or one of its parts."@en ;
+    skos:scopeNote "Modifica della forma, del profilo o della geometria originale dell'oggetto o di una sua parte."@it ;
     skos:exactMatch aat:300072976 ;
     ocra:defaultColor "#999999"^^xsd:string .
 
@@ -433,6 +513,8 @@ ocra-voc:warping
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Warping"@en ;
     skos:prefLabel "Incurvamento / svergolamento"@it ;
+    skos:scopeNote "Deformation involving bending, twisting, or loss of planarity across a broader area."@en ;
+    skos:scopeNote "Deformazione che comporta incurvamento, torsione o perdita di planarita su un'area ampia."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:denting
@@ -441,6 +523,8 @@ ocra-voc:denting
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Denting"@en ;
     skos:prefLabel "Ammaccatura"@it ;
+    skos:scopeNote "Localized depression caused by impact or pressure without complete breakage of the material."@en ;
+    skos:scopeNote "Abbassamento localizzato causato da urto o pressione senza rottura completa del materiale."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 # ============================================================
@@ -453,6 +537,8 @@ ocra-voc:cracks
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Cracks"@en ;
     skos:prefLabel "Fessurazioni"@it ;
+    skos:scopeNote "Linear openings or splits in the material that do not necessarily imply complete separation."@en ;
+    skos:scopeNote "Aperture o spaccature lineari nel materiale che non implicano necessariamente una separazione completa."@it ;
     skos:exactMatch aat:300209168 ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
@@ -462,6 +548,8 @@ ocra-voc:mechanicalCracks
     skos:broader ocra-voc:cracks ;
     skos:prefLabel "Mechanical cracks"@en ;
     skos:prefLabel "Fessurazioni meccaniche"@it ;
+    skos:scopeNote "Cracks caused primarily by mechanical stress, impact, bending, or structural tension."@en ;
+    skos:scopeNote "Fessurazioni causate principalmente da sollecitazioni meccaniche, urti, piegature o tensioni strutturali."@it ;
     skos:exactMatch aat:300228353 ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
@@ -471,6 +559,8 @@ ocra-voc:crackle
     skos:broader ocra-voc:cracks ;
     skos:prefLabel "Crackle"@en ;
     skos:prefLabel "Crettatura"@it ;
+    skos:scopeNote "Network of fine cracks, typically affecting a surface layer such as paint, glaze, or coating."@en ;
+    skos:scopeNote "Rete di fessure sottili che interessa tipicamente uno strato superficiale come pittura, vetrina o rivestimento."@it ;
     skos:exactMatch aat:300228345 ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
@@ -480,6 +570,8 @@ ocra-voc:holes
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Holes"@en ;
     skos:prefLabel "Fori"@it ;
+    skos:scopeNote "Openings that perforate the material, whether original, accidental, or caused by deterioration."@en ;
+    skos:scopeNote "Aperture che perforano il materiale, siano esse originali, accidentali o dovute al degrado."@it ;
     skos:exactMatch aat:300458785 ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
@@ -491,6 +583,8 @@ ocra-voc:fracture
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fracture"@en ;
     skos:prefLabel "Frattura"@it ;
+    skos:scopeNote "Structural break in the material involving partial or complete separation along a break line."@en ;
+    skos:scopeNote "Rottura strutturale del materiale con separazione parziale o completa lungo una linea di frattura."@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:break
@@ -499,6 +593,8 @@ ocra-voc:break
     skos:broader ocra-voc:fracture ;
     skos:prefLabel "Break"@en ;
     skos:prefLabel "Rottura"@it ;
+    skos:scopeNote "Fracture resulting in a clearly broken part or in the separation of the object into pieces."@en ;
+    skos:scopeNote "Frattura che produce una parte chiaramente rotta o la separazione dell'oggetto in piu frammenti."@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:fragmentary
@@ -507,6 +603,8 @@ ocra-voc:fragmentary
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fragmentary"@en ;
     skos:prefLabel "Frammentario"@it ;
+    skos:scopeNote "State in which the object survives only in fragments or is markedly incomplete."@en ;
+    skos:scopeNote "Stato in cui l'oggetto si conserva solo in frammenti o risulta marcatamente incompleto."@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # -- Loss / lacuna --
@@ -550,6 +648,8 @@ ocra-voc:fireDamage
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Fire damage"@en ;
     skos:prefLabel "Danno da fuoco"@it ;
+    skos:scopeNote "Damage caused by direct exposure to fire, flames, or intense heat."@en ;
+    skos:scopeNote "Danno causato da esposizione diretta al fuoco, alle fiamme o a calore intenso."@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 ocra-voc:scorching
@@ -558,6 +658,8 @@ ocra-voc:scorching
     skos:broader ocra-voc:fireDamage ;
     skos:prefLabel "Scorching"@en ;
     skos:prefLabel "Bruciatura / annerimento da calore"@it ;
+    skos:scopeNote "Burnt or heat-darkened surface produced by strong thermal exposure without full combustion of the object."@en ;
+    skos:scopeNote "Superficie bruciata o annerita dal calore, prodotta da una forte esposizione termica senza completa combustione dell'oggetto."@it ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
 # -- Vandalism --
@@ -568,6 +670,8 @@ ocra-voc:graffiti
     skos:broader ocra-voc:lossDamage ;
     skos:prefLabel "Graffiti"@en ;
     skos:prefLabel "Graffiti / vandalismo"@it ;
+    skos:scopeNote "Intentional markings, inscriptions, or scratches added after the object's original production, often as vandalism."@en ;
+    skos:scopeNote "Segni, iscrizioni o graffi intenzionali aggiunti dopo la produzione originaria dell'oggetto, spesso come atto vandalico."@it ;
     skos:exactMatch aat:300015613 ;
     ocra:defaultColor "#E74C3C"^^xsd:string .
 
@@ -581,6 +685,8 @@ ocra-voc:inscription
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Inscription"@en ;
     skos:prefLabel "Iscrizione"@it ;
+    skos:scopeNote "Written, incised, impressed, or otherwise recorded text visible on the object's surface."@en ;
+    skos:scopeNote "Testo scritto, inciso, impresso o altrimenti registrato visibile sulla superficie dell'oggetto."@it ;
     skos:exactMatch aat:300028702 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -590,6 +696,8 @@ ocra-voc:stamping
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Stamps / hallmarks"@en ;
     skos:prefLabel "Punzonature / marchi"@it ;
+    skos:scopeNote "Impressed marks, stamps, or hallmarks used to identify workshop, maker, quality, ownership, or control."@en ;
+    skos:scopeNote "Marchi impressi, punzoni o bolli usati per identificare bottega, autore, qualita, proprieta o controllo."@it ;
     skos:closeMatch aat:300028767 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -599,6 +707,8 @@ ocra-voc:fingerprint
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Fingerprint"@en ;
     skos:prefLabel "Impronta digitale"@it ;
+    skos:scopeNote "Visible fingerprint mark preserved on the surface, whether ancient, modern, intentional, or accidental."@en ;
+    skos:scopeNote "Impronta digitale visibile conservata sulla superficie, antica o moderna, intenzionale o accidentale."@it ;
     skos:exactMatch aat:300251471 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -608,6 +718,8 @@ ocra-voc:toolmarks
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Tool marks"@en ;
     skos:prefLabel "Tracce di lavorazione"@it ;
+    skos:scopeNote "Marks left on the surface by tools during manufacture, finishing, or later intervention."@en ;
+    skos:scopeNote "Tracce lasciate sulla superficie dagli strumenti durante manifattura, finitura o interventi successivi."@it ;
     skos:exactMatch aat:300379817 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -617,6 +729,8 @@ ocra-voc:surfaceTexture
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Surface texture"@en ;
     skos:prefLabel "Texture superficiale"@it ;
+    skos:scopeNote "Observable tactile or visual quality of the surface, such as smoothness, roughness, or granularity."@en ;
+    skos:scopeNote "Qualita tattile o visiva osservabile della superficie, come levigatezza, rugosita o granularita."@it ;
     skos:exactMatch aat:300219406 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -626,6 +740,8 @@ ocra-voc:scratches
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Scratches"@en ;
     skos:prefLabel "Graffi"@it ;
+    skos:scopeNote "Narrow linear abrasions or incisions on the surface caused by contact with a sharp or hard object."@en ;
+    skos:scopeNote "Abrasioni o incisioni lineari strette sulla superficie causate dal contatto con un oggetto duro o tagliente."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:pittingCondition
@@ -634,6 +750,8 @@ ocra-voc:pittingCondition
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Pitting"@en ;
     skos:prefLabel "Vaiolatura / puntinatura"@it ;
+    skos:scopeNote "Surface marked by small pits or cavities, often associated with corrosion or loss of material."@en ;
+    skos:scopeNote "Superficie caratterizzata da piccole cavita o fosse, spesso associate a corrosione o perdita di materiale."@it ;
     skos:exactMatch aat:300054130 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -643,6 +761,8 @@ ocra-voc:weld
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Weld / join"@en ;
     skos:prefLabel "Giunzione / saldatura originale"@it ;
+    skos:scopeNote "Visible original seam, weld, or join connecting two parts of the object."@en ;
+    skos:scopeNote "Linea di giunzione, saldatura o unione originale visibile che collega due parti dell'oggetto."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:repair
@@ -651,6 +771,8 @@ ocra-voc:repair
     skos:broader ocra-voc:surfaceFeature ;
     skos:prefLabel "Repair (ancient)"@en ;
     skos:prefLabel "Riparazione antica"@it ;
+    skos:scopeNote "Evidence of a historical repair executed before the modern conservation history of the object."@en ;
+    skos:scopeNote "Evidenza di una riparazione storica eseguita prima della moderna storia conservativa dell'oggetto."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 # ============================================================
@@ -663,6 +785,8 @@ ocra-voc:motifs
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Motifs"@en ;
     skos:prefLabel "Motivi ornamentali"@it ;
+    skos:scopeNote "Decorative units or repeated ornamental forms used in the visual design of the object."@en ;
+    skos:scopeNote "Unita decorative o forme ornamentali ripetute impiegate nel disegno visivo dell'oggetto."@it ;
     skos:exactMatch aat:300009700 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
@@ -672,6 +796,8 @@ ocra-voc:engraving
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Engraving"@en ;
     skos:prefLabel "Incisione"@it ;
+    skos:scopeNote "Decoration created by cutting or incising lines into the surface with a tool."@en ;
+    skos:scopeNote "Decorazione realizzata incidendo o scavando linee nella superficie con uno strumento."@it ;
     skos:exactMatch aat:300053225 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
@@ -681,6 +807,8 @@ ocra-voc:chasing
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Chasing"@en ;
     skos:prefLabel "Cesellatura"@it ;
+    skos:scopeNote "Decoration produced by working the front surface with tools to refine or model relief details."@en ;
+    skos:scopeNote "Decorazione ottenuta lavorando la superficie frontale con strumenti per rifinire o modellare i dettagli a rilievo."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:repoussé
@@ -689,6 +817,8 @@ ocra-voc:repoussé
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Repoussé"@en ;
     skos:prefLabel "Sbalzo / repoussé"@it ;
+    skos:scopeNote "Decoration or modeling created by hammering the reverse side to raise forms in relief on the front."@en ;
+    skos:scopeNote "Decorazione o modellato creati martellando il retro per sollevare forme in rilievo sul fronte."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:punchwork
@@ -697,6 +827,8 @@ ocra-voc:punchwork
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Punchwork"@en ;
     skos:prefLabel "Punzonatura decorativa"@it ;
+    skos:scopeNote "Decoration created with repeated impressions made by punches or similar tools."@en ;
+    skos:scopeNote "Decorazione ottenuta con impressioni ripetute realizzate mediante punzoni o strumenti simili."@it ;
     skos:exactMatch aat:300186214 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
@@ -706,6 +838,8 @@ ocra-voc:inlay
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Inlay"@en ;
     skos:prefLabel "Intarsio"@it ;
+    skos:scopeNote "Decoration formed by inserting a different material into recesses prepared in the surface."@en ;
+    skos:scopeNote "Decorazione formata inserendo un materiale diverso in cavita predisposte nella superficie."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:filigree
@@ -714,6 +848,8 @@ ocra-voc:filigree
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Filigree"@en ;
     skos:prefLabel "Filigrana"@it ;
+    skos:scopeNote "Decorative work made of fine metal wires arranged in delicate patterns and attached to a support."@en ;
+    skos:scopeNote "Lavorazione decorativa realizzata con sottili fili metallici disposti in motivi delicati e applicati a un supporto."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:niello
@@ -722,6 +858,8 @@ ocra-voc:niello
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Niello"@en ;
     skos:prefLabel "Niello"@it ;
+    skos:scopeNote "Black metallic sulfide inlay used to fill engraved lines or recessed decoration, especially on metal."@en ;
+    skos:scopeNote "Intarsio nero a base di solfuri metallici usato per riempire linee incise o decorazioni ribassate, soprattutto su metallo."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:enamel
@@ -730,6 +868,8 @@ ocra-voc:enamel
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Enamel"@en ;
     skos:prefLabel "Smalto"@it ;
+    skos:scopeNote "Vitreous decorative layer fused to the surface, often colored and applied to metal."@en ;
+    skos:scopeNote "Strato decorativo vetroso fuso alla superficie, spesso colorato e applicato su metallo."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:cloisonné
@@ -738,6 +878,8 @@ ocra-voc:cloisonné
     skos:broader ocra-voc:enamel ;
     skos:prefLabel "Cloisonné"@en ;
     skos:prefLabel "Smalto cloisonné"@it ;
+    skos:scopeNote "Enamel technique in which colored cells are defined by thin metal partitions before firing."@en ;
+    skos:scopeNote "Tecnica a smalto in cui celle colorate sono delimitate da sottili partizioni metalliche prima della cottura."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:champlevé
@@ -746,6 +888,8 @@ ocra-voc:champlevé
     skos:broader ocra-voc:enamel ;
     skos:prefLabel "Champlevé"@en ;
     skos:prefLabel "Smalto champlevé"@it ;
+    skos:scopeNote "Enamel technique in which recessed fields are carved or cast into the support and then filled with enamel."@en ;
+    skos:scopeNote "Tecnica a smalto in cui campi ribassati sono scavati o fusi nel supporto e poi riempiti di smalto."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:relief
@@ -754,6 +898,8 @@ ocra-voc:relief
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Relief"@en ;
     skos:prefLabel "Rilievo"@it ;
+    skos:scopeNote "Decoration or imagery projecting from the background surface to create a raised effect."@en ;
+    skos:scopeNote "Decorazione o immagine che sporge dal fondo per creare un effetto in rilievo."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:pigment
@@ -762,6 +908,8 @@ ocra-voc:pigment
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Pigment / paint layer"@en ;
     skos:prefLabel "Pigmento / strato pittorico"@it ;
+    skos:scopeNote "Colored material or paint layer intentionally applied to the surface for decoration, coating, or visual definition."@en ;
+    skos:scopeNote "Materiale colorato o strato pittorico applicato intenzionalmente alla superficie per decorazione, rivestimento o definizione visiva."@it ;
     skos:closeMatch aat:300013109 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
@@ -775,6 +923,8 @@ ocra-voc:infills
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Infills"@en ;
     skos:prefLabel "Integrazioni / stuccature"@it ;
+    skos:scopeNote "Added material used to fill losses, gaps, or lacunae in order to restore continuity or support."@en ;
+    skos:scopeNote "Materiale aggiunto per colmare mancanze, lacune o vuoti al fine di ristabilire continuita o supporto."@it ;
     skos:exactMatch aat:300264840 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -784,6 +934,8 @@ ocra-voc:gilding
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Gilding"@en ;
     skos:prefLabel "Doratura"@it ;
+    skos:scopeNote "Application of a gold layer or gold-like finish to the surface of an object."@en ;
+    skos:scopeNote "Applicazione di uno strato d'oro o di una finitura dorata sulla superficie dell'oggetto."@it ;
     skos:exactMatch aat:300053789 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -793,6 +945,8 @@ ocra-voc:parcelGilding
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Parcel gilding"@en ;
     skos:prefLabel "Doratura parziale"@it ;
+    skos:scopeNote "Gilding limited to selected areas rather than covering the entire surface."@en ;
+    skos:scopeNote "Doratura limitata ad aree selezionate invece di coprire l'intera superficie."@it ;
     skos:exactMatch aat:300233409 ;
     skos:closeMatch wd:Q1334300 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
@@ -803,6 +957,8 @@ ocra-voc:fireGilding
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Fire gilding"@en ;
     skos:prefLabel "Doratura a fuoco (amalgama)"@it ;
+    skos:scopeNote "Gilding technique using a gold-mercury amalgam fixed to the surface by heating."@en ;
+    skos:scopeNote "Tecnica di doratura che utilizza un amalgama oro-mercurio fissato alla superficie mediante riscaldamento."@it ;
     skos:closeMatch aat:300053790 ;
     skos:closeMatch wd:Q1334300 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
@@ -813,6 +969,8 @@ ocra-voc:leafGilding
     skos:broader ocra-voc:gilding ;
     skos:prefLabel "Gold leaf gilding"@en ;
     skos:prefLabel "Doratura a foglia"@it ;
+    skos:scopeNote "Gilding performed by applying thin leaves of gold onto a prepared surface."@en ;
+    skos:scopeNote "Doratura realizzata applicando sottili foglie d'oro su una superficie preparata."@it ;
     skos:closeMatch wd:Q1334300 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -822,6 +980,8 @@ ocra-voc:silvering
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Silvering"@en ;
     skos:prefLabel "Argentatura"@it ;
+    skos:scopeNote "Application of a silver layer or silver-like finish to the surface of an object."@en ;
+    skos:scopeNote "Applicazione di uno strato d'argento o di una finitura argentata sulla superficie dell'oggetto."@it ;
     skos:exactMatch aat:300053989 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -831,6 +991,8 @@ ocra-voc:tinning
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Tinning"@en ;
     skos:prefLabel "Stagnatura"@it ;
+    skos:scopeNote "Application of a tin coating to protect, seal, or visually modify the underlying surface."@en ;
+    skos:scopeNote "Applicazione di un rivestimento di stagno per proteggere, sigillare o modificare visivamente la superficie sottostante."@it ;
     skos:exactMatch aat:300258493 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -840,6 +1002,8 @@ ocra-voc:casting
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Casting"@en ;
     skos:prefLabel "Fusione"@it ;
+    skos:scopeNote "Manufacturing technique in which molten material is poured into a mold and allowed to solidify."@en ;
+    skos:scopeNote "Tecnica di manifattura in cui materiale fuso viene colato in uno stampo e lasciato solidificare."@it ;
     skos:exactMatch aat:300053104 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -849,6 +1013,8 @@ ocra-voc:hammeringTechnique
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Hammering"@en ;
     skos:prefLabel "Martellatura"@it ;
+    skos:scopeNote "Technique of shaping, thinning, or finishing material by repeated blows with a hammer."@en ;
+    skos:scopeNote "Tecnica di modellazione, assottigliamento o finitura del materiale mediante colpi ripetuti di martello."@it ;
     skos:exactMatch wd:Q104344344 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -858,6 +1024,8 @@ ocra-voc:solderingTechnique
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Soldering"@en ;
     skos:prefLabel "Saldatura"@it ;
+    skos:scopeNote "Joining technique in which a filler metal is melted to connect adjacent parts without melting the main body."@en ;
+    skos:scopeNote "Tecnica di giunzione in cui un metallo d'apporto viene fuso per collegare parti adiacenti senza fondere il corpo principale."@it ;
     skos:exactMatch aat:300053949 ;
     skos:exactMatch wd:Q67131697 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
@@ -868,6 +1036,8 @@ ocra-voc:inpainting
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Inpainting"@en ;
     skos:prefLabel "Reintegrazione pittorica"@it ;
+    skos:scopeNote "Retouching technique in which paint is applied to losses or abrasions to visually reintegrate the surface."@en ;
+    skos:scopeNote "Tecnica di ritocco in cui il colore viene applicato su lacune o abrasioni per reintegrare visivamente la superficie."@it ;
     skos:exactMatch wd:Q117021514 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -877,6 +1047,8 @@ ocra-voc:fillingProcess
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Filling"@en ;
     skos:prefLabel "Stuccatura / riempimento"@it ;
+    skos:scopeNote "Application of fill material to losses, joints, or voids as part of manufacture or conservation."@en ;
+    skos:scopeNote "Applicazione di materiale di riempimento in lacune, giunzioni o vuoti come parte della manifattura o della conservazione."@it ;
     skos:exactMatch aat:300053092 ;
     skos:exactMatch wd:Q62069734 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
@@ -887,6 +1059,8 @@ ocra-voc:polishing
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Polishing"@en ;
     skos:prefLabel "Lucidatura"@it ;
+    skos:scopeNote "Finishing process intended to smooth and increase the reflectivity or sheen of a surface."@en ;
+    skos:scopeNote "Processo di finitura finalizzato a levigare e aumentare la riflettanza o la brillantezza della superficie."@it ;
     skos:exactMatch wd:Q1054722 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -896,6 +1070,8 @@ ocra-voc:burnishing
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Burnishing"@en ;
     skos:prefLabel "Brunitura"@it ;
+    skos:scopeNote "Surface finishing by rubbing or compressing the material to produce a compact, lustrous effect."@en ;
+    skos:scopeNote "Finitura superficiale ottenuta sfregando o comprimendo il materiale per produrre un effetto compatto e lucente."@it ;
     skos:exactMatch wd:Q30907279 ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
@@ -909,6 +1085,8 @@ ocra-voc:cleaning
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Cleaning"@en ;
     skos:prefLabel "Pulitura"@it ;
+    skos:scopeNote "Conservation treatment aimed at removing unwanted deposits, soiling, or alteration products from the object."@en ;
+    skos:scopeNote "Intervento conservativo finalizzato a rimuovere depositi indesiderati, sporco o prodotti di alterazione dall'oggetto."@it ;
     skos:exactMatch aat:300053027 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -918,6 +1096,8 @@ ocra-voc:mechanicalCleaning
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Mechanical cleaning"@en ;
     skos:prefLabel "Pulitura meccanica"@it ;
+    skos:scopeNote "Cleaning performed through physical means such as scalpels, brushes, abrasive tools, or controlled mechanical action."@en ;
+    skos:scopeNote "Pulitura eseguita con mezzi fisici come bisturi, spazzole, strumenti abrasivi o azione meccanica controllata."@it ;
     skos:closeMatch aat:300053027 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -927,6 +1107,8 @@ ocra-voc:chemicalCleaning
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Chemical cleaning"@en ;
     skos:prefLabel "Pulitura chimica"@it ;
+    skos:scopeNote "Cleaning based on chemical agents, solvents, gels, or solutions selected to dissolve or mobilize unwanted materials."@en ;
+    skos:scopeNote "Pulitura basata su agenti chimici, solventi, gel o soluzioni selezionate per sciogliere o mobilizzare materiali indesiderati."@it ;
     skos:closeMatch aat:300053027 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -936,6 +1118,8 @@ ocra-voc:laserCleaning
     skos:broader ocra-voc:cleaning ;
     skos:prefLabel "Laser cleaning"@en ;
     skos:prefLabel "Pulitura laser"@it ;
+    skos:scopeNote "Cleaning technique using laser energy to remove deposits or alteration layers in a controlled manner."@en ;
+    skos:scopeNote "Tecnica di pulitura che usa energia laser per rimuovere depositi o strati di alterazione in modo controllato."@it ;
     skos:exactMatch aat:300379417 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -945,6 +1129,8 @@ ocra-voc:consolidation
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Consolidation"@en ;
     skos:prefLabel "Consolidamento"@it ;
+    skos:scopeNote "Treatment intended to restore cohesion or structural stability to weakened material."@en ;
+    skos:scopeNote "Trattamento destinato a ristabilire coesione o stabilita strutturale a un materiale indebolito."@it ;
     skos:exactMatch aat:300219960 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -954,6 +1140,8 @@ ocra-voc:adhesiveBonding
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Adhesive bonding"@en ;
     skos:prefLabel "Incollaggio / giunzione con adesivo"@it ;
+    skos:scopeNote "Joining or reattaching parts of the object using an adhesive system."@en ;
+    skos:scopeNote "Giunzione o riadesione di parti dell'oggetto mediante un sistema adesivo."@it ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:desalination
@@ -962,6 +1150,8 @@ ocra-voc:desalination
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Desalination"@en ;
     skos:prefLabel "Desalinizzazione"@it ;
+    skos:scopeNote "Treatment intended to reduce or extract soluble salts from the object or its support."@en ;
+    skos:scopeNote "Trattamento finalizzato a ridurre o estrarre sali solubili dall'oggetto o dal suo supporto."@it ;
     skos:exactMatch aat:300053754 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -971,6 +1161,8 @@ ocra-voc:protectiveCoating
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Protective coating"@en ;
     skos:prefLabel "Strato protettivo / verniciatura"@it ;
+    skos:scopeNote "Applied coating intended to protect the surface from environmental or mechanical damage."@en ;
+    skos:scopeNote "Rivestimento applicato con lo scopo di proteggere la superficie da danni ambientali o meccanici."@it ;
     skos:exactMatch aat:300224445 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -980,6 +1172,8 @@ ocra-voc:corrosionInhibitor
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Corrosion inhibitor treatment"@en ;
     skos:prefLabel "Trattamento con inibitore di corrosione"@it ;
+    skos:scopeNote "Treatment using substances intended to slow, limit, or prevent further corrosion."@en ;
+    skos:scopeNote "Trattamento che utilizza sostanze mirate a rallentare, limitare o prevenire ulteriore corrosione."@it ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
 ocra-voc:restructuring
@@ -988,6 +1182,8 @@ ocra-voc:restructuring
     skos:broader ocra-voc:conservationTreatment ;
     skos:prefLabel "Restructuring / reassembly"@en ;
     skos:prefLabel "Riassemblaggio / ricostruzione"@it ;
+    skos:scopeNote "Reconstruction or reassembly of separated fragments or displaced components to recover structural readability."@en ;
+    skos:scopeNote "Ricostruzione o riassemblaggio di frammenti separati o componenti spostati per recuperare la leggibilita strutturale."@it ;
     skos:closeMatch aat:300379615 ;
     ocra:defaultColor "#27AE60"^^xsd:string .
 
@@ -1001,6 +1197,8 @@ ocra-voc:metalMaterial
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Metal"@en ;
     skos:prefLabel "Metallo"@it ;
+    skos:scopeNote "Metal as the primary constituent material of the object or one of its major components."@en ;
+    skos:scopeNote "Metallo come materiale costitutivo principale dell'oggetto o di una sua componente maggiore."@it ;
     skos:exactMatch aat:300010900 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1010,6 +1208,8 @@ ocra-voc:copperAlloy
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Copper alloy"@en ;
     skos:prefLabel "Lega di rame"@it ;
+    skos:scopeNote "Metal alloy in which copper is the principal component, including materials such as bronze and brass."@en ;
+    skos:scopeNote "Lega metallica in cui il rame e il componente principale, comprendente materiali come bronzo e ottone."@it ;
     skos:exactMatch aat:300010942 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1019,6 +1219,8 @@ ocra-voc:bronze
     skos:broader ocra-voc:copperAlloy ;
     skos:prefLabel "Bronze"@en ;
     skos:prefLabel "Bronzo"@it ;
+    skos:scopeNote "Copper alloy typically containing tin as a principal secondary element."@en ;
+    skos:scopeNote "Lega di rame che contiene tipicamente lo stagno come principale elemento secondario."@it ;
     skos:exactMatch aat:300010957 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1028,6 +1230,8 @@ ocra-voc:brass
     skos:broader ocra-voc:copperAlloy ;
     skos:prefLabel "Brass"@en ;
     skos:prefLabel "Ottone"@it ;
+    skos:scopeNote "Copper alloy in which zinc is the principal secondary element."@en ;
+    skos:scopeNote "Lega di rame in cui lo zinco e il principale elemento secondario."@it ;
     skos:exactMatch aat:300010947 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1037,6 +1241,8 @@ ocra-voc:iron
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Iron"@en ;
     skos:prefLabel "Ferro"@it ;
+    skos:scopeNote "Iron as the principal constituent metal of the object or one of its components."@en ;
+    skos:scopeNote "Ferro come metallo costitutivo principale dell'oggetto o di una sua componente."@it ;
     skos:exactMatch aat:300011002 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1046,6 +1252,8 @@ ocra-voc:silver
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Silver"@en ;
     skos:prefLabel "Argento"@it ;
+    skos:scopeNote "Silver as the principal constituent metal, whether solid or forming a major decorative component."@en ;
+    skos:scopeNote "Argento come metallo costitutivo principale, sia pieno sia come componente decorativa significativa."@it ;
     skos:exactMatch aat:300011029 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1055,6 +1263,8 @@ ocra-voc:gold
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Gold"@en ;
     skos:prefLabel "Oro"@it ;
+    skos:scopeNote "Gold as the principal constituent metal or as a significant material component of the object."@en ;
+    skos:scopeNote "Oro come metallo costitutivo principale o come componente materiale significativa dell'oggetto."@it ;
     skos:exactMatch aat:300011021 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1064,6 +1274,8 @@ ocra-voc:lead
     skos:broader ocra-voc:metalMaterial ;
     skos:prefLabel "Lead"@en ;
     skos:prefLabel "Piombo"@it ;
+    skos:scopeNote "Lead as the principal constituent material or as a major functional component."@en ;
+    skos:scopeNote "Piombo come materiale costitutivo principale o come componente funzionale maggiore."@it ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 ocra-voc:ceramicMaterial
@@ -1072,6 +1284,8 @@ ocra-voc:ceramicMaterial
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Ceramic"@en ;
     skos:prefLabel "Ceramica"@it ;
+    skos:scopeNote "Fired inorganic material such as pottery, earthenware, or related ceramic bodies."@en ;
+    skos:scopeNote "Materiale inorganico cotto come terracotta, ceramica comune o corpi ceramici affini."@it ;
     skos:exactMatch aat:300235507 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1081,6 +1295,8 @@ ocra-voc:terracotta
     skos:broader ocra-voc:ceramicMaterial ;
     skos:prefLabel "Terracotta"@en ;
     skos:prefLabel "Terracotta"@it ;
+    skos:scopeNote "Low-fired clay-based ceramic material, often porous and reddish in color."@en ;
+    skos:scopeNote "Materiale ceramico a base argillosa cotto a bassa temperatura, spesso poroso e di colore rossastro."@it ;
     skos:exactMatch aat:300010669 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1090,6 +1306,8 @@ ocra-voc:stoneMaterial
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Stone"@en ;
     skos:prefLabel "Pietra"@it ;
+    skos:scopeNote "Natural stone used as the principal material of the object or one of its major components."@en ;
+    skos:scopeNote "Pietra naturale impiegata come materiale principale dell'oggetto o di una sua componente importante."@it ;
     skos:exactMatch aat:300011176 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1099,6 +1317,8 @@ ocra-voc:marble
     skos:broader ocra-voc:stoneMaterial ;
     skos:prefLabel "Marble"@en ;
     skos:prefLabel "Marmo"@it ;
+    skos:scopeNote "Metamorphic stone commonly used for sculpture, architecture, and refined decorative objects."@en ;
+    skos:scopeNote "Roccia metamorfica comunemente usata per scultura, architettura e oggetti decorativi di pregio."@it ;
     skos:exactMatch aat:300011443 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1108,6 +1328,8 @@ ocra-voc:limestone
     skos:broader ocra-voc:stoneMaterial ;
     skos:prefLabel "Limestone"@en ;
     skos:prefLabel "Calcare"@it ;
+    skos:scopeNote "Sedimentary stone composed largely of calcium carbonate."@en ;
+    skos:scopeNote "Roccia sedimentaria composta in larga parte da carbonato di calcio."@it ;
     skos:exactMatch aat:300011286 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1117,6 +1339,8 @@ ocra-voc:woodMaterial
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Wood"@en ;
     skos:prefLabel "Legno"@it ;
+    skos:scopeNote "Wood used as a structural, carved, or supporting material of the object."@en ;
+    skos:scopeNote "Legno usato come materiale strutturale, scolpito o di supporto dell'oggetto."@it ;
     skos:exactMatch aat:300011914 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1126,6 +1350,8 @@ ocra-voc:ivoryBone
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Ivory / bone"@en ;
     skos:prefLabel "Avorio / osso"@it ;
+    skos:scopeNote "Animal hard tissue used as a worked material, including ivory and bone."@en ;
+    skos:scopeNote "Tessuto duro animale usato come materiale lavorato, comprendente avorio e osso."@it ;
     skos:exactMatch aat:300011798 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1135,6 +1361,8 @@ ocra-voc:glass
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Glass"@en ;
     skos:prefLabel "Vetro"@it ;
+    skos:scopeNote "Amorphous silicate material used as the principal substance of the object or one of its parts."@en ;
+    skos:scopeNote "Materiale siliceo amorfo usato come sostanza principale dell'oggetto o di una sua parte."@it ;
     skos:exactMatch aat:300010797 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1144,6 +1372,8 @@ ocra-voc:textile
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Textile"@en ;
     skos:prefLabel "Tessuto"@it ;
+    skos:scopeNote "Woven, felted, braided, or otherwise structured fibrous material used in or with the object."@en ;
+    skos:scopeNote "Materiale fibroso tessuto, infeltrito, intrecciato o altrimenti strutturato usato nell'oggetto o con esso."@it ;
     skos:exactMatch aat:300014063 ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
@@ -1153,6 +1383,8 @@ ocra-voc:organicMaterial
     skos:broader ocra-voc:materialComposition ;
     skos:prefLabel "Organic material"@en ;
     skos:prefLabel "Materiale organico"@it ;
+    skos:scopeNote "Material of biological origin not more specifically identified elsewhere in the vocabulary."@en ;
+    skos:scopeNote "Materiale di origine biologica non identificato in modo piu specifico altrove nel vocabolario."@it ;
     ocra:defaultColor "#1ABC9C"^^xsd:string .
 
 # ============================================================
@@ -1165,6 +1397,8 @@ ocra-voc:thinSheet
     skos:broader ocra-voc:techniqueFinish ;
     skos:prefLabel "Thin sheet / foil"@en ;
     skos:prefLabel "Lamina / foglia metallica"@it ;
+    skos:scopeNote "Very thin metal sheet or foil used as a fabricated element, support, or decorative component."@en ;
+    skos:scopeNote "Lamina o foglia metallica molto sottile usata come elemento lavorato, supporto o componente decorativa."@it ;
     ocra:defaultColor "#F1C40F"^^xsd:string .
 
 ocra-voc:cutting
@@ -1204,6 +1438,8 @@ ocra-voc:folding
     skos:broader ocra-voc:deformation ;
     skos:prefLabel "Folding / bending"@en ;
     skos:prefLabel "Piega / piegatura"@it ;
+    skos:scopeNote "Localized or extended bending that creates one or more folds, creases, or permanent changes of angle."@en ;
+    skos:scopeNote "Piegatura localizzata o estesa che crea una o piu pieghe, grinze o cambiamenti permanenti di angolo."@it ;
     ocra:defaultColor "#999999"^^xsd:string .
 
 ocra-voc:tears
@@ -1232,6 +1468,8 @@ ocra-voc:iconography
     skos:broader ocra-voc:decoration ;
     skos:prefLabel "Iconography"@en ;
     skos:prefLabel "Iconografia"@it ;
+    skos:scopeNote "Representational motifs, symbols, figures, and thematic imagery that convey identifiable meanings or traditions."@en ;
+    skos:scopeNote "Motivi rappresentativi, simboli, figure e immagini tematiche che veicolano significati o tradizioni riconoscibili."@it ;
     skos:exactMatch aat:300055859 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
@@ -1245,6 +1483,8 @@ ocra-voc:geometricPattern
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Geometric pattern"@en ;
     skos:prefLabel "Motivo geometrico"@it ;
+    skos:scopeNote "Decorative motif based on repeated geometric forms such as lines, circles, triangles, or interlace."@en ;
+    skos:scopeNote "Motivo decorativo basato su forme geometriche ripetute come linee, cerchi, triangoli o intrecci."@it ;
     skos:exactMatch aat:300165213 ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
@@ -1254,6 +1494,8 @@ ocra-voc:zoomorphicMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Zoomorphic motif"@en ;
     skos:prefLabel "Motivo zoomorfo"@it ;
+    skos:scopeNote "Motif representing an animal or animal-derived form, whether naturalistic or stylized."@en ;
+    skos:scopeNote "Motivo che rappresenta un animale o una forma derivata dal mondo animale, naturalistica o stilizzata."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:anthropomorphicMotif
@@ -1262,6 +1504,8 @@ ocra-voc:anthropomorphicMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Anthropomorphic motif"@en ;
     skos:prefLabel "Motivo antropomorfo"@it ;
+    skos:scopeNote "Motif representing a human figure, body part, or human-like form."@en ;
+    skos:scopeNote "Motivo che rappresenta una figura umana, una parte del corpo o una forma umanizzata."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:astralmotif
@@ -1280,6 +1524,8 @@ ocra-voc:vegetalMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Vegetal motif"@en ;
     skos:prefLabel "Motivo vegetale"@it ;
+    skos:scopeNote "Motif derived from plants, leaves, flowers, fruits, stems, or vegetal growth."@en ;
+    skos:scopeNote "Motivo derivato da piante, foglie, fiori, frutti, steli o forme vegetali."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:palmette
@@ -1580,6 +1826,8 @@ ocra-voc:greekIconography
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Greek / Hellenistic iconography"@en ;
     skos:prefLabel "Iconografia greca / ellenistica"@it ;
+    skos:scopeNote "Iconographic tradition derived from Greek and Hellenistic visual culture, mythology, and ornamental language."@en ;
+    skos:scopeNote "Tradizione iconografica derivata dalla cultura visiva, dalla mitologia e dal linguaggio ornamentale greco ed ellenistico."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:gorgoneion
@@ -1636,6 +1884,8 @@ ocra-voc:romanIconography
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Roman iconography"@en ;
     skos:prefLabel "Iconografia romana"@it ;
+    skos:scopeNote "Iconographic tradition associated with Roman visual culture, symbols of power, and late antique imagery."@en ;
+    skos:scopeNote "Tradizione iconografica associata alla cultura visiva romana, ai simboli del potere e all'immaginario tardoantico."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:eagleRoman
@@ -1716,6 +1966,8 @@ ocra-voc:heraldryMotif
     skos:broader ocra-voc:iconography ;
     skos:prefLabel "Heraldic motif"@en ;
     skos:prefLabel "Motivo araldico"@it ;
+    skos:scopeNote "Motif derived from heraldic language, including shields, emblems, charges, and dynastic symbols."@en ;
+    skos:scopeNote "Motivo derivato dal linguaggio araldico, comprendente scudi, emblemi, figure e simboli dinastici."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 # ============================================================
@@ -1727,6 +1979,8 @@ ocra-voc:contextOfUse
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Context of use"@en ;
     skos:prefLabel "Contesto d'uso"@it ;
+    skos:scopeNote "Category for describing the functional, ritual, social, or practical context in which the object was used."@en ;
+    skos:scopeNote "Categoria per descrivere il contesto funzionale, rituale, sociale o pratico in cui l'oggetto era usato."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:funeraryContext
@@ -1735,6 +1989,8 @@ ocra-voc:funeraryContext
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Funerary context"@en ;
     skos:prefLabel "Contesto funerario"@it ;
+    skos:scopeNote "Use, deposition, or association of the object within burial, tomb, or funerary practice contexts."@en ;
+    skos:scopeNote "Uso, deposizione o associazione dell'oggetto in contesti di sepoltura, tomba o pratica funeraria."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:ceremonialUse
@@ -1743,6 +1999,8 @@ ocra-voc:ceremonialUse
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Ceremonial use"@en ;
     skos:prefLabel "Uso cerimoniale / rituale"@it ;
+    skos:scopeNote "Use of the object in ritual, liturgical, ceremonial, or formal performative contexts."@en ;
+    skos:scopeNote "Uso dell'oggetto in contesti rituali, liturgici, cerimoniali o performativi formali."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:applique
@@ -1761,6 +2019,8 @@ ocra-voc:garmentsOrnamentation
     skos:broader ocra-voc:contextOfUse ;
     skos:prefLabel "Garment ornamentation"@en ;
     skos:prefLabel "Ornamento d'abbigliamento"@it ;
+    skos:scopeNote "Object used as an ornament or decorative attachment for clothing or dress accessories."@en ;
+    skos:scopeNote "Oggetto usato come ornamento o applicazione decorativa per l'abbigliamento o i suoi accessori."@it ;
     ocra:defaultColor "#9B59B6"^^xsd:string .
 
 ocra-voc:organicSupportLoss
@@ -1782,6 +2042,8 @@ ocra-voc:scientificExamination
     skos:inScheme ocra-voc:CulturalHeritageAnnotationVocabulary ;
     skos:prefLabel "Scientific examination"@en ;
     skos:prefLabel "Esame scientifico"@it ;
+    skos:scopeNote "Category for analytical, imaging, and documentation methods used to investigate the object materially and structurally."@en ;
+    skos:scopeNote "Categoria per metodi analitici, di imaging e di documentazione usati per indagare l'oggetto sotto il profilo materiale e strutturale."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:rtiExamination
@@ -1801,6 +2063,8 @@ ocra-voc:scanning3D
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "3D scanning"@en ;
     skos:prefLabel "Scansione 3D"@it ;
+    skos:scopeNote "Three-dimensional capture method used to record the geometry and surface morphology of the object."@en ;
+    skos:scopeNote "Metodo di acquisizione tridimensionale usato per registrare la geometria e la morfologia superficiale dell'oggetto."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:xrayExamination
@@ -1809,6 +2073,8 @@ ocra-voc:xrayExamination
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "X-ray examination"@en ;
     skos:prefLabel "Radiografia X"@it ;
+    skos:scopeNote "Radiographic examination used to visualize internal structure, joins, fractures, or hidden features."@en ;
+    skos:scopeNote "Esame radiografico usato per visualizzare struttura interna, giunzioni, fratture o caratteristiche nascoste."@it ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
 ocra-voc:xrfAnalysis
@@ -1827,6 +2093,8 @@ ocra-voc:multispectralImaging
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Multispectral imaging"@en ;
     skos:prefLabel "Imaging multispettrale"@it ;
+    skos:scopeNote "Imaging method that records the object in multiple spectral bands to reveal materials, alterations, or hidden details."@en ;
+    skos:scopeNote "Metodo di imaging che registra l'oggetto in piu bande spettrali per rivelare materiali, alterazioni o dettagli nascosti."@it ;
     skos:exactMatch aat:300380539 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
 
@@ -1836,5 +2104,7 @@ ocra-voc:photogrammetry
     skos:broader ocra-voc:scientificExamination ;
     skos:prefLabel "Photogrammetry"@en ;
     skos:prefLabel "Fotogrammetria"@it ;
+    skos:scopeNote "Method for deriving measurements, models, or spatial documentation from overlapping photographic images."@en ;
+    skos:scopeNote "Metodo per ricavare misure, modelli o documentazione spaziale da immagini fotografiche sovrapposte."@it ;
     skos:exactMatch aat:300053580 ;
     ocra:defaultColor "#3498DB"^^xsd:string .
