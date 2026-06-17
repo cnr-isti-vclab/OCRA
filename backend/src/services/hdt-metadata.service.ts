@@ -30,6 +30,7 @@ import type {
 import type { SceneDescription, ModelDefinition } from 'shared/scene-types';
 import fs from 'fs/promises';
 import path from 'path';
+import { normalizePhysicalObjectMetadata } from './physical-object-import/normalize.js';
 
 async function getCollection() {
   return getHdtCollection();
@@ -101,23 +102,7 @@ export async function createHDTDocument(
 
   console.log('HDT SERVICE: createHDTDocument initialData:', JSON.stringify(initialData, null, 2));
 
-  const sourceUri =
-    typeof initialData?.sourceUri === 'string' && initialData.sourceUri.trim().length > 0
-      ? initialData.sourceUri.trim()
-      : `urn:ocra:project:${projectId}`;
-  const sourceType = initialData?.sourceType ?? 'other';
-
-  const physicalObjectMetadata: PhysicalObjectMetadata = {
-    sourceUri,
-    sourceType,
-    dublinCore: initialData?.dublinCore || {},
-    cidocCrm: initialData?.cidocCrm || {},
-    ...initialData,
-  };
-
-  // Guarantee required fields even if initialData overwrote them with invalid values.
-  physicalObjectMetadata.sourceUri = sourceUri;
-  physicalObjectMetadata.sourceType = sourceType;
+  const physicalObjectMetadata = normalizePhysicalObjectMetadata(projectId, initialData);
 
   const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,

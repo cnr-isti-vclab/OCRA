@@ -46,9 +46,71 @@ export function defaultPhysicalObjectMetadata(
   return {
     sourceUri: `urn:ocra:project:${projectId}`,
     sourceType: 'other',
+    sourceSelectionLocked: false,
     dublinCore,
     cidocCrm
   };
+}
+
+export function isPhysicalObjectSourceSelectionLocked(
+  projectId: string,
+  metadata?: Partial<PhysicalObjectMetadata> | null
+): boolean {
+  if (typeof metadata?.sourceSelectionLocked === 'boolean') {
+    return metadata.sourceSelectionLocked;
+  }
+
+  if (!metadata) {
+    return false;
+  }
+
+  const defaultSourceUri = `urn:ocra:project:${projectId}`;
+  const sourceUri = typeof metadata.sourceUri === 'string' ? metadata.sourceUri.trim() : '';
+  const sourceType = typeof metadata.sourceType === 'string' ? metadata.sourceType.trim().toLowerCase() : '';
+  const hasSourceRecord = isRecord(metadata.sourceRecord) && Object.keys(metadata.sourceRecord).length > 0;
+  const hasNonDefaultSourceUri = sourceUri.length > 0 && sourceUri !== defaultSourceUri;
+  const hasImportedSourceType = sourceType.length > 0 && sourceType !== 'other';
+
+  return hasSourceRecord || hasNonDefaultSourceUri || hasImportedSourceType;
+}
+
+export function normalizePhysicalObjectMetadata(
+  projectId: string,
+  metadata?: Partial<PhysicalObjectMetadata> | null,
+  options?: {
+    defaults?: {
+      title?: string;
+      description?: string;
+    };
+    sourceSelectionLocked?: boolean;
+  }
+): PhysicalObjectMetadata {
+  const base = defaultPhysicalObjectMetadata(projectId, options?.defaults);
+  const merged: PhysicalObjectMetadata = {
+    ...base,
+    ...(metadata || {}),
+    dublinCore: isRecord(metadata?.dublinCore)
+      ? (metadata.dublinCore as Partial<DublinCoreMetadata>)
+      : base.dublinCore,
+    cidocCrm: isRecord(metadata?.cidocCrm)
+      ? (metadata.cidocCrm as Partial<CidocCrmMetadata>)
+      : base.cidocCrm,
+  };
+
+  merged.sourceUri =
+    typeof merged.sourceUri === 'string' && merged.sourceUri.trim().length > 0
+      ? merged.sourceUri.trim()
+      : base.sourceUri;
+  merged.sourceType =
+    typeof merged.sourceType === 'string' && merged.sourceType.trim().length > 0
+      ? normalizePhysicalObjectSourceType(merged.sourceType)
+      : base.sourceType;
+  merged.sourceSelectionLocked =
+    typeof options?.sourceSelectionLocked === 'boolean'
+      ? options.sourceSelectionLocked
+      : isPhysicalObjectSourceSelectionLocked(projectId, merged);
+
+  return merged;
 }
 
 export function toPhysicalObjectMetadataPatch(

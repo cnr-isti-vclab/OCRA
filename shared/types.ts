@@ -187,6 +187,7 @@ export type PhysicalObjectSourceType = 'echoes' | 'wikidata' | 'arco' | 'other';
 export interface PhysicalObjectMetadata {
   sourceUri: string;
   sourceType: PhysicalObjectSourceType;
+  sourceSelectionLocked?: boolean;
   dublinCore?: DublinCoreMetadata;
   cidocCrm?: CidocCrmMetadata;
   sourceRecord?: Record<string, any>;

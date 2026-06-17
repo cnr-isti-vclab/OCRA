@@ -409,6 +409,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               enum: ['echoes', 'wikidata', 'arco', 'other'],
               example: 'other',
             },
+            sourceSelectionLocked: {
+              type: 'boolean',
+              description: 'Whether metadata source selection is currently locked after HC1 initialization/import.',
+              example: true,
+            },
             dublinCore: {
               $ref: '#/components/schemas/DublinCoreMetadata',
             },

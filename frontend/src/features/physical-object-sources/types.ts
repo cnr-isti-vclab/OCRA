@@ -5,6 +5,7 @@ export type PhysicalObjectSourceType = 'echoes' | 'arco' | 'wikidata' | 'file';
 export interface PhysicalObjectMetadataRecord {
   sourceUri?: string;
   sourceType?: string;
+  sourceSelectionLocked?: boolean;
   dublinCore?: Record<string, unknown>;
   cidocCrm?: Record<string, unknown>;
   sourceRecord?: Record<string, unknown>;

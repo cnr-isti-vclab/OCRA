@@ -8,6 +8,7 @@ import {
   type PhysicalObjectSourceType,
 } from '../features/physical-object-sources';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
+import { getCurrentUser } from '../services/auth/session';
 
 async function importPhysicalObjectMetadataViaBackend(
   projectId: string,
@@ -80,6 +81,15 @@ interface SimpleUser {
   family_name?: string;
 }
 
+interface HdtPhysicalObjectMetadata {
+  sourceSelectionLocked?: boolean;
+  dublinCore?: Record<string, unknown>;
+}
+
+interface HdtDocumentSummary {
+  physicalObjectMetadata?: HdtPhysicalObjectMetadata | null;
+}
+
 export default function EditProject() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -91,6 +101,7 @@ export default function EditProject() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasHdt, setHasHdt] = useState<boolean | null>(null);
+  const [hdtMetadata, setHdtMetadata] = useState<HdtPhysicalObjectMetadata | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedSourceType, setSelectedSourceType] = useState<PhysicalObjectSourceType>('echoes');
   const [sourceFormState, setSourceFormState] = useState<any>(() => {
@@ -98,6 +109,8 @@ export default function EditProject() {
     return adapter ? adapter.createInitialState() : {};
   });
   const [sourceImportLoading, setSourceImportLoading] = useState(false);
+  const [sourceMaintenanceLoading, setSourceMaintenanceLoading] = useState(false);
+  const [isSystemAdministrator, setIsSystemAdministrator] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -143,6 +156,9 @@ export default function EditProject() {
         if (!sessionId) {
           throw new Error('No session found');
         }
+
+        const currentUser = await getCurrentUser();
+        setIsSystemAdministrator(currentUser?.sys_admin === true);
 
         // Use backend API to check if user is manager
         const isManagerResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
@@ -209,13 +225,18 @@ export default function EditProject() {
           });
           if (hdtRes.status === 404) {
             setHasHdt(false);
+            setHdtMetadata(null);
           } else if (hdtRes.ok) {
+            const hdtData: HdtDocumentSummary = await hdtRes.json();
             setHasHdt(true);
+            setHdtMetadata(hdtData.physicalObjectMetadata ?? null);
           } else {
             setHasHdt(true); // default to true on unexpected error to avoid showing import incorrectly
+            setHdtMetadata(null);
           }
         } catch (e) {
           setHasHdt(true);
+          setHdtMetadata(null);
         }
       } catch (e: any) {
         console.error('Failed to fetch data:', e);
@@ -235,6 +256,9 @@ export default function EditProject() {
   };
 
   const projectManagerDisplayName = project?.manager?.displayName || project?.manager?.name || project?.manager?.username || project?.manager?.email || 'No manager assigned';
+  const metadataSourceSelectionLocked = hdtMetadata?.sourceSelectionLocked !== false;
+  const canChooseMetadataSource = hasHdt === false || !metadataSourceSelectionLocked;
+  const canShowMaintenanceAction = hasHdt === true && metadataSourceSelectionLocked && isSystemAdministrator;
 
   // Fetch project members
   const fetchProjectMembers = async () => {
@@ -298,6 +322,7 @@ export default function EditProject() {
 
       setShowImportModal(false);
       setHasHdt(true);
+      setHdtMetadata(importedDoc?.physicalObjectMetadata ?? null);
 
       if (typeof dublinCore.title === 'string' && dublinCore.title.trim().length > 0) {
         setName(dublinCore.title);
@@ -313,6 +338,42 @@ export default function EditProject() {
       alert('Error importing metadata: ' + (err?.message || String(err)));
     } finally {
       setSourceImportLoading(false);
+    }
+  };
+
+  const handleReEnableMetadataSourceSelection = async () => {
+    if (!projectId) return;
+    if (!requireStructuringLock('re-enabling metadata source selection')) return;
+
+    try {
+      setSourceMaintenanceLoading(true);
+      const sessionId = localStorage.getItem('oauth_session_id');
+      const response = await fetch(
+        `${getApiBase()}/api/projects/${projectId}/hdt/physical-object/source-selection/re-enable`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${sessionId}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to re-enable metadata source selection');
+      }
+
+      const updatedDoc: HdtDocumentSummary = await response.json();
+      setHasHdt(true);
+      setHdtMetadata(updatedDoc.physicalObjectMetadata ?? null);
+      alert('Metadata source selection re-enabled for maintenance.');
+    } catch (e: any) {
+      console.error('Failed to re-enable metadata source selection:', e);
+      alert(e?.message || 'Failed to re-enable metadata source selection');
+    } finally {
+      setSourceMaintenanceLoading(false);
     }
   };
 
@@ -556,10 +617,13 @@ export default function EditProject() {
             Name: {project.name}. Visibility: {project.public ? 'Public' : 'Private'}. Manager: {projectManagerDisplayName}. HDT: {hasHdt === false ? 'Not initialized' : 'Initialized'}.
           </div>
 
-          {hasHdt === false && (
+          {canChooseMetadataSource && (
             <div className="alert alert-secondary">
               <div className="mb-3">
-                <strong>No imported HC1 metadata yet.</strong> Choose a source and provide source-specific input to initialize HC1 metadata.
+                <strong>{hasHdt === false ? 'No imported HC1 metadata yet.' : 'Metadata source selection is enabled for maintenance.'}</strong>{' '}
+                {hasHdt === false
+                  ? 'Choose a source and provide source-specific input to initialize HC1 metadata.'
+                  : 'Choose a source to replace the HC1 metadata attribution. Importing again will lock source selection afterwards.'}
               </div>
               <div className="d-flex gap-2 flex-wrap">
                 <button
@@ -582,7 +646,25 @@ export default function EditProject() {
 
           {hasHdt === true && (
             <div className="alert alert-light">
-              <strong>HDT metadata is initialized.</strong>
+              <strong>HDT metadata is initialized.</strong>{' '}
+              {metadataSourceSelectionLocked
+                ? 'Metadata source selection is locked.'
+                : 'Metadata source selection is currently re-enabled for maintenance.'}
+              {canShowMaintenanceAction && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-warning"
+                    onClick={handleReEnableMetadataSourceSelection}
+                    disabled={sourceMaintenanceLoading || !settingsLockReady}
+                  >
+                    {sourceMaintenanceLoading ? 'Re-enabling...' : 'Re-enable Metadata Source'}
+                  </button>
+                  <div className="form-text mt-2">
+                    System administrator maintenance action. Use this only to correct an HC1 source attribution.
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <form onSubmit={handleSubmit}>
@@ -920,7 +1002,7 @@ export default function EditProject() {
           <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Initialize HC1 Metadata</h5>
+                <h5 className="modal-title">{hasHdt === false ? 'Initialize HC1 Metadata' : 'Replace HC1 Metadata Source'}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">

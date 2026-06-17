@@ -61,7 +61,7 @@ import {
 import { RoleEnum } from '@prisma/client';
 import { projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
 import {
-  defaultPhysicalObjectMetadata,
+  normalizePhysicalObjectMetadata,
   normalizePhysicalObjectSourceType,
   toPhysicalObjectMetadataPatch
 } from '../services/physical-object-import/normalize.js';
@@ -232,6 +232,22 @@ function mergePhysicalObjectMetadata(
   };
 }
 
+function omitProtectedPhysicalObjectMetadataFields(
+  patch: Partial<PhysicalObjectMetadata>
+): Partial<PhysicalObjectMetadata> {
+  const { sourceSelectionLocked: _sourceSelectionLocked, ...safePatch } = patch;
+  return safePatch;
+}
+
+function withNormalizedPhysicalObjectMetadata<T extends { projectId: string; physicalObjectMetadata: PhysicalObjectMetadata }>(
+  document: T
+): T {
+  return {
+    ...document,
+    physicalObjectMetadata: normalizePhysicalObjectMetadata(document.projectId, document.physicalObjectMetadata),
+  };
+}
+
 function sendHdtError(
   req: Request,
   res: Response,
@@ -327,7 +343,7 @@ export async function getHDTMetadataHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 403, 'editorOrManagerRequired', 'Access denied: viewer role or above required');
     }
 
-    res.json(document);
+    res.json(withNormalizedPhysicalObjectMetadata(document));
   } catch (error: any) {
     console.error('Error fetching HDT document:', error);
     sendHdtError(req, res, 500, 'fetchFailed', 'Failed to fetch HDT document', error?.message || String(error));
@@ -391,7 +407,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
 
     let metadataPatch: Partial<PhysicalObjectMetadata>;
     try {
-      metadataPatch = extractPhysicalObjectMetadataPatch(req.body);
+      metadataPatch = omitProtectedPhysicalObjectMetadataFields(extractPhysicalObjectMetadataPatch(req.body));
     } catch (error: any) {
       return sendHdtError(
         req,
@@ -402,11 +418,13 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
       );
     }
 
-    const defaultMetadata = defaultPhysicalObjectMetadata(projectId, {
-      title: project.name,
-      description: project.description || undefined
+    const initialMetadata = normalizePhysicalObjectMetadata(projectId, metadataPatch, {
+      defaults: {
+        title: project.name,
+        description: project.description || undefined
+      },
+      sourceSelectionLocked: false
     });
-    const initialMetadata = mergePhysicalObjectMetadata(defaultMetadata, metadataPatch);
 
     console.log('HDT CREATE: initialMetadata:', JSON.stringify(initialMetadata, null, 2));
 
@@ -414,7 +432,7 @@ export async function createHDTMetadataHandler(req: Request, res: Response) {
     const document = await createHDTDocument(projectId, currentUser.sub, initialMetadata);
     console.log('HDT CREATE: created document:', JSON.stringify(document, null, 2));
 
-    res.status(201).json(document);
+    res.status(201).json(withNormalizedPhysicalObjectMetadata(document));
   } catch (error: any) {
     console.error('Error creating HDT document:', error);
     sendHdtError(req, res, 500, 'createFailed', 'Failed to create HDT document', error?.message || String(error));
@@ -454,7 +472,7 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
 
     let metadataPatch: Partial<PhysicalObjectMetadata>;
     try {
-      metadataPatch = extractPhysicalObjectMetadataPatch(rawBody);
+      metadataPatch = omitProtectedPhysicalObjectMetadataFields(extractPhysicalObjectMetadataPatch(rawBody));
     } catch (error: any) {
       return sendHdtError(
         req,
@@ -469,10 +487,7 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 400, 'noPhysicalObjectMetadataFields', 'No physicalObjectMetadata fields provided');
     }
 
-    const mergedCurrent = mergePhysicalObjectMetadata(
-      defaultPhysicalObjectMetadata(projectId),
-      existingDocument.physicalObjectMetadata || {}
-    );
+    const mergedCurrent = normalizePhysicalObjectMetadata(projectId, existingDocument.physicalObjectMetadata || {});
     const normalizedUpdate = mergePhysicalObjectMetadata(mergedCurrent, metadataPatch);
     const updatedMetadata = await updateHDTMetadata(projectId, normalizedUpdate, currentUser.sub);
 
@@ -480,7 +495,7 @@ export async function updateHDTMetadataHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
     }
 
-    res.json(updatedMetadata);
+    res.json(withNormalizedPhysicalObjectMetadata(updatedMetadata));
   } catch (error: any) {
     console.error('Error updating HDT metadata:', error);
     sendHdtError(req, res, 500, 'updateFailed', 'Failed to update HDT metadata', error?.message || String(error));
@@ -540,6 +555,7 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
         sourceType,
         dublinCore: importResult.dublinCore,
         sourceRecord: importResult.sourceRecord,
+        sourceSelectionLocked: true,
         ...(importResult.metadataPatch || {})
       },
       { allowExtraFields: true }
@@ -562,28 +578,31 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
         return sendHdtError(req, res, 404, 'projectNotFound', 'Project not found');
       }
 
-      const defaults = defaultPhysicalObjectMetadata(projectId, {
-        title: project.name,
-        description: project.description || undefined
+      const initialMetadata = normalizePhysicalObjectMetadata(projectId, importPatch, {
+        defaults: {
+          title: project.name,
+          description: project.description || undefined
+        },
+        sourceSelectionLocked: true
       });
-      const initialMetadata = mergePhysicalObjectMetadata(defaults, importPatch);
 
       const createdDocument = await createHDTDocument(projectId, currentUser.sub, initialMetadata);
-      return res.status(201).json(createdDocument);
+      return res.status(201).json(withNormalizedPhysicalObjectMetadata(createdDocument));
     }
 
-    const mergedCurrent = mergePhysicalObjectMetadata(
-      defaultPhysicalObjectMetadata(projectId),
-      existingDocument.physicalObjectMetadata || {}
+    const mergedCurrent = normalizePhysicalObjectMetadata(projectId, existingDocument.physicalObjectMetadata || {});
+    const normalizedUpdate = normalizePhysicalObjectMetadata(
+      projectId,
+      mergePhysicalObjectMetadata(mergedCurrent, importPatch),
+      { sourceSelectionLocked: true }
     );
-    const normalizedUpdate = mergePhysicalObjectMetadata(mergedCurrent, importPatch);
     const updatedDocument = await updateHDTMetadata(projectId, normalizedUpdate, currentUser.sub);
 
     if (!updatedDocument) {
       return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
     }
 
-    return res.status(200).json(updatedDocument);
+    return res.status(200).json(withNormalizedPhysicalObjectMetadata(updatedDocument));
   } catch (error: any) {
     console.error('Error importing physical object metadata:', error);
 
@@ -596,6 +615,70 @@ export async function importPhysicalObjectMetadataHandler(req: Request, res: Res
     }
 
     return sendHdtError(req, res, 500, 'importFailed', 'Failed to import physical object metadata', message);
+  }
+}
+
+/**
+ * POST /api/projects/:projectId/hdt/physical-object/source-selection/re-enable
+ * Re-enable metadata source selection for maintenance (system administrator only).
+ */
+export async function reEnablePhysicalObjectSourceSelectionHandler(req: Request, res: Response) {
+  try {
+    const { projectId } = req.params;
+    const currentUser = getCurrentUser(req);
+
+    if (!currentUser) {
+      return sendHdtError(req, res, 401, 'authenticationRequired', 'Authentication required');
+    }
+
+    if (!currentUser.sys_admin) {
+      return sendHdtError(
+        req,
+        res,
+        403,
+        'managerRequired',
+        'Only system administrators can re-enable metadata source selection'
+      );
+    }
+
+    if (!projectId) {
+      return sendHdtError(req, res, 400, 'projectIdRequired', 'Project ID is required');
+    }
+
+    if (!(await requireOwnedExclusiveStructuringLock(req, res, projectId))) {
+      return;
+    }
+
+    const existingDocument = await getHDTDocument(projectId);
+    if (!existingDocument) {
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
+    }
+
+    const currentMetadata = normalizePhysicalObjectMetadata(projectId, existingDocument.physicalObjectMetadata || {});
+    const updatedDocument = await updateHDTMetadata(
+      projectId,
+      {
+        ...currentMetadata,
+        sourceSelectionLocked: false,
+      },
+      currentUser.sub
+    );
+
+    if (!updatedDocument) {
+      return sendHdtError(req, res, 404, 'documentNotFound', 'HDT metadata not found for this project');
+    }
+
+    return res.json(withNormalizedPhysicalObjectMetadata(updatedDocument));
+  } catch (error: any) {
+    console.error('Error re-enabling metadata source selection:', error);
+    return sendHdtError(
+      req,
+      res,
+      500,
+      'updateFailed',
+      'Failed to re-enable metadata source selection',
+      error?.message || String(error)
+    );
   }
 }
 
