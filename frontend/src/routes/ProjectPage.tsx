@@ -14,8 +14,8 @@ import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
 import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
-import AnnotationPanel from './components/AnnotationPanel';
-import AnnotationViewerPanel from './components/AnnotationViewerPanel';
+import AnnotationPanelEditor from './components/AnnotationPanelEditor';
+import AnnotationPanelViewer from './components/AnnotationPanelViewer';
 import {
   resolveAnnotationMode,
   selectionPolicyForAnnotationMode,
@@ -1571,7 +1571,7 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    {annotationMode === 'viewer' ? <AnnotationViewerPanel /> : <AnnotationPanel />}
+                    {annotationMode === 'viewer' ? <AnnotationPanelViewer /> : <AnnotationPanelEditor />}
                   </div>
                 )}
               </div>

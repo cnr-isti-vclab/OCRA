@@ -1,5 +1,5 @@
 /**
- * AnnotationPanel — lists active {@link AnnotationData} from the store and drives UI focus.
+ * AnnotationPanelEditor — lists active {@link AnnotationData} from the store and drives UI focus.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,7 +23,7 @@ import {
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
 
-interface AnnotationPanelProps {
+interface AnnotationPanelEditorProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
   onSelectionChanged?: (geometryIds: string[]) => void;
 }
@@ -125,7 +125,7 @@ function EditDataModal({
   );
 }
 
-export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelProps) {
+export default function AnnotationPanelEditor({ onSelectionChanged }: AnnotationPanelEditorProps) {
   const {
     activeData,
     allData,

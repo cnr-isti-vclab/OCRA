@@ -3,7 +3,7 @@ import { useAnnotationViewerController } from './useAnnotationViewerController';
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
 
-export default function AnnotationViewerPanel() {
+export default function AnnotationPanelViewer() {
   const {
     activeDataCount,
     activeGeometryCount,

@@ -31,7 +31,8 @@ flowchart TB
     V3[Viewer3DPanel]
     V2[Viewer2DPanel]
     TB[AnnotationToolbar — 2D]
-    AP[AnnotationPanel]
+    APE[AnnotationPanelEditor]
+    APV[AnnotationPanelViewer]
     LAB[AnnotationStoreTestPanel]
   end
 
@@ -70,7 +71,8 @@ flowchart TB
   V3 --> ASC
   V2 --> ASC
   V2 --> TB
-  AP --> ASC
+  APE --> ASC
+  APV --> ASC
   LAB --> ASC
   V3 --> G2V --> TP
   V2 --> G2V
@@ -185,7 +187,7 @@ Helpers include `buildGeometryLabelDisplay`, `getActiveResolvedTriples`, `getAct
 
 | Source                   | When lock is published                                                        | Stopped when                             |
 | ------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------- |
-| **AnnotationPanel**      | User opens data edit modal (`startEditorLock('data', …)`)                     | Save, cancel, unmount                    |
+| **AnnotationPanelEditor**      | User opens data edit modal (`startEditorLock('data', …)`)                     | Save, cancel, unmount                    |
 | **Viewer2DPanel**        | Focused geometry ids change (`startEditorLock('geometry', …)` per focused id) | Focus changes, panel unmount             |
 | **Presence** (API ready) | Optional scene-wide / scoped presence via `AnnotationEventsService`           | Not wired in production panel/viewer yet |
 
@@ -196,7 +198,7 @@ Helpers include `buildGeometryLabelDisplay`, `getActiveResolvedTriples`, `getAct
 | Surface                    | Behaviour                                                                                                                                                                                                         |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Selection / focus**      | `collectSelectionConflicts` ignores locks from `currentStreamId` (own session). Remote **editor** lock on overlapping geometry/data/link → modal before applying focus; user may continue anyway.                 |
-| **AnnotationPanel banner** | When current focus overlaps remote editor locks, shows who is editing (geometry/data/link aware, expands focus to linked triple).                                                                                 |
+| **AnnotationPanelEditor banner** | When current focus overlaps remote editor locks, shows who is editing (geometry/data/link aware, expands focus to linked triple).                                                                                 |
 | **Panel list styling**     | Rows under any editor lock (local or remote, including linked geometry) use `backgroundUnderEditing` / `textUnderEditing` from `annotationStyles.ts`.                                                             |
 | **Panel delete**           | Per-row and bulk delete **disabled** when a **remote** editor lock covers that data row or linked geometry/link (`annotation-social-locks.ts`). Grayed trash icon + tooltip.                                      |
 | **2D viewer**              | Remote geometry editor locks → `applyOpenLimeUnderEditing` → OpenLIME `structuralClasses.underEditing` (red glow in `OPENLIME_ANNOTATION_STYLE_CONFIG`). Own locks are not styled as under-editing in the canvas. |
@@ -214,10 +216,10 @@ OCC and social-lock behaviour: optimistic local-first writes, version guards, ad
 `ProjectPage` mounts `**AnnotationStoreProvider`** with `projectId` and `selectedSceneId`.
 
 
-| URL mode     | Viewer                           | Panel             |
-| ------------ | -------------------------------- | ----------------- |
-| `?mode=3d`   | `Viewer3DPanel`                  | `AnnotationPanel` |
-| `?mode=2d`   | `Viewer2DPanel` (RTI / OpenLIME) | `AnnotationPanel` |
+| URL mode     | Viewer                           | Panel (`annotationMode`)                          |
+| ------------ | -------------------------------- | ------------------------------------------------- |
+| `?mode=3d`   | `Viewer3DPanel`                  | `AnnotationPanelEditor` or `AnnotationPanelViewer` |
+| `?mode=2d`   | `Viewer2DPanel` (RTI / OpenLIME) | `AnnotationPanelEditor` or `AnnotationPanelViewer` |
 | `?mode=test` | `AnnotationStoreTestPanel` (lab) | —                 |
 
 
@@ -299,7 +301,11 @@ Reusable React control for choosing how the user interacts with the OpenLIME ann
 
 ---
 
-## 8. Annotation panel (`AnnotationPanel`)
+## 8. Annotation panels (`AnnotationPanelBase`)
+
+`ProjectPage` mounts **`AnnotationPanelEditor`** or **`AnnotationPanelViewer`** depending on `annotationMode`. Both share layout via **`AnnotationPanelBase`** and the **`AnnotationClassFilter`** component.
+
+### 8.1 Editor — `AnnotationPanelEditor`
 
 - Lists `**activeData`** (not a flat “resolved triple” list).
 - Per row: label, description, **linked geometry count**, edit modal (`updateData`), delete (`markDataErasable`).
@@ -309,7 +315,16 @@ Reusable React control for choosing how the user interacts with the OpenLIME ann
 - **Collaboration:** banner when focused selection overlaps remote editor locks; list rows styled when under edit; delete guarded as in §5.4.
 - **Edit modal:** publishes **data** editor lock for the row being edited; handles 409 / remote delete via `AnnotationMessageModalCatalog`.
 
-**Store supports but panel does not expose yet:** link/unlink UI (`createAnnotation({ existingDataId })`, `markLinkErasable`), geometry list tab, `loadProjectData` picker, presence-lock UI.
+**Store supports but editor panel does not expose yet:** link/unlink UI (`createAnnotation({ existingDataId })`, `markLinkErasable`), geometry list tab, `loadProjectData` picker, presence-lock UI.
+
+### 8.2 Viewer — `AnnotationPanelViewer`
+
+- Lists **`activeData`** (read-only; no edit/delete).
+- Per row: label, description, linked geometry count.
+- **Focus:** row click (with Ctrl multi-select) → `selectData` → viewer highlights linked geometries.
+- **Class filter:** same chip pool and manual CURIE input as the editor (`AnnotationClassFilter`).
+- **Checkbox:** optionally show only data linked to currently selected geometries.
+- No collaboration banner, realtime badge, or destructive actions.
 
 ---
 
@@ -399,7 +414,9 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 | 2D toolbar      | `frontend/src/components/AnnotationToolbar.tsx`, `adapters/openlime-viewer/openlimeToolbarMode.ts` |
 | 3D UI           | `frontend/src/routes/components/Viewer3DPanel.tsx`, `adapters/three-presenter/ThreeJSViewer.tsx`   |
 | 2D UI           | `frontend/src/routes/components/Viewer2DPanel.tsx`, `adapters/openlime-viewer/OpenLIMEViewer.tsx`  |
-| Panel           | `frontend/src/routes/components/AnnotationPanel.tsx`                                               |
+| Panel (editor)  | `frontend/src/routes/components/AnnotationPanelEditor.tsx`                                         |
+| Panel (viewer)  | `frontend/src/routes/components/AnnotationPanelViewer.tsx`                                         |
+| Panel (shared)  | `frontend/src/routes/components/AnnotationPanelBase.tsx`, `AnnotationClassFilter.tsx`              |
 | Lab             | `frontend/src/routes/components/AnnotationStoreTestPanel.tsx`                                      |
 | Wiring          | `frontend/src/routes/ProjectPage.tsx`                                                              |
 | Backend locks   | `backend/src/lib/annotation-events.ts`, `backend/src/controllers/annotation.controller.ts`         |
