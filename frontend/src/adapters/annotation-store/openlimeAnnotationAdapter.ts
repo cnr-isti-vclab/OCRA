@@ -294,6 +294,10 @@ export function applyOpenLimeSelection(
       originalEvent: null,
       interactionMode,
     });
+    // Selection changes must trigger a redraw so LayerSvgAnnotation.prefetch runs and
+    // ManagerSvgAnnotation can add/remove label elements for labelVisibility='selected'.
+    manager.viewer?.redraw?.();
+    requestAnimationFrame(() => manager.viewer?.redraw?.());
     return;
   }
 
@@ -303,6 +307,8 @@ export function applyOpenLimeSelection(
       originalEvent: null,
       interactionMode,
     });
+    manager.viewer?.redraw?.();
+    requestAnimationFrame(() => manager.viewer?.redraw?.());
     return;
   }
 
@@ -310,6 +316,8 @@ export function applyOpenLimeSelection(
   geometryIds.forEach((id) => {
     manager.setSelected(id, true);
   });
+  manager.viewer?.redraw?.();
+  requestAnimationFrame(() => manager.viewer?.redraw?.());
 }
 
 /**
