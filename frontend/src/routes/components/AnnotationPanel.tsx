@@ -159,6 +159,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   const [classPoolSearch, setClassPoolSearch] = useState('');
   const [classPoolExpanded, setClassPoolExpanded] = useState(false);
   const [manualClassFilterInput, setManualClassFilterInput] = useState('');
+  const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
   const editingDataIdRef = useRef<string | null>(null);
 
   const filteredActiveData = useMemo(() => {
@@ -169,6 +170,28 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     const allowedClasses = new Set(annotationClassFilterValues);
     return activeData.filter((datum) => datum.class !== null && allowedClasses.has(datum.class));
   }, [activeData, annotationClassFilterValues]);
+
+  const visibleData = useMemo(() => {
+    if (!onlySelectedGeometryData) {
+      return filteredActiveData;
+    }
+    if (focusedGeometryIds.size === 0) {
+      return [];
+    }
+
+    const allowedDataIds = new Set<string>();
+    for (const geometryId of focusedGeometryIds) {
+      for (const dataId of activeAnnotationSelection.dataIdsByGeometryId.get(geometryId) ?? []) {
+        allowedDataIds.add(dataId);
+      }
+    }
+    return filteredActiveData.filter((datum) => allowedDataIds.has(datum.id));
+  }, [
+    onlySelectedGeometryData,
+    filteredActiveData,
+    focusedGeometryIds,
+    activeAnnotationSelection.dataIdsByGeometryId,
+  ]);
 
   const visibleClassPool = useMemo(() => {
     const needle = classPoolSearch.trim().toLowerCase();
@@ -659,18 +682,33 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
         )}
       </div>
 
-      {filteredActiveData.length === 0 ? (
+      <div className="mb-3 form-check">
+        <input
+          className="form-check-input"
+          type="checkbox"
+          id="annotation-panel-only-selected-geometry-data"
+          checked={onlySelectedGeometryData}
+          onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
+        />
+        <label className="form-check-label small" htmlFor="annotation-panel-only-selected-geometry-data">
+          Show only data linked to selected geometries
+        </label>
+      </div>
+
+      {visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <p className="text-muted fst-italic text-center">
             {activeData.length === 0
               ? 'No active annotation data. Adjust the query filter or create annotations in the viewer.'
-              : 'No annotation data matches the class filter.'}
+              : onlySelectedGeometryData && focusedGeometryIds.size === 0
+              ? 'No geometry selected.'
+              : 'No annotation data matches the current filter.'}
           </p>
         </div>
       ) : (
         <div className="flex-grow-1 overflow-auto">
           <div className="list-group">
-            {filteredActiveData.map((datum) => {
+            {visibleData.map((datum) => {
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
               const isSelected = isDataFocused(datum.id);

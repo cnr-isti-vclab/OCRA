@@ -141,21 +141,26 @@ export default function AnnotationViewerPanel() {
   const {
     activeDataCount,
     activeGeometryCount,
+    filteredActiveData,
     dataEntries,
     focusedGeometryIds,
     clearFocus,
   } = useAnnotationViewerController();
 
   const hasGeometrySelection = focusedGeometryIds.size > 0;
+  const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
+
+  const visibleData = useMemo(
+    () => (onlySelectedGeometryData ? dataEntries.map((e) => e.data) : filteredActiveData),
+    [onlySelectedGeometryData, dataEntries, filteredActiveData],
+  );
 
   return (
     <div className="p-3 h-100 d-flex flex-column">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h4 className="h4 mb-0">Annotations</h4>
-          <div className="text-muted small">
-            Read-only annotation data linked to the selected geometry.
-          </div>
+          <div className="text-muted small">Read-only annotation data.</div>
         </div>
         {hasGeometrySelection ? (
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={clearFocus}>
@@ -170,12 +175,28 @@ export default function AnnotationViewerPanel() {
 
       <AnnotationClassFilter />
 
+      <div className="mb-3 form-check">
+        <input
+          className="form-check-input"
+          type="checkbox"
+          id="annotation-viewer-only-selected-geometry-data"
+          checked={onlySelectedGeometryData}
+          onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
+        />
+        <label className="form-check-label small" htmlFor="annotation-viewer-only-selected-geometry-data">
+          Show only data linked to selected geometries
+        </label>
+      </div>
+
       <div className="flex-grow-1 overflow-auto d-flex flex-column gap-3">
-        {dataEntries.length > 0 ? (
+        {visibleData.length > 0 ? (
           <section>
             <h5 className="h6 mb-2">Annotation data</h5>
             <div className="d-flex flex-column gap-2">
-              {dataEntries.map(({ data, linkedGeometries }) => (
+              {visibleData.map((data) => {
+                const entry = dataEntries.find((e) => e.data.id === data.id);
+                const linkedGeometries = entry?.linkedGeometries ?? [];
+                return (
                 <div key={data.id} className="border rounded p-2 bg-white">
                   <div className="fw-semibold">{data.label}</div>
                   {data.class ? (
@@ -197,12 +218,13 @@ export default function AnnotationViewerPanel() {
                     </>
                   ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         ) : null}
 
-        {!hasGeometrySelection ? (
+        {onlySelectedGeometryData && !hasGeometrySelection ? (
           <div className="border rounded p-3 bg-white">
             <div className="fw-semibold mb-2">No geometry selected</div>
             <div className="small text-muted">
@@ -211,7 +233,7 @@ export default function AnnotationViewerPanel() {
           </div>
         ) : null}
 
-        {hasGeometrySelection && dataEntries.length === 0 ? (
+        {onlySelectedGeometryData && hasGeometrySelection && dataEntries.length === 0 ? (
           <div className="border rounded p-3 bg-white">
             <div className="fw-semibold mb-2">No linked annotation data</div>
             <div className="small text-muted">
