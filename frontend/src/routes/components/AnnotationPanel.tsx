@@ -20,6 +20,8 @@ import {
 import {
   MessageModalDescriptor,
 } from '../../shared/ui/AppMessageModalModel';
+import AnnotationPanelBase from './AnnotationPanelBase';
+import AnnotationClassFilter from './AnnotationClassFilter';
 
 interface AnnotationPanelProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
@@ -156,9 +158,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
-  const [classPoolSearch, setClassPoolSearch] = useState('');
-  const [classPoolExpanded, setClassPoolExpanded] = useState(false);
-  const [manualClassFilterInput, setManualClassFilterInput] = useState('');
   const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
   const editingDataIdRef = useRef<string | null>(null);
 
@@ -193,27 +192,7 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     activeAnnotationSelection.dataIdsByGeometryId,
   ]);
 
-  const visibleClassPool = useMemo(() => {
-    const needle = classPoolSearch.trim().toLowerCase();
-    if (!needle) {
-      return sceneAnnotationClassPool;
-    }
-    return sceneAnnotationClassPool.filter((option) =>
-      option.curie.toLowerCase().includes(needle) || option.label.toLowerCase().includes(needle),
-    );
-  }, [classPoolSearch, sceneAnnotationClassPool]);
-
-  useEffect(() => {
-    setManualClassFilterInput(annotationClassFilterValues.join(', '));
-  }, [annotationClassFilterValues]);
-
-  const commitManualClassFilterInput = useCallback(() => {
-    const values = manualClassFilterInput
-      .split(/[,\n]+/)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-    setAnnotationClassFilterValues(values);
-  }, [manualClassFilterInput, setAnnotationClassFilterValues]);
+  // Class filter UI is handled by the shared `AnnotationClassFilter` component.
 
   const realtimeBadgeClass =
     realtimeState === 'connected'
@@ -545,155 +524,71 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   }, [stopEditorLock]);
 
   return (
-    <div className="p-3 h-100 d-flex flex-column">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="h4 mb-0">Annotations</h4>
-        {focusedDataIdList.length > 0 && (
-          <div className="btn-group btn-group-sm" role="group">
-            <button
-              type="button"
-              className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
-              onClick={() => void handleBulkDelete()}
-              disabled={creating || bulkDeleteBlocked}
-              title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
-            >
-              <i className="bi bi-trash me-1" aria-hidden />
-              Delete ({focusedDataIdList.length})
-            </button>
-            <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
-              <i className="bi bi-x-lg"></i>
-            </button>
+    <AnnotationPanelBase
+      title="Annotations"
+      headerRight={focusedDataIdList.length > 0 ? (
+        <div className="btn-group btn-group-sm" role="group">
+          <button
+            type="button"
+            className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
+            onClick={() => void handleBulkDelete()}
+            disabled={creating || bulkDeleteBlocked}
+            title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
+          >
+            <i className="bi bi-trash me-1" aria-hidden />
+            Delete ({focusedDataIdList.length})
+          </button>
+          <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
+            <i className="bi bi-x-lg" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+      status={
+        <div
+          className={`mb-3 p-2 border rounded small annotation-panel-status ${
+            collaborativeEditInfo
+              ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
+              : 'bg-light-subtle text-muted'
+          }`}
+          style={{ minHeight: collaborativeEditInfo ? '64px' : '48px' }}
+        >
+          <div className="d-flex flex-column gap-1 annotation-panel-status__content">
+            <span className={`badge annotation-panel-status__badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
+            {collaborativeEditInfo ? (
+              <div className="annotation-panel-status__message">{collaborativeEditInfo}</div>
+            ) : null}
           </div>
-        )}
-      </div>
+        </div>
+      }
+      classFilter={
+        <AnnotationClassFilter
+          idPrefix="annotation-editor"
+          pool={sceneAnnotationClassPool}
+          filterMode={annotationClassFilterMode}
+          filterValues={annotationClassFilterValues}
+          setFilterValues={setAnnotationClassFilterValues}
+          toggleFilterValue={toggleAnnotationClassFilterValue}
+          selectAllFilters={selectAllAnnotationClassFilters}
+          clearFilter={clearAnnotationClassFilter}
+        />
+      }
+      toggle={
+        <div className="mb-3 form-check">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="annotation-panel-only-selected-geometry-data"
+            checked={onlySelectedGeometryData}
+            onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
+          />
+          <label className="form-check-label small" htmlFor="annotation-panel-only-selected-geometry-data">
+            Show only data linked to selected geometries
+          </label>
+        </div>
+      }
+    >
 
       {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
-
-      <div
-        className={`mb-3 p-2 border rounded small annotation-panel-status ${
-          collaborativeEditInfo
-            ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
-            : 'bg-light-subtle text-muted'
-        }`}
-        style={{ minHeight: collaborativeEditInfo ? '64px' : '48px' }}
-      >
-        <div className="d-flex flex-column gap-1 annotation-panel-status__content">
-          <span className={`badge annotation-panel-status__badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
-          {collaborativeEditInfo ? (
-            <div className="annotation-panel-status__message">{collaborativeEditInfo}</div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mb-3 d-flex flex-column gap-2">
-        <div className="d-flex justify-content-between align-items-center gap-2">
-          <label htmlFor="annotation-class-filter-input" className="form-label small fw-semibold mb-0">
-            Class filter
-          </label>
-          <div className="d-flex align-items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm py-0 px-2"
-              onClick={clearAnnotationClassFilter}
-              disabled={annotationClassFilterMode === 'none' && annotationClassFilterValues.length === 0}
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm py-0 px-2"
-              onClick={() => setClassPoolExpanded((current) => !current)}
-              aria-expanded={classPoolExpanded}
-              aria-controls="annotation-class-chip-pool"
-            >
-              {classPoolExpanded ? 'Hide classes' : 'Show classes'}
-            </button>
-          </div>
-        </div>
-        <input
-          id="annotation-class-filter-input"
-          type="text"
-          className="form-control form-control-sm"
-          value={manualClassFilterInput}
-          onChange={(e) => setManualClassFilterInput(e.target.value)}
-          onBlur={commitManualClassFilterInput}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commitManualClassFilterInput();
-            }
-          }}
-          placeholder="CURIEs separated by commas"
-        />
-        {classPoolExpanded && (
-          <div
-            id="annotation-class-chip-pool"
-            className="border rounded p-2 bg-light-subtle d-flex flex-column gap-2"
-          >
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              value={classPoolSearch}
-              onChange={(e) => setClassPoolSearch(e.target.value)}
-              placeholder="Search among classes present in this scene"
-            />
-            <div className="d-flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={`btn btn-sm ${annotationClassFilterMode === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-                onClick={selectAllAnnotationClassFilters}
-                disabled={sceneAnnotationClassPool.length === 0}
-              >
-                ALL
-              </button>
-              {visibleClassPool.map((option) => {
-                const selected = annotationClassFilterValues.includes(option.curie);
-                return (
-                  <button
-                    key={option.curie}
-                    type="button"
-                    className={`btn btn-sm ${selected ? 'btn-primary' : 'btn-outline-secondary'}`}
-                    onClick={() => toggleAnnotationClassFilterValue(option.curie)}
-                    title={option.curie}
-                    style={{
-                      borderColor: option.color,
-                      boxShadow: selected ? `inset 0 0 0 1px ${option.color}` : 'none',
-                    }}
-                  >
-                    <span
-                      aria-hidden
-                      className="me-1 align-middle d-inline-block rounded-circle"
-                      style={{
-                        width: '0.7rem',
-                        height: '0.7rem',
-                        backgroundColor: option.color,
-                        verticalAlign: 'middle',
-                      }}
-                    />
-                    {option.label} ({option.dataCount})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {sceneAnnotationClassPool.length === 0 && (
-          <div className="text-muted small">No classified annotation data in this scene.</div>
-        )}
-      </div>
-
-      <div className="mb-3 form-check">
-        <input
-          className="form-check-input"
-          type="checkbox"
-          id="annotation-panel-only-selected-geometry-data"
-          checked={onlySelectedGeometryData}
-          onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
-        />
-        <label className="form-check-label small" htmlFor="annotation-panel-only-selected-geometry-data">
-          Show only data linked to selected geometries
-        </label>
-      </div>
 
       {visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
@@ -833,6 +728,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
           setMessageModal(null);
         }}
       />
-    </div>
+    </AnnotationPanelBase>
   );
 }

@@ -55,6 +55,8 @@ export interface SceneAnnotationClassOption {
   geometryCount: number;
 }
 
+export type AnnotationClassFilterMode = 'none' | 'custom' | 'all';
+
 export interface AnnotationFocusState {
   focusedGeometryIds: ReadonlySet<string>;
   focusedDataIds: ReadonlySet<string>;
@@ -82,7 +84,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   currentSelectionCriteria: Readonly<SelectionCriteria>;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
   sceneAnnotationClassPool: SceneAnnotationClassOption[];
-  annotationClassFilterMode: 'none' | 'custom' | 'all';
+  annotationClassFilterMode: AnnotationClassFilterMode;
   annotationClassFilterValues: string[];
   setAnnotationClassFilterValues: (values: string[]) => void;
   toggleAnnotationClassFilterValue: (curie: string) => void;
@@ -181,7 +183,7 @@ export function AnnotationStoreProvider({
   const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
   const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
-  const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<'none' | 'custom' | 'all'>('none');
+  const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<AnnotationClassFilterMode>('none');
   const [customAnnotationClassFilterValues, setCustomAnnotationClassFilterValues] = useState<string[]>([]);
   const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);

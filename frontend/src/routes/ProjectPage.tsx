@@ -15,7 +15,7 @@ import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanel from './components/AnnotationPanel';
-import AnnotationViewerPanel from '../features/annotation-viewer/AnnotationViewerPanel';
+import AnnotationViewerPanel from './components/AnnotationViewerPanel';
 import {
   resolveAnnotationMode,
   selectionPolicyForAnnotationMode,
