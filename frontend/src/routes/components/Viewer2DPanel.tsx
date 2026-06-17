@@ -265,8 +265,26 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       captureGeometryEditSnapshot(anno.id);
     };
 
-    const handleViewerPointerDown = () => {
+    const handleViewerPointerDown = (e: React.PointerEvent) => {
       isPointerDownRef.current = true;
+
+      // In viewer mode, OpenLIME selection may not clear when clicking on empty space.
+      // Mirror editor behaviour by clearing focus on background clicks.
+      if (annotationMode === 'viewer' && e.button === 0) {
+        const target = e.target as HTMLElement | null;
+        const isUiClick =
+          Boolean(target?.closest?.('.openlime-button')) ||
+          Boolean(target?.closest?.('.openlime-dialog')) ||
+          Boolean(target?.closest?.('.annotation-toolbar'));
+        const isAnnotationClick = Boolean(target?.closest?.('.openlime-annotation'));
+        if (!isUiClick && !isAnnotationClick) {
+          const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+          const manager = viewer?.getAnnotationManager();
+          manager?.deselectAll?.();
+          clearFocus();
+        }
+      }
+
       // Snapshot focused geometries so any concurrent SSE update cannot replace the
       // OpenLIME object being dragged, and OCC still uses the edit-start version.
       for (const id of focusedGeometryIdsRef.current) {
