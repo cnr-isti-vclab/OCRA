@@ -131,16 +131,15 @@ export function useAnnotationViewerController() {
         nextDataIds.add(dataId);
       }
 
-      const geometryIds = geometryId
-        ? [geometryId]
-        : (activeAnnotationSelection.geometryIdsByDataId.get(dataId) ?? []);
-
       setFocusSelection({
-        geometryIds,
+        // Keep data-led focus (like editor mode): geometries highlighted as the union
+        // of all focused data ids. If a specific geometry was requested, switch to
+        // geometry-led focus for that click only.
+        geometryIds: geometryId ? [geometryId] : [],
         dataIds: nextDataIds,
       });
     },
-    [focusedDataIds, setFocusSelection, activeAnnotationSelection.geometryIdsByDataId],
+    [focusedDataIds, setFocusSelection],
   );
 
   return {

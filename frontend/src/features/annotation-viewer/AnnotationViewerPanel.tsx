@@ -143,7 +143,9 @@ export default function AnnotationViewerPanel() {
     activeGeometryCount,
     filteredActiveData,
     dataEntries,
+    focusedDataIds,
     focusedGeometryIds,
+    selectData,
     clearFocus,
   } = useAnnotationViewerController();
 
@@ -196,8 +198,26 @@ export default function AnnotationViewerPanel() {
               {visibleData.map((data) => {
                 const entry = dataEntries.find((e) => e.data.id === data.id);
                 const linkedGeometries = entry?.linkedGeometries ?? [];
+                const isSelected = focusedDataIds.has(data.id);
                 return (
-                <div key={data.id} className="border rounded p-2 bg-white">
+                <div
+                  key={data.id}
+                  className={`border rounded p-2 ${isSelected ? 'border-primary bg-primary-subtle' : 'bg-white'}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    selectData(data.id, undefined, e.ctrlKey || e.metaKey);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      selectData(data.id, undefined, (e as any).ctrlKey || (e as any).metaKey);
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                  aria-pressed={isSelected}
+                  title="Select to highlight linked geometry"
+                >
                   <div className="fw-semibold">{data.label}</div>
                   {data.class ? (
                     <div className="small text-muted mb-2">{data.class}</div>
