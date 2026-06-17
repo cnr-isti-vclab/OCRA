@@ -8,8 +8,17 @@ export interface VocabularyConcept {
   scopeNoteEn: string;
 }
 
+interface VocabularyProperty {
+  curie: string;
+  prefLabelEn: string;
+  color: string;
+  subPropertyOf: string | null;
+  scopeNoteEn: string;
+}
+
 interface VocabularyConceptsResponse {
   concepts: VocabularyConcept[];
+  properties?: VocabularyProperty[];
 }
 
 export async function fetchVocabularyConcepts(): Promise<VocabularyConcept[]> {
@@ -22,5 +31,16 @@ export async function fetchVocabularyConcepts(): Promise<VocabularyConcept[]> {
   }
 
   const data = (await response.json()) as VocabularyConceptsResponse;
-  return Array.isArray(data.concepts) ? data.concepts : [];
+  const concepts = Array.isArray(data.concepts) ? data.concepts : [];
+  const properties = Array.isArray(data.properties)
+    ? data.properties.map((property) => ({
+        curie: property.curie,
+        prefLabelEn: property.prefLabelEn,
+        color: property.color,
+        broader: property.subPropertyOf,
+        scopeNoteEn: property.scopeNoteEn,
+      }))
+    : [];
+
+  return [...concepts, ...properties];
 }

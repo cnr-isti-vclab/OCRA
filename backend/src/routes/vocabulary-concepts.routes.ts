@@ -6,7 +6,11 @@
  * managed through the database.
  *
  * GET /api/vocabulary/concepts
- *   Returns: { scheme: VocabularyScheme, concepts: VocabularyConcept[] }
+ *   Returns: {
+ *     scheme: VocabularyScheme,
+ *     concepts: VocabularyConcept[],
+ *     properties: VocabularyProperty[]
+ *   }
  */
 
 import { Router } from 'express';

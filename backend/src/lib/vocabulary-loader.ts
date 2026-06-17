@@ -13,6 +13,8 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+const RDF_PROPERTY = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property';
+const RDFS_SUB_PROPERTY_OF = 'http://www.w3.org/2000/01/rdf-schema#subPropertyOf';
 const SKOS_CONCEPT = 'http://www.w3.org/2004/02/skos/core#Concept';
 const SKOS_CONCEPT_SCHEME = 'http://www.w3.org/2004/02/skos/core#ConceptScheme';
 const SKOS_PREF_LABEL = 'http://www.w3.org/2004/02/skos/core#prefLabel';
@@ -28,6 +30,14 @@ export interface VocabularyConcept {
   scopeNoteEn: string;
 }
 
+export interface VocabularyProperty {
+  curie: string;
+  prefLabelEn: string;
+  color: string;
+  subPropertyOf: string | null;
+  scopeNoteEn: string;
+}
+
 export interface VocabularyScheme {
   curie: string;
   prefLabelEn: string;
@@ -38,6 +48,7 @@ export interface VocabularyScheme {
 export interface VocabularyData {
   scheme: VocabularyScheme;
   concepts: VocabularyConcept[];
+  properties: VocabularyProperty[];
 }
 
 let cache: VocabularyData | null = null;
@@ -78,6 +89,7 @@ function emptyResult(): VocabularyData {
       scopeNoteEn: '',
     },
     concepts: [],
+    properties: [],
   };
 }
 
@@ -119,6 +131,7 @@ export function loadVocabularyData(): VocabularyData {
     scopeNoteEn: string;
     color: string;
     broader: string | null;
+    subPropertyOf: string | null;
   }
 
   const subjects = new Map<string, Bucket>();
@@ -133,6 +146,7 @@ export function loadVocabularyData(): VocabularyData {
         scopeNoteEn: '',
         color: '',
         broader: null,
+        subPropertyOf: null,
       };
       subjects.set(uri, b);
     }
@@ -173,12 +187,18 @@ export function loadVocabularyData(): VocabularyData {
       bucket.broader = toCurie(o.value);
       continue;
     }
+
+    if (p === RDFS_SUB_PROPERTY_OF && o.termType === 'NamedNode') {
+      bucket.subPropertyOf = toCurie(o.value);
+      continue;
+    }
   }
 
   // -- Pass 2: extract scheme and concepts --
 
   let scheme: VocabularyScheme = emptyResult().scheme;
   const concepts: VocabularyConcept[] = [];
+  const properties: VocabularyProperty[] = [];
 
   for (const [uri, b] of subjects) {
     const curie = toCurie(uri);
@@ -200,16 +220,27 @@ export function loadVocabularyData(): VocabularyData {
         scopeNoteEn: b.scopeNoteEn || '',
       });
     }
+
+    if (b.types.has(RDF_PROPERTY)) {
+      properties.push({
+        curie,
+        prefLabelEn: b.prefLabelEn || curie.split(/[:/#]/).pop() || curie,
+        color: b.color || '#808080',
+        subPropertyOf: b.subPropertyOf,
+        scopeNoteEn: b.scopeNoteEn || '',
+      });
+    }
   }
 
   // Sort concepts alphabetically for stable ordering
   concepts.sort((a, b) => a.prefLabelEn.localeCompare(b.prefLabelEn));
+  properties.sort((a, b) => a.prefLabelEn.localeCompare(b.prefLabelEn));
 
   console.log(
-    `[vocabulary-loader] Loaded scheme + ${concepts.length} concepts from ${ttlPath}`,
+    `[vocabulary-loader] Loaded scheme + ${concepts.length} concepts + ${properties.length} properties from ${ttlPath}`,
   );
 
-  cache = { scheme, concepts };
+  cache = { scheme, concepts, properties };
   return cache;
 }
 

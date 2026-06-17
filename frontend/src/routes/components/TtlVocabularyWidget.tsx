@@ -23,6 +23,14 @@ interface VocabularyConcept {
   scopeNoteEn: string;
 }
 
+interface VocabularyProperty {
+  curie: string;
+  prefLabelEn: string;
+  color: string;
+  subPropertyOf: string | null;
+  scopeNoteEn: string;
+}
+
 interface VocabularyScheme {
   curie: string;
   prefLabelEn: string;
@@ -32,6 +40,7 @@ interface VocabularyScheme {
 interface ConceptsResponse {
   scheme: VocabularyScheme;
   concepts: VocabularyConcept[];
+  properties: VocabularyProperty[];
 }
 
 function ColorDot({ color, size = 12 }: { color: string; size?: number }) {
@@ -128,6 +137,7 @@ export default function TtlVocabularyWidget() {
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCurie, setSelectedCurie] = useState<string | null>(null);
+  const [selectedPropertyCurie, setSelectedPropertyCurie] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${getApiBase()}/api/vocabulary/concepts`, { credentials: 'include' })
@@ -141,6 +151,46 @@ export default function TtlVocabularyWidget() {
   const topConcepts =
     data?.concepts.filter((c) => !c.broader || !conceptCurieSet.has(c.broader)) ?? [];
 
+  const propertyCurieSet = new Set(data?.properties.map((p) => p.curie) ?? []);
+  const topProperties =
+    data?.properties.filter((p) => !p.subPropertyOf || !propertyCurieSet.has(p.subPropertyOf)) ?? [];
+
+  function renderPropertyTree(root: VocabularyProperty, depth = 0): JSX.Element {
+    const children = data?.properties.filter((p) => p.subPropertyOf === root.curie) ?? [];
+    const isSelected = selectedPropertyCurie === root.curie;
+
+    return (
+      <div key={root.curie} style={{ marginLeft: depth * 14 }}>
+        <div
+          className="d-flex align-items-center gap-2 py-1 rounded px-1"
+          style={{ userSelect: 'none' }}
+          title={root.curie}
+        >
+          <ColorDot color={root.color} size={depth === 0 ? 14 : 11} />
+          <button
+            type="button"
+            className={`btn btn-link p-0 text-start text-decoration-none ${depth === 0 ? 'fw-semibold' : ''}`}
+            onClick={() =>
+              setSelectedPropertyCurie((current) => (current === root.curie ? null : root.curie))
+            }
+            title={root.curie}
+            style={{ color: 'inherit' }}
+          >
+            {root.prefLabelEn}
+          </button>
+        </div>
+        {isSelected && (
+          <div className="mt-1 mb-2 ms-4 small border-start ps-2 text-muted">
+            <div><strong>{root.prefLabelEn}</strong></div>
+            <div><code>{root.curie}</code></div>
+            {root.scopeNoteEn && <div>{root.scopeNoteEn}</div>}
+          </div>
+        )}
+        {children.map((child) => renderPropertyTree(child, depth + 1))}
+      </div>
+    );
+  }
+
   return (
     <div className="card border-warning mb-4">
       <div
@@ -150,7 +200,9 @@ export default function TtlVocabularyWidget() {
         <span className="badge bg-warning text-dark">spike</span>
         <strong className="flex-grow-1">{data ? data.scheme.prefLabelEn : 'TTL Vocabulary'}</strong>
         {data && (
-          <small className="text-muted me-1">{data.concepts.length} concepts</small>
+          <small className="text-muted me-1">
+            {data.concepts.length} concepts, {data.properties.length} properties
+          </small>
         )}
         <button
           type="button"
@@ -179,6 +231,17 @@ export default function TtlVocabularyWidget() {
               {data.scheme.scopeNoteEn && (
                 <p className="text-muted small mb-3">{data.scheme.scopeNoteEn}</p>
               )}
+              <h6 className="mb-2">Properties</h6>
+              <div className="row row-cols-1 row-cols-md-2 g-2">
+                {topProperties.map((top) => (
+                  <div key={top.curie} className="col">
+                    <div className="border rounded p-2 h-100">{renderPropertyTree(top)}</div>
+                  </div>
+                ))}
+              </div>
+
+              <hr className="my-3" />
+              <h6 className="mb-2">Concepts</h6>
               <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
                 {topConcepts.map((top) => (
                   <div key={top.curie} className="col">
