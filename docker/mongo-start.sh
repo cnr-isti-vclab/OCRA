@@ -4,7 +4,7 @@ set -eu
 
 replica_set_name="${MONGO_REPLICA_SET_NAME:-rs0}"
 
-mongod --replSet "$replica_set_name" --bind_ip_all --dbpath /data/db &
+mongod --quiet --replSet "$replica_set_name" --bind_ip_all --dbpath /data/db &
 mongo_pid=$!
 
 cleanup() {

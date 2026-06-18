@@ -10,15 +10,21 @@ import { getAnnotationLinkCollection, deleteAnnotationLinksByProjectId } from '.
 import { deleteAnnotationGeometriesByProjectId } from '../src/repositories/annotation-geometry.repository.js';
 import { deleteAnnotationDataByProjectId } from '../src/repositories/annotation-data.repository.js';
 import { ensureProjectSkeleton, projectModel3dDir, projectRtiDir, projectRoot } from '../src/utils/project-static-paths.js';
+import { generateSceneFile } from '../src/services/hdt-metadata.service.js';
+import type { HDTDocument } from '../src/types/index.js';
 import {
   PROJECT_PACKAGE_FILES,
   PROJECT_PACKAGE_FORMAT,
   PROJECT_PACKAGE_VERSION,
   readProjectPackage,
+  writeJsonFile,
   type LoadedProjectPackage,
 } from './project-package.js';
 
-const prisma = new PrismaClient();
+type RuntimeMode = 'bare' | 'compose';
+
+const COMPOSE_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public';
+const COMPOSE_MONGO_URL = 'mongodb://127.0.0.1:27017/?replicaSet=rs0';
 
 interface CliOptions {
   inputDir: string;
@@ -28,14 +34,16 @@ interface CliOptions {
   managerUserId?: string;
   managerSub?: string;
   managerEmail?: string;
+  runtime: RuntimeMode;
 }
 
 function printUsage() {
   console.log([
     'Usage:',
-    '  tsx ./scripts/import-project-package.ts --input-dir <dir> (--manager-user-id <id> | --manager-sub <sub> | --manager-email <email>) [--name <new name>] [--description <text>] [--public true|false]',
+    '  tsx ./scripts/import-project-package.ts --input-dir <dir> (--manager-user-id <id> | --manager-sub <sub> | --manager-email <email>) [--runtime bare|compose] [--name <new name>] [--description <text>] [--public true|false]',
     '',
     'Notes:',
+    '  - Runtime defaults to bare.',
     '  - Always imports as a brand new project.',
     '  - Does not restore sessions, structuring locks, presence leases, or tmp files.',
     '  - Original role snapshots are preserved only in the package metadata; they are not reapplied.',
@@ -64,9 +72,22 @@ function resolveExistingInputDir(rawInputDir: string) {
   return candidates[0];
 }
 
+function parseRuntimeFlag(raw: string | undefined): RuntimeMode {
+  if (!raw || raw === 'bare') {
+    return 'bare';
+  }
+
+  if (raw === 'compose') {
+    return 'compose';
+  }
+
+  throw new Error(`Invalid value for --runtime: ${raw}`);
+}
+
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     inputDir: '',
+    runtime: 'bare',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -97,6 +118,12 @@ function parseArgs(argv: string[]): CliOptions {
 
     if (current === '--public') {
       options.publicOverride = parseBooleanFlag(argv[index + 1] ?? '', '--public');
+      index += 1;
+      continue;
+    }
+
+    if (current === '--runtime') {
+      options.runtime = parseRuntimeFlag(argv[index + 1]);
       index += 1;
       continue;
     }
@@ -141,6 +168,19 @@ function parseArgs(argv: string[]): CliOptions {
   };
 }
 
+function applyRuntimeEnvironment(runtime: RuntimeMode) {
+  if (runtime === 'compose') {
+    process.env.DATABASE_URL = process.env.COMPOSE_DATABASE_URL || COMPOSE_DATABASE_URL;
+    process.env.DIRECT_URL = process.env.COMPOSE_DIRECT_URL || process.env.DATABASE_URL;
+    process.env.MONGO_URL = process.env.COMPOSE_MONGO_URL || COMPOSE_MONGO_URL;
+    return;
+  }
+
+  process.env.DATABASE_URL = process.env.DATABASE_URL;
+  process.env.DIRECT_URL = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  process.env.MONGO_URL = process.env.MONGO_URL;
+}
+
 function buildBackupSuffix(date = new Date()) {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -156,7 +196,7 @@ function buildImportedName(baseName: string) {
   return `${baseName}${buildBackupSuffix()}`;
 }
 
-async function resolveUniqueProjectName(baseName: string) {
+async function resolveUniqueProjectName(prisma: PrismaClient, baseName: string) {
   let candidate = baseName;
   let suffix = 2;
 
@@ -168,7 +208,7 @@ async function resolveUniqueProjectName(baseName: string) {
   return candidate;
 }
 
-async function resolveManagerUser(options: CliOptions) {
+async function resolveManagerUser(prisma: PrismaClient, options: CliOptions) {
   if (options.managerUserId) {
     return prisma.user.findUnique({
       where: { id: options.managerUserId },
@@ -219,6 +259,7 @@ function rewriteImportedHdtDocument(projectPackage: LoadedProjectPackage, target
     digitalAssets: document.digitalAssets.map((asset) => ({
       ...asset,
       projectId: targetProjectId,
+      entryPoint: rewriteAssetUrl(asset.entryPoint, sourceProjectId, targetProjectId),
       entryPointUrl: rewriteAssetUrl(asset.entryPointUrl, sourceProjectId, targetProjectId),
       publicUri: rewriteAssetUrl(asset.publicUri, sourceProjectId, targetProjectId),
       thumbnail: rewriteAssetUrl(asset.thumbnail, sourceProjectId, targetProjectId),
@@ -226,7 +267,73 @@ function rewriteImportedHdtDocument(projectPackage: LoadedProjectPackage, target
   };
 }
 
-async function cleanupImportedProject(projectId: string) {
+function normalizeImportedHdtDocument(document: Omit<HDTDocument, '_id'>): Omit<HDTDocument, '_id'> {
+  const displayableAssets = document.digitalAssets.filter((asset) => (
+    (asset.type === '3d-model' || asset.type === 'rti') &&
+    typeof asset.entryPointUrl === 'string' &&
+    asset.entryPointUrl.length > 0
+  ));
+  const assetIds = new Set(document.digitalAssets.map((asset) => asset.id));
+
+  const normalizedScenes = (document.scenes ?? []).map((scene, index) => ({
+    ...scene,
+    isDefault: scene.isDefault === true || (index === 0 && !(document.scenes ?? []).some((candidate) => candidate.isDefault === true)),
+    assets: (scene.assets ?? []).filter((assetRef) => assetIds.has(assetRef.assetId)),
+    environment: {
+      ...scene.environment,
+      backgroundColor: scene.environment?.backgroundColor || scene.environment?.background || '#404040',
+      showGround: scene.environment?.showGround ?? true,
+    },
+  }));
+
+  if (normalizedScenes.length === 0 && displayableAssets.length > 0) {
+    normalizedScenes.push({
+      id: `scene_imported_default_${Date.now()}`,
+      label: 'Default Scene',
+      description: 'Default scene reconstructed during project package import',
+      type: displayableAssets.some((asset) => asset.type === '3d-model') ? '3D' : '2D',
+      isDefault: true,
+      assets: displayableAssets.map((asset) => ({
+        assetId: asset.id,
+        visible: true,
+      })),
+      environment: {
+        backgroundColor: '#404040',
+        showGround: true,
+      },
+    });
+  }
+
+  const defaultScene = normalizedScenes.find((scene) => scene.isDefault === true) ?? normalizedScenes[0];
+  if (defaultScene && defaultScene.assets.length === 0 && displayableAssets.length > 0) {
+    defaultScene.assets = displayableAssets.map((asset) => ({
+      assetId: asset.id,
+      visible: true,
+    }));
+  }
+
+  return {
+    ...document,
+    scenes: normalizedScenes,
+  };
+}
+
+async function syncLegacySceneFile(projectId: string, importedHdtDocument: Omit<HDTDocument, '_id'> | null) {
+  if (!importedHdtDocument || importedHdtDocument.scenes.length === 0) {
+    return;
+  }
+
+  const defaultScene = importedHdtDocument.scenes.find((scene) => scene.isDefault === true) ?? importedHdtDocument.scenes[0];
+  if (!defaultScene) {
+    return;
+  }
+
+  const sceneDescription = await generateSceneFile(projectId, defaultScene.id);
+  const scenePath = path.join(projectModel3dDir(projectId), 'scene.json');
+  await writeJsonFile(scenePath, sceneDescription);
+}
+
+async function cleanupImportedProject(prisma: PrismaClient, projectId: string) {
   await Promise.allSettled([
     deleteHdtByProjectId(projectId),
     deleteAnnotationLinksByProjectId(projectId),
@@ -239,6 +346,7 @@ async function cleanupImportedProject(projectId: string) {
 }
 
 async function importProjectPackage(options: CliOptions) {
+  const prisma = new PrismaClient();
   const projectPackage = await readProjectPackage(options.inputDir);
 
   if (projectPackage.manifest.format !== PROJECT_PACKAGE_FORMAT) {
@@ -249,7 +357,7 @@ async function importProjectPackage(options: CliOptions) {
     throw new Error(`Unsupported package version: ${projectPackage.manifest.version}`);
   }
 
-  const managerUser = await resolveManagerUser(options);
+  const managerUser = await resolveManagerUser(prisma, options);
   if (!managerUser) {
     throw new Error('Manager user not found');
   }
@@ -260,7 +368,7 @@ async function importProjectPackage(options: CliOptions) {
 
   const sourceProject = projectPackage.projectPayload.project;
   const requestedName = options.name || buildImportedName(sourceProject.name);
-  const uniqueName = await resolveUniqueProjectName(requestedName);
+  const uniqueName = await resolveUniqueProjectName(prisma, requestedName);
 
   const createdProject = await prisma.project.create({
     data: {
@@ -283,7 +391,10 @@ async function importProjectPackage(options: CliOptions) {
   });
 
   try {
-    const importedHdtDocument = rewriteImportedHdtDocument(projectPackage, createdProject.id);
+    const rewrittenHdtDocument = rewriteImportedHdtDocument(projectPackage, createdProject.id);
+    const importedHdtDocument = rewrittenHdtDocument
+      ? normalizeImportedHdtDocument(rewrittenHdtDocument)
+      : null;
     if (importedHdtDocument) {
       await insertHdtDocument(importedHdtDocument);
     }
@@ -331,6 +442,8 @@ async function importProjectPackage(options: CliOptions) {
       await fs.copy(sourceRtiDir, projectRtiDir(createdProject.id));
     }
 
+    await syncLegacySceneFile(createdProject.id, importedHdtDocument);
+
     console.log(`Imported package ${options.inputDir}`);
     console.log(`New project id: ${createdProject.id}`);
     console.log(`New project name: ${createdProject.name}`);
@@ -338,13 +451,16 @@ async function importProjectPackage(options: CliOptions) {
     console.log(`Imported annotations: ${geometryDocs.length} geometries, ${dataDocs.length} data, ${linkDocs.length} links`);
     console.log(`Project files root: ${projectRoot(createdProject.id)}`);
   } catch (error) {
-    await cleanupImportedProject(createdProject.id);
+    await cleanupImportedProject(prisma, createdProject.id);
     throw error;
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  applyRuntimeEnvironment(options.runtime);
   await importProjectPackage(options);
 }
 
@@ -354,6 +470,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
     await closeMongoClient();
   });
