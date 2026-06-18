@@ -114,7 +114,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
-      annotationMode === 'viewer' ? 'preserve' : 'edit';
+      annotationMode === 'viewer' || !pencilActive ? 'preserve' : 'edit';
 
     const applyToolbarMode = useCallback(
       (mode: AnnotationToolbarMode) => {
@@ -135,7 +135,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     /** Full pencil + edit mode (UIBasic sync + selectable geometries). Use for panel-driven focus. */
     const enableAnnotationEditInteraction = useCallback(() => {
-      if (annotationMode !== 'edit') {
+      if (annotationMode !== 'edit' || !pencilActive) {
         return null;
       }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
@@ -177,27 +177,27 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const classOptionsByCurie = new Map(
         sceneAnnotationClassPool.map((option) => [option.curie, option]),
       );
+      type SemanticClassEntry = [string, Record<string, string>];
+      const semanticClassEntries: SemanticClassEntry[] = [];
 
-      return Object.fromEntries(
-        annotationClassFilterValues
-          .map((classId) => {
-            const option = classOptionsByCurie.get(classId);
-            if (!option) {
-              return null;
-            }
-            return [
-              classId,
-              {
-                label: option.label,
-                stroke: option.color,
-                fill: hexToRgba(option.color, 0.3),
-                fillSelected: hexToRgba(option.color, 0.4),
-                strokeSelected: option.color,
-              },
-            ];
-          })
-          .filter((entry): entry is [string, Record<string, string>] => entry !== null),
-      );
+      for (const classId of annotationClassFilterValues) {
+        const option = classOptionsByCurie.get(classId);
+        if (!option) {
+          continue;
+        }
+        semanticClassEntries.push([
+          classId,
+          {
+            label: option.label,
+            stroke: option.color,
+            fill: hexToRgba(option.color, 0.3),
+            fillSelected: hexToRgba(option.color, 0.4),
+            strokeSelected: option.color,
+          },
+        ]);
+      }
+
+      return Object.fromEntries(semanticClassEntries);
     }, [annotationClassFilterValues, sceneAnnotationClassPool]);
 
     const highlightGeometryIds = useMemo(
