@@ -22,6 +22,7 @@ import './openlime-skin-ocra.css'; // custo skin.css for OCRA
 import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
 import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.ts';
 import type { OpenLimeLabelVisibility } from '../annotation-store/openlimeAnnotationAdapter.ts';
+import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode.ts';
 
 const RTI_LAYOUT_PROBES = [
   { layout: 'tarzoom', fileName: 'plane_0.tzi' },
@@ -184,6 +185,7 @@ const OpenLIMEViewer = forwardRef<
     onPencilActiveChange?: (active: boolean) => void;
     /** Fired when the OpenLIME settings button is pressed. */
     onSettingsRequested?: () => void;
+    annotationInteractionMode?: AnnotationMode;
     annotationLabelVisibility?: OpenLimeLabelVisibility;
   }>(
     (
@@ -199,6 +201,7 @@ const OpenLIMEViewer = forwardRef<
         onAnnotationEditStart,
         onPencilActiveChange,
         onSettingsRequested,
+        annotationInteractionMode = 'edit',
         annotationLabelVisibility = 'selected',
       },
       ref
@@ -221,6 +224,39 @@ const OpenLIMEViewer = forwardRef<
 
       const notifyPencilActive = (active: boolean) => {
         onPencilActiveChangeRef.current?.(active);
+      };
+
+      const syncInfoButtonActiveState = (active: boolean) => {
+        const container = viewerRef.current?.containerElement as HTMLElement | undefined;
+        const infoButton = container?.querySelector?.('.openlime-button.openlime-info') as
+          | HTMLElement
+          | null
+          | undefined;
+        infoButton?.classList.toggle('openlime-info-active', active);
+      };
+
+      const scheduleInfoButtonActiveStateSync = (active: boolean, attempts = 8) => {
+        let remainingAttempts = attempts;
+
+        const apply = () => {
+          const container = viewerRef.current?.containerElement as HTMLElement | undefined;
+          const infoButton = container?.querySelector?.('.openlime-button.openlime-info') as
+            | HTMLElement
+            | null
+            | undefined;
+
+          if (infoButton) {
+            infoButton.classList.toggle('openlime-info-active', active);
+            return;
+          }
+
+          remainingAttempts -= 1;
+          if (remainingAttempts > 0) {
+            requestAnimationFrame(apply);
+          }
+        };
+
+        requestAnimationFrame(apply);
       };
 
       useEffect(() => {
@@ -481,9 +517,17 @@ const OpenLIMEViewer = forwardRef<
 
           // Setup annotation manager
           console.log('🎬 Setting up OpenLIME annotation manager');
+          const viewerOnlyMode = annotationInteractionMode === 'viewer';
+          const annotationStyleConfig = viewerOnlyMode
+            ? {
+                ...OPENLIME_ANNOTATION_STYLE_CONFIG,
+                selectionFill: OPENLIME_ANNOTATION_STYLE_CONFIG.defaultFill,
+                selectionStroke: OPENLIME_ANNOTATION_STYLE_CONFIG.defaultStroke,
+              }
+            : OPENLIME_ANNOTATION_STYLE_CONFIG;
 
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
-            ...OPENLIME_ANNOTATION_STYLE_CONFIG,
+            ...annotationStyleConfig,
             labelVisibility: annotationLabelVisibility,
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
@@ -580,9 +624,8 @@ const OpenLIMEViewer = forwardRef<
             uiRef.current.actions.zoomin.display = false;
             uiRef.current.actions.zoomout.display = false;
             uiRef.current.toggleLightController(true);
-            // Show pencil tool but don't activate it by default
-            // This allows single-click selection to work
-            uiRef.current.actions.pencil.display = true;
+            uiRef.current.actions.pencil.display = !viewerOnlyMode;
+            uiRef.current.actions.info.display = viewerOnlyMode;
             uiRef.current.actions.settings.display = true;
             console.log('🎬 Toolbar setup: pencil displayed');
 
@@ -612,6 +655,11 @@ const OpenLIMEViewer = forwardRef<
             uiRef.current.addEvent('settings', () => {
               onSettingsRequestedRef.current?.();
             });
+
+            if (viewerOnlyMode) {
+              uiRef.current.toggleAnnotationInfo(true);
+              scheduleInfoButtonActiveStateSync(true);
+            }
           }
 
           // Setup event listeners for annotation layer events (update, delete)
@@ -625,7 +673,7 @@ const OpenLIMEViewer = forwardRef<
         return () => {
           cancelled = true;
         };
-      }, [sceneDesc, digitalAssets]);
+      }, [sceneDesc, digitalAssets, annotationInteractionMode]);
 
       // Helper function to get annotation layer
       const getAnnotationLayer = () => {

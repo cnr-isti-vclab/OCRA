@@ -21,6 +21,7 @@ import {
   createHDTMetadataHandler,
   updateHDTMetadataHandler,
   importPhysicalObjectMetadataHandler,
+  reEnablePhysicalObjectSourceSelectionHandler,
   deleteHDTMetadataHandler,
   addAssetHandler,
   updateAssetHandler,
@@ -337,6 +338,61 @@ router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post('/:projectId/hdt/physical-object/import', requireAuth, importPhysicalObjectMetadataHandler);
+
+/**
+ * @openapi
+ * /api/projects/{projectId}/hdt/physical-object/source-selection/re-enable:
+ *   post:
+ *     summary: Re-enable metadata source selection
+ *     description: Re-enables HC1 metadata source selection for maintenance (system administrator only, exclusive structuring lock required).
+ *     tags:
+ *       - HDT
+ *     security:
+ *       - sessionCookie: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Project ID.
+ *     responses:
+ *       200:
+ *         description: HDT document updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HDTDocument'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: Not authorized (system administrator only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       404:
+ *         description: HDT document not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ */
+router.post(
+  '/:projectId/hdt/physical-object/source-selection/re-enable',
+  requireAuth,
+  reEnablePhysicalObjectSourceSelectionHandler
+);
 
 /**
  * @openapi

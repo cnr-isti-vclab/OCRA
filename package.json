@@ -36,8 +36,8 @@
     "mongo:clear-annotations": "bash scripts/clear-annotations-mongo.sh",
     "mongo:gc-annotations-erasable-links": "bash scripts/gc-annotations-erasable-links.sh",
     "project-files:cleanup": "bash scripts/cleanup-orphan-project-files.sh",
-    "project:export": "docker compose exec backend npm run project:export --workspace backend --",
-    "project:export:bare": "npm run project:export --workspace backend --"
+    "project:inspect": "docker compose exec backend npm run project:inspect --workspace backend --",
+    "project:inspect:bare": "npm run project:inspect --workspace backend --"
   },
   "workspaces": [
     "shared",

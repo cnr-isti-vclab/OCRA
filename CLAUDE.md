@@ -142,3 +142,8 @@ npm run project-files:cleanup # remove orphan files from project_files/
 | `SYS_ADMIN_EMAIL` | admin@ocra.it | Seeded system admin email |
 
 Swagger API docs are available at `http://localhost:3002/api-docs` when the backend is running.
+
+## Instructions for Claude Code
+
+When working on this codebase, please adhere to the following principles (if existsing, otherwise use your best judgment):
+AGENTS.md

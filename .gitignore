@@ -19,10 +19,12 @@ docs/
 src/generated/
 
 /src/generated/prisma
-# internal development doc
+
+# private folders
 internaldoc/
 media/LargeModels/
 media/private
+backend/exports/
 
 #Directory for local dev
 project_files

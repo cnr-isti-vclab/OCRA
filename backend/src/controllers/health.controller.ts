@@ -1,6 +1,6 @@
 /**
  * Health Controller
- * 
+ *
  * HTTP request handlers for health check endpoints
  */
 
@@ -8,7 +8,7 @@ import express from 'express';
 type Request = express.Request;
 type Response = express.Response;
 
-import { getMongoClient } from '../lib/mongo/client.js';
+import { getBackendReadinessReport } from '../lib/readiness.js';
 
 /**
  * Basic health check
@@ -18,29 +18,15 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * Mongo health check
+ * Composite readiness check for external traffic.
  */
-export async function mongoHealth(req: Request, res: Response): Promise<void> {
-  try {
-    const client = await getMongoClient();
-    if (!client) {
-      res.status(503).json({ success: false, mongo: { connected: false } });
-      return;
-    }
-    // Use admin command ping to verify connectivity
-    const adminDb = client.db().admin();
-    const start = Date.now();
-    const ping = await adminDb.ping();
-    const durationMs = Date.now() - start;
-    res.json({
-      success: true,
-      mongo: {
-        connected: true,
-        pingResult: ping,
-        lastPingMs: durationMs
-      }
-    });
-  } catch (err) {
-    res.status(503).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+export async function readinessCheck(req: Request, res: Response): Promise<void> {
+  const payload = await getBackendReadinessReport();
+
+  if (!payload.ready) {
+    res.status(503).json(payload);
+    return;
   }
+
+  res.status(200).json(payload);
 }

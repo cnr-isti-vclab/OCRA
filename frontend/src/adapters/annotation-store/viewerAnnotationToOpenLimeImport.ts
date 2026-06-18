@@ -222,6 +222,8 @@ export function applyOpenLimeImportMetadata(
   anno.label = viewerAnno.label ?? '';
   anno.data = anno.data ?? {};
   anno.class = 0;
+  (anno as { semanticClass?: string | null }).semanticClass = viewerAnno.semanticClass ?? null;
+  (anno as { strokeDasharray?: string | null }).strokeDasharray = viewerAnno.strokeDasharray ?? null;
 
   if (viewerAnno.type === 'point') {
     const v = lineVertices(viewerAnno);

@@ -121,6 +121,21 @@ wait_for_postgres() {
   exit 1
 }
 
+wait_for_keycloak_oidc() {
+  local discovery_url="$1"
+
+  for _ in $(seq 1 90); do
+    if curl -fsS "${discovery_url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "❌ Keycloak OIDC discovery did not become ready in time." >&2
+  echo "   URL: ${discovery_url}" >&2
+  exit 1
+}
+
 ensure_postgres_database() {
   local container_name="$1"
   local database_name="$2"
@@ -259,5 +274,8 @@ if ! container_exists "${KEYCLOAK_NAME}"; then
 else
   ensure_started "${KEYCLOAK_NAME}"
 fi
+
+echo "  - Waiting for Keycloak OIDC readiness..."
+wait_for_keycloak_oidc "http://localhost:8081/realms/demo/.well-known/openid-configuration"
 
 echo "✅ All services started (or already running)."

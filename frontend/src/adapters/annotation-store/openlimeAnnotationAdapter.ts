@@ -8,22 +8,49 @@ import {
 } from './viewerAnnotationToOpenLimeImport';
 
 export type OpenLimeLabelVisibility = 'none' | 'all' | 'selected';
+export type OpenLimeSelectionInteractionMode = 'preserve' | 'edit';
 
 /** OpenLIME annotation instance (structural typing). */
 export type OpenLimeSyncedAnnotation = {
   id: string;
   label?: string;
   class?: string | number | null;
+  semanticClass?: string | null;
+  strokeDasharray?: string | null;
   type?: string;
   data?: Record<string, unknown>;
   svg?: string | null;
   elements?: Array<{
     classList?: { contains: (c: string) => boolean };
     getAttribute?: (name: string) => string | null;
+    setAttribute?: (name: string, value: string) => void;
+    removeAttribute?: (name: string) => void;
+    style?: CSSStyleDeclaration;
   }>;
   ready?: boolean;
   needsUpdate?: boolean;
 };
+
+function applyStrokeDasharray(
+  anno: OpenLimeSyncedAnnotation,
+  strokeDasharray: string | null | undefined,
+): void {
+  for (const element of anno.elements ?? []) {
+    const isStrokeElement =
+      element.classList?.contains('annotation-disk') ||
+      element.classList?.contains('annotation-polyline') ||
+      element.classList?.contains('annotation-rect') ||
+      element.classList?.contains('annotation-freehand');
+    if (!isStrokeElement) {
+      continue;
+    }
+    if (strokeDasharray) {
+      element.setAttribute?.('stroke-dasharray', strokeDasharray);
+    } else {
+      element.removeAttribute?.('stroke-dasharray');
+    }
+  }
+}
 
 function ensureElementsFromSvg(anno: OpenLimeSyncedAnnotation): void {
   if (anno.ready && anno.elements && anno.elements.length > 0) {
@@ -54,6 +81,7 @@ export type OpenLimeAnnotationManager = {
   mode: string;
   /** True when the OpenLIME pencil is enabled (`ManagerSvgAnnotation.toggle`). */
   active?: boolean;
+  toggle?: (force?: boolean) => boolean;
   /** In-progress draw session; skip layer sync while set. */
   _session?: unknown;
   layer?: { selected?: Set<string> };
@@ -63,7 +91,25 @@ export type OpenLimeAnnotationManager = {
   deleteAnnotation: (id: string) => void;
   importAnnotations: (jsonLdArray: OpenLimeJsonLdImportEntry[]) => void;
   setMode: (mode: 'idle' | 'create' | 'edit') => string;
-  setSelectedIds?: (ids: string[]) => void;
+  setSemanticClasses?: (classes: Record<string, Record<string, unknown>>, repaint?: boolean) => void;
+  setAnnotationSemanticClass?: (id: string, classId: string | number | null) => void;
+  selectAnnotations?: (
+    ids: string[],
+    append?: boolean,
+    options?: {
+      source?: string;
+      originalEvent?: Event | PointerEvent | null;
+      interactionMode?: OpenLimeSelectionInteractionMode;
+    },
+  ) => unknown;
+  setSelectedIds?: (
+    ids: string[],
+    options?: {
+      source?: string;
+      originalEvent?: Event | PointerEvent | null;
+      interactionMode?: OpenLimeSelectionInteractionMode;
+    },
+  ) => void;
   deselectAll: () => void;
   setSelected: (id: string, on?: boolean) => void;
   setAnnotationStructuralClass?: (id: string, classId: string | null) => void;
@@ -107,6 +153,7 @@ export function syncOpenLimeAnnotations(
   const targetIds = new Set(viewerAnnotations.map((a) => a.id));
   const existingIds = manager.getAnnotations().map((a) => a.id);
   let labelsUpdated = false;
+  let stylesUpdated = false;
 
   for (const id of existingIds) {
     if (!targetIds.has(id)) {
@@ -129,6 +176,17 @@ export function syncOpenLimeAnnotations(
           existing.needsUpdate = true;
           labelsUpdated = true;
         }
+        if ((existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
+          existing.semanticClass = viewerAnno.semanticClass ?? null;
+          existing.needsUpdate = true;
+          stylesUpdated = true;
+        }
+        if ((existing.strokeDasharray ?? null) !== (viewerAnno.strokeDasharray ?? null)) {
+          existing.strokeDasharray = viewerAnno.strokeDasharray ?? null;
+          applyStrokeDasharray(existing, existing.strokeDasharray);
+          existing.needsUpdate = true;
+          stylesUpdated = true;
+        }
         continue;
       }
 
@@ -145,6 +203,18 @@ export function syncOpenLimeAnnotations(
         delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
         existing.needsUpdate = true;
         labelsUpdated = true;
+      }
+
+      if (existing && (existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
+        existing.semanticClass = viewerAnno.semanticClass ?? null;
+        existing.needsUpdate = true;
+        stylesUpdated = true;
+      }
+      if (existing && (existing.strokeDasharray ?? null) !== (viewerAnno.strokeDasharray ?? null)) {
+        existing.strokeDasharray = viewerAnno.strokeDasharray ?? null;
+        applyStrokeDasharray(existing, existing.strokeDasharray);
+        existing.needsUpdate = true;
+        stylesUpdated = true;
       }
     }
 
@@ -171,6 +241,7 @@ export function syncOpenLimeAnnotations(
         // Make SVG elements available immediately so OpenLIME's style application
         // (triggered by deselect/select) can affect them without waiting for prefetch().
         ensureElementsFromSvg(anno);
+        applyStrokeDasharray(anno, viewerAnno.strokeDasharray ?? null);
       }
     }
 
@@ -185,7 +256,7 @@ export function syncOpenLimeAnnotations(
     labelsUpdated = true;
   }
 
-  if (labelsUpdated) {
+  if (labelsUpdated || stylesUpdated) {
     manager.viewer?.redraw?.();
     if (toImport.length > 0) {
       // getBBox() returns 0 until the browser paints; double-RAF fires after the first
@@ -202,6 +273,7 @@ export function syncOpenLimeAnnotations(
 export function applyOpenLimeSelection(
   manager: OpenLimeAnnotationManager | null,
   geometryIds: string[],
+  interactionMode: OpenLimeSelectionInteractionMode = 'edit',
 ): void {
   if (!manager) {
     return;
@@ -212,10 +284,31 @@ export function applyOpenLimeSelection(
     return;
   }
 
-  ensureEditModeForSelection(manager);
+  if (interactionMode === 'edit') {
+    ensureEditModeForSelection(manager);
+  }
+
+  if (typeof manager.selectAnnotations === 'function') {
+    manager.selectAnnotations(geometryIds, false, {
+      source: 'programmatic',
+      originalEvent: null,
+      interactionMode,
+    });
+    // Selection changes must trigger a redraw so LayerSvgAnnotation.prefetch runs and
+    // ManagerSvgAnnotation can add/remove label elements for labelVisibility='selected'.
+    manager.viewer?.redraw?.();
+    requestAnimationFrame(() => manager.viewer?.redraw?.());
+    return;
+  }
 
   if (typeof manager.setSelectedIds === 'function') {
-    manager.setSelectedIds(geometryIds);
+    manager.setSelectedIds(geometryIds, {
+      source: 'programmatic',
+      originalEvent: null,
+      interactionMode,
+    });
+    manager.viewer?.redraw?.();
+    requestAnimationFrame(() => manager.viewer?.redraw?.());
     return;
   }
 
@@ -223,6 +316,8 @@ export function applyOpenLimeSelection(
   geometryIds.forEach((id) => {
     manager.setSelected(id, true);
   });
+  manager.viewer?.redraw?.();
+  requestAnimationFrame(() => manager.viewer?.redraw?.());
 }
 
 /**
@@ -234,6 +329,7 @@ export function applyViewerSelectionFromStore(
   manager: OpenLimeAnnotationManager | null,
   geometryIds: string[],
   viewerAnnotationsForSync: ViewerAnnotation[],
+  interactionMode: OpenLimeSelectionInteractionMode = 'edit',
 ): void {
   if (!manager) {
     return;
@@ -244,9 +340,11 @@ export function applyViewerSelectionFromStore(
     return;
   }
 
-  ensureEditModeForSelection(manager);
+  if (interactionMode === 'edit') {
+    ensureEditModeForSelection(manager);
+  }
   syncOpenLimeAnnotations(manager, viewerAnnotationsForSync);
-  applyOpenLimeSelection(manager, geometryIds);
+  applyOpenLimeSelection(manager, geometryIds, interactionMode);
 }
 
 /**

@@ -139,6 +139,7 @@ flowchart LR
 - Public/unauthenticated:
   - OAuth token exchange proxy: `/api/oauth/token`
   - Health: `/health`, `/api/health`
+  - Readiness: `/ready`, `/health/ready`, `/api/ready`
   - Project listing and metadata: `GET /api/projects`, `GET /api/projects/:projectId` (public projects only for anonymous)
   - Static assets: `/assets/projects/...` (served by `express.static`, no auth check at HTTP level)
 - Authenticated (`requireAuth` middleware):

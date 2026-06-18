@@ -5,7 +5,7 @@
  */
 
 import express, { Router } from 'express';
-import { healthCheck, mongoHealth } from '../controllers/health.controller.js';
+import { healthCheck, readinessCheck } from '../controllers/health.controller.js';
 
 const router: Router = express.Router();
 
@@ -38,45 +38,78 @@ router.get('/', healthCheck);
 
 /**
  * @openapi
- * /health/mongo:
+ * /health/ready:
  *   get:
- *     summary: MongoDB health check
- *     description: Checks the health and connectivity of the MongoDB database
+ *     summary: Composite readiness check
+ *     description: Returns readiness for OCRA external traffic only when PostgreSQL, MongoDB, and OIDC are all reachable and usable.
  *     tags:
  *       - Health
  *     responses:
  *       200:
- *         description: MongoDB is healthy and connected
+ *         description: All required OCRA dependencies are ready
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 success:
+ *                 ready:
  *                   type: boolean
  *                   example: true
- *                 mongo:
+ *                 service:
+ *                   type: string
+ *                   example: backend
+ *                 checks:
  *                   type: object
  *                   properties:
- *                     connected:
- *                       type: boolean
- *                       example: true
- *                     pingResult:
+ *                     postgres:
  *                       type: object
  *                       properties:
- *                         ok:
+ *                         ready:
+ *                           type: boolean
+ *                           example: true
+ *                         latencyMs:
  *                           type: number
- *                           example: 1
- *                     lastPingMs:
- *                       type: number
- *                       example: 2
- *       500:
- *         description: MongoDB connection error
+ *                           example: 4
+ *                     mongo:
+ *                       type: object
+ *                       properties:
+ *                         ready:
+ *                           type: boolean
+ *                           example: true
+ *                         latencyMs:
+ *                           type: number
+ *                           example: 3
+ *                     oidc:
+ *                       type: object
+ *                       properties:
+ *                         ready:
+ *                           type: boolean
+ *                           example: true
+ *                         issuer:
+ *                           type: string
+ *                           example: https://keycloak.example.test/realms/ocra
+ *                         discoveryUrl:
+ *                           type: string
+ *                           example: https://keycloak.example.test/realms/ocra/.well-known/openid-configuration
+ *                         latencyMs:
+ *                           type: number
+ *                           example: 12
+ *       503:
+ *         description: At least one required OCRA dependency is not ready
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               type: object
+ *               properties:
+ *                 ready:
+ *                   type: boolean
+ *                   example: false
+ *                 service:
+ *                   type: string
+ *                   example: backend
+ *                 checks:
+ *                   type: object
  */
-router.get('/mongo', mongoHealth);
+router.get('/ready', readinessCheck);
 
 export default router;

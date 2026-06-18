@@ -23,6 +23,7 @@ import {
   syncOpenLimeAnnotations,
   type OpenLimeLabelVisibility,
   type OpenLimeAnnotationManager,
+  type OpenLimeSelectionInteractionMode,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
@@ -31,11 +32,13 @@ import {
 } from '../../shared/ui/AnnotationMessageModalCatalog';
 import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
+import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode';
 
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
   digitalAssets: DigitalAsset[];
   rtiAvailable: boolean;
+  annotationMode: AnnotationMode;
   onReady: () => void;
   onError: (error: Error) => void;
 }
@@ -52,17 +55,35 @@ function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
   }));
 }
 
+function hexToRgba(color: string, alpha: number): string {
+  const normalized = color.trim();
+  const hex = normalized.startsWith('#') ? normalized.slice(1) : normalized;
+  if (!(hex.length === 3 || hex.length === 6) || !/^[0-9a-fA-F]+$/.test(hex)) {
+    return color;
+  }
+
+  const expanded = hex.length === 3
+    ? hex.split('').map((char) => `${char}${char}`).join('')
+    : hex;
+  const red = Number.parseInt(expanded.slice(0, 2), 16);
+  const green = Number.parseInt(expanded.slice(2, 4), 16);
+  const blue = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 /**
  * 2D (RTI) viewer wired to {@link AnnotationStore} active geometries and UI focus state.
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, rtiAvailable, onReady, onError }, ref) => {
+  ({ sceneDesc, digitalAssets, rtiAvailable, annotationMode, onReady, onError }, ref) => {
     const {
       activeGeometries,
       activeAnnotationSelection,
       activeSocialLocks,
       currentStreamId,
       revision,
+      sceneAnnotationClassPool,
+      annotationClassFilterValues,
       focusedDataIds,
       focusedGeometryIds,
       setFocusedGeometryIds,
@@ -92,6 +113,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
+    const selectionInteractionMode: OpenLimeSelectionInteractionMode =
+      annotationMode === 'viewer' ? 'preserve' : 'edit';
 
     const applyToolbarMode = useCallback(
       (mode: AnnotationToolbarMode) => {
@@ -112,6 +135,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     /** Full pencil + edit mode (UIBasic sync + selectable geometries). Use for panel-driven focus. */
     const enableAnnotationEditInteraction = useCallback(() => {
+      if (annotationMode !== 'edit') {
+        return null;
+      }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
       const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
       if (!viewer || !manager) {
@@ -120,7 +146,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setToolbarMode('edit');
       applyOpenLimeToolbarMode(manager, viewer, 'edit');
       return manager;
-    }, [ref]);
+    }, [annotationMode, ref]);
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
@@ -138,9 +164,41 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           activeGeometries,
           activeAnnotationSelection,
           new Set(),
+          annotationClassFilterValues,
         ),
-      [activeGeometries, activeAnnotationSelection, revision],
+      [activeGeometries, activeAnnotationSelection, annotationClassFilterValues, revision],
     );
+
+    const semanticClassesForFilter = useMemo(() => {
+      if (annotationClassFilterValues.length === 0) {
+        return {};
+      }
+
+      const classOptionsByCurie = new Map(
+        sceneAnnotationClassPool.map((option) => [option.curie, option]),
+      );
+
+      return Object.fromEntries(
+        annotationClassFilterValues
+          .map((classId) => {
+            const option = classOptionsByCurie.get(classId);
+            if (!option) {
+              return null;
+            }
+            return [
+              classId,
+              {
+                label: option.label,
+                stroke: option.color,
+                fill: hexToRgba(option.color, 0.3),
+                fillSelected: hexToRgba(option.color, 0.4),
+                strokeSelected: option.color,
+              },
+            ];
+          })
+          .filter((entry): entry is [string, Record<string, string>] => entry !== null),
+      );
+    }, [annotationClassFilterValues, sceneAnnotationClassPool]);
 
     const highlightGeometryIds = useMemo(
       () =>
@@ -171,7 +229,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     highlightGeometryIdsRef.current = highlightGeometryIds;
 
     const handleAnnotationCreated = (anno: ViewerAnnotation) => {
-      if (isStoreSyncRef.current) {
+      if (isStoreSyncRef.current || annotationMode !== 'edit') {
         return;
       }
       void createAnnotation({
@@ -200,12 +258,33 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     };
 
     const handleAnnotationEditStart = (anno: ViewerAnnotation) => {
+      if (annotationMode !== 'edit') {
+        return;
+      }
       // Capture the local editing copy at the exact OpenLIME edit start.
       captureGeometryEditSnapshot(anno.id);
     };
 
-    const handleViewerPointerDown = () => {
+    const handleViewerPointerDown = (e: React.PointerEvent) => {
       isPointerDownRef.current = true;
+
+      // In viewer mode, OpenLIME selection may not clear when clicking on empty space.
+      // Mirror editor behaviour by clearing focus on background clicks.
+      if (annotationMode === 'viewer' && e.button === 0) {
+        const target = e.target as HTMLElement | null;
+        const isUiClick =
+          Boolean(target?.closest?.('.openlime-button')) ||
+          Boolean(target?.closest?.('.openlime-dialog')) ||
+          Boolean(target?.closest?.('.annotation-toolbar'));
+        const isAnnotationClick = Boolean(target?.closest?.('.openlime-annotation'));
+        if (!isUiClick && !isAnnotationClick) {
+          const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+          const manager = viewer?.getAnnotationManager();
+          manager?.deselectAll?.();
+          clearFocus();
+        }
+      }
+
       // Snapshot focused geometries so any concurrent SSE update cannot replace the
       // OpenLIME object being dragged, and OCC still uses the edit-start version.
       for (const id of focusedGeometryIdsRef.current) {
@@ -244,7 +323,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }, [handleViewerPointerUpOrCancel]);
 
     const handleAnnotationUpdated = (anno: ViewerAnnotation) => {
-      if (isStoreSyncRef.current) {
+      if (isStoreSyncRef.current || annotationMode !== 'edit') {
         return;
       }
       const nextShapes = viewerGeometryToShapes(anno.type, anno.geometry);
@@ -346,7 +425,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const managerForSelect =
           enableAnnotationEditInteraction() ?? annotationManager;
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
-        applyOpenLimeSelection(managerForSelect, idsToSelect);
+        applyOpenLimeSelection(managerForSelect, idsToSelect, selectionInteractionMode);
       }
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
     }, [lockedGeometryIds, ref, viewerAnnotationsForSync, enableAnnotationEditInteraction]);
@@ -396,11 +475,30 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const managerForSelect =
           enableAnnotationEditInteraction() ?? annotationManager;
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
-        applyOpenLimeSelection(managerForSelect, idsToSelect);
+        applyOpenLimeSelection(managerForSelect, idsToSelect, selectionInteractionMode);
       }
       // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
     }, [viewerAnnotationsForSync, lockedGeometryIds, ref, enableAnnotationEditInteraction]);
+
+    useEffect(() => {
+      if (!ref || !('current' in ref) || !ref.current) {
+        return;
+      }
+      const annotationManager = ref.current.getAnnotationManager() as OpenLimeAnnotationManager | null;
+      if (!annotationManager) {
+        return;
+      }
+
+      annotationManager.setSemanticClasses?.(semanticClassesForFilter, false);
+      for (const annotation of viewerAnnotationsForSync) {
+        annotationManager.setAnnotationSemanticClass?.(
+          annotation.id,
+          annotation.semanticClass ?? null,
+        );
+      }
+      annotationManager.viewer?.redraw?.();
+    }, [semanticClassesForFilter, viewerAnnotationsForSync, ref]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
@@ -422,21 +520,25 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const managerForSelect =
         enableAnnotationEditInteraction() ?? annotationManager;
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
-      applyOpenLimeSelection(managerForSelect, highlightGeometryIds);
-    }, [highlightGeometryIds, focusedDataIds, ref, enableAnnotationEditInteraction]);
+      applyOpenLimeSelection(managerForSelect, highlightGeometryIds, selectionInteractionMode);
+    }, [highlightGeometryIds, focusedDataIds, ref, enableAnnotationEditInteraction, selectionInteractionMode]);
 
     // When the OpenLIME pencil is enabled (toolbar button or panel), apply the React toolbar mode.
     useEffect(() => {
-      if (!pencilActive || !viewerReady) {
+      if (annotationMode !== 'edit' || !pencilActive || !viewerReady) {
         return;
       }
       applyToolbarMode(toolbarMode);
-    }, [pencilActive, viewerReady, toolbarMode, applyToolbarMode]);
+    }, [annotationMode, pencilActive, viewerReady, toolbarMode, applyToolbarMode]);
 
     // Keep editor social locks aligned with this viewer's focused geometries.
     useEffect(() => {
+      if (annotationMode !== 'edit') {
+        void syncGeometryEditorLocks([]);
+        return;
+      }
       void syncGeometryEditorLocks([...focusedGeometryIds]);
-    }, [focusedGeometryIds, syncGeometryEditorLocks]);
+    }, [annotationMode, focusedGeometryIds, syncGeometryEditorLocks]);
 
     // Apply remote geometry editor locks as OpenLIME underEditing style.
     useEffect(() => {
@@ -513,6 +615,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           ref={ref}
           sceneDesc={sceneDesc}
           digitalAssets={digitalAssets}
+          annotationInteractionMode={annotationMode}
           onReady={handleViewerReady}
           onError={onError}
           onAnnotationCreated={handleAnnotationCreated}
@@ -523,7 +626,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           onSettingsRequested={() => setSettingsOpen(true)}
           annotationLabelVisibility={labelVisibility}
         />
-        {pencilActive && viewerReady && (
+        {annotationMode === 'edit' && pencilActive && viewerReady && (
           <div
             style={{
               position: 'absolute',

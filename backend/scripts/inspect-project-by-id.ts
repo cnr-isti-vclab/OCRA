@@ -13,6 +13,10 @@ function parseProjectSelection(raw: string, availableIds: string[]): string | nu
   const value = raw.trim();
   if (!value) return null;
 
+  if (value === '0') {
+    return '__exit__';
+  }
+
   const numericChoice = Number(value);
   if (Number.isInteger(numericChoice) && numericChoice >= 1 && numericChoice <= availableIds.length) {
     return availableIds[numericChoice - 1] ?? null;
@@ -42,6 +46,7 @@ async function main(): Promise<void> {
   }
 
   console.log('\nAvailable projects:\n');
+  console.log('0. Exit');
   projects.forEach((project, idx) => {
     console.log(`${idx + 1}. ${project.id} | ${project.name}`);
   });
@@ -54,6 +59,11 @@ async function main(): Promise<void> {
       answer,
       projects.map((p) => p.id)
     );
+
+    if (selectedProjectId === '__exit__') {
+      console.log('Exiting without inspecting a project.');
+      return;
+    }
 
     if (!selectedProjectId) {
       console.error('Invalid selection.');
@@ -117,7 +127,7 @@ async function main(): Promise<void> {
 
     const payload = {
       selectedProjectId,
-      exportedAt: new Date().toISOString(),
+      inspectedAt: new Date().toISOString(),
       projectData,
     };
 
@@ -130,7 +140,7 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    console.error('Failed to export project data:', error);
+    console.error('Failed to inspect project data:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

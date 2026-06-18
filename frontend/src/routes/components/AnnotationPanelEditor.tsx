@@ -1,8 +1,8 @@
 /**
- * AnnotationPanel — lists active {@link AnnotationData} from the store and drives UI focus.
+ * AnnotationPanelEditor — lists active {@link AnnotationData} from the store and drives UI focus.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
@@ -20,8 +20,10 @@ import {
 import {
   MessageModalDescriptor,
 } from '../../shared/ui/AppMessageModalModel';
+import AnnotationPanelBase from './AnnotationPanelBase';
+import AnnotationClassFilter from './AnnotationClassFilter';
 
-interface AnnotationPanelProps {
+interface AnnotationPanelEditorProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
   onSelectionChanged?: (geometryIds: string[]) => void;
 }
@@ -43,7 +45,7 @@ function EditDataModal({
 }: {
   draft: AnnotationDataDraft | null;
   onSave: () => void;
-  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description'>>) => void;
+  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass'>>) => void;
   onCancel: () => void;
 }) {
   if (!draft) {
@@ -82,17 +84,28 @@ function EditDataModal({
               <label htmlFor="annotationDescription" className="form-label">
                 Description
               </label>
-              <input
-                type="text"
+              <textarea
                 className="form-control"
                 id="annotationDescription"
                 value={draft.description}
                 onChange={(e) => onChange({ description: e.target.value })}
+                rows={6}
+                style={{ resize: 'vertical', overflowY: 'auto' }}
               />
             </div>
-            <p className="small text-muted mb-0">
-              Class: {draft.annotationClass ?? '(none)'}
-            </p>
+            <div className="mb-0">
+              <label htmlFor="annotationClass" className="form-label">
+                Class
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                id="annotationClass"
+                value={draft.annotationClass ?? ''}
+                onChange={(e) => onChange({ annotationClass: e.target.value })}
+                placeholder="Optional classification"
+              />
+            </div>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onCancel}>
@@ -112,7 +125,7 @@ function EditDataModal({
   );
 }
 
-export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelProps) {
+export default function AnnotationPanelEditor({ onSelectionChanged }: AnnotationPanelEditorProps) {
   const {
     activeData,
     allData,
@@ -120,6 +133,13 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
+    sceneAnnotationClassPool,
+    annotationClassFilterMode,
+    annotationClassFilterValues,
+    setAnnotationClassFilterValues,
+    toggleAnnotationClassFilterValue,
+    selectAllAnnotationClassFilters,
+    clearAnnotationClassFilter,
     getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
@@ -138,7 +158,41 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
+  const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
   const editingDataIdRef = useRef<string | null>(null);
+
+  const filteredActiveData = useMemo(() => {
+    if (annotationClassFilterValues.length === 0) {
+      return activeData;
+    }
+
+    const allowedClasses = new Set(annotationClassFilterValues);
+    return activeData.filter((datum) => datum.class !== null && allowedClasses.has(datum.class));
+  }, [activeData, annotationClassFilterValues]);
+
+  const visibleData = useMemo(() => {
+    if (!onlySelectedGeometryData) {
+      return filteredActiveData;
+    }
+    if (focusedGeometryIds.size === 0) {
+      return [];
+    }
+
+    const allowedDataIds = new Set<string>();
+    for (const geometryId of focusedGeometryIds) {
+      for (const dataId of activeAnnotationSelection.dataIdsByGeometryId.get(geometryId) ?? []) {
+        allowedDataIds.add(dataId);
+      }
+    }
+    return filteredActiveData.filter((datum) => allowedDataIds.has(datum.id));
+  }, [
+    onlySelectedGeometryData,
+    filteredActiveData,
+    focusedGeometryIds,
+    activeAnnotationSelection.dataIdsByGeometryId,
+  ]);
+
+  // Class filter UI is handled by the shared `AnnotationClassFilter` component.
 
   const realtimeBadgeClass =
     realtimeState === 'connected'
@@ -388,6 +442,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
       await updateData(editingDraft.dataId, {
         label: editingDraft.label,
         description: editingDraft.description,
+        class: editingDraft.annotationClass?.trim().length
+          ? editingDraft.annotationClass.trim()
+          : null,
       }, {
         expectedVersion: editingDraft.expectedVersion,
       });
@@ -467,54 +524,87 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
   }, [stopEditorLock]);
 
   return (
-    <div className="p-3 h-100 d-flex flex-column">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="h4 mb-0">Annotations</h4>
-        {focusedDataIdList.length > 0 && (
-          <div className="btn-group btn-group-sm" role="group">
-            <button
-              type="button"
-              className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
-              onClick={() => void handleBulkDelete()}
-              disabled={creating || bulkDeleteBlocked}
-              title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
-            >
-              <i className="bi bi-trash me-1" aria-hidden />
-              Delete ({focusedDataIdList.length})
-            </button>
-            <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
-              <i className="bi bi-x-lg"></i>
-            </button>
+    <AnnotationPanelBase
+      title="Annotations"
+      headerRight={focusedDataIdList.length > 0 ? (
+        <div className="btn-group btn-group-sm" role="group">
+          <button
+            type="button"
+            className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
+            onClick={() => void handleBulkDelete()}
+            disabled={creating || bulkDeleteBlocked}
+            title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
+          >
+            <i className="bi bi-trash me-1" aria-hidden />
+            Delete ({focusedDataIdList.length})
+          </button>
+          <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
+            <i className="bi bi-x-lg" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+      status={
+        <div
+          className={`mb-3 p-2 border rounded small annotation-panel-status ${
+            collaborativeEditInfo
+              ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
+              : 'bg-light-subtle text-muted'
+          }`}
+          style={{ minHeight: collaborativeEditInfo ? '64px' : '48px' }}
+        >
+          <div className="d-flex flex-column gap-1 annotation-panel-status__content">
+            <span className={`badge annotation-panel-status__badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
+            {collaborativeEditInfo ? (
+              <div className="annotation-panel-status__message">{collaborativeEditInfo}</div>
+            ) : null}
           </div>
-        )}
-      </div>
+        </div>
+      }
+      classFilter={
+        <AnnotationClassFilter
+          idPrefix="annotation-editor"
+          pool={sceneAnnotationClassPool}
+          filterMode={annotationClassFilterMode}
+          filterValues={annotationClassFilterValues}
+          setFilterValues={setAnnotationClassFilterValues}
+          toggleFilterValue={toggleAnnotationClassFilterValue}
+          selectAllFilters={selectAllAnnotationClassFilters}
+          clearFilter={clearAnnotationClassFilter}
+        />
+      }
+      toggle={
+        <div className="mb-3 form-check form-switch">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            role="switch"
+            id="annotation-panel-only-selected-geometry-data"
+            checked={onlySelectedGeometryData}
+            onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
+          />
+          <label className="form-check-label small" htmlFor="annotation-panel-only-selected-geometry-data">
+            Show only data linked to selected geometries
+          </label>
+        </div>
+      }
+    >
 
       {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
 
-      <div
-        className={`mb-3 p-2 border rounded small ${
-          collaborativeEditInfo
-            ? 'bg-danger-subtle border-danger text-danger-emphasis fw-semibold'
-            : 'bg-light-subtle text-muted'
-        }`}
-        style={{ minHeight: '36px' }}
-      >
-        <div className="d-flex flex-column gap-1 align-items-start">
-          <span className={`badge ${realtimeBadgeClass}`}>{realtimeLabel}</span>
-          {collaborativeEditInfo ? <div>{collaborativeEditInfo}</div> : null}
-        </div>
-      </div>
-
-      {activeData.length === 0 ? (
+      {visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <p className="text-muted fst-italic text-center">
-            No active annotation data. Adjust the query filter or create annotations in the viewer.
+            {activeData.length === 0
+              ? 'No active annotation data. Adjust the query filter or create annotations in the viewer.'
+              : onlySelectedGeometryData && focusedGeometryIds.size === 0
+              ? 'No geometry selected.'
+              : 'No annotation data matches the current filter.'}
           </p>
         </div>
       ) : (
         <div className="flex-grow-1 overflow-auto">
           <div className="list-group">
-            {activeData.map((datum) => {
+            {visibleData.map((datum) => {
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
               const isSelected = isDataFocused(datum.id);
@@ -611,6 +701,9 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
                     {datum.description || '(no description)'}
                   </p>
+                  <p className="mb-0 small" style={{ color: itemColors.text }}>
+                    <strong>Class:</strong> {datum.class ?? '(no class)'}
+                  </p>
                 </div>
               );
             })}
@@ -636,6 +729,6 @@ export default function AnnotationPanel({ onSelectionChanged }: AnnotationPanelP
           setMessageModal(null);
         }}
       />
-    </div>
+    </AnnotationPanelBase>
   );
 }

@@ -24,6 +24,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "scripts/**/*.ts",
     "db.ts",
     "server.ts",
     "seed.ts"

@@ -14,8 +14,15 @@ import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
 import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
-import AnnotationPanel from './components/AnnotationPanel';
+import AnnotationPanelEditor from './components/AnnotationPanelEditor';
+import AnnotationPanelViewer from './components/AnnotationPanelViewer';
+import {
+  resolveAnnotationMode,
+  selectionPolicyForAnnotationMode,
+  type AnnotationMode,
+} from '../features/annotation-modes/resolveAnnotationMode';
 import type { SceneDescription } from 'shared/scene-types';
+import type { RoleEnum } from 'shared/types';
 import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 
 interface Project {
@@ -25,6 +32,7 @@ interface Project {
   public: boolean;
   createdAt: string;
   updatedAt: string;
+  currentUserRole?: RoleEnum | null;
   manager?: {
     id: string;
     name?: string;
@@ -203,6 +211,14 @@ export default function ProjectPage() {
   const projectLockState = getProjectLockState(projectId);
   const hasExclusiveLock = projectLockState.hasExclusiveLock;
   const isSystemAdministrator = !!user?.sys_admin;
+  const annotationMode: AnnotationMode = useMemo(
+    () =>
+      resolveAnnotationMode({
+        projectRole: project?.currentUserRole ?? null,
+        isSystemAdministrator,
+      }),
+    [project?.currentUserRole, isSystemAdministrator],
+  );
   const canEditProjectSceneData = (isManager || isSystemAdministrator) && hasExclusiveLock;
   const canEditSceneSettings = canEditProjectSceneData;
   const showsSceneEnvironmentSettings = mode === '3d';
@@ -850,7 +866,7 @@ export default function ProjectPage() {
                 sceneDesc={viewerSceneDesc}
                 loadingModels={loadingModels}
                 modelLoadProgress={modelLoadProgress}
-                annotationToolsVisible={activeTab === 'annotations'}
+                annotationToolsVisible={activeTab === 'annotations' && annotationMode === 'edit'}
                 onReady={() => {
                   console.log('✅ 3D viewer ready');
                 }}
@@ -885,11 +901,12 @@ export default function ProjectPage() {
 
             {!annotationTestMode && mode === '2d' && (
               <Viewer2DPanel
-                key={`viewer-2d-${selectedSceneId ?? 'none'}`}
+                key={`viewer-2d-${projectId ?? 'none'}-${selectedSceneId ?? 'none'}-${annotationMode}`}
                 ref={openLimeRef}
                 sceneDesc={viewerSceneDesc}
                 digitalAssets={digitalAssets}
                 rtiAvailable={rtiAvailable}
+                annotationMode={annotationMode}
                 onReady={() => {
                   console.log('📸 2D RTI viewer ready');
                 }}
@@ -1554,7 +1571,7 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    <AnnotationPanel />
+                    {annotationMode === 'viewer' ? <AnnotationPanelViewer /> : <AnnotationPanelEditor />}
                   </div>
                 )}
               </div>
@@ -1567,9 +1584,10 @@ export default function ProjectPage() {
   if (projectId && selectedSceneId && (annotationTestMode || mode === '3d' || mode === '2d')) {
     return (
       <AnnotationStoreProvider
-        key={`annotation-scene-${selectedSceneId}`}
+        key={`annotation-scene-${projectId ?? 'none'}-${selectedSceneId}`}
         projectId={projectId}
         sceneId={selectedSceneId}
+        selectionPolicy={selectionPolicyForAnnotationMode(annotationMode)}
       >
         {projectPageBody}
       </AnnotationStoreProvider>

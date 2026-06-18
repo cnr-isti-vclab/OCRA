@@ -9,12 +9,15 @@ import sessionRoutes from './session.routes.js';
 import authRoutes from './auth.routes.js';
 import oauthRoutes from './oauth.routes.js';
 import healthRoutes from './health.routes.js';
+import { readinessCheck } from '../controllers/health.controller.js';
 import usersRoutes from './users.routes.js';
 import projectsRoutes from './projects.routes.js';
 import adminRoutes from './admin.routes.js';
 import vocabulariesRoutes from './vocabularies.routes.js';
 import hdtMetadataRoutes from './hdt-metadata.routes.js';
 import annotationRoutes from './annotation.routes.js';
+// @spike feature/vocabulary-color-spike — remove this import when vocabulary data is in DB
+import vocabularyConceptsRoutes from './vocabulary-concepts.routes.js';
 
 const router = express.Router();
 
@@ -29,6 +32,7 @@ router.use('/sessions', sessionRoutes);
 console.log('✅ [Routes] Mounted: /sessions');
 router.use('/', authRoutes); // Auth routes include /users and /debug paths
 router.use('/health', healthRoutes);
+router.get('/ready', readinessCheck);
 router.use('/users', usersRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/projects', hdtMetadataRoutes); // HDT metadata: /api/projects/:id/hdt
@@ -36,5 +40,7 @@ router.use('/projects', annotationRoutes); // Annotations: /api/projects/:id/ann
 router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
+// @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB
+router.use('/vocabulary', vocabularyConceptsRoutes);
 
 export default router;

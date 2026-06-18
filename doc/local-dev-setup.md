@@ -401,10 +401,10 @@ Expected logs:
 - No errors about `DATABASE_URL` or `MONGO_URL`
 - No `EACCES` errors for project files path
 
-Health check:
+Readiness check:
 
 ```bash
-curl http://localhost:3002/health
+curl http://localhost:3002/health/ready
 ```
 
 ### 8.2 Frontend (Terminal 2)
@@ -621,9 +621,9 @@ psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "SELECT * FROM sess
 docker ps  # bare-ocra-postgres, bare-ocra-mongo, bare-keycloak should be 'Up'
 ```
 
-**Backend health:**
+**Backend readiness:**
 ```bash
-curl http://localhost:3002/health
+curl http://localhost:3002/health/ready
 curl http://localhost:3002/oauth/status
 ```
 

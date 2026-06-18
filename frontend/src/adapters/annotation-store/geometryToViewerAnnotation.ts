@@ -49,6 +49,20 @@ function pickDisplayLabel(
   return '(no data)';
 }
 
+function distinctLinkedClasses(
+  dataIds: readonly string[],
+  selection: ActiveAnnotationSelection,
+): string[] {
+  const classes = new Set<string>();
+  for (const dataId of dataIds) {
+    const classId = selection.dataById.get(dataId)?.class;
+    if (classId) {
+      classes.add(classId);
+    }
+  }
+  return [...classes];
+}
+
 /**
  * Maps one active {@link AnnotationGeometry} to a viewer rendering DTO.
  * Geometry id is the viewer annotation id.
@@ -57,15 +71,23 @@ export function geometryToViewerAnnotation(
   geometry: AnnotationGeometry,
   selection: ActiveAnnotationSelection,
   focusedDataIds: ReadonlySet<string> = new Set(),
+  semanticClassPreference: readonly string[] = [],
 ): ViewerAnnotation {
   const shape = primaryShape(geometry);
   const dataIds = selection.dataIdsByGeometryId.get(geometry.id) ?? [];
   const primaryDataId = [...focusedDataIds].find((id) => dataIds.includes(id)) ?? dataIds[0];
   const datum = primaryDataId ? selection.dataById.get(primaryDataId) : undefined;
+  const linkedClasses = distinctLinkedClasses(dataIds, selection);
+  const semanticClass =
+    semanticClassPreference.find((classId) =>
+      dataIds.some((dataId) => selection.dataById.get(dataId)?.class === classId),
+    ) ?? null;
 
   return {
     id: geometry.id,
     label: pickDisplayLabel(geometry.id, selection, focusedDataIds),
+    semanticClass,
+    strokeDasharray: semanticClass !== null && linkedClasses.length > 1 ? '8,6' : null,
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
     description: datum?.description,
@@ -78,9 +100,10 @@ export function activeGeometriesToViewerAnnotations(
   geometries: AnnotationGeometry[],
   selection: ActiveAnnotationSelection,
   focusedDataIds: ReadonlySet<string> = new Set(),
+  semanticClassPreference: readonly string[] = [],
 ): ViewerAnnotation[] {
   return geometries.map((geometry) =>
-    geometryToViewerAnnotation(geometry, selection, focusedDataIds),
+    geometryToViewerAnnotation(geometry, selection, focusedDataIds, semanticClassPreference),
   );
 }
 

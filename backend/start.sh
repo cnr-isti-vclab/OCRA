@@ -8,16 +8,68 @@ set -eu
 
 echo "🚀 OCRA Backend container starting..."
 
-# Wait for PostgreSQL (health check)
-echo "⏳ Waiting for PostgreSQL (postgres:5432)..."
-for i in {1..30}; do
-  if nc -z postgres 5432 >/dev/null 2>&1; then
-    echo "✅ PostgreSQL ready"
-    break
+wait_for_tcp_port() {
+  host="$1"
+  port="$2"
+  label="$3"
+  max_attempts="$4"
+  attempt=1
+
+  echo "⏳ Waiting for ${label} (${host}:${port})..."
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if WAIT_HOST="$host" WAIT_PORT="$port" node -e "
+const net = require('node:net');
+const socket = net.createConnection({ host: process.env.WAIT_HOST, port: Number(process.env.WAIT_PORT) });
+socket.setTimeout(2000);
+socket.on('connect', () => { socket.end(); process.exit(0); });
+socket.on('timeout', () => { socket.destroy(); process.exit(1); });
+socket.on('error', () => process.exit(1));
+" >/dev/null 2>&1; then
+      echo "✅ ${label} ready"
+      return 0
+    fi
+
+    echo "⏳ ${label} not ready (${attempt}/${max_attempts})..."
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+
+  echo "❌ ${label} did not become ready in time." >&2
+  exit 1
+}
+
+wait_for_oidc_discovery() {
+  issuer="${ISSUER:-}"
+  max_attempts=60
+  attempt=1
+
+  if [ -z "$issuer" ]; then
+    echo "❌ ISSUER is not configured." >&2
+    exit 1
   fi
-  echo "⏳ PostgreSQL not ready ($i/30)..."
-  sleep 1
-done
+
+  discovery_url="${issuer%/}/.well-known/openid-configuration"
+
+  echo "⏳ Waiting for OIDC discovery (${discovery_url})..."
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if DISCOVERY_URL="$discovery_url" node -e "fetch(process.env.DISCOVERY_URL).then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"; then
+      echo "✅ OIDC discovery ready"
+      return 0
+    fi
+
+    echo "⏳ OIDC discovery not ready (${attempt}/${max_attempts})..."
+    attempt=$((attempt + 1))
+    sleep 2
+  done
+
+  echo "❌ OIDC discovery did not become ready in time." >&2
+  echo "   URL: ${discovery_url}" >&2
+  exit 1
+}
+
+# Wait for PostgreSQL (health check)
+wait_for_tcp_port "postgres" "5432" "PostgreSQL" "30"
+wait_for_oidc_discovery
 
 # =============================================================================
 # 1. DATABASE SCHEMA SYNC (idempotent, Prisma 5.18.0)

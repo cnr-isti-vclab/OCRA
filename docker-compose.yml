@@ -18,7 +18,7 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: ocra-mongodb
-    hostname: ocra-mongodb
+    hostname: mongodb
     command: ["sh", "/docker/mongo-start.sh"]
     environment:
       MONGO_INITDB_DATABASE: ocra_audit
@@ -32,6 +32,7 @@ services:
     networks:
       default:
         aliases:
+          - mongodb
           - ocra-mongodb
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'quit(db.hello().setName === \"rs0\" && db.hello().isWritablePrimary ? 0 : 1)' >/dev/null 2>&1 || exit 1"]
@@ -63,6 +64,18 @@ services:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3002/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
     volumes:
       - project_files:/app/project_files
 
@@ -86,7 +99,7 @@ services:
       mongodb:
         condition: service_healthy
       backend:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:
