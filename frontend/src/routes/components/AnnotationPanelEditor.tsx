@@ -573,10 +573,11 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
         />
       }
       toggle={
-        <div className="mb-3 form-check">
+        <div className="mb-3 form-check form-switch">
           <input
             className="form-check-input"
             type="checkbox"
+            role="switch"
             id="annotation-panel-only-selected-geometry-data"
             checked={onlySelectedGeometryData}
             onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}

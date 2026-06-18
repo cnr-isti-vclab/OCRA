@@ -183,7 +183,7 @@ export function AnnotationStoreProvider({
   const [eventLog, setEventLog] = useState<AnnotationStoreLogEntry[]>([]);
   const [activeSocialLocks, setActiveSocialLocks] = useState<AnnotationSocialLockState[]>([]);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
-  const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<AnnotationClassFilterMode>('none');
+  const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<AnnotationClassFilterMode>('all');
   const [customAnnotationClassFilterValues, setCustomAnnotationClassFilterValues] = useState<string[]>([]);
   const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
@@ -615,6 +615,14 @@ export function AnnotationStoreProvider({
 
   useEffect(() => {
     if (annotationClassFilterMode === 'none') {
+      return;
+    }
+
+    // Preserve the intended filter mode while the scene class pool is still loading.
+    // Otherwise the initial "all" state is downgraded to "none" before vocabulary
+    // concepts and active scene classes arrive, so the ALL chip never starts active
+    // and semantic viewer colours do not initialize.
+    if (sceneAnnotationClassPool.length === 0) {
       return;
     }
 
