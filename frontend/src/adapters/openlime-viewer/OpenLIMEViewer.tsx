@@ -235,6 +235,30 @@ const OpenLIMEViewer = forwardRef<
         infoButton?.classList.toggle('openlime-info-active', active);
       };
 
+      const scheduleInfoButtonActiveStateSync = (active: boolean, attempts = 8) => {
+        let remainingAttempts = attempts;
+
+        const apply = () => {
+          const container = viewerRef.current?.containerElement as HTMLElement | undefined;
+          const infoButton = container?.querySelector?.('.openlime-button.openlime-info') as
+            | HTMLElement
+            | null
+            | undefined;
+
+          if (infoButton) {
+            infoButton.classList.toggle('openlime-info-active', active);
+            return;
+          }
+
+          remainingAttempts -= 1;
+          if (remainingAttempts > 0) {
+            requestAnimationFrame(apply);
+          }
+        };
+
+        requestAnimationFrame(apply);
+      };
+
       useEffect(() => {
         onReadyRef.current = onReady;
       }, [onReady]);
@@ -493,9 +517,17 @@ const OpenLIMEViewer = forwardRef<
 
           // Setup annotation manager
           console.log('🎬 Setting up OpenLIME annotation manager');
+          const viewerOnlyMode = annotationInteractionMode === 'viewer';
+          const annotationStyleConfig = viewerOnlyMode
+            ? {
+                ...OPENLIME_ANNOTATION_STYLE_CONFIG,
+                selectionFill: OPENLIME_ANNOTATION_STYLE_CONFIG.defaultFill,
+                selectionStroke: OPENLIME_ANNOTATION_STYLE_CONFIG.defaultStroke,
+              }
+            : OPENLIME_ANNOTATION_STYLE_CONFIG;
 
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
-            ...OPENLIME_ANNOTATION_STYLE_CONFIG,
+            ...annotationStyleConfig,
             labelVisibility: annotationLabelVisibility,
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
@@ -592,7 +624,6 @@ const OpenLIMEViewer = forwardRef<
             uiRef.current.actions.zoomin.display = false;
             uiRef.current.actions.zoomout.display = false;
             uiRef.current.toggleLightController(true);
-            const viewerOnlyMode = annotationInteractionMode === 'viewer';
             uiRef.current.actions.pencil.display = !viewerOnlyMode;
             uiRef.current.actions.info.display = viewerOnlyMode;
             uiRef.current.actions.settings.display = true;
@@ -627,11 +658,7 @@ const OpenLIMEViewer = forwardRef<
 
             if (viewerOnlyMode) {
               uiRef.current.toggleAnnotationInfo(true);
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  syncInfoButtonActiveState(true);
-                });
-              });
+              scheduleInfoButtonActiveStateSync(true);
             }
           }
 
