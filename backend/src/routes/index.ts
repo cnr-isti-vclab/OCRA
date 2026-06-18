@@ -9,6 +9,7 @@ import sessionRoutes from './session.routes.js';
 import authRoutes from './auth.routes.js';
 import oauthRoutes from './oauth.routes.js';
 import healthRoutes from './health.routes.js';
+import { readinessCheck } from '../controllers/health.controller.js';
 import usersRoutes from './users.routes.js';
 import projectsRoutes from './projects.routes.js';
 import adminRoutes from './admin.routes.js';
@@ -31,6 +32,7 @@ router.use('/sessions', sessionRoutes);
 console.log('✅ [Routes] Mounted: /sessions');
 router.use('/', authRoutes); // Auth routes include /users and /debug paths
 router.use('/health', healthRoutes);
+router.get('/ready', readinessCheck);
 router.use('/users', usersRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/projects', hdtMetadataRoutes); // HDT metadata: /api/projects/:id/hdt

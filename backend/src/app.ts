@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
+import { readinessCheck } from './controllers/health.controller.js';
 import { requestLogger } from './middleware/logging.middleware.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { swaggerSpec } from './config/swagger.js';
@@ -111,6 +112,7 @@ export function createApp(): Express {
 
   // Health check available at both /health and /api/health
   app.use('/health', healthRoutes);
+  app.get('/ready', readinessCheck);
 
   // NEW: serve all project files from a single mount point
   const projectFilesRoot = path.resolve(
