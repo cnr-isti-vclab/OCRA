@@ -814,9 +814,9 @@ export async function addAssetHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 403, 'assetManagerRequired', 'Only project managers and system administrators can add assets');
     }
 
-    const updatedDoc = await addDigitalAsset(projectId, normalizedAsset, currentUser.sub);
+    const assetResult = await addDigitalAsset(projectId, normalizedAsset, currentUser.sub);
 
-    if (!updatedDoc) {
+    if (!assetResult) {
       // Audit "not found" (best-effort).
       await auditBestEffort({
         req,
@@ -860,7 +860,8 @@ export async function addAssetHandler(req: Request, res: Response) {
 
     return res.status(201).json({
       success: true,
-      value: updatedDoc // Frontend will use json.value.digitalAssets
+      assetId: assetResult.assetId,
+      value: assetResult.doc,
     });
   } catch (error: any) {
     // Audit unexpected failure (best-effort).

@@ -1,24 +1,58 @@
 const replicaSetName = process.env.MONGO_REPLICA_SET_NAME || 'rs0';
 const replicaHost = process.env.MONGO_REPLICA_HOST || 'mongodb:27017';
 
+/**
+ * Ensures the replica set is initialised and healthy.
+ *
+ * Three cases handled:
+ *  1. Fresh volume  — rs.status() throws NotYetInitialized → rs.initiate()
+ *  2. Stale hostname in stored config (e.g. "mongodb:27017" → "127.0.0.1:27017")
+ *     — rs.reconfig({ force: true }) so the node can recognise itself and become primary.
+ *  3. Already correct — no-op, just wait for isWritablePrimary.
+ */
 function ensureReplicaSet() {
-  let initialized = false;
+  let needsInit = false;
+  let currentConfig = null;
 
   try {
-    const status = rs.status();
-    initialized = status?.ok === 1;
-  } catch (error) {
-    const message = error?.codeName || error?.message || String(error);
-    if (!String(message).includes('NotYetInitialized')) {
-      throw error;
+    rs.status();
+    // Replica set exists in some state; read its config.
+    currentConfig = rs.conf();
+  } catch (err) {
+    const msg = String(err?.codeName || err?.message || err);
+
+    if (msg.includes('NotYetInitialized')) {
+      needsInit = true;
+    } else if (
+      msg.includes('NotPrimaryOrSecondary') ||
+      msg.includes('AlreadyInitialized') ||
+      msg.includes('REMOVED')
+    ) {
+      // Replica set exists but node is in a bad state (REMOVED / not-yet-primary).
+      // Try to read the on-disk config so we can reconfig if the host is wrong.
+      try {
+        currentConfig = rs.conf();
+      } catch (_) {
+        // Config unreadable; attempt a forced initiate below.
+        needsInit = true;
+      }
+    } else {
+      throw err;
     }
   }
 
-  if (!initialized) {
-    rs.initiate({
-      _id: replicaSetName,
-      members: [{ _id: 0, host: replicaHost }]
-    });
+  if (needsInit) {
+    rs.initiate({ _id: replicaSetName, members: [{ _id: 0, host: replicaHost }] });
+    print(`Replica set initiated: ${replicaSetName} (${replicaHost})`);
+  } else if (currentConfig) {
+    const storedHost = currentConfig.members[0].host;
+    if (storedHost !== replicaHost) {
+      // Stored hostname no longer resolves — update it so mongod can find itself.
+      currentConfig.members[0].host = replicaHost;
+      currentConfig.version += 1;
+      rs.reconfig(currentConfig, { force: true });
+      print(`Replica set host updated: ${storedHost} → ${replicaHost}`);
+    }
   }
 
   for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -30,7 +64,7 @@ function ensureReplicaSet() {
     sleep(1000);
   }
 
-  throw new Error(`Replica set ${replicaSetName} did not become writable in time`);
+  throw new Error(`Replica set ${replicaSetName} did not become writable within 30 s`);
 }
 
 ensureReplicaSet();
@@ -66,10 +100,14 @@ dropIndexIfExists(contentDb.annotation_link, 'projectId_1_annotationData_1');
 void contentDb.annotation_geometry.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_geometry.createIndex({ projectId: 1, referenceType: 1, referenceId: 1 });
 void contentDb.annotation_geometry.createIndex({ projectId: 1, erasableAt: 1 });
+void contentDb.annotation_geometry.createIndex({ projectId: 1, createdAt: 1 });
+void contentDb.annotation_geometry.createIndex({ projectId: 1, updatedAt: 1 });
 
 void contentDb.annotation_data.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_data.createIndex({ projectId: 1, visibilityType: 1, visibilityId: 1 });
 void contentDb.annotation_data.createIndex({ projectId: 1, erasableAt: 1 });
+void contentDb.annotation_data.createIndex({ projectId: 1, createdAt: 1 });
+void contentDb.annotation_data.createIndex({ projectId: 1, updatedAt: 1 });
 
 void contentDb.annotation_link.createIndex({ projectId: 1, id: 1 }, { unique: true });
 void contentDb.annotation_link.createIndex(
@@ -79,7 +117,8 @@ void contentDb.annotation_link.createIndex(
 void contentDb.annotation_link.createIndex({ projectId: 1, geometryId: 1 });
 void contentDb.annotation_link.createIndex({ projectId: 1, dataId: 1 });
 void contentDb.annotation_link.createIndex({ projectId: 1, erasableAt: 1 });
+void contentDb.annotation_link.createIndex({ projectId: 1, createdAt: 1 });
 
 void contentDb.hdt_collection.createIndex({ projectId: 1 }, { unique: true });
 
-print(`Initialized MongoDB replica set ${replicaSetName} with databases: ocra_audit, ocra_content`);
+print(`Initialized MongoDB databases: ocra_audit, ocra_content`);

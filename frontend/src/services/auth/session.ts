@@ -7,6 +7,7 @@
 import { API_BASE, OAUTH_CONFIG } from '../../config/oauth';
 import { exchangeCodeForTokens, getUserProfile } from './oauth';
 import { clearOAuthStorage, clearAllCookies, clearIndexedDB, clearCacheAPI } from '../../utils/storage';
+import type { User } from 'shared/types';
 
 /**
  * Complete OAuth authorization code flow and create backend session
@@ -81,7 +82,7 @@ export async function completeAuthCodeFlow(): Promise<void> {
 /**
  * Get current user from backend session
  */
-export async function getCurrentUser(): Promise<any> {
+export async function getCurrentUser(): Promise<User | null> {
   console.log('🔍 getCurrentUser called');
   
   const sessionId = localStorage.getItem('oauth_session_id');

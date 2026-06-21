@@ -1,5 +1,5 @@
-import type * as OpenLIME from 'openlime';
 import type { AnnotationToolbarMode } from '../../components/AnnotationToolbar';
+import type { OpenLimeAnnotationManager } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import type { OpenLIMEViewerRef } from './OpenLIMEViewer';
 
 /** OpenLIME marker mapping for {@link AnnotationToolbarMode} (2D only). */
@@ -13,11 +13,11 @@ const OPENLIME_CREATE_MARKER: Record<
 };
 
 /**
- * Applies toolbar mode to OpenLIME {@link OpenLIME.ManagerSvgAnnotation}.
+ * Applies toolbar mode to the OpenLIME annotation manager.
  * Call from {@link Viewer2DPanel} when the user changes {@link AnnotationToolbar} selection.
  */
 export function applyOpenLimeToolbarMode(
-  manager: OpenLIME.ManagerSvgAnnotation,
+  manager: OpenLimeAnnotationManager,
   viewer: OpenLIMEViewerRef,
   mode: AnnotationToolbarMode,
 ): void {
@@ -28,5 +28,5 @@ export function applyOpenLimeToolbarMode(
   }
 
   const cfg = OPENLIME_CREATE_MARKER[mode];
-  manager.setActiveMarker(cfg.type, cfg.opts);
+  manager.setActiveMarker?.(cfg.type, cfg.opts);
 }

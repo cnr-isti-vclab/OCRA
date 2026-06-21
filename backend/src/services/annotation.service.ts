@@ -334,6 +334,48 @@ async function getIncomingVisibleLinksForData(
   return links.filter((link) => isLinkVisible(link, includeErasable));
 }
 
+async function filterGeometriesByVisibleLinks(
+  projectId: string,
+  geometries: AnnotationGeometryDocument[],
+  includeErasable: boolean,
+) {
+  const geometryIds = geometries.map((g) => g.id);
+  const allLinks = geometryIds.length > 0
+    ? await findAnnotationLinksByGeometryIds(projectId, geometryIds)
+    : [];
+  const linksByGeometryId = new Map<string, AnnotationLinkDocument[]>();
+  for (const link of allLinks) {
+    const arr = linksByGeometryId.get(link.geometryId);
+    if (arr) arr.push(link);
+    else linksByGeometryId.set(link.geometryId, [link]);
+  }
+  return geometries.filter((geometry) => {
+    const links = (linksByGeometryId.get(geometry.id) ?? []).filter((link) => isLinkVisible(link, includeErasable));
+    return isEntityVisible(geometry, includeErasable, links.some((link) => link.erasableAt === null));
+  });
+}
+
+async function filterDataByVisibleLinks(
+  projectId: string,
+  dataRecords: AnnotationDataDocument[],
+  includeErasable: boolean,
+) {
+  const dataIds = dataRecords.map((d) => d.id);
+  const allLinks = dataIds.length > 0
+    ? await findAnnotationLinksByDataIds(projectId, dataIds)
+    : [];
+  const linksByDataId = new Map<string, AnnotationLinkDocument[]>();
+  for (const link of allLinks) {
+    const arr = linksByDataId.get(link.dataId);
+    if (arr) arr.push(link);
+    else linksByDataId.set(link.dataId, [link]);
+  }
+  return dataRecords.filter((data) => {
+    const links = (linksByDataId.get(data.id) ?? []).filter((link) => isLinkVisible(link, includeErasable));
+    return isEntityVisible(data, includeErasable, links.some((link) => link.erasableAt === null));
+  });
+}
+
 async function getValidatedProjectHdt(projectId: string) {
   if (!isNonEmptyString(projectId)) {
     return null;
@@ -440,37 +482,16 @@ async function listAnnotationGeometriesForSceneAssets(
   ]);
 
   const geometries = dedupeById([...sceneGeometries, ...assetGeometries]);
-  const visibleLinks = await Promise.all(
-    geometries.map(async (geometry) => ({
-      geometry,
-      links: await getIncomingVisibleLinksForGeometry(projectId, geometry.id, includeErasable),
-    })),
-  );
-
-  return visibleLinks
-    .filter(({ geometry, links }) =>
-      isEntityVisible(geometry, includeErasable, links.some((link) => link.erasableAt === null)),
-    )
-    .map(({ geometry }) => geometry);
+  return filterGeometriesByVisibleLinks(projectId, geometries, includeErasable);
 }
 
 async function listAnnotationGeometriesForProject(
   projectId: string,
   includeErasable: boolean,
 ) {
-  const geometries = await getAnnotationGeometryCollection().then((collection) => collection.find({ projectId }).toArray());
-  const visibleLinks = await Promise.all(
-    geometries.map(async (geometry) => ({
-      geometry,
-      links: await getIncomingVisibleLinksForGeometry(projectId, geometry.id, includeErasable),
-    })),
-  );
-
-  return visibleLinks
-    .filter(({ geometry, links }) =>
-      isEntityVisible(geometry, includeErasable, links.some((link) => link.erasableAt === null)),
-    )
-    .map(({ geometry }) => geometry);
+  const collection = await getAnnotationGeometryCollection();
+  const geometries = await collection.find({ projectId }).toArray();
+  return filterGeometriesByVisibleLinks(projectId, geometries, includeErasable);
 }
 
 async function listAnnotationDataForSceneAssets(
@@ -487,37 +508,16 @@ async function listAnnotationDataForSceneAssets(
   ]);
 
   const dataRecords = dedupeById([...sceneData, ...assetData]);
-  const visibleLinks = await Promise.all(
-    dataRecords.map(async (data) => ({
-      data,
-      links: await getIncomingVisibleLinksForData(projectId, data.id, includeErasable),
-    })),
-  );
-
-  return visibleLinks
-    .filter(({ data, links }) =>
-      isEntityVisible(data, includeErasable, links.some((link) => link.erasableAt === null)),
-    )
-    .map(({ data }) => data);
+  return filterDataByVisibleLinks(projectId, dataRecords, includeErasable);
 }
 
 async function listAnnotationDataForProject(
   projectId: string,
   includeErasable: boolean,
 ) {
-  const dataRecords = await getAnnotationDataCollection().then((collection) => collection.find({ projectId }).toArray());
-  const visibleLinks = await Promise.all(
-    dataRecords.map(async (data) => ({
-      data,
-      links: await getIncomingVisibleLinksForData(projectId, data.id, includeErasable),
-    })),
-  );
-
-  return visibleLinks
-    .filter(({ data, links }) =>
-      isEntityVisible(data, includeErasable, links.some((link) => link.erasableAt === null)),
-    )
-    .map(({ data }) => data);
+  const collection = await getAnnotationDataCollection();
+  const dataRecords = await collection.find({ projectId }).toArray();
+  return filterDataByVisibleLinks(projectId, dataRecords, includeErasable);
 }
 
 async function listAnnotationLinksForSceneAssets(
@@ -735,7 +735,8 @@ export async function getAnnotationLinksForProject(
     return links.filter((link) => isLinkVisible(link, includeErasable));
   }
 
-  const links = await getAnnotationLinkCollection().then((collection) => collection.find({ projectId }).toArray());
+  const collection = await getAnnotationLinkCollection();
+  const links = await collection.find({ projectId }).toArray();
   return links.filter((link) => isLinkVisible(link, includeErasable));
 }
 

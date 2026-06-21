@@ -104,8 +104,8 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 1024 * 1024 * 1024 // 1 GB  FIXME
-  }
+    fileSize: parseInt(process.env.MAX_UPLOAD_SIZE_BYTES ?? String(1024 * 1024 * 1024), 10),
+  },
 });
 
 /**

@@ -27,6 +27,9 @@ const ANNOTATION_LINK_INDEXES = [
   {
     key: { projectId: 1, erasableAt: 1 },
   },
+  {
+    key: { projectId: 1, createdAt: 1 },
+  },
 ] as const;
 
 const LEGACY_ANNOTATION_LINK_INDEX_NAMES = [

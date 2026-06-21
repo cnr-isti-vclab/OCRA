@@ -24,6 +24,7 @@ import {
 import type { SceneDescription } from 'shared/scene-types';
 import type { RoleEnum } from 'shared/types';
 import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
+import { formatVector3, formatScale, parseOptionalVector3, parseOptionalScale } from '../utils/vector';
 
 interface Project {
   id: string;
@@ -107,51 +108,6 @@ function mergeSceneModelTransforms(
   };
 }
 
-function formatVector3Input(value?: [number, number, number], fallback: string = '0, 0, 0'): string {
-  return value ? value.join(', ') : fallback;
-}
-
-function formatScaleInput(value?: number | [number, number, number], fallback: string = '1'): string {
-  if (value === undefined) {
-    return fallback;
-  }
-  return Array.isArray(value) ? value.join(', ') : String(value);
-}
-
-function parseOptionalVector3Input(value: string, label: string): [number, number, number] | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const parts = trimmed.split(',').map((part) => parseFloat(part.trim()));
-  if (parts.length !== 3) {
-    throw new Error(`${label} must have exactly 3 values.`);
-  }
-  if (parts.some((part) => Number.isNaN(part))) {
-    throw new Error(`${label} contains an invalid number.`);
-  }
-
-  return [parts[0], parts[1], parts[2]];
-}
-
-function parseOptionalScaleInput(value: string): number | [number, number, number] | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  if (trimmed.includes(',')) {
-    return parseOptionalVector3Input(trimmed, 'Scale');
-  }
-
-  const parsed = parseFloat(trimmed);
-  if (Number.isNaN(parsed)) {
-    throw new Error('Scale contains an invalid number.');
-  }
-
-  return parsed;
-}
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -161,7 +117,7 @@ export default function ProjectPage() {
   const annotationTestMode = mode === 'test';
 
   const [project, setProject] = useState<Project | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<import('shared/types').User | null>(null);
   const [isManager, setIsManager] = useState<boolean>(false);
   const [files, setFiles] = useState<Array<{ name: string; url: string; size?: number }>>([]);
   const [loading, setLoading] = useState(true);
@@ -439,9 +395,9 @@ export default function ProjectPage() {
     const modelTransform = sceneModelTransforms[modelId] ?? (sceneModel ? extractModelTransform(sceneModel) : {});
     setEditingModelId(modelId);
     setSaveError(null);
-    setEditedPosition(formatVector3Input(modelTransform.position));
-    setEditedRotation(formatVector3Input(modelTransform.rotation));
-    setEditedScale(formatScaleInput(modelTransform.scale));
+    setEditedPosition(formatVector3(modelTransform.position));
+    setEditedRotation(formatVector3(modelTransform.rotation));
+    setEditedScale(formatScale(modelTransform.scale));
   };
 
   const ensureEditingModel = (modelId: string, sceneModel: any) => {
@@ -488,17 +444,17 @@ export default function ProjectPage() {
     if (!viewerRef.current) return;
 
     try {
-      const position = parseOptionalVector3Input(posStr, 'Position') ?? null;
+      const position = parseOptionalVector3(posStr, 'Position') ?? null;
 
       // Parse rotation and convert degrees to radians for Three.js
-      const rotationDeg = parseOptionalVector3Input(rotStr, 'Rotation');
+      const rotationDeg = parseOptionalVector3(rotStr, 'Rotation');
       const rotation = rotationDeg ? [
         rotationDeg[0] * Math.PI / 180,
         rotationDeg[1] * Math.PI / 180,
         rotationDeg[2] * Math.PI / 180
       ] as [number, number, number] : null;
 
-      const scale = parseOptionalScaleInput(scaleStr) ?? null;
+      const scale = parseOptionalScale(scaleStr) ?? null;
 
       viewerRef.current.applyModelTransform(modelId, position, rotation, scale);
     } catch (err) {
@@ -511,9 +467,9 @@ export default function ProjectPage() {
   const saveModelProperties = async (modelId: string, _fileName: string) => {
     setSaveError(null);
     try {
-      const position = parseOptionalVector3Input(editedPosition, 'Position');
-      const rotation = parseOptionalVector3Input(editedRotation, 'Rotation');
-      const scale = parseOptionalScaleInput(editedScale);
+      const position = parseOptionalVector3(editedPosition, 'Position');
+      const rotation = parseOptionalVector3(editedRotation, 'Rotation');
+      const scale = parseOptionalScale(editedScale);
 
       // Ensure HDT document exists before saving
       if (!await ensureHDTDocument(projectId!)) {
@@ -1101,7 +1057,7 @@ export default function ProjectPage() {
                                             type="text"
                                             className="form-control form-control-sm"
                                             placeholder="x, y, z"
-                                            value={editingModelId === modelId ? editedPosition : formatVector3Input(sceneModel?.position)}
+                                            value={editingModelId === modelId ? editedPosition : formatVector3(sceneModel?.position)}
                                             disabled={!canEditProjectSceneData}
                                             onFocus={() => ensureEditingModel(modelId, sceneModel)}
                                             onChange={(e) => {
@@ -1123,7 +1079,7 @@ export default function ProjectPage() {
                                             type="text"
                                             className="form-control form-control-sm"
                                             placeholder="x, y, z"
-                                            value={editingModelId === modelId ? editedRotation : formatVector3Input(sceneModel?.rotation)}
+                                            value={editingModelId === modelId ? editedRotation : formatVector3(sceneModel?.rotation)}
                                             disabled={!canEditProjectSceneData}
                                             onFocus={() => ensureEditingModel(modelId, sceneModel)}
                                             onChange={(e) => {
@@ -1147,7 +1103,7 @@ export default function ProjectPage() {
                                             placeholder="1 or x, y, z"
                                             value={editingModelId === modelId
                                               ? editedScale
-                                              : formatScaleInput(sceneModel?.scale)}
+                                              : formatScale(sceneModel?.scale)}
                                             disabled={!canEditProjectSceneData}
                                             onFocus={() => ensureEditingModel(modelId, sceneModel)}
                                             onChange={(e) => {

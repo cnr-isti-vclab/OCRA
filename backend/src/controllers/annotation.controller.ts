@@ -939,7 +939,7 @@ export async function getAnnotationLinksHandler(req: Request, res: Response) {
 
     const links = sceneId
       ? await getAnnotationLinksForSceneAssets(projectId, sceneId, includeErasable)
-      : await Promise.resolve({ ok: true as const, value: await getAnnotationLinksForProject(projectId, includeErasable, { geometryId, dataId }) });
+      : { ok: true as const, value: await getAnnotationLinksForProject(projectId, includeErasable, { geometryId, dataId }) };
     if (!links.ok) {
       sendMappedError(req, res, links, {
         invalid_input: { status: 400, code: 'annotation.scene.invalid_input', error: 'Invalid scene id' },

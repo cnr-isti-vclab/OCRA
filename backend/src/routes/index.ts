@@ -16,20 +16,14 @@ import adminRoutes from './admin.routes.js';
 import vocabulariesRoutes from './vocabularies.routes.js';
 import hdtMetadataRoutes from './hdt-metadata.routes.js';
 import annotationRoutes from './annotation.routes.js';
-// @spike feature/vocabulary-color-spike — remove this import when vocabulary data is in DB
+// @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)
 import vocabularyConceptsRoutes from './vocabulary-concepts.routes.js';
 
 const router = express.Router();
 
-// Log route mounting
-console.log('📋 [Routes] Mounting API routes...');
-
 // Mount route modules
 router.use('/oauth', oauthRoutes); // OAuth token exchange (must be public, no auth required)
-console.log('✅ [Routes] Mounted: /oauth');
-
 router.use('/sessions', sessionRoutes);
-console.log('✅ [Routes] Mounted: /sessions');
 router.use('/', authRoutes); // Auth routes include /users and /debug paths
 router.use('/health', healthRoutes);
 router.get('/ready', readinessCheck);
@@ -40,7 +34,7 @@ router.use('/projects', annotationRoutes); // Annotations: /api/projects/:id/ann
 router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
-// @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB
+// @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)
 router.use('/vocabulary', vocabularyConceptsRoutes);
 
 export default router;

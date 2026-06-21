@@ -95,7 +95,6 @@ export const rtiUploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    // Adjust if needed. Keep generous for RTI datasets.
-    fileSize: 1024 * 1024 * 1024 // 1 GiB  //FIXME
-  }
+    fileSize: parseInt(process.env.MAX_UPLOAD_SIZE_BYTES ?? String(1024 * 1024 * 1024), 10),
+  },
 }).single('file');

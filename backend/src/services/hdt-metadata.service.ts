@@ -187,7 +187,7 @@ export async function addDigitalAsset(
   projectId: string,
   asset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'>,
   userId: string
-): Promise<HDTDocument | null> {
+): Promise<{ doc: HDTDocument; assetId: string } | null> {
   const assetId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date();
 
@@ -248,13 +248,8 @@ export async function addDigitalAsset(
 
     await insertHdtDocument(newDoc);
     const created = await findHdtByProjectId(projectId);
-    console.log(`✅ Created new HDT document for project ${projectId} with first asset and default scene`);
-    console.log(`   - Asset ID: ${newAsset.id}`);
-    console.log(`   - Scene: ${defaultScene.label}, Assets in scene: ${defaultScene.assets.length}`);
-    console.log(`   - Scene asset refs:`, JSON.stringify(defaultScene.assets, null, 2));
 
-    // ✅ STANDARDIZED: Return consistent format
-    return created ? (created as HDTDocument) : null;
+    return created ? { doc: created as HDTDocument, assetId } : null;
   }
 
   // Document exists, add asset to it
@@ -310,7 +305,7 @@ export async function addDigitalAsset(
     });
   }
 
-  return doc ?? null;
+  return doc ? { doc, assetId } : null;
 }
 
 /**

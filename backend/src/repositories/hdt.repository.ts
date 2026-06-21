@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import type { UpdateFilter } from 'mongodb';
 import { getContentDb } from '../lib/mongo/client.js';
 import type { HDTDocument } from '../types/index.js';
 
@@ -30,7 +31,7 @@ export async function findHdtByProjectId(projectId: string) {
 
 export async function insertHdtDocument(document: Omit<HDTDocument, '_id'>) {
   const collection = await getHdtCollection();
-  return collection.insertOne(document as any);
+  return collection.insertOne(document as HDTDocument);
 }
 
 export async function findHdtById(id: ObjectId) {
@@ -38,7 +39,7 @@ export async function findHdtById(id: ObjectId) {
   return collection.findOne({ _id: id });
 }
 
-export async function updateHdtByProjectId(projectId: string, update: any) {
+export async function updateHdtByProjectId(projectId: string, update: UpdateFilter<HDTDocument>) {
   const collection = await getHdtCollection();
   return collection.findOneAndUpdate(
     { projectId },
@@ -54,7 +55,6 @@ export async function deleteHdtByProjectId(projectId: string) {
 
 export async function listHdtProjectIds() {
   const collection = await getHdtCollection();
-  const cursor = collection.find({}, { projection: { projectId: 1 } });
-  const results = await cursor.toArray();
-  return results.map((doc: any) => doc.projectId as string);
+  const results = await collection.find({}, { projection: { projectId: 1 } }).toArray();
+  return results.map((doc) => doc.projectId);
 }

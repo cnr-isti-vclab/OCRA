@@ -21,6 +21,12 @@ const ANNOTATION_GEOMETRY_INDEXES = [
   {
     key: { projectId: 1, erasableAt: 1 },
   },
+  {
+    key: { projectId: 1, createdAt: 1 },
+  },
+  {
+    key: { projectId: 1, updatedAt: 1 },
+  },
 ] as const;
 
 export async function getAnnotationGeometryCollection(): Promise<Collection<AnnotationGeometryDocument>> {

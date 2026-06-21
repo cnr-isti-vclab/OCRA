@@ -300,24 +300,13 @@ export default function HDTPage() {
     }
 
     const json: any = await res.json();
-    console.log(`📥 [CreateHDTAsset] Backend response:`, json);
 
-    const hdtDoc = unwrapHdtDoc(json);
-
-    if (!hdtDoc?.digitalAssets || !Array.isArray(hdtDoc.digitalAssets)) {
-      console.error(`❌ [CreateHDTAsset] Invalid HDT document:`, hdtDoc);
-      throw new Error('Backend did not return a valid HDT document');
-    }
-
-    const assets = hdtDoc.digitalAssets;
-    const assetId = assets.length > 0 ? assets[assets.length - 1].id : undefined;
+    const assetId: string | undefined = json?.assetId;
 
     if (!assetId) {
-      console.error(`❌ [CreateHDTAsset] No assetId found in HDT document:`, hdtDoc);
       throw new Error('Backend did not return a valid assetId');
     }
 
-    console.log(`✅ [CreateHDTAsset] Successfully created asset: ${assetId}`);
     return assetId;
   };
 

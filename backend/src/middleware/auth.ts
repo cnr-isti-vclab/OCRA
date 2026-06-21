@@ -31,7 +31,18 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         const dbUser = await prisma.user.findUnique({ where: { id: testUserId } });
         
         if (dbUser?.isActive) {
-          req.user = dbUser as any;
+          req.user = {
+            id: dbUser.id,
+            sub: dbUser.sub,
+            name: dbUser.name,
+            email: dbUser.email,
+            username: dbUser.username,
+            given_name: dbUser.given_name,
+            family_name: dbUser.family_name,
+            middle_name: dbUser.middle_name,
+            sys_admin: dbUser.sys_admin,
+            sys_creator: dbUser.sys_creator,
+          };
           req.sessionId = testSessionId;
           next();
           return;

@@ -115,6 +115,7 @@ export type OpenLimeAnnotationManager = {
   setAnnotationStructuralClass?: (id: string, classId: string | null) => void;
   setLabelVisibility?: (mode: OpenLimeLabelVisibility, repaint?: boolean) => OpenLimeLabelVisibility;
   getLabelVisibility?: () => OpenLimeLabelVisibility;
+  setActiveMarker?: (type: string, opts?: Record<string, unknown>) => void;
 };
 
 /**

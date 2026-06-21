@@ -120,7 +120,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       (mode: AnnotationToolbarMode) => {
         setToolbarMode(mode);
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
-        const manager = viewer?.getAnnotationManager();
+        const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
         if (!viewer || !manager) {
           return;
         }
