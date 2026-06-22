@@ -21,6 +21,7 @@ import type { DigitalAsset } from '../../routes/HDTPage.tsx';
 import './openlime-skin-ocra.css'; // custo skin.css for OCRA
 import { ViewerAnnotation, ViewerAnnotationShapeType, ViewerAnnotationGeometry, SceneDescription } from '../../../../shared/scene-types.ts';
 import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.ts';
+import { getApiBase } from '../../config/oauth.ts';
 import type { OpenLimeLabelVisibility } from '../annotation-store/openlimeAnnotationAdapter.ts';
 import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode.ts';
 
@@ -30,6 +31,32 @@ const RTI_LAYOUT_PROBES = [
   { layout: 'itarzoom', fileName: 'planes.tzi' },
   { layout: 'image', fileName: 'plane_0.jpg' },
 ] as const;
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+}
+
+function normalizeRtiEntryPointUrl(entryPointUrl: string): string {
+  if (!(entryPointUrl.startsWith('http://') || entryPointUrl.startsWith('https://'))) {
+    return entryPointUrl;
+  }
+
+  try {
+    const parsed = new URL(entryPointUrl);
+
+    // Imported scenes can carry absolute assets URLs generated on a different
+    // host/port (for example localhost:3002). Re-anchor OCRA assets URLs to
+    // the current API base used by this frontend runtime.
+    if (parsed.pathname.startsWith('/assets/projects/')) {
+      const apiBase = normalizeBaseUrl(getApiBase());
+      return `${apiBase}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+  } catch {
+    // Keep original URL if parsing fails.
+  }
+
+  return entryPointUrl;
+}
 
 /**
  * Resolve the extracted RTI dataset root from the public `info.json` entry point URL.
@@ -445,7 +472,7 @@ const OpenLIMEViewer = forwardRef<
           for (let i = 0; i < selectedAssets.length; i++) {
             const asset = digitalAssets[selectedAssets[i]];
             const matrix = matrices[i];
-            const url = urls[i];
+            const url = normalizeRtiEntryPointUrl(urls[i]);
             console.log(`🎬 Adding asset to OpenLIME Viewer: ${asset.fileName}, ${url}, matrix `, matrix);
 
             // Read Header data if available
