@@ -35,15 +35,17 @@ interface CliOptions {
   managerSub?: string;
   managerEmail?: string;
   runtime: RuntimeMode;
+  projectFilesPath?: string;
 }
 
 function printUsage() {
   console.log([
     'Usage:',
-    '  tsx ./scripts/import-project-package.ts --input-dir <dir> (--manager-user-id <id> | --manager-sub <sub> | --manager-email <email>) [--runtime bare|compose] [--name <new name>] [--description <text>] [--public true|false]',
+    '  tsx ./scripts/import-project-package.ts --input-dir <dir> (--manager-user-id <id> | --manager-sub <sub> | --manager-email <email>) [--runtime bare|compose] [--project-files-path <path>] [--name <new name>] [--description <text>] [--public true|false]',
     '',
     'Notes:',
     '  - Runtime defaults to bare.',
+    '  - Project files path defaults to PROJECT_FILES_PATH environment variable or /app/project_files.',
     '  - Always imports as a brand new project.',
     '  - Does not restore sessions, structuring locks, presence leases, or tmp files.',
     '  - Original role snapshots are preserved only in the package metadata; they are not reapplied.',
@@ -146,6 +148,12 @@ function parseArgs(argv: string[]): CliOptions {
       continue;
     }
 
+    if (current === '--project-files-path') {
+      options.projectFilesPath = argv[index + 1] ?? '';
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${current}`);
   }
 
@@ -165,20 +173,24 @@ function parseArgs(argv: string[]): CliOptions {
     managerUserId: options.managerUserId?.trim() || undefined,
     managerSub: options.managerSub?.trim() || undefined,
     managerEmail: options.managerEmail?.trim() || undefined,
+    projectFilesPath: options.projectFilesPath?.trim() || undefined,
   };
 }
 
-function applyRuntimeEnvironment(runtime: RuntimeMode) {
+function applyRuntimeEnvironment(runtime: RuntimeMode, projectFilesPath?: string) {
   if (runtime === 'compose') {
     process.env.DATABASE_URL = process.env.COMPOSE_DATABASE_URL || COMPOSE_DATABASE_URL;
     process.env.DIRECT_URL = process.env.COMPOSE_DIRECT_URL || process.env.DATABASE_URL;
     process.env.MONGO_URL = process.env.COMPOSE_MONGO_URL || COMPOSE_MONGO_URL;
-    return;
+  } else {
+    process.env.DATABASE_URL = process.env.DATABASE_URL;
+    process.env.DIRECT_URL = process.env.DIRECT_URL || process.env.DATABASE_URL;
+    process.env.MONGO_URL = process.env.MONGO_URL;
   }
 
-  process.env.DATABASE_URL = process.env.DATABASE_URL;
-  process.env.DIRECT_URL = process.env.DIRECT_URL || process.env.DATABASE_URL;
-  process.env.MONGO_URL = process.env.MONGO_URL;
+  if (projectFilesPath) {
+    process.env.PROJECT_FILES_PATH = projectFilesPath;
+  }
 }
 
 function buildBackupSuffix(date = new Date()) {
@@ -460,7 +472,7 @@ async function importProjectPackage(options: CliOptions) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  applyRuntimeEnvironment(options.runtime);
+  applyRuntimeEnvironment(options.runtime, options.projectFilesPath);
   await importProjectPackage(options);
 }
 
