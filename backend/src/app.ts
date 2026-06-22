@@ -21,6 +21,28 @@ type Request = express.Request;
 type Response = express.Response;
 type NextFunction = express.NextFunction;
 
+function buildPublicOrigin(req: Request): string {
+  const forwardedProtoHeader = req.headers['x-forwarded-proto'];
+  const forwardedProto = Array.isArray(forwardedProtoHeader)
+    ? forwardedProtoHeader[0]
+    : forwardedProtoHeader?.split(',')[0]?.trim();
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = req.get('host') || 'localhost:3002';
+  return `${protocol}://${host}`;
+}
+
+function buildSwaggerSpecForRequest(req: Request) {
+  return {
+    ...swaggerSpec,
+    servers: [
+      {
+        url: buildPublicOrigin(req),
+        description: 'Current server',
+      },
+    ],
+  };
+}
+
 // Extend Express Request interface to include cookies
 declare global {
   namespace Express {
@@ -87,12 +109,19 @@ export function createApp(): Express {
   // Request logging
   app.use(requestLogger);
 
+  // Swagger JSON spec
+  app.get('/api-docs.json', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(buildSwaggerSpecForRequest(req));
+  });
+
   // Swagger API Documentation
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(undefined, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'OCRA API Documentation',
     swaggerOptions: {
+      url: '/api-docs.json',
       persistAuthorization: true,
       requestInterceptor: (request: { credentials?: string }) => {
         request.credentials = 'include';
@@ -100,12 +129,6 @@ export function createApp(): Express {
       },
     },
   }));
-
-  // Swagger JSON spec
-  app.get('/api-docs.json', (req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
-  });
 
   // API routes
   app.use('/api', routes);

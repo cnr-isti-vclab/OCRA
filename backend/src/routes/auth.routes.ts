@@ -63,7 +63,7 @@ router.get('/users/:userSub/audit', requireAuth, getAuditLog);
  *           The access token to debug. **Development token example**:
  *           
  *           ```
- *           curl -X POST http://localhost:8081/realms/demo/protocol/openid-connect/token \
+ *           curl -X POST http://<keycloak-host>:8081/auth/realms/demo/protocol/openid-connect/token \
  *             -H "Content-Type: application/x-www-form-urlencoded" \
  *             -d "client_id=admin-cli&grant_type=password&username=Administrator&password=admin@ocra.it" | jq -r .access_token
  *           ```

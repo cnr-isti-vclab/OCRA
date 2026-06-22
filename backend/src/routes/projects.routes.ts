@@ -1125,7 +1125,7 @@ router.delete('/:projectId/members/:userId', removeProjectMember);
  *                       fileUrl:
  *                         type: string
  *                         format: uri
- *                         example: "http://localhost:3002/assets/projects/.../bunny.ply"
+ *                         example: "/assets/projects/<projectId>/3d-model/<assetId>/bunny.ply"
  *                         description: Authoritative file/manifest URL
  *                 totalAssets:
  *                   type: number
