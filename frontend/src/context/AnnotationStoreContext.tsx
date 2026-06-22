@@ -583,9 +583,13 @@ export function AnnotationStoreProvider({
       clearAnnotationClassFilter();
       return;
     }
+    if (annotationClassFilterMode === 'all') {
+      clearAnnotationClassFilter();
+      return;
+    }
     setAnnotationClassFilterMode('all');
     setCustomAnnotationClassFilterValues([]);
-  }, [clearAnnotationClassFilter, sceneAnnotationClassPool.length]);
+  }, [annotationClassFilterMode, clearAnnotationClassFilter, sceneAnnotationClassPool.length]);
 
   const toggleAnnotationClassFilterValue = useCallback((curie: string) => {
     const poolValues = sceneAnnotationClassPool.map((option) => option.curie);
