@@ -21,13 +21,39 @@ type Request = express.Request;
 type Response = express.Response;
 type NextFunction = express.NextFunction;
 
+function getForwardedHeaderValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0]?.split(',')[0]?.trim();
+  }
+  return value?.split(',')[0]?.trim();
+}
+
+function hostFromAbsoluteUrl(rawUrl: string | undefined): string | undefined {
+  if (!rawUrl) {
+    return undefined;
+  }
+
+  try {
+    return new URL(rawUrl).host;
+  } catch {
+    return undefined;
+  }
+}
+
 function buildPublicOrigin(req: Request): string {
-  const forwardedProtoHeader = req.headers['x-forwarded-proto'];
-  const forwardedProto = Array.isArray(forwardedProtoHeader)
-    ? forwardedProtoHeader[0]
-    : forwardedProtoHeader?.split(',')[0]?.trim();
+  const forwardedProto = getForwardedHeaderValue(req.headers['x-forwarded-proto']);
+  const forwardedHost = getForwardedHeaderValue(req.headers['x-forwarded-host']);
+
   const protocol = forwardedProto || req.protocol || 'http';
-  const host = req.get('host') || 'localhost:3002';
+  let host = forwardedHost || req.get('host') || 'localhost:3002';
+
+  // Some proxy chains drop :port from Host. Recover it from origin/referer when available.
+  if (!host.includes(':')) {
+    const originHost = hostFromAbsoluteUrl(req.get('origin'));
+    const refererHost = hostFromAbsoluteUrl(req.get('referer'));
+    host = originHost || refererHost || host;
+  }
+
   return `${protocol}://${host}`;
 }
 
