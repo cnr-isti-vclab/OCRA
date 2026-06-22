@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs-extra';
-import { PrismaClient, RoleEnum } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { closeMongoClient } from '../src/lib/mongo/client.js';
 import { insertHdtDocument, deleteHdtByProjectId } from '../src/repositories/hdt.repository.js';
 import { getAnnotationGeometryCollection } from '../src/repositories/annotation-geometry.repository.js';
@@ -379,7 +379,7 @@ async function importProjectPackage(options: CliOptions) {
       projectRoles: {
         create: {
           userId: managerUser.id,
-          role: RoleEnum.manager,
+          role: Prisma.RoleEnum.manager,
         },
       },
     },
