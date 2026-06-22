@@ -26,6 +26,7 @@ import {
   type OpenLimeSelectionInteractionMode,
 } from '../../adapters/annotation-store/openlimeAnnotationAdapter';
 import { shapesEqual } from '../../adapters/annotation-store/shapesEqual';
+import { isUnclassifiedClassFilter } from '../../stores/annotation-class-filter';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -181,6 +182,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const semanticClassEntries: SemanticClassEntry[] = [];
 
       for (const classId of annotationClassFilterValues) {
+        if (isUnclassifiedClassFilter(classId)) {
+          continue;
+        }
         const option = classOptionsByCurie.get(classId);
         if (!option) {
           continue;

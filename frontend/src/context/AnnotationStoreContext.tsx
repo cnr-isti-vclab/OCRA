@@ -27,6 +27,7 @@ import {
   type ActiveAnnotationSelection,
   type SelectionCriteria,
 } from '../stores/annotation-selection';
+import { UNCLASSIFIED_ANNOTATION_CLASS } from '../stores/annotation-class-filter';
 import {
   AnnotationStore,
   type GeometryUpdateOptions,
@@ -511,9 +512,15 @@ export function AnnotationStoreProvider({
     const geometryIdsByClass = new Map<string, Set<string>>();
     const dataCountsByClass = new Map<string, number>();
     const conceptByCurie = new Map(vocabularyConcepts.map((concept) => [concept.curie, concept]));
+    let unclassifiedDataCount = 0;
+    const unclassifiedGeometryIds = new Set<string>();
 
     for (const datum of activeData) {
       if (!datum.class) {
+        unclassifiedDataCount += 1;
+        for (const geometryId of activeAnnotationSelection.geometryIdsByDataId.get(datum.id) ?? []) {
+          unclassifiedGeometryIds.add(geometryId);
+        }
         continue;
       }
       dataCountsByClass.set(datum.class, (dataCountsByClass.get(datum.class) ?? 0) + 1);
@@ -525,7 +532,7 @@ export function AnnotationStoreProvider({
       geometryIdsByClass.set(datum.class, geometryIds);
     }
 
-    return [...dataCountsByClass.entries()]
+    const options = [...dataCountsByClass.entries()]
       .map(([curie, dataCount]) => {
         const concept = conceptByCurie.get(curie);
         return {
@@ -535,13 +542,24 @@ export function AnnotationStoreProvider({
           dataCount,
           geometryCount: geometryIdsByClass.get(curie)?.size ?? 0,
         };
-      })
-      .sort((left, right) => {
-        if (right.dataCount !== left.dataCount) {
-          return right.dataCount - left.dataCount;
-        }
-        return left.label.localeCompare(right.label);
       });
+
+    if (unclassifiedDataCount > 0) {
+      options.push({
+        curie: UNCLASSIFIED_ANNOTATION_CLASS,
+        label: 'Unclassified',
+        color: '#808080',
+        dataCount: unclassifiedDataCount,
+        geometryCount: unclassifiedGeometryIds.size,
+      });
+    }
+
+    return options.sort((left, right) => {
+      if (right.dataCount !== left.dataCount) {
+        return right.dataCount - left.dataCount;
+      }
+      return left.label.localeCompare(right.label);
+    });
   }, [activeAnnotationSelection.geometryIdsByDataId, activeData, vocabularyConcepts]);
 
   const annotationClassFilterValues = useMemo(() => {

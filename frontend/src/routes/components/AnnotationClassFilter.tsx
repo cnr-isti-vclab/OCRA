@@ -3,6 +3,10 @@ import type {
   AnnotationClassFilterMode,
   SceneAnnotationClassOption,
 } from '../../context/AnnotationStoreContext';
+import {
+  UNCLASSIFIED_ANNOTATION_CLASS,
+  isUnclassifiedClassFilter,
+} from '../../stores/annotation-class-filter';
 
 export default function AnnotationClassFilter({
   idPrefix,
@@ -28,7 +32,11 @@ export default function AnnotationClassFilter({
   const [manualClassFilterInput, setManualClassFilterInput] = useState('');
 
   useEffect(() => {
-    setManualClassFilterInput(filterValues.join(', '));
+    setManualClassFilterInput(
+      filterValues
+        .map((curie) => (isUnclassifiedClassFilter(curie) ? 'Unclassified' : curie))
+        .join(', '),
+    );
   }, [filterValues]);
 
   const visibleClassPool = useMemo(() => {
@@ -45,7 +53,10 @@ export default function AnnotationClassFilter({
     const values = manualClassFilterInput
       .split(/[,\n]+/)
       .map((value) => value.trim())
-      .filter((value) => value.length > 0);
+      .filter((value) => value.length > 0)
+      .map((value) =>
+        value.toLowerCase() === 'unclassified' ? UNCLASSIFIED_ANNOTATION_CLASS : value,
+      );
     setFilterValues(values);
   };
 
@@ -121,7 +132,7 @@ export default function AnnotationClassFilter({
                   type="button"
                   className={`btn btn-sm ${selected ? 'btn-primary' : 'btn-outline-secondary'}`}
                   onClick={() => toggleFilterValue(option.curie)}
-                  title={option.curie}
+                  title={isUnclassifiedClassFilter(option.curie) ? option.label : option.curie}
                   style={{
                     borderColor: option.color,
                     boxShadow: selected ? `inset 0 0 0 1px ${option.color}` : 'none',
@@ -146,7 +157,7 @@ export default function AnnotationClassFilter({
       )}
 
       {pool.length === 0 && (
-        <div className="text-muted small">No classified annotation data in this scene.</div>
+        <div className="text-muted small">No annotation data in this scene.</div>
       )}
     </div>
   );

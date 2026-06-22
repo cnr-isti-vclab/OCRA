@@ -13,6 +13,7 @@ import {
   isDataIdUnderEditorLock,
   isDataIdUnderRemoteEditorLock,
 } from '../../stores/annotation-social-locks';
+import { filterDataByClassFilter } from '../../stores/annotation-class-filter';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -161,14 +162,10 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
   const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
   const editingDataIdRef = useRef<string | null>(null);
 
-  const filteredActiveData = useMemo(() => {
-    if (annotationClassFilterValues.length === 0) {
-      return activeData;
-    }
-
-    const allowedClasses = new Set(annotationClassFilterValues);
-    return activeData.filter((datum) => datum.class !== null && allowedClasses.has(datum.class));
-  }, [activeData, annotationClassFilterValues]);
+  const filteredActiveData = useMemo(
+    () => filterDataByClassFilter(activeData, annotationClassFilterValues),
+    [activeData, annotationClassFilterValues],
+  );
 
   const visibleData = useMemo(() => {
     if (!onlySelectedGeometryData) {

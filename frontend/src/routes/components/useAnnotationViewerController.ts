@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { AnnotationData, AnnotationGeometry } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
+import { filterDataByClassFilter } from '../../stores/annotation-class-filter';
 
 export interface AnnotationViewerGeometryEntry {
   geometry: AnnotationGeometry;
@@ -38,14 +39,10 @@ export function useAnnotationViewerController() {
   const dataById = activeAnnotationSelection.dataById;
   const geometryById = activeAnnotationSelection.geometriesById;
 
-  const filteredActiveData = useMemo(() => {
-    if (annotationClassFilterValues.length === 0) {
-      return activeData;
-    }
-
-    const allowedClasses = new Set(annotationClassFilterValues);
-    return activeData.filter((datum) => datum.class !== null && allowedClasses.has(datum.class));
-  }, [activeData, annotationClassFilterValues]);
+  const filteredActiveData = useMemo(
+    () => filterDataByClassFilter(activeData, annotationClassFilterValues),
+    [activeData, annotationClassFilterValues],
+  );
 
   const visibleGeometryIds = useMemo(
     () =>
