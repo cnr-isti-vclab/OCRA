@@ -54,6 +54,7 @@ services:
       PORT: 3002
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      SWAGGER_PUBLIC_SERVER_URL: ${SWAGGER_PUBLIC_SERVER_URL:-}
       NODE_ENV: ${NODE_ENV:-development}
       # OAuth Configuration
       ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}

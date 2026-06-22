@@ -21,6 +21,17 @@ type Request = express.Request;
 type Response = express.Response;
 type NextFunction = express.NextFunction;
 
+const rawSwaggerPublicServerUrl = process.env.SWAGGER_PUBLIC_SERVER_URL?.trim();
+const swaggerPublicServerUrl = rawSwaggerPublicServerUrl
+  ? normalizePublicServerUrl(rawSwaggerPublicServerUrl)
+  : undefined;
+
+function normalizePublicServerUrl(rawUrl: string): string {
+  const parsed = new URL(rawUrl);
+  const normalizedPath = parsed.pathname.replace(/\/$/, '');
+  return `${parsed.origin}${normalizedPath}`;
+}
+
 function getForwardedHeaderValue(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) {
     return value[0]?.split(',')[0]?.trim();
@@ -41,6 +52,10 @@ function hostFromAbsoluteUrl(rawUrl: string | undefined): string | undefined {
 }
 
 function buildPublicOrigin(req: Request): string {
+  if (swaggerPublicServerUrl) {
+    return swaggerPublicServerUrl;
+  }
+
   const forwardedProto = getForwardedHeaderValue(req.headers['x-forwarded-proto']);
   const forwardedHost = getForwardedHeaderValue(req.headers['x-forwarded-host']);
 
