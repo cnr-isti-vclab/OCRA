@@ -1,9 +1,22 @@
 import { getValidSession } from '../../db.js';
-import type { User, PhysicalObjectMetadata, DigitalAssetCreateRequest, DigitalAsset } from '../types/index.js';
-import { createHDTDocument, addDigitalAsset } from './hdt-metadata.service.js';
+import type {
+  User,
+  PhysicalObjectMetadata,
+  DigitalAssetCreateRequest,
+  DigitalAsset,
+  HDTDocument,
+  EchoesContext,
+  EchoesSyncStatus,
+} from '../types/index.js';
+import { createHDTDocument, addDigitalAsset, getHDTDocument, updateHdtEchoesContext } from './hdt-metadata.service.js';
 import { createManagedProject } from './project-creation.service.js';
 import { getEchoesDevBearerOverride } from './echoes-dev-bearer.service.js';
 import { ingestRemoteAssetIntoExistingAsset } from './remote-asset-ingestion.service.js';
+import {
+  buildDefaultEchoesContext,
+  computeEchoesSyncStatus,
+  serializeHdtDocumentAsEchoesRdf,
+} from './echoes-rdf.service.js';
 
 const DEFAULT_ECHOES_KB_API_BASE =
   'https://echoes-kb-api-route-echoes-graphs-production.apps.dcw1.paas.psnc.pl';
@@ -51,6 +64,18 @@ interface EchoesWrappedSparqlResponse {
   succeed?: boolean;
   message?: string;
   results?: SparqlResultsPayload;
+}
+
+interface EchoesRegisterResponse {
+  succeed?: boolean;
+  dtUri?: string;
+  message?: string;
+}
+
+interface EchoesImportResponse {
+  succeed?: boolean;
+  namedGraph?: string;
+  message?: string;
 }
 
 export interface EchoesHdtListItem {
@@ -102,6 +127,41 @@ export interface CreateProjectFromEchoesHdtResult {
   importedAssetCount: number;
 }
 
+export interface EchoesProjectStatus {
+  projectId: string;
+  projectUri: string;
+  origin: 'local' | 'imported';
+  syncStatus: EchoesSyncStatus;
+  heritageEntityUri: string | null;
+  digitalTwinUri: string | null;
+  namedGraphUri: string | null;
+  digitalTwinLabel: string | null;
+  assetCount: number;
+  lastRegisteredAt: string | null;
+  lastSyncedAt: string | null;
+}
+
+export interface EchoesRegisterProjectResult {
+  status: EchoesProjectStatus;
+}
+
+export interface EchoesPublishProjectResult {
+  status: EchoesProjectStatus;
+  rdf: {
+    contentType: 'application/rdf+xml';
+    size: number;
+  };
+}
+
+export interface DuplicateProjectHdtInEchoesInput {
+  title?: string;
+  description?: string;
+  identifier?: string;
+  heritageEntityUri?: string;
+}
+
+export interface DuplicateProjectHdtInEchoesResult extends EchoesPublishProjectResult {}
+
 function getBindingValue(
   binding: Record<string, SparqlBindingValue>,
   key: string
@@ -119,33 +179,77 @@ async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
   return session?.accessToken ?? null;
 }
 
-async function runSingleTripleStoreQuery(
-  sessionId: string,
-  query: string
-): Promise<Array<Record<string, SparqlBindingValue>>> {
+async function getAuthorizedHeaders(sessionId: string, accept: string): Promise<HeadersInit> {
   const bearer = await resolveEchoesBearer(sessionId);
   if (!bearer) {
     throw new Error('Missing ECHOES bearer token');
   }
 
-  const response = await fetch(`${getEchoesKbApiBase()}/repository/singleTripleStoreQuery`, {
-    method: 'POST',
+  return {
+    Authorization: `Bearer ${bearer}`,
+    Accept: accept,
+  };
+}
+
+async function fetchEchoesJson<T>(sessionId: string, input: string, init: RequestInit): Promise<T> {
+  const headers = await getAuthorizedHeaders(sessionId, 'application/json');
+  const response = await fetch(input, {
+    ...init,
     headers: {
-      Authorization: `Bearer ${bearer}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
+      ...headers,
+      ...(init.headers ?? {}),
     },
-    body: JSON.stringify({
-      executorTripleStoreId: getEchoesPublicTripleStoreId(),
-      query,
-    }),
   });
 
   if (!response.ok) {
-    throw new Error(`ECHOES KB request failed with status ${response.status}`);
+    const responseText = await response.text();
+    try {
+      const payload = JSON.parse(responseText) as {
+        message?: string;
+        error?: string;
+        details?: unknown;
+      };
+      const details =
+        typeof payload.details === 'string'
+          ? payload.details
+          : Array.isArray(payload.details)
+            ? payload.details.join('; ')
+            : '';
+      const message =
+        payload.message ||
+        payload.error ||
+        details ||
+        `ECHOES KB request failed with status ${response.status}`;
+      return Promise.reject(new Error(message));
+    } catch {
+      if (responseText) {
+        throw new Error(responseText);
+      }
+      throw new Error(`ECHOES KB request failed with status ${response.status}`);
+    }
   }
 
-  const payload = (await response.json()) as EchoesWrappedSparqlResponse;
+  return (await response.json()) as T;
+}
+
+async function runSingleTripleStoreQuery(
+  sessionId: string,
+  query: string
+): Promise<Array<Record<string, SparqlBindingValue>>> {
+  const payload = await fetchEchoesJson<EchoesWrappedSparqlResponse>(
+    sessionId,
+    `${getEchoesKbApiBase()}/repository/singleTripleStoreQuery`,
+    {
+    method: 'POST',
+      headers: {
+      'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        executorTripleStoreId: getEchoesPublicTripleStoreId(),
+        query,
+      }),
+    },
+  );
   if (!payload.succeed || !payload.results?.results?.bindings) {
     return [];
   }
@@ -354,7 +458,18 @@ export async function createProjectFromEchoesHdt(
     owner: user,
   });
 
-  await createHDTDocument(project.id, user.id, detail.physicalObjectMetadata);
+  const importedEchoesContext: EchoesContext = {
+    ...buildDefaultEchoesContext(project.id),
+    origin: 'imported',
+    syncStatus: 'synced',
+    heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
+    digitalTwinUri: detail.digitalTwinUri,
+    namedGraphUri: detail.namedGraphUri,
+    digitalTwinLabel: detail.digitalTwinLabel || undefined,
+    importedFromEchoesAt: new Date(),
+  };
+
+  await createHDTDocument(project.id, user.id, detail.physicalObjectMetadata, importedEchoesContext);
 
   let importedAssetCount = 0;
   for (const asset of detail.assets) {
@@ -393,9 +508,357 @@ export async function createProjectFromEchoesHdt(
     importedAssetCount += 1;
   }
 
+  const importedDocument = await getHDTDocument(project.id);
+  if (importedDocument) {
+    await updateHdtEchoesContext(project.id, {
+      syncStatus: 'synced',
+      assetRecords: importedDocument.digitalAssets.map((asset) => ({
+        assetId: asset.id,
+        assetUri: typeof asset.metadata?.sourceAssetUri === 'string'
+          ? asset.metadata.sourceAssetUri
+          : `urn:ocra:asset:${project.id}:${asset.id}`,
+        sourceUrl: typeof asset.metadata?.sourceUrl === 'string'
+          ? asset.metadata.sourceUrl
+          : typeof asset.entryPointUrl === 'string'
+            ? asset.entryPointUrl
+            : undefined,
+      })),
+      lastSyncedAt: new Date(),
+      lastSyncedProjectUpdatedAt: importedDocument.updatedAt ?? new Date(),
+    }, user.id);
+  }
+
   return {
     project,
     echoes: detail,
     importedAssetCount,
+  };
+}
+
+function deriveEchoesContext(projectId: string, hdtDocument: HDTDocument): EchoesContext {
+  return {
+    ...buildDefaultEchoesContext(projectId),
+    ...(hdtDocument.echoesContext ?? {}),
+  };
+}
+
+function sanitizeOptionalString(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeEchoesQueryParam(value: string | undefined): string | undefined {
+  const sanitized = sanitizeOptionalString(value);
+  if (!sanitized) {
+    return undefined;
+  }
+
+  return sanitized.replace(/\s+/g, ' ').trim();
+}
+
+function toIsoStringOrNull(value: Date | string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function toProjectStatus(hdtDocument: HDTDocument): EchoesProjectStatus {
+  const context = deriveEchoesContext(hdtDocument.projectId, hdtDocument);
+  const syncStatus = computeEchoesSyncStatus({
+    ...hdtDocument,
+    echoesContext: context,
+  });
+
+  return {
+    projectId: hdtDocument.projectId,
+    projectUri: context.projectUri,
+    origin: context.origin,
+    syncStatus,
+    heritageEntityUri: context.heritageEntityUri ?? null,
+    digitalTwinUri: context.digitalTwinUri ?? null,
+    namedGraphUri: context.namedGraphUri ?? null,
+    digitalTwinLabel: context.digitalTwinLabel ?? null,
+    assetCount: Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets.length : 0,
+    lastRegisteredAt: toIsoStringOrNull(context.lastRegisteredAt),
+    lastSyncedAt: toIsoStringOrNull(context.lastSyncedAt),
+  };
+}
+
+export async function getEchoesProjectStatus(projectId: string): Promise<EchoesProjectStatus | null> {
+  const hdtDocument = await getHDTDocument(projectId);
+  if (!hdtDocument) {
+    return null;
+  }
+  return toProjectStatus(hdtDocument);
+}
+
+async function requireProjectHdtDocument(projectId: string): Promise<HDTDocument> {
+  const hdtDocument = await getHDTDocument(projectId);
+  if (!hdtDocument) {
+    throw new Error(`No HDT document found for project "${projectId}"`);
+  }
+  return hdtDocument;
+}
+
+async function postRdfMultipart(
+  sessionId: string,
+  path: string,
+  form: FormData,
+): Promise<EchoesImportResponse> {
+  return fetchEchoesJson<EchoesImportResponse>(sessionId, `${getEchoesKbApiBase()}${path}`, {
+    method: 'POST',
+    body: form,
+  });
+}
+
+function createRdfUploadForm(rdf: string): FormData {
+  const form = new FormData();
+  form.append('file', new Blob([rdf], { type: 'application/rdf+xml' }), 'ocra-hdt.rdf');
+  form.append('contentType', 'application/rdf+xml');
+  return form;
+}
+
+export async function registerProjectHdtInEchoes(
+  sessionId: string,
+  projectId: string,
+  userId?: string,
+): Promise<EchoesRegisterProjectResult> {
+  const hdtDocument = await requireProjectHdtDocument(projectId);
+  const currentContext = deriveEchoesContext(projectId, hdtDocument);
+
+  const params = new URLSearchParams({
+    heritageEntityUri: currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri,
+    projectUri: currentContext.projectUri,
+  });
+
+  const title = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
+  const description = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
+  if (currentContext.digitalTwinUri) {
+    params.set('digitalTwinUri', currentContext.digitalTwinUri);
+  }
+  if (title) {
+    params.set('name', title);
+  }
+  if (description) {
+    params.set('description', description);
+  }
+
+  const payload = await fetchEchoesJson<EchoesRegisterResponse>(
+    sessionId,
+    `${getEchoesKbApiBase()}/hdt/register?${params.toString()}`,
+    { method: 'POST' },
+  );
+
+  if (!payload.succeed || !payload.dtUri) {
+    throw new Error(payload.message || 'ECHOES registration failed');
+  }
+
+  const updated = await updateHdtEchoesContext(projectId, {
+    origin: currentContext.origin,
+    projectUri: currentContext.projectUri,
+    heritageEntityUri: currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri,
+    digitalTwinUri: payload.dtUri,
+    digitalTwinLabel: title || currentContext.digitalTwinLabel,
+    syncStatus: 'registered',
+    lastRegisteredAt: new Date(),
+  }, userId);
+
+  if (!updated) {
+    throw new Error('Failed to persist the registered ECHOES identifiers locally');
+  }
+
+  return { status: toProjectStatus(updated) };
+}
+
+async function publishProjectRdfToEchoes(
+  sessionId: string,
+  projectId: string,
+  userId: string | undefined,
+  mode: 'enrich' | 'replace',
+): Promise<EchoesPublishProjectResult> {
+  const hdtDocument = await requireProjectHdtDocument(projectId);
+  const currentContext = deriveEchoesContext(projectId, hdtDocument);
+
+  if (!currentContext.digitalTwinUri) {
+    throw new Error('Register the HDT in ECHOES before publishing RDF content');
+  }
+
+  if (mode === 'replace' && !currentContext.namedGraphUri) {
+    throw new Error('No ECHOES named graph is linked to this project yet');
+  }
+
+  const rdf = serializeHdtDocumentAsEchoesRdf(projectId, {
+    ...hdtDocument,
+    echoesContext: currentContext,
+  });
+  const form = createRdfUploadForm(rdf);
+  form.append('digitalTwinUri', currentContext.digitalTwinUri);
+
+  if (mode === 'enrich') {
+    form.append('triplestoreId', getEchoesPublicTripleStoreId());
+  } else if (currentContext.namedGraphUri) {
+    form.append('namedGraphUri', currentContext.namedGraphUri);
+  }
+
+  const payload = await postRdfMultipart(
+    sessionId,
+    mode === 'enrich' ? '/hdt/enrich' : '/hdt/replaceContent',
+    form,
+  );
+
+  if (!payload.succeed) {
+    throw new Error(payload.message || 'ECHOES publish failed');
+  }
+
+  const now = new Date();
+  const refreshedDocument = await getHDTDocument(projectId);
+  const sourceDocument = refreshedDocument ?? hdtDocument;
+  const updated = await updateHdtEchoesContext(projectId, {
+    origin: currentContext.origin,
+    projectUri: currentContext.projectUri,
+    heritageEntityUri: currentContext.heritageEntityUri,
+    digitalTwinUri: currentContext.digitalTwinUri,
+    digitalTwinLabel: currentContext.digitalTwinLabel || sourceDocument.physicalObjectMetadata.dublinCore?.title,
+    namedGraphUri: payload.namedGraph || currentContext.namedGraphUri,
+    syncStatus: 'synced',
+    assetRecords: sourceDocument.digitalAssets.map((asset) => ({
+      assetId: asset.id,
+      assetUri: typeof asset.metadata?.sourceAssetUri === 'string'
+        ? asset.metadata.sourceAssetUri
+        : `urn:ocra:asset:${projectId}:${asset.id}`,
+      sourceUrl: typeof asset.metadata?.sourceUrl === 'string'
+        ? asset.metadata.sourceUrl
+        : typeof asset.entryPointUrl === 'string'
+          ? asset.entryPointUrl
+          : undefined,
+    })),
+    lastSyncedAt: now,
+    lastSyncedProjectUpdatedAt: sourceDocument.updatedAt ?? now,
+  }, userId);
+
+  if (!updated) {
+    throw new Error('Failed to persist ECHOES synchronization metadata locally');
+  }
+
+  return {
+    status: toProjectStatus(updated),
+    rdf: {
+      contentType: 'application/rdf+xml',
+      size: Buffer.byteLength(rdf, 'utf8'),
+    },
+  };
+}
+
+export async function enrichProjectHdtInEchoes(
+  sessionId: string,
+  projectId: string,
+  userId?: string,
+): Promise<EchoesPublishProjectResult> {
+  return publishProjectRdfToEchoes(sessionId, projectId, userId, 'enrich');
+}
+
+export async function replaceProjectHdtContentInEchoes(
+  sessionId: string,
+  projectId: string,
+  userId?: string,
+): Promise<EchoesPublishProjectResult> {
+  return publishProjectRdfToEchoes(sessionId, projectId, userId, 'replace');
+}
+
+export async function duplicateProjectHdtAsNewInEchoes(
+  sessionId: string,
+  projectId: string,
+  input: DuplicateProjectHdtInEchoesInput,
+): Promise<DuplicateProjectHdtInEchoesResult> {
+  const hdtDocument = await requireProjectHdtDocument(projectId);
+  const currentContext = deriveEchoesContext(projectId, hdtDocument);
+  const title = normalizeEchoesQueryParam(input.title) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
+  const description = normalizeEchoesQueryParam(input.description) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
+  const identifier = normalizeEchoesQueryParam(input.identifier) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.identifier);
+  const heritageEntityUri =
+    sanitizeOptionalString(input.heritageEntityUri) ||
+    `${currentContext.projectUri.replace(/\/$/, '')}/heritage-entity/${projectId}-${Date.now()}`;
+
+  const registerParams = new URLSearchParams({
+    heritageEntityUri,
+    projectUri: currentContext.projectUri,
+  });
+
+  if (title) {
+    registerParams.set('name', title);
+  }
+  if (description) {
+    registerParams.set('description', description);
+  }
+
+  const registerPayload = await fetchEchoesJson<EchoesRegisterResponse>(
+    sessionId,
+    `${getEchoesKbApiBase()}/hdt/register?${registerParams.toString()}`,
+    { method: 'POST' },
+  );
+
+  if (!registerPayload.succeed || !registerPayload.dtUri) {
+    throw new Error(registerPayload.message || 'ECHOES registration failed for duplicated HDT');
+  }
+
+  const duplicateDocument: HDTDocument = {
+    ...hdtDocument,
+    physicalObjectMetadata: {
+      ...hdtDocument.physicalObjectMetadata,
+      sourceUri: heritageEntityUri,
+      dublinCore: {
+        ...(hdtDocument.physicalObjectMetadata.dublinCore ?? {}),
+        ...(title ? { title } : {}),
+        ...(description ? { description } : {}),
+        ...(identifier ? { identifier } : {}),
+      },
+    },
+    echoesContext: {
+      ...buildDefaultEchoesContext(projectId),
+      origin: 'local',
+      syncStatus: 'registered',
+      projectUri: currentContext.projectUri,
+      heritageEntityUri,
+      digitalTwinUri: registerPayload.dtUri,
+      digitalTwinLabel: title || currentContext.digitalTwinLabel,
+    },
+  };
+
+  const rdf = serializeHdtDocumentAsEchoesRdf(projectId, duplicateDocument);
+  const form = createRdfUploadForm(rdf);
+  form.append('digitalTwinUri', registerPayload.dtUri);
+  form.append('triplestoreId', getEchoesPublicTripleStoreId());
+
+  const enrichPayload = await postRdfMultipart(sessionId, '/hdt/enrich', form);
+  if (!enrichPayload.succeed) {
+    throw new Error(enrichPayload.message || 'ECHOES enrich failed for duplicated HDT');
+  }
+
+  const status: EchoesProjectStatus = {
+    projectId,
+    projectUri: currentContext.projectUri,
+    origin: 'local',
+    syncStatus: 'synced',
+    heritageEntityUri,
+    digitalTwinUri: registerPayload.dtUri,
+    namedGraphUri: enrichPayload.namedGraph ?? null,
+    digitalTwinLabel: title || currentContext.digitalTwinLabel || null,
+    assetCount: Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets.length : 0,
+    lastRegisteredAt: new Date().toISOString(),
+    lastSyncedAt: new Date().toISOString(),
+  };
+
+  return {
+    status,
+    rdf: {
+      contentType: 'application/rdf+xml',
+      size: Buffer.byteLength(rdf, 'utf8'),
+    },
   };
 }

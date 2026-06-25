@@ -9,6 +9,16 @@ import {
   AppMessageModalCatalog,
   MessageModalDescriptor,
 } from '../shared/ui/AppMessageModalModel';
+import {
+  clearEchoesDevBearer,
+  duplicateProjectHdtAsNewInEchoes,
+  enrichProjectHdtInEchoes,
+  fetchEchoesProjectStatus,
+  registerEchoesDevBearer,
+  registerProjectHdtInEchoes,
+  replaceProjectHdtContentInEchoes,
+} from '../services/EchoesApi';
+import type { EchoesProjectStatus } from '../types';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -90,6 +100,17 @@ interface HDTMetadata {
     dublinCore: DublinCoreMetadata;
     cidocCrm?: Record<string, unknown>;
   };
+  echoesContext?: {
+    origin?: 'local' | 'imported';
+    syncStatus?: 'local' | 'registered' | 'synced' | 'dirty';
+    projectUri?: string;
+    heritageEntityUri?: string;
+    digitalTwinUri?: string;
+    namedGraphUri?: string;
+    digitalTwinLabel?: string;
+    lastRegisteredAt?: string;
+    lastSyncedAt?: string;
+  };
   gettyAAT?: Record<string, unknown>;
 
   digitalAssets?: DigitalAsset[];
@@ -114,6 +135,31 @@ export default function HDTPage() {
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
+  const [echoesStatus, setEchoesStatus] = useState<EchoesProjectStatus | null>(null);
+  const [echoesBusy, setEchoesBusy] = useState(false);
+  const [echoesBearer, setEchoesBearer] = useState('');
+  const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
+  const [echoesMessage, setEchoesMessage] = useState<string | null>(null);
+  const [isSystemAdministrator, setIsSystemAdministrator] = useState(false);
+  const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
+  const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
+  const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
+  const [duplicateEchoesIdentifier, setDuplicateEchoesIdentifier] = useState('');
+  const [duplicateEchoesHeritageEntityUri, setDuplicateEchoesHeritageEntityUri] = useState('');
+
+  const getEchoesSyncStatusLabel = (status: EchoesProjectStatus['syncStatus'] | HDTMetadata['echoesContext']['syncStatus'] | undefined): string => {
+    switch (status) {
+      case 'dirty':
+        return 'Pending Sync';
+      case 'registered':
+        return 'Registered';
+      case 'synced':
+        return 'Synced';
+      case 'local':
+      default:
+        return 'Local';
+    }
+  };
 
   // Digital Assets state
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
@@ -451,6 +497,17 @@ export default function HDTPage() {
       const proj: Project = (projectData?.project ?? projectData) as Project;
       setProject(proj);
 
+      const currentUserResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (currentUserResponse.ok) {
+        const currentUserData = await currentUserResponse.json();
+        setIsSystemAdministrator(currentUserData?.user?.sys_admin === true);
+      } else {
+        setIsSystemAdministrator(false);
+      }
+
       const managerResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -477,11 +534,13 @@ export default function HDTPage() {
 
         setDigitalAssets(Array.isArray(metadataData.digitalAssets) ? metadataData.digitalAssets : []);
         setScenes(Array.isArray(metadataData.scenes) ? metadataData.scenes : []);
+        await refreshEchoesStatus();
       } else if (metadataResponse.status === 404) {
         console.log('No HDT metadata found, will create on first save');
         setMetadata(null);
         setDigitalAssets([]);
         setScenes([]);
+        setEchoesStatus(null);
       } else {
         throw new Error(`Failed to fetch metadata: ${metadataResponse.status}`);
       }
@@ -494,6 +553,115 @@ export default function HDTPage() {
         setDataLoaded(true);
         initialLoadRef.current = false;
       }, 100);
+    }
+  };
+
+  const refreshEchoesStatus = useCallback(async () => {
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      const status = await fetchEchoesProjectStatus(projectId);
+      setEchoesStatus(status);
+    } catch {
+      setEchoesStatus(null);
+    }
+  }, [projectId]);
+
+  const handleSaveEchoesBearer = async () => {
+    const trimmedBearer = echoesBearer.trim();
+    if (!trimmedBearer) {
+      setEchoesMessage('Paste a bearer token before saving it.');
+      return;
+    }
+
+    try {
+      setEchoesBearerBusy(true);
+      setEchoesMessage(null);
+      await registerEchoesDevBearer(trimmedBearer);
+      setEchoesMessage('Temporary ECHOES bearer saved for this session.');
+    } catch (error) {
+      setEchoesMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
+    } finally {
+      setEchoesBearerBusy(false);
+    }
+  };
+
+  const handleClearEchoesBearer = async () => {
+    try {
+      setEchoesBearerBusy(true);
+      setEchoesMessage(null);
+      await clearEchoesDevBearer();
+      setEchoesBearer('');
+      setEchoesMessage('Temporary ECHOES bearer removed from this session.');
+    } catch (error) {
+      setEchoesMessage(error instanceof Error ? error.message : 'Failed to clear the bearer.');
+    } finally {
+      setEchoesBearerBusy(false);
+    }
+  };
+
+  const handleEchoesPublishAction = async (action: 'register' | 'enrich' | 'replace') => {
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      setEchoesBusy(true);
+      setEchoesMessage(null);
+      setError(null);
+
+      if (action === 'register') {
+        const status = await registerProjectHdtInEchoes(projectId);
+        setEchoesStatus(status);
+        setEchoesMessage('The project was registered in ECHOES.');
+      } else if (action === 'enrich') {
+        const result = await enrichProjectHdtInEchoes(projectId);
+        setEchoesStatus(result.status);
+        setEchoesMessage(`RDF published to ECHOES (${result.rdf.size} bytes).`);
+      } else {
+        const result = await replaceProjectHdtContentInEchoes(projectId);
+        setEchoesStatus(result.status);
+        setEchoesMessage(`ECHOES named graph replaced (${result.rdf.size} bytes).`);
+      }
+
+      await fetchProjectAndMetadata();
+    } catch (error) {
+      setEchoesMessage(null);
+      setError(error instanceof Error ? error.message : 'Failed to publish this project to ECHOES.');
+    } finally {
+      setEchoesBusy(false);
+    }
+  };
+
+  const handleDuplicateProjectAsNewEchoesHdt = async () => {
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      setEchoesBusy(true);
+      setEchoesMessage(null);
+      setError(null);
+
+      const result = await duplicateProjectHdtAsNewInEchoes(projectId, {
+        title: duplicateEchoesTitle.trim() || undefined,
+        description: duplicateEchoesDescription.trim() || undefined,
+        identifier: duplicateEchoesIdentifier.trim() || undefined,
+        heritageEntityUri: duplicateEchoesHeritageEntityUri.trim() || undefined,
+      });
+
+      setEchoesMessage(
+        `New ECHOES HDT created: ${result.status.digitalTwinUri || 'unknown DT URI'}`
+      );
+      setShowDuplicateEchoesForm(false);
+      await refreshEchoesStatus();
+    } catch (error) {
+      setEchoesMessage(null);
+      setError(error instanceof Error ? error.message : 'Failed to duplicate this project as a new ECHOES HDT.');
+    } finally {
+      setEchoesBusy(false);
     }
   };
 
@@ -1006,6 +1174,216 @@ export default function HDTPage() {
           ></button>
         </div>
       )}
+
+      <div className="card border-0 shadow-sm mb-4" style={{ background: 'linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%)' }}>
+        <div className="card-body">
+          <div className="d-flex flex-column flex-xl-row justify-content-between gap-4">
+            <div className="flex-grow-1">
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <h5 className="mb-0">ECHOES Synchronization</h5>
+                <span className={`badge ${
+                  echoesStatus?.syncStatus === 'synced'
+                    ? 'text-bg-success'
+                    : echoesStatus?.syncStatus === 'dirty'
+                      ? 'text-bg-warning'
+                      : echoesStatus?.syncStatus === 'registered'
+                        ? 'text-bg-info'
+                        : 'text-bg-secondary'
+                }`}>
+                  {getEchoesSyncStatusLabel(echoesStatus?.syncStatus || metadata?.echoesContext?.syncStatus)}
+                </span>
+              </div>
+              <p className="text-muted small mb-3">
+                Register the local HDT in ECHOES, publish the current RDF as a named graph, then replace that content after local changes.
+              </p>
+
+              <div className="row g-3 small">
+                <div className="col-md-6">
+                  <div className="text-muted">Project URI</div>
+                  <div className="text-break">{echoesStatus?.projectUri || metadata?.echoesContext?.projectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
+                </div>
+                <div className="col-md-6">
+                  <div className="text-muted">HC1 URI</div>
+                  <div className="text-break">{echoesStatus?.heritageEntityUri || metadata?.echoesContext?.heritageEntityUri || metadata?.physicalObjectMetadata?.sourceUri || 'Not assigned yet'}</div>
+                </div>
+                <div className="col-md-6">
+                  <div className="text-muted">Digital Twin URI</div>
+                  <div className="text-break">{echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri || 'Not registered yet'}</div>
+                </div>
+                <div className="col-md-6">
+                  <div className="text-muted">Named Graph URI</div>
+                  <div className="text-break">{echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri || 'Not published yet'}</div>
+                </div>
+                <div className="col-md-6">
+                  <div className="text-muted">Current Title</div>
+                  <div className="text-break">{dcTitle || metadata?.physicalObjectMetadata?.dublinCore?.title || 'Not set'}</div>
+                </div>
+                <div className="col-md-6">
+                  <div className="text-muted">Current Identifier</div>
+                  <div className="text-break">
+                    {metadata?.physicalObjectMetadata?.dublinCore?.identifier || 'Not set'}
+                  </div>
+                </div>
+              </div>
+
+              {echoesMessage && (
+                <div className={`alert mt-3 mb-0 ${echoesMessage.includes('Failed') || echoesMessage.includes('Paste') ? 'alert-warning' : 'alert-success'}`}>
+                  {echoesMessage}
+                </div>
+              )}
+            </div>
+
+            <div style={{ minWidth: '320px', maxWidth: '420px' }}>
+              <label htmlFor="echoes-hdt-bearer" className="form-label fw-semibold">Temporary ECHOES Bearer</label>
+              <textarea
+                id="echoes-hdt-bearer"
+                className="form-control form-control-sm"
+                rows={4}
+                value={echoesBearer}
+                onChange={(event) => setEchoesBearer(event.target.value)}
+                disabled={echoesBearerBusy || echoesBusy}
+                placeholder="Development-only bridge until login provides the KB bearer automatically"
+              />
+              <div className="d-flex gap-2 mt-2 mb-3">
+                <button type="button" className="btn btn-outline-primary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleSaveEchoesBearer()}>
+                  {echoesBearerBusy ? 'Saving...' : 'Save Bearer'}
+                </button>
+                <button type="button" className="btn btn-outline-secondary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleClearEchoesBearer()}>
+                  Clear
+                </button>
+              </div>
+
+              <div className="d-grid gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={echoesBusy || hdtReadOnlyWithoutProjectLock}
+                  onClick={() => void handleEchoesPublishAction('register')}
+                >
+                  {echoesBusy ? 'Working...' : '1. Register in ECHOES'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  disabled={echoesBusy || hdtReadOnlyWithoutProjectLock || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
+                  onClick={() => void handleEchoesPublishAction('enrich')}
+                >
+                  Publish RDF to New Named Graph
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  disabled={echoesBusy || hdtReadOnlyWithoutProjectLock || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
+                  onClick={() => void handleEchoesPublishAction('replace')}
+                >
+                  Replace Published Named Graph
+                </button>
+                {isSystemAdministrator && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline-success"
+                      disabled={echoesBusy || hdtReadOnlyWithoutProjectLock}
+                      onClick={() => {
+                        setShowDuplicateEchoesForm((current) => !current);
+                        if (!showDuplicateEchoesForm) {
+                          setDuplicateEchoesTitle(dcTitle ? `${dcTitle} Demo Copy` : '');
+                          setDuplicateEchoesDescription(dcDescription || '');
+                          setDuplicateEchoesIdentifier('');
+                          setDuplicateEchoesHeritageEntityUri('');
+                        }
+                      }}
+                    >
+                      Duplicate as New ECHOES HDT
+                    </button>
+                    {showDuplicateEchoesForm && (
+                      <div className="border rounded-3 p-3 bg-white">
+                        <div className="small fw-semibold mb-2">System Administrator Only</div>
+                        <div className="small text-muted mb-3">
+                          Creates a brand new ECHOES HDT from the current local project without changing the current ECHOES linkage.
+                        </div>
+                        <div className="small text-muted mb-3">
+                          Current reference:
+                          {' '}
+                          title
+                          {' '}
+                          <strong>{dcTitle || metadata?.physicalObjectMetadata?.dublinCore?.title || 'Not set'}</strong>
+                          {' '}-
+                          {' '}
+                          identifier
+                          {' '}
+                          <strong>{metadata?.physicalObjectMetadata?.dublinCore?.identifier || 'Not set'}</strong>
+                        </div>
+                        <div className="mb-2">
+                          <label htmlFor="duplicate-echoes-title" className="form-label form-label-sm">New title</label>
+                          <input
+                            id="duplicate-echoes-title"
+                            className="form-control form-control-sm"
+                            value={duplicateEchoesTitle}
+                            onChange={(event) => setDuplicateEchoesTitle(event.target.value)}
+                            disabled={echoesBusy}
+                          />
+                        </div>
+                        <div className="mb-2">
+                          <label htmlFor="duplicate-echoes-identifier" className="form-label form-label-sm">New identifier</label>
+                          <input
+                            id="duplicate-echoes-identifier"
+                            className="form-control form-control-sm"
+                            value={duplicateEchoesIdentifier}
+                            onChange={(event) => setDuplicateEchoesIdentifier(event.target.value)}
+                            disabled={echoesBusy}
+                            placeholder="Optional but recommended"
+                          />
+                        </div>
+                        <div className="mb-2">
+                          <label htmlFor="duplicate-echoes-hc1-uri" className="form-label form-label-sm">New HC1 URI</label>
+                          <input
+                            id="duplicate-echoes-hc1-uri"
+                            className="form-control form-control-sm"
+                            value={duplicateEchoesHeritageEntityUri}
+                            onChange={(event) => setDuplicateEchoesHeritageEntityUri(event.target.value)}
+                            disabled={echoesBusy}
+                            placeholder="Optional; autogenerated if empty"
+                          />
+                        </div>
+                        <div className="mb-3">
+                          <label htmlFor="duplicate-echoes-description" className="form-label form-label-sm">Description override</label>
+                          <textarea
+                            id="duplicate-echoes-description"
+                            className="form-control form-control-sm"
+                            rows={3}
+                            value={duplicateEchoesDescription}
+                            onChange={(event) => setDuplicateEchoesDescription(event.target.value)}
+                            disabled={echoesBusy}
+                          />
+                        </div>
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-success btn-sm"
+                            disabled={echoesBusy}
+                            onClick={() => void handleDuplicateProjectAsNewEchoesHdt()}
+                          >
+                            {echoesBusy ? 'Creating...' : 'Create New ECHOES HDT'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            disabled={echoesBusy}
+                            onClick={() => setShowDuplicateEchoesForm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div className="card">

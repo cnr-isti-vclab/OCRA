@@ -129,6 +129,11 @@ export const API_ERROR_CODES = {
     detailFailed: 'echoes.detail_failed',
     projectCreateDenied: 'echoes.project_create_denied',
     projectCreateFailed: 'echoes.project_create_failed',
+    publishStatusFailed: 'echoes.publish_status_failed',
+    registerFailed: 'echoes.register_failed',
+    enrichFailed: 'echoes.enrich_failed',
+    replaceFailed: 'echoes.replace_failed',
+    duplicateFailed: 'echoes.duplicate_failed',
   },
   annotation: {
     sceneInvalidInput: 'annotation.scene.invalid_input',

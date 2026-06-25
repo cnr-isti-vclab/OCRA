@@ -15,6 +15,8 @@ async function ensureHdtIndexes() {
   const db = await getContentDb();
   const collection = db.collection<HDTDocument>(COLLECTION_NAME);
   await collection.createIndex({ projectId: 1 }, { unique: true });
+  await collection.createIndex({ 'echoesContext.digitalTwinUri': 1 }, { sparse: true });
+  await collection.createIndex({ 'echoesContext.namedGraphUri': 1 }, { sparse: true });
   hdtIndexesEnsured = true;
 }
 

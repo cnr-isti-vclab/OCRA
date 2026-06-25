@@ -119,3 +119,19 @@ export interface EchoesImportedProjectSummary {
   createdAt: string;
   updatedAt: string;
 }
+
+export type EchoesSyncStatus = 'local' | 'registered' | 'synced' | 'dirty';
+
+export interface EchoesProjectStatus {
+  projectId: string;
+  projectUri: string;
+  origin: 'local' | 'imported';
+  syncStatus: EchoesSyncStatus;
+  heritageEntityUri: string | null;
+  digitalTwinUri: string | null;
+  namedGraphUri: string | null;
+  digitalTwinLabel: string | null;
+  assetCount: number;
+  lastRegisteredAt: string | null;
+  lastSyncedAt: string | null;
+}

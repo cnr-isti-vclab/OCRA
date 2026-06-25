@@ -426,6 +426,63 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
+        EchoesAssetRecord: {
+          type: 'object',
+          required: ['assetId', 'assetUri'],
+          properties: {
+            assetId: { type: 'string', example: 'asset_1710000000000_abc123xyz' },
+            assetUri: { type: 'string', example: 'urn:asset:uc2lamina_rti_001' },
+            sourceUrl: { type: 'string', nullable: true, example: 'https://vicserver.crs4.it/ocra-assets/uc2_lamina.zip' },
+          },
+        },
+        EchoesContext: {
+          type: 'object',
+          required: ['origin', 'syncStatus', 'projectUri'],
+          properties: {
+            origin: {
+              type: 'string',
+              enum: ['local', 'imported'],
+              example: 'imported',
+            },
+            syncStatus: {
+              type: 'string',
+              enum: ['local', 'registered', 'synced', 'dirty'],
+              example: 'synced',
+            },
+            projectUri: {
+              type: 'string',
+              example: 'http://data.echoes-eccch.eu/project/ECHOES',
+            },
+            heritageEntityUri: {
+              type: 'string',
+              nullable: true,
+              example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina',
+            },
+            digitalTwinUri: {
+              type: 'string',
+              nullable: true,
+              example: 'http://echoes-eccch.eu/HDT/JGrV52jtL3z',
+            },
+            namedGraphUri: {
+              type: 'string',
+              nullable: true,
+              example: 'http://echoes-eccch.eu/kb/graph/user-fbettio/1782385399718/2026-06-25',
+            },
+            digitalTwinLabel: {
+              type: 'string',
+              nullable: true,
+              example: 'HDT UC2 Lamina',
+            },
+            importedFromEchoesAt: { type: 'string', format: 'date-time', nullable: true },
+            lastRegisteredAt: { type: 'string', format: 'date-time', nullable: true },
+            lastSyncedAt: { type: 'string', format: 'date-time', nullable: true },
+            lastSyncedProjectUpdatedAt: { type: 'string', format: 'date-time', nullable: true },
+            assetRecords: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/EchoesAssetRecord' },
+            },
+          },
+        },
         EchoesHdtListItem: {
           type: 'object',
           required: ['namedGraphUri', 'digitalTwinUri'],
@@ -609,6 +666,77 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               type: 'integer',
               minimum: 0,
               example: 1,
+            },
+          },
+        },
+        EchoesProjectStatus: {
+          type: 'object',
+          required: ['projectId', 'projectUri', 'origin', 'syncStatus', 'assetCount'],
+          properties: {
+            projectId: { type: 'string', example: 'cmproject123' },
+            projectUri: { type: 'string', example: 'http://data.echoes-eccch.eu/project/ECHOES' },
+            origin: { type: 'string', enum: ['local', 'imported'], example: 'local' },
+            syncStatus: { type: 'string', enum: ['local', 'registered', 'synced', 'dirty'], example: 'registered' },
+            heritageEntityUri: { type: 'string', nullable: true },
+            digitalTwinUri: { type: 'string', nullable: true },
+            namedGraphUri: { type: 'string', nullable: true },
+            digitalTwinLabel: { type: 'string', nullable: true },
+            assetCount: { type: 'integer', minimum: 0, example: 1 },
+            lastRegisteredAt: { type: 'string', format: 'date-time', nullable: true },
+            lastSyncedAt: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+        EchoesProjectStatusResponse: {
+          type: 'object',
+          required: ['success', 'status'],
+          properties: {
+            success: { type: 'boolean', example: true },
+            status: { $ref: '#/components/schemas/EchoesProjectStatus' },
+          },
+        },
+        EchoesRegisterProjectResponse: {
+          type: 'object',
+          required: ['success', 'status'],
+          properties: {
+            success: { type: 'boolean', example: true },
+            status: { $ref: '#/components/schemas/EchoesProjectStatus' },
+          },
+        },
+        EchoesPublishRdfInfo: {
+          type: 'object',
+          required: ['contentType', 'size'],
+          properties: {
+            contentType: { type: 'string', example: 'application/rdf+xml' },
+            size: { type: 'integer', minimum: 0, example: 2481 },
+          },
+        },
+        EchoesPublishProjectResponse: {
+          type: 'object',
+          required: ['success', 'status', 'rdf'],
+          properties: {
+            success: { type: 'boolean', example: true },
+            status: { $ref: '#/components/schemas/EchoesProjectStatus' },
+            rdf: { $ref: '#/components/schemas/EchoesPublishRdfInfo' },
+          },
+        },
+        EchoesDuplicateProjectRequest: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'string',
+              example: 'HDT UC2 Lamina Demo Copy',
+            },
+            description: {
+              type: 'string',
+              example: 'Duplicated from the current OCRA project for demo purposes.',
+            },
+            identifier: {
+              type: 'string',
+              example: 'UC2-LAMINA-DEMO-COPY-2026',
+            },
+            heritageEntityUri: {
+              type: 'string',
+              example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina-demo-copy',
             },
           },
         },
@@ -895,6 +1023,9 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             projectId: { type: 'string', example: 'cmproject123' },
             physicalObjectMetadata: {
               $ref: '#/components/schemas/PhysicalObjectMetadata',
+            },
+            echoesContext: {
+              $ref: '#/components/schemas/EchoesContext',
             },
             digitalAssets: {
               type: 'array',

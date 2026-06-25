@@ -194,6 +194,33 @@ export interface PhysicalObjectMetadata {
   [key: string]: any;
 }
 
+export type EchoesSyncStatus =
+  | 'local'
+  | 'registered'
+  | 'synced'
+  | 'dirty';
+
+export interface EchoesAssetRecord {
+  assetId: string;
+  assetUri: string;
+  sourceUrl?: string;
+}
+
+export interface EchoesContext {
+  origin: 'local' | 'imported';
+  syncStatus: EchoesSyncStatus;
+  projectUri: string;
+  heritageEntityUri?: string;
+  digitalTwinUri?: string;
+  namedGraphUri?: string;
+  digitalTwinLabel?: string;
+  importedFromEchoesAt?: Date | string;
+  lastRegisteredAt?: Date | string;
+  lastSyncedAt?: Date | string;
+  lastSyncedProjectUpdatedAt?: Date | string;
+  assetRecords?: EchoesAssetRecord[];
+}
+
 // RTI sub-types used inside DigitalAsset.metadata
 export type RTIFormat = 'ptm' | 'lptm' | 'hsh' | 'yrbf';
 export type RTILayout =
@@ -287,6 +314,7 @@ export interface HDTDocument {
   _id?: string;
   projectId: string;
   physicalObjectMetadata: PhysicalObjectMetadata;
+  echoesContext?: EchoesContext;
   digitalAssets: DigitalAsset[];
   scenes: HDTScene[];
   createdAt?: Date | string;

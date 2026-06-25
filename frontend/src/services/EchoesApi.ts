@@ -3,11 +3,13 @@ import type {
   EchoesHdtDetail,
   EchoesHdtListItem,
   EchoesImportedProjectSummary,
+  EchoesProjectStatus,
 } from '../types';
 
 interface ApiErrorResponse {
   error?: string;
   message?: string;
+  details?: unknown;
 }
 
 interface EchoesHdtListResponse {
@@ -25,6 +27,27 @@ interface EchoesCreateProjectResponse {
   project: EchoesImportedProjectSummary;
   echoes: EchoesHdtDetail;
   importedAssetCount: number;
+}
+
+interface EchoesProjectStatusResponse {
+  success: boolean;
+  status: EchoesProjectStatus;
+}
+
+interface EchoesPublishProjectResponse {
+  success: boolean;
+  status: EchoesProjectStatus;
+  rdf: {
+    contentType: 'application/rdf+xml';
+    size: number;
+  };
+}
+
+interface EchoesDuplicateProjectRequest {
+  title?: string;
+  description?: string;
+  identifier?: string;
+  heritageEntityUri?: string;
 }
 
 function getStoredSessionId(): string | null {
@@ -49,7 +72,13 @@ function buildSessionHeaders(includeJsonContentType: boolean): HeadersInit {
 async function readErrorMessage(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as ApiErrorResponse;
-    return payload.error || payload.message || `HTTP ${response.status}`;
+    const details =
+      typeof payload.details === 'string'
+        ? payload.details
+        : Array.isArray(payload.details)
+          ? payload.details.join('; ')
+          : undefined;
+    return details || payload.error || payload.message || `HTTP ${response.status}`;
   } catch {
     return `HTTP ${response.status}`;
   }
@@ -134,4 +163,66 @@ export async function createProjectFromEchoesHdt(input: {
   }
 
   return (await response.json()) as EchoesCreateProjectResponse;
+}
+
+export async function fetchEchoesProjectStatus(projectId: string): Promise<EchoesProjectStatus> {
+  const response = await fetch(`${getApiBase()}/api/echoes/projects/${encodeURIComponent(projectId)}/status`, {
+    credentials: 'include',
+    headers: buildSessionHeaders(false),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to read ECHOES project status: ${await readErrorMessage(response)}`);
+  }
+
+  const payload = (await response.json()) as EchoesProjectStatusResponse;
+  return payload.status;
+}
+
+async function postEchoesProjectAction(
+  projectId: string,
+  action: 'register' | 'enrich' | 'replace-content',
+): Promise<EchoesPublishProjectResponse | EchoesProjectStatusResponse> {
+  const response = await fetch(`${getApiBase()}/api/echoes/projects/${encodeURIComponent(projectId)}/${action}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildSessionHeaders(false),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to ${action} ECHOES project: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as EchoesPublishProjectResponse | EchoesProjectStatusResponse;
+}
+
+export async function registerProjectHdtInEchoes(projectId: string): Promise<EchoesProjectStatus> {
+  const payload = (await postEchoesProjectAction(projectId, 'register')) as EchoesProjectStatusResponse;
+  return payload.status;
+}
+
+export async function enrichProjectHdtInEchoes(projectId: string): Promise<EchoesPublishProjectResponse> {
+  return (await postEchoesProjectAction(projectId, 'enrich')) as EchoesPublishProjectResponse;
+}
+
+export async function replaceProjectHdtContentInEchoes(projectId: string): Promise<EchoesPublishProjectResponse> {
+  return (await postEchoesProjectAction(projectId, 'replace-content')) as EchoesPublishProjectResponse;
+}
+
+export async function duplicateProjectHdtAsNewInEchoes(
+  projectId: string,
+  input: EchoesDuplicateProjectRequest,
+): Promise<EchoesPublishProjectResponse> {
+  const response = await fetch(`${getApiBase()}/api/echoes/projects/${encodeURIComponent(projectId)}/duplicate-as-new-hdt`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildSessionHeaders(true),
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to duplicate ECHOES project as new HDT: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as EchoesPublishProjectResponse;
 }

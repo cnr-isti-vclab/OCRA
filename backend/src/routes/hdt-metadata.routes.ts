@@ -39,6 +39,7 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
 import { getHDTDocument } from '../services/hdt-metadata.service.js';
+import { serializeHdtDocumentAsEchoesRdf } from '../services/echoes-rdf.service.js';
 
 const router = Router();
 
@@ -1588,86 +1589,14 @@ router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
     if (!hdtDoc) {
       return res.status(404).json({ error: 'HDT metadata not found' });
     }
-
-    const escapeXml = (unsafe: string | string[] | undefined): string => {
-      if (!unsafe) return '';
-      if (Array.isArray(unsafe)) return unsafe.map(s => escapeXml(s)).join(', ');
-      return unsafe.replace(/[<>&'"]/g, (c) => {
-        switch (c) {
-          case '<': return '&lt;';
-          case '>': return '&gt;';
-          case '&': return '&amp;';
-          case "'": return '&apos;';
-          case '"': return '&quot;';
-          default: return c;
-        }
-      });
-    };
-
-    const rdf = `<?xml version="1.0" encoding="UTF-8"?>
-<rdf:RDF
-  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-  xmlns:dc="http://purl.org/dc/elements/1.1/"
-  xmlns:dcterms="http://purl.org/dc/terms/"
-  xmlns:hdt="http://echoes-eccch.eu/hdt#"
-  xmlns:prov="http://www.w3.org/ns/prov#"
-  xmlns:foaf="http://xmlns.com/foaf/0.1/">
-
-  <rdf:Description rdf:about="urn:project:${projectId}">
-    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>
-    <dc:title>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.title as any) || 'Untitled')}</dc:title>
-    <dc:description>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.description as any) || '')}</dc:description>
-    <dc:creator>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.creator as any) || '')}</dc:creator>
-    <dc:date>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.date as any) || '')}</dc:date>
-    <dc:coverage>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.coverage as any) || '')}</dc:coverage>
-    <dc:rights>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.rights as any) || '')}</dc:rights>
-    <dc:identifier>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.identifier as any) || '')}</dc:identifier>
-    <dc:subject>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.subject as any) || '')}</dc:subject>
-    <dc:type>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.type as any) || '')}</dc:type>
-    <dc:language>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.language as any) || '')}</dc:language>
-    <dc:source>${escapeXml((hdtDoc.physicalObjectMetadata?.dublinCore?.source as any) || '')}</dc:source>
-    <dcterms:created>${hdtDoc.createdAt ? new Date(hdtDoc.createdAt).toISOString() : ''}</dcterms:created>
-    <dcterms:modified>${hdtDoc.updatedAt ? new Date(hdtDoc.updatedAt).toISOString() : ''}</dcterms:modified>
-    <hdt:HP1 rdf:resource="urn:project:${projectId}:hdt"/>
-  </rdf:Description>
-
-  <rdf:Description rdf:about="urn:project:${projectId}:hdt">
-    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC2"/>
-${(hdtDoc.digitalAssets || [])
-  .filter((asset: any) => asset.type === '3d-model')
-  .map((asset: any) => `    <hdt:HP3 rdf:resource="urn:asset:${asset.id}"/>`)
-  .join('\n')}
-  </rdf:Description>
-${(hdtDoc.digitalAssets || [])
-  .filter((asset: any) => asset.type === '3d-model')
-  .map((asset: any) => `
-  <rdf:Description rdf:about="urn:asset:${asset.id}">
-    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>
-    <dc:format>${escapeXml(asset.metadata?.format || 'model/gltf+json')}</dc:format>
-    <dc:date>${asset.uploadedAt ? new Date(asset.uploadedAt).toISOString().split('T')[0] : ''}</dc:date>
-    <dc:source>${escapeXml(asset.entryPointUrl || '')}</dc:source>
-    <dc:title>${escapeXml(asset.title || asset.fileName || '')}</dc:title>
-    <dc:description>${escapeXml(asset.description || '')}</dc:description>
-    <hdt:HP21 rdf:resource="urn:project:${projectId}"/>
-    <prov:wasGeneratedBy rdf:resource="urn:activity:${asset.id}"/>
-  </rdf:Description>
-
-  <rdf:Description rdf:about="urn:activity:${asset.id}">
-    <rdf:type rdf:resource="http://www.w3.org/ns/prov#Activity"/>
-    <prov:wasAttributedTo rdf:resource="urn:user:${asset.uploadedBy || 'unknown'}"/>
-    <prov:endedAtTime>${asset.uploadedAt ? new Date(asset.uploadedAt).toISOString() : ''}</prov:endedAtTime>
-  </rdf:Description>
-`)
-  .join('')}
-</rdf:RDF>`;
+    const rdf = serializeHdtDocumentAsEchoesRdf(projectId, hdtDoc);
 
     res.setHeader('Content-Type', 'application/rdf+xml');
     res.setHeader('Content-Disposition', `attachment; filename="hdt-${projectId}.rdf"`);
     return res.send(rdf);
-  } catch (error: any) {
-    console.error('Error exporting RDF:', error);
-    return res.status(500).json({ error: error?.message || 'Failed to export RDF' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to export RDF';
+    return res.status(500).json({ error: message });
   }
 });
 

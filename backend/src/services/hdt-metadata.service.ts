@@ -26,6 +26,7 @@ import type {
   HDTScene,
   SceneAssetReference,
   PhysicalObjectMetadata,
+  EchoesContext,
 } from '../types/index.js';
 import type { SceneDescription, ModelDefinition } from 'shared/scene-types';
 import fs from 'fs/promises';
@@ -90,7 +91,8 @@ export async function getHDTDocument(projectId: string): Promise<HDTDocument | n
 export async function createHDTDocument(
   projectId: string,
   userId?: string,
-  initialData?: Partial<PhysicalObjectMetadata>
+  initialData?: Partial<PhysicalObjectMetadata>,
+  initialEchoesContext?: EchoesContext
 ): Promise<HDTDocument> {
   // Check if document already exists
   const existing = await findHdtByProjectId(projectId);
@@ -100,13 +102,12 @@ export async function createHDTDocument(
 
   const now = new Date();
 
-  console.log('HDT SERVICE: createHDTDocument initialData:', JSON.stringify(initialData, null, 2));
-
   const physicalObjectMetadata = normalizePhysicalObjectMetadata(projectId, initialData);
 
   const newDocument: Omit<HDTDocument, '_id'> = {
     projectId,
     physicalObjectMetadata,
+    echoesContext: initialEchoesContext,
     digitalAssets: [],
     scenes: [],
     createdAt: now,
@@ -137,11 +138,13 @@ export async function updateHDTMetadata(
   metadataUpdate: Partial<PhysicalObjectMetadata>,
   userId?: string
 ): Promise<HDTDocument | null> {
-  const updateDoc: any = {
+  const updateDoc: {
+    $set: Record<string, unknown>;
+  } = {
     $set: {
       updatedAt: new Date(),
-      updatedBy: userId
-    }
+      updatedBy: userId,
+    },
   };
 
   for (const [key, value] of Object.entries(metadataUpdate ?? {})) {
@@ -150,13 +153,37 @@ export async function updateHDTMetadata(
     updateDoc.$set[`physicalObjectMetadata.${key}`] = value;
   }
 
-  console.log('HDT SERVICE: updateDoc to MongoDB:', JSON.stringify(updateDoc, null, 2));
-
   const result = await updateHdtByProjectId(projectId, updateDoc);
 
-  console.log('HDT SERVICE: MongoDB result:', result ? 'Document updated' : 'No document found');
-
   // ✅ STANDARDIZED: Extract document from MongoDB response
+  return standardizeResponse(result);
+}
+
+export async function updateHdtEchoesContext(
+  projectId: string,
+  echoesContextUpdate: Partial<EchoesContext>,
+  userId?: string
+): Promise<HDTDocument | null> {
+  const persistedAt = echoesContextUpdate.lastSyncedProjectUpdatedAt
+    ? new Date(echoesContextUpdate.lastSyncedProjectUpdatedAt)
+    : new Date();
+  const updateDoc: {
+    $set: Record<string, unknown>;
+  } = {
+    $set: {
+      updatedAt: persistedAt,
+      updatedBy: userId,
+    },
+  };
+
+  for (const [key, value] of Object.entries(echoesContextUpdate ?? {})) {
+    if (value === undefined) {
+      continue;
+    }
+    updateDoc.$set[`echoesContext.${key}`] = value;
+  }
+
+  const result = await updateHdtByProjectId(projectId, updateDoc);
   return standardizeResponse(result);
 }
 
@@ -207,8 +234,6 @@ export async function addDigitalAsset(
     uploadedBy: userId
   };
 
-  console.log(`🔧 [HDT Service] Adding asset ${assetId} to project ${projectId}`);
-
   const existing = await findHdtByProjectId(projectId);
 
   if (!existing) {
@@ -253,12 +278,15 @@ export async function addDigitalAsset(
   }
 
   // Document exists, add asset to it
-  const updateOps: any = {
+  const updateOps: {
+    $push: Record<string, unknown>;
+    $set: Record<string, unknown>;
+  } = {
     $push: { digitalAssets: newAsset },
     $set: {
       updatedAt: now,
-      updatedBy: userId
-    }
+      updatedBy: userId,
+    },
   };
 
   // Add to default scene if exists
@@ -271,7 +299,6 @@ export async function addDigitalAsset(
       visible: true,
     };
     updateOps.$push[`scenes.${defaultSceneIndex}.assets`] = assetRef;
-    console.log(`✅ Adding asset ${newAsset.id} to existing default scene`);
   } else {
     // No default scene exists - create one
     const defaultScene: HDTScene = {
@@ -291,19 +318,12 @@ export async function addDigitalAsset(
       }
     };
     updateOps.$push.scenes = defaultScene;
-    console.log(`✅ Creating new default scene for existing project`);
   }
 
   const result = await updateHdtByProjectId(projectId, updateOps);
 
   // ✅ STANDARDIZED: Extract updated document from MongoDB response
   const doc = standardizeResponse(result);
-  if (doc && doc.scenes) {
-    console.log(`📊 HDT document updated. Total scenes: ${doc.scenes.length}`);
-    doc.scenes.forEach((scene: any) => {
-      console.log(`   - Scene "${scene.label}": ${scene.assets?.length || 0} assets`);
-    });
-  }
 
   return doc ? { doc, assetId } : null;
 }
