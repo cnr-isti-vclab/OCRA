@@ -41,6 +41,7 @@ import {
 } from '../utils/project-static-paths.js';
 
 import { deleteHDTDocument, getHDTDocument } from '../services/hdt-metadata.service.js';
+import { createManagedProject } from '../services/project-creation.service.js';
 import { deleteAnnotationGeometriesByProjectId } from '../repositories/annotation-geometry.repository.js';
 import { deleteAnnotationDataByProjectId } from '../repositories/annotation-data.repository.js';
 import { deleteAnnotationLinksByProjectId } from '../repositories/annotation-link.repository.js';
@@ -1030,55 +1031,17 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     // IMPORTANT: description must be a string if Prisma schema is String (non-nullable)
     const safeDescription = typeof description === 'string' ? description.trim() : '';
 
-    const project = await db.project.create({
-      data: {
-        name: trimmedName,
-        description: safeDescription,
-        public: Boolean(isPublic) || false,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        public: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const project = await createManagedProject({
+      name: trimmedName,
+      description: safeDescription,
+      isPublic: Boolean(isPublic) || false,
+      owner: currentUser,
     });
-
-    // Create unified project directory structure
-    ensureProjectSkeleton(project.id);
-
-    // Create empty scene.json under 3d-model/
-    const emptyScene = {
-      models: [],
-      environment: { showGround: true, background: '#404040' },
-      enableControls: true,
-    };
-
-    fs.writeFileSync(
-      path.join(projectModel3dDir(project.id), 'scene.json'),
-      JSON.stringify(emptyScene, null, 2),
-      'utf-8'
-    );
-
-    // Assign manager role (best-effort)
-    try {
-      await db.projectRole.create({
-        data: {
-          userId: (currentUser as any).id,
-          projectId: project.id,
-          role: RoleEnum.manager,
-        },
-      });
-    } catch (err) {
-      console.warn('Failed to assign project manager role:', err instanceof Error ? err.message : err);
-    }
 
     const projectWithManager = {
       ...project,
       manager: {
-        id: (currentUser as any).id,
+        id: currentUser.id,
         name: currentUser.name,
         email: currentUser.email,
         username: currentUser.username,

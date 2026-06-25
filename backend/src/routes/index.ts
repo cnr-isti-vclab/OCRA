@@ -16,6 +16,7 @@ import adminRoutes from './admin.routes.js';
 import vocabulariesRoutes from './vocabularies.routes.js';
 import hdtMetadataRoutes from './hdt-metadata.routes.js';
 import annotationRoutes from './annotation.routes.js';
+import echoesRoutes from './echoes.routes.js';
 // @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)
 import vocabularyConceptsRoutes from './vocabulary-concepts.routes.js';
 
@@ -32,6 +33,7 @@ router.use('/projects', projectsRoutes);
 router.use('/projects', hdtMetadataRoutes); // HDT metadata: /api/projects/:id/hdt
 router.use('/projects', annotationRoutes); // Annotations: /api/projects/:id/annotations
 router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
+router.use('/echoes', echoesRoutes);
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
 // @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)

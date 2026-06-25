@@ -119,6 +119,17 @@ export const API_ERROR_CODES = {
     defaultSceneNotFound: 'hdt.default_scene_not_found',
     projectAndSceneIdRequired: 'hdt.project_and_scene_id_required',
   },
+  echoes: {
+    authenticationRequired: 'echoes.authentication_required',
+    bearerRequired: 'echoes.bearer_required',
+    hdtUriRequired: 'echoes.hdt_uri_required',
+    invalidHdtUri: 'echoes.invalid_hdt_uri',
+    hdtNotFound: 'echoes.hdt_not_found',
+    listFailed: 'echoes.list_failed',
+    detailFailed: 'echoes.detail_failed',
+    projectCreateDenied: 'echoes.project_create_denied',
+    projectCreateFailed: 'echoes.project_create_failed',
+  },
   annotation: {
     sceneInvalidInput: 'annotation.scene.invalid_input',
     sceneNotFound: 'annotation.scene.not_found',

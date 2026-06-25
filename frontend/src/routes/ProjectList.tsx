@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { appendStoredSessionId, getApiBase } from '../config/oauth';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
+import type { CurrentUserSummary, ProjectListItem } from '../types';
+import EchoesImportModal from './components/EchoesImportModal';
 
 /**
  * PROJECTS COMPONENT
@@ -18,40 +20,9 @@ import { useProjectStructuringLock } from '../context/ProjectStructuringLockCont
  * - Project creation/editing (future enhancement)
  */
 
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  public: boolean;
-  activeUserCount: number;
-  activeStructuringLock?: boolean;
-  activeStructuringLockOwnedByCurrentSession?: boolean;
-  activeStructuringLockHeartbeatExpiresAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  manager?: {
-    id: string;
-    name?: string;
-    email: string;
-    username?: string;
-    displayName: string;
-  } | null;
-}
-
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  username?: string;
-  displayName: string;
-  sys_admin: boolean;
-  sys_creator?: boolean;
-}
-
 export default function Projects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [user, setUser] = useState<CurrentUserSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Map of projectId to isManager boolean
@@ -68,6 +39,7 @@ export default function Projects() {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectPublic, setNewProjectPublic] = useState(false);
+  const [showEchoesImportModal, setShowEchoesImportModal] = useState(false);
   const navigate = useNavigate();
   const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
 
@@ -335,9 +307,14 @@ export default function Projects() {
         <p className="text-muted mb-0">
           Manage and view all HDT (Heritage Digital Twin) projects in the system.
         </p>
-        <div>
+        <div className="d-flex gap-2">
           {(user?.sys_creator || user?.sys_admin) && (
             <button className="btn btn-success btn-sm" onClick={openCreateProjectModal}>➕ Create New Project</button>
+          )}
+          {(user?.sys_creator || user?.sys_admin) && (
+            <button className="btn btn-outline-primary btn-sm" onClick={() => setShowEchoesImportModal(true)}>
+              Import from ECHOES
+            </button>
           )}
         </div>
       </div>
@@ -619,6 +596,15 @@ export default function Projects() {
           </div>
         </div>
       )}
+      <EchoesImportModal
+        show={showEchoesImportModal}
+        onClose={() => setShowEchoesImportModal(false)}
+        onImported={(projectId) => {
+          setShowEchoesImportModal(false);
+          void fetchData({ showLoading: false });
+          navigate(`/projects/${projectId}/edit`);
+        }}
+      />
       {/* Future Enhancements box removed */}
     </div>
   );

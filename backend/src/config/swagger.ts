@@ -426,6 +426,202 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
+        EchoesHdtListItem: {
+          type: 'object',
+          required: ['namedGraphUri', 'digitalTwinUri'],
+          properties: {
+            namedGraphUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/kb/graph/user-fbettio/1782385399718/2026-06-25',
+            },
+            digitalTwinUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/HDT/JGrV52jtL3z',
+            },
+            label: {
+              type: 'string',
+              nullable: true,
+              example: 'HDT UC2 Lamina',
+            },
+            title: {
+              type: 'string',
+              nullable: true,
+              example: 'Lamina in argento con decorazione a rosette e disco solare (UC2 Lamina)',
+            },
+            identifier: {
+              type: 'string',
+              nullable: true,
+              example: 'UC2-LAMINA-SANTANTIOCO-2026',
+            },
+            heritageEntityUri: {
+              type: 'string',
+              nullable: true,
+              example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina',
+            },
+          },
+        },
+        EchoesHdtAsset: {
+          type: 'object',
+          required: ['assetUri'],
+          properties: {
+            assetUri: {
+              type: 'string',
+              example: 'urn:asset:uc2lamina_rti_001',
+            },
+            label: {
+              type: 'string',
+              nullable: true,
+              example: 'RTI — UC2 Lamina (fronte)',
+            },
+            title: {
+              type: 'string',
+              nullable: true,
+              example: 'UC2-Lamina-RTI-fronte-20260216',
+            },
+            description: {
+              type: 'string',
+              nullable: true,
+            },
+            source: {
+              type: 'string',
+              nullable: true,
+              example: 'https://vicserver.crs4.it/ocra-assets/uc2_lamina.zip',
+            },
+            format: {
+              type: 'string',
+              nullable: true,
+              example: 'image/rti',
+            },
+            linkedHeritageEntityUri: {
+              type: 'string',
+              nullable: true,
+              example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina',
+            },
+          },
+        },
+        EchoesHdtDetail: {
+          type: 'object',
+          required: ['namedGraphUri', 'digitalTwinUri', 'physicalObjectMetadata', 'assets'],
+          properties: {
+            namedGraphUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/kb/graph/user-fbettio/1782385399718/2026-06-25',
+            },
+            digitalTwinUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/HDT/JGrV52jtL3z',
+            },
+            digitalTwinLabel: {
+              type: 'string',
+              nullable: true,
+              example: 'HDT UC2 Lamina',
+            },
+            heritageEntityUri: {
+              type: 'string',
+              nullable: true,
+              example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina',
+            },
+            physicalObjectMetadata: {
+              $ref: '#/components/schemas/PhysicalObjectMetadata',
+            },
+            assets: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/EchoesHdtAsset' },
+            },
+          },
+        },
+        EchoesHdtListResponse: {
+          type: 'object',
+          required: ['success', 'items'],
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            items: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/EchoesHdtListItem' },
+            },
+          },
+        },
+        EchoesHdtDetailResponse: {
+          type: 'object',
+          required: ['success', 'item'],
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            item: {
+              $ref: '#/components/schemas/EchoesHdtDetail',
+            },
+          },
+        },
+        EchoesCreateProjectRequest: {
+          type: 'object',
+          required: ['digitalTwinUri'],
+          properties: {
+            digitalTwinUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/HDT/JGrV52jtL3z',
+            },
+            name: {
+              type: 'string',
+              example: 'UC2 Lamina imported from ECHOES',
+            },
+            description: {
+              type: 'string',
+              example: 'Project initialized from ECHOES HC1/HDT data.',
+            },
+            public: {
+              type: 'boolean',
+              example: false,
+            },
+          },
+        },
+        EchoesImportedProject: {
+          type: 'object',
+          required: ['id', 'name', 'description', 'public', 'createdAt', 'updatedAt'],
+          properties: {
+            id: { type: 'string', example: 'cmproject123' },
+            name: { type: 'string', example: 'UC2 Lamina imported from ECHOES' },
+            description: { type: 'string', example: 'Project initialized from ECHOES HC1/HDT data.' },
+            public: { type: 'boolean', example: false },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        EchoesCreateProjectResponse: {
+          type: 'object',
+          required: ['success', 'project', 'echoes', 'importedAssetCount'],
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            project: {
+              $ref: '#/components/schemas/EchoesImportedProject',
+            },
+            echoes: {
+              $ref: '#/components/schemas/EchoesHdtDetail',
+            },
+            importedAssetCount: {
+              type: 'integer',
+              minimum: 0,
+              example: 1,
+            },
+          },
+        },
+        EchoesDevBearerRequest: {
+          type: 'object',
+          required: ['bearer'],
+          properties: {
+            bearer: {
+              type: 'string',
+              example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+            },
+          },
+        },
         SceneEnvironmentSettings: {
           type: 'object',
           additionalProperties: false,
