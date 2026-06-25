@@ -210,8 +210,13 @@ cleanup_host_project_files() {
     if [[ ${dry_run} -eq 1 ]]; then
       echo "[dry-run] Would remove ${HOST_PROJECT_FILES_DIR}/${dir_name}"
     else
-      rm -rf -- "${HOST_PROJECT_FILES_DIR}/${dir_name}"
-      echo "Removed ${HOST_PROJECT_FILES_DIR}/${dir_name}"
+      if rm -rf -- "${HOST_PROJECT_FILES_DIR}/${dir_name}" 2>/dev/null; then
+        echo "Removed ${HOST_PROJECT_FILES_DIR}/${dir_name}"
+      else
+        echo "Host delete failed for ${HOST_PROJECT_FILES_DIR}/${dir_name}; retrying via Docker helper..."
+        docker run --rm -v "${HOST_PROJECT_FILES_DIR}:/project_files" alpine:3.20 rm -rf -- "/project_files/${dir_name}" >/dev/null
+        echo "Removed ${HOST_PROJECT_FILES_DIR}/${dir_name} (via Docker helper)"
+      fi
     fi
   done < <(
     for dir_path in "${HOST_PROJECT_FILES_DIR}"/*; do
