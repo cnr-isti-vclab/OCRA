@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs-extra';
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { closeMongoClient } from '../src/lib/mongo/client.js';
 import { insertHdtDocument, deleteHdtByProjectId } from '../src/repositories/hdt.repository.js';
@@ -9,6 +10,7 @@ import { getAnnotationDataCollection } from '../src/repositories/annotation-data
 import { getAnnotationLinkCollection, deleteAnnotationLinksByProjectId } from '../src/repositories/annotation-link.repository.js';
 import { deleteAnnotationGeometriesByProjectId } from '../src/repositories/annotation-geometry.repository.js';
 import { deleteAnnotationDataByProjectId } from '../src/repositories/annotation-data.repository.js';
+import { createAnnotationEntityId } from '../src/repositories/annotation.repository.ids.js';
 import { ensureProjectSkeleton, projectModel3dDir, projectRtiDir, projectRoot } from '../src/utils/project-static-paths.js';
 import { generateSceneFile } from '../src/services/hdt-metadata.service.js';
 import type { HDTDocument } from '../src/types/index.js';
@@ -208,18 +210,6 @@ function buildImportedName(baseName: string) {
   return `${baseName}${buildBackupSuffix()}`;
 }
 
-async function resolveUniqueProjectName(prisma: PrismaClient, baseName: string) {
-  let candidate = baseName;
-  let suffix = 2;
-
-  while (await prisma.project.findUnique({ where: { name: candidate }, select: { id: true } })) {
-    candidate = `${baseName} (${suffix})`;
-    suffix += 1;
-  }
-
-  return candidate;
-}
-
 async function resolveManagerUser(prisma: PrismaClient, options: CliOptions) {
   if (options.managerUserId) {
     return prisma.user.findUnique({
@@ -251,7 +241,96 @@ function rewriteAssetUrl(value: string | null | undefined, sourceProjectId: stri
     .replaceAll(`/api/projects/${sourceProjectId}/`, `/api/projects/${targetProjectId}/`);
 }
 
-function rewriteImportedHdtDocument(projectPackage: LoadedProjectPackage, targetProjectId: string) {
+interface ImportIdMaps {
+  assetIds: Map<string, string>;
+  sceneIds: Map<string, string>;
+  geometryIds: Map<string, string>;
+  dataIds: Map<string, string>;
+  linkIds: Map<string, string>;
+}
+
+function createImportedAssetId() {
+  return `asset_${randomUUID()}`;
+}
+
+function createImportedSceneId() {
+  return `scene_${randomUUID()}`;
+}
+
+function buildImportIdMaps(projectPackage: LoadedProjectPackage): ImportIdMaps {
+  const hdtDocument = projectPackage.hdtDocument;
+  const geometryDocs = projectPackage.annotationsPayload.geometries;
+  const dataDocs = projectPackage.annotationsPayload.data;
+  const linkDocs = projectPackage.annotationsPayload.links;
+
+  if (!hdtDocument && (geometryDocs.length > 0 || dataDocs.length > 0 || linkDocs.length > 0)) {
+    throw new Error('Project package contains annotations but no HDT document to define scenes and assets.');
+  }
+
+  const assetIds = new Map<string, string>();
+  const sceneIds = new Map<string, string>();
+  const geometryIds = new Map<string, string>();
+  const dataIds = new Map<string, string>();
+  const linkIds = new Map<string, string>();
+
+  for (const asset of hdtDocument?.digitalAssets ?? []) {
+    assetIds.set(asset.id, createImportedAssetId());
+  }
+
+  for (const scene of hdtDocument?.scenes ?? []) {
+    sceneIds.set(scene.id, createImportedSceneId());
+  }
+
+  for (const geometry of geometryDocs) {
+    geometryIds.set(geometry.id, createAnnotationEntityId('geometry'));
+  }
+
+  for (const datum of dataDocs) {
+    dataIds.set(datum.id, createAnnotationEntityId('data'));
+  }
+
+  for (const link of linkDocs) {
+    linkIds.set(link.id, createAnnotationEntityId('link'));
+  }
+
+  return {
+    assetIds,
+    sceneIds,
+    geometryIds,
+    dataIds,
+    linkIds,
+  };
+}
+
+function remapAnnotationScopeReference(
+  referenceType: 'scene' | 'asset',
+  referenceId: string,
+  idMaps: ImportIdMaps,
+): string {
+  const remappedId = referenceType === 'scene'
+    ? idMaps.sceneIds.get(referenceId)
+    : idMaps.assetIds.get(referenceId);
+
+  if (!remappedId) {
+    throw new Error(`Unable to remap ${referenceType} reference id: ${referenceId}`);
+  }
+
+  return remappedId;
+}
+
+function requireMappedId(map: Map<string, string>, sourceId: string, label: string): string {
+  const mappedId = map.get(sourceId);
+  if (!mappedId) {
+    throw new Error(`Unable to remap ${label}: ${sourceId}`);
+  }
+  return mappedId;
+}
+
+function rewriteImportedHdtDocument(
+  projectPackage: LoadedProjectPackage,
+  targetProjectId: string,
+  idMaps: ImportIdMaps,
+) {
   const sourceProjectId = projectPackage.projectPayload.project.id;
   const document = projectPackage.hdtDocument;
 
@@ -268,15 +347,68 @@ function rewriteImportedHdtDocument(projectPackage: LoadedProjectPackage, target
         ? `urn:ocra:project:${targetProjectId}`
         : document.physicalObjectMetadata.sourceUri,
     },
+    echoesContext: document.echoesContext
+      ? {
+          ...document.echoesContext,
+          assetRecords: document.echoesContext.assetRecords?.map((record) => ({
+            ...record,
+            assetId: requireMappedId(idMaps.assetIds, record.assetId, 'echoesContext.assetRecord.assetId'),
+          })),
+        }
+      : undefined,
     digitalAssets: document.digitalAssets.map((asset) => ({
       ...asset,
+      id: requireMappedId(idMaps.assetIds, asset.id, 'digitalAsset.id'),
       projectId: targetProjectId,
       entryPoint: rewriteAssetUrl(asset.entryPoint, sourceProjectId, targetProjectId),
       entryPointUrl: rewriteAssetUrl(asset.entryPointUrl, sourceProjectId, targetProjectId),
       publicUri: rewriteAssetUrl(asset.publicUri, sourceProjectId, targetProjectId),
       thumbnail: rewriteAssetUrl(asset.thumbnail, sourceProjectId, targetProjectId),
     })),
+    scenes: document.scenes.map((scene) => ({
+      ...scene,
+      id: requireMappedId(idMaps.sceneIds, scene.id, 'scene.id'),
+      assets: (scene.assets ?? []).map((assetRef) => ({
+        ...assetRef,
+        assetId: requireMappedId(idMaps.assetIds, assetRef.assetId, 'scene.assets[].assetId'),
+      })),
+    })),
   };
+}
+
+function rewriteImportedAnnotations(
+  projectPackage: LoadedProjectPackage,
+  targetProjectId: string,
+  idMaps: ImportIdMaps,
+) {
+  const geometries = projectPackage.annotationsPayload.geometries.map((geometry) => ({
+    ...geometry,
+    id: requireMappedId(idMaps.geometryIds, geometry.id, 'annotation geometry id'),
+    projectId: targetProjectId,
+    referenceId: remapAnnotationScopeReference(geometry.referenceType, geometry.referenceId, idMaps),
+  }));
+
+  const data = projectPackage.annotationsPayload.data.map((datum) => ({
+    ...datum,
+    id: requireMappedId(idMaps.dataIds, datum.id, 'annotation data id'),
+    projectId: targetProjectId,
+    visibilityId: remapAnnotationScopeReference(datum.visibilityType, datum.visibilityId, idMaps),
+  }));
+
+  const links = projectPackage.annotationsPayload.links.map((link) => {
+    const geometryId = requireMappedId(idMaps.geometryIds, link.geometryId, `annotation link geometryId for ${link.id}`);
+    const dataId = requireMappedId(idMaps.dataIds, link.dataId, `annotation link dataId for ${link.id}`);
+
+    return {
+      ...link,
+      id: requireMappedId(idMaps.linkIds, link.id, 'annotation link id'),
+      projectId: targetProjectId,
+      geometryId,
+      dataId,
+    };
+  });
+
+  return { geometries, data, links };
 }
 
 function normalizeImportedHdtDocument(document: Omit<HDTDocument, '_id'>): Omit<HDTDocument, '_id'> {
@@ -380,11 +512,10 @@ async function importProjectPackage(options: CliOptions) {
 
   const sourceProject = projectPackage.projectPayload.project;
   const requestedName = options.name || buildImportedName(sourceProject.name);
-  const uniqueName = await resolveUniqueProjectName(prisma, requestedName);
 
   const createdProject = await prisma.project.create({
     data: {
-      name: uniqueName,
+      name: requestedName,
       description: options.description ?? sourceProject.description,
       public: options.publicOverride ?? sourceProject.public,
       counter: BigInt(sourceProject.counter),
@@ -403,7 +534,8 @@ async function importProjectPackage(options: CliOptions) {
   });
 
   try {
-    const rewrittenHdtDocument = rewriteImportedHdtDocument(projectPackage, createdProject.id);
+    const idMaps = buildImportIdMaps(projectPackage);
+    const rewrittenHdtDocument = rewriteImportedHdtDocument(projectPackage, createdProject.id, idMaps);
     const importedHdtDocument = rewrittenHdtDocument
       ? normalizeImportedHdtDocument(rewrittenHdtDocument)
       : null;
@@ -411,22 +543,15 @@ async function importProjectPackage(options: CliOptions) {
       await insertHdtDocument(importedHdtDocument);
     }
 
+    const rewrittenAnnotations = rewriteImportedAnnotations(projectPackage, createdProject.id, idMaps);
+
     const geometryCollection = await getAnnotationGeometryCollection();
     const dataCollection = await getAnnotationDataCollection();
     const linkCollection = await getAnnotationLinkCollection();
 
-    const geometryDocs = projectPackage.annotationsPayload.geometries.map((geometry) => ({
-      ...geometry,
-      projectId: createdProject.id,
-    }));
-    const dataDocs = projectPackage.annotationsPayload.data.map((datum) => ({
-      ...datum,
-      projectId: createdProject.id,
-    }));
-    const linkDocs = projectPackage.annotationsPayload.links.map((link) => ({
-      ...link,
-      projectId: createdProject.id,
-    }));
+    const geometryDocs = rewrittenAnnotations.geometries;
+    const dataDocs = rewrittenAnnotations.data;
+    const linkDocs = rewrittenAnnotations.links;
 
     if (geometryDocs.length > 0) {
       await geometryCollection.insertMany(geometryDocs, { ordered: true });
