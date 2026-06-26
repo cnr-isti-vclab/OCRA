@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { RoleEnum } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { sendApiError } from '../lib/api-error.js';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 import { auditBestEffort } from '../utils/audit.js';
@@ -110,7 +109,7 @@ export async function listEchoesHdtsHandler(req: Request, res: Response): Promis
   }
 
   if (!(await canUseEchoesBearerScope(user, 'import'))) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to list ECHOES HDTs');
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to list ECCCH HDTs');
   }
 
   try {
@@ -118,25 +117,12 @@ export async function listEchoesHdtsHandler(req: Request, res: Response): Promis
     const items = await listEchoesHdts(sessionId, search);
     res.json({ success: true, items });
   } catch (error) {
-    if (
-      error instanceof PrismaClientKnownRequestError &&
-      error.code === 'P2002' &&
-      Array.isArray(error.meta?.target) &&
-      error.meta.target.includes('name')
-    ) {
-      return sendApiError(req, res, {
-        status: 409,
-        code: API_ERROR_CODES.project.nameConflict,
-        error: 'A project with this name already exists. Choose a different name before importing from ECHOES.',
-      });
-    }
-
     sendEchoesError(
       req,
       res,
       502,
       'listFailed',
-      'Failed to list ECHOES HDTs',
+      'Failed to list ECCCH HDTs',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -177,19 +163,6 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
     }
     res.json({ success: true, item });
   } catch (error) {
-    if (
-      error instanceof PrismaClientKnownRequestError &&
-      error.code === 'P2002' &&
-      Array.isArray(error.meta?.target) &&
-      error.meta.target.includes('name')
-    ) {
-      return sendApiError(req, res, {
-        status: 409,
-        code: API_ERROR_CODES.project.nameConflict,
-        error: 'A project with this name already exists. Choose a different project name before importing from ECHOES.',
-      });
-    }
-
     sendEchoesError(
       req,
       res,

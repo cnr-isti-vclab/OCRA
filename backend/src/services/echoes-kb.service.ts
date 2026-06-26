@@ -266,13 +266,13 @@ async function fetchEchoesJson<T>(sessionId: string, input: string, init: Reques
         payload.message ||
         payload.error ||
         details ||
-        `ECHOES KB request failed with status ${response.status}`;
+        `ECCCH repository request failed with status ${response.status}`;
       return Promise.reject(new Error(message));
     } catch {
       if (responseText) {
         throw new Error(responseText);
       }
-      throw new Error(`ECHOES KB request failed with status ${response.status}`);
+      throw new Error(`ECCCH repository request failed with status ${response.status}`);
     }
   }
 

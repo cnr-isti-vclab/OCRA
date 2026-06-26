@@ -21,9 +21,9 @@ router.use(requireAuth);
  * @openapi
  * /api/echoes/hdts:
  *   get:
- *     summary: List available ECHOES HDTs
+ *     summary: List available ECCCH HDTs
  *     description: |
- *       Returns a minimal list of ECHOES Heritage Digital Twins available in the KB.
+ *       Returns a minimal list of Heritage Digital Twins available in the ECCCH repository.
  *       Optionally filters the results by a free-text `search` string matched against label, title, or identifier.
  *     tags:
  *       - ECHOES
@@ -39,7 +39,7 @@ router.use(requireAuth);
  *         description: Case-insensitive text filter applied to label, title, and identifier.
  *     responses:
  *       200:
- *         description: Minimal ECHOES HDT list
+ *         description: Minimal ECCCH HDT list
  *         content:
  *           application/json:
  *             schema:
@@ -51,7 +51,7 @@ router.use(requireAuth);
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *       502:
- *         description: Upstream ECHOES KB query failed
+ *         description: Upstream ECCCH repository query failed
  *         content:
  *           application/json:
  *             schema:
@@ -63,9 +63,9 @@ router.get('/hdts', listEchoesHdtsHandler);
  * @openapi
  * /api/echoes/hdts/{hdtId}:
  *   get:
- *     summary: Get minimal details for one ECHOES HDT
+ *     summary: Get minimal details for one ECCCH HDT
  *     description: |
- *       Reads one ECHOES HDT from the KB, including HC1 metadata and linked HC8 assets.
+ *       Reads one HDT from the ECCCH repository, including HC1 metadata and linked HC8 assets.
  *       The `hdtId` path parameter must be the full HDT URI encoded with `encodeURIComponent(...)`.
  *     tags:
  *       - ECHOES
@@ -81,7 +81,7 @@ router.get('/hdts', listEchoesHdtsHandler);
  *         description: Encoded ECHOES HDT URI, for example `http%3A%2F%2Fechoes-eccch.eu%2FHDT%2FJGrV52jtL3z`.
  *     responses:
  *       200:
- *         description: ECHOES HDT detail
+ *         description: ECCCH HDT detail
  *         content:
  *           application/json:
  *             schema:
@@ -99,7 +99,7 @@ router.get('/hdts', listEchoesHdtsHandler);
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *       502:
- *         description: Upstream ECHOES KB query failed
+ *         description: Upstream ECCCH repository query failed
  *         content:
  *           application/json:
  *             schema:
@@ -113,7 +113,7 @@ router.get('/hdts/:hdtId', getEchoesHdtHandler);
  *   post:
  *     summary: Create an OCRA project from an ECHOES HDT
  *     description: |
- *       Creates a new OCRA project from a selected ECHOES HDT.
+ *       Creates a new OCRA project from a selected HDT in the ECCCH repository.
  *       The backend imports the minimal HC1 metadata and linked HC8 assets, then lets OCRA manage the default scene normally.
  *     tags:
  *       - ECHOES
@@ -128,7 +128,7 @@ router.get('/hdts/:hdtId', getEchoesHdtHandler);
  *             $ref: '#/components/schemas/EchoesCreateProjectRequest'
  *     responses:
  *       201:
- *         description: Project created from ECHOES HDT
+ *         description: Project created from ECCCH HDT
  *         content:
  *           application/json:
  *             schema:
@@ -146,7 +146,7 @@ router.get('/hdts/:hdtId', getEchoesHdtHandler);
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  *       502:
- *         description: Import from ECHOES KB failed
+ *         description: Import from ECCCH repository failed
  *         content:
  *           application/json:
  *             schema:
@@ -306,7 +306,7 @@ router.post('/projects/:projectId/duplicate-as-new-hdt', duplicateProjectHdtAsNe
  *     summary: Register a temporary ECHOES bearer for development
  *     description: |
  *       Development-only helper endpoint. Stores an override bearer token for the current authenticated OCRA session.
- *       This is a temporary bridge until the ECHOES KB bearer is obtained directly from the login flow.
+ *       This is a temporary bridge until the ECHOES bearer is obtained directly from the login flow.
  *       The request must declare a `scope` (`import`, `register`, `publish`) so the backend can enforce the matching role policy.
  *     tags:
  *       - ECHOES

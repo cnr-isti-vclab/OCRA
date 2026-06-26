@@ -1,6 +1,11 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
+import {
+  clearEchoesDevBearer,
+  registerEchoesDevBearer,
+  type EchoesBearerScope,
+} from '../services/EchoesApi';
 
 /**
  * PROFILE ROUTE COMPONENT (Updated for Backend API)
@@ -27,18 +32,13 @@ import { getCurrentUser } from '../backend';
  */
 
 export default function Profile() {
-  const [info, setInfo] = useState<{ 
-    name?: string; 
-    email?: string; 
-    sub?: string;
-    username?: string;
-    given_name?: string;
-    family_name?: string;
-    middle_name?: string;
-    sys_admin?: boolean;
-    sys_creator?: boolean;
-  } | null>(null);
+  type CurrentUserInfo = Awaited<ReturnType<typeof getCurrentUser>>;
+
+  const [info, setInfo] = useState<CurrentUserInfo>(null);
   const [error, setError] = useState<string | null>(null);
+  const [echoesBearer, setEchoesBearer] = useState('');
+  const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
+  const [echoesBearerMessage, setEchoesBearerMessage] = useState<string | null>(null);
 
   // useEffect runs after component mounts (when user navigates to /profile)
   // This is where we fetch user data from the database session
@@ -53,12 +53,61 @@ export default function Profile() {
           // This shouldn't happen due to RequireAuth guard, but handle gracefully
           setError('No user session found');
         }
-      } catch (e: any) {
-        console.error('Failed to get current user:', e);
-        setError(e?.message ?? String(e));
+      } catch (error: unknown) {
+        setError(error instanceof Error ? error.message : 'Failed to get current user.');
       }
     })();
   }, []); // Empty dependency array means this runs once on mount
+
+  async function saveEchoesBearerForAllScopes(): Promise<void> {
+    const trimmedBearer = echoesBearer.trim();
+    if (!trimmedBearer) {
+      setEchoesBearerMessage('Paste a bearer token before saving it.');
+      return;
+    }
+
+    const scopes: EchoesBearerScope[] = ['import', 'register', 'publish'];
+
+    try {
+      setEchoesBearerBusy(true);
+      setEchoesBearerMessage(null);
+      await Promise.all(
+        scopes.map((scope) =>
+          registerEchoesDevBearer({
+            bearer: trimmedBearer,
+            scope,
+          }),
+        ),
+      );
+      setEchoesBearerMessage('Temporary ECHOES bearer saved for this session.');
+    } catch (error: unknown) {
+      setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
+    } finally {
+      setEchoesBearerBusy(false);
+    }
+  }
+
+  async function clearEchoesBearerForAllScopes(): Promise<void> {
+    const scopes: EchoesBearerScope[] = ['import', 'register', 'publish'];
+
+    try {
+      setEchoesBearerBusy(true);
+      setEchoesBearerMessage(null);
+      await Promise.all(
+        scopes.map((scope) =>
+          clearEchoesDevBearer({
+            scope,
+          }),
+        ),
+      );
+      setEchoesBearer('');
+      setEchoesBearerMessage('Temporary ECHOES bearer removed from this session.');
+    } catch (error: unknown) {
+      setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to clear the bearer.');
+    } finally {
+      setEchoesBearerBusy(false);
+    }
+  }
 
   return (
     <div className="container py-5">
@@ -111,6 +160,59 @@ export default function Profile() {
       ) : (
         <div className="card p-4 text-center text-muted">Loading user information...</div>
       )}
+
+      <div className="card shadow-sm" style={{ maxWidth: 720 }}>
+        <div className="card-body">
+          <h2 className="h5 mb-3 text-secondary">Temporary ECHOES Debug Bearer</h2>
+          <p className="text-muted small mb-3">
+            Temporary development bridge. If OCRA already carries a valid ECHOES bearer from login, you can skip this step.
+          </p>
+          <label htmlFor="profile-echoes-bearer" className="form-label">
+            EGI / ECHOES Bearer
+          </label>
+          <textarea
+            id="profile-echoes-bearer"
+            className="form-control"
+            rows={5}
+            value={echoesBearer}
+            onChange={(event) => setEchoesBearer(event.target.value)}
+            disabled={echoesBearerBusy}
+            placeholder="Paste the bearer token used in Swagger"
+          />
+          <div className="small text-muted mt-2">
+            This override is saved for the current OCRA session and applies to import and HDT synchronization debug flows.
+          </div>
+          <div className="d-flex gap-2 mt-3">
+            <button
+              type="button"
+              className="btn btn-outline-primary"
+              onClick={() => void saveEchoesBearerForAllScopes()}
+              disabled={echoesBearerBusy}
+            >
+              {echoesBearerBusy ? 'Saving...' : 'Save Bearer'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => void clearEchoesBearerForAllScopes()}
+              disabled={echoesBearerBusy}
+            >
+              Clear
+            </button>
+          </div>
+          {echoesBearerMessage && (
+            <div
+              className={`alert mt-3 mb-0 ${
+                echoesBearerMessage.includes('Failed') || echoesBearerMessage.includes('Paste')
+                  ? 'alert-warning'
+                  : 'alert-success'
+              }`}
+            >
+              {echoesBearerMessage}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

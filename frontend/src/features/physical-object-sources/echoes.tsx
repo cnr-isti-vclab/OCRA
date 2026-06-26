@@ -1,42 +1,48 @@
+import EchoesHdtBrowser, {
+  type EchoesHdtBrowserSelection,
+} from '../../components/echoes/EchoesHdtBrowser';
 import type {
   PhysicalObjectSourceAdapter,
   PhysicalObjectSourceFormProps,
 } from './types';
 import { DefaultMetadataView, defaultMapToHdtOntology, getSourceRecordField } from './shared';
 
-const DEFAULT_ECHOES_ENDPOINT =
-  'https://demos.isl.ics.forth.gr/echoes-kb-manager-api/repository/query';
-
-const DEFAULT_TRIPLE_STORE_IDS = [
-  '69088495d17ed4f51ab8f6a8',
-  '69088509d17ed4f51ab8f6a9',
-  '690885c3d17ed4f51ab8f6aa',
-];
-
-const DEFAULT_EXECUTOR_TRIPLE_STORE_ID = '68fa3ad9f20fe43d497686b3';
-
-const DEFAULT_DATASET_URI = 'https://demo/HeritageDigitalTwin/CNR/OCRADEMO_12345';
+interface EchoesSelectedGraph {
+  digitalTwinUri: string;
+  namedGraphUri: string;
+  digitalTwinLabel: string | null;
+  heritageEntityUri: string | null;
+  graphDate: string | null;
+  dublinCore: {
+    title?: string;
+    creator?: string;
+    subject?: string;
+    description?: string;
+    date?: string;
+    type?: string;
+    identifier?: string;
+    source?: string;
+    language?: string;
+    coverage?: string;
+    rights?: string;
+  };
+}
 
 export interface EchoesFormState {
-  datasetUri: string;
+  selectedGraph: EchoesSelectedGraph | null;
 }
 
-function readDatasetUri(state: EchoesFormState | null | undefined): string {
-  return typeof state?.datasetUri === 'string' ? state.datasetUri : '';
-}
-
-function buildEchoesQuery(datasetUri: string): string {
-  return [
-    'PREFIX htdo: <http://heritage-digital-twin-ontology/>',
-    'PREFIX void: <http://rdfs.org/ns/void#>',
-    'SELECT DISTINCT ?s ?p ?o {',
-    '  GRAPH ?ng {',
-    `    VALUES ?dt {<${datasetUri}>}`,
-    '    ?dt a void:Dataset ; void:subset ?ng .',
-    '    ?s ?p ?o',
-    '  }',
-    '}'
-  ].join(' ');
+function buildSelectedGraph(selection: EchoesHdtBrowserSelection): EchoesSelectedGraph {
+  return {
+    digitalTwinUri: selection.detail.digitalTwinUri,
+    namedGraphUri: selection.detail.namedGraphUri,
+    digitalTwinLabel: selection.detail.digitalTwinLabel,
+    heritageEntityUri: selection.detail.heritageEntityUri,
+    graphDate: selection.item.graphDate,
+    dublinCore: {
+      ...selection.detail.physicalObjectMetadata.dublinCore,
+    },
+  };
 }
 
 function EchoesImportForm({
@@ -44,38 +50,98 @@ function EchoesImportForm({
   onChange,
   disabled,
 }: PhysicalObjectSourceFormProps<EchoesFormState>) {
-  const datasetUriValue = readDatasetUri(state);
+  const selectedGraph = state?.selectedGraph ?? null;
 
   return (
     <div className="border rounded p-3 bg-light">
-      <h6 className="mb-3">ECHOES Import Parameters</h6>
-      <div className="mb-3">
-        <label htmlFor="echoes-dataset-uri" className="form-label">
-          Dataset URI
-        </label>
-        <input
-          id="echoes-dataset-uri"
-          type="text"
-          className="form-control"
-          value={datasetUriValue}
-          onChange={(e) => onChange({ ...state, datasetUri: e.target.value })}
-          disabled={disabled}
-          placeholder={DEFAULT_DATASET_URI}
-        />
-        <small className="form-text text-muted">
-          URI of the ECHOES dataset to query.
-        </small>
-      </div>
-      <div className="mb-2">
-        <small className="text-muted d-block">Endpoint (fixed)</small>
-        <code>{DEFAULT_ECHOES_ENDPOINT}</code>
-      </div>
-      <div>
-        <small className="text-muted d-block">Query</small>
-        <small className="text-muted">
-          A fixed SPARQL query is used to extract HC1 metadata from the selected dataset.
-        </small>
-      </div>
+      <h6 className="mb-3">ECCCH Import Parameters</h6>
+      <p className="small text-muted">
+        Choose the ECCCH named graph to use as source. OCRA will import only the HC1 metadata from the selected graph.
+      </p>
+
+      <EchoesHdtBrowser
+        disabled={disabled}
+        searchPanelTitle="1. Search HDTs"
+        rightPanelTitle="2. Selected HC1 Source"
+        emptyStateText="Select an ECCCH named graph to import its HC1 metadata."
+        onSelectionChange={(selection) => {
+          onChange({
+            ...state,
+            selectedGraph: selection ? buildSelectedGraph(selection) : null,
+          });
+        }}
+        renderDetailPanel={({ selection, detailBusy, detailError }) => {
+          if (!selection && !detailBusy) {
+            return (
+              <div className="alert alert-light border mb-0">
+                Select an ECCCH named graph to import its HC1 metadata.
+              </div>
+            );
+          }
+
+          if (detailBusy) {
+            return <div className="alert alert-info mb-0">Loading ECCCH HC1 metadata...</div>;
+          }
+
+          if (detailError) {
+            return <div className="alert alert-danger mb-0">{detailError}</div>;
+          }
+
+          if (!selection) {
+            return null;
+          }
+
+          const currentGraph = buildSelectedGraph(selection);
+
+          return (
+            <>
+              <div className="border rounded-3 p-3 mb-3" style={{ backgroundColor: '#f7f7f2', borderColor: '#e8e2c8' }}>
+                <div className="fw-semibold fs-6">
+                  {currentGraph.dublinCore.title || currentGraph.digitalTwinLabel || currentGraph.digitalTwinUri}
+                </div>
+                <div className="small text-muted mt-2 text-break">Digital Twin URI: {currentGraph.digitalTwinUri}</div>
+                <div className="small text-muted text-break">Named Graph: {currentGraph.namedGraphUri}</div>
+                {currentGraph.heritageEntityUri && (
+                  <div className="small text-muted text-break">HC1 URI: {currentGraph.heritageEntityUri}</div>
+                )}
+                {currentGraph.graphDate && (
+                  <div className="small text-muted">Graph date: {currentGraph.graphDate}</div>
+                )}
+              </div>
+
+              <div className="border rounded-3 p-3">
+                <div className="fw-semibold mb-2">HC1 metadata that will be imported</div>
+                <dl className="row small mb-0">
+                  <dt className="col-sm-4">Title</dt>
+                  <dd className="col-sm-8 text-break">{currentGraph.dublinCore.title || '—'}</dd>
+                  <dt className="col-sm-4">Identifier</dt>
+                  <dd className="col-sm-8 text-break">{currentGraph.dublinCore.identifier || '—'}</dd>
+                  <dt className="col-sm-4">Creator</dt>
+                  <dd className="col-sm-8 text-break">{currentGraph.dublinCore.creator || '—'}</dd>
+                  <dt className="col-sm-4">Description</dt>
+                  <dd className="col-sm-8 text-break">{currentGraph.dublinCore.description || '—'}</dd>
+                  <dt className="col-sm-4">Coverage</dt>
+                  <dd className="col-sm-8 text-break">{currentGraph.dublinCore.coverage || '—'}</dd>
+                  <dt className="col-sm-4">Source</dt>
+                  <dd className="col-sm-8 text-break">{currentGraph.dublinCore.source || '—'}</dd>
+                </dl>
+              </div>
+
+              {selection.detail.assets.length > 0 && (
+                <div className="alert alert-secondary mt-3 mb-0 small">
+                  HC8 assets are intentionally ignored in this flow. Only HC1 metadata will be imported into the project settings.
+                </div>
+              )}
+            </>
+          );
+        }}
+      />
+
+      {!selectedGraph && (
+        <div className="alert alert-warning mt-3 mb-0 small">
+          Choose a named graph before importing from the ECCCH repository.
+        </div>
+      )}
     </div>
   );
 }
@@ -85,13 +151,17 @@ function EchoesMetadataView({ metadata }: { metadata: import('./types').Physical
     <DefaultMetadataView metadata={metadata}>
       <h6 className="mb-2">Import Record</h6>
       <ul className="list-group list-group-flush border rounded">
-        <li className="list-group-item d-flex justify-content-between">
-          <span>Endpoint</span>
-          <code className="text-break text-end">{getSourceRecordField(metadata, 'endpoint') || '-'}</code>
+        <li className="list-group-item d-flex justify-content-between gap-3">
+          <span>Digital Twin URI</span>
+          <code className="text-break text-end">{getSourceRecordField(metadata, 'digitalTwinUri') || '-'}</code>
+        </li>
+        <li className="list-group-item d-flex justify-content-between gap-3">
+          <span>Named Graph URI</span>
+          <code className="text-break text-end">{getSourceRecordField(metadata, 'namedGraphUri') || '-'}</code>
         </li>
         <li className="list-group-item d-flex justify-content-between">
-          <span>Triple Count</span>
-          <span>{getSourceRecordField(metadata, 'tripleCount') || '-'}</span>
+          <span>Graph Date</span>
+          <span>{getSourceRecordField(metadata, 'graphDate') || '-'}</span>
         </li>
         <li className="list-group-item d-flex justify-content-between">
           <span>Imported At</span>
@@ -104,28 +174,34 @@ function EchoesMetadataView({ metadata }: { metadata: import('./types').Physical
 
 export const echoesSourceAdapter: PhysicalObjectSourceAdapter<EchoesFormState> = {
   sourceType: 'echoes',
-  label: 'ECHOES KB',
-  description: 'Import HC1 metadata from ECHOES KB using a fixed SPARQL query.',
+  label: 'ECCCH Repository',
+  description: 'Import HC1 metadata from a selected named graph in the ECCCH repository.',
   status: 'available',
   createInitialState: () => ({
-    datasetUri: DEFAULT_DATASET_URI,
+    selectedGraph: null,
   }),
   ImportForm: EchoesImportForm,
   buildImportRequest: (_projectId: string, state: EchoesFormState) => {
-    const sourceUri = readDatasetUri(state).trim() || DEFAULT_DATASET_URI;
+    const selectedGraph = state?.selectedGraph ?? null;
+    if (!selectedGraph) {
+      throw new Error('Choose an ECCCH named graph before importing HC1 metadata.');
+    }
+
     return {
       sourceType: 'echoes',
-      sourceUri,
+      sourceUri: selectedGraph.heritageEntityUri || selectedGraph.digitalTwinUri,
       payload: {
-        endpoint: DEFAULT_ECHOES_ENDPOINT,
-        queryPayload: {
-          query: buildEchoesQuery(sourceUri),
-          tripleStoreIds: DEFAULT_TRIPLE_STORE_IDS,
-          executorTripleStoreId: DEFAULT_EXECUTOR_TRIPLE_STORE_ID,
-        },
+        digitalTwinUri: selectedGraph.digitalTwinUri,
+        namedGraphUri: selectedGraph.namedGraphUri,
+        digitalTwinLabel: selectedGraph.digitalTwinLabel,
+        heritageEntityUri: selectedGraph.heritageEntityUri,
+        graphDate: selectedGraph.graphDate,
+        dublinCore: selectedGraph.dublinCore,
       },
     };
   },
   MetadataView: EchoesMetadataView,
-  mapToHdtOntology: (m) => defaultMapToHdtOntology(m, 'echoes', ['Mapping is generated from cached Dublin Core fields extracted from ECHOES SPARQL results.']),
+  mapToHdtOntology: (metadata) => defaultMapToHdtOntology(metadata, 'echoes', [
+    'Mapping is generated from HC1 Dublin Core fields selected from an ECCCH named graph.',
+  ]),
 };

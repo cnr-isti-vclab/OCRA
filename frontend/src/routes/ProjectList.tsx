@@ -313,7 +313,7 @@ export default function Projects() {
           )}
           {(user?.sys_creator || user?.sys_admin) && (
             <button className="btn btn-outline-primary btn-sm" onClick={() => setShowEchoesImportModal(true)}>
-              Import from ECHOES
+              Import from ECCCH
             </button>
           )}
         </div>
@@ -536,7 +536,7 @@ export default function Projects() {
                     className="form-control"
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
-                    placeholder="Enter a unique project name"
+                    placeholder="Enter a project name"
                     disabled={creatingProject}
                   />
                 </div>

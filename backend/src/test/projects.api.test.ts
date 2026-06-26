@@ -150,7 +150,7 @@ describe('Projects API Integration Tests', () => {
         .expect(400);
     });
 
-    it('should reject duplicate project names', async () => {
+    it('should allow duplicate project names', async () => {
       const projectData = {
         name: 'Duplicate Project',
         description: 'First',
@@ -172,9 +172,11 @@ describe('Projects API Integration Tests', () => {
         .post('/api/projects')
         .set(authHeader(testUser))
         .send(secondProject)
-        .expect(409);
+        .expect(201);
 
-      expect(response.body).toHaveProperty('code', 'project.name_conflict');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('project.name', 'Duplicate Project');
+      expect(response.body).toHaveProperty('project.description', 'Second');
     });
   });
 

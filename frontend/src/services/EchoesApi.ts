@@ -131,7 +131,7 @@ export async function fetchEchoesHdts(search: string): Promise<EchoesHdtListItem
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to list ECHOES HDTs: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to list ECCCH HDTs: ${await readErrorMessage(response)}`);
   }
 
   const payload = (await response.json()) as EchoesHdtListResponse;
@@ -150,7 +150,7 @@ export async function fetchEchoesHdtDetail(digitalTwinUri: string, namedGraphUri
     });
 
   if (!response.ok) {
-    throw new Error(`Failed to load ECHOES HDT details: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to load ECCCH HDT details: ${await readErrorMessage(response)}`);
   }
 
   const payload = (await response.json()) as EchoesHdtDetailResponse;
@@ -172,7 +172,7 @@ export async function createProjectFromEchoesHdt(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to import project from ECHOES: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to import project from the ECCCH repository: ${await readErrorMessage(response)}`);
   }
 
   return (await response.json()) as EchoesCreateProjectResponse;

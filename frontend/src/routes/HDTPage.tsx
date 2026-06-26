@@ -11,11 +11,9 @@ import {
   MessageModalDescriptor,
 } from '../shared/ui/AppMessageModalModel';
 import {
-  clearEchoesDevBearer,
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
   fetchEchoesProjectStatus,
-  registerEchoesDevBearer,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
 } from '../services/EchoesApi';
@@ -157,12 +155,9 @@ export default function HDTPage() {
   const [activeTab, setActiveTab] = useState<'dublin-core' | 'assets' | 'scenes'>('dublin-core');
   const [echoesStatus, setEchoesStatus] = useState<EchoesProjectStatus | null>(null);
   const [echoesBusy, setEchoesBusy] = useState(false);
-  const [echoesBearer, setEchoesBearer] = useState('');
-  const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
   const [echoesMessage, setEchoesMessage] = useState<string | null>(null);
   const [isSystemAdministrator, setIsSystemAdministrator] = useState(false);
   const [isProjectManager, setIsProjectManager] = useState(false);
-  const [showEchoesBearerOverride, setShowEchoesBearerOverride] = useState(false);
   const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
   const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
@@ -237,8 +232,6 @@ export default function HDTPage() {
   const canRegisterProjectInEchoes = isSystemAdministrator || isProjectManager;
   const canPublishProjectInEchoes = isSystemAdministrator || isProjectManager;
   const canDuplicateProjectInEchoes = isSystemAdministrator;
-  const canUseEchoesBearer = canRegisterProjectInEchoes || canPublishProjectInEchoes;
-  const echoesBearerScope = canPublishProjectInEchoes ? 'publish' : 'register';
   const hasEchoesRegistration = Boolean(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri);
   const echoesReadiness = echoesStatus?.readiness ?? null;
   const echoesRequiredIssues = echoesReadiness?.requiredIssues ?? [];
@@ -637,46 +630,6 @@ export default function HDTPage() {
       setEchoesStatus(null);
     }
   }, [projectId]);
-
-  const handleSaveEchoesBearer = async () => {
-    const trimmedBearer = echoesBearer.trim();
-    if (!trimmedBearer) {
-      setEchoesMessage('Paste a bearer token before saving it.');
-      return;
-    }
-
-    try {
-      setEchoesBearerBusy(true);
-      setEchoesMessage(null);
-      await registerEchoesDevBearer({
-        bearer: trimmedBearer,
-        scope: echoesBearerScope,
-        projectId,
-      });
-      setEchoesMessage('Temporary ECHOES bearer saved for this session.');
-    } catch (error) {
-      setEchoesMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
-    } finally {
-      setEchoesBearerBusy(false);
-    }
-  };
-
-  const handleClearEchoesBearer = async () => {
-    try {
-      setEchoesBearerBusy(true);
-      setEchoesMessage(null);
-      await clearEchoesDevBearer({
-        scope: echoesBearerScope,
-        projectId,
-      });
-      setEchoesBearer('');
-      setEchoesMessage('Temporary ECHOES bearer removed from this session.');
-    } catch (error) {
-      setEchoesMessage(error instanceof Error ? error.message : 'Failed to clear the bearer.');
-    } finally {
-      setEchoesBearerBusy(false);
-    }
-  };
 
   const prepareEchoesAction = (action: EchoesAction): EchoesPreparationState | null => {
     const title = dcTitle.trim() || normalizeOptionalText(metadata?.physicalObjectMetadata?.dublinCore?.title);
@@ -1478,44 +1431,6 @@ export default function HDTPage() {
             </div>
 
             <div style={{ minWidth: '320px', maxWidth: '420px' }}>
-              {canUseEchoesBearer && (
-                <>
-                  <div className="small text-muted mb-2">
-                    By default, ECHOES requests use the bearer from the current login session.
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm mb-3"
-                    disabled={echoesBearerBusy || echoesBusy}
-                    onClick={() => setShowEchoesBearerOverride((current) => !current)}
-                  >
-                    {showEchoesBearerOverride ? 'Hide Debug Bearer Override' : 'Show Debug Bearer Override'}
-                  </button>
-                  {showEchoesBearerOverride && (
-                    <>
-                      <label htmlFor="echoes-hdt-bearer" className="form-label fw-semibold">Temporary Debug Bearer Override</label>
-                      <textarea
-                        id="echoes-hdt-bearer"
-                        className="form-control form-control-sm"
-                        rows={4}
-                        value={echoesBearer}
-                        onChange={(event) => setEchoesBearer(event.target.value)}
-                        disabled={echoesBearerBusy || echoesBusy}
-                        placeholder="Temporarily override the login bearer for debugging"
-                      />
-                      <div className="d-flex gap-2 mt-2 mb-3">
-                        <button type="button" className="btn btn-outline-primary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleSaveEchoesBearer()}>
-                          {echoesBearerBusy ? 'Saving...' : 'Save Override'}
-                        </button>
-                        <button type="button" className="btn btn-outline-secondary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleClearEchoesBearer()}>
-                          Clear Override
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-
               <div className="d-grid gap-2">
                 {canRegisterProjectInEchoes && (
                   <button

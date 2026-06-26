@@ -1022,11 +1022,6 @@ export async function createProject(req: Request, res: Response): Promise<void> 
     }
 
     const trimmedName = name.trim();
-    const existingProject = await db.project.findFirst({ where: { name: trimmedName } });
-    if (existingProject) {
-      sendProjectError(req, res, 409, 'nameConflict', 'A project with this name already exists');
-      return;
-    }
 
     // IMPORTANT: description must be a string if Prisma schema is String (non-nullable)
     const safeDescription = typeof description === 'string' ? description.trim() : '';
@@ -1172,19 +1167,6 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
     if (auditPatch.name !== undefined) {
       if (typeof auditPatch.name !== 'string' || auditPatch.name.trim().length === 0) {
         sendProjectError(req, res, 400, 'invalidName', 'If provided, name must be a non-empty string');
-        return;
-      }
-
-      // Optional uniqueness check
-      const conflict = await db.project.findFirst({
-        where: {
-          name: auditPatch.name.trim(),
-          NOT: { id: projectId },
-        },
-      });
-
-      if (conflict) {
-        sendProjectError(req, res, 409, 'nameConflict', 'A project with this name already exists');
         return;
       }
 
