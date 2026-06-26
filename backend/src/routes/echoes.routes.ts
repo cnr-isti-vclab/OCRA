@@ -307,6 +307,7 @@ router.post('/projects/:projectId/duplicate-as-new-hdt', duplicateProjectHdtAsNe
  *     description: |
  *       Development-only helper endpoint. Stores an override bearer token for the current authenticated OCRA session.
  *       This is a temporary bridge until the ECHOES KB bearer is obtained directly from the login flow.
+ *       The request must declare a `scope` (`import`, `register`, `publish`) so the backend can enforce the matching role policy.
  *     tags:
  *       - ECHOES
  *     security:
@@ -341,7 +342,13 @@ router.post('/dev/bearer', registerEchoesDevBearerHandler);
  * /api/echoes/dev/bearer:
  *   delete:
  *     summary: Clear the temporary ECHOES bearer for development
- *     description: Removes the current session's development-only bearer override.
+ *     description: Removes the current session's development-only bearer override for the requested scope authorization context.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EchoesDevBearerRequest'
  *     tags:
  *       - ECHOES
  *     security:

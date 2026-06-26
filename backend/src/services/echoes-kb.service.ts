@@ -85,6 +85,7 @@ export interface EchoesHdtListItem {
   title: string | null;
   identifier: string | null;
   heritageEntityUri: string | null;
+  graphDate: string | null;
 }
 
 export interface EchoesHdtAsset {
@@ -95,6 +96,8 @@ export interface EchoesHdtAsset {
   source: string | null;
   format: string | null;
   linkedHeritageEntityUri: string | null;
+  importable: boolean;
+  importIssue: string | null;
 }
 
 export interface EchoesHdtDetail {
@@ -108,6 +111,7 @@ export interface EchoesHdtDetail {
 
 export interface CreateProjectFromEchoesHdtInput {
   digitalTwinUri: string;
+  namedGraphUri?: string;
   name?: string;
   description?: string;
   public?: boolean;
@@ -139,6 +143,27 @@ export interface EchoesProjectStatus {
   assetCount: number;
   lastRegisteredAt: string | null;
   lastSyncedAt: string | null;
+  readiness: EchoesProjectReadiness;
+}
+
+export interface EchoesReadinessIssue {
+  code:
+    | 'missing_identifier'
+    | 'missing_title'
+    | 'missing_heritage_entity_uri'
+    | 'missing_asset_source_url';
+  severity: 'required' | 'recommended';
+  message: string;
+  field: string;
+  assetId?: string;
+  assetLabel?: string;
+}
+
+export interface EchoesProjectReadiness {
+  canRegister: boolean;
+  canPublish: boolean;
+  requiredIssues: EchoesReadinessIssue[];
+  recommendedIssues: EchoesReadinessIssue[];
 }
 
 export interface EchoesRegisterProjectResult {
@@ -167,6 +192,28 @@ function getBindingValue(
   key: string
 ): string | null {
   return binding[key]?.value ?? null;
+}
+
+function extractGraphDateFromNamedGraphUri(namedGraphUri: string): string | null {
+  const trimmed = namedGraphUri.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  // Try timestamp_ms/YYYY-MM-DD pattern (13-digit ms epoch embedded in URI)
+  const tsMatch = trimmed.match(/\/(\d{10,13})\/(\d{4}-\d{2}-\d{2})$/);
+  if (tsMatch) {
+    const raw = tsMatch[1];
+    const ms = raw.length >= 13 ? parseInt(raw, 10) : parseInt(raw, 10) * 1000;
+    const date = new Date(ms);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+    return tsMatch[2];
+  }
+
+  const match = trimmed.match(/\/(\d{4}-\d{2}-\d{2})$/);
+  return match ? match[1] : null;
 }
 
 async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
@@ -289,7 +336,7 @@ WHERE {
   FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
   FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))${searchFilter}
 }
-ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt)))`;
+ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
 
   const bindings = await runSingleTripleStoreQuery(sessionId, query);
   return bindings.map((binding) => ({
@@ -299,14 +346,19 @@ ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt)))`
     title: getBindingValue(binding, 'title'),
     identifier: getBindingValue(binding, 'identifier'),
     heritageEntityUri: getBindingValue(binding, 'hc1'),
+    graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
   })).filter((item) => item.namedGraphUri && item.digitalTwinUri);
 }
 
 export async function getEchoesHdtDetail(
   sessionId: string,
-  digitalTwinUri: string
+  digitalTwinUri: string,
+  namedGraphUri?: string
 ): Promise<EchoesHdtDetail | null> {
   const escapedDtUri = escapeSparqlLiteral(digitalTwinUri);
+  const namedGraphFilter = namedGraphUri
+    ? `\n  FILTER(?ng = <${escapeSparqlLiteral(namedGraphUri)}>)`
+    : '';
   const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -343,7 +395,7 @@ WHERE {
       OPTIONAL { ?asset hdt:HP21 ?assetHc1 }
     }
   }
-  FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+  FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))${namedGraphFilter}
 }`;
 
   const bindings = await runSingleTripleStoreQuery(sessionId, query);
@@ -362,6 +414,7 @@ WHERE {
       sourceUri: hc1Uri || digitalTwinUri,
       sourceType: 'echoes',
       sourceSelectionLocked: true,
+      label: getBindingValue(first, 'hc1Label') ?? getBindingValue(first, 'hdtLabel') ?? undefined,
       dublinCore: {
         title: getBindingValue(first, 'hc1Title') ?? undefined,
         creator: getBindingValue(first, 'hc1Creator') ?? undefined,
@@ -393,19 +446,36 @@ WHERE {
       continue;
     }
     if (!assetMap.has(assetUri)) {
+      const source = getBindingValue(binding, 'assetSource');
+      const format = getBindingValue(binding, 'assetFormat');
+      const importability = getEchoesAssetImportability({ source, format });
       assetMap.set(assetUri, {
         assetUri,
         label: getBindingValue(binding, 'assetLabel'),
         title: getBindingValue(binding, 'assetTitle'),
         description: getBindingValue(binding, 'assetDescription'),
-        source: getBindingValue(binding, 'assetSource'),
-        format: getBindingValue(binding, 'assetFormat'),
+        source,
+        format,
         linkedHeritageEntityUri: getBindingValue(binding, 'assetHc1'),
+        importable: importability.importable,
+        importIssue: importability.importIssue,
       });
     }
   }
   detail.assets = Array.from(assetMap.values());
   return detail;
+}
+
+const KNOWN_3D_EXTENSIONS = new Set(['.glb', '.gltf', '.ply', '.obj', '.fbx', '.stl', '.dae', '.3ds']);
+
+function guessTypeFrom3dUrl(source: string): boolean {
+  try {
+    const pathname = new URL(source).pathname.toLowerCase();
+    const dot = pathname.lastIndexOf('.');
+    return dot !== -1 && KNOWN_3D_EXTENSIONS.has(pathname.slice(dot));
+  } catch {
+    return false;
+  }
 }
 
 function mapEchoesFormatToOcrAssetType(format: string | null): DigitalAssetCreateRequest['type'] {
@@ -429,12 +499,48 @@ function mapEchoesFormatToOcrAssetType(format: string | null): DigitalAssetCreat
   return 'other';
 }
 
+function mapEchoesAssetToOcrType(format: string | null, source: string | null): DigitalAssetCreateRequest['type'] {
+  const typeFromFormat = mapEchoesFormatToOcrAssetType(format);
+  if (typeFromFormat !== 'other') {
+    return typeFromFormat;
+  }
+  if (source && guessTypeFrom3dUrl(source)) {
+    return '3d-model';
+  }
+  return 'other';
+}
+
+function getEchoesAssetImportability(asset: Pick<EchoesHdtAsset, 'source' | 'format'>): {
+  importable: boolean;
+  importIssue: string | null;
+} {
+  if (!asset.source || asset.source.trim().length === 0) {
+    return {
+      importable: false,
+      importIssue: 'Missing source URL',
+    };
+  }
+
+  const mappedType = mapEchoesAssetToOcrType(asset.format, asset.source);
+  if (mappedType !== '3d-model' && mappedType !== 'rti') {
+    return {
+      importable: false,
+      importIssue: asset.format ? `Unsupported format: ${asset.format}` : 'Unsupported or missing format',
+    };
+  }
+
+  return {
+    importable: true,
+    importIssue: null,
+  };
+}
+
 export async function createProjectFromEchoesHdt(
   sessionId: string,
   user: User,
   input: CreateProjectFromEchoesHdtInput
 ): Promise<CreateProjectFromEchoesHdtResult> {
-  const detail = await getEchoesHdtDetail(sessionId, input.digitalTwinUri);
+  const detail = await getEchoesHdtDetail(sessionId, input.digitalTwinUri, input.namedGraphUri);
   if (!detail) {
     throw new Error('ECHOES HDT not found');
   }
@@ -473,21 +579,22 @@ export async function createProjectFromEchoesHdt(
 
   let importedAssetCount = 0;
   for (const asset of detail.assets) {
-    if (!asset.source) {
+    if (!asset.importable || !asset.source) {
       continue;
     }
 
     const normalizedAsset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'> = {
       projectId: project.id,
-      type: mapEchoesFormatToOcrAssetType(asset.format),
+      type: mapEchoesAssetToOcrType(asset.format, asset.source),
       label: asset.label || asset.title || asset.assetUri,
       title: asset.title || undefined,
       description: asset.description || undefined,
       entryPointUrl: asset.source,
       mimeType: asset.format || undefined,
       metadata: {
+        sourceUrl: asset.source || undefined,
         sourceAssetUri: asset.assetUri,
-        linkedHeritageEntityUri: asset.linkedHeritageEntityUri,
+        linkedHeritageEntityUri: asset.linkedHeritageEntityUri || undefined,
         format: asset.format || undefined,
       },
     };
@@ -574,6 +681,7 @@ function toProjectStatus(hdtDocument: HDTDocument): EchoesProjectStatus {
     ...hdtDocument,
     echoesContext: context,
   });
+  const readiness = buildEchoesProjectReadiness(hdtDocument.projectId, hdtDocument);
 
   return {
     projectId: hdtDocument.projectId,
@@ -587,6 +695,69 @@ function toProjectStatus(hdtDocument: HDTDocument): EchoesProjectStatus {
     assetCount: Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets.length : 0,
     lastRegisteredAt: toIsoStringOrNull(context.lastRegisteredAt),
     lastSyncedAt: toIsoStringOrNull(context.lastSyncedAt),
+    readiness,
+  };
+}
+
+function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument): EchoesProjectReadiness {
+  const context = deriveEchoesContext(projectId, hdtDocument);
+  const issues: EchoesReadinessIssue[] = [];
+  const dublinCore = hdtDocument.physicalObjectMetadata.dublinCore ?? {};
+  const digitalAssets = Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets : [];
+
+  if (!normalizeEchoesQueryParam(dublinCore.identifier)) {
+    issues.push({
+      code: 'missing_identifier',
+      severity: 'required',
+      field: 'physicalObjectMetadata.dublinCore.identifier',
+      message: 'Current Identifier is missing. ECHOES publication should use a stable identifier for the HC1 record.',
+    });
+  }
+
+  if (!normalizeEchoesQueryParam(dublinCore.title)) {
+    issues.push({
+      code: 'missing_title',
+      severity: 'recommended',
+      field: 'physicalObjectMetadata.dublinCore.title',
+      message: 'Current Title is missing. ECHOES records are clearer when the HC1 and Digital Twin have a human-readable title.',
+    });
+  }
+
+  if (!sanitizeOptionalString(context.heritageEntityUri) && !sanitizeOptionalString(hdtDocument.physicalObjectMetadata.sourceUri)) {
+    issues.push({
+      code: 'missing_heritage_entity_uri',
+      severity: 'recommended',
+      field: 'physicalObjectMetadata.sourceUri',
+      message: 'HC1 URI is missing. OCRA can generate one, but an explicit URI is recommended for stable ECHOES references.',
+    });
+  }
+
+  for (const asset of digitalAssets) {
+    const sourceUrl =
+      typeof asset.metadata?.sourceUrl === 'string'
+        ? sanitizeOptionalString(asset.metadata.sourceUrl)
+        : undefined;
+
+    if (!sourceUrl) {
+      issues.push({
+        code: 'missing_asset_source_url',
+        severity: 'required',
+        field: `digitalAssets.${asset.id}.metadata.sourceUrl`,
+        assetId: asset.id,
+        assetLabel: asset.label || asset.title || asset.id,
+        message: `Digital asset "${asset.label || asset.title || asset.id}" is missing its public ECHOES source URL. ECHOES HC8 records should expose a resolvable URL that another OCRA instance can download.`,
+      });
+    }
+  }
+
+  const requiredIssues = issues.filter((issue) => issue.severity === 'required');
+  const recommendedIssues = issues.filter((issue) => issue.severity === 'recommended');
+
+  return {
+    canRegister: true,
+    canPublish: requiredIssues.length === 0,
+    requiredIssues,
+    recommendedIssues,
   };
 }
 
@@ -840,7 +1011,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
     throw new Error(enrichPayload.message || 'ECHOES enrich failed for duplicated HDT');
   }
 
-  const status: EchoesProjectStatus = {
+  const statusBase: Omit<EchoesProjectStatus, 'readiness'> = {
     projectId,
     projectUri: currentContext.projectUri,
     origin: 'local',
@@ -852,6 +1023,10 @@ export async function duplicateProjectHdtAsNewInEchoes(
     assetCount: Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets.length : 0,
     lastRegisteredAt: new Date().toISOString(),
     lastSyncedAt: new Date().toISOString(),
+  };
+  const status: EchoesProjectStatus = {
+    ...statusBase,
+    readiness: buildEchoesProjectReadiness(projectId, duplicateDocument),
   };
 
   return {

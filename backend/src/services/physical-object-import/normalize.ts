@@ -131,6 +131,10 @@ export function toPhysicalObjectMetadataPatch(
     patch.sourceType = normalizePhysicalObjectSourceType(input.sourceType);
   }
 
+  if (typeof input.label === 'string') {
+    patch.label = input.label.trim() || undefined;
+  }
+
   if (isRecord(input.dublinCore)) {
     patch.dublinCore = input.dublinCore as Partial<DublinCoreMetadata>;
   }

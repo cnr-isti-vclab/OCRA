@@ -515,6 +515,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               nullable: true,
               example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina',
             },
+            graphDate: {
+              type: 'string',
+              nullable: true,
+              example: '2026-06-26',
+            },
           },
         },
         EchoesHdtAsset: {
@@ -553,6 +558,15 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               type: 'string',
               nullable: true,
               example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina',
+            },
+            importable: {
+              type: 'boolean',
+              example: true,
+            },
+            importIssue: {
+              type: 'string',
+              nullable: true,
+              example: 'Missing source URL',
             },
           },
         },
@@ -684,6 +698,35 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             assetCount: { type: 'integer', minimum: 0, example: 1 },
             lastRegisteredAt: { type: 'string', format: 'date-time', nullable: true },
             lastSyncedAt: { type: 'string', format: 'date-time', nullable: true },
+            readiness: { $ref: '#/components/schemas/EchoesProjectReadiness' },
+          },
+        },
+        EchoesReadinessIssue: {
+          type: 'object',
+          required: ['code', 'severity', 'message', 'field'],
+          properties: {
+            code: { type: 'string', example: 'missing_asset_source_url' },
+            severity: { type: 'string', enum: ['required', 'recommended'], example: 'required' },
+            message: { type: 'string', example: 'Digital asset "Model A" is missing its public ECHOES source URL.' },
+            field: { type: 'string', example: 'digitalAssets.asset_123.metadata.sourceUrl' },
+            assetId: { type: 'string', nullable: true, example: 'asset_123' },
+            assetLabel: { type: 'string', nullable: true, example: 'Model A' },
+          },
+        },
+        EchoesProjectReadiness: {
+          type: 'object',
+          required: ['canRegister', 'canPublish', 'requiredIssues', 'recommendedIssues'],
+          properties: {
+            canRegister: { type: 'boolean', example: true },
+            canPublish: { type: 'boolean', example: false },
+            requiredIssues: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/EchoesReadinessIssue' },
+            },
+            recommendedIssues: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/EchoesReadinessIssue' },
+            },
           },
         },
         EchoesProjectStatusResponse: {
@@ -742,11 +785,20 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         },
         EchoesDevBearerRequest: {
           type: 'object',
-          required: ['bearer'],
+          required: ['bearer', 'scope'],
           properties: {
             bearer: {
               type: 'string',
               example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+            },
+            scope: {
+              type: 'string',
+              enum: ['import', 'register', 'publish'],
+              example: 'register',
+            },
+            projectId: {
+              type: 'string',
+              example: 'cmqtnczp7001y8fjq2wpv76ix',
             },
           },
         },

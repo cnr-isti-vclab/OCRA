@@ -1205,7 +1205,26 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 
     const transitionedToPrivate = existingProject.public && data.public === false;
 
-    // Apply update and immediately evict stale public-access leases when the project becomes private.
+    if (auditPatch.managerId !== undefined) {
+      if (auditPatch.managerId !== null && typeof auditPatch.managerId !== 'string') {
+        sendProjectError(req, res, 400, 'invalidManagerId', 'If provided, managerId must be a string or null');
+        return;
+      }
+
+      if (typeof auditPatch.managerId === 'string' && auditPatch.managerId.trim().length > 0) {
+        const managerUser = await db.user.findUnique({
+          where: { id: auditPatch.managerId.trim() },
+          select: { id: true },
+        });
+
+        if (!managerUser) {
+          sendProjectError(req, res, 400, 'selectedManagerNotFound', 'Selected manager user not found');
+          return;
+        }
+      }
+    }
+
+    // Apply update and manager reassignment atomically, then evict stale public-access leases when needed.
     const updatedProject = await db.$transaction(async (tx) => {
       const project = await tx.project.update({
         where: { id: projectId },
@@ -1219,6 +1238,61 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
           updatedAt: true,
         },
       });
+
+      if (!transitionedToPrivate) {
+        if (auditPatch.managerId === undefined) {
+          return project;
+        }
+      }
+
+      if (auditPatch.managerId !== undefined) {
+        const nextManagerId =
+          typeof auditPatch.managerId === 'string' && auditPatch.managerId.trim().length > 0
+            ? auditPatch.managerId.trim()
+            : null;
+
+        if (nextManagerId === null) {
+          await tx.projectRole.deleteMany({
+            where: { projectId, role: RoleEnum.manager },
+          });
+        } else {
+          await tx.projectRole.deleteMany({
+            where: {
+              projectId,
+              role: RoleEnum.manager,
+              userId: { not: nextManagerId },
+            },
+          });
+
+          const existingAssignment = await tx.projectRole.findUnique({
+            where: {
+              userId_projectId: {
+                userId: nextManagerId,
+                projectId,
+              },
+            },
+            select: {
+              id: true,
+              role: true,
+            },
+          });
+
+          if (!existingAssignment) {
+            await tx.projectRole.create({
+              data: {
+                userId: nextManagerId,
+                projectId,
+                role: RoleEnum.manager,
+              },
+            });
+          } else if (existingAssignment.role !== RoleEnum.manager) {
+            await tx.projectRole.update({
+              where: { id: existingAssignment.id },
+              data: { role: RoleEnum.manager },
+            });
+          }
+        }
+      }
 
       if (!transitionedToPrivate) {
         return project;
@@ -1266,37 +1340,6 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
 
       return project;
     });
-
-    // Optional manager reassignment
-    if (auditPatch.managerId !== undefined) {
-      if (auditPatch.managerId !== null && typeof auditPatch.managerId !== 'string') {
-        sendProjectError(req, res, 400, 'invalidManagerId', 'If provided, managerId must be a string or null');
-        return;
-      }
-
-      await db.projectRole.deleteMany({
-        where: { projectId, role: RoleEnum.manager },
-      });
-
-      if (typeof auditPatch.managerId === 'string' && auditPatch.managerId.trim().length > 0) {
-        const managerUser = await db.user.findUnique({
-          where: { id: auditPatch.managerId },
-        });
-
-        if (!managerUser) {
-          sendProjectError(req, res, 400, 'selectedManagerNotFound', 'Selected manager user not found');
-          return;
-        }
-
-        await db.projectRole.create({
-          data: {
-            userId: auditPatch.managerId,
-            projectId,
-            role: RoleEnum.manager,
-          },
-        });
-      }
-    }
 
     // Success audit (patch only)
     await auditBestEffort({

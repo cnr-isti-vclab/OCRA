@@ -70,6 +70,7 @@ export interface EchoesHdtListItem {
   title: string | null;
   identifier: string | null;
   heritageEntityUri: string | null;
+  graphDate: string | null;
 }
 
 export interface EchoesHdtAsset {
@@ -80,6 +81,8 @@ export interface EchoesHdtAsset {
   source: string | null;
   format: string | null;
   linkedHeritageEntityUri: string | null;
+  importable: boolean;
+  importIssue: string | null;
 }
 
 export interface EchoesPhysicalObjectMetadata {
@@ -122,6 +125,26 @@ export interface EchoesImportedProjectSummary {
 
 export type EchoesSyncStatus = 'local' | 'registered' | 'synced' | 'dirty';
 
+export interface EchoesReadinessIssue {
+  code:
+    | 'missing_identifier'
+    | 'missing_title'
+    | 'missing_heritage_entity_uri'
+    | 'missing_asset_source_url';
+  severity: 'required' | 'recommended';
+  message: string;
+  field: string;
+  assetId?: string;
+  assetLabel?: string;
+}
+
+export interface EchoesProjectReadiness {
+  canRegister: boolean;
+  canPublish: boolean;
+  requiredIssues: EchoesReadinessIssue[];
+  recommendedIssues: EchoesReadinessIssue[];
+}
+
 export interface EchoesProjectStatus {
   projectId: string;
   projectUri: string;
@@ -134,4 +157,5 @@ export interface EchoesProjectStatus {
   assetCount: number;
   lastRegisteredAt: string | null;
   lastSyncedAt: string | null;
+  readiness: EchoesProjectReadiness;
 }

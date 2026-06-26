@@ -122,7 +122,7 @@ export function serializeHdtDocumentAsEchoesRdf(projectId: string, hdtDocument: 
     '    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>',
   ];
 
-  appendLiteralElements(hc1Lines, 'rdfs:label', dublinCore.title);
+  appendLiteralElements(hc1Lines, 'rdfs:label', physicalObject.label || dublinCore.title);
   appendLiteralElements(hc1Lines, 'dc:title', dublinCore.title);
   appendLiteralElements(hc1Lines, 'dc:description', dublinCore.description);
   appendLiteralElements(hc1Lines, 'dc:creator', dublinCore.creator);
@@ -160,7 +160,7 @@ export function serializeHdtDocumentAsEchoesRdf(projectId: string, hdtDocument: 
     appendLiteralElements(
       assetLines,
       'dc:source',
-      typeof asset.metadata?.sourceUrl === 'string' ? asset.metadata.sourceUrl : asset.entryPointUrl,
+      typeof asset.metadata?.sourceUrl === 'string' ? asset.metadata.sourceUrl : undefined,
     );
     appendLiteralElements(assetLines, 'dc:format', typeof asset.metadata?.format === 'string' ? asset.metadata.format : inferAssetMimeType(asset));
     assetLines.push(`    <hdt:HP21 rdf:resource="${escapeXml(heritageEntityUri)}"/>`);

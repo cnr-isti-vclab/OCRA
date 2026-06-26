@@ -50,6 +50,8 @@ interface EchoesDuplicateProjectRequest {
   heritageEntityUri?: string;
 }
 
+export type EchoesBearerScope = 'import' | 'register' | 'publish';
+
 function getStoredSessionId(): string | null {
   return typeof window !== 'undefined' ? window.localStorage.getItem('oauth_session_id') : null;
 }
@@ -84,12 +86,16 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
-export async function registerEchoesDevBearer(bearer: string): Promise<void> {
+export async function registerEchoesDevBearer(input: {
+  bearer: string;
+  scope: EchoesBearerScope;
+  projectId?: string;
+}): Promise<void> {
   const response = await fetch(`${getApiBase()}/api/echoes/dev/bearer`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(true),
-    body: JSON.stringify({ bearer }),
+    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
@@ -97,11 +103,15 @@ export async function registerEchoesDevBearer(bearer: string): Promise<void> {
   }
 }
 
-export async function clearEchoesDevBearer(): Promise<void> {
+export async function clearEchoesDevBearer(input: {
+  scope: EchoesBearerScope;
+  projectId?: string;
+}): Promise<void> {
   const response = await fetch(`${getApiBase()}/api/echoes/dev/bearer`, {
     method: 'DELETE',
     credentials: 'include',
-    headers: buildSessionHeaders(false),
+    headers: buildSessionHeaders(true),
+    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
@@ -128,14 +138,16 @@ export async function fetchEchoesHdts(search: string): Promise<EchoesHdtListItem
   return Array.isArray(payload.items) ? payload.items : [];
 }
 
-export async function fetchEchoesHdtDetail(digitalTwinUri: string): Promise<EchoesHdtDetail> {
-  const response = await fetch(
-    `${getApiBase()}/api/echoes/hdts/${encodeURIComponent(digitalTwinUri)}`,
-    {
+export async function fetchEchoesHdtDetail(digitalTwinUri: string, namedGraphUri?: string): Promise<EchoesHdtDetail> {
+  const url = new URL(`${getApiBase()}/api/echoes/hdts/${encodeURIComponent(digitalTwinUri)}`);
+  if (namedGraphUri) {
+    url.searchParams.set('namedGraph', namedGraphUri);
+  }
+
+  const response = await fetch(url.toString(), {
       credentials: 'include',
       headers: buildSessionHeaders(false),
-    }
-  );
+    });
 
   if (!response.ok) {
     throw new Error(`Failed to load ECHOES HDT details: ${await readErrorMessage(response)}`);
@@ -147,6 +159,7 @@ export async function fetchEchoesHdtDetail(digitalTwinUri: string): Promise<Echo
 
 export async function createProjectFromEchoesHdt(input: {
   digitalTwinUri: string;
+  namedGraphUri?: string;
   name?: string;
   description?: string;
   public?: boolean;

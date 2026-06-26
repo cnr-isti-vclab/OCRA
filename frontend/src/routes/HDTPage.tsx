@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
+import { getCurrentUser } from '../services/auth/session';
 import AppMessageModal from '../shared/ui/AppMessageModal';
 import {
   AppMessageModalCatalog,
@@ -52,15 +53,22 @@ interface DublinCoreMetadata {
   date?: string;
   type?: string[];
   format?: string[];
-  identifier?: string[];
   source?: string;
   language?: string[];
   relation?: string[];
   coverage?: string;
   rights?: string;
+  identifier?: string;
 }
 
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
+
+interface DigitalAssetMetadata {
+  sourceUrl?: string;
+  sourceAssetUri?: string;
+  linkedHeritageEntityUri?: string;
+  [key: string]: unknown;
+}
 
 export interface DigitalAsset {
   id: string;
@@ -77,7 +85,18 @@ export interface DigitalAsset {
   mimeType?: string;
   uploadedAt?: string;
 
-  metadata?: any;
+  metadata?: DigitalAssetMetadata;
+}
+
+type EchoesAction = 'register' | 'enrich' | 'replace';
+
+interface EchoesPreparationState {
+  action: EchoesAction;
+  title: string;
+  identifier: string;
+  heritageEntityUri: string;
+  assetSourceUrls: Record<string, string>;
+  missingFieldLabels: string[];
 }
 
 interface SceneConfig {
@@ -97,6 +116,7 @@ interface HDTMetadata {
   physicalObjectMetadata: {
     sourceUri?: string;
     sourceType?: 'echoes' | 'wikidata' | 'arco' | 'other';
+    label?: string;
     dublinCore: DublinCoreMetadata;
     cidocCrm?: Record<string, unknown>;
   };
@@ -141,13 +161,16 @@ export default function HDTPage() {
   const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
   const [echoesMessage, setEchoesMessage] = useState<string | null>(null);
   const [isSystemAdministrator, setIsSystemAdministrator] = useState(false);
+  const [isProjectManager, setIsProjectManager] = useState(false);
+  const [showEchoesBearerOverride, setShowEchoesBearerOverride] = useState(false);
   const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
+  const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
   const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
   const [duplicateEchoesIdentifier, setDuplicateEchoesIdentifier] = useState('');
   const [duplicateEchoesHeritageEntityUri, setDuplicateEchoesHeritageEntityUri] = useState('');
 
-  const getEchoesSyncStatusLabel = (status: EchoesProjectStatus['syncStatus'] | HDTMetadata['echoesContext']['syncStatus'] | undefined): string => {
+  const getEchoesSyncStatusLabel = (status: EchoesProjectStatus['syncStatus'] | NonNullable<HDTMetadata['echoesContext']>['syncStatus'] | undefined): string => {
     switch (status) {
       case 'dirty':
         return 'Pending Sync';
@@ -193,6 +216,8 @@ export default function HDTPage() {
   const { getProjectLockState } = useProjectStructuringLock();
   const projectLockState = getProjectLockState(projectId);
 
+  const [hc1Label, setHc1Label] = useState('');
+
   // Form state for Dublin Core
   const [dcTitle, setDcTitle] = useState('');
   const [dcDescription, setDcDescription] = useState('');
@@ -209,6 +234,16 @@ export default function HDTPage() {
   const ingestingAsset = uploading || importingFromUrl;
   const assetUploadDisabled = !canManageAssets || ingestingAsset || (structuringInProgress && !projectLockState.hasExclusiveLock);
   const assetMutationDisabled = !canManageAssets || hdtReadOnlyWithoutProjectLock;
+  const canRegisterProjectInEchoes = isSystemAdministrator || isProjectManager;
+  const canPublishProjectInEchoes = isSystemAdministrator || isProjectManager;
+  const canDuplicateProjectInEchoes = isSystemAdministrator;
+  const canUseEchoesBearer = canRegisterProjectInEchoes || canPublishProjectInEchoes;
+  const echoesBearerScope = canPublishProjectInEchoes ? 'publish' : 'register';
+  const hasEchoesRegistration = Boolean(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri);
+  const echoesReadiness = echoesStatus?.readiness ?? null;
+  const echoesRequiredIssues = echoesReadiness?.requiredIssues ?? [];
+  const echoesRecommendedIssues = echoesReadiness?.recommendedIssues ?? [];
+  const canPublishEchoesContent = canPublishProjectInEchoes && (echoesReadiness?.canPublish ?? true);
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -238,6 +273,42 @@ export default function HDTPage() {
       return asset.entryPointUrl;
     }
     return null;
+  };
+
+  const normalizeOptionalText = (value: string | string[] | undefined | null): string => {
+    if (Array.isArray(value)) {
+      return value.map((entry) => entry.trim()).filter(Boolean).join(', ');
+    }
+    return typeof value === 'string' ? value.trim() : '';
+  };
+
+  const getAssetEchoesSourceUrl = (asset: DigitalAsset): string => {
+    return typeof asset.metadata?.sourceUrl === 'string' ? asset.metadata.sourceUrl.trim() : '';
+  };
+
+  const resolveCurrentIdentifier = (): string => {
+    return normalizeOptionalText(metadata?.physicalObjectMetadata?.dublinCore?.identifier);
+  };
+
+  const resolveCurrentHeritageEntityUri = (): string => {
+    return normalizeOptionalText(
+      metadata?.physicalObjectMetadata?.sourceUri || metadata?.echoesContext?.heritageEntityUri,
+    );
+  };
+
+  const buildAuthenticatedHeaders = (includeJsonContentType: boolean): HeadersInit => {
+    const sessionId = typeof window !== 'undefined' ? window.localStorage.getItem('oauth_session_id') : null;
+    const headers: Record<string, string> = {};
+
+    if (includeJsonContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    if (sessionId) {
+      headers.Authorization = `Bearer ${sessionId}`;
+    }
+
+    return headers;
   };
 
   /**
@@ -486,7 +557,7 @@ export default function HDTPage() {
       // Fetch project details
       const projectResponse = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthenticatedHeaders(true),
       });
 
       if (!projectResponse.ok) {
@@ -497,26 +568,24 @@ export default function HDTPage() {
       const proj: Project = (projectData?.project ?? projectData) as Project;
       setProject(proj);
 
-      const currentUserResponse = await fetch(`${getApiBase()}/api/sessions/current`, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (currentUserResponse.ok) {
-        const currentUserData = await currentUserResponse.json();
-        setIsSystemAdministrator(currentUserData?.user?.sys_admin === true);
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        setIsSystemAdministrator(currentUser.sys_admin === true);
       } else {
         setIsSystemAdministrator(false);
       }
 
       const managerResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/is-manager`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthenticatedHeaders(true),
       });
       if (managerResponse.ok) {
         const managerData = await managerResponse.json();
         setCanManageAssets(!!managerData?.isManager);
+        setIsProjectManager(!!managerData?.isManager);
       } else if (managerResponse.status === 401) {
         setCanManageAssets(false);
+        setIsProjectManager(false);
       } else {
         throw new Error(`Failed to fetch project permissions: ${managerResponse.status}`);
       }
@@ -524,7 +593,7 @@ export default function HDTPage() {
       // Fetch HDT metadata (might not exist yet)
       const metadataResponse = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthenticatedHeaders(true),
       });
 
       if (metadataResponse.ok) {
@@ -579,7 +648,11 @@ export default function HDTPage() {
     try {
       setEchoesBearerBusy(true);
       setEchoesMessage(null);
-      await registerEchoesDevBearer(trimmedBearer);
+      await registerEchoesDevBearer({
+        bearer: trimmedBearer,
+        scope: echoesBearerScope,
+        projectId,
+      });
       setEchoesMessage('Temporary ECHOES bearer saved for this session.');
     } catch (error) {
       setEchoesMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
@@ -592,7 +665,10 @@ export default function HDTPage() {
     try {
       setEchoesBearerBusy(true);
       setEchoesMessage(null);
-      await clearEchoesDevBearer();
+      await clearEchoesDevBearer({
+        scope: echoesBearerScope,
+        projectId,
+      });
       setEchoesBearer('');
       setEchoesMessage('Temporary ECHOES bearer removed from this session.');
     } catch (error) {
@@ -602,7 +678,48 @@ export default function HDTPage() {
     }
   };
 
-  const handleEchoesPublishAction = async (action: 'register' | 'enrich' | 'replace') => {
+  const prepareEchoesAction = (action: EchoesAction): EchoesPreparationState | null => {
+    const title = dcTitle.trim() || normalizeOptionalText(metadata?.physicalObjectMetadata?.dublinCore?.title);
+    const identifier = resolveCurrentIdentifier();
+    const heritageEntityUri = resolveCurrentHeritageEntityUri();
+    const missingFieldLabels: string[] = [];
+
+    if (!title) {
+      missingFieldLabels.push('Current Title');
+    }
+    if (!identifier) {
+      missingFieldLabels.push('Current Identifier');
+    }
+    if (!heritageEntityUri) {
+      missingFieldLabels.push('HC1 URI');
+    }
+
+    const assetSourceUrls: Record<string, string> = {};
+    if (action !== 'register') {
+      for (const asset of digitalAssets) {
+        const sourceUrl = getAssetEchoesSourceUrl(asset);
+        if (!sourceUrl) {
+          assetSourceUrls[asset.id] = '';
+          missingFieldLabels.push(`Public ECHOES URL for ${asset.label || asset.title || asset.id}`);
+        }
+      }
+    }
+
+    if (missingFieldLabels.length === 0) {
+      return null;
+    }
+
+    return {
+      action,
+      title,
+      identifier,
+      heritageEntityUri,
+      assetSourceUrls,
+      missingFieldLabels,
+    };
+  };
+
+  const executeEchoesAction = async (action: EchoesAction) => {
     if (!projectId) {
       return;
     }
@@ -631,6 +748,86 @@ export default function HDTPage() {
       setEchoesMessage(null);
       setError(error instanceof Error ? error.message : 'Failed to publish this project to ECHOES.');
     } finally {
+      setEchoesBusy(false);
+    }
+  };
+
+  const handleEchoesPublishAction = async (action: EchoesAction) => {
+    const preparation = prepareEchoesAction(action);
+    if (preparation) {
+      setEchoesPreparation(preparation);
+      return;
+    }
+
+    await executeEchoesAction(action);
+  };
+
+  const handleEchoesPreparationAssetUrlChange = (assetId: string, value: string) => {
+    setEchoesPreparation((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        assetSourceUrls: {
+          ...current.assetSourceUrls,
+          [assetId]: value,
+        },
+      };
+    });
+  };
+
+  const handleConfirmEchoesPreparation = async () => {
+    if (!echoesPreparation) {
+      return;
+    }
+
+    const updatedAssets = digitalAssets.map((asset) => {
+      const overriddenSourceUrl = echoesPreparation.assetSourceUrls[asset.id];
+      if (overriddenSourceUrl === undefined) {
+        return asset;
+      }
+
+      const trimmedSourceUrl = overriddenSourceUrl.trim();
+      return {
+        ...asset,
+        metadata: {
+          ...(asset.metadata ?? {}),
+          sourceUrl: trimmedSourceUrl || undefined,
+        },
+      };
+    });
+
+    try {
+      setEchoesBusy(true);
+      setError(null);
+      setEchoesMessage(null);
+
+      await persistMetadataPayload(buildMetadataPayload({
+        title: echoesPreparation.title,
+        identifier: echoesPreparation.identifier,
+        sourceUri: echoesPreparation.heritageEntityUri,
+      }));
+
+      const assetUpdates = updatedAssets
+        .filter((asset, index) => asset.metadata?.sourceUrl !== digitalAssets[index]?.metadata?.sourceUrl);
+
+      for (const asset of assetUpdates) {
+        await updateHdtAsset(asset.id, {
+          metadata: {
+            ...(asset.metadata ?? {}),
+          },
+        });
+      }
+
+      setDcTitle(echoesPreparation.title.trim());
+      setDigitalAssets(updatedAssets);
+      setEchoesPreparation(null);
+      await fetchProjectAndMetadata();
+      await executeEchoesAction(echoesPreparation.action);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to prepare this project for ECHOES.');
       setEchoesBusy(false);
     }
   };
@@ -670,6 +867,8 @@ export default function HDTPage() {
     const toCommaSeparated = (value: string | string[] | undefined) =>
       Array.isArray(value) ? value.join(', ') : (value || '');
 
+    setHc1Label(typeof meta.physicalObjectMetadata?.label === 'string' ? meta.physicalObjectMetadata.label : '');
+
     // Dublin Core
     if (dublinCore) {
       setDcTitle(dublinCore.title || '');
@@ -692,6 +891,85 @@ export default function HDTPage() {
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
+  const buildMetadataPayload = useCallback((overrides?: {
+    title?: string;
+    identifier?: string;
+    sourceUri?: string;
+    digitalAssets?: DigitalAsset[];
+  }): Partial<HDTMetadata> => {
+    const resolvedTitle = overrides?.title?.trim() || dcTitle.trim() || undefined;
+    const resolvedIdentifier = overrides?.identifier?.trim() || resolveCurrentIdentifier() || undefined;
+    const resolvedSourceUri =
+      overrides?.sourceUri?.trim() ||
+      resolveCurrentHeritageEntityUri() ||
+      `urn:ocra:project:${projectId}`;
+
+    return {
+      physicalObjectMetadata: {
+        sourceUri: resolvedSourceUri,
+        sourceType: metadata?.physicalObjectMetadata?.sourceType || 'other',
+        label: hc1Label.trim() || undefined,
+        dublinCore: {
+          title: resolvedTitle,
+          description: dcDescription || undefined,
+          creator: dcCreator ? dcCreator.split(',').map((entry) => entry.trim()).filter(Boolean) : undefined,
+          subject: dcSubject ? dcSubject.split(',').map((entry) => entry.trim()).filter(Boolean) : undefined,
+          date: dcDate || undefined,
+          type: dcType ? dcType.split(',').map((entry) => entry.trim()).filter(Boolean) : undefined,
+          language: dcLanguage ? dcLanguage.split(',').map((entry) => entry.trim()).filter(Boolean) : undefined,
+          coverage: dcCoverage || undefined,
+          rights: dcRights || undefined,
+          source: dcSource || undefined,
+          identifier: resolvedIdentifier,
+        },
+        cidocCrm: metadata?.physicalObjectMetadata?.cidocCrm,
+      },
+      gettyAAT: {},
+      digitalAssets: overrides?.digitalAssets || (digitalAssets.length > 0 ? digitalAssets : undefined),
+      scenes: scenes.length > 0 ? scenes : undefined,
+    };
+  }, [
+    hc1Label,
+    dcCoverage,
+    dcCreator,
+    dcDate,
+    dcDescription,
+    dcLanguage,
+    dcRights,
+    dcSource,
+    dcSubject,
+    dcTitle,
+    dcType,
+    digitalAssets,
+    metadata,
+    projectId,
+    scenes,
+  ]);
+
+  const persistMetadataPayload = useCallback(async (metadataPayload: Partial<HDTMetadata>): Promise<HDTMetadata> => {
+    if (!projectId) {
+      throw new Error('Missing projectId');
+    }
+
+    const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
+      method: metadata ? 'PUT' : 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(metadataPayload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to persist HDT metadata');
+    }
+
+    const persistedMetadata = (await response.json()) as HDTMetadata;
+    setMetadata(persistedMetadata);
+    setDigitalAssets(Array.isArray(persistedMetadata.digitalAssets) ? persistedMetadata.digitalAssets : []);
+    setScenes(Array.isArray(persistedMetadata.scenes) ? persistedMetadata.scenes : []);
+    return persistedMetadata;
+  }, [metadata, projectId]);
+
   // Auto-save metadata function
   const autoSaveMetadata = useCallback(async () => {
     if (!projectId) return;
@@ -700,74 +978,14 @@ export default function HDTPage() {
       setSaving(true);
       setError(null);
 
-      const metadataPayload: Partial<HDTMetadata> = {
-        physicalObjectMetadata: {
-          sourceUri:
-            metadata?.physicalObjectMetadata?.sourceUri || `urn:ocra:project:${projectId}`,
-          sourceType:
-            metadata?.physicalObjectMetadata?.sourceType || 'other',
-          dublinCore: {
-            title: dcTitle || undefined,
-            description: dcDescription || undefined,
-            creator: dcCreator ? dcCreator.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            subject: dcSubject ? dcSubject.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            date: dcDate || undefined,
-            type: dcType ? dcType.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            language: dcLanguage ? dcLanguage.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-            coverage: dcCoverage || undefined,
-            rights: dcRights || undefined,
-            source: dcSource || undefined,
-          },
-          cidocCrm: metadata?.physicalObjectMetadata?.cidocCrm,
-        },
-        gettyAAT: {},
-        digitalAssets: digitalAssets.length > 0 ? digitalAssets : undefined,
-        scenes: scenes.length > 0 ? scenes : undefined,
-      };
-
-      if (!metadata) {
-        const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(metadataPayload),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to create metadata');
-        }
-
-        const newMetadata = await response.json();
-        setMetadata(newMetadata);
-      } else {
-        const response = await fetch(`${getApiBase()}/api/projects/${projectId}/hdt`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(metadataPayload),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to update metadata');
-        }
-
-        const updatedMetadata = await response.json();
-        setMetadata(updatedMetadata);
-      }
-    } catch (e: any) {
-      console.error('Failed to save metadata:', e);
-      setError(e?.message ?? String(e));
+      await persistMetadataPayload(buildMetadataPayload());
+    } catch (error) {
+      console.error('Failed to save metadata:', error);
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
     }
-  }, [
-    projectId,
-    dcTitle, dcDescription, dcCreator, dcSubject, dcDate, dcType, dcLanguage, dcCoverage, dcRights, dcSource,
-    digitalAssets, scenes,
-    metadata,
-  ]);
+  }, [buildMetadataPayload, persistMetadataPayload, projectId]);
 
   if (loading) {
     return (
@@ -1221,10 +1439,36 @@ export default function HDTPage() {
                 <div className="col-md-6">
                   <div className="text-muted">Current Identifier</div>
                   <div className="text-break">
-                    {metadata?.physicalObjectMetadata?.dublinCore?.identifier || 'Not set'}
+                    {resolveCurrentIdentifier() || 'Not set'}
                   </div>
                 </div>
               </div>
+
+              {(echoesRequiredIssues.length > 0 || echoesRecommendedIssues.length > 0) && (
+                <div className={`alert mt-3 mb-0 ${echoesRequiredIssues.length > 0 ? 'alert-warning' : 'alert-info'}`}>
+                  <div className="fw-semibold mb-2">ECHOES Readiness</div>
+                  {echoesRequiredIssues.length > 0 && (
+                    <>
+                      <div className="small fw-semibold">Required before publish</div>
+                      <ul className="mb-2 mt-1">
+                        {echoesRequiredIssues.map((issue, index) => (
+                          <li key={`required-${issue.code}-${issue.assetId ?? issue.field}-${index}`}>{issue.message}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {echoesRecommendedIssues.length > 0 && (
+                    <>
+                      <div className="small fw-semibold">Recommended</div>
+                      <ul className="mb-0 mt-1">
+                        {echoesRecommendedIssues.map((issue, index) => (
+                          <li key={`recommended-${issue.code}-${issue.assetId ?? issue.field}-${index}`}>{issue.message}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
 
               {echoesMessage && (
                 <div className={`alert mt-3 mb-0 ${echoesMessage.includes('Failed') || echoesMessage.includes('Paste') ? 'alert-warning' : 'alert-success'}`}>
@@ -1234,56 +1478,85 @@ export default function HDTPage() {
             </div>
 
             <div style={{ minWidth: '320px', maxWidth: '420px' }}>
-              <label htmlFor="echoes-hdt-bearer" className="form-label fw-semibold">Temporary ECHOES Bearer</label>
-              <textarea
-                id="echoes-hdt-bearer"
-                className="form-control form-control-sm"
-                rows={4}
-                value={echoesBearer}
-                onChange={(event) => setEchoesBearer(event.target.value)}
-                disabled={echoesBearerBusy || echoesBusy}
-                placeholder="Development-only bridge until login provides the KB bearer automatically"
-              />
-              <div className="d-flex gap-2 mt-2 mb-3">
-                <button type="button" className="btn btn-outline-primary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleSaveEchoesBearer()}>
-                  {echoesBearerBusy ? 'Saving...' : 'Save Bearer'}
-                </button>
-                <button type="button" className="btn btn-outline-secondary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleClearEchoesBearer()}>
-                  Clear
-                </button>
-              </div>
+              {canUseEchoesBearer && (
+                <>
+                  <div className="small text-muted mb-2">
+                    By default, ECHOES requests use the bearer from the current login session.
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm mb-3"
+                    disabled={echoesBearerBusy || echoesBusy}
+                    onClick={() => setShowEchoesBearerOverride((current) => !current)}
+                  >
+                    {showEchoesBearerOverride ? 'Hide Debug Bearer Override' : 'Show Debug Bearer Override'}
+                  </button>
+                  {showEchoesBearerOverride && (
+                    <>
+                      <label htmlFor="echoes-hdt-bearer" className="form-label fw-semibold">Temporary Debug Bearer Override</label>
+                      <textarea
+                        id="echoes-hdt-bearer"
+                        className="form-control form-control-sm"
+                        rows={4}
+                        value={echoesBearer}
+                        onChange={(event) => setEchoesBearer(event.target.value)}
+                        disabled={echoesBearerBusy || echoesBusy}
+                        placeholder="Temporarily override the login bearer for debugging"
+                      />
+                      <div className="d-flex gap-2 mt-2 mb-3">
+                        <button type="button" className="btn btn-outline-primary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleSaveEchoesBearer()}>
+                          {echoesBearerBusy ? 'Saving...' : 'Save Override'}
+                        </button>
+                        <button type="button" className="btn btn-outline-secondary btn-sm" disabled={echoesBearerBusy || echoesBusy} onClick={() => void handleClearEchoesBearer()}>
+                          Clear Override
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
 
               <div className="d-grid gap-2">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={echoesBusy || hdtReadOnlyWithoutProjectLock}
-                  onClick={() => void handleEchoesPublishAction('register')}
-                >
-                  {echoesBusy ? 'Working...' : '1. Register in ECHOES'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  disabled={echoesBusy || hdtReadOnlyWithoutProjectLock || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
-                  onClick={() => void handleEchoesPublishAction('enrich')}
-                >
-                  Publish RDF to New Named Graph
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  disabled={echoesBusy || hdtReadOnlyWithoutProjectLock || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
-                  onClick={() => void handleEchoesPublishAction('replace')}
-                >
-                  Replace Published Named Graph
-                </button>
-                {isSystemAdministrator && (
+                {canRegisterProjectInEchoes && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={echoesBusy || hasEchoesRegistration}
+                    onClick={() => void handleEchoesPublishAction('register')}
+                  >
+                    {echoesBusy
+                      ? 'Working...'
+                      : hasEchoesRegistration
+                        ? 'Already Registered in ECHOES'
+                        : 'Register in ECHOES'}
+                  </button>
+                )}
+                {canPublishProjectInEchoes && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    disabled={echoesBusy || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
+                    onClick={() => void handleEchoesPublishAction('enrich')}
+                  >
+                    Publish RDF to New Named Graph
+                  </button>
+                )}
+                {canPublishProjectInEchoes && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark"
+                    disabled={echoesBusy || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
+                    onClick={() => void handleEchoesPublishAction('replace')}
+                  >
+                    Replace Published Named Graph
+                  </button>
+                )}
+                {canDuplicateProjectInEchoes && (
                   <>
                     <button
                       type="button"
                       className="btn btn-outline-success"
-                      disabled={echoesBusy || hdtReadOnlyWithoutProjectLock}
+                      disabled={echoesBusy}
                       onClick={() => {
                         setShowDuplicateEchoesForm((current) => !current);
                         if (!showDuplicateEchoesForm) {
@@ -1429,6 +1702,18 @@ export default function HDTPage() {
               </p>
 
               <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
+
+              <div className="mb-3">
+                <label htmlFor="hc1-label" className="form-label">Label <span className="text-muted fw-normal small">(rdfs:label)</span></label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="hc1-label"
+                  value={hc1Label}
+                  onChange={(e) => setHc1Label(e.target.value)}
+                  placeholder="Short human-readable name (defaults to dc:title if empty)"
+                />
+              </div>
 
               <div className="mb-3">
                 <label htmlFor="dc-title" className="form-label">Title <span className="text-muted fw-normal small">(dc:title)</span></label>
@@ -1616,6 +1901,7 @@ export default function HDTPage() {
                           <th>Type</th>
                           <th>Label</th>
                           <th>Filename</th>
+                          <th>ECHOES URL</th>
                           <th>Size</th>
                           <th>Added</th>
                           <th>Actions</th>
@@ -1636,6 +1922,13 @@ export default function HDTPage() {
                             </td>
                             <td className="text-muted small">
                               {asset.fileName || '-'}
+                            </td>
+                            <td className="text-muted small">
+                              {getAssetEchoesSourceUrl(asset) ? (
+                                <span className="text-success">Configured</span>
+                              ) : (
+                                <span className="text-warning">Missing</span>
+                              )}
                             </td>
                             <td className="text-muted small">
                               {asset.entrySize ? `${(asset.entrySize / (1024 * 1024)).toFixed(2)} MB` : '-'}
@@ -2312,6 +2605,140 @@ export default function HDTPage() {
         </div>
       </div>
     </div>
+    {echoesPreparation && (
+      <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal-dialog modal-lg modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Complete Missing ECHOES Data</h5>
+              <button
+                type="button"
+                className="btn-close"
+                disabled={echoesBusy}
+                onClick={() => setEchoesPreparation(null)}
+              ></button>
+            </div>
+            <div className="modal-body">
+              <p className="text-muted small mb-3">
+                Before sending this project to ECHOES, OCRA needs the missing metadata required to keep the HDT coherent and reimportable from another OCRA instance.
+              </p>
+
+              <div className="alert alert-info">
+                <div className="fw-semibold mb-2">Missing now</div>
+                <ul className="mb-0">
+                  {echoesPreparation.missingFieldLabels.map((label) => (
+                    <li key={label}>{label}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {!echoesPreparation.title.trim() && (
+                <div className="mb-3">
+                  <label htmlFor="echoes-prep-title" className="form-label">Current Title</label>
+                  <input
+                    id="echoes-prep-title"
+                    type="text"
+                    className="form-control"
+                    value={echoesPreparation.title}
+                    onChange={(event) => setEchoesPreparation((current) => current ? { ...current, title: event.target.value } : current)}
+                    disabled={echoesBusy}
+                  />
+                </div>
+              )}
+
+              {!echoesPreparation.identifier.trim() && (
+                <div className="mb-3">
+                  <label htmlFor="echoes-prep-identifier" className="form-label">Current Identifier</label>
+                  <input
+                    id="echoes-prep-identifier"
+                    type="text"
+                    className="form-control"
+                    value={echoesPreparation.identifier}
+                    onChange={(event) => setEchoesPreparation((current) => current ? { ...current, identifier: event.target.value } : current)}
+                    disabled={echoesBusy}
+                  />
+                </div>
+              )}
+
+              {!echoesPreparation.heritageEntityUri.trim() && (
+                <div className="mb-3">
+                  <label htmlFor="echoes-prep-hc1-uri" className="form-label">HC1 URI</label>
+                  <input
+                    id="echoes-prep-hc1-uri"
+                    type="url"
+                    className="form-control"
+                    value={echoesPreparation.heritageEntityUri}
+                    onChange={(event) => setEchoesPreparation((current) => current ? { ...current, heritageEntityUri: event.target.value } : current)}
+                    disabled={echoesBusy}
+                    placeholder="https://example.org/hc1/123"
+                  />
+                  <div className="form-text">
+                    This is the stable Heritage Entity URI that ECHOES will use for the HC1 record.
+                  </div>
+                </div>
+              )}
+
+              {Object.keys(echoesPreparation.assetSourceUrls).length > 0 && (
+                <div>
+                  <h6 className="mb-3">Public asset URLs for ECHOES</h6>
+                  <div className="small text-muted mb-3">
+                    These URLs are published in the HC8 records and must be downloadable by another OCRA instance.
+                  </div>
+                  <div className="d-flex flex-column gap-3">
+                    {digitalAssets
+                      .filter((asset) => Object.prototype.hasOwnProperty.call(echoesPreparation.assetSourceUrls, asset.id))
+                      .map((asset) => (
+                        <div key={asset.id} className="border rounded-3 p-3">
+                          <div className="fw-semibold">{asset.label || asset.title || asset.id}</div>
+                          <div className="small text-muted mb-2">
+                            Local entry point: {asset.entryPointUrl || 'Not available'}
+                          </div>
+                          <label htmlFor={`echoes-prep-asset-${asset.id}`} className="form-label">
+                            Public ECHOES URL
+                          </label>
+                          <input
+                            id={`echoes-prep-asset-${asset.id}`}
+                            type="url"
+                            className="form-control"
+                            value={echoesPreparation.assetSourceUrls[asset.id] ?? ''}
+                            onChange={(event) => handleEchoesPreparationAssetUrlChange(asset.id, event.target.value)}
+                            disabled={echoesBusy}
+                            placeholder="https://example.org/path/to/asset.zip"
+                          />
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setEchoesPreparation(null)}
+                disabled={echoesBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void handleConfirmEchoesPreparation()}
+                disabled={
+                  echoesBusy ||
+                  !echoesPreparation.title.trim() ||
+                  !echoesPreparation.identifier.trim() ||
+                  !echoesPreparation.heritageEntityUri.trim() ||
+                  Object.values(echoesPreparation.assetSourceUrls).some((value) => !value.trim())
+                }
+              >
+                {echoesBusy ? 'Saving...' : 'Save Missing Data and Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     <AppMessageModal
       descriptor={messageModal}
       onClose={() => setMessageModal(null)}

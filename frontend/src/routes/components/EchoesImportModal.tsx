@@ -14,8 +14,59 @@ interface EchoesImportModalProps {
   onImported: (projectId: string) => void;
 }
 
-function resolveDisplayTitle(item: EchoesHdtListItem): string {
-  return item.label || item.title || item.identifier || item.digitalTwinUri;
+
+function formatOptionalGraphDate(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const hasTime = value.includes('T');
+  const date = hasTime ? new Date(value) : new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'UTC',
+  };
+  if (hasTime) {
+    options.hour = '2-digit';
+    options.minute = '2-digit';
+    options.second = '2-digit';
+  }
+
+  return new Intl.DateTimeFormat('it-IT', options).format(date);
+}
+
+interface HdtTreeNode {
+  digitalTwinUri: string;
+  displayTitle: string;
+  identifier: string | null;
+  versions: EchoesHdtListItem[];
+}
+
+function buildHdtTree(items: EchoesHdtListItem[]): HdtTreeNode[] {
+  const map = new Map<string, HdtTreeNode>();
+  for (const item of items) {
+    if (!map.has(item.digitalTwinUri)) {
+      map.set(item.digitalTwinUri, {
+        digitalTwinUri: item.digitalTwinUri,
+        displayTitle: item.label || item.title || item.identifier || item.digitalTwinUri,
+        identifier: item.identifier,
+        versions: [],
+      });
+    }
+    map.get(item.digitalTwinUri)!.versions.push(item);
+  }
+  for (const node of map.values()) {
+    node.versions.sort((a, b) => (b.graphDate ?? '').localeCompare(a.graphDate ?? ''));
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.displayTitle.localeCompare(b.displayTitle),
+  );
 }
 
 function resolveDetailProjectName(detail: EchoesHdtDetail): string {
@@ -39,7 +90,7 @@ export default function EchoesImportModal({
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<EchoesHdtListItem[]>([]);
-  const [selectedHdtUri, setSelectedHdtUri] = useState<string | null>(null);
+  const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<EchoesHdtDetail | null>(null);
@@ -48,6 +99,7 @@ export default function EchoesImportModal({
   const [projectPublic, setProjectPublic] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [expandedRootKeys, setExpandedRootKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!show) {
@@ -70,7 +122,7 @@ export default function EchoesImportModal({
     try {
       setDevBearerBusy(true);
       setDevBearerMessage(null);
-      await registerEchoesDevBearer(trimmedBearer);
+      await registerEchoesDevBearer({ bearer: trimmedBearer, scope: 'import' });
       setDevBearerMessage('Temporary ECHOES bearer saved for this session.');
     } catch (error) {
       setDevBearerMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
@@ -83,7 +135,7 @@ export default function EchoesImportModal({
     try {
       setDevBearerBusy(true);
       setDevBearerMessage(null);
-      await clearEchoesDevBearer();
+      await clearEchoesDevBearer({ scope: 'import' });
       setBearer('');
       setDevBearerMessage('Temporary ECHOES bearer removed from this session.');
     } catch (error) {
@@ -97,8 +149,9 @@ export default function EchoesImportModal({
     try {
       setSearchBusy(true);
       setSearchError(null);
-      setSelectedHdtUri(null);
+      setSelectedItemKey(null);
       setSelectedDetail(null);
+      setExpandedRootKeys(new Set());
       const items = await fetchEchoesHdts(searchTerm);
       setSearchResults(items);
     } catch (error) {
@@ -111,12 +164,12 @@ export default function EchoesImportModal({
 
   async function handleSelectHdt(item: EchoesHdtListItem): Promise<void> {
     try {
-      setSelectedHdtUri(item.digitalTwinUri);
+      setSelectedItemKey(`${item.namedGraphUri}::${item.digitalTwinUri}`);
       setSelectedDetail(null);
       setDetailBusy(true);
       setDetailError(null);
       setImportError(null);
-      const detail = await fetchEchoesHdtDetail(item.digitalTwinUri);
+      const detail = await fetchEchoesHdtDetail(item.digitalTwinUri, item.namedGraphUri);
       setSelectedDetail(detail);
       setProjectName(resolveDetailProjectName(detail));
       setProjectDescription(detail.physicalObjectMetadata.dublinCore?.description || '');
@@ -139,6 +192,7 @@ export default function EchoesImportModal({
       setImportError(null);
       const response = await createProjectFromEchoesHdt({
         digitalTwinUri: selectedDetail.digitalTwinUri,
+        namedGraphUri: selectedDetail.namedGraphUri || undefined,
         name: projectName.trim() || undefined,
         description: projectDescription.trim() || undefined,
         public: projectPublic,
@@ -244,33 +298,90 @@ export default function EchoesImportModal({
 
                   {searchError && <div className="alert alert-danger">{searchError}</div>}
 
-                  <div className="small text-muted mb-2">
-                    {searchResults.length > 0
-                      ? `${searchResults.length} HDT result${searchResults.length === 1 ? '' : 's'}`
-                      : 'No results loaded yet.'}
-                  </div>
+                  {(() => {
+                    const treeNodes = buildHdtTree(searchResults);
+                    return (
+                      <div className="small text-muted mb-2">
+                        {treeNodes.length > 0
+                          ? `${treeNodes.length} HDT${treeNodes.length === 1 ? '' : 's'} (${searchResults.length} version${searchResults.length === 1 ? '' : 's'})`
+                          : 'No results loaded yet.'}
+                      </div>
+                    );
+                  })()}
 
-                  <div className="d-grid gap-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                    {searchResults.map((item) => {
-                      const isSelected = item.digitalTwinUri === selectedHdtUri;
+                  <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                    {buildHdtTree(searchResults).map((node) => {
+                      const isExpanded = expandedRootKeys.has(node.digitalTwinUri);
+                      const hasSelectedVersion = node.versions.some(
+                        (v) => `${v.namedGraphUri}::${v.digitalTwinUri}` === selectedItemKey,
+                      );
+
                       return (
-                        <button
-                          key={`${item.namedGraphUri}-${item.digitalTwinUri}`}
-                          type="button"
-                          className={`btn text-start border ${isSelected ? 'btn-primary' : 'btn-light'}`}
-                          onClick={() => void handleSelectHdt(item)}
-                          disabled={detailBusy || importBusy}
-                        >
-                          <div className="fw-semibold">{resolveDisplayTitle(item)}</div>
-                          {item.identifier && (
-                            <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'}`}>
-                              Identifier: {item.identifier}
+                        <div key={node.digitalTwinUri} className="mb-1">
+                          <button
+                            type="button"
+                            className={`btn text-start w-100 border ${hasSelectedVersion ? 'border-primary' : ''} btn-light`}
+                            onClick={() =>
+                              setExpandedRootKeys((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(node.digitalTwinUri)) {
+                                  next.delete(node.digitalTwinUri);
+                                } else {
+                                  next.add(node.digitalTwinUri);
+                                }
+                                return next;
+                              })
+                            }
+                            disabled={detailBusy || importBusy}
+                          >
+                            <div className="d-flex align-items-start gap-2">
+                              <span className="text-muted mt-1" style={{ fontSize: '0.65em', lineHeight: 1 }}>
+                                {isExpanded ? '▼' : '▶'}
+                              </span>
+                              <div style={{ minWidth: 0 }}>
+                                <div className="fw-semibold text-break">{node.displayTitle}</div>
+                                {node.identifier && (
+                                  <div className="small text-muted text-break">ID: {node.identifier}</div>
+                                )}
+                                <div className="small text-muted">
+                                  {node.versions.length} version{node.versions.length !== 1 ? 's' : ''}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="ms-3 mt-1 d-grid gap-1">
+                              {node.versions.map((version, idx) => {
+                                const versionKey = `${version.namedGraphUri}::${version.digitalTwinUri}`;
+                                const isSelected = versionKey === selectedItemKey;
+                                return (
+                                  <button
+                                    key={versionKey}
+                                    type="button"
+                                    className={`btn text-start border ${isSelected ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                    onClick={() => void handleSelectHdt(version)}
+                                    disabled={detailBusy || importBusy}
+                                  >
+                                    <div className="d-flex align-items-center gap-2">
+                                      {idx === 0 && (
+                                        <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-success'}`}>
+                                          latest
+                                        </span>
+                                      )}
+                                      <span className={`fw-semibold small ${isSelected ? '' : 'text-muted'}`}>
+                                        {formatOptionalGraphDate(version.graphDate) ?? version.namedGraphUri}
+                                      </span>
+                                    </div>
+                                    <div className={`small text-break mt-1 ${isSelected ? 'text-white-50' : 'text-muted'}`}>
+                                      {version.namedGraphUri}
+                                    </div>
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
-                          <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'}`}>
-                            Graph: {item.namedGraphUri}
-                          </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -281,7 +392,7 @@ export default function EchoesImportModal({
                 <div className="border rounded-3 p-3 h-100" style={{ background: 'linear-gradient(180deg, #fffef7 0%, #ffffff 100%)' }}>
                   <h6 className="fw-bold mb-3">3. Preview and Import</h6>
 
-                  {!selectedHdtUri && !detailBusy && (
+                  {!selectedItemKey && !detailBusy && (
                     <div className="alert alert-light border mb-0">
                       Select an HDT from the left column to preview its HC1 data and linked assets.
                     </div>
@@ -351,22 +462,22 @@ export default function EchoesImportModal({
 
                       <div className="row g-3">
                         <div className="col-12 col-xl-7">
-                          <div className="border rounded-3 p-3 h-100">
+                          <div className="border rounded-3 p-3 h-100 overflow-hidden">
                             <div className="fw-semibold mb-2">Imported HC1 metadata</div>
                             <dl className="row small mb-0">
                               <dt className="col-sm-4">Identifier</dt>
-                              <dd className="col-sm-8">{selectedDetail.physicalObjectMetadata.dublinCore?.identifier || '—'}</dd>
+                              <dd className="col-sm-8 text-break">{selectedDetail.physicalObjectMetadata.dublinCore?.identifier || '—'}</dd>
                               <dt className="col-sm-4">Creator</dt>
-                              <dd className="col-sm-8">{selectedDetail.physicalObjectMetadata.dublinCore?.creator || '—'}</dd>
+                              <dd className="col-sm-8 text-break">{selectedDetail.physicalObjectMetadata.dublinCore?.creator || '—'}</dd>
                               <dt className="col-sm-4">Coverage</dt>
-                              <dd className="col-sm-8">{selectedDetail.physicalObjectMetadata.dublinCore?.coverage || '—'}</dd>
+                              <dd className="col-sm-8 text-break">{selectedDetail.physicalObjectMetadata.dublinCore?.coverage || '—'}</dd>
                               <dt className="col-sm-4">Source</dt>
                               <dd className="col-sm-8 text-break">{selectedDetail.physicalObjectMetadata.dublinCore?.source || '—'}</dd>
                             </dl>
                           </div>
                         </div>
                         <div className="col-12 col-xl-5">
-                          <div className="border rounded-3 p-3 h-100">
+                          <div className="border rounded-3 p-3 h-100 overflow-hidden">
                             <div className="fw-semibold mb-2">Linked assets</div>
                             {selectedDetail.assets.length === 0 ? (
                               <div className="small text-muted">No HC8 assets linked to this HDT.</div>
@@ -374,9 +485,17 @@ export default function EchoesImportModal({
                               <div className="d-grid gap-2">
                                 {selectedDetail.assets.map((asset) => (
                                   <div key={asset.assetUri} className="rounded-3 p-2" style={{ backgroundColor: '#f8f9fa' }}>
-                                    <div className="fw-semibold small">{asset.label || asset.title || asset.assetUri}</div>
-                                    <div className="small text-muted">{asset.format || 'Unknown format'}</div>
+                                    <div className="d-flex justify-content-between align-items-start gap-2">
+                                      <div className="fw-semibold small text-break" style={{ minWidth: 0 }}>{asset.label || asset.title || asset.assetUri}</div>
+                                      <span className={`badge ${asset.importable ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'}`}>
+                                        {asset.importable ? 'Importable' : 'Not importable'}
+                                      </span>
+                                    </div>
+                                    <div className="small text-muted text-break">{asset.format || 'Unknown format'}</div>
                                     <div className="small text-muted text-break">{asset.source || 'No source URL'}</div>
+                                    {!asset.importable && (
+                                      <div className="small text-warning mt-1 text-break">{asset.importIssue || 'This asset cannot be imported into OCRA.'}</div>
+                                    )}
                                   </div>
                                 ))}
                               </div>

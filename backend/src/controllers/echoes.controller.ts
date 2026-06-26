@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { RoleEnum } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { sendApiError } from '../lib/api-error.js';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 import { auditBestEffort } from '../utils/audit.js';
@@ -20,6 +21,9 @@ import {
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 import { getPrismaClient } from '../../db.js';
 
+type EchoesBearerScope = 'import' | 'register' | 'publish';
+type EchoesProjectMutationAction = 'register' | 'enrich' | 'replace-content';
+
 function getAuthenticatedUser(req: Request) {
   return req.user ?? null;
 }
@@ -28,25 +32,65 @@ function getSessionId(req: Request): string | null {
   return req.sessionId ?? null;
 }
 
-async function canManageExistingProject(userSub: string, projectId: string): Promise<boolean> {
+async function isProjectManager(userId: string, projectId: string): Promise<boolean> {
   const prisma = getPrismaClient();
-  const user = await prisma.user.findUnique({ where: { sub: userSub } });
-  if (!user) {
-    return false;
-  }
-  if (user.sys_admin) {
-    return true;
-  }
-
   const managerRole = await prisma.projectRole.findFirst({
     where: {
       projectId,
-      userId: user.id,
+      userId,
       role: RoleEnum.manager,
     },
   });
 
   return Boolean(managerRole);
+}
+
+async function canUseEchoesBearerScope(
+  user: NonNullable<ReturnType<typeof getAuthenticatedUser>>,
+  scope: EchoesBearerScope,
+  projectId?: string,
+): Promise<boolean> {
+  if (user.sys_admin) {
+    return true;
+  }
+
+  if (scope === 'import') {
+    return user.sys_creator === true;
+  }
+
+  if (!projectId) {
+    return false;
+  }
+
+  if (scope === 'register' || scope === 'publish') {
+    return isProjectManager(user.id, projectId);
+  }
+
+  return false;
+}
+
+async function canPerformEchoesProjectAction(
+  user: NonNullable<ReturnType<typeof getAuthenticatedUser>>,
+  projectId: string,
+  action: EchoesProjectMutationAction,
+): Promise<boolean> {
+  if (user.sys_admin) {
+    return true;
+  }
+
+  if (action === 'register' || action === 'enrich' || action === 'replace-content') {
+    return isProjectManager(user.id, projectId);
+  }
+
+  return false;
+}
+
+function readEchoesBearerScope(rawScope: unknown): EchoesBearerScope | null {
+  if (rawScope === 'import' || rawScope === 'register' || rawScope === 'publish') {
+    return rawScope;
+  }
+
+  return null;
 }
 
 function sendEchoesError(req: Request, res: Response, status: number, code: keyof typeof API_ERROR_CODES.echoes, error: string, details?: unknown): void {
@@ -59,9 +103,14 @@ function sendEchoesError(req: Request, res: Response, status: number, code: keyo
 }
 
 export async function listEchoesHdtsHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
-  if (!sessionId) {
+  if (!user || !sessionId) {
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  if (!(await canUseEchoesBearerScope(user, 'import'))) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to list ECHOES HDTs');
   }
 
   try {
@@ -69,6 +118,19 @@ export async function listEchoesHdtsHandler(req: Request, res: Response): Promis
     const items = await listEchoesHdts(sessionId, search);
     res.json({ success: true, items });
   } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      Array.isArray(error.meta?.target) &&
+      error.meta.target.includes('name')
+    ) {
+      return sendApiError(req, res, {
+        status: 409,
+        code: API_ERROR_CODES.project.nameConflict,
+        error: 'A project with this name already exists. Choose a different name before importing from ECHOES.',
+      });
+    }
+
     sendEchoesError(
       req,
       res,
@@ -81,9 +143,14 @@ export async function listEchoesHdtsHandler(req: Request, res: Response): Promis
 }
 
 export async function getEchoesHdtHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
-  if (!sessionId) {
+  if (!user || !sessionId) {
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  if (!(await canUseEchoesBearerScope(user, 'import'))) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to read ECHOES HDT details');
   }
 
   const encodedHdtId = req.params.hdtId;
@@ -98,13 +165,31 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
     return sendEchoesError(req, res, 400, 'invalidHdtUri', 'The HDT URI is not a valid encoded value');
   }
 
+  const namedGraphUri =
+    typeof req.query.namedGraph === 'string' && req.query.namedGraph.trim()
+      ? req.query.namedGraph.trim()
+      : undefined;
+
   try {
-    const item = await getEchoesHdtDetail(sessionId, digitalTwinUri);
+    const item = await getEchoesHdtDetail(sessionId, digitalTwinUri, namedGraphUri);
     if (!item) {
       return sendEchoesError(req, res, 404, 'hdtNotFound', 'ECHOES HDT not found');
     }
     res.json({ success: true, item });
   } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      Array.isArray(error.meta?.target) &&
+      error.meta.target.includes('name')
+    ) {
+      return sendApiError(req, res, {
+        status: 409,
+        code: API_ERROR_CODES.project.nameConflict,
+        error: 'A project with this name already exists. Choose a different project name before importing from ECHOES.',
+      });
+    }
+
     sendEchoesError(
       req,
       res,
@@ -139,6 +224,9 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
   try {
     const result = await createProjectFromEchoesHdt(sessionId, user, {
       digitalTwinUri,
+      namedGraphUri: typeof req.body?.namedGraphUri === 'string' && req.body.namedGraphUri.trim()
+        ? req.body.namedGraphUri.trim()
+        : undefined,
       name: typeof req.body?.name === 'string' ? req.body.name : undefined,
       description: typeof req.body?.description === 'string' ? req.body.description : undefined,
       public: req.body?.public === true,
@@ -203,7 +291,7 @@ export async function getEchoesProjectStatusHandler(req: Request, res: Response)
 async function handleEchoesProjectMutation(
   req: Request,
   res: Response,
-  action: 'register' | 'enrich' | 'replace-content',
+  action: EchoesProjectMutationAction,
 ): Promise<void> {
   const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
@@ -216,8 +304,12 @@ async function handleEchoesProjectMutation(
     return sendEchoesError(req, res, 400, 'hdtUriRequired', 'projectId is required');
   }
 
-  if (!(await canManageExistingProject(user.sub, projectId))) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to publish project HDTs to ECHOES');
+  if (!(await canPerformEchoesProjectAction(user, projectId, action))) {
+    const message =
+      action === 'register'
+        ? 'Only project managers and system administrators can register project HDTs in ECHOES'
+        : 'Only project managers and system administrators can publish project HDTs to ECHOES';
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', message);
   }
 
   try {
@@ -317,9 +409,24 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
 }
 
 export async function registerEchoesDevBearerHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
-  if (!sessionId) {
+  if (!user || !sessionId) {
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  const scope = readEchoesBearerScope(req.body?.scope);
+  if (!scope) {
+    return sendEchoesError(req, res, 400, 'bearerRequired', 'scope is required and must be one of: import, register, publish');
+  }
+
+  const projectId =
+    typeof req.body?.projectId === 'string' && req.body.projectId.trim()
+      ? req.body.projectId.trim()
+      : undefined;
+
+  if (!(await canUseEchoesBearerScope(user, scope, projectId))) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to register an ECHOES bearer for this action');
   }
 
   const bearer =
@@ -336,9 +443,24 @@ export async function registerEchoesDevBearerHandler(req: Request, res: Response
 }
 
 export async function clearEchoesDevBearerHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
-  if (!sessionId) {
+  if (!user || !sessionId) {
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  const scope = readEchoesBearerScope(req.body?.scope);
+  if (!scope) {
+    return sendEchoesError(req, res, 400, 'bearerRequired', 'scope is required and must be one of: import, register, publish');
+  }
+
+  const projectId =
+    typeof req.body?.projectId === 'string' && req.body.projectId.trim()
+      ? req.body.projectId.trim()
+      : undefined;
+
+  if (!(await canUseEchoesBearerScope(user, scope, projectId))) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to clear an ECHOES bearer for this action');
   }
 
   clearEchoesDevBearerOverride(sessionId);

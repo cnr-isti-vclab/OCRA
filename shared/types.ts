@@ -188,6 +188,7 @@ export interface PhysicalObjectMetadata {
   sourceUri: string;
   sourceType: PhysicalObjectSourceType;
   sourceSelectionLocked?: boolean;
+  label?: string;
   dublinCore?: DublinCoreMetadata;
   cidocCrm?: CidocCrmMetadata;
   sourceRecord?: Record<string, any>;
@@ -261,6 +262,9 @@ export interface DigitalAsset {
   uploadedAt: Date | string;
   uploadedBy: string;
   metadata?: {
+    sourceUrl?: string;
+    sourceAssetUri?: string;
+    linkedHeritageEntityUri?: string;
     triangles?: number;
     vertices?: number;
     format?: string;
