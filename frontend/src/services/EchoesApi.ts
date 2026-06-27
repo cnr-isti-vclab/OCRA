@@ -266,24 +266,6 @@ export async function replaceProjectHdtContentInEchoes(projectId: string): Promi
   return (await postEchoesProjectAction(projectId, 'replace-content')) as EchoesPublishProjectResponse;
 }
 
-export async function forceLinkProjectToEchoesHdt(
-  projectId: string,
-  digitalTwinUri: string,
-): Promise<{ success: boolean; status: EchoesProjectStatus }> {
-  const response = await fetch(`${getApiBase()}/api/eccch/projects/${encodeURIComponent(projectId)}/force-link`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: buildSessionHeaders(true),
-    body: JSON.stringify({ digitalTwinUri }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to force-link project to ECCCH HDT: ${await readErrorMessage(response)}`);
-  }
-
-  return (await response.json()) as { success: boolean; status: EchoesProjectStatus };
-}
-
 export async function duplicateProjectHdtAsNewInEchoes(
   projectId: string,
   input: EchoesDuplicateProjectRequest,

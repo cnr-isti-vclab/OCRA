@@ -14,7 +14,6 @@ import {
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
   fetchEchoesProjectStatus,
-  forceLinkProjectToEchoesHdt,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
 } from '../services/EchoesApi';
@@ -161,8 +160,6 @@ export default function HDTPage() {
   const [isSystemAdministrator, setIsSystemAdministrator] = useState(false);
   const [isProjectManager, setIsProjectManager] = useState(false);
   const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
-  const [showForceLinkForm, setShowForceLinkForm] = useState(false);
-  const [forceLinkDtUri, setForceLinkDtUri] = useState('');
   const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
   const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
@@ -918,24 +915,6 @@ export default function HDTPage() {
     }
   };
 
-  const handleForceLinkToEchoesHdt = async (): Promise<void> => {
-    if (!projectId || !forceLinkDtUri.trim()) return;
-    try {
-      setEchoesBusy(true);
-      setEchoesMessage(null);
-      setError(null);
-      const result = await forceLinkProjectToEchoesHdt(projectId, forceLinkDtUri.trim());
-      setEchoesMessage(`Force-linked to ECCCH HDT: ${result.status.digitalTwinUri || forceLinkDtUri}`);
-      setShowForceLinkForm(false);
-      setForceLinkDtUri('');
-      await refreshEchoesStatus();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Force-link failed');
-    } finally {
-      setEchoesBusy(false);
-    }
-  };
-
   const populateFormFromMetadata = (meta: HDTMetadata) => {
     const dublinCore = meta.physicalObjectMetadata?.dublinCore;
     const toCommaSeparated = (value: string | string[] | undefined) =>
@@ -1566,53 +1545,6 @@ export default function HDTPage() {
                         ? 'Already Registered in ECCCH'
                         : 'REGISTER in ECCCH'}
                   </button>
-                )}
-                {isSystemAdministrator && !hasEchoesRegistration && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-outline-warning btn-sm"
-                      disabled={echoesBusy}
-                      onClick={() => setShowForceLinkForm((v) => !v)}
-                    >
-                      FORCE LINK to existing HDT URI
-                    </button>
-                    {showForceLinkForm && (
-                      <div className="border rounded-3 p-3 bg-white">
-                        <div className="small fw-semibold mb-1">Admin Only — Force Link</div>
-                        <div className="small text-muted mb-2">
-                          Use when ECCCH says "already registered" but SPARQL can't find the existing HDT.
-                          Paste the HDT URI provided by the ECCCH team.
-                        </div>
-                        <input
-                          type="text"
-                          className="form-control form-control-sm mb-2"
-                          placeholder="http://echoes-eccch.eu/HDT/..."
-                          value={forceLinkDtUri}
-                          onChange={(e) => setForceLinkDtUri(e.target.value)}
-                          disabled={echoesBusy}
-                        />
-                        <div className="d-flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-warning btn-sm"
-                            disabled={echoesBusy || !forceLinkDtUri.trim()}
-                            onClick={() => void handleForceLinkToEchoesHdt()}
-                          >
-                            {echoesBusy ? 'Linking...' : 'Link'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary btn-sm"
-                            disabled={echoesBusy}
-                            onClick={() => setShowForceLinkForm(false)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
                 )}
                 {canPublishProjectInEchoes && (
                   <button

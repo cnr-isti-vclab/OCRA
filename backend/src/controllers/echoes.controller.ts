@@ -13,7 +13,6 @@ import {
   createProjectFromEchoesRdf,
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
-  forceLinkProjectToEchoesHdt,
   getEchoesProjectStatus,
   getEchoesHdtDetail,
   listEchoesHdts,
@@ -446,44 +445,6 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
       502,
       'duplicateFailed',
       'Failed to duplicate this project as a new ECCCH HDT',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-  }
-}
-
-export async function forceLinkProjectToEchoesHdtHandler(req: Request, res: Response): Promise<void> {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
-  }
-  if (!user.sys_admin) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Only system administrators can force-link a project to an ECCCH HDT');
-  }
-
-  const projectId = typeof req.params.projectId === 'string' ? req.params.projectId.trim() : '';
-  if (!projectId) {
-    return sendEchoesError(req, res, 400, 'projectIdRequired', 'projectId is required');
-  }
-
-  const digitalTwinUri = typeof req.body?.digitalTwinUri === 'string' ? req.body.digitalTwinUri.trim() : '';
-  if (!digitalTwinUri) {
-    return sendEchoesError(req, res, 400, 'digitalTwinUriRequired', 'digitalTwinUri is required');
-  }
-
-  try {
-    const result = await forceLinkProjectToEchoesHdt(projectId, digitalTwinUri, user.sub);
-    await auditBestEffort({
-      req,
-      userSub: user.sub,
-      action: 'echoes.project.force-link',
-      success: true,
-      payload: { projectId, digitalTwinUri },
-    });
-    res.json({ success: true, ...result });
-  } catch (error) {
-    sendEchoesError(
-      req, res, 400, 'forceLinkFailed',
-      'Failed to force-link project to ECCCH HDT',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }

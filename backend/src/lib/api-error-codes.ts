@@ -134,9 +134,6 @@ export const API_ERROR_CODES = {
     enrichFailed: 'echoes.enrich_failed',
     replaceFailed: 'echoes.replace_failed',
     duplicateFailed: 'echoes.duplicate_failed',
-    forceLinkFailed: 'echoes.force_link_failed',
-    projectIdRequired: 'echoes.project_id_required',
-    digitalTwinUriRequired: 'echoes.digital_twin_uri_required',
   },
   annotation: {
     sceneInvalidInput: 'annotation.scene.invalid_input',

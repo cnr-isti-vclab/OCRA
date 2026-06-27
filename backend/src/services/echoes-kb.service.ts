@@ -1663,38 +1663,6 @@ export async function registerProjectHdtInEchoes(
   };
 }
 
-export async function forceLinkProjectToEchoesHdt(
-  projectId: string,
-  digitalTwinUri: string,
-  userId?: string,
-): Promise<EchoesRegisterProjectResult> {
-  const trimmedDtUri = sanitizeOptionalString(digitalTwinUri);
-  if (!trimmedDtUri || !trimmedDtUri.startsWith(getEchoesHdtUriPrefix())) {
-    throw new Error(
-      `Invalid HDT URI. Must start with "${getEchoesHdtUriPrefix()}". Provide the full URI as supplied by the ECCCH team.`,
-    );
-  }
-
-  const hdtDocument = await requireProjectHdtDocument(projectId);
-  const currentContext = deriveEchoesContext(projectId, hdtDocument);
-
-  const updated = await updateHdtEchoesContext(projectId, {
-    origin: currentContext.origin,
-    projectUri: currentContext.projectUri,
-    heritageEntityUri: currentContext.heritageEntityUri,
-    digitalTwinUri: trimmedDtUri,
-    digitalTwinLabel: currentContext.digitalTwinLabel,
-    syncStatus: 'registered',
-    lastRegisteredAt: new Date(),
-  }, userId);
-
-  if (!updated) {
-    throw new Error('Failed to persist the forced ECCCH link locally');
-  }
-
-  return { status: toProjectStatus(updated) };
-}
-
 async function publishProjectRdfToEchoes(
   sessionId: string,
   projectId: string,
