@@ -783,21 +783,21 @@ export default function HDTPage() {
       if (action === 'register') {
         const status = await registerProjectHdtInEchoes(projectId);
         setEchoesStatus(status);
-        setEchoesMessage('The project was registered in ECHOES.');
+        setEchoesMessage('The project was registered in ECCCH.');
       } else if (action === 'enrich') {
         const result = await enrichProjectHdtInEchoes(projectId);
         setEchoesStatus(result.status);
-        setEchoesMessage(`RDF published to ECHOES (${result.rdf.size} bytes).`);
+        setEchoesMessage(`RDF published to ECCCH (${result.rdf.size} bytes).`);
       } else {
         const result = await replaceProjectHdtContentInEchoes(projectId);
         setEchoesStatus(result.status);
-        setEchoesMessage(`ECHOES named graph replaced (${result.rdf.size} bytes).`);
+        setEchoesMessage(`ECCCH named graph replaced (${result.rdf.size} bytes).`);
       }
 
       await fetchProjectAndMetadata();
     } catch (error) {
       setEchoesMessage(null);
-      setError(error instanceof Error ? error.message : 'Failed to publish this project to ECHOES.');
+      setError(error instanceof Error ? error.message : 'Failed to publish this project to ECCCH.');
     } finally {
       setEchoesBusy(false);
     }
@@ -878,7 +878,7 @@ export default function HDTPage() {
       await fetchProjectAndMetadata();
       await executeEchoesAction(echoesPreparation.action);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to prepare this project for ECHOES.');
+      setError(error instanceof Error ? error.message : 'Failed to prepare this project for ECCCH.');
       setEchoesBusy(false);
     }
   };
@@ -901,13 +901,13 @@ export default function HDTPage() {
       });
 
       setEchoesMessage(
-        `New ECHOES HDT created: ${result.status.digitalTwinUri || 'unknown DT URI'}`
+        `New ECCCH HDT created: ${result.status.digitalTwinUri || 'unknown DT URI'}`
       );
       setShowDuplicateEchoesForm(false);
       await refreshEchoesStatus();
     } catch (error) {
       setEchoesMessage(null);
-      setError(error instanceof Error ? error.message : 'Failed to duplicate this project as a new ECHOES HDT.');
+      setError(error instanceof Error ? error.message : 'Failed to duplicate this project as a new ECCCH HDT.');
     } finally {
       setEchoesBusy(false);
     }
@@ -1448,7 +1448,7 @@ export default function HDTPage() {
           <div className="d-flex flex-column flex-xl-row justify-content-between gap-4">
             <div className="flex-grow-1">
               <div className="d-flex align-items-center gap-2 mb-2">
-                <h5 className="mb-0">ECHOES Synchronization</h5>
+                <h5 className="mb-0">ECCCH Synchronization</h5>
                 <span className={`badge ${
                   echoesStatus?.syncStatus === 'synced'
                     ? 'text-bg-success'
@@ -1462,7 +1462,7 @@ export default function HDTPage() {
                 </span>
               </div>
               <p className="text-muted small mb-3">
-                Register the local HDT in ECHOES, publish the current RDF as a named graph, then replace that content after local changes.
+                Register the local HDT in ECCCH, publish the current RDF as a named graph, then replace that content after local changes.
               </p>
 
               <div className="row g-3 small">
@@ -1496,7 +1496,7 @@ export default function HDTPage() {
 
               {(echoesRequiredIssues.length > 0 || echoesRecommendedIssues.length > 0) && (
                 <div className={`alert mt-3 mb-0 ${echoesRequiredIssues.length > 0 ? 'alert-warning' : 'alert-info'}`}>
-                  <div className="fw-semibold mb-2">ECHOES Readiness</div>
+                  <div className="fw-semibold mb-2">ECCCH Readiness</div>
                   {echoesRequiredIssues.length > 0 && (
                     <>
                       <div className="small fw-semibold">Required before publish</div>
@@ -1539,8 +1539,8 @@ export default function HDTPage() {
                     {echoesBusy
                       ? 'Working...'
                       : hasEchoesRegistration
-                        ? 'Already Registered in ECHOES'
-                        : 'Register in ECHOES'}
+                        ? 'Already Registered in ECCCH'
+                        : 'Register in ECCCH'}
                   </button>
                 )}
                 {canPublishProjectInEchoes && (
@@ -1579,13 +1579,13 @@ export default function HDTPage() {
                         }
                       }}
                     >
-                      Duplicate as New ECHOES HDT
+                      Duplicate as New ECCCH HDT
                     </button>
                     {showDuplicateEchoesForm && (
                       <div className="border rounded-3 p-3 bg-white">
                         <div className="small fw-semibold mb-2">System Administrator Only</div>
                         <div className="small text-muted mb-3">
-                          Creates a brand new ECHOES HDT from the current local project without changing the current ECHOES linkage.
+                          Creates a brand new ECCCH HDT from the current local project without changing the current ECCCH linkage.
                         </div>
                         <div className="small text-muted mb-3">
                           Current reference:
@@ -1649,7 +1649,7 @@ export default function HDTPage() {
                             disabled={echoesBusy}
                             onClick={() => void handleDuplicateProjectAsNewEchoesHdt()}
                           >
-                            {echoesBusy ? 'Creating...' : 'Create New ECHOES HDT'}
+                            {echoesBusy ? 'Creating...' : 'Create New ECCCH HDT'}
                           </button>
                           <button
                             type="button"
@@ -2680,7 +2680,7 @@ export default function HDTPage() {
         <div className="modal-dialog modal-lg modal-dialog-scrollable">
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title">Complete Missing ECHOES Data</h5>
+              <h5 className="modal-title">Complete Missing ECCCH Data</h5>
               <button
                 type="button"
                 className="btn-close"
@@ -2690,7 +2690,7 @@ export default function HDTPage() {
             </div>
             <div className="modal-body">
               <p className="text-muted small mb-3">
-                Before sending this project to ECHOES, OCRA needs the missing metadata required to keep the HDT coherent and reimportable from another OCRA instance.
+                Before sending this project to ECCCH, OCRA needs the missing metadata required to keep the HDT coherent and reimportable from another OCRA instance.
               </p>
 
               <div className="alert alert-info">
@@ -2743,14 +2743,14 @@ export default function HDTPage() {
                     placeholder="https://example.org/hc1/123"
                   />
                   <div className="form-text">
-                    This is the stable Heritage Entity URI that ECHOES will use for the HC1 record.
+                    This is the stable Heritage Entity URI that ECCCH will use for the HC1 record.
                   </div>
                 </div>
               )}
 
               {Object.keys(echoesPreparation.assetSourceUrls).length > 0 && (
                 <div>
-                  <h6 className="mb-3">Public asset URLs for ECHOES</h6>
+                  <h6 className="mb-3">Public asset URLs for ECCCH</h6>
                   <div className="small text-muted mb-3">
                     These URLs are published in the HC8 records and must stay public, stable, and downloadable by another OCRA instance.
                   </div>

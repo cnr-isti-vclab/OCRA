@@ -671,11 +671,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
             name: {
               type: 'string',
-              example: 'UC2 Lamina imported from ECHOES',
+              example: 'UC2 Lamina imported from ECCCH',
             },
             description: {
               type: 'string',
-              example: 'Project initialized from ECHOES HC1/HDT data.',
+              example: 'Project initialized from ECCCH HC1/HDT data.',
             },
             public: {
               type: 'boolean',
@@ -693,8 +693,8 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           required: ['id', 'name', 'description', 'public', 'createdAt', 'updatedAt'],
           properties: {
             id: { type: 'string', example: 'cmproject123' },
-            name: { type: 'string', example: 'UC2 Lamina imported from ECHOES' },
-            description: { type: 'string', example: 'Project initialized from ECHOES HC1/HDT data.' },
+            name: { type: 'string', example: 'UC2 Lamina imported from ECCCH' },
+            description: { type: 'string', example: 'Project initialized from ECCCH HC1/HDT data.' },
             public: { type: 'boolean', example: false },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },

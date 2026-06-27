@@ -79,7 +79,7 @@ export default function Profile() {
           }),
         ),
       );
-      setEchoesBearerMessage('Temporary ECHOES bearer saved for this session.');
+      setEchoesBearerMessage('Temporary ECCCH bearer saved for this session.');
     } catch (error: unknown) {
       setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
     } finally {
@@ -101,7 +101,7 @@ export default function Profile() {
         ),
       );
       setEchoesBearer('');
-      setEchoesBearerMessage('Temporary ECHOES bearer removed from this session.');
+      setEchoesBearerMessage('Temporary ECCCH bearer removed from this session.');
     } catch (error: unknown) {
       setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to clear the bearer.');
     } finally {
@@ -163,12 +163,12 @@ export default function Profile() {
 
       <div className="card shadow-sm" style={{ maxWidth: 720 }}>
         <div className="card-body">
-          <h2 className="h5 mb-3 text-secondary">Temporary ECHOES Debug Bearer</h2>
+          <h2 className="h5 mb-3 text-secondary">Temporary ECCCH Debug Bearer</h2>
           <p className="text-muted small mb-3">
-            Temporary development bridge. If OCRA already carries a valid ECHOES bearer from login, you can skip this step.
+            Temporary development bridge. If OCRA already carries a valid ECCCH bearer from login, you can skip this step.
           </p>
           <label htmlFor="profile-echoes-bearer" className="form-label">
-            EGI / ECHOES Bearer
+            EGI / ECCCH Bearer
           </label>
           <textarea
             id="profile-echoes-bearer"

@@ -139,7 +139,7 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
   }
 
   if (!(await canUseEchoesBearerScope(user, 'import'))) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to read ECHOES HDT details');
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to read ECCCH HDT details');
   }
 
   const encodedHdtId = req.params.hdtId;
@@ -162,7 +162,7 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
   try {
     const item = await getEchoesHdtDetail(sessionId, digitalTwinUri, namedGraphUri);
     if (!item) {
-      return sendEchoesError(req, res, 404, 'hdtNotFound', 'ECHOES HDT not found');
+      return sendEchoesError(req, res, 404, 'hdtNotFound', 'ECCCH HDT not found');
     }
     res.json({ success: true, item });
   } catch (error) {
@@ -171,7 +171,7 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
       res,
       502,
       'detailFailed',
-      'Failed to read ECHOES HDT details',
+      'Failed to read ECCCH HDT details',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -185,7 +185,7 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
   }
 
   if (!user.sys_admin && !user.sys_creator) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to create projects from ECHOES');
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to create projects from ECCCH');
   }
 
   const digitalTwinUri =
@@ -236,7 +236,7 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
       res,
       502,
       'projectCreateFailed',
-      'Failed to create a project from ECHOES HDT',
+      'Failed to create a project from ECCCH HDT',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -324,7 +324,7 @@ export async function getEchoesProjectStatusHandler(req: Request, res: Response)
       res,
       500,
       'publishStatusFailed',
-      'Failed to read ECHOES publication status',
+      'Failed to read ECCCH publication status',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -349,8 +349,8 @@ async function handleEchoesProjectMutation(
   if (!(await canPerformEchoesProjectAction(user, projectId, action))) {
     const message =
       action === 'register'
-        ? 'Only project managers and system administrators can register project HDTs in ECHOES'
-        : 'Only project managers and system administrators can publish project HDTs to ECHOES';
+        ? 'Only project managers and system administrators can register project HDTs in ECCCH'
+        : 'Only project managers and system administrators can publish project HDTs to ECCCH';
     return sendEchoesError(req, res, 403, 'projectCreateDenied', message);
   }
 
@@ -382,7 +382,7 @@ async function handleEchoesProjectMutation(
       res,
       502,
       action === 'register' ? 'registerFailed' : action === 'enrich' ? 'enrichFailed' : 'replaceFailed',
-      `Failed to ${action} ECHOES HDT content`,
+      `Failed to ${action} ECCCH HDT content`,
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -408,7 +408,7 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
   }
 
   if (!user.sys_admin) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Only system administrators can duplicate a project as a new ECHOES HDT');
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Only system administrators can duplicate a project as a new ECCCH HDT');
   }
 
   const projectId = typeof req.params.projectId === 'string' ? req.params.projectId.trim() : '';
@@ -444,7 +444,7 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
       res,
       502,
       'duplicateFailed',
-      'Failed to duplicate this project as a new ECHOES HDT',
+      'Failed to duplicate this project as a new ECCCH HDT',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -468,7 +468,7 @@ export async function registerEchoesDevBearerHandler(req: Request, res: Response
       : undefined;
 
   if (!(await canUseEchoesBearerScope(user, scope, projectId))) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to register an ECHOES bearer for this action');
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to register an ECCCH bearer for this action');
   }
 
   const bearer =
@@ -502,7 +502,7 @@ export async function clearEchoesDevBearerHandler(req: Request, res: Response): 
       : undefined;
 
   if (!(await canUseEchoesBearerScope(user, scope, projectId))) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to clear an ECHOES bearer for this action');
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to clear an ECCCH bearer for this action');
   }
 
   clearEchoesDevBearerOverride(sessionId);

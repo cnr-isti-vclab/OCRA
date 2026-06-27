@@ -294,7 +294,7 @@ async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
 async function getAuthorizedHeaders(sessionId: string, accept: string): Promise<HeadersInit> {
   const bearer = await resolveEchoesBearer(sessionId);
   if (!bearer) {
-    throw new Error('Missing ECHOES bearer token');
+    throw new Error('Missing ECCCH bearer token');
   }
 
   return {
@@ -984,7 +984,7 @@ export async function createProjectFromEchoesHdt(
 ): Promise<CreateProjectFromEchoesHdtResult> {
   const detail = await getEchoesHdtDetail(sessionId, input.digitalTwinUri, input.namedGraphUri);
   if (!detail) {
-    throw new Error('ECHOES HDT not found');
+    throw new Error('ECCCH HDT not found');
   }
 
   const fallbackName =
@@ -1132,7 +1132,7 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
       code: 'missing_identifier',
       severity: 'required',
       field: 'physicalObjectMetadata.dublinCore.identifier',
-      message: 'Current Identifier is missing. ECHOES publication should use a stable identifier for the HC1 record.',
+      message: 'Current Identifier is missing. ECCCH publication should use a stable identifier for the HC1 record.',
     });
   }
 
@@ -1141,7 +1141,7 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
       code: 'missing_title',
       severity: 'recommended',
       field: 'physicalObjectMetadata.dublinCore.title',
-      message: 'Current Title is missing. ECHOES records are clearer when the HC1 and Digital Twin have a human-readable title.',
+      message: 'Current Title is missing. ECCCH records are clearer when the HC1 and Digital Twin have a human-readable title.',
     });
   }
 
@@ -1150,7 +1150,7 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
       code: 'missing_heritage_entity_uri',
       severity: 'recommended',
       field: 'physicalObjectMetadata.sourceUri',
-      message: 'HC1 URI is missing. OCRA can generate one, but an explicit URI is recommended for stable ECHOES references.',
+      message: 'HC1 URI is missing. OCRA can generate one, but an explicit URI is recommended for stable ECCCH references.',
     });
   }
 
@@ -1203,7 +1203,7 @@ async function assertProjectCanPublishToEchoes(projectId: string, hdtDocument: H
   const readiness = buildEchoesProjectReadiness(projectId, hdtDocument);
   if (!readiness.canPublish) {
     const firstRequiredIssue = readiness.requiredIssues[0];
-    throw new Error(firstRequiredIssue?.message || 'This project is missing required ECHOES publication data.');
+    throw new Error(firstRequiredIssue?.message || 'This project is missing required ECCCH publication data.');
   }
 
   for (const asset of hdtDocument.digitalAssets) {
@@ -1338,7 +1338,7 @@ export async function registerProjectHdtInEchoes(
   );
 
   if (!payload.succeed || !payload.dtUri) {
-    throw new Error(payload.message || 'ECHOES registration failed');
+    throw new Error(payload.message || 'ECCCH registration failed');
   }
 
   const updated = await updateHdtEchoesContext(projectId, {
@@ -1352,7 +1352,7 @@ export async function registerProjectHdtInEchoes(
   }, userId);
 
   if (!updated) {
-    throw new Error('Failed to persist the registered ECHOES identifiers locally');
+    throw new Error('Failed to persist the registered ECCCH identifiers locally');
   }
 
   return { status: toProjectStatus(updated) };
@@ -1369,11 +1369,11 @@ async function publishProjectRdfToEchoes(
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
 
   if (!currentContext.digitalTwinUri) {
-    throw new Error('Register the HDT in ECHOES before publishing RDF content');
+    throw new Error('Register the HDT in ECCCH before publishing RDF content');
   }
 
   if (mode === 'replace' && !currentContext.namedGraphUri) {
-    throw new Error('No ECHOES named graph is linked to this project yet');
+    throw new Error('No ECCCH named graph is linked to this project yet');
   }
 
   const exportResult = await exportProjectRdfForEchoes(projectId, publicBaseUrl, true);
@@ -1395,7 +1395,7 @@ async function publishProjectRdfToEchoes(
   );
 
   if (!payload.succeed) {
-    throw new Error(payload.message || 'ECHOES publish failed');
+    throw new Error(payload.message || 'ECCCH publish failed');
   }
 
   const now = new Date();
@@ -1426,7 +1426,7 @@ async function publishProjectRdfToEchoes(
   }, userId);
 
   if (!updated) {
-    throw new Error('Failed to persist ECHOES synchronization metadata locally');
+    throw new Error('Failed to persist ECCCH synchronization metadata locally');
   }
 
   return {
@@ -1491,7 +1491,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
   );
 
   if (!registerPayload.succeed || !registerPayload.dtUri) {
-    throw new Error(registerPayload.message || 'ECHOES registration failed for duplicated HDT');
+    throw new Error(registerPayload.message || 'ECCCH registration failed for duplicated HDT');
   }
 
   const duplicateDocument: HDTDocument = {
@@ -1532,7 +1532,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
 
   const enrichPayload = await postRdfMultipart(sessionId, '/hdt/enrich', form);
   if (!enrichPayload.succeed) {
-    throw new Error(enrichPayload.message || 'ECHOES enrich failed for duplicated HDT');
+    throw new Error(enrichPayload.message || 'ECCCH enrich failed for duplicated HDT');
   }
 
   const statusBase: Omit<EchoesProjectStatus, 'readiness'> = {

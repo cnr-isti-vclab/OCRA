@@ -577,7 +577,7 @@ export default function Projects() {
 
                 <div className="alert alert-light border mb-0">
                   <strong>Next step:</strong> after creation, the project starts with no imported HC1 metadata.
-                  Open project settings and choose a source adapter (ECHOES, ARCO, Wikidata, ...).
+                  Open project settings and choose a source adapter (ECCCH repository, ARCO, Wikidata, ...).
                 </div>
               </div>
 

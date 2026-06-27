@@ -93,7 +93,7 @@ export async function registerEchoesDevBearer(input: {
   scope: EchoesBearerScope;
   projectId?: string;
 }): Promise<void> {
-  const response = await fetch(`${getApiBase()}/api/echoes/dev/bearer`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/dev/bearer`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(true),
@@ -101,7 +101,7 @@ export async function registerEchoesDevBearer(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to register ECHOES bearer: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to register ECCCH bearer: ${await readErrorMessage(response)}`);
   }
 }
 
@@ -109,7 +109,7 @@ export async function clearEchoesDevBearer(input: {
   scope: EchoesBearerScope;
   projectId?: string;
 }): Promise<void> {
-  const response = await fetch(`${getApiBase()}/api/echoes/dev/bearer`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/dev/bearer`, {
     method: 'DELETE',
     credentials: 'include',
     headers: buildSessionHeaders(true),
@@ -117,12 +117,12 @@ export async function clearEchoesDevBearer(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to clear ECHOES bearer: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to clear ECCCH bearer: ${await readErrorMessage(response)}`);
   }
 }
 
 export async function fetchEchoesHdts(search: string): Promise<EchoesHdtListItem[]> {
-  const url = new URL(`${getApiBase()}/api/echoes/hdts`);
+  const url = new URL(`${getApiBase()}/api/eccch/hdts`);
   if (search.trim()) {
     url.searchParams.set('search', search.trim());
   }
@@ -141,7 +141,7 @@ export async function fetchEchoesHdts(search: string): Promise<EchoesHdtListItem
 }
 
 export async function fetchEchoesHdtDetail(digitalTwinUri: string, namedGraphUri?: string): Promise<EchoesHdtDetail> {
-  const url = new URL(`${getApiBase()}/api/echoes/hdts/${encodeURIComponent(digitalTwinUri)}`);
+  const url = new URL(`${getApiBase()}/api/eccch/hdts/${encodeURIComponent(digitalTwinUri)}`);
   if (namedGraphUri) {
     url.searchParams.set('namedGraph', namedGraphUri);
   }
@@ -167,7 +167,7 @@ export async function createProjectFromEchoesHdt(input: {
   public?: boolean;
   importMode?: EchoesImportMode;
 }): Promise<EchoesCreateProjectResponse> {
-  const response = await fetch(`${getApiBase()}/api/echoes/projects`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/projects`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(true),
@@ -203,7 +203,7 @@ export async function createProjectFromEchoesRdf(input: {
     formData.append('importMode', input.importMode);
   }
 
-  const response = await fetch(`${getApiBase()}/api/echoes/projects/import-rdf`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/projects/import-rdf`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(false),
@@ -218,13 +218,13 @@ export async function createProjectFromEchoesRdf(input: {
 }
 
 export async function fetchEchoesProjectStatus(projectId: string): Promise<EchoesProjectStatus> {
-  const response = await fetch(`${getApiBase()}/api/echoes/projects/${encodeURIComponent(projectId)}/status`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/projects/${encodeURIComponent(projectId)}/status`, {
     credentials: 'include',
     headers: buildSessionHeaders(false),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to read ECHOES project status: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to read ECCCH project status: ${await readErrorMessage(response)}`);
   }
 
   const payload = (await response.json()) as EchoesProjectStatusResponse;
@@ -235,14 +235,14 @@ async function postEchoesProjectAction(
   projectId: string,
   action: 'register' | 'enrich' | 'replace-content',
 ): Promise<EchoesPublishProjectResponse | EchoesProjectStatusResponse> {
-  const response = await fetch(`${getApiBase()}/api/echoes/projects/${encodeURIComponent(projectId)}/${action}`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/projects/${encodeURIComponent(projectId)}/${action}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(false),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to ${action} ECHOES project: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to ${action} ECCCH project: ${await readErrorMessage(response)}`);
   }
 
   return (await response.json()) as EchoesPublishProjectResponse | EchoesProjectStatusResponse;
@@ -265,7 +265,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
   projectId: string,
   input: EchoesDuplicateProjectRequest,
 ): Promise<EchoesPublishProjectResponse> {
-  const response = await fetch(`${getApiBase()}/api/echoes/projects/${encodeURIComponent(projectId)}/duplicate-as-new-hdt`, {
+  const response = await fetch(`${getApiBase()}/api/eccch/projects/${encodeURIComponent(projectId)}/duplicate-as-new-hdt`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(true),
@@ -273,7 +273,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to duplicate ECHOES project as new HDT: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to duplicate ECCCH project as new HDT: ${await readErrorMessage(response)}`);
   }
 
   return (await response.json()) as EchoesPublishProjectResponse;

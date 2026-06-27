@@ -33,7 +33,7 @@ router.use('/projects', projectsRoutes);
 router.use('/projects', hdtMetadataRoutes); // HDT metadata: /api/projects/:id/hdt
 router.use('/projects', annotationRoutes); // Annotations: /api/projects/:id/annotations
 router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
-router.use('/echoes', echoesRoutes);
+router.use('/eccch', echoesRoutes);
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
 // @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)
