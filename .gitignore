@@ -9,6 +9,7 @@ docs/
 .vite/
 .DS_Store
 *.log
+.claude/
 
 # Environment variables
 # Production environment file (contains secrets) 

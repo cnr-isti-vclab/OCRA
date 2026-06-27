@@ -570,6 +570,35 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
+        EchoesProjectSnapshotSummary: {
+          type: 'object',
+          required: ['url', 'format', 'version'],
+          properties: {
+            url: {
+              type: 'string',
+              example: 'https://example.org/assets/projects/cmproject123/echoes/project-snapshot-2026-06-26T12-00-00.000Z.json',
+            },
+            format: {
+              type: 'string',
+              example: 'application/vnd.ocra.project-snapshot+json',
+            },
+            version: {
+              type: 'integer',
+              minimum: 1,
+              example: 1,
+            },
+            exportedAt: {
+              type: 'string',
+              format: 'date-time',
+              nullable: true,
+            },
+            checksum: {
+              type: 'string',
+              nullable: true,
+              example: '5c8c4cc4e54b8a0b4c0f0c9baf0d3a7d89a6f0d53c57b671fb0c0f8724c53f1e',
+            },
+          },
+        },
         EchoesHdtDetail: {
           type: 'object',
           required: ['namedGraphUri', 'digitalTwinUri', 'physicalObjectMetadata', 'assets'],
@@ -598,6 +627,10 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             assets: {
               type: 'array',
               items: { $ref: '#/components/schemas/EchoesHdtAsset' },
+            },
+            projectSnapshot: {
+              allOf: [{ $ref: '#/components/schemas/EchoesProjectSnapshotSummary' }],
+              nullable: true,
             },
           },
         },
@@ -648,6 +681,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               type: 'boolean',
               example: false,
             },
+            importMode: {
+              type: 'string',
+              enum: ['metadata_assets', 'full_project_without_annotations', 'full_project_with_annotations'],
+              example: 'full_project_without_annotations',
+            },
           },
         },
         EchoesImportedProject: {
@@ -664,7 +702,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         },
         EchoesCreateProjectResponse: {
           type: 'object',
-          required: ['success', 'project', 'echoes', 'importedAssetCount'],
+          required: ['success', 'project', 'echoes', 'importedAssetCount', 'importedAnnotationCount'],
           properties: {
             success: {
               type: 'boolean',
@@ -680,6 +718,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               type: 'integer',
               minimum: 0,
               example: 1,
+            },
+            importedAnnotationCount: {
+              type: 'integer',
+              minimum: 0,
+              example: 12,
             },
           },
         },
@@ -698,6 +741,10 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             assetCount: { type: 'integer', minimum: 0, example: 1 },
             lastRegisteredAt: { type: 'string', format: 'date-time', nullable: true },
             lastSyncedAt: { type: 'string', format: 'date-time', nullable: true },
+            projectSnapshot: {
+              allOf: [{ $ref: '#/components/schemas/EchoesProjectSnapshotSummary' }],
+              nullable: true,
+            },
             readiness: { $ref: '#/components/schemas/EchoesProjectReadiness' },
           },
         },
@@ -707,7 +754,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           properties: {
             code: { type: 'string', example: 'missing_asset_source_url' },
             severity: { type: 'string', enum: ['required', 'recommended'], example: 'required' },
-            message: { type: 'string', example: 'Digital asset "Model A" is missing its public ECHOES source URL.' },
+            message: { type: 'string', example: 'Digital asset "Model A" is missing its permanent public asset URL.' },
             field: { type: 'string', example: 'digitalAssets.asset_123.metadata.sourceUrl' },
             assetId: { type: 'string', nullable: true, example: 'asset_123' },
             assetLabel: { type: 'string', nullable: true, example: 'Model A' },

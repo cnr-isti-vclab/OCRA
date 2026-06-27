@@ -119,6 +119,9 @@ function DefaultDetailPanel({
       {detail.heritageEntityUri && (
         <div className="small text-muted text-break">HC1 URI: {detail.heritageEntityUri}</div>
       )}
+      <div className="small text-muted text-break">
+        OCRA snapshot: {detail.projectSnapshot ? `available (v${detail.projectSnapshot.version})` : 'not available'}
+      </div>
     </div>
   );
 }

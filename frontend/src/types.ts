@@ -85,6 +85,20 @@ export interface EchoesHdtAsset {
   importIssue: string | null;
 }
 
+export type EchoesImportMode =
+  | 'metadata_assets'
+  | 'full_project_without_annotations'
+  | 'full_project_with_annotations';
+
+export interface EchoesProjectSnapshotSummary {
+  url: string;
+  format: string;
+  version: number;
+  exportedAt: string | null;
+  checksum: string | null;
+  includesAnnotations: boolean | null;
+}
+
 export interface EchoesPhysicalObjectMetadata {
   sourceUri: string;
   sourceType: 'echoes' | 'wikidata' | 'arco' | 'other';
@@ -112,6 +126,7 @@ export interface EchoesHdtDetail {
   heritageEntityUri: string | null;
   physicalObjectMetadata: EchoesPhysicalObjectMetadata;
   assets: EchoesHdtAsset[];
+  projectSnapshot: EchoesProjectSnapshotSummary | null;
 }
 
 export interface EchoesImportedProjectSummary {
@@ -157,5 +172,6 @@ export interface EchoesProjectStatus {
   assetCount: number;
   lastRegisteredAt: string | null;
   lastSyncedAt: string | null;
+  projectSnapshot: EchoesProjectSnapshotSummary | null;
   readiness: EchoesProjectReadiness;
 }

@@ -3,6 +3,7 @@ import type {
   EchoesHdtDetail,
   EchoesHdtListItem,
   EchoesImportedProjectSummary,
+  EchoesImportMode,
   EchoesProjectStatus,
 } from '../types';
 
@@ -27,6 +28,7 @@ interface EchoesCreateProjectResponse {
   project: EchoesImportedProjectSummary;
   echoes: EchoesHdtDetail;
   importedAssetCount: number;
+  importedAnnotationCount: number;
 }
 
 interface EchoesProjectStatusResponse {
@@ -163,6 +165,7 @@ export async function createProjectFromEchoesHdt(input: {
   name?: string;
   description?: string;
   public?: boolean;
+  importMode?: EchoesImportMode;
 }): Promise<EchoesCreateProjectResponse> {
   const response = await fetch(`${getApiBase()}/api/echoes/projects`, {
     method: 'POST',
@@ -173,6 +176,42 @@ export async function createProjectFromEchoesHdt(input: {
 
   if (!response.ok) {
     throw new Error(`Failed to import project from the ECCCH repository: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as EchoesCreateProjectResponse;
+}
+
+export async function createProjectFromEchoesRdf(input: {
+  file: File;
+  name?: string;
+  description?: string;
+  public?: boolean;
+  importMode?: EchoesImportMode;
+}): Promise<EchoesCreateProjectResponse> {
+  const formData = new FormData();
+  formData.append('file', input.file);
+  if (input.name) {
+    formData.append('name', input.name);
+  }
+  if (input.description) {
+    formData.append('description', input.description);
+  }
+  if (input.public === true) {
+    formData.append('public', 'true');
+  }
+  if (input.importMode) {
+    formData.append('importMode', input.importMode);
+  }
+
+  const response = await fetch(`${getApiBase()}/api/echoes/projects/import-rdf`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildSessionHeaders(false),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to import project from RDF: ${await readErrorMessage(response)}`);
   }
 
   return (await response.json()) as EchoesCreateProjectResponse;

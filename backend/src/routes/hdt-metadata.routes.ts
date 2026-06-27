@@ -38,8 +38,8 @@ import {
 } from '../controllers/hdt-metadata.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 import { enforceStructuringLock } from '../middleware/project-structuring-lock.js';
-import { getHDTDocument } from '../services/hdt-metadata.service.js';
-import { serializeHdtDocumentAsEchoesRdf } from '../services/echoes-rdf.service.js';
+import { exportProjectRdfForEchoes } from '../services/echoes-kb.service.js';
+import { getPublicBaseUrl } from '../utils/public-base-url.js';
 
 const router = Router();
 
@@ -67,6 +67,12 @@ router.use('/:projectId', enforceStructuringLock);
  *         schema:
  *           type: string
  *         description: Project ID.
+ *       - in: query
+ *         name: includeOcraPayload
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: When true, exports the ECCCH-ready RDF including the linked OCRA project snapshot reference.
  *     responses:
  *       200:
  *         description: HDT document
@@ -1584,18 +1590,17 @@ router.delete('/:projectId/hdt/scenes/:sceneId/assets/:assetId', requireAuth, re
 router.get('/:projectId/export/rdf', requireAuth, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const hdtDoc = await getHDTDocument(projectId);
-
-    if (!hdtDoc) {
-      return res.status(404).json({ error: 'HDT metadata not found' });
-    }
-    const rdf = serializeHdtDocumentAsEchoesRdf(projectId, hdtDoc);
+    const includeProjectSnapshot = req.query.includeOcraPayload === 'true' || req.query.includeOcraPayload === '1';
+    const rdfExport = await exportProjectRdfForEchoes(projectId, getPublicBaseUrl(req), includeProjectSnapshot);
 
     res.setHeader('Content-Type', 'application/rdf+xml');
-    res.setHeader('Content-Disposition', `attachment; filename="hdt-${projectId}.rdf"`);
-    return res.send(rdf);
+    res.setHeader('Content-Disposition', `attachment; filename="${rdfExport.fileName}"`);
+    return res.send(rdfExport.rdf);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to export RDF';
+    if (message.includes('No HDT document found')) {
+      return res.status(404).json({ error: 'HDT metadata not found' });
+    }
     return res.status(500).json({ error: message });
   }
 });

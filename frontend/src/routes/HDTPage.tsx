@@ -60,6 +60,7 @@ interface DublinCoreMetadata {
 }
 
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
+type RdfDownloadMode = 'plain' | 'with_ocra_payload';
 
 interface DigitalAssetMetadata {
   sourceUrl?: string;
@@ -191,6 +192,9 @@ export default function HDTPage() {
   const [urlImportUsername, setUrlImportUsername] = useState('');
   const [urlImportPassword, setUrlImportPassword] = useState('');
   const [importingFromUrl, setImportingFromUrl] = useState(false);
+  const [editingEchoesUrlAssetId, setEditingEchoesUrlAssetId] = useState<string | null>(null);
+  const [editingEchoesUrlValue, setEditingEchoesUrlValue] = useState('');
+  const [savingEchoesUrl, setSavingEchoesUrl] = useState(false);
 
   // Scenes state
   const [scenes, setScenes] = useState<SceneConfig[]>([]);
@@ -382,6 +386,69 @@ export default function HDTPage() {
     }
   };
 
+  const downloadRdfExport = async (mode: RdfDownloadMode) => {
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      const url = new URL(`${getApiBase()}/api/projects/${projectId}/export/rdf`);
+      if (mode === 'with_ocra_payload') {
+        url.searchParams.set('includeOcraPayload', 'true');
+      }
+
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+        headers: buildAuthenticatedHeaders(false),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const errorMessage =
+          typeof payload?.error === 'string' && payload.error.trim().length > 0
+            ? payload.error
+            : 'Failed to download RDF.';
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      const fileNameMatch = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/i);
+      const fileName = fileNameMatch?.[1] || `hdt-${projectId}.rdf`;
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      setMessageModal(
+        AppMessageModalCatalog.error(
+          error instanceof Error ? error.message : 'Failed to download RDF export.',
+          'RDF download failed',
+        ),
+      );
+    }
+  };
+
+  const openRdfDownloadChoice = () => {
+    setMessageModal(new MessageModalDescriptor({
+      tone: 'info',
+      title: 'Download RDF',
+      message: 'Choose whether the RDF export should include the OCRA payload reference used for ECCCH publication.',
+      details: [
+        'Plain RDF exports only the semantic HC1/HC2/HC8 graph.',
+        'RDF with OCRA payload matches the ECCCH-ready export and links the portable OCRA project snapshot.',
+      ],
+      actions: [
+        { key: 'download_rdf_plain', label: 'Plain RDF', tone: 'secondary' },
+        { key: 'download_rdf_with_payload', label: 'RDF with OCRA Payload', tone: 'primary' },
+        { key: 'close', label: 'Cancel', tone: 'secondary' },
+      ],
+    }));
+  };
+
   /**
    * Create a new asset entry in HDT "digitalAssets" and return the generated assetId.
    * Backend: POST /api/projects/:projectId/hdt/assets
@@ -463,6 +530,37 @@ export default function HDTPage() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to delete asset');
+    }
+  };
+
+  const handleSaveEchoesUrl = async (assetId: string) => {
+    const trimmedUrl = editingEchoesUrlValue.trim();
+    const asset = digitalAssets.find((a) => a.id === assetId);
+    if (!asset) return;
+
+    try {
+      setSavingEchoesUrl(true);
+      setError(null);
+      await updateHdtAsset(assetId, {
+        metadata: {
+          ...(asset.metadata ?? {}),
+          sourceUrl: trimmedUrl || undefined,
+        },
+      });
+      setDigitalAssets((prev) =>
+        prev.map((a) =>
+          a.id === assetId
+            ? { ...a, metadata: { ...(a.metadata ?? {}), sourceUrl: trimmedUrl || undefined } }
+            : a,
+        ),
+      );
+      setEditingEchoesUrlAssetId(null);
+      setEditingEchoesUrlValue('');
+      await refreshEchoesStatus();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save public asset URL');
+    } finally {
+      setSavingEchoesUrl(false);
     }
   };
 
@@ -653,7 +751,7 @@ export default function HDTPage() {
         const sourceUrl = getAssetEchoesSourceUrl(asset);
         if (!sourceUrl) {
           assetSourceUrls[asset.id] = '';
-          missingFieldLabels.push(`Public ECHOES URL for ${asset.label || asset.title || asset.id}`);
+          missingFieldLabels.push(`Permanent public asset URL for ${asset.label || asset.title || asset.id}`);
         }
       }
     }
@@ -1265,14 +1363,13 @@ export default function HDTPage() {
           <h1 className="h3 mb-0">HDT Metadata</h1>
         </div>
         <div className="d-flex gap-2">
-          <a
-            href={`${getApiBase()}/api/projects/${projectId}/export/rdf`}
+          <button
+            type="button"
             className="btn btn-outline-primary"
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={openRdfDownloadChoice}
           >
             📥 Download RDF
-          </a>
+          </button>
         </div>
       </div>
 
@@ -1816,7 +1913,7 @@ export default function HDTPage() {
                           <th>Type</th>
                           <th>Label</th>
                           <th>Filename</th>
-                          <th>ECHOES URL</th>
+                          <th>Public Asset URL</th>
                           <th>Size</th>
                           <th>Added</th>
                           <th>Actions</th>
@@ -1838,11 +1935,69 @@ export default function HDTPage() {
                             <td className="text-muted small">
                               {asset.fileName || '-'}
                             </td>
-                            <td className="text-muted small">
-                              {getAssetEchoesSourceUrl(asset) ? (
-                                <span className="text-success">Configured</span>
+                            <td className="small" style={{ minWidth: '220px' }}>
+                              {editingEchoesUrlAssetId === asset.id ? (
+                                <div className="d-flex gap-1 align-items-center">
+                                  <input
+                                    type="url"
+                                    className="form-control form-control-sm"
+                                    value={editingEchoesUrlValue}
+                                    onChange={(e) => setEditingEchoesUrlValue(e.target.value)}
+                                    placeholder="https://…"
+                                    disabled={savingEchoesUrl}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') void handleSaveEchoesUrl(asset.id);
+                                      if (e.key === 'Escape') {
+                                        setEditingEchoesUrlAssetId(null);
+                                        setEditingEchoesUrlValue('');
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-success flex-shrink-0"
+                                    disabled={savingEchoesUrl}
+                                    onClick={() => void handleSaveEchoesUrl(asset.id)}
+                                  >
+                                    {savingEchoesUrl ? '…' : 'Save'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary flex-shrink-0"
+                                    disabled={savingEchoesUrl}
+                                    onClick={() => {
+                                      setEditingEchoesUrlAssetId(null);
+                                      setEditingEchoesUrlValue('');
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
                               ) : (
-                                <span className="text-warning">Missing</span>
+                                <div className="d-flex align-items-center gap-2">
+                                  {getAssetEchoesSourceUrl(asset) ? (
+                                    <span className="text-success text-truncate" style={{ maxWidth: '160px' }} title={getAssetEchoesSourceUrl(asset)}>
+                                      {getAssetEchoesSourceUrl(asset)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-warning">Missing</span>
+                                  )}
+                                  {canManageAssets && !hdtReadOnlyWithoutProjectLock && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-secondary py-0 px-1 flex-shrink-0"
+                                      style={{ fontSize: '0.7rem' }}
+                                      title="Edit permanent public URL"
+                                      onClick={() => {
+                                        setEditingEchoesUrlAssetId(asset.id);
+                                        setEditingEchoesUrlValue(getAssetEchoesSourceUrl(asset));
+                                      }}
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className="text-muted small">
@@ -2597,7 +2752,7 @@ export default function HDTPage() {
                 <div>
                   <h6 className="mb-3">Public asset URLs for ECHOES</h6>
                   <div className="small text-muted mb-3">
-                    These URLs are published in the HC8 records and must be downloadable by another OCRA instance.
+                    These URLs are published in the HC8 records and must stay public, stable, and downloadable by another OCRA instance.
                   </div>
                   <div className="d-flex flex-column gap-3">
                     {digitalAssets
@@ -2609,7 +2764,7 @@ export default function HDTPage() {
                             Local entry point: {asset.entryPointUrl || 'Not available'}
                           </div>
                           <label htmlFor={`echoes-prep-asset-${asset.id}`} className="form-label">
-                            Public ECHOES URL
+                            Permanent public asset URL
                           </label>
                           <input
                             id={`echoes-prep-asset-${asset.id}`}
@@ -2657,7 +2812,19 @@ export default function HDTPage() {
     <AppMessageModal
       descriptor={messageModal}
       onClose={() => setMessageModal(null)}
-      onAction={() => setMessageModal(null)}
+      onAction={(actionKey) => {
+        if (actionKey === 'download_rdf_plain') {
+          setMessageModal(null);
+          void downloadRdfExport('plain');
+          return;
+        }
+        if (actionKey === 'download_rdf_with_payload') {
+          setMessageModal(null);
+          void downloadRdfExport('with_ocra_payload');
+          return;
+        }
+        setMessageModal(null);
+      }}
     />
     </>
   );

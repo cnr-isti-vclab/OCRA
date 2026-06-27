@@ -207,6 +207,15 @@ export interface EchoesAssetRecord {
   sourceUrl?: string;
 }
 
+export interface EchoesProjectSnapshotReference {
+  url: string;
+  format: string;
+  version: number;
+  exportedAt?: string;
+  checksum?: string;
+  includesAnnotations?: boolean;
+}
+
 export interface EchoesContext {
   origin: 'local' | 'imported';
   syncStatus: EchoesSyncStatus;
@@ -220,6 +229,7 @@ export interface EchoesContext {
   lastSyncedAt?: Date | string;
   lastSyncedProjectUpdatedAt?: Date | string;
   assetRecords?: EchoesAssetRecord[];
+  projectSnapshot?: EchoesProjectSnapshotReference;
 }
 
 // RTI sub-types used inside DigitalAsset.metadata

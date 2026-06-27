@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import EchoesHdtBrowser, {
   type EchoesHdtBrowserSelection,
 } from '../../components/echoes/EchoesHdtBrowser';
 import { createProjectFromEchoesHdt } from '../../services/EchoesApi';
+import type { EchoesImportMode } from '../../types';
 
 interface EchoesImportModalProps {
   show: boolean;
@@ -29,6 +30,7 @@ export default function EchoesImportModal({
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [projectPublic, setProjectPublic] = useState(false);
+  const [importMode, setImportMode] = useState<EchoesImportMode>('metadata_assets');
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export default function EchoesImportModal({
     setImportError(null);
   }, [show]);
 
-  function handleSelectionChange(nextSelection: EchoesHdtBrowserSelection | null): void {
+  const handleSelectionChange = useCallback((nextSelection: EchoesHdtBrowserSelection | null): void => {
     setSelection(nextSelection);
     setImportError(null);
 
@@ -51,7 +53,8 @@ export default function EchoesImportModal({
     setProjectName(resolveDetailProjectName(nextSelection));
     setProjectDescription(nextSelection.detail.physicalObjectMetadata.dublinCore?.description || '');
     setProjectPublic(false);
-  }
+    setImportMode(nextSelection.detail.projectSnapshot ? 'full_project_without_annotations' : 'metadata_assets');
+  }, []);
 
   async function handleImport(): Promise<void> {
     if (!selection) {
@@ -68,6 +71,7 @@ export default function EchoesImportModal({
         name: projectName.trim() || undefined,
         description: projectDescription.trim() || undefined,
         public: projectPublic,
+        importMode,
       });
       onImported(response.project.id);
     } catch (error) {
@@ -178,6 +182,65 @@ export default function EchoesImportModal({
                           <label className="form-check-label" htmlFor="echoesProjectPublic">
                             Public project
                           </label>
+                        </div>
+                      </div>
+                      <div className="col-12">
+                        <label className="form-label">Import Mode</label>
+                        <div className="d-flex flex-column gap-2">
+                          <div className="form-check">
+                            <input
+                              id="echoesImportModeMetadata"
+                              className="form-check-input"
+                              type="radio"
+                              name="echoesImportMode"
+                              checked={importMode === 'metadata_assets'}
+                              onChange={() => setImportMode('metadata_assets')}
+                              disabled={importBusy}
+                            />
+                            <label className="form-check-label" htmlFor="echoesImportModeMetadata">
+                              Metadata and portable assets only
+                            </label>
+                          </div>
+                          <div className="form-check">
+                            <input
+                              id="echoesImportModeFullNoAnnotations"
+                              className="form-check-input"
+                              type="radio"
+                              name="echoesImportMode"
+                              checked={importMode === 'full_project_without_annotations'}
+                              onChange={() => setImportMode('full_project_without_annotations')}
+                              disabled={importBusy || !detail.projectSnapshot}
+                            />
+                            <label className="form-check-label" htmlFor="echoesImportModeFullNoAnnotations">
+                              Full OCRA project without annotations
+                            </label>
+                          </div>
+                          <div className="form-check">
+                            <input
+                              id="echoesImportModeFullWithAnnotations"
+                              className="form-check-input"
+                              type="radio"
+                              name="echoesImportMode"
+                              checked={importMode === 'full_project_with_annotations'}
+                              onChange={() => setImportMode('full_project_with_annotations')}
+                              disabled={importBusy || !detail.projectSnapshot || detail.projectSnapshot.includesAnnotations === false}
+                            />
+                            <label className="form-check-label" htmlFor="echoesImportModeFullWithAnnotations">
+                              Full OCRA project with annotations
+                            </label>
+                          </div>
+                        </div>
+                        <div className="form-text">
+                          {detail.projectSnapshot
+                            ? [
+                                `This named graph links an OCRA snapshot (${detail.projectSnapshot.format}, v${detail.projectSnapshot.version}).`,
+                                detail.projectSnapshot.includesAnnotations === true
+                                  ? ' Annotations are included.'
+                                  : detail.projectSnapshot.includesAnnotations === false
+                                    ? ' This snapshot was exported without annotations.'
+                                    : '',
+                              ].join('')
+                            : 'This named graph does not expose an OCRA snapshot, so only metadata and assets can be imported.'}
                         </div>
                       </div>
                     </div>

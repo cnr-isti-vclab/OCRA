@@ -1,4 +1,6 @@
 import { getValidSession } from '../../db.js';
+import { getPrismaClient } from '../../db.js';
+import fs from 'fs-extra';
 import type {
   User,
   PhysicalObjectMetadata,
@@ -7,16 +9,44 @@ import type {
   HDTDocument,
   EchoesContext,
   EchoesSyncStatus,
+  EchoesProjectSnapshotReference,
 } from '../types/index.js';
 import { createHDTDocument, addDigitalAsset, getHDTDocument, updateHdtEchoesContext } from './hdt-metadata.service.js';
 import { createManagedProject } from './project-creation.service.js';
 import { getEchoesDevBearerOverride } from './echoes-dev-bearer.service.js';
 import { ingestRemoteAssetIntoExistingAsset } from './remote-asset-ingestion.service.js';
+import { validateRemoteAssetSourceUrl } from './remote-asset-import.service.js';
 import {
   buildDefaultEchoesContext,
   computeEchoesSyncStatus,
   serializeHdtDocumentAsEchoesRdf,
 } from './echoes-rdf.service.js';
+import {
+  fetchOcraProjectSnapshot,
+  type OcraProjectSnapshotPayload,
+  OCRA_PROJECT_SNAPSHOT_FORMAT,
+  projectSnapshotToImportSourceBundle,
+  storeOcraProjectSnapshot,
+} from './ocra-project-snapshot.service.js';
+import {
+  buildImportIdMaps,
+  normalizeImportedHdtDocument,
+  rewriteImportedAnnotations,
+  rewriteImportedHdtDocument,
+  syncLegacySceneFile,
+} from './project-import-rewrite.service.js';
+import { parseEchoesRdfImport } from './echoes-rdf-import.service.js';
+import {
+  deleteAnnotationGeometriesByProjectId,
+  getAnnotationGeometryCollection,
+} from '../repositories/annotation-geometry.repository.js';
+import {
+  deleteAnnotationDataByProjectId,
+  getAnnotationDataCollection,
+} from '../repositories/annotation-data.repository.js';
+import { deleteAnnotationLinksByProjectId, getAnnotationLinkCollection } from '../repositories/annotation-link.repository.js';
+import { deleteHdtByProjectId, updateHdtByProjectId } from '../repositories/hdt.repository.js';
+import { projectRoot } from '../utils/project-static-paths.js';
 
 const DEFAULT_ECHOES_KB_API_BASE =
   'https://echoes-kb-api-route-echoes-graphs-production.apps.dcw1.paas.psnc.pl';
@@ -100,6 +130,20 @@ export interface EchoesHdtAsset {
   importIssue: string | null;
 }
 
+export type EchoesImportMode =
+  | 'metadata_assets'
+  | 'full_project_without_annotations'
+  | 'full_project_with_annotations';
+
+export interface EchoesProjectSnapshotSummary {
+  url: string;
+  format: string;
+  version: number;
+  exportedAt: string | null;
+  checksum: string | null;
+  includesAnnotations: boolean | null;
+}
+
 export interface EchoesHdtDetail {
   namedGraphUri: string;
   digitalTwinUri: string;
@@ -107,6 +151,7 @@ export interface EchoesHdtDetail {
   heritageEntityUri: string | null;
   physicalObjectMetadata: PhysicalObjectMetadata;
   assets: EchoesHdtAsset[];
+  projectSnapshot: EchoesProjectSnapshotSummary | null;
 }
 
 export interface CreateProjectFromEchoesHdtInput {
@@ -116,6 +161,17 @@ export interface CreateProjectFromEchoesHdtInput {
   description?: string;
   public?: boolean;
   publicBaseUrl: string;
+  importMode?: EchoesImportMode;
+}
+
+export interface CreateProjectFromEchoesRdfInput {
+  rdf: string;
+  fileName?: string;
+  name?: string;
+  description?: string;
+  public?: boolean;
+  publicBaseUrl: string;
+  importMode?: EchoesImportMode;
 }
 
 export interface CreateProjectFromEchoesHdtResult {
@@ -129,6 +185,7 @@ export interface CreateProjectFromEchoesHdtResult {
   };
   echoes: EchoesHdtDetail;
   importedAssetCount: number;
+  importedAnnotationCount: number;
 }
 
 export interface EchoesProjectStatus {
@@ -143,6 +200,7 @@ export interface EchoesProjectStatus {
   assetCount: number;
   lastRegisteredAt: string | null;
   lastSyncedAt: string | null;
+  projectSnapshot: EchoesProjectSnapshotReference | null;
   readiness: EchoesProjectReadiness;
 }
 
@@ -176,6 +234,13 @@ export interface EchoesPublishProjectResult {
     contentType: 'application/rdf+xml';
     size: number;
   };
+}
+
+export interface EchoesRdfExportResult {
+  rdf: string;
+  fileName: string;
+  snapshotIncluded: boolean;
+  snapshotReference?: EchoesProjectSnapshotReference & { payloadJson?: string };
 }
 
 export interface DuplicateProjectHdtInEchoesInput {
@@ -362,7 +427,9 @@ export async function getEchoesHdtDetail(
   const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
-SELECT DISTINCT ?ng ?hdt ?hdtLabel ?hc1 ?hc1Label ?hc1Title ?hc1Identifier ?hc1Description ?hc1Creator ?hc1Date ?hc1Coverage ?hc1Rights ?hc1Subject ?hc1Type ?hc1Language ?hc1Source ?asset ?assetLabel ?assetTitle ?assetDescription ?assetSource ?assetFormat ?assetHc1
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX ocra: <https://data.ocra.echoes.eu/ontology#>
+SELECT DISTINCT ?ng ?hdt ?hdtLabel ?hc1 ?hc1Label ?hc1Title ?hc1Identifier ?hc1Description ?hc1Creator ?hc1Date ?hc1Coverage ?hc1Rights ?hc1Subject ?hc1Type ?hc1Language ?hc1Source ?asset ?assetLabel ?assetTitle ?assetDescription ?assetSource ?assetFormat ?assetHc1 ?snapshot ?snapshotVersion ?snapshotFormat ?snapshotCreated ?snapshotChecksum ?snapshotIncludesAnnotations
 WHERE {
   GRAPH ?ng {
     BIND(<${escapedDtUri}> AS ?hdt)
@@ -393,6 +460,14 @@ WHERE {
       OPTIONAL { ?asset dc:source ?assetSource }
       OPTIONAL { ?asset dc:format ?assetFormat }
       OPTIONAL { ?asset hdt:HP21 ?assetHc1 }
+    }
+    OPTIONAL {
+      ?hdt ocra:hasProjectSnapshot ?snapshot .
+      OPTIONAL { ?snapshot ocra:snapshotVersion ?snapshotVersion }
+      OPTIONAL { ?snapshot dcterms:format ?snapshotFormat }
+      OPTIONAL { ?snapshot dcterms:created ?snapshotCreated }
+      OPTIONAL { ?snapshot ocra:sha256 ?snapshotChecksum }
+      OPTIONAL { ?snapshot ocra:snapshotIncludesAnnotations ?snapshotIncludesAnnotations }
     }
   }
   FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))${namedGraphFilter}
@@ -437,6 +512,18 @@ WHERE {
       },
     },
     assets: [],
+    projectSnapshot: getBindingValue(first, 'snapshot')
+      ? {
+          url: getBindingValue(first, 'snapshot') ?? '',
+          format: getBindingValue(first, 'snapshotFormat') ?? OCRA_PROJECT_SNAPSHOT_FORMAT,
+          version: Number.parseInt(getBindingValue(first, 'snapshotVersion') ?? '1', 10) || 1,
+          exportedAt: getBindingValue(first, 'snapshotCreated'),
+          checksum: getBindingValue(first, 'snapshotChecksum'),
+          includesAnnotations: getBindingValue(first, 'snapshotIncludesAnnotations') === null
+            ? null
+            : getBindingValue(first, 'snapshotIncludesAnnotations') === 'true',
+        }
+      : null,
   };
 
   const assetMap = new Map<string, EchoesHdtAsset>();
@@ -487,6 +574,9 @@ function mapEchoesFormatToOcrAssetType(format: string | null): DigitalAssetCreat
   if (normalized === 'image/rti') {
     return 'rti';
   }
+  if (normalized === 'application/zip') {
+    return 'rti';
+  }
   if (normalized.startsWith('model/') || normalized.includes('3d')) {
     return '3d-model';
   }
@@ -535,6 +625,358 @@ function getEchoesAssetImportability(asset: Pick<EchoesHdtAsset, 'source' | 'for
   };
 }
 
+function toSnapshotReference(
+  snapshot: EchoesProjectSnapshotSummary | null | undefined,
+): EchoesProjectSnapshotReference | undefined {
+  if (!snapshot) {
+    return undefined;
+  }
+
+  return {
+    url: snapshot.url,
+    format: snapshot.format,
+    version: snapshot.version,
+    exportedAt: snapshot.exportedAt ?? undefined,
+    checksum: snapshot.checksum ?? undefined,
+    includesAnnotations: snapshot.includesAnnotations ?? undefined,
+  };
+}
+
+async function assertPortableAssetSourceUrl(sourceUrl: string): Promise<void> {
+  await validateRemoteAssetSourceUrl(sourceUrl);
+}
+
+async function importEchoesAssetsIntoProject(
+  projectId: string,
+  userId: string,
+  publicBaseUrl: string,
+  assets: EchoesHdtAsset[],
+): Promise<{
+  importedAssetCount: number;
+  importedAssetIdBySourceAssetUri: Map<string, string>;
+}> {
+  let importedAssetCount = 0;
+  const importedAssetIdBySourceAssetUri = new Map<string, string>();
+
+  for (const asset of assets) {
+    if (!asset.importable || !asset.source) {
+      continue;
+    }
+
+    await assertPortableAssetSourceUrl(asset.source);
+
+    const normalizedAsset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'> = {
+      projectId,
+      type: mapEchoesAssetToOcrType(asset.format, asset.source),
+      label: asset.label || asset.title || asset.assetUri,
+      title: asset.title || undefined,
+      description: asset.description || undefined,
+      entryPointUrl: asset.source,
+      mimeType: asset.format || undefined,
+      metadata: {
+        sourceUrl: asset.source,
+        sourceAssetUri: asset.assetUri,
+        linkedHeritageEntityUri: asset.linkedHeritageEntityUri || undefined,
+        format: asset.format || undefined,
+      },
+    };
+
+    const createdAsset = await addDigitalAsset(projectId, normalizedAsset, userId);
+    if (!createdAsset) {
+      throw new Error(`Failed to create local asset shell for "${asset.assetUri}"`);
+    }
+
+    await ingestRemoteAssetIntoExistingAsset({
+      projectId,
+      assetId: createdAsset.assetId,
+      sourceUrl: asset.source,
+      userId,
+      publicBaseUrl,
+    });
+
+    importedAssetIdBySourceAssetUri.set(asset.assetUri, createdAsset.assetId);
+    importedAssetCount += 1;
+  }
+
+  return { importedAssetCount, importedAssetIdBySourceAssetUri };
+}
+
+async function finalizeImportedEchoesContext(
+  projectId: string,
+  userId: string,
+  baseContext: EchoesContext,
+): Promise<void> {
+  const importedDocument = await getHDTDocument(projectId);
+  if (!importedDocument) {
+    return;
+  }
+
+  await updateHdtEchoesContext(projectId, {
+    ...baseContext,
+    syncStatus: 'synced',
+    assetRecords: importedDocument.digitalAssets.map((asset) => ({
+      assetId: asset.id,
+      assetUri: typeof asset.metadata?.sourceAssetUri === 'string'
+        ? asset.metadata.sourceAssetUri
+        : `urn:ocra:asset:${projectId}:${asset.id}`,
+      sourceUrl: typeof asset.metadata?.sourceUrl === 'string'
+        ? asset.metadata.sourceUrl
+        : typeof asset.entryPointUrl === 'string'
+          ? asset.entryPointUrl
+          : undefined,
+    })),
+    lastSyncedAt: new Date(),
+    lastSyncedProjectUpdatedAt: importedDocument.updatedAt ?? new Date(),
+  }, userId);
+}
+
+interface ProjectImportBaseInput {
+  name?: string;
+  description?: string;
+  public?: boolean;
+  publicBaseUrl: string;
+}
+
+function buildLiveEchoesImportedContext(projectId: string, detail: EchoesHdtDetail): EchoesContext {
+  return {
+    ...buildDefaultEchoesContext(projectId),
+    origin: 'imported',
+    syncStatus: 'synced',
+    heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
+    digitalTwinUri: detail.digitalTwinUri,
+    namedGraphUri: detail.namedGraphUri,
+    digitalTwinLabel: detail.digitalTwinLabel || undefined,
+    importedFromEchoesAt: new Date(),
+    projectSnapshot: toSnapshotReference(detail.projectSnapshot),
+  };
+}
+
+function buildLocalRdfImportedContext(projectId: string, detail: EchoesHdtDetail): EchoesContext {
+  return {
+    ...buildDefaultEchoesContext(projectId),
+    origin: 'local',
+    syncStatus: 'local',
+    heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
+  };
+}
+
+async function importMetadataAssetsFromSourceDetail(
+  user: User,
+  input: ProjectImportBaseInput,
+  detail: EchoesHdtDetail,
+  buildContext: (projectId: string) => EchoesContext,
+  options: { finalizeEchoesContext: boolean },
+): Promise<CreateProjectFromEchoesHdtResult> {
+  const fallbackName =
+    input.name?.trim() ||
+    detail.physicalObjectMetadata.dublinCore?.title?.trim() ||
+    detail.physicalObjectMetadata.sourceRecord?.heritageEntityLabel ||
+    detail.digitalTwinLabel ||
+    detail.digitalTwinUri;
+
+  const fallbackDescription =
+    input.description?.trim() ||
+    detail.physicalObjectMetadata.dublinCore?.description?.trim() ||
+    '';
+
+  const project = await createManagedProject({
+    name: fallbackName,
+    description: fallbackDescription,
+    isPublic: Boolean(input.public),
+    owner: user,
+  });
+
+  try {
+    const baseContext = buildContext(project.id);
+    await createHDTDocument(project.id, user.id, detail.physicalObjectMetadata, baseContext);
+    const { importedAssetCount } = await importEchoesAssetsIntoProject(project.id, user.id, input.publicBaseUrl, detail.assets);
+
+    if (options.finalizeEchoesContext) {
+      await finalizeImportedEchoesContext(project.id, user.id, baseContext);
+    }
+
+    return {
+      project,
+      echoes: detail,
+      importedAssetCount,
+      importedAnnotationCount: 0,
+    };
+  } catch (error) {
+    await cleanupFailedImportedProject(project.id);
+    throw error;
+  }
+}
+
+async function importFullOcraProjectSnapshot(
+  user: User,
+  input: ProjectImportBaseInput,
+  detail: EchoesHdtDetail,
+  snapshot: OcraProjectSnapshotPayload,
+  includeAnnotations: boolean,
+  buildContext: (projectId: string) => EchoesContext,
+  options: {
+    finalizeEchoesContext: boolean;
+    missingPortableAssetMessage: string;
+  },
+): Promise<CreateProjectFromEchoesHdtResult> {
+  const sourceBundle = projectSnapshotToImportSourceBundle(snapshot);
+  if (!sourceBundle.hdtDocument) {
+    throw new Error('The linked OCRA project snapshot does not contain an HDT document.');
+  }
+
+  const fallbackName =
+    input.name?.trim() ||
+    snapshot.project.name ||
+    detail.physicalObjectMetadata.dublinCore?.title?.trim() ||
+    detail.digitalTwinLabel ||
+    detail.digitalTwinUri;
+  const fallbackDescription =
+    input.description?.trim() ||
+    snapshot.project.description ||
+    detail.physicalObjectMetadata.dublinCore?.description?.trim() ||
+    '';
+
+  const project = await createManagedProject({
+    name: fallbackName,
+    description: fallbackDescription,
+    isPublic: Boolean(input.public),
+    owner: user,
+  });
+
+  try {
+    const baseContext = buildContext(project.id);
+    await createHDTDocument(project.id, user.id, detail.physicalObjectMetadata, baseContext);
+
+    const { importedAssetCount, importedAssetIdBySourceAssetUri } = await importEchoesAssetsIntoProject(
+      project.id,
+      user.id,
+      input.publicBaseUrl,
+      detail.assets,
+    );
+
+    const currentDocument = await getHDTDocument(project.id);
+    if (!currentDocument) {
+      throw new Error('Failed to load the imported project document after asset ingestion.');
+    }
+
+    const assetIdOverrides = new Map<string, string>();
+    for (const asset of sourceBundle.hdtDocument.digitalAssets) {
+      const sourceAssetUri = typeof asset.metadata?.sourceAssetUri === 'string'
+        ? asset.metadata.sourceAssetUri
+        : `urn:ocra:asset:${sourceBundle.projectPayload.project.id}:${asset.id}`;
+      const importedAssetId = importedAssetIdBySourceAssetUri.get(sourceAssetUri);
+      if (importedAssetId) {
+        assetIdOverrides.set(asset.id, importedAssetId);
+      }
+    }
+
+    if (assetIdOverrides.size < sourceBundle.hdtDocument.digitalAssets.length) {
+      throw new Error(options.missingPortableAssetMessage);
+    }
+
+    const idMaps = buildImportIdMaps(sourceBundle, { assetIds: assetIdOverrides });
+    const rewrittenHdtDocument = rewriteImportedHdtDocument(sourceBundle, project.id, idMaps);
+    if (!rewrittenHdtDocument) {
+      throw new Error('Failed to rewrite the imported OCRA HDT snapshot.');
+    }
+
+    const normalizedImportedDocument = normalizeImportedHdtDocument({
+      ...rewrittenHdtDocument,
+      physicalObjectMetadata: {
+        ...rewrittenHdtDocument.physicalObjectMetadata,
+        ...detail.physicalObjectMetadata,
+        sourceRecord: {
+          ...(rewrittenHdtDocument.physicalObjectMetadata.sourceRecord ?? {}),
+          ...(detail.physicalObjectMetadata.sourceRecord ?? {}),
+        },
+      },
+      digitalAssets: currentDocument.digitalAssets,
+      echoesContext: baseContext,
+    });
+
+    const result = await updateHdtByProjectId(project.id, {
+      $set: {
+        physicalObjectMetadata: normalizedImportedDocument.physicalObjectMetadata,
+        digitalAssets: normalizedImportedDocument.digitalAssets,
+        scenes: normalizedImportedDocument.scenes,
+        echoesContext: normalizedImportedDocument.echoesContext,
+        updatedAt: new Date(),
+        updatedBy: user.id,
+      },
+    });
+
+    if (!result.value) {
+      throw new Error('Failed to persist imported scenes and OCRA snapshot metadata.');
+    }
+
+    let importedAnnotationCount = 0;
+    if (includeAnnotations) {
+      const rewrittenAnnotations = rewriteImportedAnnotations(sourceBundle, project.id, idMaps);
+      const [geometryCollection, dataCollection, linkCollection] = await Promise.all([
+        getAnnotationGeometryCollection(),
+        getAnnotationDataCollection(),
+        getAnnotationLinkCollection(),
+      ]);
+
+      if (rewrittenAnnotations.geometries.length > 0) {
+        await geometryCollection.insertMany(rewrittenAnnotations.geometries, { ordered: true });
+      }
+      if (rewrittenAnnotations.data.length > 0) {
+        await dataCollection.insertMany(rewrittenAnnotations.data, { ordered: true });
+      }
+      if (rewrittenAnnotations.links.length > 0) {
+        await linkCollection.insertMany(rewrittenAnnotations.links, { ordered: true });
+      }
+
+      importedAnnotationCount =
+        rewrittenAnnotations.geometries.length +
+        rewrittenAnnotations.data.length +
+        rewrittenAnnotations.links.length;
+    }
+
+    await syncLegacySceneFile(project.id, normalizedImportedDocument);
+    if (options.finalizeEchoesContext) {
+      await finalizeImportedEchoesContext(project.id, user.id, baseContext);
+    }
+
+    return {
+      project,
+      echoes: detail,
+      importedAssetCount,
+      importedAnnotationCount,
+    };
+  } catch (error) {
+    await cleanupFailedImportedProject(project.id);
+    throw error;
+  }
+}
+
+async function importFullOcraProjectSnapshotFromEchoes(
+  user: User,
+  input: CreateProjectFromEchoesHdtInput,
+  detail: EchoesHdtDetail,
+  includeAnnotations: boolean,
+): Promise<CreateProjectFromEchoesHdtResult> {
+  if (!detail.projectSnapshot?.url) {
+    throw new Error('This ECCCH HDT does not expose an OCRA project snapshot for full import.');
+  }
+
+  const snapshot = await fetchOcraProjectSnapshot(detail.projectSnapshot.url);
+  return importFullOcraProjectSnapshot(
+    user,
+    input,
+    detail,
+    snapshot,
+    includeAnnotations,
+    (projectId) => buildLiveEchoesImportedContext(projectId, detail),
+    {
+      finalizeEchoesContext: true,
+      missingPortableAssetMessage:
+        'Full OCRA import requires every snapshot asset to expose a portable public URL through ECCCH HC8 records.',
+    },
+  );
+}
+
 export async function createProjectFromEchoesHdt(
   sessionId: string,
   user: User,
@@ -557,89 +999,68 @@ export async function createProjectFromEchoesHdt(
     detail.physicalObjectMetadata.dublinCore?.description?.trim() ||
     '';
 
-  const project = await createManagedProject({
-    name: fallbackName,
-    description: fallbackDescription,
-    isPublic: Boolean(input.public),
-    owner: user,
-  });
+  const importMode = input.importMode ?? 'metadata_assets';
+  if (importMode === 'full_project_without_annotations' || importMode === 'full_project_with_annotations') {
+    return importFullOcraProjectSnapshotFromEchoes(
+      user,
+      input,
+      detail,
+      importMode === 'full_project_with_annotations',
+    );
+  }
 
-  const importedEchoesContext: EchoesContext = {
-    ...buildDefaultEchoesContext(project.id),
-    origin: 'imported',
-    syncStatus: 'synced',
-    heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
-    digitalTwinUri: detail.digitalTwinUri,
-    namedGraphUri: detail.namedGraphUri,
-    digitalTwinLabel: detail.digitalTwinLabel || undefined,
-    importedFromEchoesAt: new Date(),
-  };
+  return importMetadataAssetsFromSourceDetail(
+    user,
+    {
+      ...input,
+      name: fallbackName,
+      description: fallbackDescription,
+    },
+    detail,
+    (projectId) => buildLiveEchoesImportedContext(projectId, detail),
+    { finalizeEchoesContext: true },
+  );
+}
 
-  await createHDTDocument(project.id, user.id, detail.physicalObjectMetadata, importedEchoesContext);
+export async function createProjectFromEchoesRdf(
+  user: User,
+  input: CreateProjectFromEchoesRdfInput,
+): Promise<CreateProjectFromEchoesHdtResult> {
+  const parsed = parseEchoesRdfImport(input.rdf, input.fileName);
+  const { detail, snapshotPayload } = parsed;
+  const importMode = input.importMode ?? 'metadata_assets';
 
-  let importedAssetCount = 0;
-  for (const asset of detail.assets) {
-    if (!asset.importable || !asset.source) {
-      continue;
+  if (importMode === 'full_project_without_annotations' || importMode === 'full_project_with_annotations') {
+    if (!snapshotPayload) {
+      throw new Error('This RDF file does not contain an embedded OCRA project payload. Export the RDF with OCRA payload enabled first.');
     }
 
-    const normalizedAsset: Omit<DigitalAsset, 'id' | 'uploadedAt' | 'uploadedBy'> = {
-      projectId: project.id,
-      type: mapEchoesAssetToOcrType(asset.format, asset.source),
-      label: asset.label || asset.title || asset.assetUri,
-      title: asset.title || undefined,
-      description: asset.description || undefined,
-      entryPointUrl: asset.source,
-      mimeType: asset.format || undefined,
-      metadata: {
-        sourceUrl: asset.source || undefined,
-        sourceAssetUri: asset.assetUri,
-        linkedHeritageEntityUri: asset.linkedHeritageEntityUri || undefined,
-        format: asset.format || undefined,
+    if (importMode === 'full_project_with_annotations' && detail.projectSnapshot?.includesAnnotations === false) {
+      throw new Error('This RDF file was exported without annotations, so a full import with annotations is not available.');
+    }
+
+    return importFullOcraProjectSnapshot(
+      user,
+      input,
+      detail,
+      snapshotPayload,
+      importMode === 'full_project_with_annotations',
+      (projectId) => buildLocalRdfImportedContext(projectId, detail),
+      {
+        finalizeEchoesContext: false,
+        missingPortableAssetMessage:
+          'Full OCRA import from RDF requires every snapshot asset to expose a portable public URL in the HC8 records.',
       },
-    };
-
-    const createdAsset = await addDigitalAsset(project.id, normalizedAsset, user.id);
-    if (!createdAsset) {
-      throw new Error(`Failed to create local asset shell for "${asset.assetUri}"`);
-    }
-
-    await ingestRemoteAssetIntoExistingAsset({
-      projectId: project.id,
-      assetId: createdAsset.assetId,
-      sourceUrl: asset.source,
-      userId: user.id,
-      publicBaseUrl: input.publicBaseUrl,
-    });
-
-    importedAssetCount += 1;
+    );
   }
 
-  const importedDocument = await getHDTDocument(project.id);
-  if (importedDocument) {
-    await updateHdtEchoesContext(project.id, {
-      syncStatus: 'synced',
-      assetRecords: importedDocument.digitalAssets.map((asset) => ({
-        assetId: asset.id,
-        assetUri: typeof asset.metadata?.sourceAssetUri === 'string'
-          ? asset.metadata.sourceAssetUri
-          : `urn:ocra:asset:${project.id}:${asset.id}`,
-        sourceUrl: typeof asset.metadata?.sourceUrl === 'string'
-          ? asset.metadata.sourceUrl
-          : typeof asset.entryPointUrl === 'string'
-            ? asset.entryPointUrl
-            : undefined,
-      })),
-      lastSyncedAt: new Date(),
-      lastSyncedProjectUpdatedAt: importedDocument.updatedAt ?? new Date(),
-    }, user.id);
-  }
-
-  return {
-    project,
-    echoes: detail,
-    importedAssetCount,
-  };
+  return importMetadataAssetsFromSourceDetail(
+    user,
+    input,
+    detail,
+    (projectId) => buildLocalRdfImportedContext(projectId, detail),
+    { finalizeEchoesContext: false },
+  );
 }
 
 function deriveEchoesContext(projectId: string, hdtDocument: HDTDocument): EchoesContext {
@@ -695,6 +1116,7 @@ function toProjectStatus(hdtDocument: HDTDocument): EchoesProjectStatus {
     assetCount: Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets.length : 0,
     lastRegisteredAt: toIsoStringOrNull(context.lastRegisteredAt),
     lastSyncedAt: toIsoStringOrNull(context.lastSyncedAt),
+    projectSnapshot: context.projectSnapshot ?? null,
     readiness,
   };
 }
@@ -745,7 +1167,7 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
         field: `digitalAssets.${asset.id}.metadata.sourceUrl`,
         assetId: asset.id,
         assetLabel: asset.label || asset.title || asset.id,
-        message: `Digital asset "${asset.label || asset.title || asset.id}" is missing its public ECHOES source URL. ECHOES HC8 records should expose a resolvable URL that another OCRA instance can download.`,
+        message: `Digital asset "${asset.label || asset.title || asset.id}" is missing its public asset URL. HC8 records should expose a stable, resolvable URL that another OCRA instance can download.`,
       });
     }
   }
@@ -775,6 +1197,95 @@ async function requireProjectHdtDocument(projectId: string): Promise<HDTDocument
     throw new Error(`No HDT document found for project "${projectId}"`);
   }
   return hdtDocument;
+}
+
+async function assertProjectCanPublishToEchoes(projectId: string, hdtDocument: HDTDocument): Promise<void> {
+  const readiness = buildEchoesProjectReadiness(projectId, hdtDocument);
+  if (!readiness.canPublish) {
+    const firstRequiredIssue = readiness.requiredIssues[0];
+    throw new Error(firstRequiredIssue?.message || 'This project is missing required ECHOES publication data.');
+  }
+
+  for (const asset of hdtDocument.digitalAssets) {
+    const sourceUrl = typeof asset.metadata?.sourceUrl === 'string'
+      ? sanitizeOptionalString(asset.metadata.sourceUrl)
+      : undefined;
+    if (!sourceUrl) {
+      continue;
+    }
+    await assertPortableAssetSourceUrl(sourceUrl);
+  }
+}
+
+async function getProjectSnapshotInput(projectId: string) {
+  const prisma = getPrismaClient();
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      public: true,
+      counter: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!project) {
+    throw new Error(`Project not found: ${projectId}`);
+  }
+
+  return { project };
+}
+
+export async function exportProjectRdfForEchoes(
+  projectId: string,
+  publicBaseUrl: string,
+  includeProjectSnapshot: boolean,
+): Promise<EchoesRdfExportResult> {
+  const hdtDocument = await requireProjectHdtDocument(projectId);
+  const currentContext = deriveEchoesContext(projectId, hdtDocument);
+
+  const snapshotReference = includeProjectSnapshot
+    ? await storeOcraProjectSnapshot({
+        ...(await getProjectSnapshotInput(projectId)),
+        publicBaseUrl,
+      })
+    : undefined;
+
+  return {
+    rdf: serializeHdtDocumentAsEchoesRdf(projectId, {
+      ...hdtDocument,
+      echoesContext: currentContext,
+    }, snapshotReference
+      ? {
+          ...snapshotReference.reference,
+          payloadJson: snapshotReference.payloadJson,
+        }
+      : undefined),
+    fileName: `hdt-${projectId}${includeProjectSnapshot ? '-with-ocra-payload' : ''}.rdf`,
+    snapshotIncluded: includeProjectSnapshot,
+    snapshotReference: snapshotReference
+      ? {
+          ...snapshotReference.reference,
+          payloadJson: snapshotReference.payloadJson,
+        }
+      : undefined,
+  };
+}
+
+async function cleanupFailedImportedProject(projectId: string): Promise<void> {
+  const prisma = getPrismaClient();
+  await Promise.allSettled([
+    deleteHdtByProjectId(projectId),
+    deleteAnnotationLinksByProjectId(projectId),
+    deleteAnnotationGeometriesByProjectId(projectId),
+    deleteAnnotationDataByProjectId(projectId),
+    fs.remove(projectRoot(projectId)),
+    prisma.projectRole.deleteMany({ where: { projectId } }),
+    prisma.project.deleteMany({ where: { id: projectId } }),
+  ]);
 }
 
 async function postRdfMultipart(
@@ -851,6 +1362,7 @@ async function publishProjectRdfToEchoes(
   sessionId: string,
   projectId: string,
   userId: string | undefined,
+  publicBaseUrl: string,
   mode: 'enrich' | 'replace',
 ): Promise<EchoesPublishProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
@@ -864,10 +1376,9 @@ async function publishProjectRdfToEchoes(
     throw new Error('No ECHOES named graph is linked to this project yet');
   }
 
-  const rdf = serializeHdtDocumentAsEchoesRdf(projectId, {
-    ...hdtDocument,
-    echoesContext: currentContext,
-  });
+  const exportResult = await exportProjectRdfForEchoes(projectId, publicBaseUrl, true);
+  const snapshot = exportResult.snapshotReference;
+  const rdf = exportResult.rdf;
   const form = createRdfUploadForm(rdf);
   form.append('digitalTwinUri', currentContext.digitalTwinUri);
 
@@ -911,6 +1422,7 @@ async function publishProjectRdfToEchoes(
     })),
     lastSyncedAt: now,
     lastSyncedProjectUpdatedAt: sourceDocument.updatedAt ?? now,
+    projectSnapshot: snapshot,
   }, userId);
 
   if (!updated) {
@@ -929,25 +1441,29 @@ async function publishProjectRdfToEchoes(
 export async function enrichProjectHdtInEchoes(
   sessionId: string,
   projectId: string,
+  publicBaseUrl: string,
   userId?: string,
 ): Promise<EchoesPublishProjectResult> {
-  return publishProjectRdfToEchoes(sessionId, projectId, userId, 'enrich');
+  return publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'enrich');
 }
 
 export async function replaceProjectHdtContentInEchoes(
   sessionId: string,
   projectId: string,
+  publicBaseUrl: string,
   userId?: string,
 ): Promise<EchoesPublishProjectResult> {
-  return publishProjectRdfToEchoes(sessionId, projectId, userId, 'replace');
+  return publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'replace');
 }
 
 export async function duplicateProjectHdtAsNewInEchoes(
   sessionId: string,
   projectId: string,
+  publicBaseUrl: string,
   input: DuplicateProjectHdtInEchoesInput,
 ): Promise<DuplicateProjectHdtInEchoesResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
+  await assertProjectCanPublishToEchoes(projectId, hdtDocument);
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
   const title = normalizeEchoesQueryParam(input.title) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
   const description = normalizeEchoesQueryParam(input.description) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
@@ -1001,7 +1517,15 @@ export async function duplicateProjectHdtAsNewInEchoes(
     },
   };
 
-  const rdf = serializeHdtDocumentAsEchoesRdf(projectId, duplicateDocument);
+  const snapshot = await storeOcraProjectSnapshot({
+    ...(await getProjectSnapshotInput(projectId)),
+    publicBaseUrl,
+  });
+
+  const rdf = serializeHdtDocumentAsEchoesRdf(projectId, duplicateDocument, {
+    ...snapshot.reference,
+    payloadJson: snapshot.payloadJson,
+  });
   const form = createRdfUploadForm(rdf);
   form.append('digitalTwinUri', registerPayload.dtUri);
   form.append('triplestoreId', getEchoesPublicTripleStoreId());
@@ -1023,6 +1547,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
     assetCount: Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets.length : 0,
     lastRegisteredAt: new Date().toISOString(),
     lastSyncedAt: new Date().toISOString(),
+    projectSnapshot: snapshot.reference,
   };
   const status: EchoesProjectStatus = {
     ...statusBase,

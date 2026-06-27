@@ -3,10 +3,12 @@ import { requireAuth } from '../middleware/auth.js';
 import {
   clearEchoesDevBearerHandler,
   createProjectFromEchoesHdtHandler,
+  createProjectFromEchoesRdfHandler,
   duplicateProjectHdtAsNewInEchoesHandler,
   enrichProjectHdtInEchoesHandler,
   getEchoesProjectStatusHandler,
   getEchoesHdtHandler,
+  importProjectFromEchoesRdfUploadMiddleware,
   listEchoesHdtsHandler,
   registerProjectHdtInEchoesHandler,
   registerEchoesDevBearerHandler,
@@ -153,6 +155,7 @@ router.get('/hdts/:hdtId', getEchoesHdtHandler);
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post('/projects', createProjectFromEchoesHdtHandler);
+router.post('/projects/import-rdf', importProjectFromEchoesRdfUploadMiddleware, createProjectFromEchoesRdfHandler);
 
 /**
  * @openapi

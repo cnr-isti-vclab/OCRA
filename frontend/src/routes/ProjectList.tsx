@@ -5,6 +5,7 @@ import { appendStoredSessionId, getApiBase } from '../config/oauth';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import type { CurrentUserSummary, ProjectListItem } from '../types';
 import EchoesImportModal from './components/EchoesImportModal';
+import RdfImportModal from './components/RdfImportModal';
 
 /**
  * PROJECTS COMPONENT
@@ -40,6 +41,7 @@ export default function Projects() {
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectPublic, setNewProjectPublic] = useState(false);
   const [showEchoesImportModal, setShowEchoesImportModal] = useState(false);
+  const [showRdfImportModal, setShowRdfImportModal] = useState(false);
   const navigate = useNavigate();
   const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
 
@@ -314,6 +316,11 @@ export default function Projects() {
           {(user?.sys_creator || user?.sys_admin) && (
             <button className="btn btn-outline-primary btn-sm" onClick={() => setShowEchoesImportModal(true)}>
               Import from ECCCH
+            </button>
+          )}
+          {(user?.sys_creator || user?.sys_admin) && (
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowRdfImportModal(true)}>
+              Import from RDF
             </button>
           )}
         </div>
@@ -601,6 +608,15 @@ export default function Projects() {
         onClose={() => setShowEchoesImportModal(false)}
         onImported={(projectId) => {
           setShowEchoesImportModal(false);
+          void fetchData({ showLoading: false });
+          navigate(`/projects/${projectId}/edit`);
+        }}
+      />
+      <RdfImportModal
+        show={showRdfImportModal}
+        onClose={() => setShowRdfImportModal(false)}
+        onImported={(projectId) => {
+          setShowRdfImportModal(false);
           void fetchData({ showLoading: false });
           navigate(`/projects/${projectId}/edit`);
         }}

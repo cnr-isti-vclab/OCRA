@@ -29,8 +29,13 @@ export function projectRtiAssetDir(projectId: string, assetId: string) {
   return path.join(projectRtiDir(projectId), assetId);
 }
 
+export function projectEchoesDir(projectId: string) {
+  return path.join(projectRoot(projectId), 'echoes');
+}
+
 export function ensureProjectSkeleton(projectId: string) {
   fs.mkdirSync(projectModel3dDir(projectId), { recursive: true });
   fs.mkdirSync(projectRtiDir(projectId), { recursive: true });
   fs.mkdirSync(projectTmpDir(projectId), { recursive: true });
+  fs.mkdirSync(projectEchoesDir(projectId), { recursive: true });
 }

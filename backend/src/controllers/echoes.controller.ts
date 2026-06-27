@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import multer from 'multer';
 import { RoleEnum } from '@prisma/client';
 import { sendApiError } from '../lib/api-error.js';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
@@ -9,6 +10,7 @@ import {
 } from '../services/echoes-dev-bearer.service.js';
 import {
   createProjectFromEchoesHdt,
+  createProjectFromEchoesRdf,
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
   getEchoesProjectStatus,
@@ -22,6 +24,7 @@ import { getPrismaClient } from '../../db.js';
 
 type EchoesBearerScope = 'import' | 'register' | 'publish';
 type EchoesProjectMutationAction = 'register' | 'enrich' | 'replace-content';
+const rdfImportUpload = multer({ storage: multer.memoryStorage() });
 
 function getAuthenticatedUser(req: Request) {
   return req.user ?? null;
@@ -204,6 +207,12 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
       description: typeof req.body?.description === 'string' ? req.body.description : undefined,
       public: req.body?.public === true,
       publicBaseUrl: getPublicBaseUrl(req),
+      importMode:
+        req.body?.importMode === 'metadata_assets' ||
+        req.body?.importMode === 'full_project_without_annotations' ||
+        req.body?.importMode === 'full_project_with_annotations'
+          ? req.body.importMode
+          : undefined,
     });
 
     await auditBestEffort({
@@ -216,6 +225,7 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
         namedGraphUri: result.echoes.namedGraphUri,
         projectId: result.project.id,
         importedAssetCount: result.importedAssetCount,
+        importedAnnotationCount: result.importedAnnotationCount,
       },
     });
 
@@ -227,6 +237,65 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
       502,
       'projectCreateFailed',
       'Failed to create a project from ECHOES HDT',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+}
+
+export const importProjectFromEchoesRdfUploadMiddleware = rdfImportUpload.single('file');
+
+export async function createProjectFromEchoesRdfHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  if (!user.sys_admin && !user.sys_creator) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to create projects from RDF');
+  }
+
+  const file = req.file;
+  if (!file || !Buffer.isBuffer(file.buffer) || file.buffer.length === 0) {
+    return sendEchoesError(req, res, 400, 'hdtUriRequired', 'A non-empty RDF file is required');
+  }
+
+  try {
+    const result = await createProjectFromEchoesRdf(user, {
+      rdf: file.buffer.toString('utf8'),
+      fileName: file.originalname,
+      name: typeof req.body?.name === 'string' ? req.body.name : undefined,
+      description: typeof req.body?.description === 'string' ? req.body.description : undefined,
+      public: req.body?.public === 'true' || req.body?.public === true,
+      publicBaseUrl: getPublicBaseUrl(req),
+      importMode:
+        req.body?.importMode === 'metadata_assets' ||
+        req.body?.importMode === 'full_project_without_annotations' ||
+        req.body?.importMode === 'full_project_with_annotations'
+          ? req.body.importMode
+          : undefined,
+    });
+
+    await auditBestEffort({
+      req,
+      userSub: user.sub,
+      action: 'echoes.project.import_rdf',
+      success: true,
+      payload: {
+        fileName: file.originalname,
+        projectId: result.project.id,
+        importedAssetCount: result.importedAssetCount,
+        importedAnnotationCount: result.importedAnnotationCount,
+      },
+    });
+
+    res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    sendEchoesError(
+      req,
+      res,
+      502,
+      'projectCreateFailed',
+      'Failed to create a project from RDF',
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
@@ -290,8 +359,8 @@ async function handleEchoesProjectMutation(
       action === 'register'
         ? await registerProjectHdtInEchoes(sessionId, projectId, user.id)
         : action === 'enrich'
-          ? await enrichProjectHdtInEchoes(sessionId, projectId, user.id)
-          : await replaceProjectHdtContentInEchoes(sessionId, projectId, user.id);
+          ? await enrichProjectHdtInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id)
+          : await replaceProjectHdtContentInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id);
 
     await auditBestEffort({
       req,
@@ -348,7 +417,7 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
   }
 
   try {
-    const result = await duplicateProjectHdtAsNewInEchoes(sessionId, projectId, {
+    const result = await duplicateProjectHdtAsNewInEchoes(sessionId, projectId, getPublicBaseUrl(req), {
       title: typeof req.body?.title === 'string' ? req.body.title : undefined,
       description: typeof req.body?.description === 'string' ? req.body.description : undefined,
       identifier: typeof req.body?.identifier === 'string' ? req.body.identifier : undefined,

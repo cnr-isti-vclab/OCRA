@@ -1,4 +1,9 @@
 import type { DigitalAsset, HDTDocument } from '../types/index.js';
+import type { EchoesProjectSnapshotReference } from 'shared';
+
+interface EmbeddedProjectSnapshot extends EchoesProjectSnapshotReference {
+  payloadJson?: string;
+}
 
 const DEFAULT_ECHOES_PROJECT_URI = 'http://data.echoes-eccch.eu/project/ECHOES';
 const DEFAULT_HERITAGE_ENTITY_URI_BASE = 'https://data.ocra.echoes.eu/heritage-entity/';
@@ -52,14 +57,14 @@ function appendLiteralElements(lines: string[], predicate: string, value: string
 }
 
 function inferAssetMimeType(asset: DigitalAsset): string {
-  if (asset.mimeType?.trim()) {
-    return asset.mimeType.trim();
-  }
   if (asset.type === 'rti') {
     return 'image/rti';
   }
   if (asset.type === '3d-model') {
-    return 'model/gltf+json';
+    return asset.mimeType?.trim() || 'model/gltf+json';
+  }
+  if (asset.mimeType?.trim()) {
+    return asset.mimeType.trim();
   }
   return 'application/octet-stream';
 }
@@ -110,7 +115,11 @@ export function computeEchoesSyncStatus(hdtDocument: HDTDocument): 'local' | 're
   return 'synced';
 }
 
-export function serializeHdtDocumentAsEchoesRdf(projectId: string, hdtDocument: HDTDocument): string {
+export function serializeHdtDocumentAsEchoesRdf(
+  projectId: string,
+  hdtDocument: HDTDocument,
+  snapshotReference?: EmbeddedProjectSnapshot,
+): string {
   const physicalObject = hdtDocument.physicalObjectMetadata;
   const dublinCore = physicalObject.dublinCore ?? {};
   const heritageEntityUri = resolveHeritageEntityUri(projectId, hdtDocument);
@@ -145,6 +154,9 @@ export function serializeHdtDocumentAsEchoesRdf(projectId: string, hdtDocument: 
   for (const asset of digitalAssets) {
     hdtLines.push(`    <hdt:HP3 rdf:resource="${escapeXml(resolveAssetUri(projectId, asset))}"/>`);
   }
+  if (snapshotReference?.url) {
+    hdtLines.push(`    <ocra:hasProjectSnapshot rdf:resource="${escapeXml(snapshotReference.url)}"/>`);
+  }
   hdtLines.push('  </rdf:Description>');
 
   const assetBlocks = digitalAssets.map((asset) => {
@@ -168,18 +180,40 @@ export function serializeHdtDocumentAsEchoesRdf(projectId: string, hdtDocument: 
     return assetLines.join('\n');
   });
 
+  const snapshotBlock = snapshotReference?.url
+    ? [
+        `  <rdf:Description rdf:about="${escapeXml(snapshotReference.url)}">`,
+        '    <rdf:type rdf:resource="https://data.ocra.echoes.eu/ontology#ProjectSnapshot"/>',
+        `    <dcterms:format>${escapeXml(snapshotReference.format)}</dcterms:format>`,
+        `    <ocra:snapshotVersion>${String(snapshotReference.version)}</ocra:snapshotVersion>`,
+        ...(snapshotReference.exportedAt
+          ? [`    <dcterms:created>${escapeXml(snapshotReference.exportedAt)}</dcterms:created>`]
+          : []),
+        ...(snapshotReference.checksum
+          ? [`    <ocra:sha256>${escapeXml(snapshotReference.checksum)}</ocra:sha256>`]
+          : []),
+        `    <ocra:snapshotIncludesAnnotations>${snapshotReference.includesAnnotations === true ? 'true' : 'false'}</ocra:snapshotIncludesAnnotations>`,
+        ...(snapshotReference.payloadJson
+          ? [`    <ocra:snapshotJson>${escapeXml(snapshotReference.payloadJson)}</ocra:snapshotJson>`]
+          : []),
+        '  </rdf:Description>',
+      ].join('\n')
+    : '';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF
   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
   xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
   xmlns:dc="http://purl.org/dc/elements/1.1/"
   xmlns:dcterms="http://purl.org/dc/terms/"
-  xmlns:hdt="http://echoes-eccch.eu/hdt#">
+  xmlns:hdt="http://echoes-eccch.eu/hdt#"
+  xmlns:ocra="https://data.ocra.echoes.eu/ontology#">
 
 ${hc1Lines.join('\n')}
 
 ${hdtLines.join('\n')}
 
 ${assetBlocks.join('\n\n')}
+${snapshotBlock ? `\n\n${snapshotBlock}` : ''}
 </rdf:RDF>`;
 }
