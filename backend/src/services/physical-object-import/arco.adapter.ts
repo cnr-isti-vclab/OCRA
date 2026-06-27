@@ -440,8 +440,16 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
     const rawRecordId = toNonEmptyString(primaryRecord['@id']);
     const recordId = rawRecordId ? expandCurie(rawRecordId, prefixMap) : null;
     const contentType = response.headers.get('content-type') || 'unknown';
-
+    const preferredLabel = extractPreferredLabel(primaryRecord.label);
     const canonicalUri = recordId && isLikelyUri(recordId) ? recordId : null;
+    const metadataPatch: Record<string, unknown> = {};
+
+    if (canonicalUri) {
+      metadataPatch.sourceUri = canonicalUri;
+    }
+    if (preferredLabel) {
+      metadataPatch.label = preferredLabel;
+    }
 
     return {
       dublinCore,
@@ -454,7 +462,7 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
         recordId,
         candidateRecordCount: records.length
       },
-      ...(canonicalUri ? { metadataPatch: { sourceUri: canonicalUri } } : {}),
+      ...(Object.keys(metadataPatch).length > 0 ? { metadataPatch } : {}),
     };
   }
 }
