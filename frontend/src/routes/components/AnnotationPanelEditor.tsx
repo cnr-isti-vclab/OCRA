@@ -698,7 +698,7 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
                     </div>
                   </div>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
-                    {datum.description || '(no description)'}
+                    {datum.description || ''}
                   </p>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
                     <strong>Class:</strong> {datum.class ?? '(no class)'}
