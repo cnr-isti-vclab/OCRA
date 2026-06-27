@@ -12,7 +12,7 @@
  *   4. Remove the /vocabulary route mount from backend/src/routes/index.ts.
  */
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getApiBase } from '../../config/oauth';
 
 interface VocabularyConcept {
@@ -155,7 +155,7 @@ export default function TtlVocabularyWidget() {
   const topProperties =
     data?.properties.filter((p) => !p.subPropertyOf || !propertyCurieSet.has(p.subPropertyOf)) ?? [];
 
-  function renderPropertyTree(root: VocabularyProperty, depth = 0): JSX.Element {
+  function renderPropertyTree(root: VocabularyProperty, depth = 0): React.ReactElement {
     const children = data?.properties.filter((p) => p.subPropertyOf === root.curie) ?? [];
     const isSelected = selectedPropertyCurie === root.curie;
 

@@ -164,7 +164,7 @@ function FileImportForm({
             <> Title: <strong>{String(state.dublinCore.title)}</strong></>
           )}
           {(state.sourceRecord?.hc1Subject as string | undefined) && (
-            <> HC1: <code>{String(state.sourceRecord.hc1Subject)}</code></>
+            <> HC1: <code>{String(state.sourceRecord?.hc1Subject)}</code></>
           )}
         </div>
       )}

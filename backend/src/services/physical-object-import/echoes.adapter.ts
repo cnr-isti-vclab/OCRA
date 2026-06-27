@@ -90,6 +90,9 @@ export class EchoesPhysicalObjectImportAdapter implements PhysicalObjectImportAd
         importedAt: new Date().toISOString(),
         sourceUri: context.sourceUri,
       },
+      ...(selection.heritageEntityUri
+        ? { metadataPatch: { sourceUri: selection.heritageEntityUri } }
+        : {}),
     };
   }
 }

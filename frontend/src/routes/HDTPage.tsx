@@ -169,7 +169,7 @@ export default function HDTPage() {
   const getEchoesSyncStatusLabel = (status: EchoesProjectStatus['syncStatus'] | NonNullable<HDTMetadata['echoesContext']>['syncStatus'] | undefined): string => {
     switch (status) {
       case 'dirty':
-        return 'Pending Sync';
+        return 'Update available';
       case 'registered':
         return 'Registered';
       case 'synced':
@@ -1018,8 +1018,9 @@ export default function HDTPage() {
     setMetadata(persistedMetadata);
     setDigitalAssets(Array.isArray(persistedMetadata.digitalAssets) ? persistedMetadata.digitalAssets : []);
     setScenes(Array.isArray(persistedMetadata.scenes) ? persistedMetadata.scenes : []);
+    await refreshEchoesStatus();
     return persistedMetadata;
-  }, [metadata, projectId]);
+  }, [metadata, projectId, refreshEchoesStatus]);
 
   // Auto-save metadata function
   const autoSaveMetadata = useCallback(async () => {
@@ -1540,7 +1541,7 @@ export default function HDTPage() {
                       ? 'Working...'
                       : hasEchoesRegistration
                         ? 'Already Registered in ECCCH'
-                        : 'Register in ECCCH'}
+                        : 'REGISTER in ECCCH'}
                   </button>
                 )}
                 {canPublishProjectInEchoes && (
@@ -1550,7 +1551,7 @@ export default function HDTPage() {
                     disabled={echoesBusy || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
                     onClick={() => void handleEchoesPublishAction('enrich')}
                   >
-                    Publish RDF to New Named Graph
+                    CREATE New Named Graph
                   </button>
                 )}
                 {canPublishProjectInEchoes && (
@@ -1560,7 +1561,7 @@ export default function HDTPage() {
                     disabled={echoesBusy || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
                     onClick={() => void handleEchoesPublishAction('replace')}
                   >
-                    Replace Published Named Graph
+                    UPDATE Published Named Graph
                   </button>
                 )}
                 {canDuplicateProjectInEchoes && (
@@ -1579,7 +1580,7 @@ export default function HDTPage() {
                         }
                       }}
                     >
-                      Duplicate as New ECCCH HDT
+                      DUPLICATE as New ECCCH HDT
                     </button>
                     {showDuplicateEchoesForm && (
                       <div className="border rounded-3 p-3 bg-white">

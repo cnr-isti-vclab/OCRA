@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { startAuthFlow, completeAuthCodeFlow, getCurrentUser, OAUTH_CONFIG } from './backend';
 import { releases, type Release } from './data/releases';
-
-type User = { name?: string; email?: string; sub: string };
+import type { User } from 'shared/types';
 
 export default function App() {
   const navigate = useNavigate();
@@ -22,7 +21,7 @@ export default function App() {
           const currentUser = await getCurrentUser();
           if (currentUser) {
             setIsAuthenticated(true);
-            setUser({ sub: currentUser.sub, name: currentUser.name, email: currentUser.email });
+            setUser(currentUser);
             navigate('/profile');
           }
         } else {

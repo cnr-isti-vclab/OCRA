@@ -4,29 +4,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { logout, getCurrentUser } from '../backend';
 import { getApiBase } from '../config/oauth';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
-
-/**
- * SIDEBAR LAYOUT COMPONENT
- * 
- * This component provides a consistent layout with a sidebar navigation
- * for authenticated users. It includes:
- * - A collapsible sidebar with navigation items
- * - Header bar with user information and logout button
- * - Main content area for route components
- * - Responsive design that works on mobile and desktop
- */
+import type { User } from 'shared/types';
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
-}
-
-interface User {
-  sys_admin?: boolean;
-  name?: string;
-  given_name?: string;
-  family_name?: string;
-  username?: string;
-  email?: string;
 }
 
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
@@ -64,9 +45,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const currentProjectId = projectMatch?.[1] ?? null;
   const projectSubPath = projectMatch?.[2] ?? '';
   const viewerMode = new URLSearchParams(location.search).get('mode') ?? '3d';
-  const isViewerRoute = currentProjectId !== null && projectSubPath === '';
   const canAcquireProjectLock = !!currentUser?.sys_admin || isProjectManager;
-  //  const showEditLockButton = currentProjectId !== null && canAcquireProjectLock && !isViewerRoute;
   const showEditLockButton = currentProjectId !== null && canAcquireProjectLock;
 
   const [projectName, setProjectName] = useState<string | null>(null);
@@ -295,9 +274,9 @@ function EditLockButton({ lockStatus, onToggle }: EditLockButtonProps) {
   const active = lockStatus === 'exclusive' || lockStatus === 'draining';
 
   let title = 'Acquire structuring lock)';
-  if (active) title = 'Release structuring lock)';
-  else if (lockStatus === 'acquiring') title = 'Acquiring lock…';
+  if (lockStatus === 'exclusive') title = 'Release structuring lock)';
   else if (lockStatus === 'draining') title = 'Waiting for other sessions to finish. Click to cancel.';
+  else if (lockStatus === 'acquiring') title = 'Acquiring lock…';
   else if (lockStatus === 'releasing') title = 'Releasing lock…';
   else if (lockStatus === 'canceling') title = 'Canceling draining…';
 

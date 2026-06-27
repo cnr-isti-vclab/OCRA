@@ -73,7 +73,7 @@ function resolveHeritageEntityUri(projectId: string, hdtDocument: HDTDocument): 
   return (
     hdtDocument.echoesContext?.heritageEntityUri?.trim() ||
     hdtDocument.physicalObjectMetadata.sourceUri?.trim() ||
-    `${getEchoesHeritageEntityUriBase()}${projectId}`
+    generateHeritageEntityUri(projectId)
   );
 }
 
@@ -91,8 +91,11 @@ export function buildDefaultEchoesContext(projectId: string) {
     origin: 'local' as const,
     syncStatus: 'local' as const,
     projectUri: getEchoesProjectUri(),
-    heritageEntityUri: `${getEchoesHeritageEntityUriBase()}${projectId}`,
   };
+}
+
+export function generateHeritageEntityUri(projectId: string): string {
+  return `${getEchoesHeritageEntityUriBase()}${projectId}`;
 }
 
 export function computeEchoesSyncStatus(hdtDocument: HDTDocument): 'local' | 'registered' | 'synced' | 'dirty' {

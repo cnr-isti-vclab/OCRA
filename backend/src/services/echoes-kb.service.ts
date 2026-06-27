@@ -861,11 +861,15 @@ function buildLiveEchoesImportedContext(projectId: string, detail: EchoesHdtDeta
 }
 
 function buildLocalRdfImportedContext(projectId: string, detail: EchoesHdtDetail): EchoesContext {
+  const digitalTwinUri = isEchoesDigitalTwinUri(detail.digitalTwinUri) ? detail.digitalTwinUri : undefined;
+
   return {
     ...buildDefaultEchoesContext(projectId),
     origin: 'local',
-    syncStatus: 'local',
+    syncStatus: digitalTwinUri ? 'registered' : 'local',
     heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
+    digitalTwinUri,
+    digitalTwinLabel: digitalTwinUri ? detail.digitalTwinLabel || undefined : undefined,
   };
 }
 
@@ -1173,9 +1177,26 @@ export async function createProjectFromEchoesRdf(
 }
 
 function deriveEchoesContext(projectId: string, hdtDocument: HDTDocument): EchoesContext {
+  const sourceRecord = hdtDocument.physicalObjectMetadata?.sourceRecord;
+  const fallbackDigitalTwinUri =
+    sourceRecord && typeof sourceRecord === 'object' && !Array.isArray(sourceRecord)
+      ? isEchoesDigitalTwinUri(typeof sourceRecord.digitalTwinUri === 'string' ? sourceRecord.digitalTwinUri : null)
+        ? sourceRecord.digitalTwinUri
+        : undefined
+      : undefined;
+
   return {
     ...buildDefaultEchoesContext(projectId),
     ...(hdtDocument.echoesContext ?? {}),
+    ...(fallbackDigitalTwinUri ? { digitalTwinUri: fallbackDigitalTwinUri } : {}),
+    ...(!hdtDocument.echoesContext?.digitalTwinLabel && fallbackDigitalTwinUri
+      ? {
+          digitalTwinLabel:
+            typeof sourceRecord?.digitalTwinLabel === 'string' && sourceRecord.digitalTwinLabel.trim().length > 0
+              ? sourceRecord.digitalTwinLabel.trim()
+              : undefined,
+        }
+      : {}),
   };
 }
 
@@ -1194,6 +1215,11 @@ function normalizeEchoesQueryParam(value: string | undefined): string | undefine
   }
 
   return sanitized.replace(/\s+/g, ' ').trim();
+}
+
+function isEchoesDigitalTwinUri(value: string | null | undefined): value is string {
+  const sanitized = sanitizeOptionalString(value ?? undefined);
+  return typeof sanitized === 'string' && sanitized.startsWith(getEchoesHdtUriPrefix());
 }
 
 function toIsoStringOrNull(value: Date | string | undefined): string | null {
@@ -1218,7 +1244,7 @@ function toProjectStatus(hdtDocument: HDTDocument): EchoesProjectStatus {
     projectUri: context.projectUri,
     origin: context.origin,
     syncStatus,
-    heritageEntityUri: context.heritageEntityUri ?? null,
+    heritageEntityUri: context.heritageEntityUri ?? hdtDocument.physicalObjectMetadata?.sourceUri ?? null,
     digitalTwinUri: context.digitalTwinUri ?? null,
     namedGraphUri: context.namedGraphUri ?? null,
     digitalTwinLabel: context.digitalTwinLabel ?? null,
@@ -1422,6 +1448,15 @@ export async function registerProjectHdtInEchoes(
 ): Promise<EchoesRegisterProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
+
+  if (currentContext.digitalTwinUri) {
+    return {
+      status: toProjectStatus({
+        ...hdtDocument,
+        echoesContext: currentContext,
+      }),
+    };
+  }
 
   const params = new URLSearchParams({
     heritageEntityUri: currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri,

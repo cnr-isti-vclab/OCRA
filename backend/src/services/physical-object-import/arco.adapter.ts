@@ -154,6 +154,32 @@ function extractPreferredLabel(labelValue: unknown): string | undefined {
   return entries[0].value;
 }
 
+function buildPrefixMap(payload: unknown): Record<string, string> {
+  const map: Record<string, string> = {};
+  if (!isRecord(payload)) return map;
+
+  const ctx = payload['@context'];
+  if (!isRecord(ctx)) return map;
+
+  for (const [key, value] of Object.entries(ctx)) {
+    if (typeof value === 'string' && !key.startsWith('@')) {
+      map[key] = value;
+    }
+  }
+  return map;
+}
+
+function expandCurie(value: string, prefixMap: Record<string, string>): string {
+  const colonIdx = value.indexOf(':');
+  if (colonIdx === -1) return value;
+
+  const prefix = value.substring(0, colonIdx);
+  const local = value.substring(colonIdx + 1);
+
+  const expansion = prefixMap[prefix];
+  return expansion ? expansion + local : value;
+}
+
 function collectJsonLdRecords(value: unknown): Record<string, unknown>[] {
   const records: Record<string, unknown>[] = [];
   const stack: unknown[] = [value];
@@ -397,6 +423,7 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
     }
 
     const jsonPayload = await readJsonResponse(response);
+    const prefixMap = buildPrefixMap(jsonPayload);
     const records = collectJsonLdRecords(jsonPayload);
     const primaryRecord = selectPrimaryRecord(records, context, catalogId);
 
@@ -410,8 +437,11 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
       throw new Error('ARCO response did not expose extractable Dublin Core metadata');
     }
 
-    const recordId = toNonEmptyString(primaryRecord['@id']);
+    const rawRecordId = toNonEmptyString(primaryRecord['@id']);
+    const recordId = rawRecordId ? expandCurie(rawRecordId, prefixMap) : null;
     const contentType = response.headers.get('content-type') || 'unknown';
+
+    const canonicalUri = recordId && isLikelyUri(recordId) ? recordId : null;
 
     return {
       dublinCore,
@@ -423,7 +453,8 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
         contentType,
         recordId,
         candidateRecordCount: records.length
-      }
+      },
+      ...(canonicalUri ? { metadataPatch: { sourceUri: canonicalUri } } : {}),
     };
   }
 }
