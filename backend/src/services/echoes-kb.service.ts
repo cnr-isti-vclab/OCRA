@@ -116,6 +116,12 @@ export interface EchoesHdtListItem {
   identifier: string | null;
   heritageEntityUri: string | null;
   graphDate: string | null;
+  graphState: 'current' | 'former' | 'unknown';
+  maintenanceMode: 'add' | 'replace' | 'unknown';
+  previousNamedGraphUri: string | null;
+  maintenanceUri: string | null;
+  maintenanceActorUri: string | null;
+  maintenanceTimespanUri: string | null;
 }
 
 export interface EchoesHdtAsset {
@@ -281,6 +287,74 @@ function extractGraphDateFromNamedGraphUri(namedGraphUri: string): string | null
   return match ? match[1] : null;
 }
 
+function graphSortKey(item: Pick<EchoesHdtListItem, 'graphDate' | 'namedGraphUri'>): string {
+  return `${item.graphDate ?? ''}::${item.namedGraphUri}`;
+}
+
+function compareGraphsDescending(
+  left: Pick<EchoesHdtListItem, 'graphDate' | 'namedGraphUri'>,
+  right: Pick<EchoesHdtListItem, 'graphDate' | 'namedGraphUri'>,
+): number {
+  return graphSortKey(right).localeCompare(graphSortKey(left));
+}
+
+interface EchoesMaintenanceInfo {
+  maintenanceMode: 'add' | 'replace';
+  previousNamedGraphUri: string | null;
+  maintenanceUri: string;
+  maintenanceActorUri: string | null;
+  maintenanceTimespanUri: string | null;
+}
+
+async function loadEchoesNamedGraphMaintenanceInfo(
+  sessionId: string,
+  digitalTwinUris: string[],
+): Promise<Map<string, EchoesMaintenanceInfo>> {
+  if (digitalTwinUris.length === 0) {
+    return new Map();
+  }
+
+  const values = digitalTwinUris
+    .map((uri) => `<${escapeSparqlLiteral(uri)}>`)
+    .join(' ');
+
+  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+SELECT DISTINCT ?hdt ?maintenance ?newGraph ?previousGraph ?actor ?timespan
+WHERE {
+  VALUES ?hdt { ${values} }
+  GRAPH ?g {
+    ?maintenance echoes:HP19_has_composed ?hdt ;
+                 echoes:HP30_added_content ?newGraph .
+    OPTIONAL { ?maintenance echoes:HP31_deleted_content ?previousGraph . }
+    OPTIONAL { ?maintenance crm:P14i_was_carried_out_by ?actor . }
+    OPTIONAL { ?maintenance crm:P4_has_time-span ?timespan . }
+  }
+  FILTER(STRSTARTS(STR(?newGraph), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+}`;
+
+  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const infoByGraph = new Map<string, EchoesMaintenanceInfo>();
+
+  for (const binding of bindings) {
+    const newGraph = getBindingValue(binding, 'newGraph');
+    const maintenanceUri = getBindingValue(binding, 'maintenance');
+    if (!newGraph || !maintenanceUri) {
+      continue;
+    }
+
+    infoByGraph.set(newGraph, {
+      maintenanceMode: getBindingValue(binding, 'previousGraph') ? 'replace' : 'add',
+      previousNamedGraphUri: getBindingValue(binding, 'previousGraph'),
+      maintenanceUri,
+      maintenanceActorUri: getBindingValue(binding, 'actor'),
+      maintenanceTimespanUri: getBindingValue(binding, 'timespan'),
+    });
+  }
+
+  return infoByGraph;
+}
+
 async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
   const devOverride = getEchoesDevBearerOverride(sessionId);
   if (devOverride) {
@@ -384,10 +458,13 @@ export async function listEchoesHdts(
       : '';
 
   const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
+PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
-SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?hc1
+SELECT DISTINCT ?ng ?hdt ?membership ?label ?title ?identifier ?hc1
 WHERE {
+  ?hdt ?membership ?ng .
+  FILTER(?membership IN (echoes:HP33_contains, echoes:HP34_contained))
   GRAPH ?ng {
     ?hdt a hdt:HC2 .
     OPTIONAL { ?hdt rdfs:label ?label }
@@ -404,7 +481,7 @@ WHERE {
 ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
 
   const bindings = await runSingleTripleStoreQuery(sessionId, query);
-  return bindings.map((binding) => ({
+  const baseItems: EchoesHdtListItem[] = bindings.map((binding) => ({
     namedGraphUri: getBindingValue(binding, 'ng') ?? '',
     digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
     label: getBindingValue(binding, 'label'),
@@ -412,7 +489,39 @@ ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) 
     identifier: getBindingValue(binding, 'identifier'),
     heritageEntityUri: getBindingValue(binding, 'hc1'),
     graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
+    graphState:
+      getBindingValue(binding, 'membership') === 'http://isl.ics.forth.gr/ontology/echoes/HP33_contains'
+        ? ('current' as const)
+        : getBindingValue(binding, 'membership') === 'http://isl.ics.forth.gr/ontology/echoes/HP34_contained'
+          ? ('former' as const)
+          : ('unknown' as const),
+    maintenanceMode: 'unknown' as const,
+    previousNamedGraphUri: null,
+    maintenanceUri: null,
+    maintenanceActorUri: null,
+    maintenanceTimespanUri: null,
   })).filter((item) => item.namedGraphUri && item.digitalTwinUri);
+
+  const uniqueDigitalTwinUris = Array.from(new Set(baseItems.map((item) => item.digitalTwinUri)));
+  const maintenanceInfoByGraph = await loadEchoesNamedGraphMaintenanceInfo(sessionId, uniqueDigitalTwinUris);
+
+  return baseItems
+    .map((item) => {
+      const maintenanceInfo = maintenanceInfoByGraph.get(item.namedGraphUri);
+      if (!maintenanceInfo) {
+        return item;
+      }
+
+      return {
+        ...item,
+        maintenanceMode: maintenanceInfo.maintenanceMode,
+        previousNamedGraphUri: maintenanceInfo.previousNamedGraphUri,
+        maintenanceUri: maintenanceInfo.maintenanceUri,
+        maintenanceActorUri: maintenanceInfo.maintenanceActorUri,
+        maintenanceTimespanUri: maintenanceInfo.maintenanceTimespanUri,
+      };
+    })
+    .sort(compareGraphsDescending);
 }
 
 export async function getEchoesHdtDetail(

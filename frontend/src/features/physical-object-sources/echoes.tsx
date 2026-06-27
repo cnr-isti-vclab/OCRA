@@ -64,6 +64,7 @@ function EchoesImportForm({
         searchPanelTitle="1. Search HDTs"
         rightPanelTitle="2. Selected HC1 Source"
         emptyStateText="Select an ECCCH named graph to import its HC1 metadata."
+        isItemSelectable={(item) => item.graphState === 'current'}
         onSelectionChange={(selection) => {
           onChange({
             ...state,
@@ -139,7 +140,7 @@ function EchoesImportForm({
 
       {!selectedGraph && (
         <div className="alert alert-warning mt-3 mb-0 small">
-          Choose a named graph before importing from the ECCCH repository.
+          Choose the current named graph before importing from the ECCCH repository.
         </div>
       )}
     </div>

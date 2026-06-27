@@ -71,6 +71,12 @@ export interface EchoesHdtListItem {
   identifier: string | null;
   heritageEntityUri: string | null;
   graphDate: string | null;
+  graphState: 'current' | 'former' | 'unknown';
+  maintenanceMode: 'add' | 'replace' | 'unknown';
+  previousNamedGraphUri: string | null;
+  maintenanceUri: string | null;
+  maintenanceActorUri: string | null;
+  maintenanceTimespanUri: string | null;
 }
 
 export interface EchoesHdtAsset {

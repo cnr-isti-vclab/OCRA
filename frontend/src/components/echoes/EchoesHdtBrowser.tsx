@@ -28,11 +28,17 @@ function formatOptionalGraphDate(value: string | null): string | null {
   return new Intl.DateTimeFormat('it-IT', options).format(date);
 }
 
+interface HdtVersionBranchNode {
+  item: EchoesHdtListItem;
+  children: HdtVersionBranchNode[];
+}
+
 interface HdtTreeNode {
   digitalTwinUri: string;
   displayTitle: string;
   identifier: string | null;
-  versions: EchoesHdtListItem[];
+  branches: HdtVersionBranchNode[];
+  versionCount: number;
 }
 
 function buildHdtTree(items: EchoesHdtListItem[]): HdtTreeNode[] {
@@ -43,17 +49,89 @@ function buildHdtTree(items: EchoesHdtListItem[]): HdtTreeNode[] {
         digitalTwinUri: item.digitalTwinUri,
         displayTitle: item.label || item.title || item.identifier || item.digitalTwinUri,
         identifier: item.identifier,
-        versions: [],
+        branches: [],
+        versionCount: 0,
       });
     }
-    map.get(item.digitalTwinUri)!.versions.push(item);
+    map.get(item.digitalTwinUri)!.versionCount += 1;
   }
 
-  for (const node of map.values()) {
-    node.versions.sort((a, b) => (b.graphDate ?? '').localeCompare(a.graphDate ?? ''));
+  const compareItemsDescending = (left: EchoesHdtListItem, right: EchoesHdtListItem): number => {
+    return `${right.graphDate ?? ''}::${right.namedGraphUri}`.localeCompare(`${left.graphDate ?? ''}::${left.namedGraphUri}`);
+  };
+
+  const computeBranchLatestSortKey = (branch: HdtVersionBranchNode): string => {
+    const childKeys = branch.children.map(computeBranchLatestSortKey);
+    const ownKey = `${branch.item.graphDate ?? ''}::${branch.item.namedGraphUri}`;
+    return childKeys.reduce((latest, current) => (current.localeCompare(latest) > 0 ? current : latest), ownKey);
+  };
+
+  const sortBranch = (branch: HdtVersionBranchNode): void => {
+    branch.children.sort((left, right) => computeBranchLatestSortKey(right).localeCompare(computeBranchLatestSortKey(left)));
+    branch.children.forEach(sortBranch);
+  };
+
+  for (const [digitalTwinUri, node] of map.entries()) {
+    const dtItems = items
+      .filter((item) => item.digitalTwinUri === digitalTwinUri)
+      .sort(compareItemsDescending);
+    const branchNodeByGraph = new Map<string, HdtVersionBranchNode>(
+      dtItems.map((item) => [item.namedGraphUri, { item, children: [] }]),
+    );
+    const roots: HdtVersionBranchNode[] = [];
+
+    for (const item of dtItems) {
+      const branchNode = branchNodeByGraph.get(item.namedGraphUri);
+      if (!branchNode) {
+        continue;
+      }
+
+      const canAttachToPrevious =
+        item.maintenanceMode === 'replace' &&
+        typeof item.previousNamedGraphUri === 'string' &&
+        item.previousNamedGraphUri.length > 0;
+      const parentNode = canAttachToPrevious
+        ? branchNodeByGraph.get(item.previousNamedGraphUri ?? '')
+        : undefined;
+
+      if (parentNode) {
+        parentNode.children.push(branchNode);
+      } else {
+        roots.push(branchNode);
+      }
+    }
+
+    roots.sort((left, right) => computeBranchLatestSortKey(right).localeCompare(computeBranchLatestSortKey(left)));
+    roots.forEach(sortBranch);
+    node.branches = roots;
   }
 
   return Array.from(map.values()).sort((a, b) => a.displayTitle.localeCompare(b.displayTitle));
+}
+
+function branchContainsSelection(branch: HdtVersionBranchNode, selectedItemKey: string | null): boolean {
+  const branchKey = `${branch.item.namedGraphUri}::${branch.item.digitalTwinUri}`;
+  if (branchKey === selectedItemKey) {
+    return true;
+  }
+
+  return branch.children.some((child) => branchContainsSelection(child, selectedItemKey));
+}
+
+function renderMaintenanceBadge(item: EchoesHdtListItem, isSelected: boolean): ReactNode {
+  if (item.graphState === 'current') {
+    return <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-success'}`}>current</span>;
+  }
+
+  if (item.maintenanceMode === 'add') {
+    return <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-info text-dark'}`}>enrich</span>;
+  }
+
+  if (item.maintenanceMode === 'replace') {
+    return <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-secondary'}`}>replace</span>;
+  }
+
+  return null;
 }
 
 export interface EchoesHdtBrowserSelection {
@@ -77,6 +155,7 @@ interface EchoesHdtBrowserProps {
   searchResultsMaxHeight?: number | string;
   searchPanelBackground?: string;
   detailPanelBackground?: string;
+  isItemSelectable?: (item: EchoesHdtListItem) => boolean;
   onSelectionChange?: (selection: EchoesHdtBrowserSelection | null) => void;
   renderDetailPanel?: (state: EchoesHdtBrowserRenderState) => ReactNode;
 }
@@ -116,6 +195,13 @@ function DefaultDetailPanel({
       {item.graphDate && (
         <div className="small text-muted">Graph date: {formatOptionalGraphDate(item.graphDate)}</div>
       )}
+      <div className="small text-muted text-break">
+        Graph state: {item.graphState}
+        {item.maintenanceMode !== 'unknown' ? `, maintenance: ${item.maintenanceMode}` : ''}
+      </div>
+      {item.previousNamedGraphUri && (
+        <div className="small text-muted text-break">Previous named graph: {item.previousNamedGraphUri}</div>
+      )}
       {detail.heritageEntityUri && (
         <div className="small text-muted text-break">HC1 URI: {detail.heritageEntityUri}</div>
       )}
@@ -135,6 +221,7 @@ export default function EchoesHdtBrowser({
   searchResultsMaxHeight = '420px',
   searchPanelBackground = 'linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)',
   detailPanelBackground = 'linear-gradient(180deg, #fffef7 0%, #ffffff 100%)',
+  isItemSelectable = () => true,
   onSelectionChange,
   renderDetailPanel,
 }: EchoesHdtBrowserProps) {
@@ -171,6 +258,10 @@ export default function EchoesHdtBrowser({
   }
 
   async function handleSelectHdt(item: EchoesHdtListItem): Promise<void> {
+    if (!isItemSelectable(item)) {
+      return;
+    }
+
     const nextSelectedItemKey = `${item.namedGraphUri}::${item.digitalTwinUri}`;
 
     try {
@@ -203,6 +294,43 @@ export default function EchoesHdtBrowser({
         emptyStateText={emptyStateText}
       />
     );
+
+  function renderBranch(branch: HdtVersionBranchNode, depth: number): ReactNode {
+    const version = branch.item;
+    const versionKey = `${version.namedGraphUri}::${version.digitalTwinUri}`;
+    const isSelected = versionKey === selectedItemKey;
+    const selectable = isItemSelectable(version);
+
+    return (
+      <div key={versionKey} className="d-grid gap-1">
+        <button
+          type="button"
+          className={`btn text-start border ${
+            isSelected ? 'btn-primary' : selectable ? 'btn-outline-secondary' : 'btn-light'
+          }`}
+          onClick={() => void handleSelectHdt(version)}
+          disabled={detailBusy || disabled || !selectable}
+          style={{ marginLeft: '0px' }}
+        >
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            {renderMaintenanceBadge(version, isSelected)}
+            <span className={`fw-semibold small ${isSelected ? '' : 'text-muted'}`}>
+              {formatOptionalGraphDate(version.graphDate) ?? version.namedGraphUri}
+            </span>
+            {!selectable && (
+              <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-warning text-dark'}`}>
+                history only
+              </span>
+            )}
+          </div>
+          <div className={`small text-break mt-1 ${isSelected ? 'text-white-50' : 'text-muted'}`}>
+            {version.namedGraphUri}
+          </div>
+        </button>
+        {branch.children.map((child) => renderBranch(child, depth + 1))}
+      </div>
+    );
+  }
 
   return (
     <div className="row g-4">
@@ -245,9 +373,7 @@ export default function EchoesHdtBrowser({
           <div style={{ maxHeight: searchResultsMaxHeight, overflowY: 'auto' }}>
             {treeNodes.map((node) => {
               const isExpanded = expandedRootKeys.has(node.digitalTwinUri);
-              const hasSelectedVersion = node.versions.some(
-                (version) => `${version.namedGraphUri}::${version.digitalTwinUri}` === selectedItemKey,
-              );
+              const hasSelectedVersion = node.branches.some((branch) => branchContainsSelection(branch, selectedItemKey));
 
               return (
                 <div key={node.digitalTwinUri} className="mb-1">
@@ -277,7 +403,7 @@ export default function EchoesHdtBrowser({
                           <div className="small text-muted text-break">ID: {node.identifier}</div>
                         )}
                         <div className="small text-muted">
-                          {node.versions.length} version{node.versions.length !== 1 ? 's' : ''}
+                          {node.versionCount} version{node.versionCount !== 1 ? 's' : ''}
                         </div>
                       </div>
                     </div>
@@ -285,34 +411,7 @@ export default function EchoesHdtBrowser({
 
                   {isExpanded && (
                     <div className="ms-3 mt-1 d-grid gap-1">
-                      {node.versions.map((version, index) => {
-                        const versionKey = `${version.namedGraphUri}::${version.digitalTwinUri}`;
-                        const isSelected = versionKey === selectedItemKey;
-
-                        return (
-                          <button
-                            key={versionKey}
-                            type="button"
-                            className={`btn text-start border ${isSelected ? 'btn-primary' : 'btn-outline-secondary'}`}
-                            onClick={() => void handleSelectHdt(version)}
-                            disabled={detailBusy || disabled}
-                          >
-                            <div className="d-flex align-items-center gap-2">
-                              {index === 0 && (
-                                <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-success'}`}>
-                                  latest
-                                </span>
-                              )}
-                              <span className={`fw-semibold small ${isSelected ? '' : 'text-muted'}`}>
-                                {formatOptionalGraphDate(version.graphDate) ?? version.namedGraphUri}
-                              </span>
-                            </div>
-                            <div className={`small text-break mt-1 ${isSelected ? 'text-white-50' : 'text-muted'}`}>
-                              {version.namedGraphUri}
-                            </div>
-                          </button>
-                        );
-                      })}
+                      {node.branches.map((branch) => renderBranch(branch, 0))}
                     </div>
                   )}
                 </div>

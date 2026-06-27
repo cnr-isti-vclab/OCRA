@@ -105,6 +105,7 @@ export default function EchoesImportModal({
               searchPanelTitle="1. Search HDTs"
               rightPanelTitle="2. Preview and Import"
               emptyStateText="Select an HDT from the left column to preview its HC1 data and linked assets."
+              isItemSelectable={(item) => item.graphState === 'current'}
               onSelectionChange={handleSelectionChange}
               renderDetailPanel={({ selection: currentSelection, detailBusy, detailError }) => {
                 if (!currentSelection && !detailBusy) {
@@ -133,6 +134,9 @@ export default function EchoesImportModal({
                   <>
                     <div className="mb-3 p-3 rounded-3" style={{ backgroundColor: '#f7f7f2', border: '1px solid #e8e2c8' }}>
                       <div className="fw-semibold fs-5">{resolveDetailProjectName(currentSelection)}</div>
+                      <div className="small text-muted mt-1">
+                        Demo-safe mode: only the current named graph can be selected for import.
+                      </div>
                       {detail.digitalTwinLabel && (
                         <div className="small text-muted">HDT label: {detail.digitalTwinLabel}</div>
                       )}
