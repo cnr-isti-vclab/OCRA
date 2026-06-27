@@ -646,9 +646,47 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
                     color: itemColors.text,
                   }}
                 >
-                  <div className="d-flex justify-content-between align-items-center w-100">
-                    <h5
-                      className="mb-1 flex-grow-1"
+                  <div className="d-flex flex-column gap-1 w-100">
+                    <div className="d-flex justify-content-between align-items-center w-100">
+                      <span className="badge bg-secondary">
+                        {linkedCount} geom{linkedCount === 1 ? '' : 's'}
+                      </span>
+                      <div className="d-flex gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFocusSelection(
+                              { geometryIds: [], dataIds: [datum.id] },
+                              () => {
+                                void handleEditStart(datum);
+                              },
+                            );
+                          }}
+                          disabled={creating}
+                        >
+                          <i className="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className={deleteButtonClass(deleteDisabled)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDelete(datum.id);
+                          }}
+                          disabled={deleteDisabled}
+                          title={deleteDisabled ? deleteBlockedTitle : undefined}
+                          aria-label={
+                            deleteDisabled ? 'Delete unavailable (annotation under edit)' : 'Delete annotation'
+                          }
+                        >
+                          <i className="bi bi-trash" aria-hidden />
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      className="fw-bold small"
                       style={{
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -657,42 +695,6 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
                       }}
                     >
                       {datum.label}
-                    </h5>
-                    <div className="ms-2 d-flex gap-1 flex-shrink-0">
-                      <span className="badge bg-secondary">
-                        {linkedCount} geom{linkedCount === 1 ? '' : 's'}
-                      </span>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFocusSelection(
-                            { geometryIds: [], dataIds: [datum.id] },
-                            () => {
-                              void handleEditStart(datum);
-                            },
-                          );
-                        }}
-                        disabled={creating}
-                      >
-                        <i className="bi bi-pencil"></i>
-                      </button>
-                      <button
-                        type="button"
-                        className={deleteButtonClass(deleteDisabled)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDelete(datum.id);
-                        }}
-                        disabled={deleteDisabled}
-                        title={deleteDisabled ? deleteBlockedTitle : undefined}
-                        aria-label={
-                          deleteDisabled ? 'Delete unavailable (annotation under edit)' : 'Delete annotation'
-                        }
-                      >
-                        <i className="bi bi-trash" aria-hidden />
-                      </button>
                     </div>
                   </div>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>

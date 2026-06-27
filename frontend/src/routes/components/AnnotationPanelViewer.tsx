@@ -100,7 +100,7 @@ export default function AnnotationPanelViewer() {
                     aria-pressed={isSelected}
                     title="Select to highlight linked geometry"
                   >
-                    <div className="fw-semibold">{data.label}</div>
+                    <div className="fw-bold small mb-1">{data.label}</div>
                     {data.class ? (
                       <div className="small text-muted mb-2">{data.class}</div>
                     ) : null}
