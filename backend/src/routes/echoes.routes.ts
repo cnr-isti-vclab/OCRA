@@ -6,6 +6,7 @@ import {
   createProjectFromEchoesRdfHandler,
   duplicateProjectHdtAsNewInEchoesHandler,
   enrichProjectHdtInEchoesHandler,
+  forceLinkProjectToEchoesHdtHandler,
   getEchoesProjectStatusHandler,
   getEchoesHdtHandler,
   importProjectFromEchoesRdfUploadMiddleware,
@@ -300,6 +301,8 @@ router.post('/projects/:projectId/replace-content', replaceProjectHdtContentInEc
  *               $ref: '#/components/schemas/EchoesPublishProjectResponse'
  */
 router.post('/projects/:projectId/duplicate-as-new-hdt', duplicateProjectHdtAsNewInEchoesHandler);
+
+router.post('/projects/:projectId/force-link', forceLinkProjectToEchoesHdtHandler);
 
 // @spike echoes-kb-dev-bearer: remove when EGI login reliably provides the KB bearer for every authenticated session
 /**

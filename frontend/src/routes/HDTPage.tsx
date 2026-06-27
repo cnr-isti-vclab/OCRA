@@ -14,6 +14,7 @@ import {
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
   fetchEchoesProjectStatus,
+  forceLinkProjectToEchoesHdt,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
 } from '../services/EchoesApi';
@@ -160,6 +161,8 @@ export default function HDTPage() {
   const [isSystemAdministrator, setIsSystemAdministrator] = useState(false);
   const [isProjectManager, setIsProjectManager] = useState(false);
   const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
+  const [showForceLinkForm, setShowForceLinkForm] = useState(false);
+  const [forceLinkDtUri, setForceLinkDtUri] = useState('');
   const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
   const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
@@ -240,7 +243,9 @@ export default function HDTPage() {
   const echoesReadiness = echoesStatus?.readiness ?? null;
   const echoesRequiredIssues = echoesReadiness?.requiredIssues ?? [];
   const echoesRecommendedIssues = echoesReadiness?.recommendedIssues ?? [];
+  const canRegisterEchoesContent = canRegisterProjectInEchoes && (echoesReadiness?.canRegister ?? true);
   const canPublishEchoesContent = canPublishProjectInEchoes && (echoesReadiness?.canPublish ?? true);
+  const canDuplicateEchoesContent = canDuplicateProjectInEchoes && (echoesReadiness?.canRegister ?? true);
 
   useEffect(() => {
     fetchProjectAndMetadata();
@@ -781,9 +786,9 @@ export default function HDTPage() {
       setError(null);
 
       if (action === 'register') {
-        const status = await registerProjectHdtInEchoes(projectId);
-        setEchoesStatus(status);
-        setEchoesMessage('The project was registered in ECCCH.');
+        const result = await registerProjectHdtInEchoes(projectId);
+        setEchoesStatus(result.status);
+        setEchoesMessage(result.message || 'The project was registered in ECCCH.');
       } else if (action === 'enrich') {
         const result = await enrichProjectHdtInEchoes(projectId);
         setEchoesStatus(result.status);
@@ -908,6 +913,24 @@ export default function HDTPage() {
     } catch (error) {
       setEchoesMessage(null);
       setError(error instanceof Error ? error.message : 'Failed to duplicate this project as a new ECCCH HDT.');
+    } finally {
+      setEchoesBusy(false);
+    }
+  };
+
+  const handleForceLinkToEchoesHdt = async (): Promise<void> => {
+    if (!projectId || !forceLinkDtUri.trim()) return;
+    try {
+      setEchoesBusy(true);
+      setEchoesMessage(null);
+      setError(null);
+      const result = await forceLinkProjectToEchoesHdt(projectId, forceLinkDtUri.trim());
+      setEchoesMessage(`Force-linked to ECCCH HDT: ${result.status.digitalTwinUri || forceLinkDtUri}`);
+      setShowForceLinkForm(false);
+      setForceLinkDtUri('');
+      await refreshEchoesStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Force-link failed');
     } finally {
       setEchoesBusy(false);
     }
@@ -1534,7 +1557,7 @@ export default function HDTPage() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={echoesBusy || hasEchoesRegistration}
+                    disabled={echoesBusy || hasEchoesRegistration || !canRegisterEchoesContent}
                     onClick={() => void handleEchoesPublishAction('register')}
                   >
                     {echoesBusy
@@ -1544,11 +1567,58 @@ export default function HDTPage() {
                         : 'REGISTER in ECCCH'}
                   </button>
                 )}
+                {isSystemAdministrator && !hasEchoesRegistration && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline-warning btn-sm"
+                      disabled={echoesBusy}
+                      onClick={() => setShowForceLinkForm((v) => !v)}
+                    >
+                      FORCE LINK to existing HDT URI
+                    </button>
+                    {showForceLinkForm && (
+                      <div className="border rounded-3 p-3 bg-white">
+                        <div className="small fw-semibold mb-1">Admin Only — Force Link</div>
+                        <div className="small text-muted mb-2">
+                          Use when ECCCH says "already registered" but SPARQL can't find the existing HDT.
+                          Paste the HDT URI provided by the ECCCH team.
+                        </div>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm mb-2"
+                          placeholder="http://echoes-eccch.eu/HDT/..."
+                          value={forceLinkDtUri}
+                          onChange={(e) => setForceLinkDtUri(e.target.value)}
+                          disabled={echoesBusy}
+                        />
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-warning btn-sm"
+                            disabled={echoesBusy || !forceLinkDtUri.trim()}
+                            onClick={() => void handleForceLinkToEchoesHdt()}
+                          >
+                            {echoesBusy ? 'Linking...' : 'Link'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            disabled={echoesBusy}
+                            onClick={() => setShowForceLinkForm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
                 {canPublishProjectInEchoes && (
                   <button
                     type="button"
                     className="btn btn-outline-primary"
-                    disabled={echoesBusy || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
+                    disabled={echoesBusy || !canPublishEchoesContent || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
                     onClick={() => void handleEchoesPublishAction('enrich')}
                   >
                     CREATE New Named Graph
@@ -1558,7 +1628,7 @@ export default function HDTPage() {
                   <button
                     type="button"
                     className="btn btn-outline-dark"
-                    disabled={echoesBusy || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
+                    disabled={echoesBusy || !canPublishEchoesContent || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
                     onClick={() => void handleEchoesPublishAction('replace')}
                   >
                     UPDATE Published Named Graph
@@ -1569,7 +1639,7 @@ export default function HDTPage() {
                     <button
                       type="button"
                       className="btn btn-outline-success"
-                      disabled={echoesBusy}
+                      disabled={echoesBusy || !canDuplicateEchoesContent}
                       onClick={() => {
                         setShowDuplicateEchoesForm((current) => !current);
                         if (!showDuplicateEchoesForm) {

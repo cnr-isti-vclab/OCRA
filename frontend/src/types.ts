@@ -181,3 +181,8 @@ export interface EchoesProjectStatus {
   projectSnapshot: EchoesProjectSnapshotSummary | null;
   readiness: EchoesProjectReadiness;
 }
+
+export interface EchoesRegisterProjectResult {
+  status: EchoesProjectStatus;
+  message?: string;
+}

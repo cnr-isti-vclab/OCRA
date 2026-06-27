@@ -232,6 +232,7 @@ export interface EchoesProjectReadiness {
 
 export interface EchoesRegisterProjectResult {
   status: EchoesProjectStatus;
+  message?: string;
 }
 
 export interface EchoesPublishProjectResult {
@@ -389,6 +390,11 @@ async function fetchEchoesJson<T>(sessionId: string, input: string, init: Reques
 
   if (!response.ok) {
     const responseText = await response.text();
+    if (response.status === 401) {
+      throw new Error(
+        'ECCCH authorization failed (401). The ECCCH bearer is missing or expired. Sign in again or save a fresh temporary ECCCH bearer in Profile.',
+      );
+    }
     try {
       const payload = JSON.parse(responseText) as {
         message?: string;
@@ -660,6 +666,93 @@ WHERE {
   }
   detail.assets = Array.from(assetMap.values());
   return detail;
+}
+
+async function findCurrentEchoesRegistrationByHeritageEntityUri(
+  sessionId: string,
+  heritageEntityUri: string,
+): Promise<{ digitalTwinUri: string; namedGraphUri: string | null; digitalTwinLabel: string | null } | null> {
+  const trimmedHeritageEntityUri = sanitizeOptionalString(heritageEntityUri);
+  if (!trimmedHeritageEntityUri) {
+    return null;
+  }
+
+  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+SELECT DISTINCT ?digitalTwinUri ?ng ?label
+WHERE {
+  GRAPH ?g {
+    {
+      <${escapeSparqlLiteral(trimmedHeritageEntityUri)}> hdt:HP1 ?digitalTwinUri .
+    } UNION {
+      ?hc1 dc:identifier "${escapeSparqlLiteral(trimmedHeritageEntityUri)}"^^xsd:string .
+      ?hc1 hdt:HP1 ?digitalTwinUri .
+    }
+    OPTIONAL { ?digitalTwinUri rdfs:label ?label }
+  }
+  OPTIONAL {
+    ?digitalTwinUri echoes:HP33_contains ?ng .
+    FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+  }
+  FILTER(STRSTARTS(STR(?digitalTwinUri), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
+}
+LIMIT 1`;
+
+  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  if (bindings.length === 0) {
+    return null;
+  }
+
+  const first = bindings[0];
+  const digitalTwinUri = getBindingValue(first, 'digitalTwinUri');
+  if (!digitalTwinUri) {
+    return null;
+  }
+
+  return {
+    digitalTwinUri,
+    namedGraphUri: getBindingValue(first, 'ng'),
+    digitalTwinLabel: getBindingValue(first, 'label'),
+  };
+}
+
+async function reconcileExistingEchoesRegistration(
+  sessionId: string,
+  projectId: string,
+  userId: string | undefined,
+  currentContext: EchoesContext,
+  heritageEntityUri: string,
+  _title: string | undefined,
+): Promise<EchoesRegisterProjectResult | null> {
+  const existingRegistration = await findCurrentEchoesRegistrationByHeritageEntityUri(sessionId, heritageEntityUri);
+  if (!existingRegistration) {
+    return null;
+  }
+
+  const reconciled = await updateHdtEchoesContext(projectId, {
+    origin: currentContext.origin,
+    projectUri: currentContext.projectUri,
+    heritageEntityUri,
+    digitalTwinUri: existingRegistration.digitalTwinUri,
+    namedGraphUri: existingRegistration.namedGraphUri ?? undefined,
+    digitalTwinLabel: existingRegistration.digitalTwinLabel ?? (_title || currentContext.digitalTwinLabel),
+    syncStatus: 'registered',
+    lastRegisteredAt: new Date(),
+  }, userId);
+
+  if (!reconciled) {
+    throw new Error('Failed to persist the reconciled ECCCH identifiers locally');
+  }
+
+  return {
+    status: toProjectStatus(reconciled),
+    message:
+      `HC1 URI <${heritageEntityUri}> is already present in ECCCH. ` +
+      `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>.`,
+  };
 }
 
 const KNOWN_3D_EXTENSIONS = new Set(['.glb', '.gltf', '.ply', '.obj', '.fbx', '.stl', '.dae', '.3ds']);
@@ -1309,10 +1402,11 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
 
   const requiredIssues = issues.filter((issue) => issue.severity === 'required');
   const recommendedIssues = issues.filter((issue) => issue.severity === 'recommended');
+  const canCommunicateWithEchoes = requiredIssues.length === 0;
 
   return {
-    canRegister: true,
-    canPublish: requiredIssues.length === 0,
+    canRegister: canCommunicateWithEchoes,
+    canPublish: canCommunicateWithEchoes,
     requiredIssues,
     recommendedIssues,
   };
@@ -1349,6 +1443,14 @@ async function assertProjectCanPublishToEchoes(projectId: string, hdtDocument: H
       continue;
     }
     await assertPortableAssetSourceUrl(sourceUrl);
+  }
+}
+
+async function assertProjectCanRegisterInEchoes(projectId: string, hdtDocument: HDTDocument): Promise<void> {
+  const readiness = buildEchoesProjectReadiness(projectId, hdtDocument);
+  if (!readiness.canRegister) {
+    const firstRequiredIssue = readiness.requiredIssues[0];
+    throw new Error(firstRequiredIssue?.message || 'This project is missing required ECCCH publication data.');
   }
 }
 
@@ -1447,6 +1549,7 @@ export async function registerProjectHdtInEchoes(
   userId?: string,
 ): Promise<EchoesRegisterProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
+  await assertProjectCanRegisterInEchoes(projectId, hdtDocument);
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
 
   if (currentContext.digitalTwinUri) {
@@ -1455,16 +1558,31 @@ export async function registerProjectHdtInEchoes(
         ...hdtDocument,
         echoesContext: currentContext,
       }),
+      message: 'The project is already linked to an ECCCH Digital Twin.',
     };
   }
 
+  const title = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
+  const description = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
+  const heritageEntityUri = currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri;
+
+  const reconciledRegistration = await reconcileExistingEchoesRegistration(
+    sessionId,
+    projectId,
+    userId,
+    currentContext,
+    heritageEntityUri,
+    title,
+  );
+  if (reconciledRegistration) {
+    return reconciledRegistration;
+  }
+
   const params = new URLSearchParams({
-    heritageEntityUri: currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri,
+    heritageEntityUri,
     projectUri: currentContext.projectUri,
   });
 
-  const title = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
-  const description = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
   if (currentContext.digitalTwinUri) {
     params.set('digitalTwinUri', currentContext.digitalTwinUri);
   }
@@ -1475,20 +1593,60 @@ export async function registerProjectHdtInEchoes(
     params.set('description', description);
   }
 
-  const payload = await fetchEchoesJson<EchoesRegisterResponse>(
-    sessionId,
-    `${getEchoesKbApiBase()}/hdt/register?${params.toString()}`,
-    { method: 'POST' },
-  );
+  let payload: EchoesRegisterResponse;
+  try {
+    payload = await fetchEchoesJson<EchoesRegisterResponse>(
+      sessionId,
+      `${getEchoesKbApiBase()}/hdt/register?${params.toString()}`,
+      { method: 'POST' },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('already registered')) {
+      const reconciled = await reconcileExistingEchoesRegistration(
+        sessionId,
+        projectId,
+        userId,
+        currentContext,
+        heritageEntityUri,
+        title,
+      );
+      if (reconciled) {
+        return reconciled;
+      }
+      throw new Error(
+        `An HDT for heritage entity <${heritageEntityUri}> is already registered in ECCCH but could not be found via SPARQL. ` +
+        `Try importing the existing HDT from the ECCCH Repository source instead, or contact the ECCCH team to resolve the conflict.`,
+      );
+    }
+    throw error;
+  }
 
   if (!payload.succeed || !payload.dtUri) {
+    if ((payload.message || '').includes('already registered')) {
+      const reconciled = await reconcileExistingEchoesRegistration(
+        sessionId,
+        projectId,
+        userId,
+        currentContext,
+        heritageEntityUri,
+        title,
+      );
+      if (reconciled) {
+        return reconciled;
+      }
+      throw new Error(
+        `An HDT for heritage entity <${heritageEntityUri}> is already registered in ECCCH but could not be found via SPARQL. ` +
+        `Try importing the existing HDT from the ECCCH Repository source instead, or contact the ECCCH team to resolve the conflict.`,
+      );
+    }
     throw new Error(payload.message || 'ECCCH registration failed');
   }
 
   const updated = await updateHdtEchoesContext(projectId, {
     origin: currentContext.origin,
     projectUri: currentContext.projectUri,
-    heritageEntityUri: currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri,
+    heritageEntityUri,
     digitalTwinUri: payload.dtUri,
     digitalTwinLabel: title || currentContext.digitalTwinLabel,
     syncStatus: 'registered',
@@ -1497,6 +1655,41 @@ export async function registerProjectHdtInEchoes(
 
   if (!updated) {
     throw new Error('Failed to persist the registered ECCCH identifiers locally');
+  }
+
+  return {
+    status: toProjectStatus(updated),
+    message: `The project was registered in ECCCH as Digital Twin <${payload.dtUri}>.`,
+  };
+}
+
+export async function forceLinkProjectToEchoesHdt(
+  projectId: string,
+  digitalTwinUri: string,
+  userId?: string,
+): Promise<EchoesRegisterProjectResult> {
+  const trimmedDtUri = sanitizeOptionalString(digitalTwinUri);
+  if (!trimmedDtUri || !trimmedDtUri.startsWith(getEchoesHdtUriPrefix())) {
+    throw new Error(
+      `Invalid HDT URI. Must start with "${getEchoesHdtUriPrefix()}". Provide the full URI as supplied by the ECCCH team.`,
+    );
+  }
+
+  const hdtDocument = await requireProjectHdtDocument(projectId);
+  const currentContext = deriveEchoesContext(projectId, hdtDocument);
+
+  const updated = await updateHdtEchoesContext(projectId, {
+    origin: currentContext.origin,
+    projectUri: currentContext.projectUri,
+    heritageEntityUri: currentContext.heritageEntityUri,
+    digitalTwinUri: trimmedDtUri,
+    digitalTwinLabel: currentContext.digitalTwinLabel,
+    syncStatus: 'registered',
+    lastRegisteredAt: new Date(),
+  }, userId);
+
+  if (!updated) {
+    throw new Error('Failed to persist the forced ECCCH link locally');
   }
 
   return { status: toProjectStatus(updated) };

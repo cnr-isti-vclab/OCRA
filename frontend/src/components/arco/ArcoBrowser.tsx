@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { searchArco, ARCO_PAGE_SIZE, type ArcoSearchResult } from '../../services/ArcoApi';
+import { useEffect, useState } from 'react';
+import {
+  getArcoRecordDetail,
+  searchArco,
+  ARCO_PAGE_SIZE,
+  type ArcoRecordDetail,
+  type ArcoSearchResult,
+} from '../../services/ArcoApi';
 
 export interface ArcoBrowserSelection {
   result: ArcoSearchResult;
@@ -19,6 +25,9 @@ export default function ArcoBrowser({ disabled = false, onSelectionChange }: Arc
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [selected, setSelected] = useState<ArcoSearchResult | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<ArcoRecordDetail | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   async function handleSearch(): Promise<void> {
     if (!searchTerm.trim()) return;
@@ -28,6 +37,8 @@ export default function ArcoBrowser({ disabled = false, onSelectionChange }: Arc
       setResults([]);
       setHasMore(false);
       setSelected(null);
+      setSelectedDetail(null);
+      setDetailError(null);
       onSelectionChange?.(null);
       const data = await searchArco(searchTerm, 0);
       setResults(data);
@@ -59,8 +70,47 @@ export default function ArcoBrowser({ disabled = false, onSelectionChange }: Arc
 
   function handleSelect(result: ArcoSearchResult): void {
     setSelected(result);
+    setSelectedDetail(null);
+    setDetailError(null);
     onSelectionChange?.({ result });
   }
+
+  useEffect(() => {
+    if (!selected?.uri) {
+      setSelectedDetail(null);
+      setDetailError(null);
+      setDetailBusy(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDetail(): Promise<void> {
+      try {
+        setDetailBusy(true);
+        setDetailError(null);
+        const detail = await getArcoRecordDetail(selected!.uri);
+        if (!cancelled) {
+          setSelectedDetail(detail);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSelectedDetail(null);
+          setDetailError(error instanceof Error ? error.message : 'Failed to load record detail.');
+        }
+      } finally {
+        if (!cancelled) {
+          setDetailBusy(false);
+        }
+      }
+    }
+
+    void loadDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
 
   return (
     <div className="row g-3">
@@ -91,6 +141,9 @@ export default function ArcoBrowser({ disabled = false, onSelectionChange }: Arc
             {results.length > 0
               ? `${results.length} result${results.length === 1 ? '' : 's'}${hasMore ? ' — scroll for more' : ''}`
               : 'Enter a title fragment or the numeric catalog ID.'}
+          </div>
+          <div className="small text-muted mb-2">
+            Use a comma for explicit AND groups, for example: <code>allegoria della, galassi</code>.
           </div>
 
           {searchError && <div className="alert alert-warning py-2 small">{searchError}</div>}
@@ -146,31 +199,42 @@ export default function ArcoBrowser({ disabled = false, onSelectionChange }: Arc
             <div className="alert alert-light border mb-0">
               Select a record from the list to preview it before importing.
             </div>
+          ) : detailBusy ? (
+            <div className="alert alert-light border mb-0">
+              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+              Loading record detail…
+            </div>
+          ) : detailError ? (
+            <div className="alert alert-warning mb-0">{detailError}</div>
+          ) : !selectedDetail ? (
+            <div className="alert alert-light border mb-0">
+              No detail available for the selected record.
+            </div>
           ) : (
             <>
-              {selected.depiction && (
+              {selectedDetail.depiction && (
                 <div className="text-center mb-3">
                   <img
-                    src={selected.depiction}
-                    alt={selected.title || 'Record image'}
+                    src={selectedDetail.depiction}
+                    alt={selectedDetail.title || 'Record image'}
                     style={{ maxHeight: '160px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }}
                   />
                 </div>
               )}
               <dl className="row small mb-0">
                 <dt className="col-sm-4">Title</dt>
-                <dd className="col-sm-8 text-break">{selected.title || '—'}</dd>
+                <dd className="col-sm-8 text-break">{selectedDetail.title || '—'}</dd>
                 <dt className="col-sm-4">Catalog ID</dt>
-                <dd className="col-sm-8">{selected.identifier || '—'}</dd>
+                <dd className="col-sm-8">{selectedDetail.identifier || '—'}</dd>
                 <dt className="col-sm-4">Creator</dt>
-                <dd className="col-sm-8 text-break">{selected.creator || '—'}</dd>
+                <dd className="col-sm-8 text-break">{selectedDetail.creator || '—'}</dd>
                 <dt className="col-sm-4">Date</dt>
-                <dd className="col-sm-8">{selected.date || '—'}</dd>
+                <dd className="col-sm-8">{selectedDetail.date || '—'}</dd>
                 <dt className="col-sm-4">Coverage</dt>
-                <dd className="col-sm-8 text-break">{selected.coverage || '—'}</dd>
+                <dd className="col-sm-8 text-break">{selectedDetail.coverage || '—'}</dd>
                 <dt className="col-sm-4">ArCo URI</dt>
                 <dd className="col-sm-8 text-break">
-                  <a href={selected.uri} target="_blank" rel="noreferrer" className="small">{selected.uri}</a>
+                  <a href={selectedDetail.uri} target="_blank" rel="noreferrer" className="small">{selectedDetail.uri}</a>
                 </dd>
               </dl>
             </>

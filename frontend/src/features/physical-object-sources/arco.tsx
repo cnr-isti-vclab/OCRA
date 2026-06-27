@@ -29,7 +29,7 @@ function ArcoImportForm({
   disabled,
 }: PhysicalObjectSourceFormProps<ArcoFormState>) {
   const [selection, setSelection] = useState<ArcoBrowserSelection | null>(
-    state?.selectedUri ? { result: { uri: state.selectedUri, title: state?.selectedTitle || null, identifier: extractCatalogId(state.selectedUri), creator: null, date: null, coverage: null, depiction: null } } : null
+    state?.selectedUri ? { result: { uri: state.selectedUri, title: state?.selectedTitle || null, identifier: extractCatalogId(state.selectedUri), coverage: null } } : null
   );
 
   function handleSelectionChange(sel: ArcoBrowserSelection | null): void {

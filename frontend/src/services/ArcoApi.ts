@@ -4,6 +4,10 @@ export interface ArcoSearchResult {
   uri: string;
   title: string | null;
   identifier: string | null;
+  coverage: string | null;
+}
+
+export interface ArcoRecordDetail extends ArcoSearchResult {
   creator: string | null;
   date: string | null;
   coverage: string | null;
@@ -26,4 +30,11 @@ export async function searchArco(q: string, offset = 0): Promise<ArcoSearchResul
     `/arco/search?q=${encodeURIComponent(q)}&offset=${offset}`
   );
   return data.results;
+}
+
+export async function getArcoRecordDetail(uri: string): Promise<ArcoRecordDetail> {
+  const data = await apiFetch<{ detail: ArcoRecordDetail }>(
+    `/arco/detail?uri=${encodeURIComponent(uri)}`
+  );
+  return data.detail;
 }

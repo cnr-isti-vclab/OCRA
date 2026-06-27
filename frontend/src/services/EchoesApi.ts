@@ -4,6 +4,7 @@ import type {
   EchoesHdtListItem,
   EchoesImportedProjectSummary,
   EchoesImportMode,
+  EchoesRegisterProjectResult,
   EchoesProjectStatus,
 } from '../types';
 
@@ -34,6 +35,7 @@ interface EchoesCreateProjectResponse {
 interface EchoesProjectStatusResponse {
   success: boolean;
   status: EchoesProjectStatus;
+  message?: string;
 }
 
 interface EchoesPublishProjectResponse {
@@ -248,9 +250,12 @@ async function postEchoesProjectAction(
   return (await response.json()) as EchoesPublishProjectResponse | EchoesProjectStatusResponse;
 }
 
-export async function registerProjectHdtInEchoes(projectId: string): Promise<EchoesProjectStatus> {
+export async function registerProjectHdtInEchoes(projectId: string): Promise<EchoesRegisterProjectResult> {
   const payload = (await postEchoesProjectAction(projectId, 'register')) as EchoesProjectStatusResponse;
-  return payload.status;
+  return {
+    status: payload.status,
+    message: payload.message,
+  };
 }
 
 export async function enrichProjectHdtInEchoes(projectId: string): Promise<EchoesPublishProjectResponse> {
@@ -259,6 +264,24 @@ export async function enrichProjectHdtInEchoes(projectId: string): Promise<Echoe
 
 export async function replaceProjectHdtContentInEchoes(projectId: string): Promise<EchoesPublishProjectResponse> {
   return (await postEchoesProjectAction(projectId, 'replace-content')) as EchoesPublishProjectResponse;
+}
+
+export async function forceLinkProjectToEchoesHdt(
+  projectId: string,
+  digitalTwinUri: string,
+): Promise<{ success: boolean; status: EchoesProjectStatus }> {
+  const response = await fetch(`${getApiBase()}/api/eccch/projects/${encodeURIComponent(projectId)}/force-link`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildSessionHeaders(true),
+    body: JSON.stringify({ digitalTwinUri }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to force-link project to ECCCH HDT: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as { success: boolean; status: EchoesProjectStatus };
 }
 
 export async function duplicateProjectHdtAsNewInEchoes(

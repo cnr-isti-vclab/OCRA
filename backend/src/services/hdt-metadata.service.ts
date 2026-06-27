@@ -164,24 +164,38 @@ export async function updateHdtEchoesContext(
   echoesContextUpdate: Partial<EchoesContext>,
   userId?: string
 ): Promise<HDTDocument | null> {
+  const currentDocument = await getHDTDocument(projectId);
+  if (!currentDocument) {
+    return null;
+  }
+
   const persistedAt = echoesContextUpdate.lastSyncedProjectUpdatedAt
     ? new Date(echoesContextUpdate.lastSyncedProjectUpdatedAt)
     : new Date();
-  const updateDoc: {
-    $set: Record<string, unknown>;
-  } = {
-    $set: {
-      updatedAt: persistedAt,
-      updatedBy: userId,
-    },
+  const currentEchoesContext =
+    currentDocument.echoesContext && typeof currentDocument.echoesContext === 'object'
+      ? currentDocument.echoesContext
+      : {};
+  const nextEchoesContext: Record<string, unknown> = {
+    ...currentEchoesContext,
   };
 
   for (const [key, value] of Object.entries(echoesContextUpdate ?? {})) {
     if (value === undefined) {
       continue;
     }
-    updateDoc.$set[`echoesContext.${key}`] = value;
+    nextEchoesContext[key] = value;
   }
+
+  const updateDoc: {
+    $set: Record<string, unknown>;
+  } = {
+    $set: {
+      updatedAt: persistedAt,
+      updatedBy: userId,
+      echoesContext: nextEchoesContext,
+    },
+  };
 
   const result = await updateHdtByProjectId(projectId, updateDoc);
   return standardizeResponse(result);
