@@ -26,6 +26,7 @@ export default function EchoesImportModal({
   onClose,
   onImported,
 }: EchoesImportModalProps) {
+  const [namedGraphImportMode, setNamedGraphImportMode] = useState<'start_new_branch' | 'continue_selected_graph'>('start_new_branch');
   const [selection, setSelection] = useState<EchoesHdtBrowserSelection | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -54,6 +55,7 @@ export default function EchoesImportModal({
     setProjectDescription(nextSelection.detail.physicalObjectMetadata.dublinCore?.description || '');
     setProjectPublic(false);
     setImportMode(nextSelection.detail.projectSnapshot ? 'full_project_without_annotations' : 'metadata_assets');
+    setNamedGraphImportMode('start_new_branch');
   }, []);
 
   async function handleImport(): Promise<void> {
@@ -68,6 +70,7 @@ export default function EchoesImportModal({
       const response = await createProjectFromEchoesHdt({
         digitalTwinUri: selection.detail.digitalTwinUri,
         namedGraphUri: selection.detail.namedGraphUri || undefined,
+        namedGraphImportMode,
         name: projectName.trim() || undefined,
         description: projectDescription.trim() || undefined,
         public: projectPublic,
@@ -186,6 +189,44 @@ export default function EchoesImportModal({
                           <label className="form-check-label" htmlFor="echoesProjectPublic">
                             Public project
                           </label>
+                        </div>
+                      </div>
+                      <div className="col-12">
+                        <label className="form-label">Named Graph Linkage</label>
+                        <div className="d-flex flex-column gap-2">
+                          <div className="form-check">
+                            <input
+                              id="echoesNamedGraphImportStartNew"
+                              className="form-check-input"
+                              type="radio"
+                              name="echoesNamedGraphImportMode"
+                              checked={namedGraphImportMode === 'start_new_branch'}
+                              onChange={() => setNamedGraphImportMode('start_new_branch')}
+                              disabled={importBusy}
+                            />
+                            <label className="form-check-label" htmlFor="echoesNamedGraphImportStartNew">
+                              Start a new named graph branch
+                            </label>
+                          </div>
+                          <div className="form-check">
+                            <input
+                              id="echoesNamedGraphImportContinue"
+                              className="form-check-input"
+                              type="radio"
+                              name="echoesNamedGraphImportMode"
+                              checked={namedGraphImportMode === 'continue_selected_graph'}
+                              onChange={() => setNamedGraphImportMode('continue_selected_graph')}
+                              disabled={importBusy}
+                            />
+                            <label className="form-check-label" htmlFor="echoesNamedGraphImportContinue">
+                              Continue from this published named graph
+                            </label>
+                          </div>
+                        </div>
+                        <div className={`form-text ${namedGraphImportMode === 'continue_selected_graph' ? 'text-warning' : ''}`}>
+                          {namedGraphImportMode === 'continue_selected_graph'
+                            ? 'OCRA will keep the selected Named Graph URI, so UPDATE Published Named Graph will continue that existing ECCCH history branch.'
+                            : 'OCRA will import the content but leave Named Graph URI empty, so you can publish a new named graph branch on the same HDT later.'}
                         </div>
                       </div>
                       <div className="col-12">

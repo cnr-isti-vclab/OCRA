@@ -163,6 +163,7 @@ export interface EchoesHdtDetail {
 export interface CreateProjectFromEchoesHdtInput {
   digitalTwinUri: string;
   namedGraphUri?: string;
+  namedGraphImportMode?: 'start_new_branch' | 'continue_selected_graph';
   name?: string;
   description?: string;
   public?: boolean;
@@ -939,13 +940,18 @@ interface ProjectImportBaseInput {
   publicBaseUrl: string;
 }
 
-function buildLiveEchoesImportedContext(projectId: string, detail: EchoesHdtDetail): EchoesContext {
+function buildLiveEchoesImportedContext(
+  projectId: string,
+  detail: EchoesHdtDetail,
+  namedGraphImportMode: 'start_new_branch' | 'continue_selected_graph',
+): EchoesContext {
   return {
     ...buildDefaultEchoesContext(projectId),
     origin: 'imported',
     syncStatus: 'registered',
     heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
     digitalTwinUri: detail.digitalTwinUri,
+    namedGraphUri: namedGraphImportMode === 'continue_selected_graph' ? detail.namedGraphUri : undefined,
     digitalTwinLabel: detail.digitalTwinLabel || undefined,
     importedFromEchoesAt: new Date(),
     projectSnapshot: toSnapshotReference(detail.projectSnapshot),
@@ -1167,13 +1173,14 @@ async function importFullOcraProjectSnapshotFromEchoes(
   }
 
   const snapshot = await fetchOcraProjectSnapshot(detail.projectSnapshot.url);
+  const namedGraphImportMode = input.namedGraphImportMode ?? 'start_new_branch';
   return importFullOcraProjectSnapshot(
     user,
     input,
     detail,
     snapshot,
     includeAnnotations,
-    (projectId) => buildLiveEchoesImportedContext(projectId, detail),
+    (projectId) => buildLiveEchoesImportedContext(projectId, detail, namedGraphImportMode),
     {
       finalizeEchoesContext: true,
       missingPortableAssetMessage:
@@ -1205,10 +1212,14 @@ export async function createProjectFromEchoesHdt(
     '';
 
   const importMode = input.importMode ?? 'metadata_assets';
+  const namedGraphImportMode = input.namedGraphImportMode ?? 'start_new_branch';
   if (importMode === 'full_project_without_annotations' || importMode === 'full_project_with_annotations') {
     return importFullOcraProjectSnapshotFromEchoes(
       user,
-      input,
+      {
+        ...input,
+        namedGraphImportMode,
+      },
       detail,
       importMode === 'full_project_with_annotations',
     );
@@ -1222,7 +1233,7 @@ export async function createProjectFromEchoesHdt(
       description: fallbackDescription,
     },
     detail,
-    (projectId) => buildLiveEchoesImportedContext(projectId, detail),
+    (projectId) => buildLiveEchoesImportedContext(projectId, detail, namedGraphImportMode),
     { finalizeEchoesContext: true },
   );
 }

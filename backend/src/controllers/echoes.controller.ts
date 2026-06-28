@@ -203,6 +203,11 @@ export async function createProjectFromEchoesHdtHandler(req: Request, res: Respo
       namedGraphUri: typeof req.body?.namedGraphUri === 'string' && req.body.namedGraphUri.trim()
         ? req.body.namedGraphUri.trim()
         : undefined,
+      namedGraphImportMode:
+        req.body?.namedGraphImportMode === 'continue_selected_graph' ||
+        req.body?.namedGraphImportMode === 'start_new_branch'
+          ? req.body.namedGraphImportMode
+          : undefined,
       name: typeof req.body?.name === 'string' ? req.body.name : undefined,
       description: typeof req.body?.description === 'string' ? req.body.description : undefined,
       public: req.body?.public === true,

@@ -164,6 +164,7 @@ export async function fetchEchoesHdtDetail(digitalTwinUri: string, namedGraphUri
 export async function createProjectFromEchoesHdt(input: {
   digitalTwinUri: string;
   namedGraphUri?: string;
+  namedGraphImportMode?: 'start_new_branch' | 'continue_selected_graph';
   name?: string;
   description?: string;
   public?: boolean;
