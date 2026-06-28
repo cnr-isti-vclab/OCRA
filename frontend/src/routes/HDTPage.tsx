@@ -147,6 +147,8 @@ interface HDTMetadata {
 export default function HDTPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
+  const [projectNameDraft, setProjectNameDraft] = useState('');
+  const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
   const [metadata, setMetadata] = useState<HDTMetadata | null>(null);
   const [canManageAssets, setCanManageAssets] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -662,6 +664,8 @@ export default function HDTPage() {
       const projectData = await projectResponse.json();
       const proj: Project = (projectData?.project ?? projectData) as Project;
       setProject(proj);
+      setProjectNameDraft(proj.name || '');
+      setProjectDescriptionDraft(proj.description || '');
 
       const currentUser = await getCurrentUser();
       if (currentUser) {
@@ -939,12 +943,43 @@ export default function HDTPage() {
     }
   };
 
-  // Manual save function (called by Save button)
-  const handleManualSave = async () => {
-    await autoSaveMetadata();
-    setSuccessMessage('✅ Metadata saved successfully!');
-    setTimeout(() => setSuccessMessage(null), 3000);
-  };
+  const handleProjectMetadataSave = useCallback(async () => {
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const response = await fetch(`${getApiBase()}/api/projects/${projectId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: buildAuthenticatedHeaders(true),
+        body: JSON.stringify({
+          name: projectNameDraft.trim(),
+          description: projectDescriptionDraft.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update project metadata');
+      }
+
+      const projectData = await response.json();
+      const updatedProject: Project = (projectData?.project ?? projectData) as Project;
+      setProject(updatedProject);
+      setProjectNameDraft(updatedProject.name || '');
+      setProjectDescriptionDraft(updatedProject.description || '');
+      setSuccessMessage('✅ Project metadata saved successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update project metadata');
+    } finally {
+      setSaving(false);
+    }
+  }, [projectDescriptionDraft, projectId, projectNameDraft]);
 
   const buildMetadataPayload = useCallback((overrides?: {
     title?: string;
@@ -1675,6 +1710,56 @@ export default function HDTPage() {
         </div>
       </div>
 
+      <div className="card border-0 shadow-sm mb-4">
+        <div className="card-body">
+          <div className="d-flex align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <h5 className="mb-1">Project Metadata</h5>
+              <p className="text-muted small mb-0">
+                These fields describe the OCRA project and its future named graph publication context. They do not alter the official HC1 catalog record.
+              </p>
+            </div>
+          </div>
+
+          <fieldset disabled={hdtReadOnlyWithoutProjectLock || saving}>
+            <div className="mb-3">
+              <label htmlFor="project-name" className="form-label">Project Name</label>
+              <input
+                type="text"
+                className="form-control"
+                id="project-name"
+                value={projectNameDraft}
+                onChange={(e) => setProjectNameDraft(e.target.value)}
+                placeholder="Enter the OCRA project name"
+              />
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="project-description" className="form-label">Project Description</label>
+              <textarea
+                className="form-control"
+                id="project-description"
+                rows={3}
+                value={projectDescriptionDraft}
+                onChange={(e) => setProjectDescriptionDraft(e.target.value)}
+                placeholder="Describe the scope of this OCRA project"
+              ></textarea>
+            </div>
+
+            <div className="d-flex gap-2">
+              <button
+                onClick={() => void handleProjectMetadataSave()}
+                disabled={saving || projectNameDraft.trim().length === 0}
+                className="btn btn-success"
+                type="button"
+              >
+                {saving ? '💾 Saving...' : '💾 Save Project Metadata'}
+              </button>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="card">
         <div className="card-header">
@@ -1715,10 +1800,11 @@ export default function HDTPage() {
             <div>
               <h5 className="mb-3">HC1 Heritage Entity</h5>
               <p className="text-muted small mb-4">
-                Basic descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836).
+                Official descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836). These catalog fields are read-only in this view.
               </p>
-
-              <fieldset disabled={hdtReadOnlyWithoutProjectLock}>
+              <div className="alert alert-light border small mb-4">
+                HC1 metadata represents the cataloged cultural heritage entity and cannot be edited from this page.
+              </div>
 
               <div className="mb-3">
                 <label htmlFor="hc1-label" className="form-label">Label <span className="text-muted fw-normal small">(rdfs:label)</span></label>
@@ -1727,7 +1813,7 @@ export default function HDTPage() {
                   className="form-control"
                   id="hc1-label"
                   value={hc1Label}
-                  onChange={(e) => setHc1Label(e.target.value)}
+                  readOnly
                   placeholder="Short human-readable name (defaults to dc:title if empty)"
                 />
               </div>
@@ -1739,7 +1825,7 @@ export default function HDTPage() {
                   className="form-control"
                   id="dc-title"
                   value={dcTitle}
-                  onChange={(e) => setDcTitle(e.target.value)}
+                  readOnly
                   placeholder="Heritage Digital Twin title"
                 />
               </div>
@@ -1751,7 +1837,7 @@ export default function HDTPage() {
                   id="dc-description"
                   rows={4}
                   value={dcDescription}
-                  onChange={(e) => setDcDescription(e.target.value)}
+                  readOnly
                   placeholder="Detailed description of the heritage object"
                 ></textarea>
               </div>
@@ -1764,7 +1850,7 @@ export default function HDTPage() {
                     className="form-control"
                     id="dc-creator"
                     value={dcCreator}
-                    onChange={(e) => setDcCreator(e.target.value)}
+                    readOnly
                     placeholder="Artist, sculptor, architect (comma-separated)"
                   />
                 </div>
@@ -1776,7 +1862,7 @@ export default function HDTPage() {
                     className="form-control"
                     id="dc-date"
                     value={dcDate}
-                    onChange={(e) => setDcDate(e.target.value)}
+                    readOnly
                     placeholder="e.g., 1924, 1924-05, 1924-05-15"
                   />
                 </div>
@@ -1789,7 +1875,7 @@ export default function HDTPage() {
                   className="form-control"
                   id="dc-subject"
                   value={dcSubject}
-                  onChange={(e) => setDcSubject(e.target.value)}
+                  readOnly
                   placeholder="sculpture, renaissance, marble, religious art (comma-separated)"
                 />
               </div>
@@ -1802,7 +1888,7 @@ export default function HDTPage() {
                     className="form-control"
                     id="dc-type"
                     value={dcType}
-                    onChange={(e) => setDcType(e.target.value)}
+                    readOnly
                     placeholder="3D Model, Sculpture, Artifact (comma-separated)"
                   />
                 </div>
@@ -1814,7 +1900,7 @@ export default function HDTPage() {
                     className="form-control"
                     id="dc-language"
                     value={dcLanguage}
-                    onChange={(e) => setDcLanguage(e.target.value)}
+                    readOnly
                     placeholder="en, it, la (comma-separated ISO 639 codes)"
                   />
                 </div>
@@ -1828,7 +1914,7 @@ export default function HDTPage() {
                     className="form-control"
                     id="dc-coverage"
                     value={dcCoverage}
-                    onChange={(e) => setDcCoverage(e.target.value)}
+                    readOnly
                     placeholder="Spatial or temporal coverage"
                   />
                 </div>
@@ -1840,7 +1926,7 @@ export default function HDTPage() {
                     className="form-control"
                     id="dc-source"
                     value={dcSource}
-                    onChange={(e) => setDcSource(e.target.value)}
+                    readOnly
                     placeholder="Original source or reference"
                   />
                 </div>
@@ -1853,27 +1939,10 @@ export default function HDTPage() {
                   className="form-control"
                   id="dc-rights"
                   value={dcRights}
-                  onChange={(e) => setDcRights(e.target.value)}
+                  readOnly
                   placeholder="Copyright statement or rights information"
                 />
               </div>
-
-              {/* Save Button for Dublin Core */}
-              <div className="d-flex gap-2 mt-4">
-                <button
-                  onClick={handleManualSave}
-                  disabled={saving}
-                  className="btn btn-success"
-                >
-                  {saving ? '💾 Saving...' : '💾 Save Heritage Entity Metadata'}
-                </button>
-                {successMessage && (
-                  <div className="alert alert-success mb-0 py-2 px-3" role="alert">
-                    {successMessage}
-                  </div>
-                )}
-              </div>
-              </fieldset>
             </div>
           )}
 
