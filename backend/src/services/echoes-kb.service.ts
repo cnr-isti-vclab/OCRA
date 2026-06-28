@@ -212,7 +212,6 @@ export interface EchoesProjectStatus {
 
 export interface EchoesReadinessIssue {
   code:
-    | 'missing_identifier'
     | 'missing_title'
     | 'missing_heritage_entity_uri'
     | 'missing_asset_source_url';
@@ -253,7 +252,6 @@ export interface EchoesRdfExportResult {
 export interface DuplicateProjectHdtInEchoesInput {
   title?: string;
   description?: string;
-  identifier?: string;
   heritageEntityUri?: string;
 }
 
@@ -1356,15 +1354,6 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
   const dublinCore = hdtDocument.physicalObjectMetadata.dublinCore ?? {};
   const digitalAssets = Array.isArray(hdtDocument.digitalAssets) ? hdtDocument.digitalAssets : [];
 
-  if (!normalizeEchoesQueryParam(dublinCore.identifier)) {
-    issues.push({
-      code: 'missing_identifier',
-      severity: 'required',
-      field: 'physicalObjectMetadata.dublinCore.identifier',
-      message: 'Current Identifier is missing. ECCCH publication should use a stable identifier for the HC1 record.',
-    });
-  }
-
   if (!normalizeEchoesQueryParam(dublinCore.title)) {
     issues.push({
       code: 'missing_title',
@@ -1773,7 +1762,6 @@ export async function duplicateProjectHdtAsNewInEchoes(
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
   const title = normalizeEchoesQueryParam(input.title) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
   const description = normalizeEchoesQueryParam(input.description) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
-  const identifier = normalizeEchoesQueryParam(input.identifier) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.identifier);
   const heritageEntityUri =
     sanitizeOptionalString(input.heritageEntityUri) ||
     `${currentContext.projectUri.replace(/\/$/, '')}/heritage-entity/${projectId}-${Date.now()}`;
@@ -1809,7 +1797,6 @@ export async function duplicateProjectHdtAsNewInEchoes(
         ...(hdtDocument.physicalObjectMetadata.dublinCore ?? {}),
         ...(title ? { title } : {}),
         ...(description ? { description } : {}),
-        ...(identifier ? { identifier } : {}),
       },
     },
     echoesContext: {

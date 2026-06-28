@@ -94,7 +94,6 @@ type EchoesAction = 'register' | 'enrich' | 'replace';
 interface EchoesPreparationState {
   action: EchoesAction;
   title: string;
-  identifier: string;
   heritageEntityUri: string;
   assetSourceUrls: Record<string, string>;
   missingFieldLabels: string[];
@@ -167,7 +166,6 @@ export default function HDTPage() {
   const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
   const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
-  const [duplicateEchoesIdentifier, setDuplicateEchoesIdentifier] = useState('');
   const [duplicateEchoesHeritageEntityUri, setDuplicateEchoesHeritageEntityUri] = useState('');
 
   const getEchoesSyncStatusLabel = (status: EchoesProjectStatus['syncStatus'] | NonNullable<HDTMetadata['echoesContext']>['syncStatus'] | undefined): string => {
@@ -287,10 +285,6 @@ export default function HDTPage() {
 
   const getAssetEchoesSourceUrl = (asset: DigitalAsset): string => {
     return typeof asset.metadata?.sourceUrl === 'string' ? asset.metadata.sourceUrl.trim() : '';
-  };
-
-  const resolveCurrentIdentifier = (): string => {
-    return normalizeOptionalText(metadata?.physicalObjectMetadata?.dublinCore?.identifier);
   };
 
   const resolveCurrentHeritageEntityUri = (): string => {
@@ -453,6 +447,52 @@ export default function HDTPage() {
         { key: 'close', label: 'Cancel', tone: 'secondary' },
       ],
     }));
+  };
+
+  const openEchoesActionConfirmation = (action: EchoesAction) => {
+    const descriptorByAction: Record<EchoesAction, MessageModalDescriptor> = {
+      register: new MessageModalDescriptor({
+        tone: 'warning',
+        title: 'Register in ECCCH',
+        message: 'Proceed with ECCCH registration for this HDT?',
+        details: [
+          'This will link the local OCRA project to an ECCCH Heritage Digital Twin.',
+          'If the HC1 URI is already known in ECCCH, OCRA may reconcile the existing HDT instead of creating a new one.',
+        ],
+        actions: [
+          { key: 'cancel', label: 'Cancel', tone: 'secondary' },
+          { key: 'confirm_echoes_register', label: 'Proceed', tone: 'primary' },
+        ],
+      }),
+      enrich: new MessageModalDescriptor({
+        tone: 'warning',
+        title: 'Create New Named Graph',
+        message: 'Proceed with publishing a new named graph to ECCCH?',
+        details: [
+          'This will publish the current RDF as a new named graph for the linked HDT.',
+          'If required data is still missing, OCRA will ask you to complete it before publishing.',
+        ],
+        actions: [
+          { key: 'cancel', label: 'Cancel', tone: 'secondary' },
+          { key: 'confirm_echoes_enrich', label: 'Proceed', tone: 'primary' },
+        ],
+      }),
+      replace: new MessageModalDescriptor({
+        tone: 'warning',
+        title: 'Update Published Named Graph',
+        message: 'Proceed with replacing the current published named graph in ECCCH?',
+        details: [
+          'This will replace the currently linked named graph content with the local RDF export.',
+          'If required data is still missing, OCRA will ask you to complete it before updating.',
+        ],
+        actions: [
+          { key: 'cancel', label: 'Cancel', tone: 'secondary' },
+          { key: 'confirm_echoes_replace', label: 'Proceed', tone: 'danger' },
+        ],
+      }),
+    };
+
+    setMessageModal(descriptorByAction[action]);
   };
 
   /**
@@ -739,15 +779,11 @@ export default function HDTPage() {
 
   const prepareEchoesAction = (action: EchoesAction): EchoesPreparationState | null => {
     const title = dcTitle.trim() || normalizeOptionalText(metadata?.physicalObjectMetadata?.dublinCore?.title);
-    const identifier = resolveCurrentIdentifier();
     const heritageEntityUri = resolveCurrentHeritageEntityUri();
     const missingFieldLabels: string[] = [];
 
     if (!title) {
       missingFieldLabels.push('Current Title');
-    }
-    if (!identifier) {
-      missingFieldLabels.push('Current Identifier');
     }
     if (!heritageEntityUri) {
       missingFieldLabels.push('HC1 URI');
@@ -771,7 +807,6 @@ export default function HDTPage() {
     return {
       action,
       title,
-      identifier,
       heritageEntityUri,
       assetSourceUrls,
       missingFieldLabels,
@@ -865,7 +900,6 @@ export default function HDTPage() {
 
       await persistMetadataPayload(buildMetadataPayload({
         title: echoesPreparation.title,
-        identifier: echoesPreparation.identifier,
         sourceUri: echoesPreparation.heritageEntityUri,
       }));
 
@@ -904,7 +938,6 @@ export default function HDTPage() {
       const result = await duplicateProjectHdtAsNewInEchoes(projectId, {
         title: duplicateEchoesTitle.trim() || undefined,
         description: duplicateEchoesDescription.trim() || undefined,
-        identifier: duplicateEchoesIdentifier.trim() || undefined,
         heritageEntityUri: duplicateEchoesHeritageEntityUri.trim() || undefined,
       });
 
@@ -983,12 +1016,10 @@ export default function HDTPage() {
 
   const buildMetadataPayload = useCallback((overrides?: {
     title?: string;
-    identifier?: string;
     sourceUri?: string;
     digitalAssets?: DigitalAsset[];
   }): Partial<HDTMetadata> => {
     const resolvedTitle = overrides?.title?.trim() || dcTitle.trim() || undefined;
-    const resolvedIdentifier = overrides?.identifier?.trim() || resolveCurrentIdentifier() || undefined;
     const resolvedSourceUri =
       overrides?.sourceUri?.trim() ||
       resolveCurrentHeritageEntityUri() ||
@@ -1010,7 +1041,6 @@ export default function HDTPage() {
           coverage: dcCoverage || undefined,
           rights: dcRights || undefined,
           source: dcSource || undefined,
-          identifier: resolvedIdentifier,
         },
         cidocCrm: metadata?.physicalObjectMetadata?.cidocCrm,
       },
@@ -1507,30 +1537,20 @@ export default function HDTPage() {
 
               <div className="row g-3 small">
                 <div className="col-md-6">
-                  <div className="text-muted">Project URI</div>
+                  <div className="text-muted">Project URI (projectURI)</div>
                   <div className="text-break">{echoesStatus?.projectUri || metadata?.echoesContext?.projectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-muted">HC1 URI</div>
+                  <div className="text-muted">HC1 URI (heritageEntityUri)</div>
                   <div className="text-break">{echoesStatus?.heritageEntityUri || metadata?.echoesContext?.heritageEntityUri || metadata?.physicalObjectMetadata?.sourceUri || 'Not assigned yet'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-muted">Digital Twin URI</div>
+                  <div className="text-muted">Digital Twin URI (digitalTwinUri)</div>
                   <div className="text-break">{echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri || 'Not registered yet'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-muted">Named Graph URI</div>
+                  <div className="text-muted">Named Graph URI (namedGraphUri)</div>
                   <div className="text-break">{echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri || 'Not published yet'}</div>
-                </div>
-                <div className="col-md-6">
-                  <div className="text-muted">Current Title</div>
-                  <div className="text-break">{dcTitle || metadata?.physicalObjectMetadata?.dublinCore?.title || 'Not set'}</div>
-                </div>
-                <div className="col-md-6">
-                  <div className="text-muted">Current Identifier</div>
-                  <div className="text-break">
-                    {resolveCurrentIdentifier() || 'Not set'}
-                  </div>
                 </div>
               </div>
 
@@ -1574,7 +1594,7 @@ export default function HDTPage() {
                     type="button"
                     className="btn btn-primary"
                     disabled={echoesBusy || hasEchoesRegistration || !canRegisterEchoesContent}
-                    onClick={() => void handleEchoesPublishAction('register')}
+                    onClick={() => openEchoesActionConfirmation('register')}
                   >
                     {echoesBusy
                       ? 'Working...'
@@ -1588,7 +1608,7 @@ export default function HDTPage() {
                     type="button"
                     className="btn btn-outline-primary"
                     disabled={echoesBusy || !canPublishEchoesContent || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
-                    onClick={() => void handleEchoesPublishAction('enrich')}
+                    onClick={() => openEchoesActionConfirmation('enrich')}
                   >
                     CREATE New Named Graph
                   </button>
@@ -1598,7 +1618,7 @@ export default function HDTPage() {
                     type="button"
                     className="btn btn-outline-dark"
                     disabled={echoesBusy || !canPublishEchoesContent || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
-                    onClick={() => void handleEchoesPublishAction('replace')}
+                    onClick={() => openEchoesActionConfirmation('replace')}
                   >
                     UPDATE Published Named Graph
                   </button>
@@ -1614,7 +1634,6 @@ export default function HDTPage() {
                         if (!showDuplicateEchoesForm) {
                           setDuplicateEchoesTitle(dcTitle ? `${dcTitle} Demo Copy` : '');
                           setDuplicateEchoesDescription(dcDescription || '');
-                          setDuplicateEchoesIdentifier('');
                           setDuplicateEchoesHeritageEntityUri('');
                         }
                       }}
@@ -1633,11 +1652,6 @@ export default function HDTPage() {
                           title
                           {' '}
                           <strong>{dcTitle || metadata?.physicalObjectMetadata?.dublinCore?.title || 'Not set'}</strong>
-                          {' '}-
-                          {' '}
-                          identifier
-                          {' '}
-                          <strong>{metadata?.physicalObjectMetadata?.dublinCore?.identifier || 'Not set'}</strong>
                         </div>
                         <div className="mb-2">
                           <label htmlFor="duplicate-echoes-title" className="form-label form-label-sm">New title</label>
@@ -1647,17 +1661,6 @@ export default function HDTPage() {
                             value={duplicateEchoesTitle}
                             onChange={(event) => setDuplicateEchoesTitle(event.target.value)}
                             disabled={echoesBusy}
-                          />
-                        </div>
-                        <div className="mb-2">
-                          <label htmlFor="duplicate-echoes-identifier" className="form-label form-label-sm">New identifier</label>
-                          <input
-                            id="duplicate-echoes-identifier"
-                            className="form-control form-control-sm"
-                            value={duplicateEchoesIdentifier}
-                            onChange={(event) => setDuplicateEchoesIdentifier(event.target.value)}
-                            disabled={echoesBusy}
-                            placeholder="Optional but recommended"
                           />
                         </div>
                         <div className="mb-2">
@@ -1716,7 +1719,7 @@ export default function HDTPage() {
             <div>
               <h5 className="mb-1">Project Metadata</h5>
               <p className="text-muted small mb-0">
-                These fields describe the OCRA project and its future named graph publication context. They do not alter the official HC1 catalog record.
+                These fields describe the OCRA project and are aligned with the ECCCH named graph representation model.
               </p>
             </div>
           </div>
@@ -1800,12 +1803,9 @@ export default function HDTPage() {
             <div>
               <h5 className="mb-3">HC1 Heritage Entity</h5>
               <p className="text-muted small mb-4">
-                Official descriptive metadata about the heritage entity using Dublin Core standard (ISO 15836). These catalog fields are read-only in this view.
+                Official HC1 descriptive metadata about the heritage entity, aligned with the ECCCH HDTO model and Dublin Core standard (ISO 15836). These catalog fields are read-only.
               </p>
-              <div className="alert alert-light border small mb-4">
-                HC1 metadata represents the cataloged cultural heritage entity and cannot be edited from this page.
-              </div>
-
+             
               <div className="mb-3">
                 <label htmlFor="hc1-label" className="form-label">Label <span className="text-muted fw-normal small">(rdfs:label)</span></label>
                 <input
@@ -2790,20 +2790,6 @@ export default function HDTPage() {
                 </div>
               )}
 
-              {!echoesPreparation.identifier.trim() && (
-                <div className="mb-3">
-                  <label htmlFor="echoes-prep-identifier" className="form-label">Current Identifier</label>
-                  <input
-                    id="echoes-prep-identifier"
-                    type="text"
-                    className="form-control"
-                    value={echoesPreparation.identifier}
-                    onChange={(event) => setEchoesPreparation((current) => current ? { ...current, identifier: event.target.value } : current)}
-                    disabled={echoesBusy}
-                  />
-                </div>
-              )}
-
               {!echoesPreparation.heritageEntityUri.trim() && (
                 <div className="mb-3">
                   <label htmlFor="echoes-prep-hc1-uri" className="form-label">HC1 URI</label>
@@ -2871,7 +2857,6 @@ export default function HDTPage() {
                 disabled={
                   echoesBusy ||
                   !echoesPreparation.title.trim() ||
-                  !echoesPreparation.identifier.trim() ||
                   !echoesPreparation.heritageEntityUri.trim() ||
                   Object.values(echoesPreparation.assetSourceUrls).some((value) => !value.trim())
                 }
@@ -2895,6 +2880,21 @@ export default function HDTPage() {
         if (actionKey === 'download_rdf_with_payload') {
           setMessageModal(null);
           void downloadRdfExport('with_ocra_payload');
+          return;
+        }
+        if (actionKey === 'confirm_echoes_register') {
+          setMessageModal(null);
+          void handleEchoesPublishAction('register');
+          return;
+        }
+        if (actionKey === 'confirm_echoes_enrich') {
+          setMessageModal(null);
+          void handleEchoesPublishAction('enrich');
+          return;
+        }
+        if (actionKey === 'confirm_echoes_replace') {
+          setMessageModal(null);
+          void handleEchoesPublishAction('replace');
           return;
         }
         setMessageModal(null);

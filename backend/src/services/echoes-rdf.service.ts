@@ -141,7 +141,6 @@ export function serializeHdtDocumentAsEchoesRdf(
   appendLiteralElements(hc1Lines, 'dc:subject', dublinCore.subject);
   appendLiteralElements(hc1Lines, 'dc:date', dublinCore.date);
   appendLiteralElements(hc1Lines, 'dc:type', dublinCore.type);
-  appendLiteralElements(hc1Lines, 'dc:identifier', dublinCore.identifier);
   appendLiteralElements(hc1Lines, 'dc:source', dublinCore.source);
   appendLiteralElements(hc1Lines, 'dc:language', dublinCore.language);
   appendLiteralElements(hc1Lines, 'dc:coverage', dublinCore.coverage);

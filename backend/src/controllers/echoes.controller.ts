@@ -420,7 +420,6 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
     const result = await duplicateProjectHdtAsNewInEchoes(sessionId, projectId, getPublicBaseUrl(req), {
       title: typeof req.body?.title === 'string' ? req.body.title : undefined,
       description: typeof req.body?.description === 'string' ? req.body.description : undefined,
-      identifier: typeof req.body?.identifier === 'string' ? req.body.identifier : undefined,
       heritageEntityUri: typeof req.body?.heritageEntityUri === 'string' ? req.body.heritageEntityUri : undefined,
     });
 

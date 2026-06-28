@@ -148,7 +148,6 @@ export type EchoesSyncStatus = 'local' | 'registered' | 'synced' | 'dirty';
 
 export interface EchoesReadinessIssue {
   code:
-    | 'missing_identifier'
     | 'missing_title'
     | 'missing_heritage_entity_uri'
     | 'missing_asset_source_url';
