@@ -737,7 +737,6 @@ async function reconcileExistingEchoesRegistration(
     projectUri: currentContext.projectUri,
     heritageEntityUri,
     digitalTwinUri: existingRegistration.digitalTwinUri,
-    namedGraphUri: existingRegistration.namedGraphUri ?? undefined,
     digitalTwinLabel: existingRegistration.digitalTwinLabel ?? (_title || currentContext.digitalTwinLabel),
     syncStatus: 'registered',
     lastRegisteredAt: new Date(),
@@ -751,7 +750,8 @@ async function reconcileExistingEchoesRegistration(
     status: toProjectStatus(reconciled),
     message:
       `HC1 URI <${heritageEntityUri}> is already present in ECCCH. ` +
-      `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>.`,
+      `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>. ` +
+      `No named graph was assigned: publish a new named graph from this project when ready.`,
   };
 }
 
@@ -913,9 +913,11 @@ async function finalizeImportedEchoesContext(
     return;
   }
 
+  const hasPublishedNamedGraph = typeof baseContext.namedGraphUri === 'string' && baseContext.namedGraphUri.trim().length > 0;
+
   await updateHdtEchoesContext(projectId, {
     ...baseContext,
-    syncStatus: 'synced',
+    syncStatus: hasPublishedNamedGraph ? 'synced' : 'registered',
     assetRecords: importedDocument.digitalAssets.map((asset) => ({
       assetId: asset.id,
       assetUri: typeof asset.metadata?.sourceAssetUri === 'string'
@@ -924,11 +926,11 @@ async function finalizeImportedEchoesContext(
       sourceUrl: typeof asset.metadata?.sourceUrl === 'string'
         ? asset.metadata.sourceUrl
         : typeof asset.entryPointUrl === 'string'
-          ? asset.entryPointUrl
+        ? asset.entryPointUrl
           : undefined,
     })),
-    lastSyncedAt: new Date(),
-    lastSyncedProjectUpdatedAt: importedDocument.updatedAt ?? new Date(),
+    lastSyncedAt: hasPublishedNamedGraph ? new Date() : undefined,
+    lastSyncedProjectUpdatedAt: hasPublishedNamedGraph ? (importedDocument.updatedAt ?? new Date()) : undefined,
   }, userId);
 }
 
@@ -943,10 +945,9 @@ function buildLiveEchoesImportedContext(projectId: string, detail: EchoesHdtDeta
   return {
     ...buildDefaultEchoesContext(projectId),
     origin: 'imported',
-    syncStatus: 'synced',
+    syncStatus: 'registered',
     heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
     digitalTwinUri: detail.digitalTwinUri,
-    namedGraphUri: detail.namedGraphUri,
     digitalTwinLabel: detail.digitalTwinLabel || undefined,
     importedFromEchoesAt: new Date(),
     projectSnapshot: toSnapshotReference(detail.projectSnapshot),

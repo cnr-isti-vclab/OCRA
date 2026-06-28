@@ -62,6 +62,8 @@ interface DublinCoreMetadata {
 type AssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
 type RdfDownloadMode = 'plain' | 'with_ocra_payload';
 
+const SHOW_ECCCH_DUPLICATE_DEBUG_UI = false;
+
 interface DigitalAssetMetadata {
   sourceUrl?: string;
   sourceAssetUri?: string;
@@ -1566,7 +1568,7 @@ export default function HDTPage() {
                     UPDATE Published Named Graph
                   </button>
                 )}
-                {canDuplicateProjectInEchoes && (
+                {SHOW_ECCCH_DUPLICATE_DEBUG_UI && canDuplicateProjectInEchoes && (
                   <>
                     <button
                       type="button"
