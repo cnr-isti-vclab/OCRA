@@ -485,6 +485,21 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         },
         EchoesHdtListItem: {
           type: 'object',
+          required: ['digitalTwinUri'],
+          properties: {
+            digitalTwinUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/HDT/JGrV52jtL3z',
+            },
+            label: {
+              type: 'string',
+              nullable: true,
+              example: 'HDT UC2 Lamina',
+            },
+          },
+        },
+        EchoesNamedGraphListItem: {
+          type: 'object',
           required: ['namedGraphUri', 'digitalTwinUri'],
           properties: {
             namedGraphUri: {
@@ -645,6 +660,20 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             items: {
               type: 'array',
               items: { $ref: '#/components/schemas/EchoesHdtListItem' },
+            },
+          },
+        },
+        EchoesNamedGraphListResponse: {
+          type: 'object',
+          required: ['success', 'items'],
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            items: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/EchoesNamedGraphListItem' },
             },
           },
         },
@@ -832,20 +861,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         },
         EchoesDevBearerRequest: {
           type: 'object',
-          required: ['bearer', 'scope'],
+          required: ['bearer'],
           properties: {
             bearer: {
               type: 'string',
               example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
-            },
-            scope: {
-              type: 'string',
-              enum: ['import', 'register', 'publish'],
-              example: 'register',
-            },
-            projectId: {
-              type: 'string',
-              example: 'cmqtnczp7001y8fjq2wpv76ix',
             },
           },
         },

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { EchoesHdtDetail, EchoesHdtListItem } from '../../types';
-import { fetchEchoesHdtDetail, fetchEchoesHdts } from '../../services/EchoesApi';
+import type { EchoesHdtDetail, EchoesNamedGraphListItem } from '../../types';
+import { fetchEchoesHdtDetail, fetchEchoesNamedGraphs } from '../../services/EchoesApi';
 
 function formatOptionalGraphDate(value: string | null): string | null {
   if (!value) {
@@ -29,7 +29,7 @@ function formatOptionalGraphDate(value: string | null): string | null {
 }
 
 interface HdtVersionBranchNode {
-  item: EchoesHdtListItem;
+  item: EchoesNamedGraphListItem;
   children: HdtVersionBranchNode[];
 }
 
@@ -41,7 +41,7 @@ interface HdtTreeNode {
   versionCount: number;
 }
 
-function buildHdtTree(items: EchoesHdtListItem[]): HdtTreeNode[] {
+function buildHdtTree(items: EchoesNamedGraphListItem[]): HdtTreeNode[] {
   const map = new Map<string, HdtTreeNode>();
   for (const item of items) {
     if (!map.has(item.digitalTwinUri)) {
@@ -56,7 +56,7 @@ function buildHdtTree(items: EchoesHdtListItem[]): HdtTreeNode[] {
     map.get(item.digitalTwinUri)!.versionCount += 1;
   }
 
-  const compareItemsDescending = (left: EchoesHdtListItem, right: EchoesHdtListItem): number => {
+  const compareItemsDescending = (left: EchoesNamedGraphListItem, right: EchoesNamedGraphListItem): number => {
     return `${right.graphDate ?? ''}::${right.namedGraphUri}`.localeCompare(`${left.graphDate ?? ''}::${left.namedGraphUri}`);
   };
 
@@ -118,7 +118,7 @@ function branchContainsSelection(branch: HdtVersionBranchNode, selectedItemKey: 
   return branch.children.some((child) => branchContainsSelection(child, selectedItemKey));
 }
 
-function renderMaintenanceBadge(item: EchoesHdtListItem, isSelected: boolean): ReactNode {
+function renderMaintenanceBadge(item: EchoesNamedGraphListItem, isSelected: boolean): ReactNode {
   if (item.graphState === 'current') {
     return <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-success'}`}>current</span>;
   }
@@ -135,7 +135,7 @@ function renderMaintenanceBadge(item: EchoesHdtListItem, isSelected: boolean): R
 }
 
 export interface EchoesHdtBrowserSelection {
-  item: EchoesHdtListItem;
+  item: EchoesNamedGraphListItem;
   detail: EchoesHdtDetail;
   selectedItemKey: string;
 }
@@ -155,7 +155,7 @@ interface EchoesHdtBrowserProps {
   searchResultsMaxHeight?: number | string;
   searchPanelBackground?: string;
   detailPanelBackground?: string;
-  isItemSelectable?: (item: EchoesHdtListItem) => boolean;
+  isItemSelectable?: (item: EchoesNamedGraphListItem) => boolean;
   onSelectionChange?: (selection: EchoesHdtBrowserSelection | null) => void;
   renderDetailPanel?: (state: EchoesHdtBrowserRenderState) => ReactNode;
 }
@@ -228,7 +228,7 @@ export default function EchoesHdtBrowser({
   const [searchTerm, setSearchTerm] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<EchoesHdtListItem[]>([]);
+  const [searchResults, setSearchResults] = useState<EchoesNamedGraphListItem[]>([]);
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -247,7 +247,7 @@ export default function EchoesHdtBrowser({
       setSelection(null);
       setDetailError(null);
       setExpandedRootKeys(new Set());
-      const items = await fetchEchoesHdts(searchTerm);
+      const items = await fetchEchoesNamedGraphs(searchTerm);
       setSearchResults(items);
     } catch (error) {
       setSearchResults([]);
@@ -257,7 +257,7 @@ export default function EchoesHdtBrowser({
     }
   }
 
-  async function handleSelectHdt(item: EchoesHdtListItem): Promise<void> {
+  async function handleSelectHdt(item: EchoesNamedGraphListItem): Promise<void> {
     if (!isItemSelectable(item)) {
       return;
     }

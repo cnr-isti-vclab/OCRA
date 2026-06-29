@@ -114,7 +114,7 @@ interface EchoesUnregisterResponse {
   message?: string;
 }
 
-export interface EchoesHdtListItem {
+export interface EchoesNamedGraphListItem {
   namedGraphUri: string;
   digitalTwinUri: string;
   label: string | null;
@@ -128,6 +128,11 @@ export interface EchoesHdtListItem {
   maintenanceUri: string | null;
   maintenanceActorUri: string | null;
   maintenanceTimespanUri: string | null;
+}
+
+export interface EchoesHdtListItem {
+  digitalTwinUri: string;
+  label: string | null;
 }
 
 export interface EchoesHdtAsset {
@@ -299,13 +304,13 @@ function extractGraphDateFromNamedGraphUri(namedGraphUri: string): string | null
   return match ? match[1] : null;
 }
 
-function graphSortKey(item: Pick<EchoesHdtListItem, 'graphDate' | 'namedGraphUri'>): string {
+function graphSortKey(item: Pick<EchoesNamedGraphListItem, 'graphDate' | 'namedGraphUri'>): string {
   return `${item.graphDate ?? ''}::${item.namedGraphUri}`;
 }
 
 function compareGraphsDescending(
-  left: Pick<EchoesHdtListItem, 'graphDate' | 'namedGraphUri'>,
-  right: Pick<EchoesHdtListItem, 'graphDate' | 'namedGraphUri'>,
+  left: Pick<EchoesNamedGraphListItem, 'graphDate' | 'namedGraphUri'>,
+  right: Pick<EchoesNamedGraphListItem, 'graphDate' | 'namedGraphUri'>,
 ): number {
   return graphSortKey(right).localeCompare(graphSortKey(left));
 }
@@ -460,10 +465,10 @@ async function runSingleTripleStoreQuery(
   return payload.results.results.bindings;
 }
 
-export async function listEchoesHdts(
+export async function listEchoesNamedGraphs(
   sessionId: string,
   search: string | null
-): Promise<EchoesHdtListItem[]> {
+): Promise<EchoesNamedGraphListItem[]> {
   const searchFilter =
     typeof search === 'string' && search.trim().length > 0
       ? `
@@ -498,7 +503,7 @@ WHERE {
 ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
 
   const bindings = await runSingleTripleStoreQuery(sessionId, query);
-  const baseItems: EchoesHdtListItem[] = bindings.map((binding) => ({
+  const baseItems: EchoesNamedGraphListItem[] = bindings.map((binding) => ({
     namedGraphUri: getBindingValue(binding, 'ng') ?? '',
     digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
     label: getBindingValue(binding, 'label'),
@@ -539,6 +544,40 @@ ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) 
       };
     })
     .sort(compareGraphsDescending);
+}
+
+export async function listEchoesHdts(
+  sessionId: string,
+  search: string | null
+): Promise<EchoesHdtListItem[]> {
+  const searchFilter =
+    typeof search === 'string' && search.trim().length > 0
+      ? `
+    FILTER(
+      CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapeSparqlLiteral(search.trim())}")) ||
+      CONTAINS(LCASE(STR(?hdt)), LCASE("${escapeSparqlLiteral(search.trim())}"))
+    )`
+      : '';
+
+  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?hdt ?label
+WHERE {
+  GRAPH ?g {
+    ?hdt a hdt:HC2 .
+    FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
+    OPTIONAL { ?hdt rdfs:label ?label }${searchFilter}
+  }
+}
+ORDER BY ?hdt`;
+
+  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  return bindings
+    .map((binding) => ({
+      digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
+      label: getBindingValue(binding, 'label'),
+    }))
+    .filter((item) => item.digitalTwinUri);
 }
 
 export async function getEchoesHdtDetail(

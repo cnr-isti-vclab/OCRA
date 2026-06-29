@@ -63,7 +63,7 @@ export interface CurrentUserSummary {
   sys_creator?: boolean;
 }
 
-export interface EchoesHdtListItem {
+export interface EchoesNamedGraphListItem {
   namedGraphUri: string;
   digitalTwinUri: string;
   label: string | null;
@@ -77,6 +77,11 @@ export interface EchoesHdtListItem {
   maintenanceUri: string | null;
   maintenanceActorUri: string | null;
   maintenanceTimespanUri: string | null;
+}
+
+export interface EchoesHdtListItem {
+  digitalTwinUri: string;
+  label: string | null;
 }
 
 export interface EchoesHdtAsset {

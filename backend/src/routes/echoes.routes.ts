@@ -10,6 +10,7 @@ import {
   getEchoesHdtHandler,
   importProjectFromEchoesRdfUploadMiddleware,
   listEchoesHdtsHandler,
+  listEchoesNamedGraphsHandler,
   registerProjectHdtInEchoesHandler,
   registerEchoesDevBearerHandler,
   replaceProjectHdtContentInEchoesHandler,
@@ -24,10 +25,10 @@ router.use(requireAuth);
  * @openapi
  * /api/eccch/hdts:
  *   get:
- *     summary: List available ECCCH HDTs
+ *     summary: List registered ECCCH HDTs
  *     description: |
- *       Returns a minimal list of Heritage Digital Twins available in the ECCCH repository.
- *       Optionally filters the results by a free-text `search` string matched against label, title, or identifier.
+ *       Returns a minimal list of registered Digital Twins in ECCCH, including HDTs that do not yet have any named graph.
+ *       Optionally filters the results by a free-text `search` string matched against label or Digital Twin URI.
  *     tags:
  *       - ECCCH
  *     security:
@@ -39,7 +40,7 @@ router.use(requireAuth);
  *         required: false
  *         schema:
  *           type: string
- *         description: Case-insensitive text filter applied to label, title, and identifier.
+ *         description: Case-insensitive text filter applied to label and Digital Twin URI.
  *     responses:
  *       200:
  *         description: Minimal ECCCH HDT list
@@ -61,6 +62,49 @@ router.use(requireAuth);
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/hdts', listEchoesHdtsHandler);
+
+/**
+ * @openapi
+ * /api/eccch/named-graphs:
+ *   get:
+ *     summary: List available ECCCH named graphs
+ *     description: |
+ *       Returns a minimal list of named graphs available in the ECCCH repository,
+ *       along with the related Digital Twin identifiers.
+ *       Optionally filters the results by a free-text `search` string matched against label, title, or identifier.
+ *     tags:
+ *       - ECCCH
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Case-insensitive text filter applied to label, title, and identifier.
+ *     responses:
+ *       200:
+ *         description: Minimal ECCCH named graph list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EchoesNamedGraphListResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       502:
+ *         description: Upstream ECCCH repository query failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ */
+router.get('/named-graphs', listEchoesNamedGraphsHandler);
 
 /**
  * @openapi
@@ -312,7 +356,7 @@ router.post('/projects/:projectId/duplicate-as-new-hdt', duplicateProjectHdtAsNe
  *     description: |
  *       Development-only helper endpoint. Stores an override bearer token for the current authenticated OCRA session.
  *       This is a temporary bridge until the ECCCH bearer is obtained directly from the login flow.
- *       The request must declare a `scope` (`import`, `register`, `publish`) so the backend can enforce the matching role policy.
+ *       The override is session-wide and can be managed only by system administrators.
  *     tags:
  *       - ECCCH
  *     security:
@@ -347,13 +391,7 @@ router.post('/dev/bearer', registerEchoesDevBearerHandler);
  * /api/eccch/dev/bearer:
  *   delete:
  *     summary: Clear the temporary ECCCH bearer for development
- *     description: Removes the current session's development-only bearer override for the requested scope authorization context.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EchoesDevBearerRequest'
+ *     description: Removes the current session's development-only bearer override.
  *     tags:
  *       - ECCCH
  *     security:

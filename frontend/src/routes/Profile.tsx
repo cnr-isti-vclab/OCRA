@@ -2,11 +2,13 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import {
+  fetchEchoesNamedGraphs,
   clearEchoesDevBearer,
   registerEchoesDevBearer,
-  type EchoesBearerScope,
   unregisterEchoesDigitalTwin,
 } from '../services/EchoesApi';
+import type { EchoesNamedGraphListItem } from '../types';
+import EchoesHdtListWidget from '../shared/ui/EchoesHdtListWidget';
 
 /**
  * PROFILE ROUTE COMPONENT (Updated for Backend API)
@@ -44,6 +46,10 @@ export default function Profile() {
   const [echoesBearer, setEchoesBearer] = useState('');
   const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
   const [echoesBearerMessage, setEchoesBearerMessage] = useState<string | null>(null);
+  const [echoesHdtItems, setEchoesHdtItems] = useState<EchoesNamedGraphListItem[]>([]);
+  const [echoesHdtListVisible, setEchoesHdtListVisible] = useState(false);
+  const [echoesHdtListLoading, setEchoesHdtListLoading] = useState(false);
+  const [echoesHdtListError, setEchoesHdtListError] = useState<string | null>(null);
   const [echoesUnregisterUri, setEchoesUnregisterUri] = useState('');
   const [echoesUnregisterBusy, setEchoesUnregisterBusy] = useState(false);
   const [echoesUnregisterFeedback, setEchoesUnregisterFeedback] = useState<OperationFeedback | null>(null);
@@ -67,27 +73,37 @@ export default function Profile() {
     })();
   }, []); // Empty dependency array means this runs once on mount
 
-  async function saveEchoesBearerForAllScopes(): Promise<void> {
+  async function loadEchoesHdtList(): Promise<void> {
+    try {
+      setEchoesHdtListLoading(true);
+      setEchoesHdtListError(null);
+      const items = await fetchEchoesNamedGraphs('');
+      setEchoesHdtItems(items);
+      setEchoesHdtListVisible(true);
+    } catch (error: unknown) {
+      setEchoesHdtItems([]);
+      setEchoesHdtListVisible(true);
+      setEchoesHdtListError(error instanceof Error ? error.message : 'Failed to list available ECCCH named graphs.');
+    } finally {
+      setEchoesHdtListLoading(false);
+    }
+  }
+
+  async function saveEchoesBearerOverride(): Promise<void> {
     const trimmedBearer = echoesBearer.trim();
     if (!trimmedBearer) {
       setEchoesBearerMessage('Paste a bearer token before saving it.');
       return;
     }
 
-    const scopes: EchoesBearerScope[] = ['import', 'register', 'publish'];
-
     try {
       setEchoesBearerBusy(true);
       setEchoesBearerMessage(null);
-      await Promise.all(
-        scopes.map((scope) =>
-          registerEchoesDevBearer({
-            bearer: trimmedBearer,
-            scope,
-          }),
-        ),
-      );
+      await registerEchoesDevBearer({
+        bearer: trimmedBearer,
+      });
       setEchoesBearerMessage('Temporary ECCCH bearer saved for this session.');
+      await loadEchoesHdtList();
     } catch (error: unknown) {
       setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
     } finally {
@@ -95,21 +111,16 @@ export default function Profile() {
     }
   }
 
-  async function clearEchoesBearerForAllScopes(): Promise<void> {
-    const scopes: EchoesBearerScope[] = ['import', 'register', 'publish'];
-
+  async function clearEchoesBearerOverride(): Promise<void> {
     try {
       setEchoesBearerBusy(true);
       setEchoesBearerMessage(null);
-      await Promise.all(
-        scopes.map((scope) =>
-          clearEchoesDevBearer({
-            scope,
-          }),
-        ),
-      );
+      await clearEchoesDevBearer();
       setEchoesBearer('');
       setEchoesBearerMessage('Temporary ECCCH bearer removed from this session.');
+      setEchoesHdtItems([]);
+      setEchoesHdtListVisible(false);
+      setEchoesHdtListError(null);
     } catch (error: unknown) {
       setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to clear the bearer.');
     } finally {
@@ -229,7 +240,7 @@ export default function Profile() {
             <button
               type="button"
               className="btn btn-outline-primary"
-              onClick={() => void saveEchoesBearerForAllScopes()}
+              onClick={() => void saveEchoesBearerOverride()}
               disabled={echoesBearerBusy}
             >
               {echoesBearerBusy ? 'Saving...' : 'Save Bearer'}
@@ -237,7 +248,7 @@ export default function Profile() {
             <button
               type="button"
               className="btn btn-outline-secondary"
-              onClick={() => void clearEchoesBearerForAllScopes()}
+              onClick={() => void clearEchoesBearerOverride()}
               disabled={echoesBearerBusy}
             >
               Clear
@@ -254,6 +265,15 @@ export default function Profile() {
               {echoesBearerMessage}
             </div>
           )}
+          {(info?.sys_admin || info?.sys_creator) ? (
+            <EchoesHdtListWidget
+              items={echoesHdtItems}
+              loading={echoesHdtListLoading}
+              error={echoesHdtListError}
+              visible={echoesHdtListVisible}
+              onRefresh={() => void loadEchoesHdtList()}
+            />
+          ) : null}
 
           {info?.sys_admin ? (
             <>

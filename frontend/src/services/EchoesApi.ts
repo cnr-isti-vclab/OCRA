@@ -2,6 +2,7 @@ import { getApiBase } from '../config/oauth';
 import type {
   EchoesHdtDetail,
   EchoesHdtListItem,
+  EchoesNamedGraphListItem,
   EchoesImportedProjectSummary,
   EchoesImportMode,
   EchoesRegisterProjectResult,
@@ -12,6 +13,11 @@ interface ApiErrorResponse {
   error?: string;
   message?: string;
   details?: unknown;
+}
+
+interface EchoesNamedGraphListResponse {
+  success: boolean;
+  items: EchoesNamedGraphListItem[];
 }
 
 interface EchoesHdtListResponse {
@@ -53,8 +59,6 @@ interface EchoesDuplicateProjectRequest {
   identifier?: string;
   heritageEntityUri?: string;
 }
-
-export type EchoesBearerScope = 'import' | 'register' | 'publish';
 
 interface EchoesUnregisterDigitalTwinResponse {
   success: boolean;
@@ -99,8 +103,6 @@ async function readErrorMessage(response: Response): Promise<string> {
 
 export async function registerEchoesDevBearer(input: {
   bearer: string;
-  scope: EchoesBearerScope;
-  projectId?: string;
 }): Promise<void> {
   const response = await fetch(`${getApiBase()}/api/eccch/dev/bearer`, {
     method: 'POST',
@@ -114,15 +116,11 @@ export async function registerEchoesDevBearer(input: {
   }
 }
 
-export async function clearEchoesDevBearer(input: {
-  scope: EchoesBearerScope;
-  projectId?: string;
-}): Promise<void> {
+export async function clearEchoesDevBearer(): Promise<void> {
   const response = await fetch(`${getApiBase()}/api/eccch/dev/bearer`, {
     method: 'DELETE',
     credentials: 'include',
     headers: buildSessionHeaders(true),
-    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
@@ -143,6 +141,25 @@ export async function unregisterEchoesDigitalTwin(digitalTwinUri: string): Promi
   }
 
   return (await response.json()) as EchoesUnregisterDigitalTwinResponse;
+}
+
+export async function fetchEchoesNamedGraphs(search: string): Promise<EchoesNamedGraphListItem[]> {
+  const url = new URL(`${getApiBase()}/api/eccch/named-graphs`);
+  if (search.trim()) {
+    url.searchParams.set('search', search.trim());
+  }
+
+  const response = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: buildSessionHeaders(false),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to list ECCCH named graphs: ${await readErrorMessage(response)}`);
+  }
+
+  const payload = (await response.json()) as EchoesNamedGraphListResponse;
+  return Array.isArray(payload.items) ? payload.items : [];
 }
 
 export async function fetchEchoesHdts(search: string): Promise<EchoesHdtListItem[]> {

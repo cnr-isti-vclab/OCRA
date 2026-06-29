@@ -16,6 +16,7 @@ import {
   getEchoesProjectStatus,
   getEchoesHdtDetail,
   listEchoesHdts,
+  listEchoesNamedGraphs,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
   unregisterDigitalTwinInEchoes,
@@ -23,7 +24,6 @@ import {
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 import { getPrismaClient } from '../../db.js';
 
-type EchoesBearerScope = 'import' | 'register' | 'publish';
 type EchoesProjectMutationAction = 'register' | 'enrich' | 'replace-content';
 const rdfImportUpload = multer({ storage: multer.memoryStorage() });
 
@@ -48,28 +48,16 @@ async function isProjectManager(userId: string, projectId: string): Promise<bool
   return Boolean(managerRole);
 }
 
-async function canUseEchoesBearerScope(
+async function canUseEchoesImport(
   user: NonNullable<ReturnType<typeof getAuthenticatedUser>>,
-  scope: EchoesBearerScope,
-  projectId?: string,
 ): Promise<boolean> {
-  if (user.sys_admin) {
-    return true;
-  }
+  return user.sys_admin || user.sys_creator === true;
+}
 
-  if (scope === 'import') {
-    return user.sys_creator === true;
-  }
-
-  if (!projectId) {
-    return false;
-  }
-
-  if (scope === 'register' || scope === 'publish') {
-    return isProjectManager(user.id, projectId);
-  }
-
-  return false;
+function canManageEchoesDevBearer(
+  user: NonNullable<ReturnType<typeof getAuthenticatedUser>>,
+): boolean {
+  return user.sys_admin;
 }
 
 async function canPerformEchoesProjectAction(
@@ -88,14 +76,6 @@ async function canPerformEchoesProjectAction(
   return false;
 }
 
-function readEchoesBearerScope(rawScope: unknown): EchoesBearerScope | null {
-  if (rawScope === 'import' || rawScope === 'register' || rawScope === 'publish') {
-    return rawScope;
-  }
-
-  return null;
-}
-
 function sendEchoesError(req: Request, res: Response, status: number, code: keyof typeof API_ERROR_CODES.echoes, error: string, details?: unknown): void {
   sendApiError(req, res, {
     status,
@@ -105,6 +85,33 @@ function sendEchoesError(req: Request, res: Response, status: number, code: keyo
   });
 }
 
+export async function listEchoesNamedGraphsHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
+  const sessionId = getSessionId(req);
+  if (!user || !sessionId) {
+    return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  if (!(await canUseEchoesImport(user))) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to list ECCCH HDTs');
+  }
+
+  try {
+    const search = typeof req.query.search === 'string' ? req.query.search : null;
+    const items = await listEchoesNamedGraphs(sessionId, search);
+    res.json({ success: true, items });
+  } catch (error) {
+    sendEchoesError(
+      req,
+      res,
+      502,
+      'listFailed',
+      'Failed to list ECCCH named graphs',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+}
+
 export async function listEchoesHdtsHandler(req: Request, res: Response): Promise<void> {
   const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
@@ -112,7 +119,7 @@ export async function listEchoesHdtsHandler(req: Request, res: Response): Promis
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
   }
 
-  if (!(await canUseEchoesBearerScope(user, 'import'))) {
+  if (!(await canUseEchoesImport(user))) {
     return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to list ECCCH HDTs');
   }
 
@@ -139,7 +146,7 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
   }
 
-  if (!(await canUseEchoesBearerScope(user, 'import'))) {
+  if (!(await canUseEchoesImport(user))) {
     return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to read ECCCH HDT details');
   }
 
@@ -462,17 +469,7 @@ export async function registerEchoesDevBearerHandler(req: Request, res: Response
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
   }
 
-  const scope = readEchoesBearerScope(req.body?.scope);
-  if (!scope) {
-    return sendEchoesError(req, res, 400, 'bearerRequired', 'scope is required and must be one of: import, register, publish');
-  }
-
-  const projectId =
-    typeof req.body?.projectId === 'string' && req.body.projectId.trim()
-      ? req.body.projectId.trim()
-      : undefined;
-
-  if (!(await canUseEchoesBearerScope(user, scope, projectId))) {
+  if (!canManageEchoesDevBearer(user)) {
     return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to register an ECCCH bearer for this action');
   }
 
@@ -496,17 +493,7 @@ export async function clearEchoesDevBearerHandler(req: Request, res: Response): 
     return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
   }
 
-  const scope = readEchoesBearerScope(req.body?.scope);
-  if (!scope) {
-    return sendEchoesError(req, res, 400, 'bearerRequired', 'scope is required and must be one of: import, register, publish');
-  }
-
-  const projectId =
-    typeof req.body?.projectId === 'string' && req.body.projectId.trim()
-      ? req.body.projectId.trim()
-      : undefined;
-
-  if (!(await canUseEchoesBearerScope(user, scope, projectId))) {
+  if (!canManageEchoesDevBearer(user)) {
     return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to clear an ECCCH bearer for this action');
   }
 
