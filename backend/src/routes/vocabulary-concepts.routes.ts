@@ -7,7 +7,7 @@
  *
  * GET /api/vocabulary/concepts
  *   Returns: {
- *     scheme: VocabularyScheme,
+ *     schemes: VocabularyScheme[],
  *     concepts: VocabularyConcept[],
  *     properties: VocabularyProperty[]
  *   }

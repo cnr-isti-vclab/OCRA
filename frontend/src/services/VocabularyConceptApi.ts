@@ -1,27 +1,10 @@
 import { getApiBase } from '../config/oauth';
+import type {
+  VocabularyCatalog,
+  VocabularyConcept,
+} from '../types/vocabulary';
 
-export interface VocabularyConcept {
-  curie: string;
-  prefLabelEn: string;
-  color: string;
-  broader: string | null;
-  scopeNoteEn: string;
-}
-
-interface VocabularyProperty {
-  curie: string;
-  prefLabelEn: string;
-  color: string;
-  subPropertyOf: string | null;
-  scopeNoteEn: string;
-}
-
-interface VocabularyConceptsResponse {
-  concepts: VocabularyConcept[];
-  properties?: VocabularyProperty[];
-}
-
-export async function fetchVocabularyConcepts(): Promise<VocabularyConcept[]> {
+export async function fetchVocabularyCatalog(): Promise<VocabularyCatalog> {
   const response = await fetch(`${getApiBase()}/api/vocabulary/concepts`, {
     credentials: 'include',
   });
@@ -30,17 +13,15 @@ export async function fetchVocabularyConcepts(): Promise<VocabularyConcept[]> {
     throw new Error(`Failed to load vocabulary concepts (HTTP ${response.status})`);
   }
 
-  const data = (await response.json()) as VocabularyConceptsResponse;
-  const concepts = Array.isArray(data.concepts) ? data.concepts : [];
-  const properties = Array.isArray(data.properties)
-    ? data.properties.map((property) => ({
-        curie: property.curie,
-        prefLabelEn: property.prefLabelEn,
-        color: property.color,
-        broader: property.subPropertyOf,
-        scopeNoteEn: property.scopeNoteEn,
-      }))
-    : [];
+  const data = (await response.json()) as VocabularyCatalog;
+  return {
+    schemes: Array.isArray(data.schemes) ? data.schemes : [],
+    concepts: Array.isArray(data.concepts) ? data.concepts : [],
+    properties: Array.isArray(data.properties) ? data.properties : [],
+  };
+}
 
-  return [...concepts, ...properties];
+export async function fetchVocabularyConcepts(): Promise<VocabularyConcept[]> {
+  const catalog = await fetchVocabularyCatalog();
+  return catalog.concepts;
 }

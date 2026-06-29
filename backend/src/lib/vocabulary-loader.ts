@@ -20,33 +20,43 @@ const SKOS_CONCEPT_SCHEME = 'http://www.w3.org/2004/02/skos/core#ConceptScheme';
 const SKOS_PREF_LABEL = 'http://www.w3.org/2004/02/skos/core#prefLabel';
 const SKOS_SCOPE_NOTE = 'http://www.w3.org/2004/02/skos/core#scopeNote';
 const SKOS_BROADER = 'http://www.w3.org/2004/02/skos/core#broader';
+const SKOS_IN_SCHEME = 'http://www.w3.org/2004/02/skos/core#inScheme';
 const OCRA_DEFAULT_COLOR = 'https://ocra.example.org/ontology/defaultColor';
 
+export type VocabularyLocalizedValues = Record<string, string>;
+
 export interface VocabularyConcept {
+  id: string;
   curie: string;
-  prefLabelEn: string;
+  lemma: string;
+  schemeId: string;
+  prefLabels: VocabularyLocalizedValues;
+  scopeNotes: VocabularyLocalizedValues;
   color: string;
   broader: string | null;
-  scopeNoteEn: string;
 }
 
 export interface VocabularyProperty {
+  id: string;
   curie: string;
-  prefLabelEn: string;
+  lemma: string;
+  schemeId: string;
+  prefLabels: VocabularyLocalizedValues;
+  scopeNotes: VocabularyLocalizedValues;
   color: string;
   subPropertyOf: string | null;
-  scopeNoteEn: string;
 }
 
 export interface VocabularyScheme {
+  id: string;
   curie: string;
-  prefLabelEn: string;
-  prefLabelIt: string;
-  scopeNoteEn: string;
+  lemma: string;
+  prefLabels: VocabularyLocalizedValues;
+  scopeNotes: VocabularyLocalizedValues;
 }
 
 export interface VocabularyData {
-  scheme: VocabularyScheme;
+  schemes: VocabularyScheme[];
   concepts: VocabularyConcept[];
   properties: VocabularyProperty[];
 }
@@ -82,15 +92,33 @@ function getTtlPath(): string {
 
 function emptyResult(): VocabularyData {
   return {
-    scheme: {
-      curie: '',
-      prefLabelEn: 'OCRA Vocabulary',
-      prefLabelIt: 'Vocabolario OCRA',
-      scopeNoteEn: '',
-    },
+    schemes: [],
     concepts: [],
     properties: [],
   };
+}
+
+function getLemma(curie: string): string {
+  const parts = curie.split(/[:/#]/);
+  return parts[parts.length - 1] || curie;
+}
+
+function getDefaultLocalizedLabels(curie: string): VocabularyLocalizedValues {
+  const lemma = getLemma(curie);
+  return {
+    en: lemma,
+  };
+}
+
+function upsertLocalizedValue(
+  bucket: VocabularyLocalizedValues,
+  lang: string,
+  value: string,
+): void {
+  const key = lang || 'und';
+  if (!bucket[key]) {
+    bucket[key] = value;
+  }
 }
 
 /**
@@ -126,12 +154,12 @@ export function loadVocabularyData(): VocabularyData {
 
   interface Bucket {
     types: Set<string>;
-    prefLabelEn: string;
-    prefLabelIt: string;
-    scopeNoteEn: string;
+    prefLabels: VocabularyLocalizedValues;
+    scopeNotes: VocabularyLocalizedValues;
     color: string;
     broader: string | null;
     subPropertyOf: string | null;
+    inScheme: string | null;
   }
 
   const subjects = new Map<string, Bucket>();
@@ -141,12 +169,12 @@ export function loadVocabularyData(): VocabularyData {
     if (!b) {
       b = {
         types: new Set(),
-        prefLabelEn: '',
-        prefLabelIt: '',
-        scopeNoteEn: '',
+        prefLabels: {},
+        scopeNotes: {},
         color: '',
         broader: null,
         subPropertyOf: null,
+        inScheme: null,
       };
       subjects.set(uri, b);
     }
@@ -167,14 +195,13 @@ export function loadVocabularyData(): VocabularyData {
 
     if (p === SKOS_PREF_LABEL && o.termType === 'Literal') {
       const lang = (o as N3.Literal).language;
-      if (lang === 'en' && !bucket.prefLabelEn) bucket.prefLabelEn = o.value;
-      if (lang === 'it' && !bucket.prefLabelIt) bucket.prefLabelIt = o.value;
+      upsertLocalizedValue(bucket.prefLabels, lang, o.value);
       continue;
     }
 
     if (p === SKOS_SCOPE_NOTE && o.termType === 'Literal') {
       const lang = (o as N3.Literal).language;
-      if (lang === 'en' && !bucket.scopeNoteEn) bucket.scopeNoteEn = o.value;
+      upsertLocalizedValue(bucket.scopeNotes, lang, o.value);
       continue;
     }
 
@@ -188,6 +215,11 @@ export function loadVocabularyData(): VocabularyData {
       continue;
     }
 
+    if (p === SKOS_IN_SCHEME && o.termType === 'NamedNode') {
+      bucket.inScheme = toCurie(o.value);
+      continue;
+    }
+
     if (p === RDFS_SUB_PROPERTY_OF && o.termType === 'NamedNode') {
       bucket.subPropertyOf = toCurie(o.value);
       continue;
@@ -196,51 +228,83 @@ export function loadVocabularyData(): VocabularyData {
 
   // -- Pass 2: extract scheme and concepts --
 
-  let scheme: VocabularyScheme = emptyResult().scheme;
+  const schemes: VocabularyScheme[] = [];
   const concepts: VocabularyConcept[] = [];
   const properties: VocabularyProperty[] = [];
 
   for (const [uri, b] of subjects) {
     const curie = toCurie(uri);
+    const lemma = getLemma(curie);
     if (b.types.has(SKOS_CONCEPT_SCHEME)) {
-      scheme = {
+      schemes.push({
+        id: curie,
         curie,
-        prefLabelEn: b.prefLabelEn || 'OCRA Vocabulary',
-        prefLabelIt: b.prefLabelIt || '',
-        scopeNoteEn: b.scopeNoteEn || '',
-      };
+        lemma,
+        prefLabels: Object.keys(b.prefLabels).length > 0
+          ? b.prefLabels
+          : {
+              en: 'OCRA Vocabulary',
+              it: 'Vocabolario OCRA',
+            },
+        scopeNotes: b.scopeNotes,
+      });
     }
 
     if (b.types.has(SKOS_CONCEPT)) {
       concepts.push({
+        id: curie,
         curie,
-        prefLabelEn: b.prefLabelEn || curie.split(/[:/#]/).pop() || curie,
+        lemma,
+        schemeId: b.inScheme ?? '',
+        prefLabels: Object.keys(b.prefLabels).length > 0
+          ? b.prefLabels
+          : getDefaultLocalizedLabels(curie),
+        scopeNotes: b.scopeNotes,
         color: b.color || '#808080',
         broader: b.broader,
-        scopeNoteEn: b.scopeNoteEn || '',
       });
     }
 
     if (b.types.has(RDF_PROPERTY)) {
       properties.push({
+        id: curie,
         curie,
-        prefLabelEn: b.prefLabelEn || curie.split(/[:/#]/).pop() || curie,
+        lemma,
+        schemeId: b.inScheme ?? '',
+        prefLabels: Object.keys(b.prefLabels).length > 0
+          ? b.prefLabels
+          : getDefaultLocalizedLabels(curie),
+        scopeNotes: b.scopeNotes,
         color: b.color || '#808080',
         subPropertyOf: b.subPropertyOf,
-        scopeNoteEn: b.scopeNoteEn || '',
       });
     }
   }
 
   // Sort concepts alphabetically for stable ordering
-  concepts.sort((a, b) => a.prefLabelEn.localeCompare(b.prefLabelEn));
-  properties.sort((a, b) => a.prefLabelEn.localeCompare(b.prefLabelEn));
+  const labelOrder = (left: { prefLabels: VocabularyLocalizedValues; lemma: string }, right: { prefLabels: VocabularyLocalizedValues; lemma: string }) =>
+    (left.prefLabels.en || left.prefLabels.it || left.lemma)
+      .localeCompare(right.prefLabels.en || right.prefLabels.it || right.lemma);
 
-  console.log(
-    `[vocabulary-loader] Loaded scheme + ${concepts.length} concepts + ${properties.length} properties from ${ttlPath}`,
-  );
+  schemes.sort(labelOrder);
+  concepts.sort(labelOrder);
+  properties.sort(labelOrder);
 
-  cache = { scheme, concepts, properties };
+  const primarySchemeId = schemes[0]?.id ?? '';
+  if (primarySchemeId) {
+    for (const concept of concepts) {
+      if (!concept.schemeId) {
+        concept.schemeId = primarySchemeId;
+      }
+    }
+    for (const property of properties) {
+      if (!property.schemeId) {
+        property.schemeId = primarySchemeId;
+      }
+    }
+  }
+
+  cache = { schemes, concepts, properties };
   return cache;
 }
 

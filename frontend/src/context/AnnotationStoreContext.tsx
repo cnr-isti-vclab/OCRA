@@ -20,7 +20,11 @@ import type {
   AnnotationLink,
 } from 'shared/annotation-types';
 import type { AnnotationRealtimeState } from '../services/AnnotationEventsService';
-import { fetchVocabularyConcepts, type VocabularyConcept } from '../services/VocabularyConceptApi';
+import { fetchVocabularyCatalog } from '../services/VocabularyConceptApi';
+import type {
+  VocabularyConcept,
+  VocabularyScheme,
+} from '../types/vocabulary';
 import {
   createEmptyActiveSelection,
   EMPTY_SELECTION_CRITERIA,
@@ -38,6 +42,7 @@ import {
 } from '../stores/AnnotationStore';
 import AppMessageModal from '../shared/ui/AppMessageModal';
 import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
+import { getVocabularyNodeLabel } from '../utils/vocabulary';
 
 export type AnnotationStoreLogTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -84,6 +89,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   activeAnnotationSelection: ActiveAnnotationSelection;
   currentSelectionCriteria: Readonly<SelectionCriteria>;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
+  vocabularySchemes: VocabularyScheme[];
+  vocabularyConcepts: VocabularyConcept[];
   sceneAnnotationClassPool: SceneAnnotationClassOption[];
   annotationClassFilterMode: AnnotationClassFilterMode;
   annotationClassFilterValues: string[];
@@ -186,6 +193,7 @@ export function AnnotationStoreProvider({
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<AnnotationClassFilterMode>('all');
   const [customAnnotationClassFilterValues, setCustomAnnotationClassFilterValues] = useState<string[]>([]);
+  const [vocabularySchemes, setVocabularySchemes] = useState<VocabularyScheme[]>([]);
   const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
   const [latestMutationsByEntity, setLatestMutationsByEntity] = useState<Map<string, MutationSummary>>(
@@ -350,15 +358,17 @@ export function AnnotationStoreProvider({
   useEffect(() => {
     let cancelled = false;
 
-    void fetchVocabularyConcepts()
-      .then((concepts) => {
+    void fetchVocabularyCatalog()
+      .then((catalog) => {
         if (!cancelled) {
-          setVocabularyConcepts(concepts);
+          setVocabularySchemes(catalog.schemes);
+          setVocabularyConcepts(catalog.concepts);
         }
       })
       .catch((error) => {
         console.warn('Failed to load vocabulary concepts:', error);
         if (!cancelled) {
+          setVocabularySchemes([]);
           setVocabularyConcepts([]);
         }
       });
@@ -537,7 +547,7 @@ export function AnnotationStoreProvider({
         const concept = conceptByCurie.get(curie);
         return {
           curie,
-          label: concept?.prefLabelEn || curie,
+          label: concept ? getVocabularyNodeLabel(concept) : curie,
           color: concept?.color || '#808080',
           dataCount,
           geometryCount: geometryIdsByClass.get(curie)?.size ?? 0,
@@ -794,6 +804,8 @@ export function AnnotationStoreProvider({
     activeAnnotationSelection,
     currentSelectionCriteria,
     selectActiveAnnotations,
+    vocabularySchemes,
+    vocabularyConcepts,
     sceneAnnotationClassPool,
     annotationClassFilterMode,
     annotationClassFilterValues,

@@ -23,6 +23,11 @@ import {
 } from '../../shared/ui/AppMessageModalModel';
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
+import VocabularyClassPicker from '../../shared/ui/VocabularyClassPicker';
+import type {
+  VocabularyConcept,
+  VocabularyScheme,
+} from '../../types/vocabulary';
 
 interface AnnotationPanelEditorProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
@@ -43,11 +48,15 @@ function EditDataModal({
   onSave,
   onChange,
   onCancel,
+  vocabularySchemes,
+  vocabularyConcepts,
 }: {
   draft: AnnotationDataDraft | null;
   onSave: () => void;
   onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass'>>) => void;
   onCancel: () => void;
+  vocabularySchemes: readonly VocabularyScheme[];
+  vocabularyConcepts: readonly VocabularyConcept[];
 }) {
   if (!draft) {
     return null;
@@ -98,13 +107,12 @@ function EditDataModal({
               <label htmlFor="annotationClass" className="form-label">
                 Class
               </label>
-              <input
-                type="text"
-                className="form-control"
-                id="annotationClass"
+              <VocabularyClassPicker
+                inputId="annotationClass"
                 value={draft.annotationClass ?? ''}
-                onChange={(e) => onChange({ annotationClass: e.target.value })}
-                placeholder="Optional classification"
+                onChange={(value) => onChange({ annotationClass: value })}
+                schemes={vocabularySchemes}
+                concepts={vocabularyConcepts}
               />
             </div>
           </div>
@@ -135,6 +143,8 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
     activeSocialLocks,
     currentStreamId,
     sceneAnnotationClassPool,
+    vocabularySchemes,
+    vocabularyConcepts,
     annotationClassFilterMode,
     annotationClassFilterValues,
     setAnnotationClassFilterValues,
@@ -712,6 +722,8 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
 
       <EditDataModal
         draft={editingDraft}
+        vocabularySchemes={vocabularySchemes}
+        vocabularyConcepts={vocabularyConcepts}
         onSave={() => {
           void handleEditSave();
         }}
