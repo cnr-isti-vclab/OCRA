@@ -23,6 +23,7 @@ import type { AnnotationRealtimeState } from '../services/AnnotationEventsServic
 import { fetchVocabularyCatalog } from '../services/VocabularyConceptApi';
 import type {
   VocabularyConcept,
+  VocabularyProperty,
   VocabularyScheme,
 } from '../types/vocabulary';
 import {
@@ -91,6 +92,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
   vocabularySchemes: VocabularyScheme[];
   vocabularyConcepts: VocabularyConcept[];
+  vocabularyProperties: VocabularyProperty[];
   sceneAnnotationClassPool: SceneAnnotationClassOption[];
   annotationClassFilterMode: AnnotationClassFilterMode;
   annotationClassFilterValues: string[];
@@ -195,6 +197,7 @@ export function AnnotationStoreProvider({
   const [customAnnotationClassFilterValues, setCustomAnnotationClassFilterValues] = useState<string[]>([]);
   const [vocabularySchemes, setVocabularySchemes] = useState<VocabularyScheme[]>([]);
   const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
+  const [vocabularyProperties, setVocabularyProperties] = useState<VocabularyProperty[]>([]);
   const [selectionConflictLocks, setSelectionConflictLocks] = useState<AnnotationSocialLockState[]>([]);
   const [latestMutationsByEntity, setLatestMutationsByEntity] = useState<Map<string, MutationSummary>>(
     () => new Map(),
@@ -363,6 +366,7 @@ export function AnnotationStoreProvider({
         if (!cancelled) {
           setVocabularySchemes(catalog.schemes);
           setVocabularyConcepts(catalog.concepts);
+          setVocabularyProperties(catalog.properties);
         }
       })
       .catch((error) => {
@@ -370,6 +374,7 @@ export function AnnotationStoreProvider({
         if (!cancelled) {
           setVocabularySchemes([]);
           setVocabularyConcepts([]);
+          setVocabularyProperties([]);
         }
       });
 
@@ -806,6 +811,7 @@ export function AnnotationStoreProvider({
     selectActiveAnnotations,
     vocabularySchemes,
     vocabularyConcepts,
+    vocabularyProperties,
     sceneAnnotationClassPool,
     annotationClassFilterMode,
     annotationClassFilterValues,

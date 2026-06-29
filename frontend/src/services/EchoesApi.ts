@@ -56,6 +56,13 @@ interface EchoesDuplicateProjectRequest {
 
 export type EchoesBearerScope = 'import' | 'register' | 'publish';
 
+interface EchoesUnregisterDigitalTwinResponse {
+  success: boolean;
+  digitalTwinUri: string;
+  disconnectedProjectIds: string[];
+  message: string;
+}
+
 function getStoredSessionId(): string | null {
   return typeof window !== 'undefined' ? window.localStorage.getItem('oauth_session_id') : null;
 }
@@ -121,6 +128,21 @@ export async function clearEchoesDevBearer(input: {
   if (!response.ok) {
     throw new Error(`Failed to clear ECCCH bearer: ${await readErrorMessage(response)}`);
   }
+}
+
+export async function unregisterEchoesDigitalTwin(digitalTwinUri: string): Promise<EchoesUnregisterDigitalTwinResponse> {
+  const response = await fetch(`${getApiBase()}/api/eccch/dev/unregister-digital-twin`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildSessionHeaders(true),
+    body: JSON.stringify({ digitalTwinUri }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to unregister ECCCH Digital Twin: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as EchoesUnregisterDigitalTwinResponse;
 }
 
 export async function fetchEchoesHdts(search: string): Promise<EchoesHdtListItem[]> {

@@ -849,6 +849,41 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
+        EchoesUnregisterDigitalTwinRequest: {
+          type: 'object',
+          required: ['digitalTwinUri'],
+          properties: {
+            digitalTwinUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/HDT/F66u7vEPT35z',
+            },
+          },
+        },
+        EchoesUnregisterDigitalTwinResponse: {
+          type: 'object',
+          required: ['success', 'digitalTwinUri', 'disconnectedProjectIds', 'message'],
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true,
+            },
+            digitalTwinUri: {
+              type: 'string',
+              example: 'http://echoes-eccch.eu/HDT/F66u7vEPT35z',
+            },
+            disconnectedProjectIds: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              example: ['cmproject123'],
+            },
+            message: {
+              type: 'string',
+              example: 'Digital Twin <http://echoes-eccch.eu/HDT/F66u7vEPT35z> unregistered from ECCCH.',
+            },
+          },
+        },
         SceneEnvironmentSettings: {
           type: 'object',
           additionalProperties: false,

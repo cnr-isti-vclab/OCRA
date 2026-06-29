@@ -13,6 +13,7 @@ import {
   registerProjectHdtInEchoesHandler,
   registerEchoesDevBearerHandler,
   replaceProjectHdtContentInEchoesHandler,
+  unregisterEchoesDigitalTwinHandler,
 } from '../controllers/echoes.controller.js';
 
 const router = express.Router();
@@ -369,5 +370,48 @@ router.post('/dev/bearer', registerEchoesDevBearerHandler);
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.delete('/dev/bearer', clearEchoesDevBearerHandler);
+
+// @spike feature/eccch-unregister-debug: remove after ECCCH unregister is no longer needed in production
+/**
+ * @openapi
+ * /api/eccch/dev/unregister-digital-twin:
+ *   post:
+ *     summary: Unregister an ECCCH Digital Twin by URI
+ *     description: |
+ *       Development-only administrative helper.
+ *       Calls the upstream ECCCH `/hdt/unregister` endpoint for the provided `digitalTwinUri`.
+ *       If one or more local OCRA projects are linked to that Digital Twin, their local ECCCH linkage is cleared.
+ *     tags:
+ *       - ECCCH
+ *     security:
+ *       - sessionCookie: []
+ *       - sessionBearer: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EchoesUnregisterDigitalTwinRequest'
+ *     responses:
+ *       200:
+ *         description: Digital Twin unregistered and local links updated when applicable
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EchoesUnregisterDigitalTwinResponse'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       403:
+ *         description: Admin privileges required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ */
+router.post('/dev/unregister-digital-twin', unregisterEchoesDigitalTwinHandler);
 
 export default router;

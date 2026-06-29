@@ -131,6 +131,7 @@ export const API_ERROR_CODES = {
     projectCreateFailed: 'echoes.project_create_failed',
     publishStatusFailed: 'echoes.publish_status_failed',
     registerFailed: 'echoes.register_failed',
+    unregisterFailed: 'echoes.unregister_failed',
     enrichFailed: 'echoes.enrich_failed',
     replaceFailed: 'echoes.replace_failed',
     duplicateFailed: 'echoes.duplicate_failed',

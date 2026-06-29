@@ -46,6 +46,7 @@ import {
 } from '../repositories/annotation-data.repository.js';
 import { deleteAnnotationLinksByProjectId, getAnnotationLinkCollection } from '../repositories/annotation-link.repository.js';
 import { deleteHdtByProjectId, updateHdtByProjectId } from '../repositories/hdt.repository.js';
+import { getHdtCollection } from '../repositories/hdt.repository.js';
 import { projectRoot } from '../utils/project-static-paths.js';
 
 const DEFAULT_ECHOES_KB_API_BASE =
@@ -105,6 +106,11 @@ interface EchoesRegisterResponse {
 interface EchoesImportResponse {
   succeed?: boolean;
   namedGraph?: string;
+  message?: string;
+}
+
+interface EchoesUnregisterResponse {
+  succeed?: boolean;
   message?: string;
 }
 
@@ -257,6 +263,12 @@ export interface DuplicateProjectHdtInEchoesInput {
 }
 
 export interface DuplicateProjectHdtInEchoesResult extends EchoesPublishProjectResult {}
+
+export interface EchoesUnregisterDigitalTwinResult {
+  digitalTwinUri: string;
+  disconnectedProjectIds: string[];
+  message: string;
+}
 
 function getBindingValue(
   binding: Record<string, SparqlBindingValue>,
@@ -1661,6 +1673,88 @@ export async function registerProjectHdtInEchoes(
   return {
     status: toProjectStatus(updated),
     message: `The project was registered in ECCCH as Digital Twin <${payload.dtUri}>.`,
+  };
+}
+
+async function disconnectLocalProjectsFromDigitalTwin(
+  digitalTwinUri: string,
+  userId?: string,
+): Promise<string[]> {
+  const collection = await getHdtCollection();
+  const linkedDocuments = await collection
+    .find(
+      { 'echoesContext.digitalTwinUri': digitalTwinUri },
+      { projection: { projectId: 1 } },
+    )
+    .toArray();
+
+  if (linkedDocuments.length === 0) {
+    return [];
+  }
+
+  const disconnectedProjectIds: string[] = [];
+  for (const document of linkedDocuments) {
+    if (!document.projectId) {
+      continue;
+    }
+
+    const updated = await updateHdtEchoesContext(
+      document.projectId,
+      {
+        origin: 'local',
+        syncStatus: 'local',
+        digitalTwinUri: null,
+        digitalTwinLabel: null,
+        namedGraphUri: null,
+        lastRegisteredAt: null,
+        lastSyncedAt: null,
+        lastSyncedProjectUpdatedAt: null,
+        projectSnapshot: null,
+      },
+      userId,
+    );
+
+    if (updated) {
+      disconnectedProjectIds.push(document.projectId);
+    }
+  }
+
+  return disconnectedProjectIds;
+}
+
+// @spike feature/eccch-unregister-debug: remove after ECCCH unregister is no longer needed in production
+export async function unregisterDigitalTwinInEchoes(
+  sessionId: string,
+  digitalTwinUri: string,
+  userId?: string,
+): Promise<EchoesUnregisterDigitalTwinResult> {
+  const trimmedDigitalTwinUri = digitalTwinUri.trim();
+  if (!trimmedDigitalTwinUri) {
+    throw new Error('digitalTwinUri is required');
+  }
+
+  const params = new URLSearchParams({
+    digitalTwinUri: trimmedDigitalTwinUri,
+  });
+
+  const payload = await fetchEchoesJson<EchoesUnregisterResponse>(
+    sessionId,
+    `${getEchoesKbApiBase()}/hdt/unregister?${params.toString()}`,
+    {
+      method: 'POST',
+    },
+  );
+
+  if (!payload.succeed) {
+    throw new Error(payload.message || 'ECCCH unregister failed');
+  }
+
+  const disconnectedProjectIds = await disconnectLocalProjectsFromDigitalTwin(trimmedDigitalTwinUri, userId);
+
+  return {
+    digitalTwinUri: trimmedDigitalTwinUri,
+    disconnectedProjectIds,
+    message: payload.message || `Digital Twin <${trimmedDigitalTwinUri}> unregistered from ECCCH.`,
   };
 }
 

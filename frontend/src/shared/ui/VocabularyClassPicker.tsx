@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { VocabularyConcept, VocabularyScheme } from '../../types/vocabulary';
+import type {
+  VocabularyConcept,
+  VocabularyProperty,
+  VocabularyScheme,
+} from '../../types/vocabulary';
 import VocabularyTree from './VocabularyTree';
 import {
   getVocabularyNodeLabel,
   searchVocabularyNodes,
+  type VocabularyTreeNode,
 } from '../../utils/vocabulary';
 
 const SEARCH_MIN_LENGTH = 4;
@@ -14,6 +19,7 @@ interface VocabularyClassPickerProps {
   onChange: (value: string) => void;
   schemes: readonly VocabularyScheme[];
   concepts: readonly VocabularyConcept[];
+  properties?: readonly VocabularyProperty[];
   placeholder?: string;
 }
 
@@ -23,20 +29,25 @@ export default function VocabularyClassPicker({
   onChange,
   schemes,
   concepts,
+  properties = [],
   placeholder = 'Optional classification',
 }: VocabularyClassPickerProps) {
   const trimmedValue = value.trim();
   const [isTreeOpen, setIsTreeOpen] = useState(false);
   const previousValueRef = useRef(value);
+  const selectableNodes = useMemo<readonly VocabularyTreeNode[]>(
+    () => [...properties, ...concepts],
+    [concepts, properties],
+  );
 
-  const selectedConcept = useMemo(
-    () => concepts.find((concept) => concept.curie === trimmedValue) ?? null,
-    [concepts, trimmedValue],
+  const selectedNode = useMemo(
+    () => selectableNodes.find((node) => node.curie === trimmedValue) ?? null,
+    [selectableNodes, trimmedValue],
   );
 
   const searchMatches = useMemo(
-    () => searchVocabularyNodes(concepts, trimmedValue),
-    [concepts, trimmedValue],
+    () => searchVocabularyNodes(selectableNodes, trimmedValue),
+    [selectableNodes, trimmedValue],
   );
 
   const highlightedNodeIds = useMemo(
@@ -50,16 +61,16 @@ export default function VocabularyClassPicker({
     }
 
     const schemeIds = new Set<string>();
-    for (const concept of concepts) {
-      if (highlightedNodeIds.has(concept.id) || concept.id === selectedConcept?.id) {
-        schemeIds.add(concept.schemeId);
+    for (const node of selectableNodes) {
+      if (highlightedNodeIds.has(node.id) || node.id === selectedNode?.id) {
+        schemeIds.add(node.schemeId);
       }
     }
     return schemeIds;
-  }, [concepts, highlightedNodeIds, searchMatches.length, selectedConcept?.id, trimmedValue.length]);
+  }, [highlightedNodeIds, searchMatches.length, selectableNodes, selectedNode?.id, trimmedValue.length]);
 
   const bestMatch = searchMatches[0]
-    ? concepts.find((concept) => concept.id === searchMatches[0].nodeId) ?? null
+    ? selectableNodes.find((node) => node.id === searchMatches[0].nodeId) ?? null
     : null;
 
   useEffect(() => {
@@ -71,7 +82,7 @@ export default function VocabularyClassPicker({
 
   const shouldShowTree = isTreeOpen;
   const shouldShowNoResults = trimmedValue.length >= SEARCH_MIN_LENGTH && searchMatches.length === 0;
-  const shouldRenderTreePanel = concepts.length > 0;
+  const shouldRenderTreePanel = selectableNodes.length > 0;
 
   return (
     <div className="d-flex flex-column gap-2">
@@ -96,9 +107,9 @@ export default function VocabularyClassPicker({
 
       {/* {selectedConcept ? (
         <div className="border rounded-3 px-3 py-2 bg-success-subtle">
-          <div className="small fw-semibold">{getVocabularyNodeLabel(selectedConcept)}</div>
+          <div className="small fw-semibold">{getVocabularyNodeLabel(selectedNode)}</div>
           <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-            {selectedConcept.curie}
+            {selectedNode.curie}
           </div>
         </div>
       ) : null} */}
@@ -135,11 +146,11 @@ export default function VocabularyClassPicker({
             >
               <VocabularyTree
                 schemes={schemes}
-                nodes={concepts}
-                selectedNodeId={selectedConcept?.id ?? bestMatch?.id ?? null}
+                nodes={selectableNodes}
+                selectedNodeId={selectedNode?.id ?? bestMatch?.id ?? null}
                 highlightedNodeIds={highlightedNodeIds}
                 visibleSchemeIds={visibleSchemeIds}
-                onSelect={(concept) => onChange(concept.curie)}
+                onSelect={(node) => onChange(node.curie)}
               />
             </div>
           ) : null}

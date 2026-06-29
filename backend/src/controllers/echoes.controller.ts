@@ -18,6 +18,7 @@ import {
   listEchoesHdts,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
+  unregisterDigitalTwinInEchoes,
 } from '../services/echoes-kb.service.js';
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 import { getPrismaClient } from '../../db.js';
@@ -511,4 +512,52 @@ export async function clearEchoesDevBearerHandler(req: Request, res: Response): 
 
   clearEchoesDevBearerOverride(sessionId);
   res.status(204).end();
+}
+
+// @spike feature/eccch-unregister-debug: remove after ECCCH unregister is no longer needed in production
+export async function unregisterEchoesDigitalTwinHandler(req: Request, res: Response): Promise<void> {
+  const user = getAuthenticatedUser(req);
+  const sessionId = getSessionId(req);
+  if (!user || !sessionId) {
+    return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
+  }
+
+  if (!user.sys_admin) {
+    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Only system administrators can unregister ECCCH Digital Twins');
+  }
+
+  const digitalTwinUri =
+    typeof req.body?.digitalTwinUri === 'string' && req.body.digitalTwinUri.trim()
+      ? req.body.digitalTwinUri.trim()
+      : '';
+
+  if (!digitalTwinUri) {
+    return sendEchoesError(req, res, 400, 'hdtUriRequired', 'digitalTwinUri is required');
+  }
+
+  try {
+    const result = await unregisterDigitalTwinInEchoes(sessionId, digitalTwinUri, user.id);
+
+    await auditBestEffort({
+      req,
+      userSub: user.sub,
+      action: 'echoes.digital_twin.unregister',
+      success: true,
+      payload: {
+        digitalTwinUri: result.digitalTwinUri,
+        disconnectedProjectIds: result.disconnectedProjectIds,
+      },
+    });
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendEchoesError(
+      req,
+      res,
+      502,
+      'unregisterFailed',
+      'Failed to unregister this ECCCH Digital Twin',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
+  }
 }

@@ -161,7 +161,7 @@ export async function updateHDTMetadata(
 
 export async function updateHdtEchoesContext(
   projectId: string,
-  echoesContextUpdate: Partial<EchoesContext>,
+  echoesContextUpdate: { [K in keyof EchoesContext]?: EchoesContext[K] | null },
   userId?: string
 ): Promise<HDTDocument | null> {
   const currentDocument = await getHDTDocument(projectId);
@@ -182,6 +182,10 @@ export async function updateHdtEchoesContext(
 
   for (const [key, value] of Object.entries(echoesContextUpdate ?? {})) {
     if (value === undefined) {
+      continue;
+    }
+    if (value === null) {
+      delete nextEchoesContext[key];
       continue;
     }
     nextEchoesContext[key] = value;

@@ -26,6 +26,7 @@ import AnnotationClassFilter from './AnnotationClassFilter';
 import VocabularyClassPicker from '../../shared/ui/VocabularyClassPicker';
 import type {
   VocabularyConcept,
+  VocabularyProperty,
   VocabularyScheme,
 } from '../../types/vocabulary';
 
@@ -50,6 +51,7 @@ function EditDataModal({
   onCancel,
   vocabularySchemes,
   vocabularyConcepts,
+  vocabularyProperties,
 }: {
   draft: AnnotationDataDraft | null;
   onSave: () => void;
@@ -57,6 +59,7 @@ function EditDataModal({
   onCancel: () => void;
   vocabularySchemes: readonly VocabularyScheme[];
   vocabularyConcepts: readonly VocabularyConcept[];
+  vocabularyProperties: readonly VocabularyProperty[];
 }) {
   if (!draft) {
     return null;
@@ -113,6 +116,7 @@ function EditDataModal({
                 onChange={(value) => onChange({ annotationClass: value })}
                 schemes={vocabularySchemes}
                 concepts={vocabularyConcepts}
+                properties={vocabularyProperties}
               />
             </div>
           </div>
@@ -145,6 +149,7 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
     sceneAnnotationClassPool,
     vocabularySchemes,
     vocabularyConcepts,
+    vocabularyProperties,
     annotationClassFilterMode,
     annotationClassFilterValues,
     setAnnotationClassFilterValues,
@@ -724,6 +729,7 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
         draft={editingDraft}
         vocabularySchemes={vocabularySchemes}
         vocabularyConcepts={vocabularyConcepts}
+        vocabularyProperties={vocabularyProperties}
         onSave={() => {
           void handleEditSave();
         }}

@@ -1537,7 +1537,7 @@ export default function HDTPage() {
 
               <div className="row g-3 small">
                 <div className="col-md-6">
-                  <div className="text-muted">Project URI (projectURI)</div>
+                  <div className="text-muted">ECHOES URI (projectURI)</div>
                   <div className="text-break">{echoesStatus?.projectUri || metadata?.echoesContext?.projectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
                 </div>
                 <div className="col-md-6">
@@ -1549,7 +1549,7 @@ export default function HDTPage() {
                   <div className="text-break">{echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri || 'Not registered yet'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-muted">Named Graph URI (namedGraphUri)</div>
+                  <div className="text-muted">OCRA Project URI (namedGraphUri)</div>
                   <div className="text-break">{echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri || 'Not published yet'}</div>
                 </div>
               </div>
