@@ -1,15 +1,15 @@
-import type { EchoesNamedGraphListItem } from '../../types';
+import type { EchoesHdtListItem } from '../../types';
 
-interface EchoesNamedGraphListWidgetProps {
-  items: EchoesNamedGraphListItem[];
+interface EchoesHdtListWidgetProps {
+  items: EchoesHdtListItem[];
   loading: boolean;
   error: string | null;
   visible: boolean;
   onRefresh: () => void;
 }
 
-function getItemTitle(item: EchoesNamedGraphListItem): string {
-  return item.label || item.title || item.identifier || item.namedGraphUri;
+function getItemTitle(item: EchoesHdtListItem): string {
+  return item.label || item.digitalTwinUri;
 }
 
 export default function EchoesHdtListWidget({
@@ -18,7 +18,7 @@ export default function EchoesHdtListWidget({
   error,
   visible,
   onRefresh,
-}: EchoesNamedGraphListWidgetProps) {
+}: EchoesHdtListWidgetProps) {
   if (!visible) {
     return null;
   }
@@ -26,7 +26,7 @@ export default function EchoesHdtListWidget({
   return (
     <div className="mt-4">
       <div className="d-flex justify-content-between align-items-center mb-2">
-        <h3 className="h6 text-secondary mb-0">Available Named Graphs</h3>
+        <h3 className="h6 text-secondary mb-0">Registered HDTs</h3>
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
@@ -37,7 +37,7 @@ export default function EchoesHdtListWidget({
         </button>
       </div>
       <div className="small text-muted mb-2">
-        Available named graphs from `/api/eccch/named-graphs`, with their related Digital Twin IDs.
+        Registered Digital Twins from `/api/eccch/hdts`, including HDTs without any named graph yet.
       </div>
       {error ? (
         <div className="alert alert-warning mb-3">{error}</div>
@@ -49,10 +49,8 @@ export default function EchoesHdtListWidget({
         {items.length > 0 ? (
           <div className="list-group list-group-flush">
             {items.map((item) => (
-              <div key={`${item.digitalTwinUri}::${item.namedGraphUri}`} className="list-group-item bg-transparent">
+              <div key={item.digitalTwinUri} className="list-group-item bg-transparent">
                 <div className="fw-semibold text-break">{getItemTitle(item)}</div>
-                <div className="small text-muted mt-2">Named graph</div>
-                <div className="small text-break">{item.namedGraphUri}</div>
                 <div className="small text-muted mt-2">Digital Twin</div>
                 <div className="small text-break">{item.digitalTwinUri}</div>
               </div>
@@ -60,7 +58,7 @@ export default function EchoesHdtListWidget({
           </div>
         ) : (
           <div className="p-3 small text-muted">
-            {loading ? 'Loading available named graphs...' : 'No named graphs found.'}
+            {loading ? 'Loading registered HDTs...' : 'No HDTs found.'}
           </div>
         )}
       </div>

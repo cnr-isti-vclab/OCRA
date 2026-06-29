@@ -2,12 +2,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import {
-  fetchEchoesNamedGraphs,
+  fetchEchoesHdts,
   clearEchoesDevBearer,
   registerEchoesDevBearer,
   unregisterEchoesDigitalTwin,
 } from '../services/EchoesApi';
-import type { EchoesNamedGraphListItem } from '../types';
+import type { EchoesHdtListItem } from '../types';
 import EchoesHdtListWidget from '../shared/ui/EchoesHdtListWidget';
 
 /**
@@ -46,7 +46,7 @@ export default function Profile() {
   const [echoesBearer, setEchoesBearer] = useState('');
   const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
   const [echoesBearerMessage, setEchoesBearerMessage] = useState<string | null>(null);
-  const [echoesHdtItems, setEchoesHdtItems] = useState<EchoesNamedGraphListItem[]>([]);
+  const [echoesHdtItems, setEchoesHdtItems] = useState<EchoesHdtListItem[]>([]);
   const [echoesHdtListVisible, setEchoesHdtListVisible] = useState(false);
   const [echoesHdtListLoading, setEchoesHdtListLoading] = useState(false);
   const [echoesHdtListError, setEchoesHdtListError] = useState<string | null>(null);
@@ -77,13 +77,13 @@ export default function Profile() {
     try {
       setEchoesHdtListLoading(true);
       setEchoesHdtListError(null);
-      const items = await fetchEchoesNamedGraphs('');
+      const items = await fetchEchoesHdts('');
       setEchoesHdtItems(items);
       setEchoesHdtListVisible(true);
     } catch (error: unknown) {
       setEchoesHdtItems([]);
       setEchoesHdtListVisible(true);
-      setEchoesHdtListError(error instanceof Error ? error.message : 'Failed to list available ECCCH named graphs.');
+      setEchoesHdtListError(error instanceof Error ? error.message : 'Failed to list registered ECCCH HDTs.');
     } finally {
       setEchoesHdtListLoading(false);
     }
