@@ -71,7 +71,7 @@ function VocabularyTreeBranch({
         className={`btn w-100 text-start d-flex align-items-start gap-2 border-0 rounded-3 ${isSelected ? 'bg-primary-subtle' : isHighlighted ? 'bg-light' : ''}`}
         onClick={() => {
           onSelect(node);
-          if (isExpandable && !isExpanded) {
+          if (isExpandable) {
             onToggleExpanded(node.id);
           }
         }}
