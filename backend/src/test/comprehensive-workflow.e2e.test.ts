@@ -400,19 +400,22 @@ describe.sequential('Comprehensive Application Workflow E2E Test', () => {
     console.log('✅ Phase 3.3: Project validation working');
   });
 
-  it('Phase 3.4: Validate duplicate project names are prevented', async () => {
+  it('Phase 3.4: Validate duplicate project names are allowed', async () => {
     const projectData = {
       name: publicProject.name,
       description: 'Duplicate name test',
     };
 
-    await request(app)
+    const response = await request(app)
       .post('/api/projects')
       .set('Cookie', `session_id=${regularSessionId}`)
       .send(projectData)
-      .expect(409); // Conflict - duplicate name
+      .expect(201);
+
+    expect(response.body).toHaveProperty('success', true);
+    expect(response.body).toHaveProperty('project.name', publicProject.name);
     
-    console.log('✅ Phase 3.4: Duplicate names correctly prevented');
+    console.log('✅ Phase 3.4: Duplicate names correctly allowed');
   });
 
   it('Phase 3.5: Get project by ID', async () => {

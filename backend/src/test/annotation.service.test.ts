@@ -55,7 +55,9 @@ import { getAnnotationGeometryCollection } from '../repositories/annotation-geom
 import {
   findAnnotationLinkById,
   findAnnotationLinksByDataId,
+  findAnnotationLinksByDataIds,
   findAnnotationLinksByGeometryId,
+  findAnnotationLinksByGeometryIds,
   findAnnotationLinkByPair,
   getAnnotationLinkCollection,
   insertAnnotationLink,
@@ -265,6 +267,8 @@ describe('annotation.service scene lookups', () => {
     } as never);
     vi.mocked(findAnnotationLinksByGeometryId).mockResolvedValue([link] as never);
     vi.mocked(findAnnotationLinksByDataId).mockResolvedValue([link] as never);
+    vi.mocked(findAnnotationLinksByGeometryIds).mockResolvedValue([link] as never);
+    vi.mocked(findAnnotationLinksByDataIds).mockResolvedValue([link] as never);
 
     await expect(getAnnotations('project-1')).resolves.toEqual({
       ok: true,
