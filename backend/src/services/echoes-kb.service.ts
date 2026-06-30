@@ -342,6 +342,59 @@ interface EchoesMaintenanceInfo {
   maintenanceTimespanUri: string | null;
 }
 
+function buildEchoesActiveNamedGraphSearchFilter(search: string | null): string {
+  if (typeof search !== 'string' || search.trim().length === 0) {
+    return '';
+  }
+
+  const escapedSearch = escapeSparqlLiteral(search.trim());
+  return `
+  FILTER(
+    CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(COALESCE(STR(?title), "")), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(COALESCE(STR(?identifier), "")), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(STR(?hdt)), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(STR(?ng)), LCASE("${escapedSearch}"))
+  )`;
+}
+
+async function listActiveEchoesNamedGraphBindings(
+  sessionId: string,
+  search: string | null,
+): Promise<Array<Record<string, SparqlBindingValue>>> {
+  const searchFilter = buildEchoesActiveNamedGraphSearchFilter(search);
+  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
+PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?hc1
+WHERE {
+  GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
+    ?maintenance echoes:HP19_has_composed ?hdt ;
+                 echoes:HP30_added_content ?ng .
+    FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
+    FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+    FILTER NOT EXISTS {
+      ?deleteMaintenance echoes:HP19_has_composed ?hdt ;
+                         echoes:HP31_deleted_content ?ng .
+    }
+  }
+  GRAPH ?ng {
+    ?hdt a hdt:HC2 .
+    OPTIONAL { ?hdt rdfs:label ?label }
+    OPTIONAL {
+      ?hc1 a hdt:HC1 ;
+           hdt:HP1 ?hdt .
+      OPTIONAL { ?hc1 dc:title ?title }
+      OPTIONAL { ?hc1 dc:identifier ?identifier }
+    }
+  }${searchFilter}
+}
+ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
+
+  return runSingleTripleStoreQuery(sessionId, query);
+}
+
 async function loadEchoesNamedGraphMaintenanceInfo(
   sessionId: string,
   digitalTwinUris: string[],
@@ -488,40 +541,7 @@ export async function listEchoesNamedGraphs(
   sessionId: string,
   search: string | null
 ): Promise<EchoesNamedGraphListItem[]> {
-  const searchFilter =
-    typeof search === 'string' && search.trim().length > 0
-      ? `
-    FILTER(
-      CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapeSparqlLiteral(search.trim())}")) ||
-      CONTAINS(LCASE(COALESCE(STR(?title), "")), LCASE("${escapeSparqlLiteral(search.trim())}")) ||
-      CONTAINS(LCASE(COALESCE(STR(?identifier), "")), LCASE("${escapeSparqlLiteral(search.trim())}"))
-    )`
-      : '';
-
-  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
-PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-SELECT DISTINCT ?ng ?hdt ?membership ?label ?title ?identifier ?hc1
-WHERE {
-  ?hdt ?membership ?ng .
-  FILTER(?membership IN (echoes:HP33_contains, echoes:HP34_contained))
-  GRAPH ?ng {
-    ?hdt a hdt:HC2 .
-    OPTIONAL { ?hdt rdfs:label ?label }
-    OPTIONAL {
-      ?hc1 a hdt:HC1 ;
-           hdt:HP1 ?hdt .
-      OPTIONAL { ?hc1 dc:title ?title }
-      OPTIONAL { ?hc1 dc:identifier ?identifier }
-    }
-  }
-  FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
-  FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))${searchFilter}
-}
-ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
-
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await listActiveEchoesNamedGraphBindings(sessionId, search);
   const baseItems: EchoesNamedGraphListItem[] = bindings.map((binding) => ({
     namedGraphUri: getBindingValue(binding, 'ng') ?? '',
     digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
@@ -530,12 +550,7 @@ ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) 
     identifier: getBindingValue(binding, 'identifier'),
     heritageEntityUri: getBindingValue(binding, 'hc1'),
     graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
-    graphState:
-      getBindingValue(binding, 'membership') === 'http://isl.ics.forth.gr/ontology/echoes/HP33_contains'
-        ? ('current' as const)
-        : getBindingValue(binding, 'membership') === 'http://isl.ics.forth.gr/ontology/echoes/HP34_contained'
-          ? ('former' as const)
-          : ('unknown' as const),
+    graphState: 'current' as const,
     maintenanceMode: 'unknown' as const,
     previousNamedGraphUri: null,
     maintenanceUri: null,
@@ -569,57 +584,11 @@ export async function listEchoesHdts(
   sessionId: string,
   search: string | null
 ): Promise<EchoesHdtListItem[]> {
-  const searchFilter =
-    typeof search === 'string' && search.trim().length > 0
-      ? `
-    FILTER(
-      CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapeSparqlLiteral(search.trim())}")) ||
-      CONTAINS(LCASE(STR(?hdt)), LCASE("${escapeSparqlLiteral(search.trim())}"))
-    )`
-      : '';
-
-  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
-SELECT DISTINCT ?hdt ?label
-WHERE {
-  {
-    GRAPH ?g {
-      ?hdt a hdt:HC2 .
-      FILTER(STRSTARTS(STR(?g), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
-      FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
-      OPTIONAL { ?hdt rdfs:label ?label }
-    }
-  }
-  UNION
-  {
-    GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
-      ?hdt echoes:HP33_contains ?ng .
-      FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
-      FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
-    }
-    OPTIONAL {
-      GRAPH ?ng {
-        OPTIONAL { ?hdt rdfs:label ?graphLabel }
-        OPTIONAL {
-          ?hc1 a hdt:HC1 ;
-               hdt:HP1 ?hdt ;
-               dc:title ?hc1Title .
-        }
-      }
-    }
-    BIND(COALESCE(?graphLabel, ?hc1Title) AS ?label)
-  }
-  ${searchFilter}
-}
-ORDER BY LCASE(COALESCE(STR(?label), STR(?hdt)))`;
-
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await listActiveEchoesNamedGraphBindings(sessionId, search);
   const items = bindings
     .map((binding) => ({
       digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
-      label: getBindingValue(binding, 'label'),
+      label: getBindingValue(binding, 'label') ?? getBindingValue(binding, 'title'),
     }))
     .filter((item) => item.digitalTwinUri);
 
@@ -805,8 +774,15 @@ WHERE {
     OPTIONAL { ?digitalTwinUri rdfs:label ?label }
   }
   OPTIONAL {
-    ?digitalTwinUri echoes:HP33_contains ?ng .
-    FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+    GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
+      ?maintenance echoes:HP19_has_composed ?digitalTwinUri ;
+                   echoes:HP30_added_content ?ng .
+      FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+      FILTER NOT EXISTS {
+        ?deleteMaintenance echoes:HP19_has_composed ?digitalTwinUri ;
+                           echoes:HP31_deleted_content ?ng .
+      }
+    }
   }
   FILTER(STRSTARTS(STR(?digitalTwinUri), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
 }

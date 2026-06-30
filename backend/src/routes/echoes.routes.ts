@@ -25,9 +25,9 @@ router.use(requireAuth);
  * @openapi
  * /api/eccch/hdts:
  *   get:
- *     summary: List registered ECCCH HDTs
+ *     summary: List active ECCCH HDTs
  *     description: |
- *       Returns a minimal list of registered Digital Twins in ECCCH, including HDTs that do not yet have any named graph.
+ *       Returns a minimal list of ECCCH Digital Twins that still have at least one active named graph.
  *       Optionally filters the results by a free-text `search` string matched against label or Digital Twin URI.
  *     tags:
  *       - ECCCH
@@ -67,9 +67,9 @@ router.get('/hdts', listEchoesHdtsHandler);
  * @openapi
  * /api/eccch/named-graphs:
  *   get:
- *     summary: List available ECCCH named graphs
+ *     summary: List active ECCCH named graphs
  *     description: |
- *       Returns a minimal list of named graphs available in the ECCCH repository,
+ *       Returns a minimal list of active named graphs available in the ECCCH repository,
  *       along with the related Digital Twin identifiers.
  *       Optionally filters the results by a free-text `search` string matched against label, title, or identifier.
  *     tags:

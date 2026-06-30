@@ -26,7 +26,7 @@ export default function EchoesHdtListWidget({
   return (
     <div className="mt-4">
       <div className="d-flex justify-content-between align-items-center mb-2">
-        <h3 className="h6 text-secondary mb-0">Registered HDTs</h3>
+        <h3 className="h6 text-secondary mb-0">Active ECCCH HDTs</h3>
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
@@ -37,7 +37,7 @@ export default function EchoesHdtListWidget({
         </button>
       </div>
       <div className="small text-muted mb-2">
-        Registered Digital Twins from `/api/eccch/hdts`, including HDTs without any named graph yet.
+        Digital Twins from `/api/eccch/hdts` that still have at least one active named graph in ECCCH.
       </div>
       {error ? (
         <div className="alert alert-warning mb-3">{error}</div>
@@ -58,7 +58,7 @@ export default function EchoesHdtListWidget({
           </div>
         ) : (
           <div className="p-3 small text-muted">
-            {loading ? 'Loading registered HDTs...' : 'No HDTs found.'}
+            {loading ? 'Loading active ECCCH HDTs...' : 'No active ECCCH HDTs found.'}
           </div>
         )}
       </div>

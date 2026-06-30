@@ -1782,7 +1782,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('assets')}
                 type="button"
               >
-                HC2 Digital Asset
+                Digital Assets
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -1950,7 +1950,7 @@ export default function HDTPage() {
           {activeTab === 'assets' && (
             <div>
               <p className="text-muted small mb-4">
-                Manage all digital assets for this HC2 Heritage Digital Twin. Assets in the pool can be used across multiple scenes.
+                Manage all digital assets for this HDT. Assets in the pool can be used across multiple scenes.
               </p>
 
               <div className="mb-4 p-3 bg-light rounded">
