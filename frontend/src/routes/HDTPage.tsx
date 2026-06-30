@@ -1541,7 +1541,7 @@ export default function HDTPage() {
                   <div className="text-break">{echoesStatus?.projectUri || metadata?.echoesContext?.projectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-muted">HC1 URI (heritageEntityUri)</div>
+                  <div className="text-muted">Heritage Entity URI (heritageEntityUri)</div>
                   <div className="text-break">{echoesStatus?.heritageEntityUri || metadata?.echoesContext?.heritageEntityUri || metadata?.physicalObjectMetadata?.sourceUri || 'Not assigned yet'}</div>
                 </div>
                 <div className="col-md-6">
@@ -1773,7 +1773,7 @@ export default function HDTPage() {
                 onClick={() => setActiveTab('dublin-core')}
                 type="button"
               >
-                HC1 Heritage Entity
+                Heritage Entity
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -1801,9 +1801,9 @@ export default function HDTPage() {
           {/* Dublin Core Tab */}
           {activeTab === 'dublin-core' && (
             <div>
-              <h5 className="mb-3">HC1 Heritage Entity</h5>
+              <h5 className="mb-3">Heritage Entity</h5>
               <p className="text-muted small mb-4">
-                Official HC1 descriptive metadata about the heritage entity, aligned with the ECCCH HDTO model and Dublin Core standard (ISO 15836). These catalog fields are read-only.
+                Descriptive metadata about the heritage entity, aligned with the ECCCH HDTO model and Dublin Core standard (ISO 15836). These catalog fields are read-only.
               </p>
              
               <div className="mb-3">

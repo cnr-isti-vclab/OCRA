@@ -56,14 +56,14 @@ function EchoesImportForm({
     <div className="border rounded p-3 bg-light">
       <h6 className="mb-3">ECCCH Import Parameters</h6>
       <p className="small text-muted">
-        Choose the ECCCH named graph to use as source. OCRA will import only the HC1 metadata from the selected graph.
+        Choose the ECCCH named graph to use as source. OCRA will import only the Heritage Entity metadata from the selected graph.
       </p>
 
       <EchoesHdtBrowser
         disabled={disabled}
         searchPanelTitle="1. Search HDTs"
-        rightPanelTitle="2. Selected HC1 Source"
-        emptyStateText="Select an ECCCH named graph to import its HC1 metadata."
+        rightPanelTitle="2. Selected Heritage Entity Source"
+        emptyStateText="Select an ECCCH named graph to import its Heritage Entity metadata."
         isItemSelectable={(item) => item.graphState === 'current'}
         onSelectionChange={(selection) => {
           onChange({
@@ -75,13 +75,13 @@ function EchoesImportForm({
           if (!selection && !detailBusy) {
             return (
               <div className="alert alert-light border mb-0">
-                Select an ECCCH named graph to import its HC1 metadata.
+                Select an ECCCH named graph to import its Heritage Entity metadata.
               </div>
             );
           }
 
           if (detailBusy) {
-            return <div className="alert alert-info mb-0">Loading ECCCH HC1 metadata...</div>;
+            return <div className="alert alert-info mb-0">Loading ECCCH Heritage Entity metadata...</div>;
           }
 
           if (detailError) {
@@ -111,7 +111,7 @@ function EchoesImportForm({
               </div>
 
               <div className="border rounded-3 p-3">
-                <div className="fw-semibold mb-2">HC1 metadata that will be imported</div>
+                <div className="fw-semibold mb-2">Heritage Entity metadata that will be imported</div>
                 <dl className="row small mb-0">
                   <dt className="col-sm-4">Title</dt>
                   <dd className="col-sm-8 text-break">{currentGraph.dublinCore.title || '—'}</dd>
@@ -130,7 +130,7 @@ function EchoesImportForm({
 
               {selection.detail.assets.length > 0 && (
                 <div className="alert alert-secondary mt-3 mb-0 small">
-                  HC8 assets are intentionally ignored in this flow. Only HC1 metadata will be imported into the project settings.
+                  HC8 assets are intentionally ignored in this flow. Only Heritage Entity metadata will be imported into the project settings.
                 </div>
               )}
             </>
@@ -176,7 +176,7 @@ function EchoesMetadataView({ metadata }: { metadata: import('./types').Physical
 export const echoesSourceAdapter: PhysicalObjectSourceAdapter<EchoesFormState> = {
   sourceType: 'echoes',
   label: 'ECCCH Repository',
-  description: 'Import HC1 metadata from a selected named graph in the ECCCH repository.',
+  description: 'Import Heritage Entity metadata from a selected named graph in the ECCCH repository.',
   status: 'available',
   createInitialState: () => ({
     selectedGraph: null,
@@ -185,7 +185,7 @@ export const echoesSourceAdapter: PhysicalObjectSourceAdapter<EchoesFormState> =
   buildImportRequest: (_projectId: string, state: EchoesFormState) => {
     const selectedGraph = state?.selectedGraph ?? null;
     if (!selectedGraph) {
-      throw new Error('Choose an ECCCH named graph before importing HC1 metadata.');
+      throw new Error('Choose an ECCCH named graph before importing Heritage Entity metadata.');
     }
 
     return {

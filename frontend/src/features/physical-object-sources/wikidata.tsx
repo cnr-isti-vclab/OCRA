@@ -100,7 +100,7 @@ function WikidataMetadataView({ metadata }: { metadata: import('./types').Physic
 export const wikidataSourceAdapter: PhysicalObjectSourceAdapter<WikidataFormState> = {
   sourceType: 'wikidata',
   label: 'Wikidata',
-  description: 'Import HC1 metadata from Wikidata entities (Reasonator-compatible).',
+  description: 'Import Heritage Entity metadata from Wikidata entities (Reasonator-compatible).',
   status: 'available',
   createInitialState: () => ({
     source: DEFAULT_WIKIDATA_SOURCE,

@@ -620,10 +620,10 @@ export default function EditProject() {
           {canChooseMetadataSource && (
             <div className="alert alert-secondary">
               <div className="mb-3">
-                <strong>{hasHdt === false ? 'No imported HC1 metadata yet.' : 'Metadata source selection is enabled for maintenance.'}</strong>{' '}
+                <strong>{hasHdt === false ? 'No imported Heritage Entity data yet.' : 'Metadata source selection is enabled for maintenance.'}</strong>{' '}
                 {hasHdt === false
-                  ? 'Choose a source and provide source-specific input to initialize HC1 metadata.'
-                  : 'Choose a source to replace the HC1 metadata attribution. Importing again will lock source selection afterwards.'}
+                  ? 'Choose a source and provide source-specific input to initialize the Heritage Entity data.'
+                  : 'Choose a source to replace the Heritage Entity source attribution. Importing again will lock source selection afterwards.'}
               </div>
               <div className="d-flex gap-2 flex-wrap">
                 <button
@@ -661,7 +661,7 @@ export default function EditProject() {
                     {sourceMaintenanceLoading ? 'Re-enabling...' : 'Re-enable Metadata Source'}
                   </button>
                   <div className="form-text mt-2">
-                    System administrator maintenance action. Use this only to correct an HC1 source attribution.
+                    System administrator maintenance action. Use this only to correct a Heritage Entity source attribution.
                   </div>
                 </div>
               )}
@@ -1002,7 +1002,7 @@ export default function EditProject() {
           <div className="modal-dialog modal-xl modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">{hasHdt === false ? 'Initialize HC1 Metadata' : 'Replace HC1 Metadata Source'}</h5>
+                <h5 className="modal-title">{hasHdt === false ? 'Initialize Heritage Entity Metadata' : 'Replace HC1 Metadata Source'}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowImportModal(false)}></button>
               </div>
               <div className="modal-body">
@@ -1054,9 +1054,6 @@ export default function EditProject() {
                         {sourceImportLoading ? '⏳ Importing...' : `Import from ${selectedSourceAdapter.label}`}
                       </button>
 
-                      <div className="alert alert-info mt-3 small mb-0">
-                        The selected source adapter prepares a source-specific request, and the backend transforms it into <code>physicalObjectMetadata</code>.
-                      </div>
                     </div>
                   );
                 })()}

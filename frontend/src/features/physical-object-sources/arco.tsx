@@ -93,7 +93,7 @@ function ArcoMetadataView({ metadata }: { metadata: import('./types').PhysicalOb
 export const arcoSourceAdapter: PhysicalObjectSourceAdapter<ArcoFormState> = {
   sourceType: 'arco',
   label: 'ARCO Catalog',
-  description: 'Search the ARCO catalog and import HC1 metadata for the selected heritage entity.',
+  description: 'Search the ARCO catalog and import Heritage Entity metadata for the selected heritage entity.',
   status: 'available',
   createInitialState: () => ({
     selectedUri: '',

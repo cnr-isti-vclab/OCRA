@@ -96,7 +96,7 @@ export default function EchoesImportModal({
             <div>
               <h5 className="modal-title mb-1">Import from ECCCH</h5>
               <div className="small text-muted">
-                Search an HDT in the ECCCH repository, preview its HC1 data and create a new OCRA project from it.
+                Search an HDT in the ECCCH repository, preview its Heritage Entity data and create a new OCRA project from it.
               </div>
             </div>
             <button type="button" className="btn-close" onClick={() => !importBusy && onClose()} aria-label="Close"></button>
@@ -107,14 +107,14 @@ export default function EchoesImportModal({
               disabled={importBusy}
               searchPanelTitle="1. Search HDTs"
               rightPanelTitle="2. Preview and Import"
-              emptyStateText="Select an HDT from the left column to preview its HC1 data and linked assets."
+              emptyStateText="Select an HDT from the left column to preview its Heritage Entity data and linked assets."
               isItemSelectable={(item) => item.graphState === 'current'}
               onSelectionChange={handleSelectionChange}
               renderDetailPanel={({ selection: currentSelection, detailBusy, detailError }) => {
                 if (!currentSelection && !detailBusy) {
                   return (
                     <div className="alert alert-light border mb-0">
-                      Select an HDT from the left column to preview its HC1 data and linked assets.
+                      Select an HDT from the left column to preview its Heritage Entity data and linked assets.
                     </div>
                   );
                 }
@@ -293,7 +293,7 @@ export default function EchoesImportModal({
                     <div className="row g-3">
                       <div className="col-12 col-xl-7">
                         <div className="border rounded-3 p-3 h-100 overflow-hidden">
-                          <div className="fw-semibold mb-2">Imported HC1 metadata</div>
+                          <div className="fw-semibold mb-2">Imported Heritage Entity metadata</div>
                           <dl className="row small mb-0">
                             <dt className="col-sm-4">Identifier</dt>
                             <dd className="col-sm-8 text-break">{detail.physicalObjectMetadata.dublinCore?.identifier || '—'}</dd>
