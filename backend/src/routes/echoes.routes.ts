@@ -5,6 +5,7 @@ import {
   createProjectFromEchoesHdtHandler,
   createProjectFromEchoesRdfHandler,
   duplicateProjectHdtAsNewInEchoesHandler,
+  deleteEchoesDigitalTwinHandler,
   enrichProjectHdtInEchoesHandler,
   getEchoesProjectStatusHandler,
   getEchoesHdtHandler,
@@ -14,7 +15,6 @@ import {
   registerProjectHdtInEchoesHandler,
   registerEchoesDevBearerHandler,
   replaceProjectHdtContentInEchoesHandler,
-  unregisterEchoesDigitalTwinHandler,
 } from '../controllers/echoes.controller.js';
 
 const router = express.Router();
@@ -233,8 +233,12 @@ router.get('/projects/:projectId/status', getEchoesProjectStatusHandler);
  * @openapi
  * /api/eccch/projects/{projectId}/register:
  *   post:
- *     summary: Register the local HDT in ECCCH
- *     description: Creates or confirms the ECCCH Digital Twin identifier for the local OCRA HDT, without uploading the RDF content yet.
+ *     summary: Register the local HDT in ECCCH and publish its first named graph when newly created
+ *     description: |
+ *       Creates or confirms the ECCCH Digital Twin identifier for the local OCRA HDT.
+ *       If OCRA creates a brand new Digital Twin, it immediately uploads the current RDF as the first named graph,
+ *       so OCRA does not leave behind an empty ECCCH registration without content.
+ *       If the heritage entity is already registered in ECCCH, OCRA reuses the existing Digital Twin link without forcing a new publish.
  *     tags:
  *       - ECCCH
  *     security:
@@ -409,16 +413,17 @@ router.post('/dev/bearer', registerEchoesDevBearerHandler);
  */
 router.delete('/dev/bearer', clearEchoesDevBearerHandler);
 
-// @spike feature/eccch-unregister-debug: remove after ECCCH unregister is no longer needed in production
+// @spike feature/eccch-delete-debug: remove after ECCCH delete is no longer needed in production
 /**
  * @openapi
- * /api/eccch/dev/unregister-digital-twin:
+ * /api/eccch/dev/delete-digital-twin:
  *   post:
- *     summary: Unregister an ECCCH Digital Twin by URI
+ *     summary: Delete an ECCCH Digital Twin by URI
  *     description: |
  *       Development-only administrative helper.
- *       Calls the upstream ECCCH `/hdt/unregister` endpoint for the provided `digitalTwinUri`.
- *       If one or more local OCRA projects are linked to that Digital Twin, their local ECCCH linkage is cleared.
+ *       Deletes every ECCCH named graph still linked to the provided `digitalTwinUri`, verifies that no related named graph remains,
+ *       and only then calls the upstream ECCCH `/hdt/unregister` endpoint.
+ *       If one or more local OCRA projects are linked to that Digital Twin, their local ECCCH linkage is cleared only after the ECCCH delete flow succeeds.
  *     tags:
  *       - ECCCH
  *     security:
@@ -429,14 +434,14 @@ router.delete('/dev/bearer', clearEchoesDevBearerHandler);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/EchoesUnregisterDigitalTwinRequest'
+ *             $ref: '#/components/schemas/EchoesDeleteDigitalTwinRequest'
  *     responses:
  *       200:
- *         description: Digital Twin unregistered and local links updated when applicable
+ *         description: Digital Twin deleted and local links updated when applicable
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/EchoesUnregisterDigitalTwinResponse'
+ *               $ref: '#/components/schemas/EchoesDeleteDigitalTwinResponse'
  *       401:
  *         description: Authentication required
  *         content:
@@ -450,6 +455,6 @@ router.delete('/dev/bearer', clearEchoesDevBearerHandler);
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.post('/dev/unregister-digital-twin', unregisterEchoesDigitalTwinHandler);
+router.post('/dev/delete-digital-twin', deleteEchoesDigitalTwinHandler);
 
 export default router;

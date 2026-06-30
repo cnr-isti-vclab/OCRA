@@ -60,9 +60,10 @@ interface EchoesDuplicateProjectRequest {
   heritageEntityUri?: string;
 }
 
-interface EchoesUnregisterDigitalTwinResponse {
+interface EchoesDeleteDigitalTwinResponse {
   success: boolean;
   digitalTwinUri: string;
+  deletedNamedGraphUris: string[];
   disconnectedProjectIds: string[];
   message: string;
 }
@@ -128,8 +129,8 @@ export async function clearEchoesDevBearer(): Promise<void> {
   }
 }
 
-export async function unregisterEchoesDigitalTwin(digitalTwinUri: string): Promise<EchoesUnregisterDigitalTwinResponse> {
-  const response = await fetch(`${getApiBase()}/api/eccch/dev/unregister-digital-twin`, {
+export async function deleteEchoesDigitalTwin(digitalTwinUri: string): Promise<EchoesDeleteDigitalTwinResponse> {
+  const response = await fetch(`${getApiBase()}/api/eccch/dev/delete-digital-twin`, {
     method: 'POST',
     credentials: 'include',
     headers: buildSessionHeaders(true),
@@ -137,10 +138,10 @@ export async function unregisterEchoesDigitalTwin(digitalTwinUri: string): Promi
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to unregister ECCCH Digital Twin: ${await readErrorMessage(response)}`);
+    throw new Error(`Failed to delete ECCCH Digital Twin: ${await readErrorMessage(response)}`);
   }
 
-  return (await response.json()) as EchoesUnregisterDigitalTwinResponse;
+  return (await response.json()) as EchoesDeleteDigitalTwinResponse;
 }
 
 export async function fetchEchoesNamedGraphs(search: string): Promise<EchoesNamedGraphListItem[]> {

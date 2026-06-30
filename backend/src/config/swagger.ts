@@ -869,7 +869,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
-        EchoesUnregisterDigitalTwinRequest: {
+        EchoesDeleteDigitalTwinRequest: {
           type: 'object',
           required: ['digitalTwinUri'],
           properties: {
@@ -879,9 +879,9 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
-        EchoesUnregisterDigitalTwinResponse: {
+        EchoesDeleteDigitalTwinResponse: {
           type: 'object',
-          required: ['success', 'digitalTwinUri', 'disconnectedProjectIds', 'message'],
+          required: ['success', 'digitalTwinUri', 'deletedNamedGraphUris', 'disconnectedProjectIds', 'message'],
           properties: {
             success: {
               type: 'boolean',
@@ -890,6 +890,15 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             digitalTwinUri: {
               type: 'string',
               example: 'http://echoes-eccch.eu/HDT/F66u7vEPT35z',
+            },
+            deletedNamedGraphUris: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              example: [
+                'http://echoes-eccch.eu/kb/graph/user-fbettio/1782458510131/2026-06-26',
+              ],
             },
             disconnectedProjectIds: {
               type: 'array',
@@ -900,7 +909,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
             message: {
               type: 'string',
-              example: 'Digital Twin <http://echoes-eccch.eu/HDT/F66u7vEPT35z> unregistered from ECCCH.',
+              example: '1 ECCCH named graph deleted, then Digital Twin <http://echoes-eccch.eu/HDT/F66u7vEPT35z> unregistered from ECCCH.',
             },
           },
         },

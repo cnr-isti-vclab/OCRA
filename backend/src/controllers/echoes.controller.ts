@@ -11,6 +11,7 @@ import {
 import {
   createProjectFromEchoesHdt,
   createProjectFromEchoesRdf,
+  deleteDigitalTwinInEchoes,
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
   getEchoesProjectStatus,
@@ -19,7 +20,6 @@ import {
   listEchoesNamedGraphs,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
-  unregisterDigitalTwinInEchoes,
 } from '../services/echoes-kb.service.js';
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 import { getPrismaClient } from '../../db.js';
@@ -370,7 +370,7 @@ async function handleEchoesProjectMutation(
   try {
     const result =
       action === 'register'
-        ? await registerProjectHdtInEchoes(sessionId, projectId, user.id)
+        ? await registerProjectHdtInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id)
         : action === 'enrich'
           ? await enrichProjectHdtInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id)
           : await replaceProjectHdtContentInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id);
@@ -501,8 +501,8 @@ export async function clearEchoesDevBearerHandler(req: Request, res: Response): 
   res.status(204).end();
 }
 
-// @spike feature/eccch-unregister-debug: remove after ECCCH unregister is no longer needed in production
-export async function unregisterEchoesDigitalTwinHandler(req: Request, res: Response): Promise<void> {
+// @spike feature/eccch-delete-debug: remove after ECCCH delete is no longer needed in production
+export async function deleteEchoesDigitalTwinHandler(req: Request, res: Response): Promise<void> {
   const user = getAuthenticatedUser(req);
   const sessionId = getSessionId(req);
   if (!user || !sessionId) {
@@ -523,15 +523,16 @@ export async function unregisterEchoesDigitalTwinHandler(req: Request, res: Resp
   }
 
   try {
-    const result = await unregisterDigitalTwinInEchoes(sessionId, digitalTwinUri, user.id);
+    const result = await deleteDigitalTwinInEchoes(sessionId, digitalTwinUri, user.id);
 
     await auditBestEffort({
       req,
       userSub: user.sub,
-      action: 'echoes.digital_twin.unregister',
+      action: 'echoes.digital_twin.delete',
       success: true,
       payload: {
         digitalTwinUri: result.digitalTwinUri,
+        deletedNamedGraphUris: result.deletedNamedGraphUris,
         disconnectedProjectIds: result.disconnectedProjectIds,
       },
     });
@@ -543,7 +544,7 @@ export async function unregisterEchoesDigitalTwinHandler(req: Request, res: Resp
       res,
       502,
       'unregisterFailed',
-      'Failed to unregister this ECCCH Digital Twin',
+      'Failed to delete this ECCCH Digital Twin',
       error instanceof Error ? error.message : 'Unknown error',
     );
   }

@@ -2,10 +2,10 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../backend';
 import {
+  deleteEchoesDigitalTwin,
   fetchEchoesHdts,
   clearEchoesDevBearer,
   registerEchoesDevBearer,
-  unregisterEchoesDigitalTwin,
 } from '../services/EchoesApi';
 import type { EchoesHdtListItem } from '../types';
 import EchoesHdtListWidget from '../shared/ui/EchoesHdtListWidget';
@@ -50,9 +50,9 @@ export default function Profile() {
   const [echoesHdtListVisible, setEchoesHdtListVisible] = useState(false);
   const [echoesHdtListLoading, setEchoesHdtListLoading] = useState(false);
   const [echoesHdtListError, setEchoesHdtListError] = useState<string | null>(null);
-  const [echoesUnregisterUri, setEchoesUnregisterUri] = useState('');
-  const [echoesUnregisterBusy, setEchoesUnregisterBusy] = useState(false);
-  const [echoesUnregisterFeedback, setEchoesUnregisterFeedback] = useState<OperationFeedback | null>(null);
+  const [echoesDeleteUri, setEchoesDeleteUri] = useState('');
+  const [echoesDeleteBusy, setEchoesDeleteBusy] = useState(false);
+  const [echoesDeleteFeedback, setEchoesDeleteFeedback] = useState<OperationFeedback | null>(null);
 
   // useEffect runs after component mounts (when user navigates to /profile)
   // This is where we fetch user data from the database session
@@ -128,38 +128,45 @@ export default function Profile() {
     }
   }
 
-  // @spike feature/eccch-unregister-debug: remove after ECCCH unregister is no longer needed in production
-  async function unregisterSelectedDigitalTwin(): Promise<void> {
-    const trimmedDigitalTwinUri = echoesUnregisterUri.trim();
+  // @spike feature/eccch-delete-debug: remove after ECCCH delete is no longer needed in production
+  async function deleteSelectedDigitalTwin(): Promise<void> {
+    const trimmedDigitalTwinUri = echoesDeleteUri.trim();
     if (!trimmedDigitalTwinUri) {
-      setEchoesUnregisterFeedback({
+      setEchoesDeleteFeedback({
         kind: 'error',
-        text: 'Paste a Digital Twin URI before unregistering it.',
+        text: 'Paste a Digital Twin URI before deleting it.',
       });
       return;
     }
 
-    if (!window.confirm(`Unregister Digital Twin "${trimmedDigitalTwinUri}" from ECCCH?`)) {
+    if (!window.confirm(`Delete Digital Twin "${trimmedDigitalTwinUri}" from ECCCH? This also removes every linked named graph before unregistering it.`)) {
       return;
     }
 
     try {
-      setEchoesUnregisterBusy(true);
-      setEchoesUnregisterFeedback(null);
-      const result = await unregisterEchoesDigitalTwin(trimmedDigitalTwinUri);
-      setEchoesUnregisterFeedback({
+      setEchoesDeleteBusy(true);
+      setEchoesDeleteFeedback(null);
+      const result = await deleteEchoesDigitalTwin(trimmedDigitalTwinUri);
+      setEchoesDeleteFeedback({
         kind: 'success',
-        text: result.disconnectedProjectIds.length > 0
-          ? `${result.message} Local projects disconnected: ${result.disconnectedProjectIds.join(', ')}.`
-          : result.message,
+        text: [
+          result.message,
+          result.deletedNamedGraphUris.length > 0
+            ? `Deleted named graphs: ${result.deletedNamedGraphUris.join(', ')}.`
+            : null,
+          result.disconnectedProjectIds.length > 0
+            ? `Local projects disconnected: ${result.disconnectedProjectIds.join(', ')}.`
+            : null,
+        ].filter(Boolean).join(' '),
       });
+      await loadEchoesHdtList();
     } catch (error: unknown) {
-      setEchoesUnregisterFeedback({
+      setEchoesDeleteFeedback({
         kind: 'error',
-        text: error instanceof Error ? error.message : 'Failed to unregister the Digital Twin.',
+        text: error instanceof Error ? error.message : 'Failed to delete the Digital Twin.',
       });
     } finally {
-      setEchoesUnregisterBusy(false);
+      setEchoesDeleteBusy(false);
     }
   }
 
@@ -278,40 +285,40 @@ export default function Profile() {
           {info?.sys_admin ? (
             <>
               <hr className="my-4" />
-              <div>
-                <h3 className="h6 text-secondary">Temporary ECCCH Debug Unregister</h3>
+              <div className="border rounded-3 p-3" style={{ backgroundColor: '#fbe7e7' }}>
+                <h3 className="h6 text-danger mb-2">Delete HDT</h3>
                 <p className="text-muted small mb-3">
-                  Development-only administrative helper. Unregisters a Digital Twin in ECCCH and disconnects any local OCRA project still linked to that same Digital Twin URI.
+                  Development-only administrative helper. Deletes every ECCCH named graph linked to the selected Digital Twin, verifies the cleanup, then unregisters the Digital Twin and disconnects any local OCRA project still linked to it.
                 </p>
-                <label htmlFor="profile-echoes-unregister-uri" className="form-label">
+                <label htmlFor="profile-echoes-delete-uri" className="form-label">
                   Digital Twin URI
                 </label>
                 <input
-                  id="profile-echoes-unregister-uri"
+                  id="profile-echoes-delete-uri"
                   type="text"
                   className="form-control"
-                  value={echoesUnregisterUri}
-                  onChange={(event) => setEchoesUnregisterUri(event.target.value)}
-                  disabled={echoesUnregisterBusy}
+                  value={echoesDeleteUri}
+                  onChange={(event) => setEchoesDeleteUri(event.target.value)}
+                  disabled={echoesDeleteBusy}
                   placeholder="http://echoes-eccch.eu/HDT/..."
                 />
                 <div className="d-flex gap-2 mt-3">
                   <button
                     type="button"
-                    className="btn btn-outline-danger"
-                    onClick={() => void unregisterSelectedDigitalTwin()}
-                    disabled={echoesUnregisterBusy}
+                    className="btn btn-danger"
+                    onClick={() => void deleteSelectedDigitalTwin()}
+                    disabled={echoesDeleteBusy}
                   >
-                    {echoesUnregisterBusy ? 'Unregistering...' : 'Unregister'}
+                    {echoesDeleteBusy ? 'Deleting...' : 'Delete HDT'}
                   </button>
                 </div>
-                {echoesUnregisterFeedback ? (
+                {echoesDeleteFeedback ? (
                   <div
                     className={`alert mt-3 mb-0 ${
-                      echoesUnregisterFeedback.kind === 'error' ? 'alert-warning' : 'alert-success'
+                      echoesDeleteFeedback.kind === 'error' ? 'alert-warning' : 'alert-success'
                     }`}
                   >
-                    {echoesUnregisterFeedback.text}
+                    {echoesDeleteFeedback.text}
                   </div>
                 ) : null}
               </div>

@@ -54,6 +54,19 @@ const DEFAULT_ECHOES_KB_API_BASE =
 const DEFAULT_ECHOES_PUBLIC_TRIPLE_STORE_ID = '6a2abf6b5d6646ff24522299';
 const DEFAULT_HDT_URI_PREFIX = 'http://echoes-eccch.eu/HDT/';
 const DEFAULT_USER_GRAPH_PREFIX = 'http://echoes-eccch.eu/kb/graph/user-';
+const ECHOES_GRAPH_MEMBERSHIP_PREDICATES = [
+  'http://isl.ics.forth.gr/ontology/echoes/HP33_contains',
+  'http://isl.ics.forth.gr/ontology/echoes/HP34_contained',
+] as const;
+const ECHOES_STRUCTURAL_GRAPH_LINK_PREDICATES = [
+  ...ECHOES_GRAPH_MEMBERSHIP_PREDICATES,
+  'http://isl.ics.forth.gr/ontology/echoes/HP33i_is_proposition_set_of',
+  'http://isl.ics.forth.gr/ontology/echoes/HP34i_is_former_proposition_set_of',
+] as const;
+
+function toSparqlUriList(values: readonly string[]): string {
+  return values.map((value) => `<${escapeSparqlLiteral(value)}>`).join(', ');
+}
 
 function getEchoesKbApiBase(): string {
   return process.env.ECHOES_KB_API_BASE?.trim() || DEFAULT_ECHOES_KB_API_BASE;
@@ -110,6 +123,11 @@ interface EchoesImportResponse {
 }
 
 interface EchoesUnregisterResponse {
+  succeed?: boolean;
+  message?: string;
+}
+
+interface EchoesDeleteContentResponse {
   succeed?: boolean;
   message?: string;
 }
@@ -272,6 +290,7 @@ export interface DuplicateProjectHdtInEchoesResult extends EchoesPublishProjectR
 export interface EchoesUnregisterDigitalTwinResult {
   digitalTwinUri: string;
   disconnectedProjectIds: string[];
+  deletedNamedGraphUris: string[];
   message: string;
 }
 
@@ -561,23 +580,65 @@ export async function listEchoesHdts(
 
   const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 SELECT DISTINCT ?hdt ?label
 WHERE {
-  GRAPH ?g {
-    ?hdt a hdt:HC2 .
-    FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
-    OPTIONAL { ?hdt rdfs:label ?label }${searchFilter}
+  {
+    GRAPH ?g {
+      ?hdt a hdt:HC2 .
+      FILTER(STRSTARTS(STR(?g), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+      FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
+      OPTIONAL { ?hdt rdfs:label ?label }
+    }
   }
+  UNION
+  {
+    GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
+      ?hdt echoes:HP33_contains ?ng .
+      FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
+      FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+    }
+    OPTIONAL {
+      GRAPH ?ng {
+        OPTIONAL { ?hdt rdfs:label ?graphLabel }
+        OPTIONAL {
+          ?hc1 a hdt:HC1 ;
+               hdt:HP1 ?hdt ;
+               dc:title ?hc1Title .
+        }
+      }
+    }
+    BIND(COALESCE(?graphLabel, ?hc1Title) AS ?label)
+  }
+  ${searchFilter}
 }
-ORDER BY ?hdt`;
+ORDER BY LCASE(COALESCE(STR(?label), STR(?hdt)))`;
 
   const bindings = await runSingleTripleStoreQuery(sessionId, query);
-  return bindings
+  const items = bindings
     .map((binding) => ({
       digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
       label: getBindingValue(binding, 'label'),
     }))
     .filter((item) => item.digitalTwinUri);
+
+  const dedupedItems = new Map<string, EchoesHdtListItem>();
+  for (const item of items) {
+    const existing = dedupedItems.get(item.digitalTwinUri);
+    if (!existing) {
+      dedupedItems.set(item.digitalTwinUri, item);
+      continue;
+    }
+
+    if (!existing.label && item.label) {
+      dedupedItems.set(item.digitalTwinUri, item);
+    }
+  }
+
+  return Array.from(dedupedItems.values()).sort((left, right) =>
+    `${left.label ?? ''}::${left.digitalTwinUri}`.localeCompare(`${right.label ?? ''}::${right.digitalTwinUri}`)
+  );
 }
 
 export async function getEchoesHdtDetail(
@@ -769,6 +830,165 @@ LIMIT 1`;
   };
 }
 
+interface EchoesDigitalTwinGraphLink {
+  namedGraphUri: string;
+  graphState: 'current' | 'former' | 'unknown';
+}
+
+async function listDigitalTwinMaintainedNamedGraphs(
+  sessionId: string,
+  digitalTwinUri: string,
+): Promise<EchoesDigitalTwinGraphLink[]> {
+  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+SELECT DISTINCT ?ng ?membership
+WHERE {
+  GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
+    <${escapeSparqlLiteral(digitalTwinUri)}> ?membership ?ng .
+    FILTER(?membership IN (echoes:HP33_contains, echoes:HP34_contained))
+  }
+  FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+}
+ORDER BY ?ng`;
+
+  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  return bindings
+    .map((binding) => {
+      const namedGraphUri = getBindingValue(binding, 'ng');
+      const membership = getBindingValue(binding, 'membership');
+      if (!namedGraphUri) {
+        return null;
+      }
+
+      return {
+        namedGraphUri,
+        graphState:
+          membership === 'http://isl.ics.forth.gr/ontology/echoes/HP33_contains'
+            ? ('current' as const)
+            : membership === 'http://isl.ics.forth.gr/ontology/echoes/HP34_contained'
+              ? ('former' as const)
+              : ('unknown' as const),
+      };
+    })
+    .filter((item): item is EchoesDigitalTwinGraphLink => item !== null)
+    .sort((left, right) => {
+      const stateRank = (state: EchoesDigitalTwinGraphLink['graphState']): number =>
+        state === 'current' ? 0 : state === 'former' ? 1 : 2;
+      const stateDifference = stateRank(left.graphState) - stateRank(right.graphState);
+      if (stateDifference !== 0) {
+        return stateDifference;
+      }
+      const leftSortKey = `${extractGraphDateFromNamedGraphUri(left.namedGraphUri) ?? ''}::${left.namedGraphUri}`;
+      const rightSortKey = `${extractGraphDateFromNamedGraphUri(right.namedGraphUri) ?? ''}::${right.namedGraphUri}`;
+      return rightSortKey.localeCompare(leftSortKey);
+    });
+}
+
+async function listDigitalTwinRelatedNamedGraphs(
+  sessionId: string,
+  digitalTwinUri: string,
+): Promise<EchoesDigitalTwinGraphLink[]> {
+  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+SELECT DISTINCT ?ng ?membership
+WHERE {
+  GRAPH ?ng {
+    { <${escapeSparqlLiteral(digitalTwinUri)}> ?p ?o }
+    UNION
+    { ?s ?p <${escapeSparqlLiteral(digitalTwinUri)}> }
+  }
+  FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+  OPTIONAL {
+    <${escapeSparqlLiteral(digitalTwinUri)}> ?membership ?ng .
+    FILTER(?membership IN (echoes:HP33_contains, echoes:HP34_contained))
+  }
+}
+ORDER BY ?ng`;
+
+  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const items = bindings
+    .map((binding) => {
+      const namedGraphUri = getBindingValue(binding, 'ng');
+      if (!namedGraphUri) {
+        return null;
+      }
+
+      const membership = getBindingValue(binding, 'membership');
+      return {
+        namedGraphUri,
+        graphState:
+          membership === 'http://isl.ics.forth.gr/ontology/echoes/HP33_contains'
+            ? ('current' as const)
+            : membership === 'http://isl.ics.forth.gr/ontology/echoes/HP34_contained'
+              ? ('former' as const)
+              : ('unknown' as const),
+      };
+    })
+    .filter((item): item is EchoesDigitalTwinGraphLink => item !== null);
+
+  return items.sort((left, right) => {
+    const stateRank = (state: EchoesDigitalTwinGraphLink['graphState']): number =>
+      state === 'current' ? 0 : state === 'former' ? 1 : 2;
+    const stateDifference = stateRank(left.graphState) - stateRank(right.graphState);
+    if (stateDifference !== 0) {
+      return stateDifference;
+    }
+    const leftSortKey = `${extractGraphDateFromNamedGraphUri(left.namedGraphUri) ?? ''}::${left.namedGraphUri}`;
+    const rightSortKey = `${extractGraphDateFromNamedGraphUri(right.namedGraphUri) ?? ''}::${right.namedGraphUri}`;
+    return rightSortKey.localeCompare(leftSortKey);
+  });
+}
+
+async function deleteDigitalTwinNamedGraph(
+  sessionId: string,
+  digitalTwinUri: string,
+  namedGraphUri: string,
+): Promise<void> {
+  const params = new URLSearchParams({
+    digitalTwinUri,
+    namedGraphUri,
+  });
+
+  const payload = await fetchEchoesJson<EchoesDeleteContentResponse>(
+    sessionId,
+    `${getEchoesKbApiBase()}/hdt/deleteContent?${params.toString()}`,
+    {
+      method: 'POST',
+    },
+  );
+
+  if (!payload.succeed) {
+    throw new Error(payload.message || `Failed to delete ECCCH named graph <${namedGraphUri}>.`);
+  }
+}
+
+async function listDigitalTwinGraphsWithRemainingContent(
+  sessionId: string,
+  digitalTwinUri: string,
+): Promise<string[]> {
+  const ignoredPredicates = toSparqlUriList(ECHOES_STRUCTURAL_GRAPH_LINK_PREDICATES);
+  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+SELECT DISTINCT ?ng
+WHERE {
+  GRAPH ?ng {
+    {
+      <${escapeSparqlLiteral(digitalTwinUri)}> ?p ?o .
+      FILTER(?p NOT IN (${ignoredPredicates}))
+    }
+    UNION
+    {
+      ?s ?p <${escapeSparqlLiteral(digitalTwinUri)}> .
+      FILTER(?p NOT IN (${ignoredPredicates}))
+    }
+  }
+  FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+}
+ORDER BY ?ng`;
+
+  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  return bindings
+    .map((binding) => getBindingValue(binding, 'ng'))
+    .filter((namedGraphUri): namedGraphUri is string => Boolean(namedGraphUri));
+}
+
 async function reconcileExistingEchoesRegistration(
   sessionId: string,
   projectId: string,
@@ -788,6 +1008,7 @@ async function reconcileExistingEchoesRegistration(
     heritageEntityUri,
     digitalTwinUri: existingRegistration.digitalTwinUri,
     digitalTwinLabel: existingRegistration.digitalTwinLabel ?? (_title || currentContext.digitalTwinLabel),
+    namedGraphUri: existingRegistration.namedGraphUri,
     syncStatus: 'registered',
     lastRegisteredAt: new Date(),
   }, userId);
@@ -801,7 +1022,9 @@ async function reconcileExistingEchoesRegistration(
     message:
       `HC1 URI <${heritageEntityUri}> is already present in ECCCH. ` +
       `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>. ` +
-      `No named graph was assigned: publish a new named graph from this project when ready.`,
+      (existingRegistration.namedGraphUri
+        ? `Current named graph <${existingRegistration.namedGraphUri}> was also detected.`
+        : `No named graph was assigned yet.`),
   };
 }
 
@@ -1598,6 +1821,7 @@ function createRdfUploadForm(rdf: string): FormData {
 export async function registerProjectHdtInEchoes(
   sessionId: string,
   projectId: string,
+  publicBaseUrl: string,
   userId?: string,
 ): Promise<EchoesRegisterProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
@@ -1627,8 +1851,21 @@ export async function registerProjectHdtInEchoes(
     title,
   );
   if (reconciledRegistration) {
-    return reconciledRegistration;
+    if (reconciledRegistration.status.namedGraphUri) {
+      return reconciledRegistration;
+    }
+
+    const publishResult = await publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'enrich');
+    return {
+      status: publishResult.status,
+      message:
+        `HC1 URI <${heritageEntityUri}> is already present in ECCCH. ` +
+        `OCRA linked this project to the existing Digital Twin <${publishResult.status.digitalTwinUri}> ` +
+        `and published the first named graph for it.`,
+    };
   }
+
+  await assertProjectCanPublishToEchoes(projectId, hdtDocument);
 
   const params = new URLSearchParams({
     heritageEntityUri,
@@ -1709,10 +1946,59 @@ export async function registerProjectHdtInEchoes(
     throw new Error('Failed to persist the registered ECCCH identifiers locally');
   }
 
-  return {
-    status: toProjectStatus(updated),
-    message: `The project was registered in ECCCH as Digital Twin <${payload.dtUri}>.`,
-  };
+  try {
+    const publishResult = await publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'enrich');
+    return {
+      status: publishResult.status,
+      message:
+        `The project was registered in ECCCH as Digital Twin <${payload.dtUri}> ` +
+        `and its first named graph was published successfully.`,
+    };
+  } catch (error) {
+    let rollbackMessage = '';
+
+    try {
+      const rollbackPayload = await fetchEchoesJson<EchoesUnregisterResponse>(
+        sessionId,
+        `${getEchoesKbApiBase()}/hdt/unregister?${new URLSearchParams({ digitalTwinUri: payload.dtUri }).toString()}`,
+        {
+          method: 'POST',
+        },
+      );
+
+      if (!rollbackPayload.succeed) {
+        rollbackMessage =
+          ` Automatic rollback unregister also failed: ${rollbackPayload.message || 'unknown ECCCH error'}.`;
+      } else {
+        await updateHdtEchoesContext(projectId, {
+          origin: currentContext.origin,
+          projectUri: currentContext.projectUri,
+          heritageEntityUri,
+          digitalTwinUri: null,
+          digitalTwinLabel: null,
+          namedGraphUri: null,
+          syncStatus: 'local',
+          lastRegisteredAt: null,
+          lastSyncedAt: null,
+          lastSyncedProjectUpdatedAt: null,
+          projectSnapshot: null,
+        }, userId);
+        rollbackMessage =
+          ' The temporary ECCCH registration was rolled back automatically, so no empty HDT was left behind.';
+      }
+    } catch (rollbackError) {
+      rollbackMessage =
+        ` Automatic rollback unregister failed: ${
+          rollbackError instanceof Error ? rollbackError.message : 'unknown ECCCH error'
+        }.`;
+    }
+
+    throw new Error(
+      `ECCCH registration succeeded for <${payload.dtUri}>, but the first named graph could not be published: ${
+        error instanceof Error ? error.message : 'unknown publish error'
+      }.${rollbackMessage}`,
+    );
+  }
 }
 
 async function disconnectLocalProjectsFromDigitalTwin(
@@ -1793,7 +2079,56 @@ export async function unregisterDigitalTwinInEchoes(
   return {
     digitalTwinUri: trimmedDigitalTwinUri,
     disconnectedProjectIds,
+    deletedNamedGraphUris: [],
     message: payload.message || `Digital Twin <${trimmedDigitalTwinUri}> unregistered from ECCCH.`,
+  };
+}
+
+export async function deleteDigitalTwinInEchoes(
+  sessionId: string,
+  digitalTwinUri: string,
+  userId?: string,
+): Promise<EchoesUnregisterDigitalTwinResult> {
+  const trimmedDigitalTwinUri = digitalTwinUri.trim();
+  if (!trimmedDigitalTwinUri) {
+    throw new Error('digitalTwinUri is required');
+  }
+
+  const relatedGraphs = await listDigitalTwinRelatedNamedGraphs(sessionId, trimmedDigitalTwinUri);
+  const maintainedGraphs = await listDigitalTwinMaintainedNamedGraphs(sessionId, trimmedDigitalTwinUri);
+  const graphQueue = new Map<string, EchoesDigitalTwinGraphLink>();
+  for (const graph of maintainedGraphs) {
+    graphQueue.set(graph.namedGraphUri, graph);
+  }
+  for (const graph of relatedGraphs) {
+    if (!graphQueue.has(graph.namedGraphUri)) {
+      graphQueue.set(graph.namedGraphUri, graph);
+    }
+  }
+
+  const deletedNamedGraphUris: string[] = [];
+
+  for (const graph of graphQueue.values()) {
+    await deleteDigitalTwinNamedGraph(sessionId, trimmedDigitalTwinUri, graph.namedGraphUri);
+    deletedNamedGraphUris.push(graph.namedGraphUri);
+  }
+
+  const remainingGraphs = await listDigitalTwinGraphsWithRemainingContent(sessionId, trimmedDigitalTwinUri);
+  if (remainingGraphs.length > 0) {
+    throw new Error(
+      `ECCCH still reports named graphs linked to <${trimmedDigitalTwinUri}> after cleanup: ` +
+      remainingGraphs.join(', '),
+    );
+  }
+
+  const unregisterResult = await unregisterDigitalTwinInEchoes(sessionId, trimmedDigitalTwinUri, userId);
+  return {
+    ...unregisterResult,
+    deletedNamedGraphUris,
+    message:
+      deletedNamedGraphUris.length > 0
+        ? `${deletedNamedGraphUris.length} ECCCH named graph(s) deleted, then ${unregisterResult.message}`
+        : unregisterResult.message,
   };
 }
 

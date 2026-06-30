@@ -456,7 +456,7 @@ export default function HDTPage() {
         title: 'Register in ECCCH',
         message: 'Proceed with ECCCH registration for this HDT?',
         details: [
-          'This will link the local OCRA project to an ECCCH Heritage Digital Twin.',
+          'If OCRA creates a brand new ECCCH Digital Twin, it will immediately publish the current RDF as the first named graph.',
           'If the HC1 URI is already known in ECCCH, OCRA may reconcile the existing HDT instead of creating a new one.',
         ],
         actions: [
@@ -826,7 +826,7 @@ export default function HDTPage() {
       if (action === 'register') {
         const result = await registerProjectHdtInEchoes(projectId);
         setEchoesStatus(result.status);
-        setEchoesMessage(result.message || 'The project was registered in ECCCH.');
+        setEchoesMessage(result.message || 'The project was registered in ECCCH and its first named graph was published.');
       } else if (action === 'enrich') {
         const result = await enrichProjectHdtInEchoes(projectId);
         setEchoesStatus(result.status);
@@ -1532,7 +1532,7 @@ export default function HDTPage() {
                 </span>
               </div>
               <p className="text-muted small mb-3">
-                Register the local HDT in ECCCH, publish the current RDF as a named graph, then replace that content after local changes.
+                Register the local HDT in ECCCH, let OCRA publish the first named graph automatically when needed, then create or replace named graphs after local changes.
               </p>
 
               <div className="row g-3 small">
