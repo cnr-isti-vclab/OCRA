@@ -26,7 +26,7 @@ export default function EchoesImportModal({
   onClose,
   onImported,
 }: EchoesImportModalProps) {
-  const [namedGraphImportMode, setNamedGraphImportMode] = useState<'start_new_branch' | 'continue_selected_graph'>('start_new_branch');
+  const [namedGraphImportMode, setNamedGraphImportMode] = useState<'start_new_branch' | 'continue_selected_graph'>('continue_selected_graph');
   const [selection, setSelection] = useState<EchoesHdtBrowserSelection | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -55,7 +55,7 @@ export default function EchoesImportModal({
     setProjectDescription(nextSelection.detail.physicalObjectMetadata.dublinCore?.description || '');
     setProjectPublic(false);
     setImportMode(nextSelection.detail.projectSnapshot ? 'full_project_without_annotations' : 'metadata_assets');
-    setNamedGraphImportMode('start_new_branch');
+    setNamedGraphImportMode('continue_selected_graph');
   }, []);
 
   async function handleImport(): Promise<void> {
