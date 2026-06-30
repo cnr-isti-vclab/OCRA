@@ -48,6 +48,7 @@ import { deleteAnnotationLinksByProjectId, getAnnotationLinkCollection } from '.
 import { deleteHdtByProjectId, updateHdtByProjectId } from '../repositories/hdt.repository.js';
 import { getHdtCollection } from '../repositories/hdt.repository.js';
 import { projectRoot } from '../utils/project-static-paths.js';
+import { isTemporarilyBlacklistedEchoesHdtUri } from './echoes-temporary-blacklist.service.js';
 
 const DEFAULT_ECHOES_KB_API_BASE =
   'https://echoes-kb-api-route-echoes-graphs-production.apps.dcw1.paas.psnc.pl';
@@ -1538,11 +1539,28 @@ function deriveEchoesContext(projectId: string, hdtDocument: HDTDocument): Echoe
         : undefined
       : undefined;
 
+  const sanitizedDigitalTwinUri = isTemporarilyBlacklistedEchoesHdtUri(
+    hdtDocument.echoesContext?.digitalTwinUri ?? fallbackDigitalTwinUri,
+  )
+    ? undefined
+    : fallbackDigitalTwinUri;
+  const sanitizedEchoesContext = isTemporarilyBlacklistedEchoesHdtUri(hdtDocument.echoesContext?.digitalTwinUri)
+    ? {
+        ...hdtDocument.echoesContext,
+        syncStatus: 'local' as const,
+        digitalTwinUri: undefined,
+        namedGraphUri: undefined,
+        digitalTwinLabel: undefined,
+        lastRegisteredAt: undefined,
+        lastSyncedAt: undefined,
+      }
+    : hdtDocument.echoesContext;
+
   return {
     ...buildDefaultEchoesContext(projectId),
-    ...(hdtDocument.echoesContext ?? {}),
-    ...(fallbackDigitalTwinUri ? { digitalTwinUri: fallbackDigitalTwinUri } : {}),
-    ...(!hdtDocument.echoesContext?.digitalTwinLabel && fallbackDigitalTwinUri
+    ...(sanitizedEchoesContext ?? {}),
+    ...(sanitizedDigitalTwinUri ? { digitalTwinUri: sanitizedDigitalTwinUri } : {}),
+    ...(!sanitizedEchoesContext?.digitalTwinLabel && sanitizedDigitalTwinUri
       ? {
           digitalTwinLabel:
             typeof sourceRecord?.digitalTwinLabel === 'string' && sourceRecord.digitalTwinLabel.trim().length > 0

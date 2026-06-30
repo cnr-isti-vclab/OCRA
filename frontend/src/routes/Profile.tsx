@@ -226,7 +226,8 @@ export default function Profile() {
         <div className="card-body">
           <h2 className="h5 mb-3 text-secondary">Temporary ECCCH Debug Operations</h2>
           <p className="text-muted small mb-3">
-            Temporary development bridge.
+            Temporary development bridge.<br/>
+            You can create an EGI token with <a href="https://aai-demo.egi.eu/token/" target="_blank" rel="noopener noreferrer">this link</a>.
           </p>
           <label htmlFor="profile-echoes-bearer" className="form-label">
             EGI / ECCCH Bearer

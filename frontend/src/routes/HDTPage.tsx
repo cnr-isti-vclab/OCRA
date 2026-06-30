@@ -238,7 +238,27 @@ export default function HDTPage() {
   const canRegisterProjectInEchoes = isSystemAdministrator || isProjectManager;
   const canPublishProjectInEchoes = isSystemAdministrator || isProjectManager;
   const canDuplicateProjectInEchoes = isSystemAdministrator;
-  const hasEchoesRegistration = Boolean(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri);
+  const effectiveEchoesSyncStatus =
+    echoesStatus !== null
+      ? echoesStatus.syncStatus
+      : metadata?.echoesContext?.syncStatus;
+  const effectiveEchoesProjectUri =
+    echoesStatus !== null
+      ? echoesStatus.projectUri
+      : metadata?.echoesContext?.projectUri;
+  const effectiveEchoesHeritageEntityUri =
+    echoesStatus !== null
+      ? echoesStatus.heritageEntityUri
+      : metadata?.echoesContext?.heritageEntityUri;
+  const effectiveEchoesDigitalTwinUri =
+    echoesStatus !== null
+      ? echoesStatus.digitalTwinUri
+      : metadata?.echoesContext?.digitalTwinUri;
+  const effectiveEchoesNamedGraphUri =
+    echoesStatus !== null
+      ? echoesStatus.namedGraphUri
+      : metadata?.echoesContext?.namedGraphUri;
+  const hasEchoesRegistration = Boolean(effectiveEchoesDigitalTwinUri);
   const echoesReadiness = echoesStatus?.readiness ?? null;
   const echoesRequiredIssues = echoesReadiness?.requiredIssues ?? [];
   const echoesRecommendedIssues = echoesReadiness?.recommendedIssues ?? [];
@@ -289,7 +309,7 @@ export default function HDTPage() {
 
   const resolveCurrentHeritageEntityUri = (): string => {
     return normalizeOptionalText(
-      metadata?.physicalObjectMetadata?.sourceUri || metadata?.echoesContext?.heritageEntityUri,
+      metadata?.physicalObjectMetadata?.sourceUri || effectiveEchoesHeritageEntityUri,
     );
   };
 
@@ -1520,15 +1540,15 @@ export default function HDTPage() {
               <div className="d-flex align-items-center gap-2 mb-2">
                 <h5 className="mb-0">ECCCH Synchronization</h5>
                 <span className={`badge ${
-                  echoesStatus?.syncStatus === 'synced'
+                  effectiveEchoesSyncStatus === 'synced'
                     ? 'text-bg-success'
-                    : echoesStatus?.syncStatus === 'dirty'
+                    : effectiveEchoesSyncStatus === 'dirty'
                       ? 'text-bg-warning'
-                      : echoesStatus?.syncStatus === 'registered'
+                      : effectiveEchoesSyncStatus === 'registered'
                         ? 'text-bg-info'
                         : 'text-bg-secondary'
                 }`}>
-                  {getEchoesSyncStatusLabel(echoesStatus?.syncStatus || metadata?.echoesContext?.syncStatus)}
+                  {getEchoesSyncStatusLabel(effectiveEchoesSyncStatus)}
                 </span>
               </div>
               <p className="text-muted small mb-3">
@@ -1538,19 +1558,19 @@ export default function HDTPage() {
               <div className="row g-3 small">
                 <div className="col-md-6">
                   <div className="text-muted">ECHOES URI (projectURI)</div>
-                  <div className="text-break">{echoesStatus?.projectUri || metadata?.echoesContext?.projectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
+                  <div className="text-break">{effectiveEchoesProjectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
                 </div>
                 <div className="col-md-6">
                   <div className="text-muted">Heritage Entity URI (heritageEntityUri)</div>
-                  <div className="text-break">{echoesStatus?.heritageEntityUri || metadata?.echoesContext?.heritageEntityUri || metadata?.physicalObjectMetadata?.sourceUri || 'Not assigned yet'}</div>
+                  <div className="text-break">{effectiveEchoesHeritageEntityUri || metadata?.physicalObjectMetadata?.sourceUri || 'Not assigned yet'}</div>
                 </div>
                 <div className="col-md-6">
                   <div className="text-muted">Digital Twin URI (digitalTwinUri)</div>
-                  <div className="text-break">{echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri || 'Not registered yet'}</div>
+                  <div className="text-break">{effectiveEchoesDigitalTwinUri || 'Not registered yet'}</div>
                 </div>
                 <div className="col-md-6">
                   <div className="text-muted">OCRA Project URI (namedGraphUri)</div>
-                  <div className="text-break">{echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri || 'Not published yet'}</div>
+                  <div className="text-break">{effectiveEchoesNamedGraphUri || 'Not published yet'}</div>
                 </div>
               </div>
 
@@ -1607,7 +1627,7 @@ export default function HDTPage() {
                   <button
                     type="button"
                     className="btn btn-outline-primary"
-                    disabled={echoesBusy || !canPublishEchoesContent || !(echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri)}
+                    disabled={echoesBusy || !canPublishEchoesContent || !effectiveEchoesDigitalTwinUri}
                     onClick={() => openEchoesActionConfirmation('enrich')}
                   >
                     CREATE New Named Graph
@@ -1617,7 +1637,7 @@ export default function HDTPage() {
                   <button
                     type="button"
                     className="btn btn-outline-dark"
-                    disabled={echoesBusy || !canPublishEchoesContent || !(echoesStatus?.namedGraphUri || metadata?.echoesContext?.namedGraphUri)}
+                    disabled={echoesBusy || !canPublishEchoesContent || !effectiveEchoesNamedGraphUri}
                     onClick={() => openEchoesActionConfirmation('replace')}
                   >
                     UPDATE Published Named Graph

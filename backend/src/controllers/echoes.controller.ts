@@ -21,6 +21,7 @@ import {
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
 } from '../services/echoes-kb.service.js';
+import { isTemporarilyBlacklistedEchoesHdtUri } from '../services/echoes-temporary-blacklist.service.js';
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 import { getPrismaClient } from '../../db.js';
 
@@ -98,7 +99,9 @@ export async function listEchoesNamedGraphsHandler(req: Request, res: Response):
 
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : null;
-    const items = await listEchoesNamedGraphs(sessionId, search);
+    const items = (await listEchoesNamedGraphs(sessionId, search)).filter(
+      (item) => !isTemporarilyBlacklistedEchoesHdtUri(item.digitalTwinUri),
+    );
     res.json({ success: true, items });
   } catch (error) {
     sendEchoesError(
@@ -125,7 +128,9 @@ export async function listEchoesHdtsHandler(req: Request, res: Response): Promis
 
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : null;
-    const items = await listEchoesHdts(sessionId, search);
+    const items = (await listEchoesHdts(sessionId, search)).filter(
+      (item) => !isTemporarilyBlacklistedEchoesHdtUri(item.digitalTwinUri),
+    );
     res.json({ success: true, items });
   } catch (error) {
     sendEchoesError(
@@ -168,6 +173,10 @@ export async function getEchoesHdtHandler(req: Request, res: Response): Promise<
       : undefined;
 
   try {
+    if (isTemporarilyBlacklistedEchoesHdtUri(digitalTwinUri)) {
+      return sendEchoesError(req, res, 404, 'hdtNotFound', 'ECCCH HDT not found');
+    }
+
     const item = await getEchoesHdtDetail(sessionId, digitalTwinUri, namedGraphUri);
     if (!item) {
       return sendEchoesError(req, res, 404, 'hdtNotFound', 'ECCCH HDT not found');
