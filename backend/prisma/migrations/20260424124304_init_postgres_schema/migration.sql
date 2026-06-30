@@ -77,9 +77,6 @@ CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 CREATE UNIQUE INDEX "users_sub_key" ON "users"("sub");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "projects_name_key" ON "projects"("name");
-
--- CreateIndex
 CREATE UNIQUE INDEX "project_roles_userId_projectId_key" ON "project_roles"("userId", "projectId");
 
 -- CreateIndex
