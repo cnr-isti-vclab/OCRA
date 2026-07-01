@@ -91,6 +91,7 @@ services:
       REDIRECT_URI: ${REDIRECT_URI:-http://localhost:3001}
       SCOPE: ${SCOPE:-openid profile email}
       VITE_API_BASE: ${VITE_API_BASE:-http://localhost:3002}
+      SHOW_ECCCH_DEBUG_OPERATIONS: ${SHOW_ECCCH_DEBUG_OPERATIONS:-true}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public}
     depends_on:
       postgres:
