@@ -26,7 +26,7 @@ export default function EchoesHdtListWidget({
   return (
     <div className="mt-4">
       <div className="d-flex justify-content-between align-items-center mb-2">
-        <h3 className="h6 text-secondary mb-0">Active ECCCH HDTs</h3>
+        <h3 className="h6 text-secondary mb-0">Registered ECCCH HDTs</h3>
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
@@ -37,7 +37,7 @@ export default function EchoesHdtListWidget({
         </button>
       </div>
       <div className="small text-muted mb-2">
-        Digital Twins from `/api/eccch/hdts` that still have at least one active named graph in ECCCH.
+        Digital Twins from `/api/eccch/hdts` currently present in the ECCCH registration catalogue.
       </div>
       {error ? (
         <div className="alert alert-warning mb-3">{error}</div>
@@ -51,6 +51,12 @@ export default function EchoesHdtListWidget({
             {items.map((item) => (
               <div key={item.digitalTwinUri} className="list-group-item bg-transparent">
                 <div className="fw-semibold text-break">{getItemTitle(item)}</div>
+                {item.userUri ? (
+                  <>
+                    <div className="small text-muted mt-2">User</div>
+                    <div className="small text-break">{item.userUri}</div>
+                  </>
+                ) : null}
                 <div className="small text-muted mt-2">Digital Twin</div>
                 <div className="small text-break">{item.digitalTwinUri}</div>
               </div>
@@ -58,7 +64,7 @@ export default function EchoesHdtListWidget({
           </div>
         ) : (
           <div className="p-3 small text-muted">
-            {loading ? 'Loading active ECCCH HDTs...' : 'No active ECCCH HDTs found.'}
+            {loading ? 'Loading registered ECCCH HDTs...' : 'No registered ECCCH HDTs found.'}
           </div>
         )}
       </div>

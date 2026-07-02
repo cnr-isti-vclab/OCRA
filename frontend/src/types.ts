@@ -82,6 +82,7 @@ export interface EchoesNamedGraphListItem {
 export interface EchoesHdtListItem {
   digitalTwinUri: string;
   label: string | null;
+  userUri: string | null;
 }
 
 export interface EchoesHdtAsset {

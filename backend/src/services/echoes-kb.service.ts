@@ -52,6 +52,15 @@ import { projectRoot } from '../utils/project-static-paths.js';
 const DEFAULT_ECHOES_KB_API_BASE =
   'https://echoes-kb-api-route-echoes-graphs-production.apps.dcw1.paas.psnc.pl';
 const DEFAULT_ECHOES_PUBLIC_TRIPLE_STORE_ID = '6a2abf6b5d6646ff24522299';
+const DEFAULT_ECHOES_FEDERATED_TRIPLE_STORE_IDS = [
+  '6a2abf6b5d6646ff24522299',
+  '6a2abf8e5d6646ff2452229a',
+  '6a2abf9e5d6646ff2452229b',
+  '6a2abfad5d6646ff2452229c',
+  '6a2c28964d2e6b3a2e4031ea',
+  '6a2c33484d2e6b3a2e4031f1',
+  '6a38f8482837600a7ac4b9de',
+] as const;
 const DEFAULT_HDT_URI_PREFIX = 'http://echoes-eccch.eu/HDT/';
 const DEFAULT_USER_GRAPH_PREFIX = 'http://echoes-eccch.eu/kb/graph/user-';
 const ECHOES_GRAPH_MEMBERSHIP_PREDICATES = [
@@ -74,6 +83,20 @@ function getEchoesKbApiBase(): string {
 
 function getEchoesPublicTripleStoreId(): string {
   return process.env.ECHOES_KB_PUBLIC_TRIPLE_STORE_ID?.trim() || DEFAULT_ECHOES_PUBLIC_TRIPLE_STORE_ID;
+}
+
+function getEchoesFederatedTripleStoreIds(): string[] {
+  const rawValue = process.env.ECHOES_KB_FEDERATED_TRIPLE_STORE_IDS?.trim();
+  if (!rawValue) {
+    return [...DEFAULT_ECHOES_FEDERATED_TRIPLE_STORE_IDS];
+  }
+
+  const ids = rawValue
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return ids.length > 0 ? ids : [...DEFAULT_ECHOES_FEDERATED_TRIPLE_STORE_IDS];
 }
 
 function getEchoesHdtUriPrefix(): string {
@@ -104,10 +127,15 @@ interface SparqlResultsPayload {
   };
 }
 
-interface EchoesWrappedSparqlResponse {
+interface EchoesFederatedSparqlResult {
+  ['sparql-resultset']?: SparqlResultsPayload;
+  service?: string;
+}
+
+interface EchoesFederatedSparqlResponse {
   succeed?: boolean;
   message?: string;
-  results?: SparqlResultsPayload;
+  results?: EchoesFederatedSparqlResult[];
 }
 
 interface EchoesRegisterResponse {
@@ -151,6 +179,7 @@ export interface EchoesNamedGraphListItem {
 export interface EchoesHdtListItem {
   digitalTwinUri: string;
   label: string | null;
+  userUri: string | null;
 }
 
 export interface EchoesHdtAsset {
@@ -334,12 +363,17 @@ function compareGraphsDescending(
   return graphSortKey(right).localeCompare(graphSortKey(left));
 }
 
-interface EchoesMaintenanceInfo {
-  maintenanceMode: 'add' | 'replace';
-  previousNamedGraphUri: string | null;
-  maintenanceUri: string;
-  maintenanceActorUri: string | null;
-  maintenanceTimespanUri: string | null;
+function buildEchoesRegisteredHdtSearchFilter(search: string | null): string {
+  if (typeof search !== 'string' || search.trim().length === 0) {
+    return '';
+  }
+
+  const escapedSearch = escapeSparqlLiteral(search.trim());
+  return `
+  FILTER(
+    CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(STR(?hdt)), LCASE("${escapedSearch}"))
+  )`;
 }
 
 function buildEchoesActiveNamedGraphSearchFilter(search: string | null): string {
@@ -358,6 +392,44 @@ function buildEchoesActiveNamedGraphSearchFilter(search: string | null): string 
   )`;
 }
 
+function matchesEchoesNamedGraphSearch(
+  item: Pick<EchoesNamedGraphListItem, 'label' | 'title' | 'identifier' | 'digitalTwinUri' | 'namedGraphUri'>,
+  search: string | null,
+): boolean {
+  if (typeof search !== 'string' || search.trim().length === 0) {
+    return true;
+  }
+
+  const needle = search.trim().toLowerCase();
+  return [
+    item.label,
+    item.title,
+    item.identifier,
+    item.digitalTwinUri,
+    item.namedGraphUri,
+  ].some((value) => value?.toLowerCase().includes(needle) === true);
+}
+
+async function listRegisteredEchoesHdtBindings(
+  sessionId: string,
+  search: string | null,
+): Promise<Array<Record<string, SparqlBindingValue>>> {
+  const searchFilter = buildEchoesRegisteredHdtSearchFilter(search);
+  const query = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+SELECT DISTINCT ?hdt ?label ?user
+FROM <http://echoes-eccch.eu/kb/catalogue/HDT>
+WHERE {
+  ?registration a <http://isl.ics.forth.gr/ontology/echoes/HC11_Digital_Twin_Maintenance> ;
+                <http://isl.ics.forth.gr/ontology/echoes/HP19_has_composed> ?hdt .
+  OPTIONAL { ?hdt rdfs:label ?label }${searchFilter}
+  OPTIONAL { ?registration crm:P14i_was_carried_out_by ?user }
+}
+ORDER BY LCASE(COALESCE(STR(?label), STR(?hdt))) STR(?hdt)`;
+
+  return runFederatedQuery(sessionId, query);
+}
+
 async function listActiveEchoesNamedGraphBindings(
   sessionId: string,
   search: string | null,
@@ -367,81 +439,38 @@ async function listActiveEchoesNamedGraphBindings(
 PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
-SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?hc1
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?hc1 ?maintenance ?previousGraph ?actor ?timespan
 WHERE {
   GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
     ?maintenance echoes:HP19_has_composed ?hdt ;
                  echoes:HP30_added_content ?ng .
     FILTER(STRSTARTS(STR(?hdt), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
     FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
+    OPTIONAL { ?maintenance echoes:HP31_deleted_content ?previousGraph . }
+    OPTIONAL { ?maintenance crm:P14i_was_carried_out_by ?actor . }
+    OPTIONAL { ?maintenance crm:P4_has_time-span ?timespan . }
     FILTER NOT EXISTS {
       ?deleteMaintenance echoes:HP19_has_composed ?hdt ;
                          echoes:HP31_deleted_content ?ng .
     }
   }
-  GRAPH ?ng {
-    ?hdt a hdt:HC2 .
-    OPTIONAL { ?hdt rdfs:label ?label }
-    OPTIONAL {
-      ?hc1 a hdt:HC1 ;
-           hdt:HP1 ?hdt .
-      OPTIONAL { ?hc1 dc:title ?title }
-      OPTIONAL { ?hc1 dc:identifier ?identifier }
+  OPTIONAL {
+    GRAPH ?ng {
+      OPTIONAL { ?hdt a hdt:HC2 . }
+      OPTIONAL { ?hdt rdfs:label ?label }
+      OPTIONAL {
+        ?hc1 a hdt:HC1 ;
+             hdt:HP1 ?hdt .
+        OPTIONAL { ?hc1 dc:title ?title }
+        OPTIONAL { ?hc1 dc:identifier ?identifier }
+      }
     }
   }${searchFilter}
 }
 ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
 
-  return runSingleTripleStoreQuery(sessionId, query);
-}
-
-async function loadEchoesNamedGraphMaintenanceInfo(
-  sessionId: string,
-  digitalTwinUris: string[],
-): Promise<Map<string, EchoesMaintenanceInfo>> {
-  if (digitalTwinUris.length === 0) {
-    return new Map();
-  }
-
-  const values = digitalTwinUris
-    .map((uri) => `<${escapeSparqlLiteral(uri)}>`)
-    .join(' ');
-
-  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
-PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
-SELECT DISTINCT ?hdt ?maintenance ?newGraph ?previousGraph ?actor ?timespan
-WHERE {
-  VALUES ?hdt { ${values} }
-  GRAPH ?g {
-    ?maintenance echoes:HP19_has_composed ?hdt ;
-                 echoes:HP30_added_content ?newGraph .
-    OPTIONAL { ?maintenance echoes:HP31_deleted_content ?previousGraph . }
-    OPTIONAL { ?maintenance crm:P14i_was_carried_out_by ?actor . }
-    OPTIONAL { ?maintenance crm:P4_has_time-span ?timespan . }
-  }
-  FILTER(STRSTARTS(STR(?newGraph), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
-}`;
-
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
-  const infoByGraph = new Map<string, EchoesMaintenanceInfo>();
-
-  for (const binding of bindings) {
-    const newGraph = getBindingValue(binding, 'newGraph');
-    const maintenanceUri = getBindingValue(binding, 'maintenance');
-    if (!newGraph || !maintenanceUri) {
-      continue;
-    }
-
-    infoByGraph.set(newGraph, {
-      maintenanceMode: getBindingValue(binding, 'previousGraph') ? 'replace' : 'add',
-      previousNamedGraphUri: getBindingValue(binding, 'previousGraph'),
-      maintenanceUri,
-      maintenanceActorUri: getBindingValue(binding, 'actor'),
-      maintenanceTimespanUri: getBindingValue(binding, 'timespan'),
-    });
-  }
-
-  return infoByGraph;
+  return runFederatedQuery(sessionId, query);
 }
 
 async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
@@ -512,71 +541,104 @@ async function fetchEchoesJson<T>(sessionId: string, input: string, init: Reques
   return (await response.json()) as T;
 }
 
-async function runSingleTripleStoreQuery(
+function extractBindings(payload: SparqlResultsPayload | undefined): Array<Record<string, SparqlBindingValue>> {
+  return payload?.results?.bindings ?? [];
+}
+
+function dedupeBindings(
+  bindings: Array<Record<string, SparqlBindingValue>>,
+): Array<Record<string, SparqlBindingValue>> {
+  const deduped: Array<Record<string, SparqlBindingValue>> = [];
+  const seen = new Set<string>();
+
+  for (const binding of bindings) {
+    const key = JSON.stringify(
+      Object.keys(binding)
+        .sort()
+        .map((field) => [field, binding[field]?.value ?? null]),
+    );
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(binding);
+  }
+
+  return deduped;
+}
+
+async function runFederatedQuery(
   sessionId: string,
-  query: string
+  query: string,
 ): Promise<Array<Record<string, SparqlBindingValue>>> {
-  const payload = await fetchEchoesJson<EchoesWrappedSparqlResponse>(
+  const payload = await fetchEchoesJson<EchoesFederatedSparqlResponse>(
     sessionId,
-    `${getEchoesKbApiBase()}/repository/singleTripleStoreQuery`,
+    `${getEchoesKbApiBase()}/repository/inParallelQuery`,
     {
-    method: 'POST',
+      method: 'POST',
       headers: {
-      'Content-Type': 'application/json',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        executorTripleStoreId: getEchoesPublicTripleStoreId(),
         query,
+        tripleStoreIds: getEchoesFederatedTripleStoreIds(),
+        executorTripleStoreId: getEchoesPublicTripleStoreId(),
       }),
     },
   );
-  if (!payload.succeed || !payload.results?.results?.bindings) {
+
+  if (!payload.succeed || !Array.isArray(payload.results)) {
     return [];
   }
 
-  return payload.results.results.bindings;
+  return dedupeBindings(
+    payload.results.flatMap((result) => extractBindings(result['sparql-resultset'])),
+  );
 }
 
 export async function listEchoesNamedGraphs(
   sessionId: string,
   search: string | null
 ): Promise<EchoesNamedGraphListItem[]> {
-  const bindings = await listActiveEchoesNamedGraphBindings(sessionId, search);
-  const baseItems: EchoesNamedGraphListItem[] = bindings.map((binding) => ({
-    namedGraphUri: getBindingValue(binding, 'ng') ?? '',
-    digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
-    label: getBindingValue(binding, 'label'),
-    title: getBindingValue(binding, 'title'),
-    identifier: getBindingValue(binding, 'identifier'),
-    heritageEntityUri: getBindingValue(binding, 'hc1'),
-    graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
-    graphState: 'current' as const,
-    maintenanceMode: 'unknown' as const,
-    previousNamedGraphUri: null,
-    maintenanceUri: null,
-    maintenanceActorUri: null,
-    maintenanceTimespanUri: null,
-  })).filter((item) => item.namedGraphUri && item.digitalTwinUri);
+  const [registeredBindings, activeBindings] = await Promise.all([
+    listRegisteredEchoesHdtBindings(sessionId, null),
+    listActiveEchoesNamedGraphBindings(sessionId, null),
+  ]);
 
-  const uniqueDigitalTwinUris = Array.from(new Set(baseItems.map((item) => item.digitalTwinUri)));
-  const maintenanceInfoByGraph = await loadEchoesNamedGraphMaintenanceInfo(sessionId, uniqueDigitalTwinUris);
+  const registeredLabelByUri = new Map<string, string | null>();
+  for (const binding of registeredBindings) {
+    const digitalTwinUri = getBindingValue(binding, 'hdt');
+    if (!digitalTwinUri) {
+      continue;
+    }
+    registeredLabelByUri.set(digitalTwinUri, getBindingValue(binding, 'label'));
+  }
 
-  return baseItems
-    .map((item) => {
-      const maintenanceInfo = maintenanceInfoByGraph.get(item.namedGraphUri);
-      if (!maintenanceInfo) {
-        return item;
-      }
-
+  return activeBindings
+    .map((binding) => {
+      const digitalTwinUri = getBindingValue(binding, 'hdt') ?? '';
       return {
-        ...item,
-        maintenanceMode: maintenanceInfo.maintenanceMode,
-        previousNamedGraphUri: maintenanceInfo.previousNamedGraphUri,
-        maintenanceUri: maintenanceInfo.maintenanceUri,
-        maintenanceActorUri: maintenanceInfo.maintenanceActorUri,
-        maintenanceTimespanUri: maintenanceInfo.maintenanceTimespanUri,
+        namedGraphUri: getBindingValue(binding, 'ng') ?? '',
+        digitalTwinUri,
+        label: getBindingValue(binding, 'label') ?? registeredLabelByUri.get(digitalTwinUri) ?? null,
+        title: getBindingValue(binding, 'title'),
+        identifier: getBindingValue(binding, 'identifier'),
+        heritageEntityUri: getBindingValue(binding, 'hc1'),
+        graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
+        graphState: 'current' as const,
+        maintenanceMode: getBindingValue(binding, 'previousGraph') ? ('replace' as const) : ('add' as const),
+        previousNamedGraphUri: getBindingValue(binding, 'previousGraph'),
+        maintenanceUri: getBindingValue(binding, 'maintenance'),
+        maintenanceActorUri: getBindingValue(binding, 'actor'),
+        maintenanceTimespanUri: getBindingValue(binding, 'timespan'),
       };
     })
+    .filter((item) =>
+      item.namedGraphUri &&
+      item.digitalTwinUri &&
+      registeredLabelByUri.has(item.digitalTwinUri) &&
+      matchesEchoesNamedGraphSearch(item, search)
+    )
     .sort(compareGraphsDescending);
 }
 
@@ -584,11 +646,39 @@ export async function listEchoesHdts(
   sessionId: string,
   search: string | null
 ): Promise<EchoesHdtListItem[]> {
-  const bindings = await listActiveEchoesNamedGraphBindings(sessionId, search);
-  const items = bindings
+  const [registeredBindings, activeBindings] = await Promise.all([
+    listRegisteredEchoesHdtBindings(sessionId, search),
+    listActiveEchoesNamedGraphBindings(sessionId, null),
+  ]);
+
+  const registrationActorByDigitalTwinUri = new Map<string, string | null>();
+  for (const binding of registeredBindings) {
+    const digitalTwinUri = getBindingValue(binding, 'hdt');
+    if (!digitalTwinUri || registrationActorByDigitalTwinUri.has(digitalTwinUri)) {
+      continue;
+    }
+
+    registrationActorByDigitalTwinUri.set(digitalTwinUri, getBindingValue(binding, 'user'));
+  }
+
+  const currentActorByDigitalTwinUri = new Map<string, string | null>();
+  for (const binding of activeBindings) {
+    const digitalTwinUri = getBindingValue(binding, 'hdt');
+    if (!digitalTwinUri || currentActorByDigitalTwinUri.has(digitalTwinUri)) {
+      continue;
+    }
+
+    currentActorByDigitalTwinUri.set(digitalTwinUri, getBindingValue(binding, 'actor'));
+  }
+
+  const items = registeredBindings
     .map((binding) => ({
       digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
-      label: getBindingValue(binding, 'label') ?? getBindingValue(binding, 'title'),
+      label: getBindingValue(binding, 'label'),
+      userUri:
+        registrationActorByDigitalTwinUri.get(getBindingValue(binding, 'hdt') ?? '') ??
+        currentActorByDigitalTwinUri.get(getBindingValue(binding, 'hdt') ?? '') ??
+        null,
     }))
     .filter((item) => item.digitalTwinUri);
 
@@ -601,6 +691,11 @@ export async function listEchoesHdts(
     }
 
     if (!existing.label && item.label) {
+      dedupedItems.set(item.digitalTwinUri, item);
+      continue;
+    }
+
+    if (!existing.userUri && item.userUri) {
       dedupedItems.set(item.digitalTwinUri, item);
     }
   }
@@ -668,7 +763,7 @@ WHERE {
   FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))${namedGraphFilter}
 }`;
 
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await runFederatedQuery(sessionId, query);
   if (bindings.length === 0) {
     return null;
   }
@@ -757,38 +852,19 @@ async function findCurrentEchoesRegistrationByHeritageEntityUri(
     return null;
   }
 
-  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
-PREFIX dc: <http://purl.org/dc/elements/1.1/>
-PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-SELECT DISTINCT ?digitalTwinUri ?ng ?label
+SELECT DISTINCT ?digitalTwinUri ?label
+FROM <http://echoes-eccch.eu/kb/catalogue/HDT>
 WHERE {
-  GRAPH ?g {
-    {
-      <${escapeSparqlLiteral(trimmedHeritageEntityUri)}> hdt:HP1 ?digitalTwinUri .
-    } UNION {
-      ?hc1 dc:identifier "${escapeSparqlLiteral(trimmedHeritageEntityUri)}"^^xsd:string .
-      ?hc1 hdt:HP1 ?digitalTwinUri .
-    }
-    OPTIONAL { ?digitalTwinUri rdfs:label ?label }
-  }
-  OPTIONAL {
-    GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
-      ?maintenance echoes:HP19_has_composed ?digitalTwinUri ;
-                   echoes:HP30_added_content ?ng .
-      FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
-      FILTER NOT EXISTS {
-        ?deleteMaintenance echoes:HP19_has_composed ?digitalTwinUri ;
-                           echoes:HP31_deleted_content ?ng .
-      }
-    }
-  }
+  ?maintenance echoes:HP18_has_documented <${escapeSparqlLiteral(trimmedHeritageEntityUri)}> ;
+               echoes:HP19_has_composed ?digitalTwinUri .
+  OPTIONAL { ?digitalTwinUri rdfs:label ?label }
   FILTER(STRSTARTS(STR(?digitalTwinUri), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
 }
 LIMIT 1`;
 
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await runFederatedQuery(sessionId, query);
   if (bindings.length === 0) {
     return null;
   }
@@ -799,9 +875,12 @@ LIMIT 1`;
     return null;
   }
 
+  const maintainedNamedGraphs = await listDigitalTwinMaintainedNamedGraphs(sessionId, digitalTwinUri);
+  const currentNamedGraph = maintainedNamedGraphs.find((item) => item.graphState === 'current');
+
   return {
     digitalTwinUri,
-    namedGraphUri: getBindingValue(first, 'ng'),
+    namedGraphUri: currentNamedGraph?.namedGraphUri ?? null,
     digitalTwinLabel: getBindingValue(first, 'label'),
   };
 }
@@ -826,7 +905,7 @@ WHERE {
 }
 ORDER BY ?ng`;
 
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await runFederatedQuery(sessionId, query);
   return bindings
     .map((binding) => {
       const namedGraphUri = getBindingValue(binding, 'ng');
@@ -879,7 +958,7 @@ WHERE {
 }
 ORDER BY ?ng`;
 
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await runFederatedQuery(sessionId, query);
   const items = bindings
     .map((binding) => {
       const namedGraphUri = getBindingValue(binding, 'ng');
@@ -959,7 +1038,7 @@ WHERE {
 }
 ORDER BY ?ng`;
 
-  const bindings = await runSingleTripleStoreQuery(sessionId, query);
+  const bindings = await runFederatedQuery(sessionId, query);
   return bindings
     .map((binding) => getBindingValue(binding, 'ng'))
     .filter((namedGraphUri): namedGraphUri is string => Boolean(namedGraphUri));

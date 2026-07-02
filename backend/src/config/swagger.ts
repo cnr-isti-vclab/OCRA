@@ -496,6 +496,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               nullable: true,
               example: 'HDT UC2 Lamina',
             },
+            userUri: {
+              type: 'string',
+              nullable: true,
+              example: 'http://echoes-eccch.eu/user/fbettio',
+            },
           },
         },
         EchoesNamedGraphListItem: {
