@@ -530,6 +530,16 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               nullable: true,
               example: 'UC2-LAMINA-SANTANTIOCO-2026',
             },
+            subject: {
+              type: 'string',
+              nullable: true,
+              example: 'Allegoria della disperazione',
+            },
+            description: {
+              type: 'string',
+              nullable: true,
+              example: 'Monument with a bronze statue representing a kneeling woman in despair.',
+            },
             heritageEntityUri: {
               type: 'string',
               nullable: true,

@@ -167,6 +167,8 @@ export interface EchoesNamedGraphListItem {
   label: string | null;
   title: string | null;
   identifier: string | null;
+  subject: string | null;
+  description: string | null;
   heritageEntityUri: string | null;
   graphDate: string | null;
   graphState: 'current' | 'former' | 'unknown';
@@ -394,13 +396,15 @@ function buildEchoesActiveNamedGraphSearchFilter(search: string | null): string 
     CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapedSearch}")) ||
     CONTAINS(LCASE(COALESCE(STR(?title), "")), LCASE("${escapedSearch}")) ||
     CONTAINS(LCASE(COALESCE(STR(?identifier), "")), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(COALESCE(STR(?subject), "")), LCASE("${escapedSearch}")) ||
+    CONTAINS(LCASE(COALESCE(STR(?description), "")), LCASE("${escapedSearch}")) ||
     CONTAINS(LCASE(STR(?hdt)), LCASE("${escapedSearch}")) ||
     CONTAINS(LCASE(STR(?ng)), LCASE("${escapedSearch}"))
   )`;
 }
 
 function matchesEchoesNamedGraphSearch(
-  item: Pick<EchoesNamedGraphListItem, 'label' | 'title' | 'identifier' | 'digitalTwinUri' | 'namedGraphUri'>,
+  item: Pick<EchoesNamedGraphListItem, 'label' | 'title' | 'identifier' | 'subject' | 'description' | 'digitalTwinUri' | 'namedGraphUri'>,
   search: string | null,
 ): boolean {
   if (typeof search !== 'string' || search.trim().length === 0) {
@@ -412,6 +416,8 @@ function matchesEchoesNamedGraphSearch(
     item.label,
     item.title,
     item.identifier,
+    item.subject,
+    item.description,
     item.digitalTwinUri,
     item.namedGraphUri,
   ].some((value) => value?.toLowerCase().includes(needle) === true);
@@ -447,7 +453,7 @@ PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
-SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?hc1 ?maintenance ?previousGraph ?actor ?timespan
+SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?subject ?description ?hc1 ?maintenance ?previousGraph ?actor ?timespan
 WHERE {
   GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
     ?maintenance echoes:HP19_has_composed ?hdt ;
@@ -471,11 +477,13 @@ WHERE {
              hdt:HP1 ?hdt .
         OPTIONAL { ?hc1 dc:title ?title }
         OPTIONAL { ?hc1 dc:identifier ?identifier }
+        OPTIONAL { ?hc1 dc:subject ?subject }
+        OPTIONAL { ?hc1 dc:description ?description }
       }
     }
   }${searchFilter}
 }
-ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?hdt))) DESC(STR(?ng))`;
+ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?subject), STR(?description), STR(?hdt))) DESC(STR(?ng))`;
 
   return runFederatedQuery(sessionId, query);
 }
@@ -630,6 +638,8 @@ export async function listEchoesNamedGraphs(
         label: getBindingValue(binding, 'label') ?? registeredLabelByUri.get(digitalTwinUri) ?? null,
         title: getBindingValue(binding, 'title'),
         identifier: getBindingValue(binding, 'identifier'),
+        subject: getBindingValue(binding, 'subject'),
+        description: getBindingValue(binding, 'description'),
         heritageEntityUri: getBindingValue(binding, 'hc1'),
         graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
         graphState: 'current' as const,

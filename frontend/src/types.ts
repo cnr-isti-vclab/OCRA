@@ -69,6 +69,8 @@ export interface EchoesNamedGraphListItem {
   label: string | null;
   title: string | null;
   identifier: string | null;
+  subject: string | null;
+  description: string | null;
   heritageEntityUri: string | null;
   graphDate: string | null;
   graphState: 'current' | 'former' | 'unknown';
