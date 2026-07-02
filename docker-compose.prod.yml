@@ -19,6 +19,8 @@ services:
 
   app:
     restart: unless-stopped
+    environment:
+      SHOW_ECCCH_DEBUG_OPERATIONS: ${SHOW_ECCCH_DEBUG_OPERATIONS:-false}
     expose:
       - "80"
     networks:

@@ -9,6 +9,7 @@ import {
 } from '../services/EchoesApi';
 import type { EchoesHdtListItem } from '../types';
 import EchoesHdtListWidget from '../shared/ui/EchoesHdtListWidget';
+import { isEccchDebugOperationsEnabled } from '../config/appConfig';
 
 /**
  * PROFILE ROUTE COMPONENT (Updated for Backend API)
@@ -35,6 +36,7 @@ import EchoesHdtListWidget from '../shared/ui/EchoesHdtListWidget';
  */
 
 export default function Profile() {
+  const showEccchDebugOperations = isEccchDebugOperationsEnabled();
   type CurrentUserInfo = Awaited<ReturnType<typeof getCurrentUser>>;
   type OperationFeedback = {
     kind: 'success' | 'error';
@@ -222,6 +224,7 @@ export default function Profile() {
         <div className="card p-4 text-center text-muted">Loading user information...</div>
       )}
 
+      {showEccchDebugOperations ? (
       <div className="card shadow-sm" style={{ maxWidth: 720 }}>
         <div className="card-body">
           <h2 className="h5 mb-3 text-secondary">Temporary ECCCH Debug Operations</h2>
@@ -327,6 +330,7 @@ export default function Profile() {
           ) : null}
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

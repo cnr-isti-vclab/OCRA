@@ -5,5 +5,6 @@ window.__APP_CONFIG__ = window.__APP_CONFIG__ || {
   issuer: 'http://localhost:8081/realms/demo',
   clientId: 'react-oauth',
   redirectUri: 'http://localhost:3001',
-  scope: 'openid profile email'
+  scope: 'openid profile email',
+  showEccchDebugOperations: true
 };

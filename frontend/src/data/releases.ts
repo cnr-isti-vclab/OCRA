@@ -11,6 +11,14 @@ export interface Release {
  */
 export const releases: Release[] = [
   {
+    version: '202607',
+    date: 'Jul 2026',
+    highlights: [
+      'Advanced ECCCH integration: named-graph lineage, HDT discovery, and safer Digital Twin register/unregister workflows',
+      'Searchable vocabulary tree and ArCo browser for ontology-driven metadata and classification',
+    ],
+  },
+  {
     version: '202606',
     date: 'Jun 2026',
     highlights: [

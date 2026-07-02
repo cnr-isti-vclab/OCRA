@@ -1,23 +1,10 @@
+import { getRuntimeAppConfig } from './appConfig';
+
 /**
  * OAuth Configuration
  *
  * Central configuration for OAuth2 PKCE flow with Keycloak
  */
-
-// Extend Window interface for runtime config
-declare global {
-  interface Window {
-    __APP_CONFIG__?: {
-      providerUrl?: string;
-      realm?: string;
-      issuer?: string;
-      clientId?: string;
-      redirectUri?: string;
-      scope?: string;
-      apiBase?: string;
-    };
-  }
-}
 
 const CANONICAL_LOCAL_FRONTEND_ORIGIN = 'http://localhost:3001';
 const LEGACY_LOCAL_FRONTEND_ORIGIN = 'http://localhost:5173';
@@ -30,15 +17,15 @@ function isLocalDevOrigin(origin: string) {
 export const OAUTH_CONFIG = new Proxy({} as any, {
   get(target, prop) {
     const config = {
-      issuer: typeof window !== 'undefined' && window.__APP_CONFIG__?.issuer 
-        ? window.__APP_CONFIG__.issuer 
+      issuer: getRuntimeAppConfig().issuer
+        ? getRuntimeAppConfig().issuer
         : 'http://localhost:8081/realms/demo',
-      clientId: typeof window !== 'undefined' && window.__APP_CONFIG__?.clientId 
-        ? window.__APP_CONFIG__.clientId 
+      clientId: getRuntimeAppConfig().clientId
+        ? getRuntimeAppConfig().clientId
         : 'react-oauth',
       redirectUri: getRedirectUri(), // Use dynamic redirect URI logic
-      scope: typeof window !== 'undefined' && window.__APP_CONFIG__?.scope 
-        ? window.__APP_CONFIG__.scope 
+      scope: getRuntimeAppConfig().scope
+        ? getRuntimeAppConfig().scope
         : 'openid profile email'
     };
     return config[prop as keyof typeof config];
@@ -49,10 +36,9 @@ export const OAUTH_CONFIG = new Proxy({} as any, {
 export function getRedirectUri(): string {
   // Docker/Production: Use runtime config from window.__APP_CONFIG__
   // BUT ignore if it's one of the local development fallback values
-  if (typeof window !== 'undefined' && 
-      window.__APP_CONFIG__?.redirectUri && 
-      !isLocalDevOrigin(window.__APP_CONFIG__.redirectUri)) {
-    return window.__APP_CONFIG__.redirectUri;
+  const redirectUri = getRuntimeAppConfig().redirectUri;
+  if (redirectUri && !isLocalDevOrigin(redirectUri)) {
+    return redirectUri;
   }
 
   // Production/Docker: Use current origin (works for nginx reverse proxy)
@@ -73,8 +59,9 @@ export function getApiBase(): string {
   }
 
   // Docker/Production: Use runtime config from window.__APP_CONFIG__
-  if (typeof window !== 'undefined' && window.__APP_CONFIG__?.apiBase) {
-    return window.__APP_CONFIG__.apiBase;
+  const apiBase = getRuntimeAppConfig().apiBase;
+  if (apiBase) {
+    return apiBase;
   }
 
   // Production with reverse proxy: Use relative URL (same origin)

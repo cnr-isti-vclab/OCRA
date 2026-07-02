@@ -10,7 +10,8 @@ window.__APP_CONFIG__ = {
   clientId: "${CLIENT_ID:-}",
   redirectUri: "${REDIRECT_URI:-}",
   scope: "${SCOPE:-}",
-  apiBase: "${VITE_API_BASE:-http://localhost:3002}"
+  apiBase: "${VITE_API_BASE:-http://localhost:3002}",
+  showEccchDebugOperations: ${SHOW_ECCCH_DEBUG_OPERATIONS:-false}
 };
 EOF
 
