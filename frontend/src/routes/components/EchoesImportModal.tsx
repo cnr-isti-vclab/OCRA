@@ -54,7 +54,7 @@ export default function EchoesImportModal({
     setProjectName(resolveDetailProjectName(nextSelection));
     setProjectDescription(nextSelection.detail.physicalObjectMetadata.dublinCore?.description || '');
     setProjectPublic(false);
-    setImportMode(nextSelection.detail.projectSnapshot ? 'full_project_without_annotations' : 'metadata_assets');
+    setImportMode(nextSelection.detail.projectSnapshotEmbedded ? 'full_project_without_annotations' : 'metadata_assets');
     setNamedGraphImportMode('continue_selected_graph');
   }, []);
 
@@ -254,7 +254,7 @@ export default function EchoesImportModal({
                               name="echoesImportMode"
                               checked={importMode === 'full_project_without_annotations'}
                               onChange={() => setImportMode('full_project_without_annotations')}
-                              disabled={importBusy || !detail.projectSnapshot}
+                              disabled={importBusy || !detail.projectSnapshotEmbedded}
                             />
                             <label className="form-check-label" htmlFor="echoesImportModeFullNoAnnotations">
                               Full OCRA project without annotations
@@ -268,7 +268,11 @@ export default function EchoesImportModal({
                               name="echoesImportMode"
                               checked={importMode === 'full_project_with_annotations'}
                               onChange={() => setImportMode('full_project_with_annotations')}
-                              disabled={importBusy || !detail.projectSnapshot || detail.projectSnapshot.includesAnnotations === false}
+                              disabled={
+                                importBusy ||
+                                !detail.projectSnapshotEmbedded ||
+                                detail.projectSnapshot?.includesAnnotations === false
+                              }
                             />
                             <label className="form-check-label" htmlFor="echoesImportModeFullWithAnnotations">
                               Full OCRA project with annotations
@@ -276,16 +280,16 @@ export default function EchoesImportModal({
                           </div>
                         </div>
                         <div className="form-text">
-                          {detail.projectSnapshot
+                          {detail.projectSnapshotEmbedded
                             ? [
-                                `This named graph links an OCRA snapshot (${detail.projectSnapshot.format}, v${detail.projectSnapshot.version}).`,
-                                detail.projectSnapshot.includesAnnotations === true
+                                `This named graph embeds an OCRA snapshot (${detail.projectSnapshot?.format ?? 'application/json'}, v${detail.projectSnapshot?.version ?? 1}).`,
+                                detail.projectSnapshot?.includesAnnotations === true
                                   ? ' Annotations are included.'
-                                  : detail.projectSnapshot.includesAnnotations === false
+                                  : detail.projectSnapshot?.includesAnnotations === false
                                     ? ' This snapshot was exported without annotations.'
                                     : '',
                               ].join('')
-                            : 'This named graph does not expose an OCRA snapshot, so only metadata and assets can be imported.'}
+                            : 'This named graph does not contain an embedded OCRA snapshot, so only metadata and assets can be imported.'}
                         </div>
                       </div>
                     </div>

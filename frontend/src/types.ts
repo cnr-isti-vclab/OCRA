@@ -139,6 +139,7 @@ export interface EchoesHdtDetail {
   physicalObjectMetadata: EchoesPhysicalObjectMetadata;
   assets: EchoesHdtAsset[];
   projectSnapshot: EchoesProjectSnapshotSummary | null;
+  projectSnapshotEmbedded: boolean;
 }
 
 export interface EchoesImportedProjectSummary {

@@ -22,9 +22,10 @@ import {
   serializeHdtDocumentAsEchoesRdf,
 } from './echoes-rdf.service.js';
 import {
-  fetchOcraProjectSnapshot,
   type OcraProjectSnapshotPayload,
+  isOcraProjectSnapshotPayload,
   OCRA_PROJECT_SNAPSHOT_FORMAT,
+  OCRA_PROJECT_SNAPSHOT_VERSION,
   projectSnapshotToImportSourceBundle,
   storeOcraProjectSnapshot,
 } from './ocra-project-snapshot.service.js';
@@ -216,6 +217,7 @@ export interface EchoesHdtDetail {
   physicalObjectMetadata: PhysicalObjectMetadata;
   assets: EchoesHdtAsset[];
   projectSnapshot: EchoesProjectSnapshotSummary | null;
+  projectSnapshotEmbedded: boolean;
 }
 
 export interface CreateProjectFromEchoesHdtInput {
@@ -251,6 +253,11 @@ export interface CreateProjectFromEchoesHdtResult {
   echoes: EchoesHdtDetail;
   importedAssetCount: number;
   importedAnnotationCount: number;
+}
+
+interface EchoesHdtDetailWithSnapshotPayload {
+  detail: EchoesHdtDetail;
+  snapshotPayload: OcraProjectSnapshotPayload | null;
 }
 
 export interface EchoesProjectStatus {
@@ -710,6 +717,31 @@ export async function getEchoesHdtDetail(
   digitalTwinUri: string,
   namedGraphUri?: string
 ): Promise<EchoesHdtDetail | null> {
+  const result = await getEchoesHdtDetailWithSnapshotPayload(sessionId, digitalTwinUri, namedGraphUri);
+  return result?.detail ?? null;
+}
+
+function parseEmbeddedProjectSnapshotPayload(snapshotJson: string | null): OcraProjectSnapshotPayload | null {
+  if (!snapshotJson) {
+    return null;
+  }
+
+  const parsed = JSON.parse(snapshotJson) as unknown;
+  if (!isOcraProjectSnapshotPayload(parsed)) {
+    throw new Error('The embedded OCRA project snapshot exposed by this ECCCH named graph is invalid or unsupported.');
+  }
+  if (parsed.manifest.version !== OCRA_PROJECT_SNAPSHOT_VERSION) {
+    throw new Error(`Unsupported embedded OCRA project snapshot version: ${parsed.manifest.version}`);
+  }
+
+  return parsed;
+}
+
+async function getEchoesHdtDetailWithSnapshotPayload(
+  sessionId: string,
+  digitalTwinUri: string,
+  namedGraphUri?: string
+): Promise<EchoesHdtDetailWithSnapshotPayload | null> {
   const escapedDtUri = escapeSparqlLiteral(digitalTwinUri);
   const namedGraphFilter = namedGraphUri
     ? `\n  FILTER(?ng = <${escapeSparqlLiteral(namedGraphUri)}>)`
@@ -719,7 +751,7 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 PREFIX ocra: <https://data.ocra.echoes.eu/ontology#>
-SELECT DISTINCT ?ng ?hdt ?hdtLabel ?hc1 ?hc1Label ?hc1Title ?hc1Identifier ?hc1Description ?hc1Creator ?hc1Date ?hc1Coverage ?hc1Rights ?hc1Subject ?hc1Type ?hc1Language ?hc1Source ?asset ?assetLabel ?assetTitle ?assetDescription ?assetSource ?assetFormat ?assetHc1 ?snapshot ?snapshotVersion ?snapshotFormat ?snapshotCreated ?snapshotChecksum ?snapshotIncludesAnnotations
+SELECT DISTINCT ?ng ?hdt ?hdtLabel ?hc1 ?hc1Label ?hc1Title ?hc1Identifier ?hc1Description ?hc1Creator ?hc1Date ?hc1Coverage ?hc1Rights ?hc1Subject ?hc1Type ?hc1Language ?hc1Source ?asset ?assetLabel ?assetTitle ?assetDescription ?assetSource ?assetFormat ?assetHc1 ?snapshot ?snapshotVersion ?snapshotFormat ?snapshotCreated ?snapshotChecksum ?snapshotIncludesAnnotations ?snapshotJson
 WHERE {
   GRAPH ?ng {
     BIND(<${escapedDtUri}> AS ?hdt)
@@ -758,6 +790,7 @@ WHERE {
       OPTIONAL { ?snapshot dcterms:created ?snapshotCreated }
       OPTIONAL { ?snapshot ocra:sha256 ?snapshotChecksum }
       OPTIONAL { ?snapshot ocra:snapshotIncludesAnnotations ?snapshotIncludesAnnotations }
+      OPTIONAL { ?snapshot ocra:snapshotJson ?snapshotJson }
     }
   }
   FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))${namedGraphFilter}
@@ -770,6 +803,7 @@ WHERE {
 
   const first = bindings[0];
   const hc1Uri = getBindingValue(first, 'hc1');
+  const snapshotPayload = parseEmbeddedProjectSnapshotPayload(getBindingValue(first, 'snapshotJson'));
   const detail: EchoesHdtDetail = {
     namedGraphUri: getBindingValue(first, 'ng') ?? '',
     digitalTwinUri,
@@ -814,6 +848,7 @@ WHERE {
             : getBindingValue(first, 'snapshotIncludesAnnotations') === 'true',
         }
       : null,
+    projectSnapshotEmbedded: snapshotPayload !== null,
   };
 
   const assetMap = new Map<string, EchoesHdtAsset>();
@@ -840,7 +875,7 @@ WHERE {
     }
   }
   detail.assets = Array.from(assetMap.values());
-  return detail;
+  return { detail, snapshotPayload };
 }
 
 async function findCurrentEchoesRegistrationByHeritageEntityUri(
@@ -1495,19 +1530,19 @@ async function importFullOcraProjectSnapshotFromEchoes(
   user: User,
   input: CreateProjectFromEchoesHdtInput,
   detail: EchoesHdtDetail,
+  snapshotPayload: OcraProjectSnapshotPayload | null,
   includeAnnotations: boolean,
 ): Promise<CreateProjectFromEchoesHdtResult> {
-  if (!detail.projectSnapshot?.url) {
-    throw new Error('This ECCCH HDT does not expose an OCRA project snapshot for full import.');
+  if (!snapshotPayload) {
+    throw new Error('This ECCCH HDT does not contain an embedded OCRA project snapshot for full import.');
   }
 
-  const snapshot = await fetchOcraProjectSnapshot(detail.projectSnapshot.url);
   const namedGraphImportMode = input.namedGraphImportMode ?? 'start_new_branch';
   return importFullOcraProjectSnapshot(
     user,
     input,
     detail,
-    snapshot,
+    snapshotPayload,
     includeAnnotations,
     (projectId) => buildLiveEchoesImportedContext(projectId, detail, namedGraphImportMode),
     {
@@ -1523,10 +1558,11 @@ export async function createProjectFromEchoesHdt(
   user: User,
   input: CreateProjectFromEchoesHdtInput
 ): Promise<CreateProjectFromEchoesHdtResult> {
-  const detail = await getEchoesHdtDetail(sessionId, input.digitalTwinUri, input.namedGraphUri);
-  if (!detail) {
+  const detailResult = await getEchoesHdtDetailWithSnapshotPayload(sessionId, input.digitalTwinUri, input.namedGraphUri);
+  if (!detailResult) {
     throw new Error('ECCCH HDT not found');
   }
+  const { detail, snapshotPayload } = detailResult;
 
   const fallbackName =
     input.name?.trim() ||
@@ -1543,6 +1579,12 @@ export async function createProjectFromEchoesHdt(
   const importMode = input.importMode ?? 'metadata_assets';
   const namedGraphImportMode = input.namedGraphImportMode ?? 'start_new_branch';
   if (importMode === 'full_project_without_annotations' || importMode === 'full_project_with_annotations') {
+    if (!snapshotPayload) {
+      throw new Error('This ECCCH named graph does not contain an embedded OCRA project snapshot. Only metadata and portable assets can be imported.');
+    }
+    if (importMode === 'full_project_with_annotations' && detail.projectSnapshot?.includesAnnotations === false) {
+      throw new Error('This ECCCH named graph was exported without annotations, so a full import with annotations is not available.');
+    }
     return importFullOcraProjectSnapshotFromEchoes(
       user,
       {
@@ -1550,6 +1592,7 @@ export async function createProjectFromEchoesHdt(
         namedGraphImportMode,
       },
       detail,
+      snapshotPayload,
       importMode === 'full_project_with_annotations',
     );
   }

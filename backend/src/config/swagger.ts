@@ -621,7 +621,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
         },
         EchoesHdtDetail: {
           type: 'object',
-          required: ['namedGraphUri', 'digitalTwinUri', 'physicalObjectMetadata', 'assets'],
+          required: ['namedGraphUri', 'digitalTwinUri', 'physicalObjectMetadata', 'assets', 'projectSnapshotEmbedded'],
           properties: {
             namedGraphUri: {
               type: 'string',
@@ -651,6 +651,12 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             projectSnapshot: {
               allOf: [{ $ref: '#/components/schemas/EchoesProjectSnapshotSummary' }],
               nullable: true,
+            },
+            projectSnapshotEmbedded: {
+              type: 'boolean',
+              example: true,
+              description:
+                'Whether this ECCCH named graph embeds an OCRA snapshot payload that can be used for full project import.',
             },
           },
         },

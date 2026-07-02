@@ -224,6 +224,7 @@ export function parseEchoesRdfImport(rdfXml: string, fileName?: string): ParsedE
     physicalObjectMetadata: buildPhysicalObjectMetadata(hc1Block, hc2Block, fileName),
     assets,
     projectSnapshot: snapshot.summary,
+    projectSnapshotEmbedded: snapshot.payload !== undefined,
   };
 
   return {
