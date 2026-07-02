@@ -385,24 +385,6 @@ function buildEchoesRegisteredHdtSearchFilter(search: string | null): string {
   )`;
 }
 
-function buildEchoesActiveNamedGraphSearchFilter(search: string | null): string {
-  if (typeof search !== 'string' || search.trim().length === 0) {
-    return '';
-  }
-
-  const escapedSearch = escapeSparqlLiteral(search.trim());
-  return `
-  FILTER(
-    CONTAINS(LCASE(COALESCE(STR(?label), "")), LCASE("${escapedSearch}")) ||
-    CONTAINS(LCASE(COALESCE(STR(?title), "")), LCASE("${escapedSearch}")) ||
-    CONTAINS(LCASE(COALESCE(STR(?identifier), "")), LCASE("${escapedSearch}")) ||
-    CONTAINS(LCASE(COALESCE(STR(?subject), "")), LCASE("${escapedSearch}")) ||
-    CONTAINS(LCASE(COALESCE(STR(?description), "")), LCASE("${escapedSearch}")) ||
-    CONTAINS(LCASE(STR(?hdt)), LCASE("${escapedSearch}")) ||
-    CONTAINS(LCASE(STR(?ng)), LCASE("${escapedSearch}"))
-  )`;
-}
-
 function matchesEchoesNamedGraphSearch(
   item: Pick<EchoesNamedGraphListItem, 'label' | 'title' | 'identifier' | 'subject' | 'description' | 'digitalTwinUri' | 'namedGraphUri'>,
   search: string | null,
@@ -445,9 +427,8 @@ ORDER BY LCASE(COALESCE(STR(?label), STR(?hdt))) STR(?hdt)`;
 
 async function listActiveEchoesNamedGraphBindings(
   sessionId: string,
-  search: string | null,
+  _search: string | null,
 ): Promise<Array<Record<string, SparqlBindingValue>>> {
-  const searchFilter = buildEchoesActiveNamedGraphSearchFilter(search);
   const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
 PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -481,11 +462,125 @@ WHERE {
         OPTIONAL { ?hc1 dc:description ?description }
       }
     }
-  }${searchFilter}
-}
-ORDER BY LCASE(COALESCE(STR(?label), STR(?title), STR(?identifier), STR(?subject), STR(?description), STR(?hdt))) DESC(STR(?ng))`;
+  }
+}`;
 
   return runFederatedQuery(sessionId, query);
+}
+
+function appendUniqueTextValue(values: string[], value: string | null): void {
+  if (!value) {
+    return;
+  }
+
+  if (!values.includes(value)) {
+    values.push(value);
+  }
+}
+
+function joinUniqueTextValues(values: string[]): string | null {
+  return values.length > 0 ? values.join(', ') : null;
+}
+
+function aggregateActiveEchoesNamedGraphBindings(
+  bindings: Array<Record<string, SparqlBindingValue>>,
+  registeredLabelByUri: Map<string, string | null>,
+): EchoesNamedGraphListItem[] {
+  const grouped = new Map<
+    string,
+    EchoesNamedGraphListItem & {
+      _subjectValues: string[];
+      _descriptionValues: string[];
+    }
+  >();
+
+  for (const binding of bindings) {
+    const namedGraphUri = getBindingValue(binding, 'ng') ?? '';
+    const digitalTwinUri = getBindingValue(binding, 'hdt') ?? '';
+    if (!namedGraphUri || !digitalTwinUri) {
+      continue;
+    }
+
+    const key = `${digitalTwinUri}::${namedGraphUri}`;
+    const existing = grouped.get(key);
+    const subject = getBindingValue(binding, 'subject');
+    const description = getBindingValue(binding, 'description');
+
+    if (existing) {
+      if (!existing.label) {
+        existing.label = getBindingValue(binding, 'label') ?? registeredLabelByUri.get(digitalTwinUri) ?? null;
+      }
+      if (!existing.title) {
+        existing.title = getBindingValue(binding, 'title');
+      }
+      if (!existing.identifier) {
+        existing.identifier = getBindingValue(binding, 'identifier');
+      }
+      if (!existing.heritageEntityUri) {
+        existing.heritageEntityUri = getBindingValue(binding, 'hc1');
+      }
+      if (!existing.previousNamedGraphUri) {
+        existing.previousNamedGraphUri = getBindingValue(binding, 'previousGraph');
+        if (existing.previousNamedGraphUri) {
+          existing.maintenanceMode = 'replace';
+        }
+      }
+      if (!existing.maintenanceUri) {
+        existing.maintenanceUri = getBindingValue(binding, 'maintenance');
+      }
+      if (!existing.maintenanceActorUri) {
+        existing.maintenanceActorUri = getBindingValue(binding, 'actor');
+      }
+      if (!existing.maintenanceTimespanUri) {
+        existing.maintenanceTimespanUri = getBindingValue(binding, 'timespan');
+      }
+      appendUniqueTextValue(existing._subjectValues, subject);
+      appendUniqueTextValue(existing._descriptionValues, description);
+      continue;
+    }
+
+    const item = {
+      namedGraphUri,
+      digitalTwinUri,
+      label: getBindingValue(binding, 'label') ?? registeredLabelByUri.get(digitalTwinUri) ?? null,
+      title: getBindingValue(binding, 'title'),
+      identifier: getBindingValue(binding, 'identifier'),
+      subject: null,
+      description: null,
+      heritageEntityUri: getBindingValue(binding, 'hc1'),
+      graphDate: extractGraphDateFromNamedGraphUri(namedGraphUri),
+      graphState: 'current' as const,
+      maintenanceMode: getBindingValue(binding, 'previousGraph') ? ('replace' as const) : ('add' as const),
+      previousNamedGraphUri: getBindingValue(binding, 'previousGraph'),
+      maintenanceUri: getBindingValue(binding, 'maintenance'),
+      maintenanceActorUri: getBindingValue(binding, 'actor'),
+      maintenanceTimespanUri: getBindingValue(binding, 'timespan'),
+      _subjectValues: [] as string[],
+      _descriptionValues: [] as string[],
+    };
+
+    appendUniqueTextValue(item._subjectValues, subject);
+    appendUniqueTextValue(item._descriptionValues, description);
+    grouped.set(key, item);
+  }
+
+  return Array.from(grouped.values()).map((item) => ({
+    namedGraphUri: item.namedGraphUri,
+    digitalTwinUri: item.digitalTwinUri,
+    label: item.label,
+    title: item.title,
+    identifier: item.identifier,
+    subject: joinUniqueTextValues(item._subjectValues),
+    description: joinUniqueTextValues(item._descriptionValues),
+    heritageEntityUri: item.heritageEntityUri,
+    graphDate: item.graphDate,
+    graphState: item.graphState,
+    maintenanceMode: item.maintenanceMode,
+    previousNamedGraphUri: item.previousNamedGraphUri,
+    maintenanceUri: item.maintenanceUri,
+    maintenanceActorUri: item.maintenanceActorUri,
+    maintenanceTimespanUri: item.maintenanceTimespanUri,
+  }));
 }
 
 async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
@@ -629,27 +724,7 @@ export async function listEchoesNamedGraphs(
     registeredLabelByUri.set(digitalTwinUri, getBindingValue(binding, 'label'));
   }
 
-  return activeBindings
-    .map((binding) => {
-      const digitalTwinUri = getBindingValue(binding, 'hdt') ?? '';
-      return {
-        namedGraphUri: getBindingValue(binding, 'ng') ?? '',
-        digitalTwinUri,
-        label: getBindingValue(binding, 'label') ?? registeredLabelByUri.get(digitalTwinUri) ?? null,
-        title: getBindingValue(binding, 'title'),
-        identifier: getBindingValue(binding, 'identifier'),
-        subject: getBindingValue(binding, 'subject'),
-        description: getBindingValue(binding, 'description'),
-        heritageEntityUri: getBindingValue(binding, 'hc1'),
-        graphDate: extractGraphDateFromNamedGraphUri(getBindingValue(binding, 'ng') ?? ''),
-        graphState: 'current' as const,
-        maintenanceMode: getBindingValue(binding, 'previousGraph') ? ('replace' as const) : ('add' as const),
-        previousNamedGraphUri: getBindingValue(binding, 'previousGraph'),
-        maintenanceUri: getBindingValue(binding, 'maintenance'),
-        maintenanceActorUri: getBindingValue(binding, 'actor'),
-        maintenanceTimespanUri: getBindingValue(binding, 'timespan'),
-      };
-    })
+  return aggregateActiveEchoesNamedGraphBindings(activeBindings, registeredLabelByUri)
     .filter((item) =>
       item.namedGraphUri &&
       item.digitalTwinUri &&
