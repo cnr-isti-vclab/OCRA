@@ -101,6 +101,19 @@ SCOPE=openid profile email
 # VITE_API_BASE=https://ocra.isti.cnr.it
 ```
 
+### Optional: Pre-register creator users for first deployment
+
+If you want specific real users to already have `sys_creator` rights before their first login:
+
+1. Copy:
+   - `backend/config/system-users.example.json`
+   to:
+   - `backend/config/system-users.json`
+2. Fill it with the real people to pre-register.
+3. Keep the real file uncommitted; it is ignored by Git.
+
+At container startup, OCRA will read `backend/config/system-users.json` if present and upsert those users by email. New entries are created with a temporary `pending:*` subject and are linked to the real OAuth `sub` on first successful login.
+
 > **Note:** If the MongoDB volume already exists, rerun the bootstrap after deployment to ensure `ocra_audit`, `ocra_content`, and the annotation collections exist:
 > ```bash
 > npm run mongo:init

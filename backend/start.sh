@@ -79,6 +79,20 @@ npx prisma@5.18.0 db push --schema=./prisma/schema.prisma --accept-data-loss
 echo "✅ Database schema synchronized"
 
 # =============================================================================
+# 1b. OPTIONAL SYSTEM USER BOOTSTRAP (idempotent)
+# =============================================================================
+SYSTEM_USERS_BOOTSTRAP_FILE="${SYSTEM_USERS_BOOTSTRAP_FILE:-./config/system-users.json}"
+if [ -f "$SYSTEM_USERS_BOOTSTRAP_FILE" ]; then
+  echo "👥 Bootstrapping configured system users..."
+  if ! npx tsx ./scripts/bootstrap-system-users.ts "$SYSTEM_USERS_BOOTSTRAP_FILE"; then
+    echo "⚠️  System user bootstrap failed (non-blocking, continuing...)"
+  fi
+  echo "✅ System user bootstrap step completed"
+else
+  echo "ℹ️  No system user bootstrap file found at $SYSTEM_USERS_BOOTSTRAP_FILE"
+fi
+
+# =============================================================================
 # 2. SEEDING (only if NODE_ENV=development)
 # =============================================================================
 if [ "${NODE_ENV:-production}" = "development" ]; then

@@ -1,0 +1,20 @@
+[
+  {
+    "email": "alice.surname@example.org",
+    "name": "Alice Surname",
+    "username": "alice.surname",
+    "given_name": "Alice",
+    "family_name": "Surname",
+    "sys_creator": true,
+    "sys_admin": false
+  },
+  {
+    "email": "bob.surname@example.org",
+    "name": "Bob Surname",
+    "username": "bob.surname",
+    "given_name": "Bob",
+    "family_name": "Surname",
+    "sys_creator": true,
+    "sys_admin": false
+  }
+]
