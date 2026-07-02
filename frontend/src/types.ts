@@ -113,6 +113,11 @@ export interface EchoesProjectSnapshotSummary {
   includesAnnotations: boolean | null;
 }
 
+export interface EchoesEmbeddedProjectMetadata {
+  name: string | null;
+  description: string | null;
+}
+
 export interface EchoesPhysicalObjectMetadata {
   sourceUri: string;
   sourceType: 'echoes' | 'wikidata' | 'arco' | 'other';
@@ -142,6 +147,7 @@ export interface EchoesHdtDetail {
   assets: EchoesHdtAsset[];
   projectSnapshot: EchoesProjectSnapshotSummary | null;
   projectSnapshotEmbedded: boolean;
+  embeddedProjectMetadata: EchoesEmbeddedProjectMetadata | null;
 }
 
 export interface EchoesImportedProjectSummary {

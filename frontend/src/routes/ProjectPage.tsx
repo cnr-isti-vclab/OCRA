@@ -790,7 +790,6 @@ export default function ProjectPage() {
                     <span className="badge bg-primary">Annotation Store Lab</span>
                   )}
                 </div>
-                {project.description && <p className="text-muted mb-0">{project.description}</p>}
               </div>
             </div>
             <div className="d-flex align-items-center gap-3">

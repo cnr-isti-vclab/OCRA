@@ -225,6 +225,12 @@ export function parseEchoesRdfImport(rdfXml: string, fileName?: string): ParsedE
     assets,
     projectSnapshot: snapshot.summary,
     projectSnapshotEmbedded: snapshot.payload !== undefined,
+    embeddedProjectMetadata: snapshot.payload
+      ? {
+          name: snapshot.payload.project.name ?? null,
+          description: snapshot.payload.project.description ?? null,
+        }
+      : null,
   };
 
   return {

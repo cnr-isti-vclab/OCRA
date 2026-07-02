@@ -629,6 +629,21 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
+        EchoesEmbeddedProjectMetadata: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              nullable: true,
+              example: 'Allegoria della Disperazione - Monumento ai caduti della prima guerra mondiale',
+            },
+            description: {
+              type: 'string',
+              nullable: true,
+              example: 'Photogrammetric 3D model created for documentation, visual analysis, and scholarly annotation.',
+            },
+          },
+        },
         EchoesHdtDetail: {
           type: 'object',
           required: ['namedGraphUri', 'digitalTwinUri', 'physicalObjectMetadata', 'assets', 'projectSnapshotEmbedded'],
@@ -667,6 +682,12 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               example: true,
               description:
                 'Whether this ECCCH named graph embeds an OCRA snapshot payload that can be used for full project import.',
+            },
+            embeddedProjectMetadata: {
+              allOf: [{ $ref: '#/components/schemas/EchoesEmbeddedProjectMetadata' }],
+              nullable: true,
+              description:
+                'Project name and description embedded in the OCRA snapshot, when available. These describe the OCRA study/project, not the heritage entity metadata.',
             },
           },
         },

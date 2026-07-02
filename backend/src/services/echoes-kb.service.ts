@@ -220,6 +220,10 @@ export interface EchoesHdtDetail {
   assets: EchoesHdtAsset[];
   projectSnapshot: EchoesProjectSnapshotSummary | null;
   projectSnapshotEmbedded: boolean;
+  embeddedProjectMetadata: {
+    name: string | null;
+    description: string | null;
+  } | null;
 }
 
 export interface CreateProjectFromEchoesHdtInput {
@@ -934,6 +938,12 @@ WHERE {
         }
       : null,
     projectSnapshotEmbedded: snapshotPayload !== null,
+    embeddedProjectMetadata: snapshotPayload
+      ? {
+          name: snapshotPayload.project.name ?? null,
+          description: snapshotPayload.project.description ?? null,
+        }
+      : null,
   };
 
   const assetMap = new Map<string, EchoesHdtAsset>();

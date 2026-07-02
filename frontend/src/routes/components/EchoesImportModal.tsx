@@ -14,10 +14,20 @@ interface EchoesImportModalProps {
 function resolveDetailProjectName(selection: EchoesHdtBrowserSelection): string {
   const { detail } = selection;
   return (
+    detail.embeddedProjectMetadata?.name ||
     detail.physicalObjectMetadata.dublinCore?.title ||
     detail.physicalObjectMetadata.sourceRecord?.['heritageEntityLabel']?.toString() ||
     detail.digitalTwinLabel ||
     detail.digitalTwinUri
+  );
+}
+
+function resolveDetailProjectDescription(selection: EchoesHdtBrowserSelection): string {
+  const { detail } = selection;
+  return (
+    detail.embeddedProjectMetadata?.description ||
+    detail.physicalObjectMetadata.dublinCore?.description ||
+    ''
   );
 }
 
@@ -52,7 +62,7 @@ export default function EchoesImportModal({
     }
 
     setProjectName(resolveDetailProjectName(nextSelection));
-    setProjectDescription(nextSelection.detail.physicalObjectMetadata.dublinCore?.description || '');
+    setProjectDescription(resolveDetailProjectDescription(nextSelection));
     setProjectPublic(false);
     setImportMode(nextSelection.detail.projectSnapshotEmbedded ? 'full_project_without_annotations' : 'metadata_assets');
     setNamedGraphImportMode('continue_selected_graph');
