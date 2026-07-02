@@ -26,6 +26,7 @@ internaldoc/
 media/LargeModels/
 media/private
 backend/exports/
+backend/config/system-users.json
 
 #Directory for local dev
 project_files
