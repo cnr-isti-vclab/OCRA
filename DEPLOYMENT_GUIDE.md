@@ -86,6 +86,11 @@ MONGO_CONTENT_DB=ocra_content
 SYS_ADMIN_EMAIL=admin@isti.cnr.it
 CORS_ORIGINS=https://ocra.isti.cnr.it
 NODE_ENV=production
+# Keep demo users/projects out of production by default
+RUN_DEMO_PROJECT_SEED=false
+RUN_DEMO_USERS_SEED=false
+# Optional: when RUN_DEMO_PROJECT_SEED=true, assign the demo project to this real user
+# DEMO_PROJECT_MANAGER_EMAIL=real.creator@example.org
 
 # Auth
 ISSUER=https://ocra.isti.cnr.it/auth/realms/demo
@@ -113,6 +118,18 @@ If you want specific real users to already have `sys_creator` rights before thei
 3. Keep the real file uncommitted; it is ignored by Git.
 
 At container startup, OCRA will read `backend/config/system-users.json` if present and upsert those users by email. New entries are created with a temporary `pending:*` subject and are linked to the real OAuth `sub` on first successful login.
+
+### Optional: Seed the demo project without demo users
+
+For a production-like deployment where the Galassi demo project is useful but fake demo users are not, use:
+
+```bash
+RUN_DEMO_PROJECT_SEED=true
+RUN_DEMO_USERS_SEED=false
+DEMO_PROJECT_MANAGER_EMAIL=<one email from backend/config/system-users.json>
+```
+
+This seeds the demo project and assigns its manager role to the configured real user. If no manager email/sub is configured, OCRA falls back to the first existing `sys_admin` or `sys_creator` user.
 
 > **Note:** If the MongoDB volume already exists, rerun the bootstrap after deployment to ensure `ocra_audit`, `ocra_content`, and the annotation collections exist:
 > ```bash
@@ -171,8 +188,9 @@ server {
 
 ```bash
 docker compose exec backend npx prisma db push
-docker compose exec backend npm run seed  # Optional
 ```
+
+Do not run `npm run seed` on production unless you intentionally want the local demo users and demo project content. Use `backend/config/system-users.json` instead for real creator/admin accounts.
 
 ## Key Differences
 
@@ -182,6 +200,7 @@ docker compose exec backend npm run seed  # Optional
 | **Networks** | Default bridge | host-proxy-net + internal-net |
 | **node_modules** | Volume mounted | Built into image |
 | **Keycloak** | Local (H2 database) | Not included |
+| **Demo seed** | Demo users + project enabled by override | Disabled by default; project can be enabled without demo users |
 | **Passwords** | Default | Strong required |
 | **URLs** | localhost | domain.com |
 

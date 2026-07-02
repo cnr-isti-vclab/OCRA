@@ -112,11 +112,12 @@ const GALASSI_VOCABULARY = {
   public: true,
 } as const;
 
-const GALASSI_AUDIT_EVENTS = [
+function buildGalassiAuditEvents(managerSub: string) {
+  return [
   {
     eventId: '77c3637a-dd72-470a-905a-c927add81625',
     ts: new Date('2026-04-08T20:42:07.910Z'),
-    userSub: GALASSI_PROJECT.managerSub,
+    userSub: managerSub,
     action: 'project.create',
     resource: null,
     success: true,
@@ -130,7 +131,7 @@ const GALASSI_AUDIT_EVENTS = [
   {
     eventId: 'a778fe46-16e9-4642-8531-b069049c4511',
     ts: new Date('2026-04-08T20:42:26.740Z'),
-    userSub: GALASSI_PROJECT.managerSub,
+    userSub: managerSub,
     action: 'project.update',
     resource: { type: 'project', id: GALASSI_PROJECT.id },
     success: true,
@@ -147,7 +148,7 @@ const GALASSI_AUDIT_EVENTS = [
   {
     eventId: '8afa23ce-365d-48a8-9e74-f4ef5ad4ab15',
     ts: new Date('2026-04-08T20:42:34.090Z'),
-    userSub: GALASSI_PROJECT.managerSub,
+    userSub: managerSub,
     action: 'hdt.asset.create',
     resource: null,
     success: true,
@@ -165,7 +166,7 @@ const GALASSI_AUDIT_EVENTS = [
   {
     eventId: '96317128-cb08-4a5f-a2e3-0552ff9cda6b',
     ts: new Date('2026-04-08T20:42:34.289Z'),
-    userSub: GALASSI_PROJECT.managerSub,
+    userSub: managerSub,
     action: 'hdt.asset.update',
     resource: null,
     success: true,
@@ -183,7 +184,12 @@ const GALASSI_AUDIT_EVENTS = [
       ],
     },
   },
-] as const;
+];
+}
+
+function shouldSeedDemoUsers() {
+  return process.env.RUN_DEMO_USERS_SEED === 'true';
+}
 
 function galassiEntryPoint(projectId: string) {
   return `/assets/projects/${projectId}/3d-model/${GALASSI_ASSET.id}/${MODEL_FILE_NAME}`;
@@ -260,6 +266,43 @@ async function seedUsers() {
   }
 
   return users;
+}
+
+async function resolveDemoProjectManager() {
+  const managerEmail = process.env.DEMO_PROJECT_MANAGER_EMAIL?.trim().toLowerCase();
+  const managerSub = process.env.DEMO_PROJECT_MANAGER_SUB?.trim();
+
+  if (managerEmail || managerSub) {
+    const manager = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(managerEmail ? [{ email: managerEmail }] : []),
+          ...(managerSub ? [{ sub: managerSub }] : []),
+        ],
+      },
+    });
+
+    if (!manager) {
+      throw new Error(
+        `Configured demo project manager not found. DEMO_PROJECT_MANAGER_EMAIL=${managerEmail || '(empty)'}, DEMO_PROJECT_MANAGER_SUB=${managerSub || '(empty)'}`,
+      );
+    }
+
+    return manager;
+  }
+
+  const fallbackManager = await prisma.user.findFirst({
+    where: { OR: [{ sys_admin: true }, { sys_creator: true }] },
+    orderBy: [{ sys_admin: 'desc' }, { sys_creator: 'desc' }, { createdAt: 'asc' }],
+  });
+
+  if (!fallbackManager) {
+    throw new Error(
+      'No demo project manager found. Configure DEMO_PROJECT_MANAGER_EMAIL or bootstrap at least one sys_admin/sys_creator user.',
+    );
+  }
+
+  return fallbackManager;
 }
 
 async function seedVocabulary() {
@@ -344,7 +387,7 @@ async function seedProject(managerUserId: string) {
   return project;
 }
 
-async function seedMongo(projectId: string) {
+async function seedMongo(projectId: string, managerSub: string) {
   console.log('🌱 Seeding MongoDB HDT and audit data...');
 
   const contentDb = await getContentDb();
@@ -399,7 +442,7 @@ async function seedMongo(projectId: string) {
           entrySize: GALASSI_ASSET.entrySize,
           metadata: {},
           uploadedAt: GALASSI_ASSET.uploadedAt,
-          uploadedBy: GALASSI_PROJECT.managerSub,
+          uploadedBy: managerSub,
           fileName: MODEL_FILE_NAME,
         },
       ],
@@ -415,13 +458,13 @@ async function seedMongo(projectId: string) {
       ],
       createdAt: new Date('2026-04-08T20:42:14.907Z'),
       updatedAt: new Date('2026-04-08T20:42:34.287Z'),
-      createdBy: GALASSI_PROJECT.managerSub,
-      updatedBy: GALASSI_PROJECT.managerSub,
+      createdBy: managerSub,
+      updatedBy: managerSub,
     },
     { upsert: true }
   );
 
-  for (const event of GALASSI_AUDIT_EVENTS) {
+  for (const event of buildGalassiAuditEvents(managerSub)) {
     await auditDb.collection('audit').replaceOne({ eventId: event.eventId }, event, { upsert: true });
   }
 
@@ -464,15 +507,17 @@ async function main() {
   console.log('   Keycloak users are imported separately from keycloak/realm-export/demo-realm.json');
   console.log('');
 
-  const users = await seedUsers();
-  const manager = users.find((user) => user.sub === GALASSI_PROJECT.managerSub);
-  if (!manager) {
-    throw new Error(`Manager user ${GALASSI_PROJECT.managerSub} not found after seeding users`);
+  if (shouldSeedDemoUsers()) {
+    await seedUsers();
+  } else {
+    console.log('ℹ️  Demo user seed skipped (RUN_DEMO_USERS_SEED is not true)');
   }
+
+  const manager = await resolveDemoProjectManager();
 
   await seedVocabulary();
   const project = await seedProject(manager.id);
-  await seedMongo(project.id);
+  await seedMongo(project.id, manager.sub);
   await seedProjectFiles(project.id);
 
   console.log('');
@@ -481,13 +526,16 @@ async function main() {
   console.log(`   Asset: ${MODEL_FILE_NAME}`);
   console.log('   Keycloak realm: demo');
   console.log('');
-  console.log('👤 Demo users ready:');
-  console.log('   - administrator / admin@ocra.it');
-  console.log('   - museum-director / museum-director');
-  console.log('   - lab-head / lab-head');
-  console.log('   - conservator / conservator');
-  console.log('   - student / student');
-  console.log('   - restorator / restorator');
+  console.log(`👤 Project manager: ${manager.email} (${manager.sub})`);
+  if (shouldSeedDemoUsers()) {
+    console.log('👤 Demo users ready:');
+    console.log('   - administrator / admin@ocra.it');
+    console.log('   - museum-director / museum-director');
+    console.log('   - lab-head / lab-head');
+    console.log('   - conservator / conservator');
+    console.log('   - student / student');
+    console.log('   - restorator / restorator');
+  }
   console.log('');
 }
 

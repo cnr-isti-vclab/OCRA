@@ -55,11 +55,15 @@ services:
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       SWAGGER_PUBLIC_SERVER_URL: ${SWAGGER_PUBLIC_SERVER_URL:-}
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       # OAuth Configuration
       ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
       CLIENT_ID: ${CLIENT_ID:-react-oauth}
       CLIENT_SECRET: ${CLIENT_SECRET}
+      RUN_DEMO_PROJECT_SEED: ${RUN_DEMO_PROJECT_SEED:-false}
+      RUN_DEMO_USERS_SEED: ${RUN_DEMO_USERS_SEED:-false}
+      DEMO_PROJECT_MANAGER_EMAIL: ${DEMO_PROJECT_MANAGER_EMAIL:-}
+      DEMO_PROJECT_MANAGER_SUB: ${DEMO_PROJECT_MANAGER_SUB:-}
     depends_on:
       postgres:
         condition: service_healthy

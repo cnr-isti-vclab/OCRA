@@ -42,6 +42,8 @@ services:
       - "5555:5555"
     environment:
       NODE_ENV: development
+      RUN_DEMO_PROJECT_SEED: true
+      RUN_DEMO_USERS_SEED: true
       # In Docker, backend must reach Keycloak via internal service name
       ISSUER: http://keycloak:8080/realms/demo
     volumes:

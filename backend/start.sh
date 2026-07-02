@@ -93,14 +93,16 @@ else
 fi
 
 # =============================================================================
-# 2. SEEDING (only if NODE_ENV=development)
+# 2. DEMO SEEDING (explicitly enabled in local development)
 # =============================================================================
-if [ "${NODE_ENV:-production}" = "development" ]; then
+if [ "${RUN_DEMO_PROJECT_SEED:-false}" = "true" ]; then
   echo "🌱 Seeding database with essential data..."
   if ! npx tsx seed.ts; then
     echo "⚠️  Seeding failed (non-blocking, continuing...)"
   fi
   echo "✅ Database seeded"
+else
+  echo "ℹ️  Demo seed skipped (RUN_DEMO_PROJECT_SEED is not true)"
 fi
 
 # =============================================================================

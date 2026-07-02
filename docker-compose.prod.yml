@@ -11,6 +11,12 @@ services:
 
   backend:
     restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      RUN_DEMO_PROJECT_SEED: ${RUN_DEMO_PROJECT_SEED:-false}
+      RUN_DEMO_USERS_SEED: ${RUN_DEMO_USERS_SEED:-false}
+      DEMO_PROJECT_MANAGER_EMAIL: ${DEMO_PROJECT_MANAGER_EMAIL:-}
+      DEMO_PROJECT_MANAGER_SUB: ${DEMO_PROJECT_MANAGER_SUB:-}
     expose:
       - "3002"
     networks:

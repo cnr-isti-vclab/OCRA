@@ -4,7 +4,11 @@ This document explains how the database seeding works in OCRA.
 
 ## Overview
 
-The `seed.ts` script is automatically run when the backend container starts (via `start.sh`). It populates the database with:
+The `seed.ts` script is a local development/demo seed. The backend startup script runs it only when `RUN_DEMO_PROJECT_SEED=true`.
+
+Demo user creation is separately controlled by `RUN_DEMO_USERS_SEED=true`.
+
+It populates the database with:
 
 1. **Demo Projects** - 4 example projects including two with pre-populated 3D models
 2. **Demo Users** - 3 test users from the Keycloak demo realm
@@ -73,7 +77,18 @@ To add a new project with pre-populated files:
 
 ## Running Manually
 
-The seed script runs automatically on container startup. To run it manually:
+In local Docker development, `docker-compose.override.yml` sets `RUN_DEMO_PROJECT_SEED=true`.
+It also sets `RUN_DEMO_USERS_SEED=true`, so the local Keycloak demo users match the seeded PostgreSQL users.
+
+For production-like deployments you can seed only the Galassi demo project:
+
+```bash
+RUN_DEMO_PROJECT_SEED=true
+RUN_DEMO_USERS_SEED=false
+DEMO_PROJECT_MANAGER_EMAIL=real.creator@example.org
+```
+
+To run it manually:
 
 ```bash
 # Inside the backend container
@@ -84,3 +99,5 @@ docker-compose exec backend npm run seed
 ```
 
 Note: Running the seed script multiple times is safe - it uses `upsert` operations that won't create duplicates.
+
+Do not run this script in production unless you explicitly want the demo users and demo project content.
