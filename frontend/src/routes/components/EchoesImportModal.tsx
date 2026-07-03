@@ -159,7 +159,7 @@ export default function EchoesImportModal({
                         <div className="small text-muted">Graph date: {item.graphDate}</div>
                       )}
                       {detail.heritageEntityUri && (
-                        <div className="small text-muted text-break">HC1 URI: {detail.heritageEntityUri}</div>
+                        <div className="small text-muted text-break">Heritage Entity URI: {detail.heritageEntityUri}</div>
                       )}
                     </div>
 

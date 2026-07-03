@@ -1205,7 +1205,7 @@ async function reconcileExistingEchoesRegistration(
   return {
     status: toProjectStatus(reconciled),
     message:
-      `HC1 URI <${heritageEntityUri}> is already present in ECCCH. ` +
+      `Heritage Entity <${heritageEntityUri}> is already present in ECCCH. ` +
       `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>. ` +
       (existingRegistration.namedGraphUri
         ? `Current named graph <${existingRegistration.namedGraphUri}> was also detected.`
@@ -1846,7 +1846,7 @@ function buildEchoesProjectReadiness(projectId: string, hdtDocument: HDTDocument
       code: 'missing_heritage_entity_uri',
       severity: 'recommended',
       field: 'physicalObjectMetadata.sourceUri',
-      message: 'HC1 URI is missing. OCRA can generate one, but an explicit URI is recommended for stable ECCCH references.',
+      message: 'Heritage Entity URI is missing. OCRA can generate one, but an explicit URI is recommended for stable ECCCH references.',
     });
   }
 
@@ -2052,7 +2052,7 @@ export async function registerProjectHdtInEchoes(
     return {
       status: publishResult.status,
       message:
-        `HC1 URI <${heritageEntityUri}> is already present in ECCCH. ` +
+        `Heritage Entity URI <${heritageEntityUri}> is already present in ECCCH. ` +
         `OCRA linked this project to the existing Digital Twin <${publishResult.status.digitalTwinUri}> ` +
         `and published the first named graph for it.`,
     };

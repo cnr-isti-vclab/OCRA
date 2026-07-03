@@ -103,7 +103,7 @@ function EchoesImportForm({
                 <div className="small text-muted mt-2 text-break">Digital Twin URI: {currentGraph.digitalTwinUri}</div>
                 <div className="small text-muted text-break">Named Graph: {currentGraph.namedGraphUri}</div>
                 {currentGraph.heritageEntityUri && (
-                  <div className="small text-muted text-break">HC1 URI: {currentGraph.heritageEntityUri}</div>
+                  <div className="small text-muted text-break">Heritage Entity URI: {currentGraph.heritageEntityUri}</div>
                 )}
                 {currentGraph.graphDate && (
                   <div className="small text-muted">Graph date: {currentGraph.graphDate}</div>

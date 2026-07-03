@@ -477,7 +477,7 @@ export default function HDTPage() {
         message: 'Proceed with ECCCH registration for this HDT?',
         details: [
           'If OCRA creates a brand new ECCCH Digital Twin, it will immediately publish the current RDF as the first named graph.',
-          'If the HC1 URI is already known in ECCCH, OCRA may reconcile the existing HDT instead of creating a new one.',
+          'If the Heritage Entity URI is already known in ECCCH, OCRA may reconcile the existing HDT instead of creating a new one.',
         ],
         actions: [
           { key: 'cancel', label: 'Cancel', tone: 'secondary' },
@@ -806,7 +806,7 @@ export default function HDTPage() {
       missingFieldLabels.push('Current Title');
     }
     if (!heritageEntityUri) {
-      missingFieldLabels.push('HC1 URI');
+      missingFieldLabels.push('Heritage Entity URI');
     }
 
     const assetSourceUrls: Record<string, string> = {};
@@ -1684,7 +1684,7 @@ export default function HDTPage() {
                           />
                         </div>
                         <div className="mb-2">
-                          <label htmlFor="duplicate-echoes-hc1-uri" className="form-label form-label-sm">New HC1 URI</label>
+                          <label htmlFor="duplicate-echoes-hc1-uri" className="form-label form-label-sm">New Heritage Entity URI</label>
                           <input
                             id="duplicate-echoes-hc1-uri"
                             className="form-control form-control-sm"
@@ -2812,7 +2812,7 @@ export default function HDTPage() {
 
               {!echoesPreparation.heritageEntityUri.trim() && (
                 <div className="mb-3">
-                  <label htmlFor="echoes-prep-hc1-uri" className="form-label">HC1 URI</label>
+                  <label htmlFor="echoes-prep-hc1-uri" className="form-label">Heritage Entity URI</label>
                   <input
                     id="echoes-prep-hc1-uri"
                     type="url"

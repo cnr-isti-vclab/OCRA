@@ -203,7 +203,7 @@ function DefaultDetailPanel({
         <div className="small text-muted text-break">Previous named graph: {item.previousNamedGraphUri}</div>
       )}
       {detail.heritageEntityUri && (
-        <div className="small text-muted text-break">HC1 URI: {detail.heritageEntityUri}</div>
+        <div className="small text-muted text-break">Heritage Entity URI: {detail.heritageEntityUri}</div>
       )}
       <div className="small text-muted text-break">
         OCRA snapshot: {detail.projectSnapshotEmbedded ? `embedded${detail.projectSnapshot ? ` (v${detail.projectSnapshot.version})` : ''}` : 'not available'}
