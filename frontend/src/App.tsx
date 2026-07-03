@@ -30,6 +30,8 @@ export default function App() {
             setIsAuthenticated(true);
             setUser(currentUser);
             navigate('/projects');
+          } else if (urlParams.get('login') === '1') {
+            await startAuthFlow();
           }
         }
       } catch (e: any) {
