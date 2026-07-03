@@ -176,30 +176,6 @@ export function isOcraProjectSnapshotPayload(value: unknown): value is OcraProje
   );
 }
 
-export async function fetchOcraProjectSnapshot(snapshotUrl: string): Promise<OcraProjectSnapshotPayload> {
-  const response = await fetch(snapshotUrl, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'OCRA ECCCH Import/1.0',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to download OCRA project snapshot: HTTP ${response.status}`);
-  }
-
-  const payload = await response.json();
-  if (!isOcraProjectSnapshotPayload(payload)) {
-    throw new Error('The linked OCRA project snapshot is invalid or unsupported');
-  }
-
-  if ((payload.manifest.version ?? 0) !== OCRA_PROJECT_SNAPSHOT_VERSION) {
-    throw new Error(`Unsupported OCRA project snapshot version: ${payload.manifest.version}`);
-  }
-
-  return payload;
-}
-
 export function projectSnapshotToImportSourceBundle(snapshot: OcraProjectSnapshotPayload): ProjectImportSourceBundle {
   return {
     projectPayload: {
