@@ -22,14 +22,14 @@ export default function App() {
           if (currentUser) {
             setIsAuthenticated(true);
             setUser(currentUser);
-            navigate('/profile');
+            navigate('/projects');
           }
         } else {
           const currentUser = await getCurrentUser();
           if (currentUser) {
             setIsAuthenticated(true);
             setUser(currentUser);
-            navigate('/profile');
+            navigate('/projects');
           }
         }
       } catch (e: any) {
