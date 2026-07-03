@@ -5,9 +5,46 @@
  */
 
 import { API_BASE, OAUTH_CONFIG } from '../../config/oauth';
-import { exchangeCodeForTokens, getUserProfile } from './oauth';
+import { exchangeCodeForTokens, type AuthFlowResult } from './oauth';
 import { clearOAuthStorage, clearAllCookies, clearIndexedDB, clearCacheAPI } from '../../utils/storage';
-import type { User } from 'shared/types';
+import type { CreateSessionRequest, User } from 'shared/types';
+
+async function createBackendSession(request: CreateSessionRequest): Promise<string> {
+  const sessionResponse = await fetch(`${API_BASE}/sessions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include',
+    body: JSON.stringify(request)
+  });
+
+  if (!sessionResponse.ok) {
+    const errorData: { error?: string } = await sessionResponse.json();
+    throw new Error(`Failed to create session: ${errorData.error ?? 'unknown error'}`);
+  }
+
+  const { sessionId } = await sessionResponse.json() as { sessionId: string };
+  localStorage.setItem('oauth_session_id', sessionId);
+  return sessionId;
+}
+
+/**
+ * Create a backend session from a completed OAuth flow result.
+ */
+export async function createSessionFromAuthResult(authResult: AuthFlowResult): Promise<User> {
+  await createBackendSession({
+    userProfile: authResult.userProfile,
+    tokens: authResult.tokens
+  });
+
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Failed to load user after session creation');
+  }
+
+  return user;
+}
 
 /**
  * Complete OAuth authorization code flow and create backend session
@@ -40,30 +77,11 @@ export async function completeAuthCodeFlow(): Promise<void> {
   try {
     // Exchange authorization code for tokens using backend proxy
     // Backend returns { tokens, userProfile } in a single call
-    const { tokens, userProfile } = await exchangeCodeForTokens(code, codeVerifier);
-    
-    // Create session in backend
-    const sessionResponse = await fetch(`${API_BASE}/sessions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include', // Include cookies in request
-      body: JSON.stringify({
-        userProfile,
-        tokens
-      })
+    const authResult = await exchangeCodeForTokens(code, codeVerifier);
+    await createBackendSession({
+      userProfile: authResult.userProfile,
+      tokens: authResult.tokens
     });
-    
-    if (!sessionResponse.ok) {
-      const errorData = await sessionResponse.json();
-      throw new Error(`Failed to create session: ${errorData.error}`);
-    }
-    
-    const { sessionId } = await sessionResponse.json();
-    
-    // Store session ID locally (only the ID, not the tokens)
-    localStorage.setItem('oauth_session_id', sessionId);
     
     // Clean up temporary storage and URL
     sessionStorage.removeItem('oauth_code_verifier');

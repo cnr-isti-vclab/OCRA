@@ -2,7 +2,10 @@
 export {
   OAUTH_CONFIG,
   startAuthFlow,
+  probeExistingProviderSession,
+  relaySilentAuthCallbackToParent,
   completeAuthCodeFlow,
+  createSessionFromAuthResult,
   getCurrentUser,
   getUserAuditLog,
   getFullAuditLog,

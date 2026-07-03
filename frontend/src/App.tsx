@@ -1,19 +1,38 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { startAuthFlow, completeAuthCodeFlow, getCurrentUser, OAUTH_CONFIG } from './backend';
+import {
+  startAuthFlow,
+  completeAuthCodeFlow,
+  createSessionFromAuthResult,
+  getCurrentUser,
+  OAUTH_CONFIG,
+  probeExistingProviderSession,
+  relaySilentAuthCallbackToParent
+} from './backend';
 import { releases, type Release } from './data/releases';
-import type { User } from 'shared/types';
+import type { OAuthUserProfile } from 'shared/types';
+
+function getContinueLabel(profile: OAuthUserProfile): string {
+  const identity = profile.username ?? profile.preferred_username ?? profile.name ?? profile.email;
+  return identity ? `Continue as ${identity}` : 'Continue';
+}
 
 export default function App() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [providerUserLabel, setProviderUserLabel] = useState<string | null>(null);
+  const [continueAuthReady, setContinueAuthReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
+      if (relaySilentAuthCallbackToParent()) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('code')) {
@@ -21,28 +40,60 @@ export default function App() {
           const currentUser = await getCurrentUser();
           if (currentUser) {
             setIsAuthenticated(true);
-            setUser(currentUser);
             navigate('/projects');
           }
         } else {
           const currentUser = await getCurrentUser();
           if (currentUser) {
             setIsAuthenticated(true);
-            setUser(currentUser);
             navigate('/projects');
           } else if (urlParams.get('login') === '1') {
             await startAuthFlow();
+          } else {
+            const providerSession = await probeExistingProviderSession();
+            if (providerSession) {
+              setProviderUserLabel(getContinueLabel(providerSession.userProfile));
+              setContinueAuthReady(true);
+            }
           }
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('Authentication error:', e);
-        setError(e?.message ?? String(e));
+        setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
     };
     init();
-  }, []);
+  }, [navigate]);
+
+  const handleLoginAction = async () => {
+    setError(null);
+
+    if (!continueAuthReady) {
+      await startAuthFlow();
+      return;
+    }
+
+    try {
+      const providerSession = await probeExistingProviderSession();
+      if (!providerSession) {
+        setContinueAuthReady(false);
+        setProviderUserLabel(null);
+        await startAuthFlow();
+        return;
+      }
+
+      const currentUser = await createSessionFromAuthResult(providerSession);
+      setIsAuthenticated(true);
+      navigate('/projects');
+    } catch (e: unknown) {
+      console.error('Continue login failed:', e);
+      setContinueAuthReady(false);
+      setProviderUserLabel(null);
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   if (loading) {
     return (
@@ -90,9 +141,9 @@ export default function App() {
           <button
             className="btn w-100 fw-semibold py-2 mb-2"
             style={{ backgroundColor: '#1a3f6b', color: '#fff', borderRadius: '0.5rem' }}
-            onClick={() => startAuthFlow()}
+            onClick={() => void handleLoginAction()}
           >
-            Sign in
+            {providerUserLabel ?? 'Sign in'}
           </button>
           <p className="text-center text-muted mb-4" style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}>
             via {OAUTH_CONFIG.issuer}
