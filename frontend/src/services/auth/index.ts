@@ -7,11 +7,12 @@
 export { OAUTH_CONFIG } from '../../config/oauth';
 
 // OAuth flow functions
-export { startAuthFlow } from './oauth';
+export { startAuthFlow, probeExistingProviderSession, relaySilentAuthCallbackToParent } from './oauth';
 
 // Session management functions
 export { 
   completeAuthCodeFlow, 
+  createSessionFromAuthResult,
   getCurrentUser, 
   logout, 
   getUserAuditLog,
