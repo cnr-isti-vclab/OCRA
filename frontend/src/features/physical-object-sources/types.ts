@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-export type PhysicalObjectSourceType = 'echoes' | 'arco' | 'wikidata' | 'file';
+export type PhysicalObjectSourceType = 'echoes' | 'arco' | 'wikidata' | 'europeana' | 'file';
 
 export interface PhysicalObjectMetadataRecord {
   sourceUri?: string;
@@ -13,9 +13,20 @@ export interface PhysicalObjectMetadataRecord {
 }
 
 export interface PhysicalObjectImportRequest {
-  sourceType: 'echoes' | 'arco' | 'wikidata' | 'other';
+  sourceType: 'echoes' | 'arco' | 'wikidata' | 'europeana' | 'other';
   sourceUri: string;
   payload?: Record<string, unknown>;
+}
+
+export interface PhysicalObjectSourceAfterImportContext<TState> {
+  projectId: string;
+  state: TState;
+  importedDocument: unknown;
+}
+
+export interface PhysicalObjectSourceAfterImportResult {
+  successMessage?: string;
+  warningMessage?: string;
 }
 
 export interface PhysicalObjectSourceFormProps<TState> {
@@ -44,6 +55,9 @@ export interface PhysicalObjectSourceAdapter<TState = any> {
   createInitialState: () => TState;
   ImportForm: ComponentType<PhysicalObjectSourceFormProps<TState>>;
   buildImportRequest: (projectId: string, state: TState) => PhysicalObjectImportRequest;
+  afterImport?: (
+    context: PhysicalObjectSourceAfterImportContext<TState>
+  ) => Promise<PhysicalObjectSourceAfterImportResult | void>;
   MetadataView: ComponentType<{ metadata: PhysicalObjectMetadataRecord | null }>;
   mapToHdtOntology: (metadata: PhysicalObjectMetadataRecord | null) => OntologyMappingResult;
 }

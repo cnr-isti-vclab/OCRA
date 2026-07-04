@@ -12,7 +12,7 @@ import { getCurrentUser } from '../services/auth/session';
 
 async function importPhysicalObjectMetadataViaBackend(
   projectId: string,
-  sourceType: 'echoes' | 'wikidata' | 'arco' | 'other',
+  sourceType: 'echoes' | 'wikidata' | 'arco' | 'europeana' | 'other',
   sourceUri: string,
   payload?: Record<string, unknown>
 ): Promise<any> {
@@ -318,6 +318,14 @@ export default function EditProject() {
         importRequest.payload
       );
 
+      const afterImportResult = adapter.afterImport
+        ? await adapter.afterImport({
+          projectId,
+          state: sourceFormState,
+          importedDocument: importedDoc,
+        })
+        : undefined;
+
       const dublinCore = importedDoc?.physicalObjectMetadata?.dublinCore || {};
 
       setShowImportModal(false);
@@ -332,7 +340,14 @@ export default function EditProject() {
         setDescription(dublinCore.description);
       }
 
-      alert(`✅ Successfully imported metadata from ${adapter.label}.`);
+      const alertLines = [`✅ Successfully imported metadata from ${adapter.label}.`];
+      if (afterImportResult?.successMessage) {
+        alertLines.push(afterImportResult.successMessage);
+      }
+      if (afterImportResult?.warningMessage) {
+        alertLines.push(`Warning: ${afterImportResult.warningMessage}`);
+      }
+      alert(alertLines.join('\n\n'));
     } catch (err: any) {
       console.error('Source import error:', err);
       alert('Error importing metadata: ' + (err?.message || String(err)));

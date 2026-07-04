@@ -406,7 +406,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
             sourceType: {
               type: 'string',
-              enum: ['echoes', 'wikidata', 'arco', 'other'],
+              enum: ['echoes', 'wikidata', 'arco', 'europeana', 'other'],
               example: 'other',
             },
             sourceSelectionLocked: {

@@ -182,7 +182,7 @@ export interface CidocCrmMetadata {
   condition?: string;
 }
 
-export type PhysicalObjectSourceType = 'echoes' | 'wikidata' | 'arco' | 'other';
+export type PhysicalObjectSourceType = 'echoes' | 'wikidata' | 'arco' | 'europeana' | 'other';
 
 export interface PhysicalObjectMetadata {
   sourceUri: string;

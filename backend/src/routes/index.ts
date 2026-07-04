@@ -18,6 +18,7 @@ import hdtMetadataRoutes from './hdt-metadata.routes.js';
 import annotationRoutes from './annotation.routes.js';
 import echoesRoutes from './echoes.routes.js';
 import arcoRoutes from './arco.routes.js';
+import europeanaRoutes from './europeana.routes.js';
 // @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)
 import vocabularyConceptsRoutes from './vocabulary-concepts.routes.js';
 
@@ -36,6 +37,7 @@ router.use('/projects', annotationRoutes); // Annotations: /api/projects/:id/ann
 router.use('/', hdtMetadataRoutes); // SPARQL proxy: /api/sparql-proxy
 router.use('/eccch', echoesRoutes);
 router.use('/arco', arcoRoutes);
+router.use('/europeana', europeanaRoutes);
 router.use('/admin', adminRoutes);
 router.use('/vocabularies', vocabulariesRoutes);
 // @spike feature/vocabulary-color-spike — remove when vocabulary data is in DB (see frontend/src/routes/components/TtlVocabularyWidget.tsx)

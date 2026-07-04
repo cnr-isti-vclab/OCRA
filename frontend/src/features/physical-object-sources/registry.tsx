@@ -1,5 +1,6 @@
 import { arcoSourceAdapter } from './arco';
 import { echoesSourceAdapter } from './echoes';
+import { europeanaSourceAdapter } from './europeana';
 import { fileSourceAdapter } from './file';
 import { wikidataSourceAdapter } from './wikidata';
 import type {
@@ -18,6 +19,7 @@ export const physicalObjectSourceAdapters: PhysicalObjectSourceAdapter[] = [
   echoesSourceAdapter,
   arcoSourceAdapter,
   wikidataSourceAdapter,
+  europeanaSourceAdapter,
   fileSourceAdapter,
 ];
 
@@ -25,6 +27,7 @@ const adaptersByType: Record<PhysicalObjectSourceType, PhysicalObjectSourceAdapt
   echoes: echoesSourceAdapter,
   arco: arcoSourceAdapter,
   wikidata: wikidataSourceAdapter,
+  europeana: europeanaSourceAdapter,
   file: fileSourceAdapter,
 };
 

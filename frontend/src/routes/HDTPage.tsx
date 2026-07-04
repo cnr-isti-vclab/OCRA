@@ -115,7 +115,7 @@ interface HDTMetadata {
   projectId: string;
   physicalObjectMetadata: {
     sourceUri?: string;
-    sourceType?: 'echoes' | 'wikidata' | 'arco' | 'other';
+    sourceType?: 'echoes' | 'wikidata' | 'arco' | 'europeana' | 'other';
     label?: string;
     dublinCore: DublinCoreMetadata;
     cidocCrm?: Record<string, unknown>;

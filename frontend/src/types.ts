@@ -121,7 +121,7 @@ export interface EchoesEmbeddedProjectMetadata {
 
 export interface EchoesPhysicalObjectMetadata {
   sourceUri: string;
-  sourceType: 'echoes' | 'wikidata' | 'arco' | 'other';
+  sourceType: 'echoes' | 'wikidata' | 'arco' | 'europeana' | 'other';
   sourceSelectionLocked?: boolean;
   dublinCore?: {
     title?: string;

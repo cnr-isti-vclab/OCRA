@@ -132,7 +132,7 @@ router.get('/:projectId/hdt', requireAuth, getHDTMetadataHandler);
  *                     type: string
  *                   sourceType:
  *                     type: string
- *                     enum: [echoes, wikidata, arco, other]
+ *                     enum: [echoes, wikidata, arco, europeana, other]
  *                   dublinCore:
  *                     type: object
  *                   cidocCrm:
@@ -214,7 +214,7 @@ router.post('/:projectId/hdt', requireAuth, createHDTMetadataHandler);
  *                     type: string
  *                   sourceType:
  *                     type: string
- *                     enum: [echoes, wikidata, arco, other]
+ *                     enum: [echoes, wikidata, arco, europeana, other]
  *                   dublinCore:
  *                     type: object
  *                   cidocCrm:
@@ -288,7 +288,7 @@ router.put('/:projectId/hdt', requireAuth, updateHDTMetadataHandler);
  *             properties:
  *               sourceType:
  *                 type: string
- *                 enum: [echoes, wikidata, arco, other]
+ *                 enum: [echoes, wikidata, arco, europeana, other]
  *               sourceUri:
  *                 type: string
  *               payload:

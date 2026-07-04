@@ -9,6 +9,7 @@ const SOURCE_TYPE_MAP: Record<string, PhysicalObjectSourceType> = {
   echoes: 'echoes',
   wikidata: 'wikidata',
   arco: 'arco',
+  europeana: 'europeana',
   other: 'other'
 };
 
