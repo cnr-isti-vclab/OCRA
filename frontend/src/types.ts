@@ -79,6 +79,7 @@ export interface EchoesNamedGraphListItem {
   maintenanceUri: string | null;
   maintenanceActorUri: string | null;
   maintenanceTimespanUri: string | null;
+  projectSnapshotEmbedded: boolean;
 }
 
 export interface EchoesHdtListItem {

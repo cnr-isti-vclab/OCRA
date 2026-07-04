@@ -177,6 +177,7 @@ export interface EchoesNamedGraphListItem {
   maintenanceUri: string | null;
   maintenanceActorUri: string | null;
   maintenanceTimespanUri: string | null;
+  projectSnapshotEmbedded: boolean;
 }
 
 export interface EchoesHdtListItem {
@@ -438,7 +439,8 @@ PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
-SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?subject ?description ?hc1 ?maintenance ?previousGraph ?actor ?timespan
+PREFIX ocra: <https://data.ocra.echoes.eu/ontology#>
+SELECT DISTINCT ?ng ?hdt ?label ?title ?identifier ?subject ?description ?hc1 ?maintenance ?previousGraph ?actor ?timespan ?snapshotJson
 WHERE {
   GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
     ?maintenance echoes:HP19_has_composed ?hdt ;
@@ -457,6 +459,10 @@ WHERE {
     GRAPH ?ng {
       OPTIONAL { ?hdt a hdt:HC2 . }
       OPTIONAL { ?hdt rdfs:label ?label }
+      OPTIONAL {
+        ?hdt ocra:hasProjectSnapshot ?snapshot .
+        ?snapshot ocra:snapshotJson ?snapshotJson .
+      }
       OPTIONAL {
         ?hc1 a hdt:HC1 ;
              hdt:HP1 ?hdt .
@@ -538,6 +544,9 @@ function aggregateActiveEchoesNamedGraphBindings(
       if (!existing.maintenanceTimespanUri) {
         existing.maintenanceTimespanUri = getBindingValue(binding, 'timespan');
       }
+      if (!existing.projectSnapshotEmbedded && getBindingValue(binding, 'snapshotJson')) {
+        existing.projectSnapshotEmbedded = true;
+      }
       appendUniqueTextValue(existing._subjectValues, subject);
       appendUniqueTextValue(existing._descriptionValues, description);
       continue;
@@ -559,6 +568,7 @@ function aggregateActiveEchoesNamedGraphBindings(
       maintenanceUri: getBindingValue(binding, 'maintenance'),
       maintenanceActorUri: getBindingValue(binding, 'actor'),
       maintenanceTimespanUri: getBindingValue(binding, 'timespan'),
+      projectSnapshotEmbedded: getBindingValue(binding, 'snapshotJson') !== null,
       _subjectValues: [] as string[],
       _descriptionValues: [] as string[],
     };
@@ -584,6 +594,7 @@ function aggregateActiveEchoesNamedGraphBindings(
     maintenanceUri: item.maintenanceUri,
     maintenanceActorUri: item.maintenanceActorUri,
     maintenanceTimespanUri: item.maintenanceTimespanUri,
+    projectSnapshotEmbedded: item.projectSnapshotEmbedded,
   }));
 }
 

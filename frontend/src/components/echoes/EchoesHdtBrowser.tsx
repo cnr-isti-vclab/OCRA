@@ -134,6 +134,21 @@ function renderMaintenanceBadge(item: EchoesNamedGraphListItem, isSelected: bool
   return null;
 }
 
+function renderOcraSnapshotBadge(item: EchoesNamedGraphListItem, isSelected: boolean): ReactNode {
+  if (!item.projectSnapshotEmbedded) {
+    return null;
+  }
+
+  return (
+    <span
+      className={`badge ${isSelected ? 'bg-light' : ''}`}
+      style={isSelected ? { color: '#9a6700' } : { backgroundColor: '#c67a00', color: '#ffffff' }}
+    >
+      OCRA
+    </span>
+  );
+}
+
 export interface EchoesHdtBrowserSelection {
   item: EchoesNamedGraphListItem;
   detail: EchoesHdtDetail;
@@ -312,16 +327,21 @@ export default function EchoesHdtBrowser({
           disabled={detailBusy || disabled || !selectable}
           style={{ marginLeft: '0px' }}
         >
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            {renderMaintenanceBadge(version, isSelected)}
-            <span className={`fw-semibold small ${isSelected ? '' : 'text-muted'}`}>
-              {formatOptionalGraphDate(version.graphDate) ?? version.namedGraphUri}
-            </span>
-            {!selectable && (
-              <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-warning text-dark'}`}>
-                history only
+          <div className="d-flex align-items-center gap-2">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              {renderMaintenanceBadge(version, isSelected)}
+              <span className={`fw-semibold small ${isSelected ? '' : 'text-muted'}`}>
+                {formatOptionalGraphDate(version.graphDate) ?? version.namedGraphUri}
               </span>
-            )}
+              {!selectable && (
+                <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-warning text-dark'}`}>
+                  history only
+                </span>
+              )}
+            </div>
+            <div className="ms-auto">
+              {renderOcraSnapshotBadge(version, isSelected)}
+            </div>
           </div>
           <div className={`small text-break mt-1 ${isSelected ? 'text-white-50' : 'text-muted'}`}>
             {version.namedGraphUri}

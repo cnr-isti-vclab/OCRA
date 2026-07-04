@@ -550,6 +550,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               nullable: true,
               example: '2026-06-26',
             },
+            projectSnapshotEmbedded: {
+              type: 'boolean',
+              example: true,
+              description: 'Whether this named graph embeds an OCRA snapshot payload.',
+            },
           },
         },
         EchoesHdtAsset: {
