@@ -1,15 +1,6 @@
 const EUROPEANA_SPARQL_ENDPOINT = 'https://api.europeana.eu/sparql';
 export const EUROPEANA_PAGE_SIZE = 20;
 
-const EUROPEANA_CANDIDATE_BATCH_SIZE = parsePositiveInt(
-  process.env.EUROPEANA_CANDIDATE_BATCH_SIZE,
-  25
-);
-const EUROPEANA_MAX_SCANNED_CANDIDATES = parsePositiveInt(
-  process.env.EUROPEANA_MAX_SCANNED_CANDIDATES,
-  250
-);
-
 const EUROPEANA_HTTP_HEADERS = {
   Accept: 'text/csv',
   'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) OCRA-research/1.0',
@@ -35,11 +26,6 @@ export interface EuropeanaRecordDetail extends EuropeanaSearchResult {
 }
 
 type CsvRow = Record<string, string>;
-
-function parsePositiveInt(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 function getCsvValue(row: CsvRow, key: string): string | null {
   return row[key]?.trim() || null;
@@ -135,15 +121,58 @@ async function runSparql(query: string): Promise<CsvRow[]> {
   return parseCsv(body);
 }
 
-function buildCandidateQuery(limit: number, offset: number): string {
-  return `PREFIX edm: <http://www.europeana.eu/schemas/edm/>
+function buildSearchTermFilter(terms: string[], proxyVar: string): string {
+  return terms
+    .map((term) => {
+      const escaped = escapeSparqlStringLiteral(term);
+      return `(
+    EXISTS {
+      ${proxyVar} dc:title ?matchTitle .
+      FILTER(CONTAINS(LCASE(STR(?matchTitle)), "${escaped}"))
+    }
+    ||
+    EXISTS {
+      ${proxyVar} dc:description ?matchDescription .
+      FILTER(CONTAINS(LCASE(STR(?matchDescription)), "${escaped}"))
+    }
+  )`;
+    })
+    .join('\n  &&\n  ');
+}
+
+function buildSearchQuery(terms: string[], limit: number, offset: number): string {
+  const termFilter = buildSearchTermFilter(terms, '?proxy');
+  return `PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX edm: <http://www.europeana.eu/schemas/edm/>
 PREFIX ore: <http://www.openarchives.org/ore/terms/>
-SELECT DISTINCT ?cho ?media WHERE {
+SELECT DISTINCT ?cho ?title ?titleLang ?description ?descriptionLang ?creator ?date ?identifier ?coverage ?type ?rights ?provider ?dataProvider ?thumbnail ?media WHERE {
   ?proxy edm:type "3D" ;
          ore:proxyFor ?cho .
   ?agg edm:aggregatedCHO ?cho .
   { ?agg edm:isShownBy ?media } UNION { ?agg edm:hasView ?media }
   FILTER(CONTAINS(LCASE(STR(?media)), ".glb"))
+  FILTER(
+  ${termFilter}
+  )
+  OPTIONAL {
+    ?proxy dc:title ?title .
+    BIND(LANG(?title) AS ?titleLang)
+  }
+  OPTIONAL {
+    ?proxy dc:description ?description .
+    BIND(LANG(?description) AS ?descriptionLang)
+  }
+  OPTIONAL { ?proxy dc:creator ?creator }
+  OPTIONAL { ?proxy dc:date ?date }
+  OPTIONAL { ?proxy dc:identifier ?identifier }
+  OPTIONAL { ?proxy dc:type ?type }
+  OPTIONAL { ?proxy dc:coverage ?coverage }
+  OPTIONAL { ?proxy dcterms:spatial ?coverage }
+  OPTIONAL { ?agg edm:rights ?rights }
+  OPTIONAL { ?agg edm:provider ?provider }
+  OPTIONAL { ?agg edm:dataProvider ?dataProvider }
+  OPTIONAL { ?agg edm:preview ?thumbnail }
 }
 LIMIT ${limit}
 OFFSET ${offset}`;
@@ -155,16 +184,16 @@ function buildBatchDetailQuery(uris: string[]): string {
 PREFIX dcterms: <http://purl.org/dc/terms/>
 PREFIX edm: <http://www.europeana.eu/schemas/edm/>
 PREFIX ore: <http://www.openarchives.org/ore/terms/>
-SELECT DISTINCT ?cho ?title ?description ?creator ?date ?identifier ?coverage ?type ?rights ?provider ?dataProvider ?thumbnail ?media WHERE {
+SELECT DISTINCT ?cho ?title ?titleLang ?description ?descriptionLang ?creator ?date ?identifier ?coverage ?type ?rights ?provider ?dataProvider ?thumbnail ?media WHERE {
   VALUES ?cho { ${values} }
   ?proxy ore:proxyFor ?cho .
   OPTIONAL {
     ?proxy dc:title ?title .
-    FILTER(LANGMATCHES(LANG(?title), "en"))
+    BIND(LANG(?title) AS ?titleLang)
   }
   OPTIONAL {
     ?proxy dc:description ?description .
-    FILTER(LANGMATCHES(LANG(?description), "en"))
+    BIND(LANG(?description) AS ?descriptionLang)
   }
   OPTIONAL { ?proxy dc:creator ?creator }
   OPTIONAL { ?proxy dc:date ?date }
@@ -206,6 +235,33 @@ function choosePreferredValue(values: Array<string | null>, options?: { preferHt
   return filtered[0];
 }
 
+function choosePreferredLocalizedValue(
+  rows: CsvRow[],
+  valueKey: string,
+  languageKey: string,
+  preferredLanguage = 'en',
+): string | null {
+  let fallback: string | null = null;
+
+  for (const row of rows) {
+    const value = getCsvValue(row, valueKey);
+    if (!value) {
+      continue;
+    }
+
+    const language = (getCsvValue(row, languageKey) || '').toLowerCase();
+    if (language === preferredLanguage || language.startsWith(`${preferredLanguage}-`)) {
+      return value;
+    }
+
+    if (!fallback) {
+      fallback = value;
+    }
+  }
+
+  return fallback;
+}
+
 function groupRowsByCho(rows: CsvRow[]): Map<string, CsvRow[]> {
   const grouped = new Map<string, CsvRow[]>();
 
@@ -229,8 +285,8 @@ function groupRowsByCho(rows: CsvRow[]): Map<string, CsvRow[]> {
 function rowsToSearchResult(uri: string, rows: CsvRow[]): EuropeanaSearchResult {
   return {
     uri,
-    title: choosePreferredValue(rows.map((row) => getCsvValue(row, 'title'))),
-    description: choosePreferredValue(rows.map((row) => getCsvValue(row, 'description'))),
+    title: choosePreferredLocalizedValue(rows, 'title', 'titleLang'),
+    description: choosePreferredLocalizedValue(rows, 'description', 'descriptionLang'),
     mediaUrl: choosePreferredValue(rows.map((row) => getCsvValue(row, 'media')), { preferHttp: true }),
     license: choosePreferredValue(rows.map((row) => getCsvValue(row, 'rights')), { preferHttp: true }),
     provider: choosePreferredValue(rows.map((row) => getCsvValue(row, 'provider'))),
@@ -252,18 +308,6 @@ function rowsToRecordDetail(uri: string, rows: CsvRow[]): EuropeanaRecordDetail 
   };
 }
 
-function matchesSearchTerms(result: EuropeanaSearchResult, terms: string[]): boolean {
-  const haystacks = [
-    result.title?.toLowerCase() ?? '',
-    result.description?.toLowerCase() ?? '',
-  ];
-  return terms.every((term) => haystacks.some((haystack) => haystack.includes(term)));
-}
-
-async function fetchCandidateRows(offset: number, limit: number): Promise<CsvRow[]> {
-  return runSparql(buildCandidateQuery(limit, offset));
-}
-
 async function fetchBatchDetails(uris: string[]): Promise<Map<string, EuropeanaRecordDetail>> {
   if (uris.length === 0) {
     return new Map();
@@ -280,21 +324,6 @@ async function fetchBatchDetails(uris: string[]): Promise<Map<string, EuropeanaR
   return details;
 }
 
-async function fetchSearchBatchResults(uris: string[]): Promise<Map<string, EuropeanaSearchResult>> {
-  if (uris.length === 0) {
-    return new Map();
-  }
-
-  const rows = await fetchBatchDetails(uris);
-  const results = new Map<string, EuropeanaSearchResult>();
-
-  for (const [uri, detail] of rows.entries()) {
-    results.set(uri, detail);
-  }
-
-  return results;
-}
-
 export async function searchEuropeana(query: string, offset = 0): Promise<EuropeanaSearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) {
@@ -302,47 +331,14 @@ export async function searchEuropeana(query: string, offset = 0): Promise<Europe
   }
 
   const terms = normalizeSearchTerms(trimmed);
-  const targetCount = offset + EUROPEANA_PAGE_SIZE;
-  const matches: EuropeanaSearchResult[] = [];
-
-  let scannedCandidates = 0;
-  let candidateOffset = 0;
-
-  while (matches.length < targetCount && scannedCandidates < EUROPEANA_MAX_SCANNED_CANDIDATES) {
-    const candidateRows = await fetchCandidateRows(candidateOffset, EUROPEANA_CANDIDATE_BATCH_SIZE);
-    if (candidateRows.length === 0) {
-      break;
-    }
-
-    candidateOffset += EUROPEANA_CANDIDATE_BATCH_SIZE;
-    scannedCandidates += candidateRows.length;
-
-    const candidateUris = Array.from(
-      new Set(
-        candidateRows
-          .map((row) => getCsvValue(row, 'cho'))
-          .filter((uri): uri is string => !!uri)
-      )
-    );
-
-    const detailMap = await fetchSearchBatchResults(candidateUris);
-    for (const uri of candidateUris) {
-      const detail = detailMap.get(uri);
-      if (!detail || !matchesSearchTerms(detail, terms)) {
-        continue;
-      }
-      matches.push(detail);
-      if (matches.length >= targetCount) {
-        break;
-      }
-    }
-
-    if (candidateRows.length < EUROPEANA_CANDIDATE_BATCH_SIZE) {
-      break;
-    }
+  if (terms.length === 0) {
+    throw new Error('Search query must contain at least one term with 2 or more characters');
   }
 
-  return matches.slice(offset, offset + EUROPEANA_PAGE_SIZE);
+  const rows = await runSparql(buildSearchQuery(terms, EUROPEANA_PAGE_SIZE, offset));
+  const grouped = groupRowsByCho(rows);
+
+  return Array.from(grouped.entries()).map(([uri, groupedRows]) => rowsToSearchResult(uri, groupedRows));
 }
 
 export async function getEuropeanaRecordDetail(uri: string): Promise<EuropeanaRecordDetail | null> {
