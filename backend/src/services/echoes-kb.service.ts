@@ -1798,6 +1798,20 @@ function normalizeEchoesQueryParam(value: string | undefined): string | undefine
   return sanitized.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeEchoesRegisterName(value: string | undefined): string | undefined {
+  const normalized = normalizeEchoesQueryParam(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const cleaned = normalized
+    .replace(/["'`]/g, '')
+    .replace(/[<>]/g, '')
+    .trim();
+
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 function isEchoesDigitalTwinUri(value: string | null | undefined): value is string {
   const sanitized = sanitizeOptionalString(value ?? undefined);
   return typeof sanitized === 'string' && sanitized.startsWith(getEchoesHdtUriPrefix());
@@ -2042,8 +2056,7 @@ export async function registerProjectHdtInEchoes(
     };
   }
 
-  const title = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
-  const description = normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
+  const title = normalizeEchoesRegisterName(hdtDocument.physicalObjectMetadata.dublinCore?.title);
   const heritageEntityUri = currentContext.heritageEntityUri ?? hdtDocument.physicalObjectMetadata.sourceUri;
 
   const reconciledRegistration = await reconcileExistingEchoesRegistration(
@@ -2082,9 +2095,8 @@ export async function registerProjectHdtInEchoes(
   if (title) {
     params.set('name', title);
   }
-  if (description) {
-    params.set('description', description);
-  }
+  // ECCCH currently treats register metadata very defensively. Keep this step limited to
+  // a short safe label and let the immediate RDF publish carry the full descriptive content.
 
   let payload: EchoesRegisterResponse;
   try {
@@ -2443,7 +2455,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
   const hdtDocument = await requireProjectHdtDocument(projectId);
   await assertProjectCanPublishToEchoes(projectId, hdtDocument);
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
-  const title = normalizeEchoesQueryParam(input.title) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.title);
+  const title = normalizeEchoesRegisterName(input.title) || normalizeEchoesRegisterName(hdtDocument.physicalObjectMetadata.dublinCore?.title);
   const description = normalizeEchoesQueryParam(input.description) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
   const heritageEntityUri =
     sanitizeOptionalString(input.heritageEntityUri) ||
@@ -2457,9 +2469,8 @@ export async function duplicateProjectHdtAsNewInEchoes(
   if (title) {
     registerParams.set('name', title);
   }
-  if (description) {
-    registerParams.set('description', description);
-  }
+  // Duplicate-as-new follows the same contract as standard registration: allocate the new
+  // Digital Twin first, then publish rich metadata through the named-graph RDF payload.
 
   const registerPayload = await fetchEchoesJson<EchoesRegisterResponse>(
     sessionId,
