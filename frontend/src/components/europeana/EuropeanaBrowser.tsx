@@ -137,7 +137,7 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
               className="form-control"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Title or description keyword"
+              placeholder="English title or description keyword"
               disabled={searchBusy || disabled}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -158,7 +158,7 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
           <div className="small text-muted mb-2">
             {results.length > 0
               ? `${results.length} result${results.length === 1 ? '' : 's'}${hasMore ? ' — scroll for more' : ''}`
-              : 'Searches only Europeana items that expose a 3D .glb resource.'}
+              : 'Searches only Europeana items that expose a 3D .glb resource, matching the English title or description.'}
           </div>
 
           {searchError && <div className="alert alert-warning py-2 small">{searchError}</div>}

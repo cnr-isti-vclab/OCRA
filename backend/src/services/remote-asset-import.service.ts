@@ -6,6 +6,7 @@ import fsp from 'fs/promises';
 import { Readable } from 'stream';
 import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-static-paths.js';
 import type { PreparedAssetFile } from './asset-ingestion.service.js';
+import { resolveRemoteMediaSourceUrl } from './remote-media-source-resolver.service.js';
 
 const MAX_REMOTE_ASSET_SIZE_BYTES = 1024 * 1024 * 1024;
 const REMOTE_FETCH_TIMEOUT_MS = 60_000;
@@ -163,7 +164,8 @@ export async function downloadRemoteAssetToProjectTemp(
   const tmpDir = projectTmpDir(projectId);
   await fsp.mkdir(tmpDir, { recursive: true });
 
-  let currentUrl = await validateRemoteAssetSourceUrl(sourceUrl);
+  const resolvedSourceUrl = await resolveRemoteMediaSourceUrl(sourceUrl);
+  let currentUrl = await validateRemoteAssetSourceUrl(resolvedSourceUrl);
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
     const controller = new AbortController();

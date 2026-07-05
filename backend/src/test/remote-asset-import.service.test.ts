@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { validateRemoteAssetSourceUrl } from '../services/remote-asset-import.service.js';
+import { resolveRemoteMediaSourceUrl } from '../services/remote-media-source-resolver.service.js';
 
 describe('remote asset import URL validation', () => {
   it('accepts public http and https URLs', async () => {
@@ -38,5 +39,49 @@ describe('remote asset import URL validation', () => {
 
     expect(parsed.username).toBe('');
     expect(parsed.password).toBe('');
+  });
+});
+
+describe('remote media source resolver', () => {
+  it('extracts an embedded Zenodo direct file URL from a 3drepo viewer URL', async () => {
+    const resolved = await resolveRemoteMediaSourceUrl(
+      'https://3drepo.eu/modelviewer.html?https%3A%2F%2Fzenodo.org%2Fapi%2Frecords%2F11252294%2Ffiles%2FLange_Houtstraat_28.glb%2Fcontent'
+    );
+
+    expect(resolved).toBe(
+      'https://zenodo.org/api/records/11252294/files/Lange_Houtstraat_28.glb/content'
+    );
+  });
+
+  it('resolves a Zenodo record page to its downloadable 3D file', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        files: [
+          {
+            key: 'Lange_Houtstraat_17.glb',
+            links: {
+              content: 'https://zenodo.org/api/records/11481513/files/Lange_Houtstraat_17.glb/content',
+            },
+          },
+        ],
+      }),
+    });
+
+    const resolved = await resolveRemoteMediaSourceUrl(
+      'https://zenodo.org/records/11481513',
+      fetchMock as never,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith('https://zenodo.org/api/records/11481513', {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'OCRA Asset Import/1.0',
+      },
+    });
+    expect(resolved).toBe(
+      'https://zenodo.org/api/records/11481513/files/Lange_Houtstraat_17.glb/content'
+    );
   });
 });

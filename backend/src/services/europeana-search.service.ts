@@ -158,8 +158,14 @@ PREFIX ore: <http://www.openarchives.org/ore/terms/>
 SELECT DISTINCT ?cho ?title ?description ?creator ?date ?identifier ?coverage ?type ?rights ?provider ?dataProvider ?thumbnail ?media WHERE {
   VALUES ?cho { ${values} }
   ?proxy ore:proxyFor ?cho .
-  OPTIONAL { ?proxy dc:title ?title }
-  OPTIONAL { ?proxy dc:description ?description }
+  OPTIONAL {
+    ?proxy dc:title ?title .
+    FILTER(LANGMATCHES(LANG(?title), "en"))
+  }
+  OPTIONAL {
+    ?proxy dc:description ?description .
+    FILTER(LANGMATCHES(LANG(?description), "en"))
+  }
   OPTIONAL { ?proxy dc:creator ?creator }
   OPTIONAL { ?proxy dc:date ?date }
   OPTIONAL { ?proxy dc:identifier ?identifier }
@@ -251,7 +257,6 @@ function matchesSearchTerms(result: EuropeanaSearchResult, terms: string[]): boo
     result.title?.toLowerCase() ?? '',
     result.description?.toLowerCase() ?? '',
   ];
-
   return terms.every((term) => haystacks.some((haystack) => haystack.includes(term)));
 }
 
@@ -273,6 +278,21 @@ async function fetchBatchDetails(uris: string[]): Promise<Map<string, EuropeanaR
   }
 
   return details;
+}
+
+async function fetchSearchBatchResults(uris: string[]): Promise<Map<string, EuropeanaSearchResult>> {
+  if (uris.length === 0) {
+    return new Map();
+  }
+
+  const rows = await fetchBatchDetails(uris);
+  const results = new Map<string, EuropeanaSearchResult>();
+
+  for (const [uri, detail] of rows.entries()) {
+    results.set(uri, detail);
+  }
+
+  return results;
 }
 
 export async function searchEuropeana(query: string, offset = 0): Promise<EuropeanaSearchResult[]> {
@@ -305,7 +325,7 @@ export async function searchEuropeana(query: string, offset = 0): Promise<Europe
       )
     );
 
-    const detailMap = await fetchBatchDetails(candidateUris);
+    const detailMap = await fetchSearchBatchResults(candidateUris);
     for (const uri of candidateUris) {
       const detail = detailMap.get(uri);
       if (!detail || !matchesSearchTerms(detail, terms)) {

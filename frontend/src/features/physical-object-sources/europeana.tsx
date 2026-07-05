@@ -150,6 +150,7 @@ async function importEuropeana3dAsset(
   });
 
   const imported = await importRemoteAssetIntoHdt(projectId, assetId, detail.mediaUrl);
+  const resolvedSourceUrl = imported.sourceUrl || detail.mediaUrl;
   await updateHdtAsset(projectId, assetId, {
     type: '3d-model',
     fileName: imported.fileName || 'europeana-model.glb',
@@ -159,13 +160,13 @@ async function importEuropeana3dAsset(
     mimeType: imported.mimeType || 'model/gltf-binary',
     uploadedAt: new Date().toISOString(),
     metadata: imported.metadata ?? {
-      sourceUrl: detail.mediaUrl,
+      sourceUrl: resolvedSourceUrl,
       sourceAssetUri: detail.uri,
       linkedHeritageEntityUri: detail.uri,
     },
   });
 
-  return detail.mediaUrl;
+  return resolvedSourceUrl;
 }
 
 export const europeanaSourceAdapter: PhysicalObjectSourceAdapter<EuropeanaFormState> = {

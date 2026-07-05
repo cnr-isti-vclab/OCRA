@@ -14,6 +14,7 @@ interface RemoteAssetImportResponse {
     entryPointUrl?: string;
     entryPoint?: string;
     mimeType?: string;
+    sourceUrl?: string;
     metadata?: Record<string, unknown>;
   };
   error?: string;
