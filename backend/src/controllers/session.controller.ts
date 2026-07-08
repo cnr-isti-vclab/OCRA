@@ -12,6 +12,7 @@ import { auditBestEffort } from '../utils/audit.js';
 import { logLogin, logLogout } from '../services/auth.service.js';
 import { CreateSessionRequest } from '../types/index.js';
 import { USER_DISABLED_MESSAGE } from '../../db.js';
+import { resolveEffectiveCreatorPrivilege } from '../utils/creator-privilege.js';
 
 type Request = express.Request;
 type Response = express.Response;
@@ -285,7 +286,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
                      user.username ||
                      'Unknown User',
         sys_admin: user.sys_admin,
-        sys_creator: user.sys_creator,
+        sys_creator: resolveEffectiveCreatorPrivilege(user.sys_creator),
         managedProjects
       }
     });

@@ -89,6 +89,8 @@ NODE_ENV=production
 # Keep demo users/projects out of production by default
 RUN_DEMO_PROJECT_SEED=false
 RUN_DEMO_USERS_SEED=false
+# Optional demo override: every authenticated user is treated as creator at runtime
+DEMO_ALL_USERS_CREATOR=true
 # Optional: when RUN_DEMO_PROJECT_SEED=true, assign the demo project to this real user
 # DEMO_PROJECT_MANAGER_EMAIL=real.creator@example.org
 
@@ -105,6 +107,13 @@ SCOPE=openid profile email
 # NOTE: VITE_API_BASE can be omitted when using reverse proxy
 # VITE_API_BASE=https://ocra.isti.cnr.it
 ```
+
+If you also use Docker Compose for the backend runtime, note that the
+`backend` service loads `backend/.env` as its shared application-level env file.
+Keep backend feature flags such as `DEMO_ALL_USERS_CREATOR` there when you want
+the same value in both bare-metal and Compose runs. Infrastructure values such
+as `DATABASE_URL`, `MONGO_URL`, and `ISSUER` continue to be overridden by the
+Compose service definition.
 
 ### Optional: Pre-register creator users for first deployment
 

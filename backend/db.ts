@@ -8,6 +8,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logEvent as mongoLogEvent } from './src/services/audit.service.js';
 import { OAuthUserProfile, OAuthTokens } from './src/types/index.js';
+import { resolveEffectiveCreatorPrivilege } from './src/utils/creator-privilege.js';
 
 // Type definitions for database operations
 interface UserSelectData {
@@ -237,7 +238,7 @@ export async function getValidSession(sessionId: string) {
         family_name: session.user.family_name,
         middle_name: session.user.middle_name,
         sys_admin: session.user.sys_admin,
-        sys_creator: session.user.sys_creator,
+        sys_creator: resolveEffectiveCreatorPrivilege(session.user.sys_creator),
       },
     };
     

@@ -46,6 +46,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: ocra-backend
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public}
       MONGO_URL: mongodb://mongodb:27017/?replicaSet=rs0

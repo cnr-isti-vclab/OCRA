@@ -56,6 +56,9 @@ DIRECT_URL=postgresql://ocra_user:ocra_pass@localhost:5432/ocra?schema=public
 # Optional admin
 SYS_ADMIN_EMAIL=admin@ocra.it
 
+# Optional demo override
+DEMO_ALL_USERS_CREATOR=true
+
 # MongoDB
 MONGO_URL=mongodb://127.0.0.1:27017/?replicaSet=rs0
 MONGO_AUDIT_DB=ocra_audit
@@ -73,6 +76,12 @@ import 'dotenv/config';
 ```
 
 So that the backend reads `backend/.env`.
+
+The same file is also loaded by the `backend` service in `docker compose`, so
+application-level flags such as `DEMO_ALL_USERS_CREATOR=true` can live in one
+place for both bare metal and Compose. Docker-specific infrastructure settings
+like `DATABASE_URL`, `MONGO_URL`, and `ISSUER` are still overridden by
+`docker-compose.yml` inside the container.
 
 ***
 
