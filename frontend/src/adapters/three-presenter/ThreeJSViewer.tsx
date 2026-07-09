@@ -3,6 +3,7 @@ import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from 't
 import type { SceneDescription } from 'three-presenter';
 import type { ViewerAnnotation } from 'shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
+import './three-skin-ocra.css'; // align 3D toolbar icons with the shared OpenLIME skin
 
 export interface ThreeJSViewerRef {
   setMeshVisibility: (meshName: string, visible: boolean) => void;
@@ -131,12 +132,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         fileUrlResolver: fileResolver
       });
 
-      // Initialize default UI overlay
-      uiRef.current = new DefaultUI(presenterRef.current/*, {
-        container: {
-          position: 'top-left'
-        }
-      }*/);
+      // Initialize default UI overlay; use the shared OpenLIME skin so the 3D
+      // toolbar icons match the 2D viewer.
+      uiRef.current = new DefaultUI(presenterRef.current, {
+        skinUrl: '/skin.svg',
+        container: { className: 'ocra-3d-toolbar' },
+      });
 
       // Notify parent that presenter is ready
       if (onReadyRef.current) {

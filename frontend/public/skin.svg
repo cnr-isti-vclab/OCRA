@@ -67,7 +67,7 @@
      id="layer1"
      transform="translate(16.045946,-195.30438)"><g
        id="g1196"
-       class="openlime-button openlime-light"
+       class="openlime-button openlime-light tp-light-on tp-light-off"
        transform="translate(-83.869625)"><rect
          ry="12"
          rx="12"
@@ -95,7 +95,7 @@
              d="m 38.385797,77.082164 c 0.189403,2.08344 7.197336,8.333759 10.03839,8.649431 2.841054,0.315673 2.462247,0.505077 4.482552,-0.252538 2.020305,-0.757614 8.460028,-5.177031 8.7757,-5.934646 0.807187,-1.937252 1.325826,-3.914341 0.631346,-5.113897 -0.696638,-1.203284 -1.894036,-0.315673 -3.156727,0.126269 -1.262691,0.441942 -6.629126,3.219861 -8.396893,3.851206 -1.388024,0.495723 -4.419417,-0.315672 -4.419417,-0.315672 0,0 15.371589,-5.937284 15.973037,-7.260471 0.631346,-1.388961 0.126269,-3.914342 -1.325825,-4.230015 -0.925404,-0.201174 -21.0238,7.51301 -21.528876,8.460028 -0.505077,0.947018 -1.073287,2.020305 -1.073287,2.020305 z"
              style="fill:#ffcc00;fill-opacity:1;stroke:#666666;stroke-width:3.91684;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" /></g></g></g><g
        id="g1161"
-       class="openlime-button  openlime-home"
+       class="openlime-button  openlime-home tp-home"
        transform="translate(6.0832644)"><g
          id="g1401"><rect
            style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#666666;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -174,7 +174,7 @@
            id="rect4373-0"
            sodipodi:nodetypes="ccccc" /></g></g><g
        id="g1063"
-       class="openlime-button openlime-fullscreen"><rect
+       class="openlime-button openlime-fullscreen tp-fullscreen-enter tp-fullscreen-exit"><rect
          inkscape:export-ydpi="90"
          inkscape:export-xdpi="90"
          style="fill:#ffffff;fill-opacity:1;stroke:#666666;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -313,7 +313,7 @@
          inkscape:connector-curvature="0" /></g><g
        id="ruler"
        transform="translate(84)"
-       class="openlime-button openlime-ruler"><rect
+       class="openlime-button openlime-ruler tp-measure"><rect
          ry="12"
          rx="12"
          y="301.14792"
@@ -446,7 +446,7 @@
        style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;stroke:#808080;stroke-width:3.9502;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        class="openlime-tool openlime-draw" /><g
        id="g3"
-       class="openlime-button openlime-pencil"><rect
+       class="openlime-button openlime-pencil tp-annotation"><rect
          style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#666666;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
          id="rect2993-5"
          width="71"
@@ -611,7 +611,7 @@
          id="path949"
          inkscape:connector-curvature="0" /></g><g
        id="g1030"
-       class="openlime-button openlime-snapshot"><rect
+       class="openlime-button openlime-snapshot tp-screenshot"><rect
          style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#666666;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
          id="rect2993-7-67"
          width="71"
@@ -714,4 +714,59 @@
              stroke-linecap="round"
              stroke-linejoin="round"
              id="path1-9"
-             style="stroke:#808080;stroke-width:1.8;stroke-dasharray:none;stroke-opacity:1" /></g></g></g></g></svg>
+             style="stroke:#808080;stroke-width:1.8;stroke-dasharray:none;stroke-opacity:1" /></g></g></g></g>  <g
+     class="openlime-button openlime-env tp-env-on tp-env-off"
+     transform="translate(0,430)">
+    <rect
+       width="71" height="71" x="0" y="0" rx="12" ry="12"
+       style="fill:#ffffff;stroke:#666666;stroke-width:2" />
+    <circle cx="35.5" cy="35.5" r="24"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round" />
+    <ellipse cx="35.5" cy="35.5" rx="11" ry="24"
+       style="fill:none;stroke:#808080;stroke-width:3" />
+    <path d="M35.5 11.5 V59.5" style="fill:none;stroke:#808080;stroke-width:3" />
+    <path d="M11.5 35.5 H59.5" style="fill:none;stroke:#808080;stroke-width:3" />
+  </g>
+  <g
+     class="openlime-button openlime-lightpos tp-light-position"
+     transform="translate(90,430)">
+    <rect
+       width="71" height="71" x="0" y="0" rx="12" ry="12"
+       style="fill:#ffffff;stroke:#666666;stroke-width:2" />
+    <circle cx="35.5" cy="35.5" r="12"
+       style="fill:none;stroke:#808080;stroke-width:3" />
+    <path
+       d="M35.5 6 V13 M35.5 58 V65 M6 35.5 H13 M58 35.5 H65 M14.6 14.6 L19.5 19.5 M56.4 56.4 L51.5 51.5 M56.4 14.6 L51.5 19.5 M14.6 56.4 L19.5 51.5"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round" />
+  </g>
+  <g
+     class="openlime-button openlime-camera-persp tp-camera-perspective"
+     transform="translate(180,430)">
+    <rect
+       width="71" height="71" x="0" y="0" rx="12" ry="12"
+       style="fill:#ffffff;stroke:#666666;stroke-width:2" />
+    <polyline points="16,30 46,30 46,60 16,60 16,30"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+    <polyline points="26,18 56,18 56,48"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+    <line x1="16" y1="30" x2="26" y2="18"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+    <line x1="46" y1="30" x2="56" y2="18"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+    <line x1="46" y1="60" x2="56" y2="48"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+  </g>
+  <g
+     class="openlime-button openlime-camera-ortho tp-camera-orthographic"
+     transform="translate(270,430)">
+    <rect
+       width="71" height="71" x="0" y="0" rx="12" ry="12"
+       style="fill:#ffffff;stroke:#666666;stroke-width:2" />
+    <polyline points="18,18 53,18 53,53 18,53 18,18"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+    <line x1="18" y1="35.5" x2="53" y2="35.5"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+    <line x1="35.5" y1="18" x2="35.5" y2="53"
+       style="fill:none;stroke:#808080;stroke-width:3;stroke-linecap:round;stroke-linejoin:round" />
+  </g>
+</svg>

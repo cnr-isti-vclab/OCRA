@@ -1,0 +1,35 @@
+/*
+ * Align the 3D (three-presenter) toolbar with the 2D (OpenLIME) viewer.
+ *
+ * The glyphs come from the shared /skin.svg (loaded via DefaultUI's skinUrl);
+ * here we (a) turn the toolbar into a single dark translucent bar like OpenLIME's
+ * instead of separate white Bootstrap buttons, and (b) paint the glyphs white and
+ * enlarge them to match. Scoped to the container class we pass to DefaultUI.
+ */
+
+/* The bar itself (mirrors .openlime-toolbar) */
+.ocra-3d-toolbar {
+  padding: 5px !important;
+  gap: 6px !important;
+  border-radius: 8px;
+  background: rgba(40, 40, 40, 0.6);
+}
+
+/* Drop the individual white Bootstrap button chrome */
+.ocra-3d-toolbar .btn {
+  background: transparent;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 4px !important;
+  border-radius: 6px;
+}
+.ocra-3d-toolbar .btn:hover { opacity: 0.7; background: transparent; }
+
+/* Icon size (OpenLIME uses ~5vh); glyphs are square thanks to the skin's frame */
+.ocra-3d-toolbar .tp-ui-skin-icon { width: 2rem !important; height: 2rem !important; }
+
+/* Hide the skin's button frame and paint the glyph white */
+.ocra-3d-toolbar .tp-ui-skin-icon rect[style] { fill: transparent !important; stroke: none !important; }
+.ocra-3d-toolbar .tp-ui-skin-icon :where(path, polygon)[style] { fill: #fff !important; stroke: #fff !important; }
+.ocra-3d-toolbar .tp-ui-skin-icon :where(line, circle, ellipse, polyline)[style] { stroke: #fff !important; }
+.ocra-3d-toolbar .tp-ui-skin-icon .openlime-compact { visibility: hidden; }
