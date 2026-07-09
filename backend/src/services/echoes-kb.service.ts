@@ -455,23 +455,19 @@ WHERE {
                          echoes:HP31_deleted_content ?ng .
     }
   }
-  OPTIONAL {
-    GRAPH ?ng {
-      OPTIONAL { ?hdt a hdto:HC2_Heritage_Digital_Twin . }
-      OPTIONAL { ?hdt rdfs:label ?label }
-      OPTIONAL {
-        ?hdt ocra:hasProjectSnapshot ?snapshot .
-        ?snapshot ocra:snapshotJson ?snapshotJson .
-      }
-      OPTIONAL {
-        ?hc1 a hdto:HC1_Heritage_Entity ;
-             hdto:HP1_has_digital_twin ?hdt .
-        OPTIONAL { ?hc1 dc:title ?title }
-        OPTIONAL { ?hc1 dc:identifier ?identifier }
-        OPTIONAL { ?hc1 dc:subject ?subject }
-        OPTIONAL { ?hc1 dc:description ?description }
-      }
+  GRAPH ?ng {
+    ?hdt a hdto:HC2_Heritage_Digital_Twin .
+    ?hc1 a hdto:HC1_Heritage_Entity ;
+         hdto:HP1_has_digital_twin ?hdt .
+    OPTIONAL { ?hdt rdfs:label ?label }
+    OPTIONAL {
+      ?hdt ocra:hasProjectSnapshot ?snapshot .
+      ?snapshot ocra:snapshotJson ?snapshotJson .
     }
+    OPTIONAL { ?hc1 dc:title ?title }
+    OPTIONAL { ?hc1 dc:identifier ?identifier }
+    OPTIONAL { ?hc1 dc:subject ?subject }
+    OPTIONAL { ?hc1 dc:description ?description }
   }
 }`;
 
@@ -769,9 +765,16 @@ export async function listEchoesHdts(
   }
 
   const currentActorByDigitalTwinUri = new Map<string, string | null>();
+  const compatibleDigitalTwinUris = new Set<string>();
   for (const binding of activeBindings) {
     const digitalTwinUri = getBindingValue(binding, 'hdt');
-    if (!digitalTwinUri || currentActorByDigitalTwinUri.has(digitalTwinUri)) {
+    if (!digitalTwinUri) {
+      continue;
+    }
+
+    compatibleDigitalTwinUris.add(digitalTwinUri);
+
+    if (currentActorByDigitalTwinUri.has(digitalTwinUri)) {
       continue;
     }
 
@@ -787,7 +790,7 @@ export async function listEchoesHdts(
         currentActorByDigitalTwinUri.get(getBindingValue(binding, 'hdt') ?? '') ??
         null,
     }))
-    .filter((item) => item.digitalTwinUri);
+    .filter((item) => item.digitalTwinUri && compatibleDigitalTwinUris.has(item.digitalTwinUri));
 
   const dedupedItems = new Map<string, EchoesHdtListItem>();
   for (const item of items) {
