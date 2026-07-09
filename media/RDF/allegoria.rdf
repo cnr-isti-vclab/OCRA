@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:dcterms="http://purl.org/dc/terms/"
+  xmlns:hdto="http://isl.ics.forth.gr/ontology/echoes/"
+  xmlns:ocra="https://data.ocra.echoes.eu/ontology#">
+
+  <rdf:Description rdf:about="https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC1_Heritage_Entity"/>
+    <rdfs:label>Allegoria della disperazione (monumento ai caduti - a cippo, opera isolata) di Galassi Elio (attribuito) (sec. XX)</rdfs:label>
+    <dc:title>Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)</dc:title>
+    <dc:description>Monumento a cippo composto da una base composita in pietra e da una statua in bronzo soprastante. Il basamento è rivestito da cinque lastre in pietra metamorfica e reca sulla fronte una iscrizione a caratteri applicati, in parte perduti. La statua superiore, firmata sul retro di un basso basamento scabro da Elio Galassi e datata al 1924, rappresenta una donna a grandezza naturale inginocchiata e prostrata in avanti in segno di disperazione. La figura, nuda, è coperta da un leggerissimo manto delicatamente panneggiato sui fianchi, che lascia parzialmente scoperta la parte inferiore della schiena; il capo è cinto da una benda posta sulla fronte che lascia liberi di cadere verso terra i lunghi capelli della nuca ai lati del volto rivolto verso il basso. Le mani sono protese in avanti, in totale abbandono</dc:description>
+    <dc:creator>arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7</dc:creator>
+    <dc:subject>Allegoria della disperazione</dc:subject>
+    <dc:date>1924-1924</dc:date>
+    <dc:type>monumento ai caduti a cippo, arco-res:CulturalPropertyType/59e7365a26e8a8580695f5b7e179e07c, arco:MovableCulturalProperty, arco:HistoricOrArtisticProperty</dc:type>
+    <dc:source>arco-res:CatalogueRecordOA/0901078520, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0901078520</dc:source>
+    <dc:coverage>Pisa (PI)</dc:coverage>
+    <dc:rights>proprietà Ente pubblico territoriale</dc:rights>
+    <hdto:HP1_has_digital_twin rdf:resource="http://echoes-eccch.eu/HDT/Fkp1JTtfVek"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="http://echoes-eccch.eu/HDT/Fkp1JTtfVek">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC2_Heritage_Digital_Twin"/>
+    <rdfs:label>Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)</rdfs:label>
+    <hdto:HP3_is_digital_twin_component_of rdf:resource="urn:ocra:asset:cmrd7jrm1000sm3psnbb61lpn:asset_1783583505651_vrw9q1389"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="urn:ocra:asset:cmrd7jrm1000sm3psnbb61lpn:asset_1783583505651_vrw9q1389">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC8_3D_Model"/>
+    <rdfs:label>Galassi-Allegoria_della_disperazione-Scan2014.glb</rdfs:label>
+    <dc:title>Galassi-Allegoria_della_disperazione-Scan2014</dc:title>
+    <dc:source>https://vicserver.crs4.it/ocra-assets/Galassi-Allegoria_della_disperazione-Scan2014.glb</dc:source>
+    <dc:format>application/octet-stream</dc:format>
+    <hdto:HP21_is_3D_representation_output_of rdf:resource="https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520"/>
+  </rdf:Description>
+
+</rdf:RDF>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:dcterms="http://purl.org/dc/terms/"
+  xmlns:hdto="http://isl.ics.forth.gr/ontology/echoes/"
+  xmlns:ocra="https://data.ocra.echoes.eu/ontology#">
+
+  <rdf:Description rdf:about="https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC1_Heritage_Entity"/>
+    <rdfs:label>Allegoria della disperazione (monumento ai caduti - a cippo, opera isolata) di Galassi Elio (attribuito) (sec. XX)</rdfs:label>
+    <dc:title>Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)</dc:title>
+    <dc:description>Monumento a cippo composto da una base composita in pietra e da una statua in bronzo soprastante. Il basamento è rivestito da cinque lastre in pietra metamorfica e reca sulla fronte una iscrizione a caratteri applicati, in parte perduti. La statua superiore, firmata sul retro di un basso basamento scabro da Elio Galassi e datata al 1924, rappresenta una donna a grandezza naturale inginocchiata e prostrata in avanti in segno di disperazione. La figura, nuda, è coperta da un leggerissimo manto delicatamente panneggiato sui fianchi, che lascia parzialmente scoperta la parte inferiore della schiena; il capo è cinto da una benda posta sulla fronte che lascia liberi di cadere verso terra i lunghi capelli della nuca ai lati del volto rivolto verso il basso. Le mani sono protese in avanti, in totale abbandono</dc:description>
+    <dc:creator>arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7</dc:creator>
+    <dc:subject>Allegoria della disperazione</dc:subject>
+    <dc:date>1924-1924</dc:date>
+    <dc:type>monumento ai caduti a cippo, arco-res:CulturalPropertyType/59e7365a26e8a8580695f5b7e179e07c, arco:MovableCulturalProperty, arco:HistoricOrArtisticProperty</dc:type>
+    <dc:source>arco-res:CatalogueRecordOA/0901078520, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0901078520</dc:source>
+    <dc:coverage>Pisa (PI)</dc:coverage>
+    <dc:rights>proprietà Ente pubblico territoriale</dc:rights>
+    <hdto:HP1_has_digital_twin rdf:resource="http://echoes-eccch.eu/HDT/Fkp1JTtfVek"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="http://echoes-eccch.eu/HDT/Fkp1JTtfVek">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC2_Heritage_Digital_Twin"/>
+    <rdfs:label>Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)</rdfs:label>
+    <hdto:HP3_is_digital_twin_component_of rdf:resource="urn:ocra:asset:cmrd7jrm1000sm3psnbb61lpn:asset_1783583505651_vrw9q1389"/>
+    <ocra:hasProjectSnapshot rdf:resource="http://localhost:3002/assets/projects/cmrd7jrm1000sm3psnbb61lpn/echoes/project-snapshot-2026-07-09T07-57-22.497Z-aafd27b1-cc5a-42bb-90d2-54a80da1a904.json"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="urn:ocra:asset:cmrd7jrm1000sm3psnbb61lpn:asset_1783583505651_vrw9q1389">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC8_3D_Model"/>
+    <rdfs:label>Galassi-Allegoria_della_disperazione-Scan2014.glb</rdfs:label>
+    <dc:title>Galassi-Allegoria_della_disperazione-Scan2014</dc:title>
+    <dc:source>https://vicserver.crs4.it/ocra-assets/Galassi-Allegoria_della_disperazione-Scan2014.glb</dc:source>
+    <dc:format>application/octet-stream</dc:format>
+    <hdto:HP21_is_3D_representation_output_of rdf:resource="https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520"/>
+  </rdf:Description>
+
+
+  <rdf:Description rdf:about="http://localhost:3002/assets/projects/cmrd7jrm1000sm3psnbb61lpn/echoes/project-snapshot-2026-07-09T07-57-22.497Z-aafd27b1-cc5a-42bb-90d2-54a80da1a904.json">
+    <rdf:type rdf:resource="https://data.ocra.echoes.eu/ontology#ProjectSnapshot"/>
+    <dcterms:format>application/vnd.ocra.project-snapshot+json</dcterms:format>
+    <ocra:snapshotVersion>1</ocra:snapshotVersion>
+    <dcterms:created>2026-07-09T07:57:22.496Z</dcterms:created>
+    <ocra:sha256>c9ba307ed8bc3063a5b721277232844d39abead1a38c032f0d2e44a8a71e4f1b</ocra:sha256>
+    <ocra:snapshotIncludesAnnotations>false</ocra:snapshotIncludesAnnotations>
+    <ocra:snapshotJson>{
+  &quot;manifest&quot;: {
+    &quot;format&quot;: &quot;ocra-project-snapshot&quot;,
+    &quot;version&quot;: 1,
+    &quot;exportedAt&quot;: &quot;2026-07-09T07:57:22.496Z&quot;,
+    &quot;sourceProjectId&quot;: &quot;cmrd7jrm1000sm3psnbb61lpn&quot;,
+    &quot;sourceProjectName&quot;: &quot;Allegoria della disperazione&quot;,
+    &quot;includes&quot;: {
+      &quot;hdt&quot;: true,
+      &quot;annotations&quot;: false
+    }
+  },
+  &quot;project&quot;: {
+    &quot;id&quot;: &quot;cmrd7jrm1000sm3psnbb61lpn&quot;,
+    &quot;name&quot;: &quot;Allegoria della disperazione&quot;,
+    &quot;description&quot;: &quot;3D reconstruction from photogrammetry of Allegoria della Disperazione, created to support documentation and study of the cultural heritage object.&quot;,
+    &quot;public&quot;: false,
+    &quot;counter&quot;: &quot;0&quot;,
+    &quot;createdAt&quot;: &quot;2026-07-09T07:51:13.034Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-07-09T07:56:06.883Z&quot;
+  },
+  &quot;hdtDocument&quot;: {
+    &quot;projectId&quot;: &quot;cmrd7jrm1000sm3psnbb61lpn&quot;,
+    &quot;physicalObjectMetadata&quot;: {
+      &quot;sourceUri&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520&quot;,
+      &quot;sourceType&quot;: &quot;arco&quot;,
+      &quot;sourceSelectionLocked&quot;: true,
+      &quot;dublinCore&quot;: {
+        &quot;title&quot;: &quot;Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)&quot;,
+        &quot;creator&quot;: &quot;arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7&quot;,
+        &quot;subject&quot;: &quot;Allegoria della disperazione&quot;,
+        &quot;description&quot;: &quot;Monumento a cippo composto da una base composita in pietra e da una statua in bronzo soprastante. Il basamento è rivestito da cinque lastre in pietra metamorfica e reca sulla fronte una iscrizione a caratteri applicati, in parte perduti. La statua superiore, firmata sul retro di un basso basamento scabro da Elio Galassi e datata al 1924, rappresenta una donna a grandezza naturale inginocchiata e prostrata in avanti in segno di disperazione. La figura, nuda, è coperta da un leggerissimo manto delicatamente panneggiato sui fianchi, che lascia parzialmente scoperta la parte inferiore della schiena; il capo è cinto da una benda posta sulla fronte che lascia liberi di cadere verso terra i lunghi capelli della nuca ai lati del volto rivolto verso il basso. Le mani sono protese in avanti, in totale abbandono&quot;,
+        &quot;publisher&quot;: &quot;arco-res:Agent/eadb82aaf3a73512cbe8b13b8a7e3fba&quot;,
+        &quot;contributor&quot;: &quot;arco-res:AgentRole/0901078520-heritage-protection-agency, arco-res:AgentRole/0901078520-cataloguing-agency&quot;,
+        &quot;date&quot;: &quot;1924-1924&quot;,
+        &quot;type&quot;: &quot;monumento ai caduti a cippo, arco-res:CulturalPropertyType/59e7365a26e8a8580695f5b7e179e07c, arco:MovableCulturalProperty, arco:HistoricOrArtisticProperty&quot;,
+        &quot;format&quot;: &quot;arco-res:MeasurementCollection/0901078520-1&quot;,
+        &quot;identifier&quot;: &quot;0901078520&quot;,
+        &quot;source&quot;: &quot;arco-res:CatalogueRecordOA/0901078520, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0901078520&quot;,
+        &quot;coverage&quot;: &quot;Pisa (PI)&quot;,
+        &quot;rights&quot;: &quot;proprietà Ente pubblico territoriale&quot;
+      },
+      &quot;cidocCrm&quot;: {},
+      &quot;label&quot;: &quot;Allegoria della disperazione (monumento ai caduti - a cippo, opera isolata) di Galassi Elio (attribuito) (sec. XX)&quot;,
+      &quot;sourceRecord&quot;: {
+        &quot;endpoint&quot;: &quot;https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty/0901078520.html?output=application%2Fld%2Bjson&quot;,
+        &quot;catalogId&quot;: &quot;0901078520&quot;,
+        &quot;importedAt&quot;: &quot;2026-07-09T07:51:28.511Z&quot;,
+        &quot;sourceUri&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520&quot;,
+        &quot;contentType&quot;: &quot;application/ld+json;charset=UTF-8&quot;,
+        &quot;recordId&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520&quot;,
+        &quot;candidateRecordCount&quot;: 1
+      }
+    },
+    &quot;echoesContext&quot;: {
+      &quot;origin&quot;: &quot;local&quot;,
+      &quot;projectUri&quot;: &quot;http://echoes-eccch.eu/project/ECHOES&quot;,
+      &quot;heritageEntityUri&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520&quot;,
+      &quot;digitalTwinUri&quot;: &quot;http://echoes-eccch.eu/HDT/Fkp1JTtfVek&quot;,
+      &quot;digitalTwinLabel&quot;: &quot;Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)&quot;,
+      &quot;syncStatus&quot;: &quot;synced&quot;,
+      &quot;lastRegisteredAt&quot;: &quot;2026-07-09T07:56:29.282Z&quot;,
+      &quot;namedGraphUri&quot;: &quot;http://echoes-eccch.eu/kb/graph/user-fbettio/1783583789512/2026-07-09&quot;,
+      &quot;assetRecords&quot;: [
+        {
+          &quot;assetId&quot;: &quot;asset_1783583505651_vrw9q1389&quot;,
+          &quot;assetUri&quot;: &quot;urn:ocra:asset:cmrd7jrm1000sm3psnbb61lpn:asset_1783583505651_vrw9q1389&quot;,
+          &quot;sourceUrl&quot;: &quot;https://vicserver.crs4.it/ocra-assets/Galassi-Allegoria_della_disperazione-Scan2014.glb&quot;
+        }
+      ],
+      &quot;lastSyncedAt&quot;: &quot;2026-07-09T07:56:29.769Z&quot;,
+      &quot;lastSyncedProjectUpdatedAt&quot;: &quot;2026-07-09T07:56:29.287Z&quot;,
+      &quot;projectSnapshot&quot;: {
+        &quot;url&quot;: &quot;http://localhost:3002/assets/projects/cmrd7jrm1000sm3psnbb61lpn/echoes/project-snapshot-2026-07-09T07-56-29.330Z-186f0ada-6dfd-468a-ba78-733276ab40b4.json&quot;,
+        &quot;format&quot;: &quot;application/vnd.ocra.project-snapshot+json&quot;,
+        &quot;version&quot;: 1,
+        &quot;checksum&quot;: &quot;0bd099c719bbbf881b426a405ec476ea798c030607a2bd2129c285c626e9dd2f&quot;,
+        &quot;exportedAt&quot;: &quot;2026-07-09T07:56:29.330Z&quot;,
+        &quot;includesAnnotations&quot;: false,
+        &quot;payloadJson&quot;: &quot;{\n  \&quot;manifest\&quot;: {\n    \&quot;format\&quot;: \&quot;ocra-project-snapshot\&quot;,\n    \&quot;version\&quot;: 1,\n    \&quot;exportedAt\&quot;: \&quot;2026-07-09T07:56:29.330Z\&quot;,\n    \&quot;sourceProjectId\&quot;: \&quot;cmrd7jrm1000sm3psnbb61lpn\&quot;,\n    \&quot;sourceProjectName\&quot;: \&quot;Allegoria della disperazione\&quot;,\n    \&quot;includes\&quot;: {\n      \&quot;hdt\&quot;: true,\n      \&quot;annotations\&quot;: false\n    }\n  },\n  \&quot;project\&quot;: {\n    \&quot;id\&quot;: \&quot;cmrd7jrm1000sm3psnbb61lpn\&quot;,\n    \&quot;name\&quot;: \&quot;Allegoria della disperazione\&quot;,\n    \&quot;description\&quot;: \&quot;3D reconstruction from photogrammetry of Allegoria della Disperazione, created to support documentation and study of the cultural heritage object.\&quot;,\n    \&quot;public\&quot;: false,\n    \&quot;counter\&quot;: \&quot;0\&quot;,\n    \&quot;createdAt\&quot;: \&quot;2026-07-09T07:51:13.034Z\&quot;,\n    \&quot;updatedAt\&quot;: \&quot;2026-07-09T07:56:06.883Z\&quot;\n  },\n  \&quot;hdtDocument\&quot;: {\n    \&quot;projectId\&quot;: \&quot;cmrd7jrm1000sm3psnbb61lpn\&quot;,\n    \&quot;physicalObjectMetadata\&quot;: {\n      \&quot;sourceUri\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520\&quot;,\n      \&quot;sourceType\&quot;: \&quot;arco\&quot;,\n      \&quot;sourceSelectionLocked\&quot;: true,\n      \&quot;dublinCore\&quot;: {\n        \&quot;title\&quot;: \&quot;Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)\&quot;,\n        \&quot;creator\&quot;: \&quot;arco-res:Agent/9ae478e40ddf84c7d44b021320f8a0a7\&quot;,\n        \&quot;subject\&quot;: \&quot;Allegoria della disperazione\&quot;,\n        \&quot;description\&quot;: \&quot;Monumento a cippo composto da una base composita in pietra e da una statua in bronzo soprastante. Il basamento è rivestito da cinque lastre in pietra metamorfica e reca sulla fronte una iscrizione a caratteri applicati, in parte perduti. La statua superiore, firmata sul retro di un basso basamento scabro da Elio Galassi e datata al 1924, rappresenta una donna a grandezza naturale inginocchiata e prostrata in avanti in segno di disperazione. La figura, nuda, è coperta da un leggerissimo manto delicatamente panneggiato sui fianchi, che lascia parzialmente scoperta la parte inferiore della schiena; il capo è cinto da una benda posta sulla fronte che lascia liberi di cadere verso terra i lunghi capelli della nuca ai lati del volto rivolto verso il basso. Le mani sono protese in avanti, in totale abbandono\&quot;,\n        \&quot;publisher\&quot;: \&quot;arco-res:Agent/eadb82aaf3a73512cbe8b13b8a7e3fba\&quot;,\n        \&quot;contributor\&quot;: \&quot;arco-res:AgentRole/0901078520-heritage-protection-agency, arco-res:AgentRole/0901078520-cataloguing-agency\&quot;,\n        \&quot;date\&quot;: \&quot;1924-1924\&quot;,\n        \&quot;type\&quot;: \&quot;monumento ai caduti a cippo, arco-res:CulturalPropertyType/59e7365a26e8a8580695f5b7e179e07c, arco:MovableCulturalProperty, arco:HistoricOrArtisticProperty\&quot;,\n        \&quot;format\&quot;: \&quot;arco-res:MeasurementCollection/0901078520-1\&quot;,\n        \&quot;identifier\&quot;: \&quot;0901078520\&quot;,\n        \&quot;source\&quot;: \&quot;arco-res:CatalogueRecordOA/0901078520, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0901078520\&quot;,\n        \&quot;coverage\&quot;: \&quot;Pisa (PI)\&quot;,\n        \&quot;rights\&quot;: \&quot;proprietà Ente pubblico territoriale\&quot;\n      },\n      \&quot;cidocCrm\&quot;: {},\n      \&quot;label\&quot;: \&quot;Allegoria della disperazione (monumento ai caduti - a cippo, opera isolata) di Galassi Elio (attribuito) (sec. XX)\&quot;,\n      \&quot;sourceRecord\&quot;: {\n        \&quot;endpoint\&quot;: \&quot;https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty/0901078520.html?output=application%2Fld%2Bjson\&quot;,\n        \&quot;catalogId\&quot;: \&quot;0901078520\&quot;,\n        \&quot;importedAt\&quot;: \&quot;2026-07-09T07:51:28.511Z\&quot;,\n        \&quot;sourceUri\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520\&quot;,\n        \&quot;contentType\&quot;: \&quot;application/ld+json;charset=UTF-8\&quot;,\n        \&quot;recordId\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520\&quot;,\n        \&quot;candidateRecordCount\&quot;: 1\n      }\n    },\n    \&quot;echoesContext\&quot;: {\n      \&quot;origin\&quot;: \&quot;local\&quot;,\n      \&quot;projectUri\&quot;: \&quot;http://echoes-eccch.eu/project/ECHOES\&quot;,\n      \&quot;heritageEntityUri\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0901078520\&quot;,\n      \&quot;digitalTwinUri\&quot;: \&quot;http://echoes-eccch.eu/HDT/Fkp1JTtfVek\&quot;,\n      \&quot;digitalTwinLabel\&quot;: \&quot;Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)\&quot;,\n      \&quot;syncStatus\&quot;: \&quot;registered\&quot;,\n      \&quot;lastRegisteredAt\&quot;: \&quot;2026-07-09T07:56:29.282Z\&quot;\n    },\n    \&quot;digitalAssets\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;asset_1783583505651_vrw9q1389\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrd7jrm1000sm3psnbb61lpn\&quot;,\n        \&quot;type\&quot;: \&quot;3d-model\&quot;,\n        \&quot;label\&quot;: \&quot;Galassi-Allegoria_della_disperazione-Scan2014.glb\&quot;,\n        \&quot;title\&quot;: \&quot;Galassi-Allegoria_della_disperazione-Scan2014\&quot;,\n        \&quot;description\&quot;: null,\n        \&quot;entryPointUrl\&quot;: \&quot;http://localhost:3002/assets/projects/cmrd7jrm1000sm3psnbb61lpn/3d-model/asset_1783583505651_vrw9q1389/Galassi-Allegoria_della_disperazione-Scan2014.glb\&quot;,\n        \&quot;entryPoint\&quot;: \&quot;/assets/projects/cmrd7jrm1000sm3psnbb61lpn/3d-model/asset_1783583505651_vrw9q1389/Galassi-Allegoria_della_disperazione-Scan2014.glb\&quot;,\n        \&quot;mimeType\&quot;: \&quot;application/octet-stream\&quot;,\n        \&quot;entrySize\&quot;: 54881032,\n        \&quot;metadata\&quot;: {\n          \&quot;sourceUrl\&quot;: \&quot;https://vicserver.crs4.it/ocra-assets/Galassi-Allegoria_della_disperazione-Scan2014.glb\&quot;\n        },\n        \&quot;uploadedAt\&quot;: \&quot;2026-07-09T07:52:09.180Z\&quot;,\n        \&quot;uploadedBy\&quot;: \&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\&quot;,\n        \&quot;fileName\&quot;: \&quot;Galassi-Allegoria_della_disperazione-Scan2014.glb\&quot;\n      }\n    ],\n    \&quot;scenes\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;scene_1783583505654\&quot;,\n        \&quot;label\&quot;: \&quot;Default Scene\&quot;,\n        \&quot;description\&quot;: \&quot;Default scene created automatically\&quot;,\n        \&quot;isDefault\&quot;: true,\n        \&quot;assets\&quot;: [\n          {\n            \&quot;assetId\&quot;: \&quot;asset_1783583505651_vrw9q1389\&quot;,\n            \&quot;visible\&quot;: true\n          }\n        ],\n        \&quot;environment\&quot;: {\n          \&quot;showGround\&quot;: true,\n          \&quot;backgroundColor\&quot;: \&quot;#404040\&quot;\n        }\n      }\n    ],\n    \&quot;createdAt\&quot;: \&quot;2026-07-09T07:51:28.525Z\&quot;,\n    \&quot;updatedAt\&quot;: \&quot;2026-07-09T07:56:29.287Z\&quot;,\n    \&quot;createdBy\&quot;: \&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\&quot;,\n    \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n  },\n  \&quot;annotations\&quot;: {\n    \&quot;geometries\&quot;: [],\n    \&quot;data\&quot;: [],\n    \&quot;links\&quot;: []\n  }\n}\n&quot;
+      }
+    },
+    &quot;digitalAssets&quot;: [
+      {
+        &quot;id&quot;: &quot;asset_1783583505651_vrw9q1389&quot;,
+        &quot;projectId&quot;: &quot;cmrd7jrm1000sm3psnbb61lpn&quot;,
+        &quot;type&quot;: &quot;3d-model&quot;,
+        &quot;label&quot;: &quot;Galassi-Allegoria_della_disperazione-Scan2014.glb&quot;,
+        &quot;title&quot;: &quot;Galassi-Allegoria_della_disperazione-Scan2014&quot;,
+        &quot;description&quot;: null,
+        &quot;entryPointUrl&quot;: &quot;http://localhost:3002/assets/projects/cmrd7jrm1000sm3psnbb61lpn/3d-model/asset_1783583505651_vrw9q1389/Galassi-Allegoria_della_disperazione-Scan2014.glb&quot;,
+        &quot;entryPoint&quot;: &quot;/assets/projects/cmrd7jrm1000sm3psnbb61lpn/3d-model/asset_1783583505651_vrw9q1389/Galassi-Allegoria_della_disperazione-Scan2014.glb&quot;,
+        &quot;mimeType&quot;: &quot;application/octet-stream&quot;,
+        &quot;entrySize&quot;: 54881032,
+        &quot;metadata&quot;: {
+          &quot;sourceUrl&quot;: &quot;https://vicserver.crs4.it/ocra-assets/Galassi-Allegoria_della_disperazione-Scan2014.glb&quot;
+        },
+        &quot;uploadedAt&quot;: &quot;2026-07-09T07:52:09.180Z&quot;,
+        &quot;uploadedBy&quot;: &quot;2b35dba7-f5c2-48ba-882d-802a45eb661e&quot;,
+        &quot;fileName&quot;: &quot;Galassi-Allegoria_della_disperazione-Scan2014.glb&quot;
+      }
+    ],
+    &quot;scenes&quot;: [
+      {
+        &quot;id&quot;: &quot;scene_1783583505654&quot;,
+        &quot;label&quot;: &quot;Default Scene&quot;,
+        &quot;description&quot;: &quot;Default scene created automatically&quot;,
+        &quot;isDefault&quot;: true,
+        &quot;assets&quot;: [
+          {
+            &quot;assetId&quot;: &quot;asset_1783583505651_vrw9q1389&quot;,
+            &quot;visible&quot;: true
+          }
+        ],
+        &quot;environment&quot;: {
+          &quot;showGround&quot;: true,
+          &quot;backgroundColor&quot;: &quot;#404040&quot;
+        }
+      }
+    ],
+    &quot;createdAt&quot;: &quot;2026-07-09T07:51:28.525Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-07-09T07:56:29.287Z&quot;,
+    &quot;createdBy&quot;: &quot;2b35dba7-f5c2-48ba-882d-802a45eb661e&quot;,
+    &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+  },
+  &quot;annotations&quot;: {
+    &quot;geometries&quot;: [],
+    &quot;data&quot;: [],
+    &quot;links&quot;: []
+  }
+}
+</ocra:snapshotJson>
+  </rdf:Description>
+</rdf:RDF>
