@@ -6,7 +6,6 @@ import type {
 } from '../../types/vocabulary';
 import VocabularyTree from './VocabularyTree';
 import {
-  getVocabularyNodeLabel,
   searchVocabularyNodes,
   type VocabularyTreeNode,
 } from '../../utils/vocabulary';
@@ -34,6 +33,7 @@ export default function VocabularyClassPicker({
 }: VocabularyClassPickerProps) {
   const trimmedValue = value.trim();
   const [isTreeOpen, setIsTreeOpen] = useState(false);
+  const [activeSearchMatchIndex, setActiveSearchMatchIndex] = useState(0);
   const previousValueRef = useRef(value);
   const selectableNodes = useMemo<readonly VocabularyTreeNode[]>(
     () => [...properties, ...concepts],
@@ -69,13 +69,25 @@ export default function VocabularyClassPicker({
     return schemeIds;
   }, [highlightedNodeIds, searchMatches.length, selectableNodes, selectedNode?.id, trimmedValue.length]);
 
-  const bestMatch = searchMatches[0]
-    ? selectableNodes.find((node) => node.id === searchMatches[0].nodeId) ?? null
+  const currentSearchMatch = searchMatches[activeSearchMatchIndex] ?? null;
+
+  const focusedSearchNode = currentSearchMatch
+    ? selectableNodes.find((node) => node.id === currentSearchMatch.nodeId) ?? null
     : null;
+
+  useEffect(() => {
+    setActiveSearchMatchIndex((current) => {
+      if (searchMatches.length === 0) {
+        return 0;
+      }
+      return current < searchMatches.length ? current : 0;
+    });
+  }, [searchMatches]);
 
   useEffect(() => {
     if (previousValueRef.current !== value) {
       setIsTreeOpen(true);
+      setActiveSearchMatchIndex(0);
       previousValueRef.current = value;
     }
   }, [value]);
@@ -101,7 +113,29 @@ export default function VocabularyClassPicker({
           Type at least {SEARCH_MIN_LENGTH} characters to search vocabularies.
         </div>
         {searchMatches.length > 0 ? (
-          <span className="badge text-bg-light border">{searchMatches.length} match{searchMatches.length === 1 ? '' : 'es'}</span>
+          searchMatches.length === 1 ? (
+            <span className="badge text-bg-light border">1 match</span>
+          ) : (
+            <button
+              type="button"
+              className="badge border text-primary bg-primary-subtle border-primary-subtle"
+              onClick={() => setActiveSearchMatchIndex((current) => (current + 1) % searchMatches.length)}
+              aria-label={`Show next vocabulary match (${activeSearchMatchIndex + 1} of ${searchMatches.length})`}
+              title={`Match ${activeSearchMatchIndex + 1} of ${searchMatches.length}. Click to jump to the next match.`}
+              style={{
+                transition: 'filter 0.15s ease, background-color 0.15s ease, border-color 0.15s ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.filter = 'brightness(0.96)';
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.filter = 'brightness(1)';
+              }}
+            >
+              {activeSearchMatchIndex + 1}/{searchMatches.length} matches
+            </button>
+          )
         ) : null}
       </div>
 
@@ -147,7 +181,7 @@ export default function VocabularyClassPicker({
               <VocabularyTree
                 schemes={schemes}
                 nodes={selectableNodes}
-                selectedNodeId={selectedNode?.id ?? bestMatch?.id ?? null}
+                selectedNodeId={selectedNode?.id ?? focusedSearchNode?.id ?? null}
                 highlightedNodeIds={highlightedNodeIds}
                 visibleSchemeIds={visibleSchemeIds}
                 onSelect={(node) => onChange(node.curie)}
