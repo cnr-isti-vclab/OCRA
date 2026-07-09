@@ -17,6 +17,7 @@ import { getEchoesDevBearerOverride } from './echoes-dev-bearer.service.js';
 import { ingestRemoteAssetIntoExistingAsset } from './remote-asset-ingestion.service.js';
 import { validateRemoteAssetSourceUrl } from './remote-asset-import.service.js';
 import {
+  DEFAULT_ECHOES_PROJECT_URI,
   buildDefaultEchoesContext,
   computeEchoesSyncStatus,
   serializeHdtDocumentAsEchoesRdf,
@@ -416,12 +417,14 @@ async function listRegisteredEchoesHdtBindings(
 ): Promise<Array<Record<string, SparqlBindingValue>>> {
   const searchFilter = buildEchoesRegisteredHdtSearchFilter(search);
   const query = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
 SELECT DISTINCT ?hdt ?label ?user
 FROM <http://echoes-eccch.eu/kb/catalogue/HDT>
 WHERE {
   ?registration a <http://isl.ics.forth.gr/ontology/echoes/HC11_Digital_Twin_Maintenance> ;
-                <http://isl.ics.forth.gr/ontology/echoes/HP19_has_composed> ?hdt .
+                echoes:HP19_has_composed ?hdt ;
+                echoes:HP20_was_carried_out_under <${escapeSparqlLiteral(DEFAULT_ECHOES_PROJECT_URI)}> .
   OPTIONAL { ?hdt rdfs:label ?label }${searchFilter}
   OPTIONAL { ?registration crm:P14i_was_carried_out_by ?user }
 }
@@ -990,9 +993,14 @@ WHERE {
 async function findCurrentEchoesRegistrationByHeritageEntityUri(
   sessionId: string,
   heritageEntityUri: string,
+  projectUri: string,
 ): Promise<{ digitalTwinUri: string; namedGraphUri: string | null; digitalTwinLabel: string | null } | null> {
   const trimmedHeritageEntityUri = sanitizeOptionalString(heritageEntityUri);
+  const trimmedProjectUri = sanitizeOptionalString(projectUri);
   if (!trimmedHeritageEntityUri) {
+    return null;
+  }
+  if (!trimmedProjectUri) {
     return null;
   }
 
@@ -1002,7 +1010,8 @@ SELECT DISTINCT ?digitalTwinUri ?label
 FROM <http://echoes-eccch.eu/kb/catalogue/HDT>
 WHERE {
   ?maintenance echoes:HP18_has_documented <${escapeSparqlLiteral(trimmedHeritageEntityUri)}> ;
-               echoes:HP19_has_composed ?digitalTwinUri .
+               echoes:HP19_has_composed ?digitalTwinUri ;
+               echoes:HP20_was_carried_out_under <${escapeSparqlLiteral(trimmedProjectUri)}> .
   OPTIONAL { ?digitalTwinUri rdfs:label ?label }
   FILTER(STRSTARTS(STR(?digitalTwinUri), "${escapeSparqlLiteral(getEchoesHdtUriPrefix())}"))
 }
@@ -1196,7 +1205,11 @@ async function reconcileExistingEchoesRegistration(
   heritageEntityUri: string,
   _title: string | undefined,
 ): Promise<EchoesRegisterProjectResult | null> {
-  const existingRegistration = await findCurrentEchoesRegistrationByHeritageEntityUri(sessionId, heritageEntityUri);
+  const existingRegistration = await findCurrentEchoesRegistrationByHeritageEntityUri(
+    sessionId,
+    heritageEntityUri,
+    currentContext.projectUri,
+  );
   if (!existingRegistration) {
     return null;
   }
