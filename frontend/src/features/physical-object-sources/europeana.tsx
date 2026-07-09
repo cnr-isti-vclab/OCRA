@@ -141,7 +141,6 @@ async function importEuropeana3dAsset(
     description: detail.description || undefined,
     metadata: {
       sourceUrl: detail.mediaUrl,
-      sourceAssetUri: detail.uri,
       linkedHeritageEntityUri: detail.uri,
       rights: detail.license,
       provider: detail.provider,
@@ -161,7 +160,6 @@ async function importEuropeana3dAsset(
     uploadedAt: new Date().toISOString(),
     metadata: imported.metadata ?? {
       sourceUrl: resolvedSourceUrl,
-      sourceAssetUri: detail.uri,
       linkedHeritageEntityUri: detail.uri,
     },
   });

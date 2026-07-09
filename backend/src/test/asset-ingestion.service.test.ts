@@ -94,6 +94,28 @@ describe('asset ingestion RTI ZIP detection', () => {
     expect(prepared.type).toBe('3d');
   });
 
+  it('accepts direct GLB downloads even when the filename has no extension', async () => {
+    const workingDir = await createTempDir('ocra-direct-glb-');
+    tempDirs.push(workingDir);
+
+    const glbPath = path.join(workingDir, 'downloaded-asset');
+    const glbHeader = Buffer.alloc(20);
+    glbHeader.write('glTF', 0, 'ascii');
+    glbHeader.writeUInt32LE(2, 4);
+    glbHeader.writeUInt32LE(glbHeader.length, 8);
+    await fsp.writeFile(glbPath, glbHeader);
+
+    const prepared = await prepareAssetProcessingFromLocalFile({
+      file: {
+        path: glbPath,
+        originalname: 'downloaded-asset',
+        mimetype: 'application/octet-stream',
+      },
+    });
+
+    expect(prepared.type).toBe('3d-direct');
+  });
+
   it('accepts ZIPs with a single top-level directory wrapping the RTI dataset', async () => {
     const workingDir = await createTempDir('ocra-rti-legacy-');
     const archiveDir = await createTempDir('ocra-rti-legacy-archive-');

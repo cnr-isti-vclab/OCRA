@@ -123,4 +123,32 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
     expect(rdf).toContain('<ocra:hasProjectSnapshot rdf:resource="https://example.org/snapshots/project-1.json"/>');
     expect(rdf).toContain('<ocra:snapshotIncludesAnnotations>true</ocra:snapshotIncludesAnnotations>');
   });
+
+  it('keeps HC8 asset URIs distinct from the Heritage Entity when imported metadata reused the same source URI', () => {
+    const hdtDocument = buildHdtDocument();
+    hdtDocument.digitalAssets[0]!.metadata = {
+      ...hdtDocument.digitalAssets[0]!.metadata,
+      sourceAssetUri: 'https://example.org/heritage/project-1',
+      linkedHeritageEntityUri: 'https://example.org/heritage/project-1',
+    };
+
+    const rdf = serializeHdtDocumentAsEchoesRdf('project-1', hdtDocument, {
+      url: 'https://example.org/snapshots/project-1.json',
+      format: 'application/json',
+      version: 1,
+      exportedAt: '2026-06-27T09:31:00.000Z',
+      checksum: 'abc123',
+      includesAnnotations: false,
+      payloadJson: '{"ok":true}',
+    });
+
+    expect(rdf).toContain(`<rdf:Description rdf:about="https://example.org/heritage/project-1">`);
+    expect(rdf).toContain(`<rdf:Description rdf:about="urn:ocra:asset:project-1:asset-1">`);
+    expect(rdf).toContain(
+      `<${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="urn:ocra:asset:project-1:asset-1"/>`,
+    );
+    expect(rdf).not.toContain(
+      `<rdf:Description rdf:about="https://example.org/heritage/project-1">\n    <rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC8_3D_MODEL}"/>`,
+    );
+  });
 });

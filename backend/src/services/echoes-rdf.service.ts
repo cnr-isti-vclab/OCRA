@@ -90,9 +90,12 @@ function resolveDigitalTwinUri(projectId: string, hdtDocument: HDTDocument): str
   return hdtDocument.echoesContext?.digitalTwinUri?.trim() || `urn:ocra:project:${projectId}:hdt`;
 }
 
-function resolveAssetUri(projectId: string, asset: DigitalAsset): string {
+function resolveAssetUri(projectId: string, asset: DigitalAsset, heritageEntityUri: string): string {
   const sourceAssetUri = typeof asset.metadata?.sourceAssetUri === 'string' ? asset.metadata.sourceAssetUri.trim() : '';
-  return sourceAssetUri || `urn:ocra:asset:${projectId}:${asset.id}`;
+  if (sourceAssetUri && sourceAssetUri !== heritageEntityUri) {
+    return sourceAssetUri;
+  }
+  return `urn:ocra:asset:${projectId}:${asset.id}`;
 }
 
 export function buildDefaultEchoesContext(projectId: string) {
@@ -163,7 +166,9 @@ export function serializeHdtDocumentAsEchoesRdf(
   ];
   appendLiteralElements(hdtLines, 'rdfs:label', hdtDocument.echoesContext?.digitalTwinLabel || dublinCore.title);
   for (const asset of digitalAssets) {
-    hdtLines.push(`    <${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="${escapeXml(resolveAssetUri(projectId, asset))}"/>`);
+    hdtLines.push(
+      `    <${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="${escapeXml(resolveAssetUri(projectId, asset, heritageEntityUri))}"/>`,
+    );
   }
   if (snapshotReference?.url) {
     hdtLines.push(`    <ocra:hasProjectSnapshot rdf:resource="${escapeXml(snapshotReference.url)}"/>`);
@@ -171,7 +176,7 @@ export function serializeHdtDocumentAsEchoesRdf(
   hdtLines.push('  </rdf:Description>');
 
   const assetBlocks = digitalAssets.map((asset) => {
-    const assetUri = resolveAssetUri(projectId, asset);
+    const assetUri = resolveAssetUri(projectId, asset, heritageEntityUri);
     const assetLines: string[] = [
       `  <rdf:Description rdf:about="${escapeXml(assetUri)}">`,
       `    <rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC8_3D_MODEL}"/>`,

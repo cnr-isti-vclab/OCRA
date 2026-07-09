@@ -39,6 +39,50 @@ export function is3DModelFile(filename: string): boolean {
   return SUPPORTED_3D_EXTENSIONS.includes(ext);
 }
 
+function isSupported3dMimeType(mimetype: string | undefined): boolean {
+  if (!mimetype) {
+    return false;
+  }
+
+  const normalized = mimetype.split(';', 1)[0].trim().toLowerCase();
+  return normalized === 'model/gltf-binary' || normalized === 'model/gltf+json';
+}
+
+async function detectFileKind(file: PreparedAssetFile): Promise<'3d-direct' | 'zip' | 'unknown'> {
+  if (is3DModelFile(file.originalname) || isSupported3dMimeType(file.mimetype)) {
+    return '3d-direct';
+  }
+
+  if (path.extname(file.originalname).toLowerCase() === '.zip') {
+    return 'zip';
+  }
+
+  const handle = await fsp.open(file.path, 'r');
+  try {
+    const header = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    const slice = header.subarray(0, bytesRead);
+
+    if (slice.length >= 4 && slice.subarray(0, 4).equals(Buffer.from('glTF'))) {
+      return '3d-direct';
+    }
+
+    if (
+      slice.length >= 4 &&
+      slice[0] === 0x50 &&
+      slice[1] === 0x4b &&
+      (slice[2] === 0x03 || slice[2] === 0x05 || slice[2] === 0x07) &&
+      (slice[3] === 0x04 || slice[3] === 0x06 || slice[3] === 0x08)
+    ) {
+      return 'zip';
+    }
+
+    return 'unknown';
+  } finally {
+    await handle.close();
+  }
+}
+
 function isTextureFile(filename: string): boolean {
   const ext = path.extname(filename).toLowerCase();
   const textureExts = ['.jpg', '.jpeg', '.png', '.bmp', '.tga', '.tiff', '.exr', '.hdr'];
@@ -176,16 +220,16 @@ export async function prepareAssetProcessingFromLocalFile(input: {
   extractionRootDir?: string;
 }): Promise<PreparedAssetProcessing> {
   const { file } = input;
-  const ext = path.extname(file.originalname).toLowerCase();
+  const detectedKind = await detectFileKind(file);
 
-  if (is3DModelFile(file.originalname)) {
+  if (detectedKind === '3d-direct') {
     return {
       type: '3d-direct',
       originalFile: file,
     };
   }
 
-  if (ext !== '.zip') {
+  if (detectedKind !== 'zip') {
     throw new Error(
       `Unsupported file type. Accepted: ZIP archives or 3D models (${SUPPORTED_3D_EXTENSIONS.join(', ')})`,
     );
