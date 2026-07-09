@@ -5,7 +5,7 @@ interface EmbeddedProjectSnapshot extends EchoesProjectSnapshotReference {
   payloadJson?: string;
 }
 
-const DEFAULT_ECHOES_PROJECT_URI = 'http://data.echoes-eccch.eu/project/ECHOES';
+const DEFAULT_ECHOES_PROJECT_URI = 'http://echoes-eccch.eu/project/ECHOES';
 const DEFAULT_HERITAGE_ENTITY_URI_BASE = 'https://data.ocra.echoes.eu/heritage-entity/';
 
 function getEchoesProjectUri(): string {

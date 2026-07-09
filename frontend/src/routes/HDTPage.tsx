@@ -1558,7 +1558,7 @@ export default function HDTPage() {
               <div className="row g-3 small">
                 <div className="col-md-6">
                   <div className="text-muted">ECHOES URI (projectURI)</div>
-                  <div className="text-break">{effectiveEchoesProjectUri || 'http://data.echoes-eccch.eu/project/ECHOES'}</div>
+                  <div className="text-break">{effectiveEchoesProjectUri || 'http://echoes-eccch.eu/project/ECHOES'}</div>
                 </div>
                 <div className="col-md-6">
                   <div className="text-muted">Heritage Entity URI (heritageEntityUri)</div>

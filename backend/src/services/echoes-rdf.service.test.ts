@@ -18,7 +18,7 @@ function buildHdtDocument(): HDTDocument {
     echoesContext: {
       origin: 'local',
       syncStatus: 'dirty',
-      projectUri: 'http://data.echoes-eccch.eu/project/ECHOES',
+      projectUri: 'http://echoes-eccch.eu/project/ECHOES',
       heritageEntityUri: 'https://example.org/heritage/project-1',
       digitalTwinUri: 'https://example.org/hdt/project-1',
       digitalTwinLabel: 'Test Twin',

@@ -451,7 +451,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
             projectUri: {
               type: 'string',
-              example: 'http://data.echoes-eccch.eu/project/ECHOES',
+              example: 'http://echoes-eccch.eu/project/ECHOES',
             },
             heritageEntityUri: {
               type: 'string',
@@ -807,7 +807,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           required: ['projectId', 'projectUri', 'origin', 'syncStatus', 'assetCount'],
           properties: {
             projectId: { type: 'string', example: 'cmproject123' },
-            projectUri: { type: 'string', example: 'http://data.echoes-eccch.eu/project/ECHOES' },
+            projectUri: { type: 'string', example: 'http://echoes-eccch.eu/project/ECHOES' },
             origin: { type: 'string', enum: ['local', 'imported'], example: 'local' },
             syncStatus: { type: 'string', enum: ['local', 'registered', 'synced', 'dirty'], example: 'registered' },
             heritageEntityUri: { type: 'string', nullable: true },
