@@ -9,10 +9,16 @@ import type {
   EchoesProjectSnapshotSummary,
 } from './echoes-kb.service.js';
 import type { PhysicalObjectMetadata } from '../types/index.js';
+import {
+  ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY,
+  ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN,
+  ECHOES_HDTO_CLASS_HC8_3D_MODEL,
+  ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF,
+} from 'shared/echoes-hdto';
 
-const HC1_CLASS = 'http://echoes-eccch.eu/hdt#HC1';
-const HC2_CLASS = 'http://echoes-eccch.eu/hdt#HC2';
-const HC8_CLASS = 'http://echoes-eccch.eu/hdt#HC8';
+const HC1_CLASS = ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY;
+const HC2_CLASS = ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN;
+const HC8_CLASS = ECHOES_HDTO_CLASS_HC8_3D_MODEL;
 const SNAPSHOT_CLASS = 'https://data.ocra.echoes.eu/ontology#ProjectSnapshot';
 
 interface RdfDescriptionBlock {
@@ -205,7 +211,7 @@ export function parseEchoesRdfImport(rdfXml: string, fileName?: string): ParsedE
       description: extractSingleLiteral(block, 'dc:description'),
       source: extractSingleLiteral(block, 'dc:source'),
       format: mapAssetType(extractSingleLiteral(block, 'dc:format'), extractSingleLiteral(block, 'dc:source')),
-      linkedHeritageEntityUri: extractResourceValues(block, 'hdt:HP21')[0] ?? null,
+      linkedHeritageEntityUri: extractResourceValues(block, ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF)[0] ?? null,
       importable: false,
       importIssue: null,
     };

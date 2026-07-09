@@ -434,7 +434,7 @@ async function listActiveEchoesNamedGraphBindings(
   sessionId: string,
   _search: string | null,
 ): Promise<Array<Record<string, SparqlBindingValue>>> {
-  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
+  const query = `PREFIX hdto: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
@@ -457,15 +457,15 @@ WHERE {
   }
   OPTIONAL {
     GRAPH ?ng {
-      OPTIONAL { ?hdt a hdt:HC2 . }
+      OPTIONAL { ?hdt a hdto:HC2_Heritage_Digital_Twin . }
       OPTIONAL { ?hdt rdfs:label ?label }
       OPTIONAL {
         ?hdt ocra:hasProjectSnapshot ?snapshot .
         ?snapshot ocra:snapshotJson ?snapshotJson .
       }
       OPTIONAL {
-        ?hc1 a hdt:HC1 ;
-             hdt:HP1 ?hdt .
+        ?hc1 a hdto:HC1_Heritage_Entity ;
+             hdto:HP1_has_digital_twin ?hdt .
         OPTIONAL { ?hc1 dc:title ?title }
         OPTIONAL { ?hc1 dc:identifier ?identifier }
         OPTIONAL { ?hc1 dc:subject ?subject }
@@ -846,7 +846,7 @@ async function getEchoesHdtDetailWithSnapshotPayload(
   const namedGraphFilter = namedGraphUri
     ? `\n  FILTER(?ng = <${escapeSparqlLiteral(namedGraphUri)}>)`
     : '';
-  const query = `PREFIX hdt: <http://echoes-eccch.eu/hdt#>
+  const query = `PREFIX hdto: <http://isl.ics.forth.gr/ontology/echoes/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dc: <http://purl.org/dc/elements/1.1/>
 PREFIX dcterms: <http://purl.org/dc/terms/>
@@ -855,11 +855,11 @@ SELECT DISTINCT ?ng ?hdt ?hdtLabel ?hc1 ?hc1Label ?hc1Title ?hc1Identifier ?hc1D
 WHERE {
   GRAPH ?ng {
     BIND(<${escapedDtUri}> AS ?hdt)
-    ?hdt a hdt:HC2 .
+    ?hdt a hdto:HC2_Heritage_Digital_Twin .
     OPTIONAL { ?hdt rdfs:label ?hdtLabel }
     OPTIONAL {
-      ?hc1 a hdt:HC1 ;
-           hdt:HP1 ?hdt .
+      ?hc1 a hdto:HC1_Heritage_Entity ;
+           hdto:HP1_has_digital_twin ?hdt .
       OPTIONAL { ?hc1 rdfs:label ?hc1Label }
       OPTIONAL { ?hc1 dc:title ?hc1Title }
       OPTIONAL { ?hc1 dc:identifier ?hc1Identifier }
@@ -874,14 +874,14 @@ WHERE {
       OPTIONAL { ?hc1 dc:source ?hc1Source }
     }
     OPTIONAL {
-      ?hdt hdt:HP3 ?asset .
-      ?asset a hdt:HC8 .
+      ?hdt hdto:HP3_is_digital_twin_component_of ?asset .
+      ?asset a hdto:HC8_3D_Model .
       OPTIONAL { ?asset rdfs:label ?assetLabel }
       OPTIONAL { ?asset dc:title ?assetTitle }
       OPTIONAL { ?asset dc:description ?assetDescription }
       OPTIONAL { ?asset dc:source ?assetSource }
       OPTIONAL { ?asset dc:format ?assetFormat }
-      OPTIONAL { ?asset hdt:HP21 ?assetHc1 }
+      OPTIONAL { ?asset hdto:HP21_is_3D_representation_output_of ?assetHc1 }
     }
     OPTIONAL {
       ?hdt ocra:hasProjectSnapshot ?snapshot .

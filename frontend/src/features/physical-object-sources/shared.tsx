@@ -1,4 +1,5 @@
 import type { OntologyMappingResult, PhysicalObjectMetadataRecord } from './types';
+import { ECHOES_HDTO_CURIE_HC1_HERITAGE_ENTITY } from 'shared/echoes-hdto';
 
 // ── Value helpers ──────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ export function defaultMapToHdtOntology(
   sourceType: string,
   notes: string[]
 ): OntologyMappingResult {
-  const triples: OntologyMappingResult['triples'] = [{ predicate: 'rdf:type', value: 'hdt:HC1' }];
+  const triples: OntologyMappingResult['triples'] = [{ predicate: 'rdf:type', value: ECHOES_HDTO_CURIE_HC1_HERITAGE_ENTITY }];
 
   for (const [predicate, key] of DC_ONTOLOGY_FIELDS) {
     const value = getDublinCoreField(metadata, key);
@@ -107,5 +108,5 @@ export function defaultMapToHdtOntology(
   const source = getDublinCoreField(metadata, 'source') || asString(metadata?.sourceUri);
   if (source) triples.push({ predicate: 'dc:source', value: source });
 
-  return { classId: 'HC1', sourceType, triples, notes };
+  return { classId: 'HC1_Heritage_Entity', sourceType, triples, notes };
 }

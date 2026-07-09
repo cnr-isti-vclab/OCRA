@@ -8,6 +8,7 @@
   "exports": {
     ".": "./types.ts",
     "./types": "./types.ts",
+    "./echoes-hdto": "./echoes-hdto.ts",
     "./scene-types": "./scene-types.ts",
     "./scene-schema": "./scene-schema.ts",
     "./annotation-types": "./annotation-types.ts",

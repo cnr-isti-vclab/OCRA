@@ -41,7 +41,7 @@ export interface OntologyMappingTriple {
 }
 
 export interface OntologyMappingResult {
-  classId: 'HC1';
+  classId: 'HC1_Heritage_Entity';
   sourceType: string;
   triples: OntologyMappingTriple[];
   notes?: string[];

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { HDTDocument } from '../types/index.js';
 import { serializeHdtDocumentAsEchoesRdf } from './echoes-rdf.service.js';
+import {
+  ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY,
+  ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN,
+  ECHOES_HDTO_CLASS_HC8_3D_MODEL,
+  ECHOES_HDTO_CURIE_HP1_HAS_DIGITAL_TWIN,
+  ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF,
+  ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF,
+} from 'shared/echoes-hdto';
 
 function buildHdtDocument(): HDTDocument {
   return {
@@ -80,16 +88,16 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
       payloadJson,
     });
 
-    expect(rdf).toContain('<rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>');
-    expect(rdf).toContain('<rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC2"/>');
-    expect(rdf).toContain('<rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>');
+    expect(rdf).toContain(`<rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY}"/>`);
+    expect(rdf).toContain(`<rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN}"/>`);
+    expect(rdf).toContain(`<rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC8_3D_MODEL}"/>`);
     expect(rdf).toContain('<ocra:hasProjectSnapshot rdf:resource="https://example.org/snapshots/project-1.json"/>');
     expect(rdf).toContain('<ocra:snapshotIncludesAnnotations>true</ocra:snapshotIncludesAnnotations>');
     expect(rdf).toContain('<ocra:snapshotJson>{');
     expect(rdf).toContain('&quot;annotations&quot;');
     expect(rdf).toContain('&quot;scene-export-1&quot;');
     expect(rdf).toContain('<dc:source>https://assets.example.org/model.glb</dc:source>');
-    expect(rdf).toContain('<hdt:HP3 rdf:resource="https://assets.example.org/id/model.glb"/>');
+    expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="https://assets.example.org/id/model.glb"/>`);
   });
 
   it('emits the RDF predicates that ECCCH import expects to rebuild metadata and assets', () => {
@@ -104,14 +112,14 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
     });
 
     expect(rdf).toContain('<rdf:Description rdf:about="https://example.org/heritage/project-1">');
-    expect(rdf).toContain('<hdt:HP1 rdf:resource="https://example.org/hdt/project-1"/>');
+    expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP1_HAS_DIGITAL_TWIN} rdf:resource="https://example.org/hdt/project-1"/>`);
     expect(rdf).toContain('<dc:title>Test Heritage Entity</dc:title>');
     expect(rdf).toContain('<dc:identifier>https://example.org/identifier/project-1</dc:identifier>');
     expect(rdf).toContain('<rdf:Description rdf:about="https://example.org/hdt/project-1">');
-    expect(rdf).toContain('<hdt:HP3 rdf:resource="https://assets.example.org/id/model.glb"/>');
+    expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="https://assets.example.org/id/model.glb"/>`);
     expect(rdf).toContain('<rdf:Description rdf:about="https://assets.example.org/id/model.glb">');
     expect(rdf).toContain('<dc:format>model/gltf-binary</dc:format>');
-    expect(rdf).toContain('<hdt:HP21 rdf:resource="https://example.org/heritage/project-1"/>');
+    expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF} rdf:resource="https://example.org/heritage/project-1"/>`);
     expect(rdf).toContain('<ocra:hasProjectSnapshot rdf:resource="https://example.org/snapshots/project-1.json"/>');
     expect(rdf).toContain('<ocra:snapshotIncludesAnnotations>true</ocra:snapshotIncludesAnnotations>');
   });

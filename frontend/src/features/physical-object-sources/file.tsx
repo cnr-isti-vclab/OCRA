@@ -1,4 +1,5 @@
 import * as N3 from 'n3';
+import { ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY } from 'shared/echoes-hdto';
 import type {
   PhysicalObjectSourceAdapter,
   PhysicalObjectSourceFormProps,
@@ -14,7 +15,7 @@ export interface FileFormState {
 }
 
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
-const HC1_CLASS = 'http://echoes-eccch.eu/hdt#HC1';
+const HC1_CLASS = ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY;
 
 function findPrimaryHc1Subject(quads: N3.Quad[]): string | null {
   for (const quad of quads) {

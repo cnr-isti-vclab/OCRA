@@ -1,5 +1,14 @@
 import type { DigitalAsset, HDTDocument } from '../types/index.js';
 import type { EchoesProjectSnapshotReference } from 'shared';
+import {
+  ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY,
+  ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN,
+  ECHOES_HDTO_CLASS_HC8_3D_MODEL,
+  ECHOES_HDTO_CURIE_HP1_HAS_DIGITAL_TWIN,
+  ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF,
+  ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF,
+  ECHOES_HDTO_NAMESPACE,
+} from 'shared/echoes-hdto';
 
 interface EmbeddedProjectSnapshot extends EchoesProjectSnapshotReference {
   payloadJson?: string;
@@ -131,7 +140,7 @@ export function serializeHdtDocumentAsEchoesRdf(
 
   const hc1Lines: string[] = [
     `  <rdf:Description rdf:about="${escapeXml(heritageEntityUri)}">`,
-    '    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC1"/>',
+    `    <rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY}"/>`,
   ];
 
   appendLiteralElements(hc1Lines, 'rdfs:label', physicalObject.label || dublinCore.title);
@@ -145,16 +154,16 @@ export function serializeHdtDocumentAsEchoesRdf(
   appendLiteralElements(hc1Lines, 'dc:language', dublinCore.language);
   appendLiteralElements(hc1Lines, 'dc:coverage', dublinCore.coverage);
   appendLiteralElements(hc1Lines, 'dc:rights', dublinCore.rights);
-  hc1Lines.push(`    <hdt:HP1 rdf:resource="${escapeXml(digitalTwinUri)}"/>`);
+  hc1Lines.push(`    <${ECHOES_HDTO_CURIE_HP1_HAS_DIGITAL_TWIN} rdf:resource="${escapeXml(digitalTwinUri)}"/>`);
   hc1Lines.push('  </rdf:Description>');
 
   const hdtLines: string[] = [
     `  <rdf:Description rdf:about="${escapeXml(digitalTwinUri)}">`,
-    '    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC2"/>',
+    `    <rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN}"/>`,
   ];
   appendLiteralElements(hdtLines, 'rdfs:label', hdtDocument.echoesContext?.digitalTwinLabel || dublinCore.title);
   for (const asset of digitalAssets) {
-    hdtLines.push(`    <hdt:HP3 rdf:resource="${escapeXml(resolveAssetUri(projectId, asset))}"/>`);
+    hdtLines.push(`    <${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="${escapeXml(resolveAssetUri(projectId, asset))}"/>`);
   }
   if (snapshotReference?.url) {
     hdtLines.push(`    <ocra:hasProjectSnapshot rdf:resource="${escapeXml(snapshotReference.url)}"/>`);
@@ -165,7 +174,7 @@ export function serializeHdtDocumentAsEchoesRdf(
     const assetUri = resolveAssetUri(projectId, asset);
     const assetLines: string[] = [
       `  <rdf:Description rdf:about="${escapeXml(assetUri)}">`,
-      '    <rdf:type rdf:resource="http://echoes-eccch.eu/hdt#HC8"/>',
+      `    <rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC8_3D_MODEL}"/>`,
     ];
 
     appendLiteralElements(assetLines, 'rdfs:label', asset.label);
@@ -177,7 +186,7 @@ export function serializeHdtDocumentAsEchoesRdf(
       typeof asset.metadata?.sourceUrl === 'string' ? asset.metadata.sourceUrl : undefined,
     );
     appendLiteralElements(assetLines, 'dc:format', typeof asset.metadata?.format === 'string' ? asset.metadata.format : inferAssetMimeType(asset));
-    assetLines.push(`    <hdt:HP21 rdf:resource="${escapeXml(heritageEntityUri)}"/>`);
+    assetLines.push(`    <${ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF} rdf:resource="${escapeXml(heritageEntityUri)}"/>`);
     assetLines.push('  </rdf:Description>');
     return assetLines.join('\n');
   });
@@ -208,7 +217,7 @@ export function serializeHdtDocumentAsEchoesRdf(
   xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
   xmlns:dc="http://purl.org/dc/elements/1.1/"
   xmlns:dcterms="http://purl.org/dc/terms/"
-  xmlns:hdt="http://echoes-eccch.eu/hdt#"
+  xmlns:hdto="${ECHOES_HDTO_NAMESPACE}"
   xmlns:ocra="https://data.ocra.echoes.eu/ontology#">
 
 ${hc1Lines.join('\n')}
