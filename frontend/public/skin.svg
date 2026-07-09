@@ -67,7 +67,7 @@
      id="layer1"
      transform="translate(16.045946,-195.30438)"><g
        id="g1196"
-       class="openlime-button openlime-light tp-light-on tp-light-off"
+       class="openlime-button openlime-light tp-light-on"
        transform="translate(-83.869625)"><rect
          ry="12"
          rx="12"
@@ -715,7 +715,7 @@
              stroke-linejoin="round"
              id="path1-9"
              style="stroke:#808080;stroke-width:1.8;stroke-dasharray:none;stroke-opacity:1" /></g></g></g></g>  <g
-     class="openlime-button openlime-env tp-env-on tp-env-off"
+     class="openlime-button openlime-env tp-env-on"
      transform="translate(0,430)">
     <rect
        width="71" height="71" x="0" y="0" rx="12" ry="12"

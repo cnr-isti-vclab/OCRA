@@ -33,3 +33,11 @@
 .ocra-3d-toolbar .tp-ui-skin-icon :where(path, polygon)[style] { fill: #fff !important; stroke: #fff !important; }
 .ocra-3d-toolbar .tp-ui-skin-icon :where(line, circle, ellipse, polyline)[style] { stroke: #fff !important; }
 .ocra-3d-toolbar .tp-ui-skin-icon .openlime-compact { visibility: hidden; }
+
+/*
+ * On/off state for the light and environment toggles (OpenLIME style): the same
+ * glyph is dimmed when the feature is off, and the light bulb glows amber when on.
+ * DefaultUI toggles .tp-active on the button to drive this.
+ */
+.ocra-3d-toolbar .btn:not(.tp-active) :is(.tp-light-on, .tp-env-on) { opacity: 0.4; }
+.ocra-3d-toolbar .btn.tp-active .openlime-bulb :where(path)[style] { fill: #ffcc00 !important; stroke: #ffcc00 !important; }
