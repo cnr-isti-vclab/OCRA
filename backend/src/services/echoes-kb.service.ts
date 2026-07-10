@@ -109,6 +109,27 @@ function getEchoesUserGraphPrefix(): string {
   return process.env.ECHOES_KB_USER_GRAPH_PREFIX?.trim() || DEFAULT_USER_GRAPH_PREFIX;
 }
 
+/**
+ * Returns Digital Twin URIs excluded from the ECCCH browsing lists.
+ *
+ * This is intentionally evaluated for each request so changing the value in a
+ * running process environment takes effect without a separate configuration
+ * cache. A backend restart is still required when dotenv is the source.
+ */
+function getHiddenEchoesHdtUris(): ReadonlySet<string> {
+  const rawValue = process.env.ECHOES_KB_HIDDEN_HDT_URIS?.trim();
+  if (!rawValue) {
+    return new Set();
+  }
+
+  return new Set(
+    rawValue
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0),
+  );
+}
+
 function escapeSparqlLiteral(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
@@ -738,11 +759,14 @@ export async function listEchoesNamedGraphs(
     registeredLabelByUri.set(digitalTwinUri, getBindingValue(binding, 'label'));
   }
 
+  const hiddenHdtUris = getHiddenEchoesHdtUris();
+
   return aggregateActiveEchoesNamedGraphBindings(activeBindings, registeredLabelByUri)
     .filter((item) =>
       item.namedGraphUri &&
       item.digitalTwinUri &&
       registeredLabelByUri.has(item.digitalTwinUri) &&
+      !hiddenHdtUris.has(item.digitalTwinUri) &&
       matchesEchoesNamedGraphSearch(item, search)
     )
     .sort(compareGraphsDescending);
@@ -784,6 +808,8 @@ export async function listEchoesHdts(
     currentActorByDigitalTwinUri.set(digitalTwinUri, getBindingValue(binding, 'actor'));
   }
 
+  const hiddenHdtUris = getHiddenEchoesHdtUris();
+
   const items = registeredBindings
     .map((binding) => ({
       digitalTwinUri: getBindingValue(binding, 'hdt') ?? '',
@@ -793,7 +819,12 @@ export async function listEchoesHdts(
         currentActorByDigitalTwinUri.get(getBindingValue(binding, 'hdt') ?? '') ??
         null,
     }))
-    .filter((item) => item.digitalTwinUri && compatibleDigitalTwinUris.has(item.digitalTwinUri));
+    .filter(
+      (item) =>
+        item.digitalTwinUri &&
+        compatibleDigitalTwinUris.has(item.digitalTwinUri) &&
+        !hiddenHdtUris.has(item.digitalTwinUri),
+    );
 
   const dedupedItems = new Map<string, EchoesHdtListItem>();
   for (const item of items) {
