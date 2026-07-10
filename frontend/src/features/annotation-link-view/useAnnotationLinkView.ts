@@ -49,9 +49,11 @@ export function useAnnotationLinkView() {
     visibleGeometries: linkViewResult.visibleGeometries,
     visibleData: classFilteredVisibleData,
     panelShowsFilteredData:
-      linkViewMode === 'selectGeometry' && focusedGeometryIds.size > 0,
+      linkViewMode === 'selectGeometry'
+      && (focusedGeometryIds.size > 0 || focusedDataIds.size > 0),
     viewerShowsFilteredGeometries:
-      linkViewMode === 'selectData' && focusedDataIds.size > 0,
+      linkViewMode === 'selectData'
+      && (focusedDataIds.size > 0 || focusedGeometryIds.size > 0),
   };
 }
 

@@ -49,8 +49,39 @@ function filterByIds<T extends { id: string }>(items: readonly T[], allowedIds: 
 }
 
 /**
+ * Geometry ids that drive panel filtering in {@link selectGeometry} mode.
+ * Direct geometry focus wins; otherwise derive from focused data (e.g. after switching from by-data).
+ */
+function resolveGeometryAnchorsForPanel(
+  focusedGeometryIds: ReadonlySet<string>,
+  focusedDataIds: ReadonlySet<string>,
+  selection: ActiveAnnotationSelection,
+): Set<string> {
+  if (focusedGeometryIds.size > 0) {
+    return new Set(focusedGeometryIds);
+  }
+  return new Set(geometryIdsForFocusedData(focusedDataIds, selection));
+}
+
+/**
+ * Geometry ids that drive viewer filtering in {@link selectData} mode.
+ * Data-led focus wins; otherwise use direct geometry focus (e.g. after switching from by-geometry).
+ */
+function resolveGeometryAnchorsForViewer(
+  focusedGeometryIds: ReadonlySet<string>,
+  focusedDataIds: ReadonlySet<string>,
+  selection: ActiveAnnotationSelection,
+): Set<string> {
+  if (focusedDataIds.size > 0) {
+    return new Set(geometryIdsForFocusedData(focusedDataIds, selection));
+  }
+  return new Set(focusedGeometryIds);
+}
+
+/**
  * Applies link-view mode on top of the query-filtered active sets.
  * Focus on the driving side narrows the opposite side; with no focus, both sides stay unfiltered.
+ * When switching modes, focus on the non-driving side is used as a fallback anchor so behaviour stays symmetric.
  */
 export function applyAnnotationLinkViewMode({
   mode,
@@ -68,7 +99,12 @@ export function applyAnnotationLinkViewMode({
   }
 
   if (mode === 'selectGeometry') {
-    if (focusedGeometryIds.size === 0) {
+    const anchorGeometryIds = resolveGeometryAnchorsForPanel(
+      focusedGeometryIds,
+      focusedDataIds,
+      selection,
+    );
+    if (anchorGeometryIds.size === 0) {
       return {
         visibleGeometries: [...activeGeometries],
         visibleData: [...activeData],
@@ -76,7 +112,7 @@ export function applyAnnotationLinkViewMode({
     }
 
     const linkedDataIds = new Set(
-      dataIdsForFocusedGeometries(focusedGeometryIds, selection),
+      dataIdsForFocusedGeometries(anchorGeometryIds, selection),
     );
     return {
       visibleGeometries: [...activeGeometries],
@@ -84,18 +120,20 @@ export function applyAnnotationLinkViewMode({
     };
   }
 
-  if (focusedDataIds.size === 0) {
+  const anchorGeometryIds = resolveGeometryAnchorsForViewer(
+    focusedGeometryIds,
+    focusedDataIds,
+    selection,
+  );
+  if (anchorGeometryIds.size === 0) {
     return {
       visibleGeometries: [...activeGeometries],
       visibleData: [...activeData],
     };
   }
 
-  const linkedGeometryIds = new Set(
-    geometryIdsForFocusedData(focusedDataIds, selection),
-  );
   return {
-    visibleGeometries: filterByIds(activeGeometries, linkedGeometryIds),
+    visibleGeometries: filterByIds(activeGeometries, anchorGeometryIds),
     visibleData: [...activeData],
   };
 }

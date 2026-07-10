@@ -121,25 +121,25 @@ export default function AnnotationPanelViewer() {
           </section>
         ) : null}
 
-        {panelShowsFilteredData && !hasGeometrySelection ? (
+        {panelShowsFilteredData && !hasGeometrySelection && !hasDataSelection ? (
           <div className="border rounded p-3 bg-white">
-            <div className="fw-semibold mb-2">No geometry selected</div>
+            <div className="fw-semibold mb-2">No selection</div>
             <div className="small text-muted">
-              Select an annotation geometry in the viewer to inspect its linked annotation data here.
+              Select a geometry in the viewer or annotation data in the panel to filter linked items.
             </div>
           </div>
         ) : null}
 
-        {panelShowsFilteredData && hasGeometrySelection && visibleData.length === 0 ? (
+        {panelShowsFilteredData && (hasGeometrySelection || hasDataSelection) && visibleData.length === 0 ? (
           <div className="border rounded p-3 bg-white">
             <div className="fw-semibold mb-2">No linked annotation data</div>
             <div className="small text-muted">
-              The selected geometr{focusedGeometryIds.size === 1 ? 'y is' : 'ies are'} not currently linked to any annotation data matching the active filter.
+              The current selection is not linked to any annotation data matching the active filter.
             </div>
           </div>
         ) : null}
 
-        {viewerShowsFilteredGeometries && hasDataSelection ? (
+        {viewerShowsFilteredGeometries && (hasGeometrySelection || hasDataSelection) ? (
           <div className="border rounded p-3 bg-white">
             <div className="fw-semibold mb-2">Viewer filtered by data selection</div>
             <div className="small text-muted">

@@ -580,7 +580,7 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
           <p className="text-muted fst-italic text-center">
             {activeData.length === 0
               ? 'No active annotation data. Adjust the query filter or create annotations in the viewer.'
-              : panelShowsFilteredData && focusedGeometryIds.size === 0
+              : panelShowsFilteredData && focusedGeometryIds.size === 0 && focusedDataIds.size === 0
               ? 'Select a geometry in the viewer to see linked annotation data.'
               : 'No annotation data matches the current filter.'}
           </p>
