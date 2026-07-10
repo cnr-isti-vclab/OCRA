@@ -10,6 +10,7 @@ import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scen
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import {
   activeGeometriesToViewerAnnotations,
@@ -78,7 +79,6 @@ function hexToRgba(color: string, alpha: number): string {
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
   ({ sceneDesc, digitalAssets, rtiAvailable, annotationMode, onReady, onError }, ref) => {
     const {
-      activeGeometries,
       activeAnnotationSelection,
       activeSocialLocks,
       currentStreamId,
@@ -96,6 +96,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       startEditorLock,
       stopEditorLock,
     } = useAnnotationStore();
+    const { visibleGeometries } = useAnnotationLinkView();
 
     const isStoreSyncRef = useRef(false);
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
@@ -104,8 +105,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     // Always-current refs for use inside pointer event handlers (avoids stale closures).
     const focusedGeometryIdsRef = useRef(focusedGeometryIds);
     focusedGeometryIdsRef.current = focusedGeometryIds;
-    const activeGeometriesRef = useRef(activeGeometries);
-    activeGeometriesRef.current = activeGeometries;
+    const activeGeometriesRef = useRef(visibleGeometries);
+    activeGeometriesRef.current = visibleGeometries;
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
     const [pencilActive, setPencilActive] = useState(false);
@@ -159,15 +160,16 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }
 
     /** Stable labels for OpenLIME sync — exclude focus-driven label text to avoid resync storms. */
+    /** Stable labels for OpenLIME sync — exclude focus-driven label text to avoid resync storms. */
     const viewerAnnotationsForSync = useMemo(
       () =>
         activeGeometriesToViewerAnnotations(
-          activeGeometries,
+          visibleGeometries,
           activeAnnotationSelection,
           new Set(),
           annotationClassFilterValues,
         ),
-      [activeGeometries, activeAnnotationSelection, annotationClassFilterValues, revision],
+      [visibleGeometries, activeAnnotationSelection, annotationClassFilterValues, revision],
     );
 
     const semanticClassesForFilter = useMemo(() => {

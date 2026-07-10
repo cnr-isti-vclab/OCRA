@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { AnnotationData, AnnotationGeometry } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
-import { filterDataByClassFilter } from '../../stores/annotation-class-filter';
+import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 
 export interface AnnotationViewerGeometryEntry {
   geometry: AnnotationGeometry;
@@ -34,15 +34,19 @@ export function useAnnotationViewerController() {
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
     sceneAnnotationClassPool,
+    linkViewMode,
+    setLinkViewMode,
   } = useAnnotationStore();
+
+  const {
+    visibleGeometries: linkViewGeometries,
+    visibleData: filteredActiveData,
+    panelShowsFilteredData,
+    viewerShowsFilteredGeometries,
+  } = useAnnotationLinkView();
 
   const dataById = activeAnnotationSelection.dataById;
   const geometryById = activeAnnotationSelection.geometriesById;
-
-  const filteredActiveData = useMemo(
-    () => filterDataByClassFilter(activeData, annotationClassFilterValues),
-    [activeData, annotationClassFilterValues],
-  );
 
   const visibleGeometryIds = useMemo(
     () =>
@@ -129,9 +133,6 @@ export function useAnnotationViewerController() {
       }
 
       setFocusSelection({
-        // Keep data-led focus (like editor mode): geometries highlighted as the union
-        // of all focused data ids. If a specific geometry was requested, switch to
-        // geometry-led focus for that click only.
         geometryIds: geometryId ? [geometryId] : [],
         dataIds: nextDataIds,
       });
@@ -143,6 +144,7 @@ export function useAnnotationViewerController() {
     activeDataCount: activeData.length,
     activeGeometryCount: activeGeometries.length,
     filteredActiveData,
+    linkViewGeometries,
     geometryEntries,
     dataEntries,
     focusedDataIds,
@@ -154,6 +156,10 @@ export function useAnnotationViewerController() {
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
+    linkViewMode,
+    setLinkViewMode,
+    panelShowsFilteredData,
+    viewerShowsFilteredGeometries,
     selectGeometry,
     selectData,
     clearFocus,

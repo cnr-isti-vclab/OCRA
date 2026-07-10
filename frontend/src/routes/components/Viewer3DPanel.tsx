@@ -4,6 +4,7 @@ import { LoadingProgress } from 'three-presenter';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import AnnotationToolbar, {
   type AnnotationToolbarMode,
 } from '../../components/AnnotationToolbar';
@@ -62,7 +63,6 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     ref
   ) => {
     const {
-      activeGeometries,
       activeAnnotationSelection,
       focusedDataIds,
       focusedGeometryIds,
@@ -71,10 +71,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       createAnnotation,
       updateGeometry,
     } = useAnnotationStore();
+    const { visibleGeometries } = useAnnotationLinkView();
 
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
-    const activeGeometriesRef = useRef(activeGeometries);
-    activeGeometriesRef.current = activeGeometries;
+    const activeGeometriesRef = useRef(visibleGeometries);
+    activeGeometriesRef.current = visibleGeometries;
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
@@ -82,11 +83,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const viewerAnnotations = useMemo(
       () =>
         activeGeometriesToViewerAnnotations(
-          activeGeometries,
+          visibleGeometries,
           activeAnnotationSelection,
           focusedDataIds,
         ),
-      [activeGeometries, activeAnnotationSelection, focusedDataIds],
+      [visibleGeometries, activeAnnotationSelection, focusedDataIds],
     );
 
     const highlightGeometryIds = useMemo(

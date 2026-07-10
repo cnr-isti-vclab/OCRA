@@ -13,7 +13,6 @@ import {
   isDataIdUnderEditorLock,
   isDataIdUnderRemoteEditorLock,
 } from '../../stores/annotation-social-locks';
-import { filterDataByClassFilter } from '../../stores/annotation-class-filter';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -23,6 +22,8 @@ import {
 } from '../../shared/ui/AppMessageModalModel';
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
+import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
+import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import VocabularyClassPicker from '../../shared/ui/VocabularyClassPicker';
 import type {
   VocabularyConcept,
@@ -172,37 +173,16 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
     stopEditorLock,
   } = useAnnotationStore();
 
+  const {
+    visibleData,
+    linkViewMode,
+    setLinkViewMode,
+    panelShowsFilteredData,
+  } = useAnnotationLinkView();
+
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
-  const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
   const editingDataIdRef = useRef<string | null>(null);
-
-  const filteredActiveData = useMemo(
-    () => filterDataByClassFilter(activeData, annotationClassFilterValues),
-    [activeData, annotationClassFilterValues],
-  );
-
-  const visibleData = useMemo(() => {
-    if (!onlySelectedGeometryData) {
-      return filteredActiveData;
-    }
-    if (focusedGeometryIds.size === 0) {
-      return [];
-    }
-
-    const allowedDataIds = new Set<string>();
-    for (const geometryId of focusedGeometryIds) {
-      for (const dataId of activeAnnotationSelection.dataIdsByGeometryId.get(geometryId) ?? []) {
-        allowedDataIds.add(dataId);
-      }
-    }
-    return filteredActiveData.filter((datum) => allowedDataIds.has(datum.id));
-  }, [
-    onlySelectedGeometryData,
-    filteredActiveData,
-    focusedGeometryIds,
-    activeAnnotationSelection.dataIdsByGeometryId,
-  ]);
 
   // Class filter UI is handled by the shared `AnnotationClassFilter` component.
 
@@ -585,19 +565,11 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
         />
       }
       toggle={
-        <div className="mb-3 form-check form-switch">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            role="switch"
-            id="annotation-panel-only-selected-geometry-data"
-            checked={onlySelectedGeometryData}
-            onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
-          />
-          <label className="form-check-label small" htmlFor="annotation-panel-only-selected-geometry-data">
-            Show only data linked to selected geometries
-          </label>
-        </div>
+        <AnnotationLinkViewModeToggle
+          idPrefix="annotation-editor"
+          mode={linkViewMode}
+          onChange={setLinkViewMode}
+        />
       }
     >
 
@@ -608,8 +580,8 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
           <p className="text-muted fst-italic text-center">
             {activeData.length === 0
               ? 'No active annotation data. Adjust the query filter or create annotations in the viewer.'
-              : onlySelectedGeometryData && focusedGeometryIds.size === 0
-              ? 'No geometry selected.'
+              : panelShowsFilteredData && focusedGeometryIds.size === 0
+              ? 'Select a geometry in the viewer to see linked annotation data.'
               : 'No annotation data matches the current filter.'}
           </p>
         </div>

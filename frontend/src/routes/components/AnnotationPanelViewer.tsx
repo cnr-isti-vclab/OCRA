@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useAnnotationViewerController } from './useAnnotationViewerController';
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
+import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
 
 export default function AnnotationPanelViewer() {
   const {
     activeDataCount,
     activeGeometryCount,
     filteredActiveData,
+    linkViewGeometries,
     dataEntries,
     focusedDataIds,
     focusedGeometryIds,
@@ -20,15 +22,16 @@ export default function AnnotationPanelViewer() {
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
+    linkViewMode,
+    setLinkViewMode,
+    panelShowsFilteredData,
+    viewerShowsFilteredGeometries,
   } = useAnnotationViewerController();
 
   const hasGeometrySelection = focusedGeometryIds.size > 0;
-  const [onlySelectedGeometryData, setOnlySelectedGeometryData] = useState(false);
+  const hasDataSelection = focusedDataIds.size > 0;
 
-  const visibleData = useMemo(
-    () => (onlySelectedGeometryData ? dataEntries.map((e) => e.data) : filteredActiveData),
-    [onlySelectedGeometryData, dataEntries, filteredActiveData],
-  );
+  const visibleData = filteredActiveData;
 
   return (
     <AnnotationPanelBase
@@ -57,19 +60,11 @@ export default function AnnotationPanelViewer() {
         />
       )}
       toggle={(
-        <div className="mb-3 form-check form-switch">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            role="switch"
-            id="annotation-viewer-only-selected-geometry-data"
-            checked={onlySelectedGeometryData}
-            onChange={(e) => setOnlySelectedGeometryData(e.target.checked)}
-          />
-          <label className="form-check-label small" htmlFor="annotation-viewer-only-selected-geometry-data">
-            Show only data linked to selected geometries
-          </label>
-        </div>
+        <AnnotationLinkViewModeToggle
+          idPrefix="annotation-viewer"
+          mode={linkViewMode}
+          onChange={setLinkViewMode}
+        />
       )}
     >
       <div className="d-flex flex-column gap-3">
@@ -126,7 +121,7 @@ export default function AnnotationPanelViewer() {
           </section>
         ) : null}
 
-        {onlySelectedGeometryData && !hasGeometrySelection ? (
+        {panelShowsFilteredData && !hasGeometrySelection ? (
           <div className="border rounded p-3 bg-white">
             <div className="fw-semibold mb-2">No geometry selected</div>
             <div className="small text-muted">
@@ -135,11 +130,20 @@ export default function AnnotationPanelViewer() {
           </div>
         ) : null}
 
-        {onlySelectedGeometryData && hasGeometrySelection && dataEntries.length === 0 ? (
+        {panelShowsFilteredData && hasGeometrySelection && visibleData.length === 0 ? (
           <div className="border rounded p-3 bg-white">
             <div className="fw-semibold mb-2">No linked annotation data</div>
             <div className="small text-muted">
-              The selected geometry is not currently linked to any annotation data matching the active filter.
+              The selected geometr{focusedGeometryIds.size === 1 ? 'y is' : 'ies are'} not currently linked to any annotation data matching the active filter.
+            </div>
+          </div>
+        ) : null}
+
+        {viewerShowsFilteredGeometries && hasDataSelection ? (
+          <div className="border rounded p-3 bg-white">
+            <div className="fw-semibold mb-2">Viewer filtered by data selection</div>
+            <div className="small text-muted">
+              Showing {linkViewGeometries.length} linked geometr{linkViewGeometries.length === 1 ? 'y' : 'ies'} in the viewer.
             </div>
           </div>
         ) : null}

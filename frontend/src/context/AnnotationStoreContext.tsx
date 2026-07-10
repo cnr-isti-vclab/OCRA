@@ -33,6 +33,7 @@ import {
   type SelectionCriteria,
 } from '../stores/annotation-selection';
 import { UNCLASSIFIED_ANNOTATION_CLASS } from '../stores/annotation-class-filter';
+import type { AnnotationLinkViewMode } from '../features/annotation-link-view/annotationLinkViewMode';
 import {
   AnnotationStore,
   type GeometryUpdateOptions,
@@ -90,6 +91,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   activeAnnotationSelection: ActiveAnnotationSelection;
   currentSelectionCriteria: Readonly<SelectionCriteria>;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
+  linkViewMode: AnnotationLinkViewMode;
+  setLinkViewMode: (mode: AnnotationLinkViewMode) => void;
   vocabularySchemes: VocabularyScheme[];
   vocabularyConcepts: VocabularyConcept[];
   vocabularyProperties: VocabularyProperty[];
@@ -212,6 +215,7 @@ export function AnnotationStoreProvider({
     () => new Set(),
   );
   const [focusedDataIds, setFocusedDataIdsState] = useState<ReadonlySet<string>>(() => new Set());
+  const [linkViewMode, setLinkViewMode] = useState<AnnotationLinkViewMode>('showAll');
   const focusedGeometryIdsRef = useRef<ReadonlySet<string>>(new Set());
   const focusedDataIdsRef = useRef<ReadonlySet<string>>(new Set());
 
@@ -356,6 +360,7 @@ export function AnnotationStoreProvider({
 
   useEffect(() => {
     clearFocus();
+    setLinkViewMode('showAll');
   }, [sceneId, clearFocus]);
 
   useEffect(() => {
@@ -809,6 +814,8 @@ export function AnnotationStoreProvider({
     activeAnnotationSelection,
     currentSelectionCriteria,
     selectActiveAnnotations,
+    linkViewMode,
+    setLinkViewMode,
     vocabularySchemes,
     vocabularyConcepts,
     vocabularyProperties,
