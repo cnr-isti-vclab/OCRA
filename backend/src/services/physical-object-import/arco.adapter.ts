@@ -5,8 +5,8 @@ import type {
   PhysicalObjectImportResult
 } from './adapter.interface.js';
 
-const DEFAULT_ARCO_LODVIEW_BASE_URL =
-  'https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty';
+const ARCO_LODVIEW_RESOURCE_BASE_URL = 'https://dati.cultura.gov.it/lodview-arco/resource';
+const DEFAULT_ARCO_RESOURCE_CLASS = 'HistoricOrArtisticProperty';
 
 const CATALOG_ID_PATTERN = /(\d{6,})/;
 
@@ -77,6 +77,17 @@ function toStringArray(value: unknown): string[] {
 function extractCatalogIdFromText(value: string): string | null {
   const match = value.match(CATALOG_ID_PATTERN);
   return match ? match[1] : null;
+}
+
+function extractArcoResourceClass(sourceUri: string): string | null {
+  try {
+    const pathSegments = new URL(sourceUri).pathname.split('/').filter(Boolean);
+    const resourceIndex = pathSegments.lastIndexOf('resource');
+    const resourceClass = resourceIndex >= 0 ? pathSegments[resourceIndex + 1] : undefined;
+    return resourceClass && /^[A-Za-z][A-Za-z0-9_-]*$/.test(resourceClass) ? resourceClass : null;
+  } catch {
+    return null;
+  }
 }
 
 function pickRecordValue(record: Record<string, unknown>, keys: string[]): string[] {
@@ -354,8 +365,8 @@ function extractDublinCore(record: Record<string, unknown>): Partial<DublinCoreM
   return dublinCore;
 }
 
-function buildDefaultArcoEndpoint(catalogId: string): string {
-  return `${DEFAULT_ARCO_LODVIEW_BASE_URL}/${encodeURIComponent(catalogId)}.html?output=application%2Fld%2Bjson`;
+function buildDefaultArcoEndpoint(resourceClass: string, catalogId: string): string {
+  return `${ARCO_LODVIEW_RESOURCE_BASE_URL}/${encodeURIComponent(resourceClass)}/${encodeURIComponent(catalogId)}.html?output=application%2Fld%2Bjson`;
 }
 
 function resolveArcoRequest(
@@ -363,6 +374,7 @@ function resolveArcoRequest(
 ): {
   endpoint: string;
   catalogId: string | null;
+  resourceClass: string | null;
 } {
   const payload = isRecord(context.payload) ? context.payload : {};
 
@@ -371,11 +383,21 @@ function resolveArcoRequest(
   const payloadCatalogId = toNonEmptyString(payload.catalogId);
   const sourceCatalogId = context.sourceUri ? extractCatalogIdFromText(context.sourceUri) : null;
   const catalogId = payloadCatalogId ?? sourceCatalogId;
+  const resourceClass = context.sourceUri ? extractArcoResourceClass(context.sourceUri) : null;
+
+  if (catalogId && resourceClass) {
+    return {
+      endpoint: buildDefaultArcoEndpoint(resourceClass, catalogId),
+      catalogId,
+      resourceClass,
+    };
+  }
 
   if (explicitEndpoint) {
     return {
       endpoint: explicitEndpoint,
-      catalogId: catalogId ?? null
+      catalogId: catalogId ?? null,
+      resourceClass: null,
     };
   }
 
@@ -386,8 +408,9 @@ function resolveArcoRequest(
   }
 
   return {
-    endpoint: buildDefaultArcoEndpoint(catalogId),
-    catalogId
+    endpoint: buildDefaultArcoEndpoint(DEFAULT_ARCO_RESOURCE_CLASS, catalogId),
+    catalogId,
+    resourceClass: DEFAULT_ARCO_RESOURCE_CLASS,
   };
 }
 
@@ -409,7 +432,7 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
   readonly sourceType = 'arco' as const;
 
   async importMetadata(context: PhysicalObjectImportContext): Promise<PhysicalObjectImportResult> {
-    const { endpoint, catalogId } = resolveArcoRequest(context);
+    const { endpoint, catalogId, resourceClass } = resolveArcoRequest(context);
 
     const response = await fetch(endpoint, {
       method: 'GET',
@@ -456,6 +479,7 @@ export class ArcoPhysicalObjectImportAdapter implements PhysicalObjectImportAdap
       sourceRecord: {
         endpoint,
         catalogId,
+        resourceClass,
         importedAt: new Date().toISOString(),
         sourceUri: context.sourceUri,
         contentType,
