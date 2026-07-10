@@ -15,6 +15,17 @@ interface ApiErrorResponse {
   details?: unknown;
 }
 
+export class EchoesApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = 'EchoesApiError';
+  }
+}
+
 interface EchoesNamedGraphListResponse {
   success: boolean;
   items: EchoesNamedGraphListItem[];
@@ -99,6 +110,19 @@ async function readErrorMessage(response: Response): Promise<string> {
     return details || payload.error || payload.message || `HTTP ${response.status}`;
   } catch {
     return `HTTP ${response.status}`;
+  }
+}
+
+async function readEchoesApiError(response: Response): Promise<EchoesApiError> {
+  try {
+    const payload = (await response.json()) as ApiErrorResponse;
+    return new EchoesApiError(
+      response.status,
+      payload.error || payload.message || `HTTP ${response.status}`,
+      payload.details,
+    );
+  } catch {
+    return new EchoesApiError(response.status, `HTTP ${response.status}`);
   }
 }
 
@@ -277,22 +301,31 @@ export async function fetchEchoesProjectStatus(projectId: string): Promise<Echoe
 async function postEchoesProjectAction(
   projectId: string,
   action: 'register' | 'enrich' | 'replace-content',
+  body?: Record<string, string>,
 ): Promise<EchoesPublishProjectResponse | EchoesProjectStatusResponse> {
   const response = await fetch(`${getApiBase()}/api/eccch/projects/${encodeURIComponent(projectId)}/${action}`, {
     method: 'POST',
     credentials: 'include',
-    headers: buildSessionHeaders(false),
+    headers: buildSessionHeaders(body !== undefined),
+    body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to ${action} ECCCH project: ${await readErrorMessage(response)}`);
+    throw await readEchoesApiError(response);
   }
 
   return (await response.json()) as EchoesPublishProjectResponse | EchoesProjectStatusResponse;
 }
 
-export async function registerProjectHdtInEchoes(projectId: string): Promise<EchoesRegisterProjectResult> {
-  const payload = (await postEchoesProjectAction(projectId, 'register')) as EchoesProjectStatusResponse;
+export async function registerProjectHdtInEchoes(
+  projectId: string,
+  namedGraphUri?: string,
+): Promise<EchoesRegisterProjectResult> {
+  const payload = (await postEchoesProjectAction(
+    projectId,
+    'register',
+    namedGraphUri ? { namedGraphUri } : undefined,
+  )) as EchoesProjectStatusResponse;
   return {
     status: payload.status,
     message: payload.message,

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:hdto="http://isl.ics.forth.gr/ontology/echoes/">
+
+  <rdf:Description rdf:about="https://data.ocra.echoes.eu/test/heritage-entity/roman-bronze-coin-rti">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC1_Heritage_Entity"/>
+    <rdfs:label>Test coin: Roman bronze coin with laureate portrait</rdfs:label>
+    <dc:title>Test coin: Roman bronze coin with laureate portrait</dc:title>
+    <dc:description>Test record created for OCRA RTI import and display. The object is a fictional Roman bronze coin, probably a provincial issue, with a laureate male portrait on the obverse and a standing figure on the reverse. The record is illustrative only and does not document a real numismatic object.</dc:description>
+    <dc:creator>Unknown mint worker (test data)</dc:creator>
+    <dc:subject>Roman provincial coin; bronze coin; numismatics; RTI test</dc:subject>
+    <dc:date>2nd century CE (fictional test attribution)</dc:date>
+    <dc:type>Numismatic object; bronze coin; movable cultural heritage (test data)</dc:type>
+    <dc:identifier>OCRA-TEST-COIN-RTI-001</dc:identifier>
+    <dc:source>OCRA test dataset</dc:source>
+    <dc:coverage>Central Mediterranean (fictional test provenance)</dc:coverage>
+    <dc:rights>Test data for OCRA demonstration purposes</dc:rights>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="urn:ocra:test:digital-twin:coin-rti-001">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC2_Heritage_Digital_Twin"/>
+    <rdfs:label>Test coin RTI digital twin</rdfs:label>
+    <hdto:HP3_is_digital_twin_component_of rdf:resource="urn:ocra:asset:test-coin-rti-001"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="urn:ocra:asset:test-coin-rti-001">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC8_3D_Model"/>
+    <rdfs:label>Test coin RTI dataset (HSH)</rdfs:label>
+    <dc:title>Reflectance Transformation Imaging dataset for test coin</dc:title>
+    <dc:description>HSH Reflectance Transformation Imaging dataset used to test interactive relighting and surface-detail inspection in OCRA. The asset and all associated object metadata are test data.</dc:description>
+    <dc:source>https://vicserver.crs4.it/ocra-assets/coin_hsh.zip</dc:source>
+    <dc:format>image/rti</dc:format>
+    <hdto:HP21_is_3D_representation_output_of rdf:resource="https://data.ocra.echoes.eu/test/heritage-entity/roman-bronze-coin-rti"/>
+  </rdf:Description>
+
+</rdf:RDF>

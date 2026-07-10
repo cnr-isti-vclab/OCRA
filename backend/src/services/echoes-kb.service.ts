@@ -305,6 +305,30 @@ export interface EchoesProjectStatus {
   readiness: EchoesProjectReadiness;
 }
 
+/** Raised when a project attempts to replace a non-current graph in its lineage. */
+export class NamedGraphLineageConflictError extends Error {
+  constructor(readonly currentNamedGraphUri: string) {
+    super(`Named graph conflict: the current graph in this lineage is <${currentNamedGraphUri}>.`);
+    this.name = 'NamedGraphLineageConflictError';
+  }
+}
+
+export interface EchoesCurrentNamedGraphChoice {
+  namedGraphUri: string;
+  graphDate: string | null;
+}
+
+export class NamedGraphSelectionRequiredError extends Error {
+  constructor(
+    readonly digitalTwinUri: string,
+    readonly digitalTwinLabel: string | null,
+    readonly currentNamedGraphs: EchoesCurrentNamedGraphChoice[],
+  ) {
+    super('Multiple current named graphs are available for the existing ECCCH Digital Twin.');
+    this.name = 'NamedGraphSelectionRequiredError';
+  }
+}
+
 export interface EchoesReadinessIssue {
   code:
     | 'missing_title'
@@ -1036,7 +1060,11 @@ async function findCurrentEchoesRegistrationByHeritageEntityUri(
   sessionId: string,
   heritageEntityUri: string,
   projectUri: string,
-): Promise<{ digitalTwinUri: string; namedGraphUri: string | null; digitalTwinLabel: string | null } | null> {
+): Promise<{
+  digitalTwinUri: string;
+  currentNamedGraphs: EchoesCurrentNamedGraphChoice[];
+  digitalTwinLabel: string | null;
+} | null> {
   const trimmedHeritageEntityUri = sanitizeOptionalString(heritageEntityUri);
   const trimmedProjectUri = sanitizeOptionalString(projectUri);
   if (!trimmedHeritageEntityUri) {
@@ -1071,11 +1099,16 @@ LIMIT 1`;
   }
 
   const maintainedNamedGraphs = await listDigitalTwinMaintainedNamedGraphs(sessionId, digitalTwinUri);
-  const currentNamedGraph = maintainedNamedGraphs.find((item) => item.graphState === 'current');
+  const currentNamedGraphs = maintainedNamedGraphs
+    .filter((item) => item.graphState === 'current')
+    .map((item) => ({
+      namedGraphUri: item.namedGraphUri,
+      graphDate: extractGraphDateFromNamedGraphUri(item.namedGraphUri),
+    }));
 
   return {
     digitalTwinUri,
-    namedGraphUri: currentNamedGraph?.namedGraphUri ?? null,
+    currentNamedGraphs,
     digitalTwinLabel: getBindingValue(first, 'label'),
   };
 }
@@ -1098,6 +1131,7 @@ WHERE {
   }
   FILTER(STRSTARTS(STR(?ng), "${escapeSparqlLiteral(getEchoesUserGraphPrefix())}"))
 }
+
 ORDER BY ?ng`;
 
   const bindings = await runFederatedQuery(sessionId, query);
@@ -1131,6 +1165,67 @@ ORDER BY ?ng`;
       const rightSortKey = `${extractGraphDateFromNamedGraphUri(right.namedGraphUri) ?? ''}::${right.namedGraphUri}`;
       return rightSortKey.localeCompare(leftSortKey);
     });
+}
+
+/**
+ * Finds the leaf of the replace lineage containing `baseNamedGraphUri`.
+ * Independent graphs created with enrich have no predecessor and therefore
+ * remain independent roots.
+ */
+async function resolveCurrentNamedGraphInLineage(
+  sessionId: string,
+  digitalTwinUri: string,
+  baseNamedGraphUri: string,
+): Promise<string> {
+  const query = `PREFIX echoes: <http://isl.ics.forth.gr/ontology/echoes/>
+SELECT DISTINCT ?namedGraph ?previousGraph
+WHERE {
+  GRAPH <http://echoes-eccch.eu/kb/catalogue/HDT/maintenance> {
+    ?maintenance echoes:HP19_has_composed <${escapeSparqlLiteral(digitalTwinUri)}> ;
+                 echoes:HP30_added_content ?namedGraph .
+    OPTIONAL { ?maintenance echoes:HP31_deleted_content ?previousGraph . }
+  }
+}`;
+  const bindings = await runFederatedQuery(sessionId, query);
+  const successorsByGraph = new Map<string, Set<string>>();
+  const knownGraphs = new Set<string>();
+
+  for (const binding of bindings) {
+    const namedGraphUri = getBindingValue(binding, 'namedGraph');
+    const previousGraphUri = getBindingValue(binding, 'previousGraph');
+    if (!namedGraphUri) {
+      continue;
+    }
+    knownGraphs.add(namedGraphUri);
+    if (!previousGraphUri) {
+      continue;
+    }
+    knownGraphs.add(previousGraphUri);
+    const successors = successorsByGraph.get(previousGraphUri) ?? new Set<string>();
+    successors.add(namedGraphUri);
+    successorsByGraph.set(previousGraphUri, successors);
+  }
+
+  if (!knownGraphs.has(baseNamedGraphUri)) {
+    throw new Error('The linked named graph has no ECCCH lineage record, so OCRA cannot safely publish an update.');
+  }
+
+  let currentNamedGraphUri = baseNamedGraphUri;
+  const visited = new Set<string>();
+  while (true) {
+    if (visited.has(currentNamedGraphUri)) {
+      throw new Error('ECCCH returned a cyclic named graph lineage.');
+    }
+    visited.add(currentNamedGraphUri);
+    const successors = [...(successorsByGraph.get(currentNamedGraphUri) ?? [])];
+    if (successors.length === 0) {
+      return currentNamedGraphUri;
+    }
+    if (successors.length > 1) {
+      throw new Error('The linked named graph already has multiple successor branches, so OCRA cannot choose a current graph safely.');
+    }
+    currentNamedGraphUri = successors[0]!;
+  }
 }
 
 async function listDigitalTwinRelatedNamedGraphs(
@@ -1246,6 +1341,7 @@ async function reconcileExistingEchoesRegistration(
   currentContext: EchoesContext,
   heritageEntityUri: string,
   _title: string | undefined,
+  selectedNamedGraphUri?: string,
 ): Promise<EchoesRegisterProjectResult | null> {
   const existingRegistration = await findCurrentEchoesRegistrationByHeritageEntityUri(
     sessionId,
@@ -1256,13 +1352,35 @@ async function reconcileExistingEchoesRegistration(
     return null;
   }
 
+  const currentNamedGraphs = existingRegistration.currentNamedGraphs;
+  let namedGraphUri: string | null = null;
+  if (selectedNamedGraphUri) {
+    const selectedCurrentGraph = currentNamedGraphs.find((item) => item.namedGraphUri === selectedNamedGraphUri);
+    if (!selectedCurrentGraph) {
+      throw new NamedGraphSelectionRequiredError(
+        existingRegistration.digitalTwinUri,
+        existingRegistration.digitalTwinLabel,
+        currentNamedGraphs,
+      );
+    }
+    namedGraphUri = selectedCurrentGraph.namedGraphUri;
+  } else if (currentNamedGraphs.length === 1) {
+    namedGraphUri = currentNamedGraphs[0]!.namedGraphUri;
+  } else if (currentNamedGraphs.length > 1) {
+    throw new NamedGraphSelectionRequiredError(
+      existingRegistration.digitalTwinUri,
+      existingRegistration.digitalTwinLabel,
+      currentNamedGraphs,
+    );
+  }
+
   const reconciled = await updateHdtEchoesContext(projectId, {
     origin: currentContext.origin,
     projectUri: currentContext.projectUri,
     heritageEntityUri,
     digitalTwinUri: existingRegistration.digitalTwinUri,
     digitalTwinLabel: existingRegistration.digitalTwinLabel ?? (_title || currentContext.digitalTwinLabel),
-    namedGraphUri: existingRegistration.namedGraphUri,
+    namedGraphUri,
     syncStatus: 'registered',
     lastRegisteredAt: new Date(),
   }, userId);
@@ -1276,8 +1394,8 @@ async function reconcileExistingEchoesRegistration(
     message:
       `Heritage Entity <${heritageEntityUri}> is already present in ECCCH. ` +
       `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>. ` +
-      (existingRegistration.namedGraphUri
-        ? `Current named graph <${existingRegistration.namedGraphUri}> was also detected.`
+      (namedGraphUri
+        ? `Current named graph <${namedGraphUri}> was selected.`
         : `No named graph was assigned yet.`),
   };
 }
@@ -2099,6 +2217,7 @@ export async function registerProjectHdtInEchoes(
   projectId: string,
   publicBaseUrl: string,
   userId?: string,
+  selectedNamedGraphUri?: string,
 ): Promise<EchoesRegisterProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
   await assertProjectCanRegisterInEchoes(projectId, hdtDocument);
@@ -2124,6 +2243,7 @@ export async function registerProjectHdtInEchoes(
     currentContext,
     heritageEntityUri,
     title,
+    selectedNamedGraphUri,
   );
   if (reconciledRegistration) {
     if (reconciledRegistration.status.namedGraphUri) {
@@ -2422,6 +2542,17 @@ async function publishProjectRdfToEchoes(
 
   if (mode === 'replace' && !currentContext.namedGraphUri) {
     throw new Error('No ECCCH named graph is linked to this project yet');
+  }
+
+  if (mode === 'replace' && currentContext.namedGraphUri) {
+    const currentNamedGraphUri = await resolveCurrentNamedGraphInLineage(
+      sessionId,
+      currentContext.digitalTwinUri,
+      currentContext.namedGraphUri,
+    );
+    if (currentNamedGraphUri !== currentContext.namedGraphUri) {
+      throw new NamedGraphLineageConflictError(currentNamedGraphUri);
+    }
   }
 
   const exportResult = await exportProjectRdfForEchoes(projectId, publicBaseUrl, true);
