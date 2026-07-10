@@ -369,9 +369,6 @@ const OpenLIMEViewer = forwardRef<
           OpenLIME.Skin.setUrl('/skin.svg');
           console.log('🎬 Loaded OpenLIME skin from ./skin.svg');
 
-          if (onReadyRef.current) {
-            onReadyRef.current();
-          }
         } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
           console.error('❌ Failed to initialize OpenLIME Viewer:', err);
@@ -694,6 +691,7 @@ const OpenLIMEViewer = forwardRef<
 
           viewer.redraw();
           console.log('✅ OpenLIME scene loaded successfully');
+          onReadyRef.current?.();
         };
 
         void loadScene();

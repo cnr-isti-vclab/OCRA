@@ -108,6 +108,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     activeGeometriesRef.current = activeGeometries;
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
+    const [annotationManagerRevision, setAnnotationManagerRevision] = useState(0);
     const [pencilActive, setPencilActive] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -151,6 +152,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
+      setAnnotationManagerRevision((revision) => revision + 1);
       onReady();
     }, [onReady]);
 
@@ -483,7 +485,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
       // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
-    }, [viewerAnnotationsForSync, lockedGeometryIds, ref, enableAnnotationEditInteraction]);
+    }, [
+      annotationManagerRevision,
+      viewerAnnotationsForSync,
+      lockedGeometryIds,
+      ref,
+      enableAnnotationEditInteraction,
+    ]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
@@ -502,7 +510,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         );
       }
       annotationManager.viewer?.redraw?.();
-    }, [semanticClassesForFilter, viewerAnnotationsForSync, ref]);
+    }, [
+      annotationManagerRevision,
+      semanticClassesForFilter,
+      viewerAnnotationsForSync,
+      ref,
+    ]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
@@ -525,7 +538,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         enableAnnotationEditInteraction() ?? annotationManager;
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
       applyOpenLimeSelection(managerForSelect, highlightGeometryIds, selectionInteractionMode);
-    }, [highlightGeometryIds, focusedDataIds, ref, enableAnnotationEditInteraction, selectionInteractionMode]);
+    }, [
+      annotationManagerRevision,
+      highlightGeometryIds,
+      focusedDataIds,
+      ref,
+      enableAnnotationEditInteraction,
+      selectionInteractionMode,
+    ]);
 
     // When the OpenLIME pencil is enabled (toolbar button or panel), apply the React toolbar mode.
     useEffect(() => {
@@ -555,7 +575,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
 
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
-    }, [lockedGeometryIds, ref]);
+    }, [annotationManagerRevision, lockedGeometryIds, ref]);
 
     useEffect(() => {
       return () => {
