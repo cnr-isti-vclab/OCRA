@@ -291,8 +291,8 @@ router.post('/projects/:projectId/enrich', enrichProjectHdtInEchoesHandler);
  * @openapi
  * /api/eccch/projects/{projectId}/replace-content:
  *   post:
- *     summary: Replace the linked ECCCH named graph with the current local RDF
- *     description: Serializes the local HDT document and sends it to ECCCH `POST /hdt/replaceContent`, replacing the currently linked named graph.
+ *     summary: Create a new ECCCH named-graph version from the current local RDF
+ *     description: Serializes the local HDT document and sends it to ECCCH `POST /hdt/replaceContent`. ECCCH must return a new named graph URI; OCRA then relinks the project while preserving the previous graph as history.
  *     tags:
  *       - ECCCH
  *     security:
@@ -306,7 +306,7 @@ router.post('/projects/:projectId/enrich', enrichProjectHdtInEchoesHandler);
  *           type: string
  *     responses:
  *       200:
- *         description: ECCCH named graph replaced successfully
+ *         description: New ECCCH named graph version created and linked successfully
  *         content:
  *           application/json:
  *             schema:

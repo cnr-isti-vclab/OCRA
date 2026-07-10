@@ -8,6 +8,7 @@ import {
   ECHOES_HDTO_CURIE_HP1_HAS_DIGITAL_TWIN,
   ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF,
   ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF,
+  OCRA_HDTO_V1_1_RDF_PROFILE,
 } from 'shared/echoes-hdto';
 
 function buildHdtDocument(): HDTDocument {
@@ -97,7 +98,8 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
     expect(rdf).toContain('&quot;annotations&quot;');
     expect(rdf).toContain('&quot;scene-export-1&quot;');
     expect(rdf).toContain('<dc:source>https://assets.example.org/model.glb</dc:source>');
-    expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="https://assets.example.org/id/model.glb"/>`);
+    expect(rdf).not.toContain(ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF);
+    expect(rdf).toContain(`<ocra:rdfProfile rdf:resource="${OCRA_HDTO_V1_1_RDF_PROFILE}"/>`);
   });
 
   it('emits the RDF predicates that ECCCH import expects to rebuild metadata and assets', () => {
@@ -116,7 +118,7 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
     expect(rdf).toContain('<dc:title>Test Heritage Entity</dc:title>');
     expect(rdf).toContain('<dc:identifier>https://example.org/identifier/project-1</dc:identifier>');
     expect(rdf).toContain('<rdf:Description rdf:about="https://example.org/hdt/project-1">');
-    expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="https://assets.example.org/id/model.glb"/>`);
+    expect(rdf).not.toContain(ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF);
     expect(rdf).toContain('<rdf:Description rdf:about="https://assets.example.org/id/model.glb">');
     expect(rdf).toContain('<dc:format>model/gltf-binary</dc:format>');
     expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF} rdf:resource="https://example.org/heritage/project-1"/>`);
@@ -144,9 +146,7 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
 
     expect(rdf).toContain(`<rdf:Description rdf:about="https://example.org/heritage/project-1">`);
     expect(rdf).toContain(`<rdf:Description rdf:about="urn:ocra:asset:project-1:asset-1">`);
-    expect(rdf).toContain(
-      `<${ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF} rdf:resource="urn:ocra:asset:project-1:asset-1"/>`,
-    );
+    expect(rdf).not.toContain(ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF);
     expect(rdf).not.toContain(
       `<rdf:Description rdf:about="https://example.org/heritage/project-1">\n    <rdf:type rdf:resource="${ECHOES_HDTO_CLASS_HC8_3D_MODEL}"/>`,
     );

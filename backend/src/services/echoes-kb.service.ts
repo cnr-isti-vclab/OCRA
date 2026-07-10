@@ -880,8 +880,19 @@ WHERE {
       OPTIONAL { ?hc1 dc:source ?hc1Source }
     }
     OPTIONAL {
-      ?hdt hdto:HP3_is_digital_twin_component_of ?asset .
-      ?asset a hdto:HC8_3D_Model .
+      {
+        # Legacy OCRA profile: HP3 was incorrectly used as an asset-membership predicate.
+        ?hdt hdto:HP3_is_digital_twin_component_of ?asset .
+        ?asset a hdto:HC8_3D_Model .
+      }
+      UNION
+      {
+        # HDTO v1.1: a HC8 model represents the HC1 connected to this HC2 via HP1.
+        ?hc1 a hdto:HC1_Heritage_Entity ;
+             hdto:HP1_has_digital_twin ?hdt .
+        ?asset a hdto:HC8_3D_Model ;
+               hdto:HP21_is_3D_representation_output_of ?hc1 .
+      }
       OPTIONAL { ?asset rdfs:label ?assetLabel }
       OPTIONAL { ?asset dc:title ?assetTitle }
       OPTIONAL { ?asset dc:description ?assetDescription }
@@ -2404,6 +2415,16 @@ async function publishProjectRdfToEchoes(
     throw new Error(payload.message || 'ECCCH publish failed');
   }
 
+  if (mode === 'replace') {
+    const replacementNamedGraphUri = payload.namedGraph?.trim();
+    if (!replacementNamedGraphUri) {
+      throw new Error('ECCCH did not return the named graph URI created by replaceContent. The legacy graph was not relinked locally.');
+    }
+    if (replacementNamedGraphUri === currentContext.namedGraphUri) {
+      throw new Error('ECCCH replaceContent returned the existing named graph URI. OCRA requires a new graph URI to preserve the legacy graph during ontology migration.');
+    }
+  }
+
   const now = new Date();
   const refreshedDocument = await getHDTDocument(projectId);
   const sourceDocument = refreshedDocument ?? hdtDocument;
@@ -2413,7 +2434,7 @@ async function publishProjectRdfToEchoes(
     heritageEntityUri: currentContext.heritageEntityUri,
     digitalTwinUri: currentContext.digitalTwinUri,
     digitalTwinLabel: currentContext.digitalTwinLabel || sourceDocument.physicalObjectMetadata.dublinCore?.title,
-    namedGraphUri: payload.namedGraph || currentContext.namedGraphUri,
+    namedGraphUri: payload.namedGraph?.trim() || currentContext.namedGraphUri,
     syncStatus: 'synced',
     assetRecords: sourceDocument.digitalAssets.map((asset) => ({
       assetId: asset.id,

@@ -1,5 +1,12 @@
 export const ECHOES_HDTO_NAMESPACE = 'http://isl.ics.forth.gr/ontology/echoes/';
 
+/**
+ * OCRA profile used for named graphs whose HDTO assertions follow HDTO v1.1.
+ * Legacy graphs have no profile marker and used HP3 for asset membership.
+ */
+export const OCRA_HDTO_V1_1_RDF_PROFILE = 'https://data.ocra.echoes.eu/rdf-profile/hdto-v1.1-ocra-v1';
+export const OCRA_RDF_PROFILE_PREDICATE = 'ocra:rdfProfile';
+
 export const ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY = `${ECHOES_HDTO_NAMESPACE}HC1_Heritage_Entity`;
 export const ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN = `${ECHOES_HDTO_NAMESPACE}HC2_Heritage_Digital_Twin`;
 export const ECHOES_HDTO_CLASS_HC8_3D_MODEL = `${ECHOES_HDTO_NAMESPACE}HC8_3D_Model`;
