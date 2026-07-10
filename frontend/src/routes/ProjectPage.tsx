@@ -1526,7 +1526,18 @@ export default function ProjectPage() {
                 {/* Annotations Tab */}
                 {!annotationTestMode && activeTab === 'annotations' && (
                   <div className="h-100 overflow-auto">
-                    {annotationMode === 'viewer' ? <AnnotationPanelViewer /> : <AnnotationPanelEditor />}
+                    {annotationMode === 'viewer' ? (
+                      <AnnotationPanelViewer />
+                    ) : (
+                      <AnnotationPanelEditor
+                        sceneId={selectedSceneId ?? ''}
+                        sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
+                        sceneAssets={digitalAssets.map((asset) => ({
+                          id: asset.id,
+                          label: asset.label || asset.title || asset.id,
+                        }))}
+                      />
+                    )}
                   </div>
                 )}
               </div>

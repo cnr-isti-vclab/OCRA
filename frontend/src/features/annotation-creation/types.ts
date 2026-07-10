@@ -30,6 +30,12 @@ export interface AnnotationCreationSetupDraft {
   multiSide: AnnotationCreationMultiSide;
 }
 
+export interface AnnotationScopeOption {
+  type: AnnotationScopeType;
+  id: string;
+  label: string;
+}
+
 export interface AnnotationCreationDraft extends AnnotationCreationSetupDraft {
   step: AnnotationCreationStep;
   draftShapes: AnnotationShape[];

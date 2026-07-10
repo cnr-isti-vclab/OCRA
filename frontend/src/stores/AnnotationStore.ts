@@ -26,6 +26,16 @@ import {
   type ActiveAnnotationSelection,
   type SelectionCriteria,
 } from './annotation-selection';
+import type { AnnotationCreationDraft } from '../features/annotation-creation/types';
+import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
+import {
+  buildLinkPairs,
+  resolveInitialCreationStep,
+  validateCreationDraftForCommit,
+  validateCreationSetup,
+} from '../features/annotation-creation/annotationCreationValidation';
+
+export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
 
 export type AnnotationEntityKind = 'geometry' | 'data' | 'link';
 
@@ -132,6 +142,7 @@ export class AnnotationStore {
   // Default UX: hide erasable entities (soft-deleted) unless explicitly requested.
   private selectionCriteria: SelectionCriteria = { includeErasable: false };
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
+  private creationDraft: AnnotationCreationDraft | null = null;
 
   constructor(
     private readonly projectId: string,
@@ -168,6 +179,176 @@ export class AnnotationStore {
 
   get creating(): boolean {
     return this.isCreating;
+  }
+
+  get creationDraftState(): Readonly<AnnotationCreationDraft> | null {
+    return this.creationDraft;
+  }
+
+  get isCreationWizardActive(): boolean {
+    return this.creationDraft !== null
+      && (this.creationDraft.step === 'geometry'
+        || this.creationDraft.step === 'data'
+        || this.creationDraft.step === 'committing');
+  }
+
+  initCreationDraft(): void {
+    this.creationDraft = createDefaultCreationDraft(this.sceneId);
+    this.bump();
+  }
+
+  updateCreationDraft(patch: Partial<AnnotationCreationDraft>): void {
+    if (!this.creationDraft) {
+      return;
+    }
+    this.creationDraft = { ...this.creationDraft, ...patch };
+    this.bump();
+  }
+
+  discardCreationDraft(): void {
+    if (!this.creationDraft) {
+      return;
+    }
+    this.creationDraft = null;
+    this.bump();
+  }
+
+  beginCreationWizard(): { ok: true } | { ok: false; message: string } {
+    if (!this.creationDraft || this.creationDraft.step !== 'setup') {
+      return { ok: false, message: 'Creation setup is not active.' };
+    }
+
+    const validation = validateCreationSetup(this.creationDraft);
+    if (!validation.ok) {
+      return { ok: false, message: validation.message ?? 'Invalid creation setup.' };
+    }
+
+    this.creationDraft = {
+      ...this.creationDraft,
+      step: resolveInitialCreationStep(this.creationDraft),
+      draftShapes: [],
+      selectedGeometryIds: [],
+      selectedDataIds: [],
+    };
+    this.bump();
+    return { ok: true };
+  }
+
+  async advanceCreationStep(): Promise<{ ok: true } | { ok: false; message: string }> {
+    if (!this.creationDraft) {
+      return { ok: false, message: 'No creation session is active.' };
+    }
+
+    if (this.creationDraft.step === 'geometry') {
+      if (this.creationDraft.dataChoice === 'void') {
+        await this.commitCreationDraft();
+        return { ok: true };
+      }
+      this.creationDraft = { ...this.creationDraft, step: 'data' };
+      this.bump();
+      return { ok: true };
+    }
+
+    if (this.creationDraft.step === 'data') {
+      await this.commitCreationDraft();
+      return { ok: true };
+    }
+
+    return { ok: false, message: 'Creation cannot advance from the current step.' };
+  }
+
+  async commitCreationDraft(): Promise<void> {
+    if (!this.creationDraft || this.creationDraft.step === 'setup' || this.isCreating) {
+      return;
+    }
+
+    const draftSnapshot = this.creationDraft;
+    const validation = validateCreationDraftForCommit(draftSnapshot);
+    if (!validation.ok) {
+      this.callbacks.onError(new Error(validation.message ?? 'Invalid creation draft'));
+      return;
+    }
+
+    const myGen = this.generation;
+    this.isCreating = true;
+    this.creationDraft = { ...draftSnapshot, step: 'committing' };
+    this.bump();
+
+    const created = {
+      geometries: [] as AnnotationGeometry[],
+      data: [] as AnnotationData[],
+      links: [] as AnnotationLink[],
+    };
+
+    try {
+      let geometryIds: string[] = [];
+
+      if (draftSnapshot.geometryChoice === 'new') {
+        const geometry = await this.client.createGeometry({
+          shapes: draftSnapshot.draftShapes,
+          referenceType: draftSnapshot.geometryScope.referenceType,
+          referenceId: draftSnapshot.geometryScope.referenceId,
+        });
+        if (this.generation !== myGen) {
+          return;
+        }
+        created.geometries.push(geometry);
+        this.geometryMap.set(geometry.id, geometry);
+        geometryIds.push(geometry.id);
+      } else if (draftSnapshot.geometryChoice === 'search') {
+        geometryIds = [...draftSnapshot.selectedGeometryIds];
+      }
+
+      let dataIds: string[] = [];
+
+      if (draftSnapshot.dataChoice === 'new') {
+        const counter = await this.client.consumeProjectCounter();
+        const defaultLabel = formatDefaultDataLabel(counter);
+        const requestedLabel = draftSnapshot.newDataLabel.trim();
+        const datum = await this.client.createData({
+          label: requestedLabel.length > 0 ? requestedLabel : defaultLabel,
+          description: draftSnapshot.newDataDescription,
+          class: draftSnapshot.newDataClass,
+          content: draftSnapshot.newDataContent,
+          visibilityType: draftSnapshot.dataVisibility.visibilityType,
+          visibilityId: draftSnapshot.dataVisibility.visibilityId,
+        });
+        if (this.generation !== myGen) {
+          await this.compensateWizardCommit(created, myGen);
+          return;
+        }
+        created.data.push(datum);
+        this.dataMap.set(datum.id, datum);
+        dataIds.push(datum.id);
+      } else if (draftSnapshot.dataChoice === 'search') {
+        dataIds = [...draftSnapshot.selectedDataIds];
+      }
+
+      if (draftSnapshot.geometryChoice !== 'void' && draftSnapshot.dataChoice !== 'void') {
+        for (const pair of buildLinkPairs(geometryIds, dataIds)) {
+          const link = await this.client.createLink(pair);
+          if (this.generation !== myGen) {
+            await this.compensateWizardCommit(created, myGen);
+            return;
+          }
+          created.links.push(link);
+          this.linkMap.set(link.id, link);
+        }
+      }
+
+      this.creationDraft = null;
+      this.bump();
+    } catch (err) {
+      if (this.generation === myGen) {
+        await this.compensateWizardCommit(created, myGen);
+        this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };
+        this.callbacks.onError(err);
+        this.bump();
+      }
+      throw err;
+    } finally {
+      this.isCreating = false;
+    }
   }
 
   get clientRef(): AnnotationApiClient {
@@ -285,6 +466,7 @@ export class AnnotationStore {
     this.isLoadingAdditionalData = false;
     this.selectionCriteria = { includeErasable: false };
     this.activeSelection = createEmptyActiveSelection();
+    this.creationDraft = null;
     if (hadPending) {
       this.callbacks.onEditsCancelled();
     }
@@ -847,6 +1029,48 @@ export class AnnotationStore {
     if (!current || fetched.version >= current.version) {
       this.setEntity(kind, id, fetched);
       this.bump();
+    }
+  }
+
+  private async compensateWizardCommit(
+    created: {
+      geometries: AnnotationGeometry[];
+      data: AnnotationData[];
+      links: AnnotationLink[];
+    },
+    myGen: number,
+  ): Promise<void> {
+    if (this.generation !== myGen) {
+      return;
+    }
+
+    try {
+      for (const link of created.links) {
+        await this.client.markLinkErasable(link.id, link.version);
+      }
+      for (const datum of created.data) {
+        await this.client.markDataErasable(datum.id, datum.version);
+      }
+      for (const geometry of created.geometries) {
+        await this.client.markGeometryErasable(geometry.id, geometry.version);
+      }
+
+      if (this.generation !== myGen) {
+        return;
+      }
+
+      for (const link of created.links) {
+        this.linkMap.delete(link.id);
+      }
+      for (const datum of created.data) {
+        this.dataMap.delete(datum.id);
+      }
+      for (const geometry of created.geometries) {
+        this.geometryMap.delete(geometry.id);
+      }
+      this.bump();
+    } catch (compensateErr) {
+      console.error('[AnnotationStore] wizard commit compensation failed', compensateErr);
     }
   }
 

@@ -24,6 +24,8 @@ import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
 import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
+import AnnotationCreationPanel from '../../features/annotation-creation/AnnotationCreationPanel';
+import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
 import VocabularyClassPicker from '../../shared/ui/VocabularyClassPicker';
 import type {
   VocabularyConcept,
@@ -34,6 +36,9 @@ import type {
 interface AnnotationPanelEditorProps {
   /** Optional callback with geometry ids to highlight in the viewer (derived from data focus). */
   onSelectionChanged?: (geometryIds: string[]) => void;
+  sceneId: string;
+  sceneLabel?: string;
+  sceneAssets?: Array<{ id: string; label: string }>;
 }
 
 interface AnnotationDataDraft {
@@ -139,7 +144,12 @@ function EditDataModal({
   );
 }
 
-export default function AnnotationPanelEditor({ onSelectionChanged }: AnnotationPanelEditorProps) {
+export default function AnnotationPanelEditor({
+  onSelectionChanged,
+  sceneId,
+  sceneLabel,
+  sceneAssets = [],
+}: AnnotationPanelEditorProps) {
   const {
     activeData,
     allData,
@@ -166,6 +176,13 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
     isDataFocused,
     realtimeState,
     creating,
+    creationDraft,
+    isCreationWizardActive,
+    initCreationDraft,
+    updateCreationDraft,
+    discardCreationDraft,
+    beginCreationWizard,
+    advanceCreationStep,
     updateData,
     markDataErasable,
     markAnnotationTripletErasable,
@@ -179,6 +196,66 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
     setLinkViewMode,
     panelShowsFilteredData,
   } = useAnnotationLinkView();
+
+  const [createSectionExpanded, setCreateSectionExpanded] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [discardCreationModal, setDiscardCreationModal] = useState<MessageModalDescriptor | null>(null);
+
+  const scopeOptions = useMemo(
+    () => buildAnnotationScopeOptions({ sceneId, sceneLabel, assets: sceneAssets }),
+    [sceneAssets, sceneId, sceneLabel],
+  );
+
+  const handleCreateSectionToggle = useCallback(() => {
+    setCreateSectionExpanded((expanded) => {
+      const next = !expanded;
+      if (next && !creationDraft) {
+        initCreationDraft();
+      }
+      if (!next) {
+        setSetupError(null);
+      }
+      return next;
+    });
+  }, [creationDraft, initCreationDraft]);
+
+  const handleBeginCreation = useCallback(() => {
+    const result = beginCreationWizard();
+    if (!result.ok) {
+      setSetupError(result.message);
+      return;
+    }
+    setSetupError(null);
+  }, [beginCreationWizard]);
+
+  const handleDiscardCreation = useCallback(() => {
+    discardCreationDraft();
+    setSetupError(null);
+    setDiscardCreationModal(null);
+    setCreateSectionExpanded(false);
+  }, [discardCreationDraft]);
+
+  const handleCreationBack = useCallback(() => {
+    setDiscardCreationModal(new MessageModalDescriptor({
+      tone: 'warning',
+      title: 'Discard annotation creation?',
+      message: 'Going back will cancel the current creation draft.',
+      actions: [
+        { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
+        { key: 'discard', label: 'Discard', tone: 'danger' },
+      ],
+      dismissOnBackdrop: false,
+    }));
+  }, []);
+
+  const handleCreationNext = useCallback(async () => {
+    setSetupError(null);
+    try {
+      await advanceCreationStep();
+    } catch {
+      // store onError surfaces API failures
+    }
+  }, [advanceCreationStep]);
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
@@ -507,6 +584,19 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
     editingDataIdRef.current = editingDraft?.dataId ?? null;
   }, [editingDraft?.dataId]);
 
+  const hadCreationDraftRef = useRef(false);
+  useEffect(() => {
+    if (creationDraft) {
+      hadCreationDraftRef.current = true;
+      return;
+    }
+    if (hadCreationDraftRef.current) {
+      hadCreationDraftRef.current = false;
+      setCreateSectionExpanded(false);
+      setSetupError(null);
+    }
+  }, [creationDraft]);
+
   useEffect(() => {
     return () => {
       if (editingDataIdRef.current) {
@@ -552,7 +642,7 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
           </div>
         </div>
       }
-      classFilter={
+      classFilter={isCreationWizardActive ? null : (
         <AnnotationClassFilter
           idPrefix="annotation-editor"
           pool={sceneAnnotationClassPool}
@@ -563,19 +653,55 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
           selectAllFilters={selectAllAnnotationClassFilters}
           clearFilter={clearAnnotationClassFilter}
         />
-      }
-      toggle={
-        <AnnotationLinkViewModeToggle
-          idPrefix="annotation-editor"
-          mode={linkViewMode}
-          onChange={setLinkViewMode}
-        />
-      }
+      )}
+      toggle={(
+        <>
+          <div className="mb-3">
+            <button
+              type="button"
+              className={`btn btn-sm w-100 ${createSectionExpanded ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={handleCreateSectionToggle}
+              aria-expanded={createSectionExpanded}
+            >
+              <i className={`bi ${createSectionExpanded ? 'bi-chevron-up' : 'bi-plus-lg'} me-1`} aria-hidden />
+              Create annotation
+            </button>
+          </div>
+          {createSectionExpanded && creationDraft ? (
+            <AnnotationCreationPanel
+              draft={creationDraft}
+              scopeOptions={scopeOptions}
+              creating={creating}
+              setupError={setupError}
+              onDraftChange={updateCreationDraft}
+              onCreate={handleBeginCreation}
+              onBack={handleCreationBack}
+              onNext={() => void handleCreationNext()}
+            />
+          ) : null}
+          {!isCreationWizardActive ? (
+            <AnnotationLinkViewModeToggle
+              idPrefix="annotation-editor"
+              mode={linkViewMode}
+              onChange={setLinkViewMode}
+            />
+          ) : null}
+        </>
+      )}
     >
 
       {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
 
-      {visibleData.length === 0 ? (
+      {isCreationWizardActive ? (
+        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+          <p className="text-muted fst-italic text-center px-3">
+            Annotation list is hidden while creation is in progress.
+            {creationDraft?.step === 'data'
+              ? ' Use this area in the next milestone for data search and selection.'
+              : ' Use the viewer in the next milestone to draw or select geometries.'}
+          </p>
+        </div>
+      ) : visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <p className="text-muted fst-italic text-center">
             {activeData.length === 0
@@ -716,6 +842,19 @@ export default function AnnotationPanelEditor({ onSelectionChanged }: Annotation
         descriptor={messageModal}
         onClose={() => {
           setMessageModal(null);
+        }}
+      />
+      <AppMessageModal
+        descriptor={discardCreationModal}
+        onClose={() => {
+          setDiscardCreationModal(null);
+        }}
+        onAction={(actionKey) => {
+          if (actionKey === 'discard') {
+            handleDiscardCreation();
+            return;
+          }
+          setDiscardCreationModal(null);
         }}
       />
     </AnnotationPanelBase>

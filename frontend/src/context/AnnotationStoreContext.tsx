@@ -41,6 +41,7 @@ import {
   createAnnotationStore,
   type CreateAnnotationInput,
   type UpdateDataInput,
+  type AnnotationCreationDraft,
 } from '../stores/AnnotationStore';
 import AppMessageModal from '../shared/ui/AppMessageModal';
 import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
@@ -106,6 +107,13 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   realtimeState: AnnotationRealtimeState;
   loadingAdditionalData: boolean;
   creating: boolean;
+  creationDraft: Readonly<AnnotationCreationDraft> | null;
+  isCreationWizardActive: boolean;
+  initCreationDraft: () => void;
+  updateCreationDraft: (patch: Partial<AnnotationCreationDraft>) => void;
+  discardCreationDraft: () => void;
+  beginCreationWizard: () => { ok: true } | { ok: false; message: string };
+  advanceCreationStep: () => Promise<{ ok: true } | { ok: false; message: string }>;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
   currentStreamId: string | null;
@@ -735,6 +743,26 @@ export function AnnotationStoreProvider({
     await storeRef.current?.createAnnotation(input);
   }, []);
 
+  const initCreationDraft = useCallback(() => {
+    storeRef.current?.initCreationDraft();
+  }, []);
+
+  const updateCreationDraft = useCallback((patch: Partial<AnnotationCreationDraft>) => {
+    storeRef.current?.updateCreationDraft(patch);
+  }, []);
+
+  const discardCreationDraft = useCallback(() => {
+    storeRef.current?.discardCreationDraft();
+  }, []);
+
+  const beginCreationWizard = useCallback(() => {
+    return storeRef.current?.beginCreationWizard() ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
+  const advanceCreationStep = useCallback(async () => {
+    return storeRef.current?.advanceCreationStep() ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
   const loadProjectData = useCallback(async () => {
     await storeRef.current?.loadProjectData();
   }, []);
@@ -829,6 +857,13 @@ export function AnnotationStoreProvider({
     realtimeState,
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,
+    creationDraft: store?.creationDraftState ?? null,
+    isCreationWizardActive: store?.isCreationWizardActive ?? false,
+    initCreationDraft,
+    updateCreationDraft,
+    discardCreationDraft,
+    beginCreationWizard,
+    advanceCreationStep,
     eventLog,
     activeSocialLocks,
     currentStreamId,
