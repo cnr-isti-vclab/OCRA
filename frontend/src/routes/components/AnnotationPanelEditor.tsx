@@ -251,7 +251,10 @@ export default function AnnotationPanelEditor({
   const handleCreationNext = useCallback(async () => {
     setSetupError(null);
     try {
-      await advanceCreationStep();
+      const result = await advanceCreationStep();
+      if (!result.ok) {
+        setSetupError(result.message);
+      }
     } catch {
       // store onError surfaces API failures
     }

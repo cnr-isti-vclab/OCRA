@@ -37,6 +37,10 @@ import {
 
 export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
 
+export type AnnotationStoreActionResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
 export type AnnotationEntityKind = 'geometry' | 'data' | 'link';
 
 export type {
@@ -241,8 +245,7 @@ export class AnnotationStore {
 
     if (this.creationDraft.step === 'geometry') {
       if (this.creationDraft.dataChoice === 'void') {
-        await this.commitCreationDraft();
-        return { ok: true };
+        return this.commitCreationDraft();
       }
       this.creationDraft = { ...this.creationDraft, step: 'data' };
       this.bump();
@@ -250,23 +253,25 @@ export class AnnotationStore {
     }
 
     if (this.creationDraft.step === 'data') {
-      await this.commitCreationDraft();
-      return { ok: true };
+      return this.commitCreationDraft();
     }
 
     return { ok: false, message: 'Creation cannot advance from the current step.' };
   }
 
-  async commitCreationDraft(): Promise<void> {
-    if (!this.creationDraft || this.creationDraft.step === 'setup' || this.isCreating) {
-      return;
+  async commitCreationDraft(): Promise<AnnotationStoreActionResult> {
+    if (!this.creationDraft || this.creationDraft.step === 'setup') {
+      return { ok: false, message: 'Creation is not ready to commit.' };
+    }
+
+    if (this.isCreating) {
+      return { ok: false, message: 'Creation is already in progress.' };
     }
 
     const draftSnapshot = this.creationDraft;
     const validation = validateCreationDraftForCommit(draftSnapshot);
     if (!validation.ok) {
-      this.callbacks.onError(new Error(validation.message ?? 'Invalid creation draft'));
-      return;
+      return { ok: false, message: validation.message ?? 'Invalid creation draft.' };
     }
 
     const myGen = this.generation;
@@ -289,10 +294,12 @@ export class AnnotationStore {
           referenceType: draftSnapshot.geometryScope.referenceType,
           referenceId: draftSnapshot.geometryScope.referenceId,
         });
-        if (this.generation !== myGen) {
-          return;
-        }
         created.geometries.push(geometry);
+        if (this.generation !== myGen) {
+          await this.revertWizardCommitArtifacts(created);
+          this.restoreCreationDraftAfterInterruptedCommit(draftSnapshot, myGen);
+          return { ok: false, message: 'Creation was interrupted by a scene reload.' };
+        }
         this.geometryMap.set(geometry.id, geometry);
         geometryIds.push(geometry.id);
       } else if (draftSnapshot.geometryChoice === 'search') {
@@ -313,11 +320,12 @@ export class AnnotationStore {
           visibilityType: draftSnapshot.dataVisibility.visibilityType,
           visibilityId: draftSnapshot.dataVisibility.visibilityId,
         });
-        if (this.generation !== myGen) {
-          await this.compensateWizardCommit(created, myGen);
-          return;
-        }
         created.data.push(datum);
+        if (this.generation !== myGen) {
+          await this.revertWizardCommitArtifacts(created);
+          this.restoreCreationDraftAfterInterruptedCommit(draftSnapshot, myGen);
+          return { ok: false, message: 'Creation was interrupted by a scene reload.' };
+        }
         this.dataMap.set(datum.id, datum);
         dataIds.push(datum.id);
       } else if (draftSnapshot.dataChoice === 'search') {
@@ -327,26 +335,35 @@ export class AnnotationStore {
       if (draftSnapshot.geometryChoice !== 'void' && draftSnapshot.dataChoice !== 'void') {
         for (const pair of buildLinkPairs(geometryIds, dataIds)) {
           const link = await this.client.createLink(pair);
-          if (this.generation !== myGen) {
-            await this.compensateWizardCommit(created, myGen);
-            return;
-          }
           created.links.push(link);
+          if (this.generation !== myGen) {
+            await this.revertWizardCommitArtifacts(created);
+            this.restoreCreationDraftAfterInterruptedCommit(draftSnapshot, myGen);
+            return { ok: false, message: 'Creation was interrupted by a scene reload.' };
+          }
           this.linkMap.set(link.id, link);
         }
       }
 
       this.creationDraft = null;
       this.bump();
+      return { ok: true };
     } catch (err) {
       if (this.generation === myGen) {
-        await this.compensateWizardCommit(created, myGen);
+        await this.revertWizardCommitArtifacts(created);
         this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };
         this.callbacks.onError(err);
         this.bump();
+      } else {
+        await this.revertWizardCommitArtifacts(created);
+        this.restoreCreationDraftAfterInterruptedCommit(draftSnapshot, myGen);
       }
       throw err;
     } finally {
+      if (this.creationDraft?.step === 'committing' && this.generation === myGen) {
+        this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };
+        this.bump();
+      }
       this.isCreating = false;
     }
   }
@@ -765,6 +782,7 @@ export class AnnotationStore {
     const myGen = this.generation;
     this.isSaving.clear();
     this.isCreating = false;
+    this.creationDraft = null;
     if (hadPending) {
       this.callbacks.onEditsCancelled();
     }
@@ -1032,18 +1050,25 @@ export class AnnotationStore {
     }
   }
 
-  private async compensateWizardCommit(
-    created: {
-      geometries: AnnotationGeometry[];
-      data: AnnotationData[];
-      links: AnnotationLink[];
-    },
+  private restoreCreationDraftAfterInterruptedCommit(
+    draftSnapshot: AnnotationCreationDraft,
     myGen: number,
-  ): Promise<void> {
+  ): void {
     if (this.generation !== myGen) {
+      this.creationDraft = null;
+      this.bump();
       return;
     }
 
+    this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };
+    this.bump();
+  }
+
+  private async revertWizardCommitArtifacts(created: {
+    geometries: AnnotationGeometry[];
+    data: AnnotationData[];
+    links: AnnotationLink[];
+  }): Promise<void> {
     try {
       for (const link of created.links) {
         await this.client.markLinkErasable(link.id, link.version);
@@ -1053,10 +1078,6 @@ export class AnnotationStore {
       }
       for (const geometry of created.geometries) {
         await this.client.markGeometryErasable(geometry.id, geometry.version);
-      }
-
-      if (this.generation !== myGen) {
-        return;
       }
 
       for (const link of created.links) {
@@ -1070,7 +1091,7 @@ export class AnnotationStore {
       }
       this.bump();
     } catch (compensateErr) {
-      console.error('[AnnotationStore] wizard commit compensation failed', compensateErr);
+      console.error('[AnnotationStore] wizard commit rollback failed', compensateErr);
     }
   }
 
