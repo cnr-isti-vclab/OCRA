@@ -59,7 +59,7 @@ import {
   PhysicalObjectMetadata
 } from '../types/index.js';
 import { RoleEnum } from '@prisma/client';
-import { projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
+import { projectImageAssetDir, projectModel3dAssetDir, projectRtiAssetDir } from '../utils/project-static-paths.js';
 import {
   normalizePhysicalObjectMetadata,
   normalizePhysicalObjectSourceType,
@@ -1097,6 +1097,8 @@ export async function removeAssetHandler(req: Request, res: Response) {
       assetDirToDelete = projectModel3dAssetDir(projectId, assetId);
       console.log('📁 [removeAssetHandler] 3D asset directory to delete:', assetDirToDelete);
 
+    } else if (asset.type === 'image') {
+      assetDirToDelete = projectImageAssetDir(projectId, assetId);
     } else if (asset.type === 'rti') {
       // RTI: project_files/<projectId>/rti/<assetId>/
       assetDirToDelete = projectRtiAssetDir(projectId, assetId);

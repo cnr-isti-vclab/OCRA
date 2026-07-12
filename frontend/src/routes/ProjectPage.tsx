@@ -23,6 +23,7 @@ import type { SceneDescription } from 'shared/scene-types';
 import type { RoleEnum } from 'shared/types';
 import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 import { formatVector3, formatScale, parseOptionalVector3, parseOptionalScale } from '../utils/vector';
+import { isOpenLime2DAsset } from 'shared/openlime-layout';
 
 const Viewer3DPanel = lazy(() => import('./components/Viewer3DPanel'));
 const Viewer2DPanel = lazy(() => import('./components/Viewer2DPanel'));
@@ -152,9 +153,7 @@ export default function ProjectPage() {
   const [loadingModels, setLoadingModels] = useState<boolean>(false);
   const [modelLoadProgress, setModelLoadProgress] = useState<Record<string, number>>({});
 
-  // 2D viewer (RTI) state
-  // const [rtiAsset, setRtiAsset] = useState<{ infoJsonUrl?: string; entryPoint?: string } | null>(null);
-  const [rtiAvailable, setRtiAvailable] = useState(false);
+  const [twoDimensionalAssetAvailable, setTwoDimensionalAssetAvailable] = useState(false);
 
   const [digitalAssets, setDigitalAssets] = useState<DigitalAsset[]>([]);
 
@@ -636,12 +635,14 @@ export default function ProjectPage() {
         const sceneRes = await fetch(sceneEndpoint, {
           credentials: 'include'
         });
+        let loadedScene: SceneDescription | null = null;
         if (sceneRes.ok) {
-          const scene = await sceneRes.json();
+          const scene: SceneDescription = await sceneRes.json();
           // Add projectId to scene if not present
           if (!scene.projectId) {
             scene.projectId = projectId;
           }
+          loadedScene = scene;
           applyLoadedScene(scene);
           // Initialize visibility state for all models (all visible by default)
           const initialVisibility: Record<string, boolean> = {};
@@ -686,16 +687,17 @@ export default function ProjectPage() {
               }
             }
 
-            // Handle 2D RTI assets
+            // Handle all OpenLIME-compatible 2D assets referenced by the scene.
             if (mode === '2d') {
-              const rtiAsset = assets.find((a: any) => a?.type === 'rti');
-              const rtiAvailable = rtiAsset !== undefined; //!!rtiAsset?.entryPoint;
-              setRtiAvailable(rtiAvailable);
-              if (rtiAvailable) {
-                console.log('📸 RTI asset found');
-              } else {
-                console.log('📸 No RTI asset found in HDT metadata');
-              }
+              const sceneAssetIds = new Set(
+                Array.isArray(loadedScene?.models)
+                  ? loadedScene.models.map((model) => model.id)
+                  : [],
+              );
+              const has2DAsset = assets.some(
+                (asset: DigitalAsset) => sceneAssetIds.has(asset.id) && isOpenLime2DAsset(asset),
+              );
+              setTwoDimensionalAssetAvailable(has2DAsset);
             }
           }
         } catch (e) {
@@ -872,7 +874,7 @@ export default function ProjectPage() {
                   ref={openLimeRef}
                   sceneDesc={viewerSceneDesc}
                   digitalAssets={digitalAssets}
-                  rtiAvailable={rtiAvailable}
+                  twoDimensionalAssetAvailable={twoDimensionalAssetAvailable}
                   annotationMode={annotationMode}
                   onReady={() => {
                     console.log('📸 2D RTI viewer ready');

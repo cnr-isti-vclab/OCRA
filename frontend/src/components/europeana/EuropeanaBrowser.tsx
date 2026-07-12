@@ -94,6 +94,7 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
       setDetailBusy(false);
       return;
     }
+    const selectedRecord = selected;
 
     let cancelled = false;
 
@@ -101,16 +102,16 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
       try {
         setDetailBusy(true);
         setDetailError(null);
-        const detail = await getEuropeanaRecordDetail(selected.uri);
+        const detail = await getEuropeanaRecordDetail(selectedRecord.uri);
         if (!cancelled) {
           setSelectedDetail(detail);
-          onSelectionChangeRef.current?.({ result: selected, detail });
+          onSelectionChangeRef.current?.({ result: selectedRecord, detail });
         }
       } catch (error) {
         if (!cancelled) {
           setSelectedDetail(null);
           setDetailError(error instanceof Error ? error.message : 'Failed to load record detail.');
-          onSelectionChangeRef.current?.({ result: selected, detail: null });
+          onSelectionChangeRef.current?.({ result: selectedRecord, detail: null });
         }
       } finally {
         if (!cancelled) {

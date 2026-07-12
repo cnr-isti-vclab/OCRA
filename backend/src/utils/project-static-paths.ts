@@ -29,6 +29,16 @@ export function projectRtiAssetDir(projectId: string, assetId: string) {
   return path.join(projectRtiDir(projectId), assetId);
 }
 
+/** Returns the directory containing all directly viewable image assets for a project. */
+export function projectImageDir(projectId: string) {
+  return path.join(projectRoot(projectId), 'image');
+}
+
+/** Returns the storage directory owned by one directly viewable image asset. */
+export function projectImageAssetDir(projectId: string, assetId: string) {
+  return path.join(projectImageDir(projectId), assetId);
+}
+
 export function projectEchoesDir(projectId: string) {
   return path.join(projectRoot(projectId), 'echoes');
 }
@@ -36,6 +46,7 @@ export function projectEchoesDir(projectId: string) {
 export function ensureProjectSkeleton(projectId: string) {
   fs.mkdirSync(projectModel3dDir(projectId), { recursive: true });
   fs.mkdirSync(projectRtiDir(projectId), { recursive: true });
+  fs.mkdirSync(projectImageDir(projectId), { recursive: true });
   fs.mkdirSync(projectTmpDir(projectId), { recursive: true });
   fs.mkdirSync(projectEchoesDir(projectId), { recursive: true });
 }

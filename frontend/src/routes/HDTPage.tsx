@@ -20,6 +20,7 @@ import {
   replaceProjectHdtContentInEchoes,
 } from '../services/EchoesApi';
 import type { EchoesProjectStatus } from '../types';
+import { OPENLIME_RASTER_IMAGE_EXTENSIONS } from 'shared/openlime-layout';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -326,12 +327,13 @@ export default function HDTPage() {
 
   /**
    * Normalize asset type across backend migrations.
-   * Backend uses '3d-model'/'rti'. We keep a tolerant mapper anyway.
+   * Backend uses '3d-model'/'rti'/'image'. We keep a tolerant mapper anyway.
    */
-  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'other' => {
+  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'image' | 'other' => {
     const s = String(t || '').toLowerCase();
     if (s === '3d-model' || s === 'model3d' || s === '3d' || s.includes('3d')) return '3d-model';
     if (s === 'rti' || s.includes('rti')) return 'rti';
+    if (s === 'image' || s.startsWith('image/')) return 'image';
     return 'other';
   };
 
@@ -1367,6 +1369,9 @@ export default function HDTPage() {
       };
 
       switch (responseData.type) {
+        case 'image':
+          updatePayload.type = 'image';
+          break;
         case 'rti':
           updatePayload.type = 'rti';
           break;
@@ -1384,7 +1389,11 @@ export default function HDTPage() {
       // 6) Refresh data and show success
       await fetchProjectAndMetadata();
 
-      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      const typeLabel = responseData.type === 'rti'
+        ? 'RTI'
+        : responseData.type === 'image'
+          ? 'Image'
+          : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset "${file.name}" uploaded and saved successfully!`);
       setWarningMessages(uploadWarnings);
     } catch (err: any) {
@@ -1510,6 +1519,9 @@ export default function HDTPage() {
       };
 
       switch (responseData.type) {
+        case 'image':
+          updatePayload.type = 'image';
+          break;
         case 'rti':
           updatePayload.type = 'rti';
           break;
@@ -1524,7 +1536,11 @@ export default function HDTPage() {
       await updateHdtAsset(assetId, updatePayload);
       await fetchProjectAndMetadata();
 
-      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      const typeLabel = responseData.type === 'rti'
+        ? 'RTI'
+        : responseData.type === 'image'
+          ? 'Image'
+          : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset imported successfully from URL!`);
       setWarningMessages(importWarnings);
       resetUrlImportForm();
@@ -2088,7 +2104,7 @@ export default function HDTPage() {
                 <div className="d-flex gap-2 flex-wrap">
                   <span className="badge bg-primary">3D Models (GLB, GLTF, PLY, OBJ, NXS, NXZ)</span>
                   <span className="badge bg-primary">RTI</span>
-                  <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
+                  <span className="badge bg-primary">Images (JPG, PNG, WebP, GIF, AVIF)</span>
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
                 </div>
                 <div className="form-text mt-2">
@@ -2262,6 +2278,28 @@ export default function HDTPage() {
                                       </>
                                     )}
 
+                                    {kind === 'image' && url && (
+                                      <>
+                                        <a
+                                          className="btn btn-sm btn-outline-primary"
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title="Open the image entry point"
+                                        >
+                                          Open
+                                        </a>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => copyAssetUrlToClipboard(url)}
+                                          title="Copy image entry-point URL to clipboard"
+                                        >
+                                          Copy URL
+                                        </button>
+                                      </>
+                                    )}
+
                                     {!url && (
                                       <span className="text-muted small">
                                         No URL available yet
@@ -2318,7 +2356,7 @@ export default function HDTPage() {
                   id="unifiedAssetInput"
                   type="file"
                   className="d-none"
-                  accept=".ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip"
+                  accept={`.ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip,${OPENLIME_RASTER_IMAGE_EXTENSIONS.join(',')}`}
                   onChange={async (e) => {
                     if (!canManageAssets) {
                       (e.target as HTMLInputElement).value = '';
@@ -2332,9 +2370,11 @@ export default function HDTPage() {
                     const isDirectObj = file.name.toLowerCase().endsWith('.obj') && !isZip;
                     const is3DFile = ['.ply', '.obj', '.gltf', '.glb', '.fbx', '.dae', '.x3d', '.stl', '.3ds']
                       .some(ext => file.name.toLowerCase().endsWith(ext));
+                    const isImageFile = OPENLIME_RASTER_IMAGE_EXTENSIONS
+                      .some(ext => file.name.toLowerCase().endsWith(ext));
 
-                    if (!isZip && !is3DFile) {
-                      setError('Please select a 3D model file or ZIP archive.');
+                    if (!isZip && !is3DFile && !isImageFile) {
+                      setError('Please select an image, 3D model file, or ZIP archive.');
                       setWarningMessages([]);
                       (e.target as HTMLInputElement).value = '';
                       return;
@@ -2402,14 +2442,14 @@ export default function HDTPage() {
                           id="assetImportUrl"
                           type="url"
                           className="form-control"
-                          placeholder="https://example.org/path/to/asset.zip"
+                          placeholder="https://example.org/path/to/image.dzi"
                           value={importSourceUrl}
                           onChange={(e) => setImportSourceUrl(e.target.value)}
                           onBlur={(e) => populateUrlImportSuggestions(e.target.value)}
                           disabled={assetUploadDisabled}
                         />
                         <div className="form-text">
-                          The backend will download the remote file and detect the asset type automatically.
+                          OpenLIME image URLs are stored as remote references; 3D files and RTI packages are imported into OCRA storage.
                         </div>
                       </div>
 

@@ -38,7 +38,7 @@ import type { AnnotationMode } from '../../features/annotation-modes/resolveAnno
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
   digitalAssets: DigitalAsset[];
-  rtiAvailable: boolean;
+  twoDimensionalAssetAvailable: boolean;
   annotationMode: AnnotationMode;
   onReady: () => void;
   onError: (error: Error) => void;
@@ -73,10 +73,10 @@ function hexToRgba(color: string, alpha: number): string {
 }
 
 /**
- * 2D (RTI) viewer wired to {@link AnnotationStore} active geometries and UI focus state.
+ * OpenLIME 2D viewer wired to {@link AnnotationStore} active geometries and UI focus state.
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, rtiAvailable, annotationMode, onReady, onError }, ref) => {
+  ({ sceneDesc, digitalAssets, twoDimensionalAssetAvailable, annotationMode, onReady, onError }, ref) => {
     const {
       activeGeometries,
       activeAnnotationSelection,
@@ -589,7 +589,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       };
     }, [stopEditorLock]);
 
-    if (!rtiAvailable) {
+    if (!twoDimensionalAssetAvailable) {
       return (
         <div
           style={{
@@ -602,8 +602,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📸</div>
-            <p style={{ color: '#666', marginBottom: '8px' }}>No RTI (2D) assets available</p>
-            <p style={{ color: '#999', fontSize: '14px' }}>Please add RTI assets to this project</p>
+            <p style={{ color: '#666', marginBottom: '8px' }}>No 2D assets available</p>
+            <p style={{ color: '#999', fontSize: '14px' }}>Please add an image or RTI asset to this project</p>
           </div>
         </div>
       );

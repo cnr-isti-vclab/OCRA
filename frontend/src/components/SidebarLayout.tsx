@@ -5,6 +5,7 @@ import { logout, getCurrentUser } from '../backend';
 import { getApiBase } from '../config/oauth';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import type { User } from 'shared/types';
+import { isOpenLime2DAsset } from 'shared/openlime-layout';
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -65,7 +66,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       .then(doc => {
         const assets: any[] = Array.isArray(doc?.digitalAssets) ? doc.digitalAssets : [];
         setHas3d(assets.some((a: any) => typeof a?.type === 'string' && (a.type === '3d-model' || a.type.includes('3d'))));
-        setHas2d(assets.some((a: any) => a?.type === 'rti'));
+        setHas2d(assets.some(isOpenLime2DAsset));
       })
       .catch(() => { setHas3d(null); setHas2d(null); });
   }, [currentProjectId]);

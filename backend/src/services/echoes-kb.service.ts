@@ -1539,6 +1539,7 @@ async function importEchoesAssetsIntoProject(
       sourceUrl: asset.source,
       userId,
       publicBaseUrl,
+      expectedAssetType: normalizedAsset.type,
     });
 
     importedAssetIdBySourceAssetUri.set(asset.assetUri, createdAsset.assetId);

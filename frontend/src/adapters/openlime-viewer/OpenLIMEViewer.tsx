@@ -24,6 +24,9 @@ import { OPENLIME_ANNOTATION_STYLE_CONFIG } from '../../config/annotationStyles.
 import { getApiBase } from '../../config/oauth.ts';
 import type { OpenLimeLabelVisibility } from '../annotation-store/openlimeAnnotationAdapter.ts';
 import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode.ts';
+import type { OpenLimeLayout } from 'shared/types';
+import { isOpenLime2DAsset } from 'shared/openlime-layout';
+import { parseOpenLimeLayout, resolveOpenLimeImageLayout } from '../../utils/openLimeAsset.ts';
 
 const RTI_LAYOUT_PROBES = [
   { layout: 'tarzoom', fileName: 'plane_0.tzi' },
@@ -36,7 +39,7 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 }
 
-function normalizeRtiEntryPointUrl(entryPointUrl: string): string {
+function normalizeAssetEntryPointUrl(entryPointUrl: string): string {
   if (!(entryPointUrl.startsWith('http://') || entryPointUrl.startsWith('https://'))) {
     return entryPointUrl;
   }
@@ -93,7 +96,7 @@ async function resourceExists(url: string): Promise<boolean> {
 /**
  * Detect the OpenLIME plane layout from the files exposed from the extracted RTI ZIP.
  */
-async function autodetectRtiLayout(entryPointUrl: string): Promise<string | null> {
+async function autodetectRtiLayout(entryPointUrl: string): Promise<OpenLimeLayout | null> {
   const baseUrl = getRtiAssetBaseUrl(entryPointUrl);
 
   for (const probe of RTI_LAYOUT_PROBES) {
@@ -441,7 +444,7 @@ const OpenLIMEViewer = forwardRef<
 
           // FIXME HOW TO HANDLE DIFFERENT PIXEL SIZES ACROSS LAYERS? SHOULD WE ENFORCE A SINGLE SCALE FOR THE WHOLE SCENE, OR ALLOW PER-LAYER SCALES?
 
-          // Find all the RTI models in the scene description and add them to the viewer, 
+          // Find all OpenLIME-compatible 2D assets in the scene description.
           // while keeping track of their corresponding digital assets and transformation matrices
           let selectedAssets: number[] = [];
           let matrices: OpenLIME.Transform[] = [];
@@ -451,7 +454,7 @@ const OpenLIMEViewer = forwardRef<
             const foundIndex = digitalAssets.findIndex(a => a.id === assetId);
             if (foundIndex != -1) {
               const asset = digitalAssets[foundIndex];
-              if (asset.entryPointUrl != null && asset.type === 'rti') {
+              if (isOpenLime2DAsset(asset)) {
                 selectedAssets.push(foundIndex);
                 matrices.push(getMatrix(model));
                 urls.push(asset.entryPointUrl);
@@ -469,48 +472,50 @@ const OpenLIMEViewer = forwardRef<
           for (let i = 0; i < selectedAssets.length; i++) {
             const asset = digitalAssets[selectedAssets[i]];
             const matrix = matrices[i];
-            const url = normalizeRtiEntryPointUrl(urls[i]);
+            const url = normalizeAssetEntryPointUrl(urls[i]);
             console.log(`🎬 Adding asset to OpenLIME Viewer: ${asset.fileName}, ${url}, matrix `, matrix);
 
-            // Read Header data if available
+            // RTI datasets expose a JSON header; ordinary images derive their
+            // layout from explicit metadata or the entry-point filename.
             let pixelSizeInMM: number | null = null;
-            let layerType = 'rti';   // FIXME parameterize this based on asset type or scene description
-            let layout = 'deepzoom';
-            try {
-              const response = await fetch(url);
-              if (response.ok) {
-                const info = await response.json();
-                const parsed = Number(info?.pixelSizeInMM);
-                if (Number.isFinite(parsed) && parsed > 0) {
-                  pixelSizeInMM = parsed;
-                  if (scalePixelSize == null) {
-                    scalePixelSize = parsed;
+            const layerType = asset.type === 'rti' ? 'rti' : 'image';
+            let layout = layerType === 'rti' ? 'deepzoom' : resolveOpenLimeImageLayout(asset);
+            if (layerType === 'rti') {
+              try {
+                const response = await fetch(url);
+                if (response.ok) {
+                  const info = await response.json();
+                  const parsed = Number(info?.pixelSizeInMM);
+                  if (Number.isFinite(parsed) && parsed > 0) {
+                    pixelSizeInMM = parsed;
+                    if (scalePixelSize == null) {
+                      scalePixelSize = parsed;
+                    }
                   }
-                }
 
-                //layerType = info?.type || layerType;
-                if (typeof info?.layout === 'string' && info.layout.trim().length > 0) {
-                  layout = info.layout.trim();
-                } else {
-                  const detectedLayout = await autodetectRtiLayout(url);
-                  if (detectedLayout) {
-                    layout = detectedLayout;
+                  const declaredLayout = parseOpenLimeLayout(info?.layout);
+                  if (declaredLayout) {
+                    layout = declaredLayout;
                   } else {
-                    console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                    const detectedLayout = await autodetectRtiLayout(url);
+                    if (detectedLayout) {
+                      layout = detectedLayout;
+                    } else {
+                      console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                    }
                   }
+
+                  console.log(`🎬 Read RTI header from ${url}: pixelSizeInMM=${pixelSizeInMM}, layout=${layout}`);
                 }
-
-                console.log(`🎬 Read header info from ${url}: pixelSizeInMM=${pixelSizeInMM}, type=${layerType}, layout=${layout}`);
-              }
-
-            } catch (error) {
-              console.warn(`⚠️ Could not read pixelSizeInMM from ${url}:`, error);
-              const detectedLayout = await autodetectRtiLayout(url);
-              if (detectedLayout) {
-                layout = detectedLayout;
-                console.log(`🎬 Autodetected RTI layout for ${url}: ${layout}`);
-              } else {
-                console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+              } catch (error) {
+                console.warn(`⚠️ Could not read RTI header from ${url}:`, error);
+                const detectedLayout = await autodetectRtiLayout(url);
+                if (detectedLayout) {
+                  layout = detectedLayout;
+                  console.log(`🎬 Autodetected RTI layout for ${url}: ${layout}`);
+                } else {
+                  console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                }
               }
             }
 
@@ -522,8 +527,8 @@ const OpenLIMEViewer = forwardRef<
               label: asset.fileName || layerType,
               url,
               layout,
-              type: 'rti',
-              normals: false,
+              type: layerType,
+              ...(layerType === 'rti' ? { normals: false } : {}),
               visible: i == 0,
               zindex: selectedAssets.length - i, // THe top layer is the front one
             };
@@ -610,6 +615,9 @@ const OpenLIMEViewer = forwardRef<
           annotationManagerRef.current = annotationManager;
 
           // After all layers are added, setup the UI and annotation callbacks
+          const hasRelightableLayers = selectedAssets.some(
+            (assetIndex) => digitalAssets[assetIndex]?.type === 'rti',
+          );
 
           // Before creating the UI create a lensLayer which could be activated for each layer, to be passed to the UIBasic interface
           if (!uiRef.current) {
@@ -628,7 +636,7 @@ const OpenLIMEViewer = forwardRef<
 
             // Here we are: create the UI
             uiRef.current = new OpenLIME.UIBasic(viewer, {
-              showLightDirections: true,
+              showLightDirections: hasRelightableLayers,
               pixelSize: scalePixelSize ?? undefined,
               annotationManager: annotationManagerRef.current,
               layerVisibilityMode: 'nonExclusive',
@@ -647,7 +655,8 @@ const OpenLIMEViewer = forwardRef<
           if (uiRef.current) {
             uiRef.current.actions.zoomin.display = false;
             uiRef.current.actions.zoomout.display = false;
-            uiRef.current.toggleLightController(true);
+            uiRef.current.actions.light.display = hasRelightableLayers;
+            uiRef.current.toggleLightController(hasRelightableLayers);
             uiRef.current.actions.pencil.display = !viewerOnlyMode;
             uiRef.current.actions.info.display = viewerOnlyMode;
             uiRef.current.actions.settings.display = true;

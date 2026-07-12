@@ -234,7 +234,7 @@ export interface EchoesContext {
 
 // RTI sub-types used inside DigitalAsset.metadata
 export type RTIFormat = 'ptm' | 'lptm' | 'hsh' | 'yrbf';
-export type RTILayout =
+export type OpenLimeLayout =
   | 'image' | 'deepzoom' | 'deepzoom1px' | 'google'
   | 'zoomify' | 'iiif' | 'iip' | 'tarzoom' | 'itarzoom';
 
@@ -279,7 +279,8 @@ export interface DigitalAsset {
     vertices?: number;
     format?: string;
     rtiType?: RTIFormat;
-    rtiLayout?: RTILayout;
+    rtiLayout?: OpenLimeLayout;
+    openLimeLayout?: OpenLimeLayout;
     zipName?: string;
     width?: number;
     height?: number;

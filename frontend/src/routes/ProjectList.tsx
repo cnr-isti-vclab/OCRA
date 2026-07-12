@@ -6,6 +6,7 @@ import { useProjectStructuringLock } from '../context/ProjectStructuringLockCont
 import type { CurrentUserSummary, ProjectListItem } from '../types';
 import EchoesImportModal from './components/EchoesImportModal';
 import RdfImportModal from './components/RdfImportModal';
+import { isOpenLime2DAsset } from 'shared/openlime-layout';
 
 /**
  * PROJECTS COMPONENT
@@ -252,7 +253,7 @@ export default function Projects() {
             newHdtMap[project.id] = true;
             // Check if there are digital assets of type '3d-model'
             const has3DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === '3d-model') || false;
-            const has2DAssets = hdtData.digitalAssets?.some((asset: any) => asset.type === 'rti') || false;
+            const has2DAssets = hdtData.digitalAssets?.some(isOpenLime2DAsset) || false;
             newMap3D[project.id] = has3DAssets;
             newMap2D[project.id] = has2DAssets;
           } else if (res.status === 423) {

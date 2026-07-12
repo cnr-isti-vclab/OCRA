@@ -14,7 +14,11 @@ import type { PreparedAssetProcessing } from '../services/asset-ingestion.servic
 import {
   prepareAssetProcessingFromLocalFile,
 } from '../services/asset-ingestion.service.js';
-import { ingestPreparedAssetIntoExistingAsset, ingestRemoteAssetIntoExistingAsset } from '../services/remote-asset-ingestion.service.js';
+import {
+  AssetTypeMismatchError,
+  ingestPreparedAssetIntoExistingAsset,
+  ingestRemoteAssetIntoExistingAsset,
+} from '../services/remote-asset-ingestion.service.js';
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 
 /**
@@ -43,6 +47,9 @@ async function checkIsManagerOfProject(userSub: string, projectId: string): Prom
 }
 
 function statusForRemoteImportError(error: unknown) {
+  if (error instanceof AssetTypeMismatchError) {
+    return 409;
+  }
   const message = error instanceof Error ? error.message : String(error);
 
   if (
@@ -102,6 +109,7 @@ function parseOptionalBasicAuthPayload(body: unknown) {
  * Unified asset upload controller.
  *
  * The middleware classifies uploads into:
+ * - 'image-direct': a directly viewable raster image
  * - '3d-direct': a single 3D file
  * - '3d': a ZIP containing one or more 3D files
  * - 'rti': a ZIP containing a relightable dataset package (`info.json` at archive root)
@@ -109,7 +117,7 @@ function parseOptionalBasicAuthPayload(body: unknown) {
  * IMPORTANT CONTRACT:
  * We do NOT publish `fileUrl` anymore.
  * We publish:
- * - entryPointUrl: public URL to open the asset (3d model file OR rti info.json)
+ * - entryPointUrl: public URL to open the asset (image, 3D model, or RTI info.json)
  * - entryPoint: public path (relative) to the entry point (optional convenience)
  */
 export async function unifiedAssetUploadHandler(req: express.Request, res: express.Response) {
@@ -120,19 +128,19 @@ export async function unifiedAssetUploadHandler(req: express.Request, res: expre
     const response = await processPreparedAssetIngestionRequest(req, res, assetReq.assetProcessing, cleanupPaths);
     await cleanupFiles(cleanupPaths);
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[UnifiedUpload] Error processing upload:', error);
     await cleanupFiles(cleanupPaths);
 
     return res.status(500).json({
       error: 'Failed to process upload.',
-      message: error?.message ?? String(error),
+      message: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
 /**
- * Import a 3D or RTI asset by downloading it from a remote URL on the backend.
+ * Register a remote OpenLIME image URL or download a 3D/RTI asset for ingestion.
  */
 export async function unifiedAssetImportFromUrlHandler(req: express.Request, res: express.Response) {
   try {
@@ -185,18 +193,19 @@ export async function unifiedAssetImportFromUrlHandler(req: express.Request, res
       userId: currentUserSub,
       publicBaseUrl: getPublicBaseUrl(req),
       auth: authParse.value,
+      expectedAssetType: existingAsset.type,
     });
 
     return res.status(201).json({
       success: true,
       value: result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[UnifiedUpload] Error importing remote asset:', error);
 
     return res.status(statusForRemoteImportError(error)).json({
       error: 'Failed to import remote asset.',
-      message: error?.message ?? String(error),
+      message: error instanceof Error ? error.message : String(error),
     });
   }
 }
@@ -240,7 +249,7 @@ async function processPreparedAssetIngestionRequest(
     return res.status(404).json({ error: `Asset "${assetId}" not found in HDT document.` });
   }
 
-  const expectedType = type === 'rti' ? 'rti' : '3d-model';
+  const expectedType = type === 'rti' ? 'rti' : type === 'image-direct' ? 'image' : '3d-model';
   if (existingAsset.type !== expectedType && existingAsset.type !== 'other') {
     return res.status(409).json({
       error: `Asset type mismatch: upload is "${expectedType}" but asset "${assetId}" is "${existingAsset.type}".`,

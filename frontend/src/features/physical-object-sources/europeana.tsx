@@ -127,11 +127,12 @@ async function importEuropeana3dAsset(
   projectId: string,
   state: EuropeanaFormState
 ): Promise<string | null> {
-  if (!state.import3dAsset || !state.detail?.mediaUrl) {
+  const detail = state.detail;
+  if (!state.import3dAsset || !detail?.mediaUrl) {
     return null;
   }
 
-  const detail = state.detail;
+  const mediaUrl = detail.mediaUrl;
   const assetTitle = detail.title || state.selectedTitle || 'Europeana 3D asset';
   const assetLabel = assetTitle;
 
@@ -140,7 +141,7 @@ async function importEuropeana3dAsset(
     title: assetTitle,
     description: detail.description || undefined,
     metadata: {
-      sourceUrl: detail.mediaUrl,
+      sourceUrl: mediaUrl,
       linkedHeritageEntityUri: detail.uri,
       rights: detail.license,
       provider: detail.provider,
@@ -148,8 +149,8 @@ async function importEuropeana3dAsset(
     },
   });
 
-  const imported = await importRemoteAssetIntoHdt(projectId, assetId, detail.mediaUrl);
-  const resolvedSourceUrl = imported.sourceUrl || detail.mediaUrl;
+  const imported = await importRemoteAssetIntoHdt(projectId, assetId, mediaUrl);
+  const resolvedSourceUrl = imported.sourceUrl || mediaUrl;
   await updateHdtAsset(projectId, assetId, {
     type: '3d-model',
     fileName: imported.fileName || 'europeana-model.glb',

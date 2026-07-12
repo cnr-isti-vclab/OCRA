@@ -8,10 +8,12 @@ import type { Request } from 'express';
 import { ensureProjectSkeleton, projectTmpDir } from '../utils/project-static-paths.js';
 import {
   is3DModelFile,
+  isSupportedImageFile,
   prepareAssetProcessingFromLocalFile,
   type PreparedAssetFile,
   type PreparedAssetProcessing,
   SUPPORTED_3D_EXTENSIONS,
+  SUPPORTED_IMAGE_EXTENSIONS,
 } from '../services/asset-ingestion.service.js';
 
 /**
@@ -64,7 +66,7 @@ const storage = multer.diskStorage({
 });
 
 /**
- * File filter: Accept ZIP files and 3D model files
+ * File filter: Accept ZIP files, supported images, and 3D model files.
  */
 const fileFilter = function (
   _req: Request,
@@ -84,11 +86,12 @@ const fileFilter = function (
 
   // Check for 3D model files
   const is3DModel = is3DModelFile(file.originalname);
+  const isImage = isSupportedImageFile(file.originalname, file.mimetype);
 
-  if (!isZipByExt && !isZipByMime && !is3DModel) {
+  if (!isZipByExt && !isZipByMime && !is3DModel && !isImage) {
     return cb(
       new Error(
-        `Unsupported file type. Accepted: ZIP archives or 3D models (${SUPPORTED_3D_EXTENSIONS.join(', ')})`
+        `Unsupported file type. Accepted: ZIP archives, images (${SUPPORTED_IMAGE_EXTENSIONS.join(', ')}), or 3D models (${SUPPORTED_3D_EXTENSIONS.join(', ')})`
       ), 
       false
     );
@@ -111,7 +114,7 @@ const upload = multer({
 /**
  * Unified asset upload middleware
  * 
- * Processes both direct 3D model uploads and ZIP archives containing RTI or 3D content
+ * Processes images, direct 3D model uploads, and ZIP archives containing RTI or 3D content.
  */
 export const unifiedAssetUploadMiddleware = [
   upload.single('file'),
