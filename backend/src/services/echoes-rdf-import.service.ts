@@ -15,6 +15,7 @@ import {
   ECHOES_HDTO_CLASS_HC8_3D_MODEL,
   ECHOES_HDTO_CURIE_HP21_IS_3D_REPRESENTATION_OUTPUT_OF,
 } from 'shared/echoes-hdto';
+import { classifyPortableAssetType } from 'shared/openlime-layout';
 
 const HC1_CLASS = ECHOES_HDTO_CLASS_HC1_HERITAGE_ENTITY;
 const HC2_CLASS = ECHOES_HDTO_CLASS_HC2_HERITAGE_DIGITAL_TWIN;
@@ -94,13 +95,8 @@ function getAssetImportability(asset: Pick<EchoesHdtAsset, 'source' | 'format'>)
     };
   }
 
-  const normalizedFormat = asset.format?.trim().toLowerCase() ?? '';
-  if (
-    normalizedFormat === 'image/rti' ||
-    normalizedFormat === 'application/zip' ||
-    normalizedFormat.startsWith('model/') ||
-    normalizedFormat.includes('3d')
-  ) {
+  const assetType = classifyPortableAssetType(asset.format, asset.source);
+  if (assetType === '3d-model' || assetType === 'rti' || assetType === 'image') {
     return {
       importable: true,
       importIssue: null,

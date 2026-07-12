@@ -17,6 +17,28 @@ export interface DisplayableSceneAssetDescriptor extends DisplayableAssetDescrip
   entryPointUrl: string;
 }
 
+export type PortableAssetType = '3d-model' | 'rti' | 'image' | 'video' | 'other';
+
+const PORTABLE_3D_EXTENSIONS = ['.glb', '.gltf', '.ply', '.obj', '.fbx', '.stl', '.dae', '.3ds'] as const;
+
+/** Classifies a portable asset using MIME first and its source URL as fallback. */
+export function classifyPortableAssetType(format: string | null, source: string | null): PortableAssetType {
+  const normalizedFormat = format?.trim().toLowerCase() ?? '';
+  if (normalizedFormat === 'image/rti' || normalizedFormat === 'application/zip') return 'rti';
+  if (normalizedFormat.startsWith('model/') || normalizedFormat.includes('3d')) return '3d-model';
+  if (normalizedFormat.startsWith('image/')) return 'image';
+  if (normalizedFormat.startsWith('video/')) return 'video';
+
+  if (source) {
+    const pathname = new URL(source, 'http://localhost/').pathname.toLowerCase();
+    if (inferOpenLimeLayoutFromUrl(source)) return 'image';
+    if (PORTABLE_3D_EXTENSIONS.some((extension) => pathname.endsWith(extension))) return '3d-model';
+    if (pathname.endsWith('.zip')) return 'rti';
+  }
+
+  return 'other';
+}
+
 /** Returns whether an asset is renderable in the OpenLIME 2D viewer. */
 export function isOpenLime2DAsset(asset: DisplayableAssetDescriptor): asset is OpenLime2DAssetDescriptor {
   return (asset.type === 'rti' || asset.type === 'image')

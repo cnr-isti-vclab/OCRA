@@ -16,6 +16,7 @@ import { createManagedProject } from './project-creation.service.js';
 import { getEchoesDevBearerOverride } from './echoes-dev-bearer.service.js';
 import { ingestRemoteAssetIntoExistingAsset } from './remote-asset-ingestion.service.js';
 import { validateRemoteAssetSourceUrl } from './remote-asset-import.service.js';
+import { classifyPortableAssetType } from 'shared/openlime-layout';
 import {
   DEFAULT_ECHOES_PROJECT_URI,
   buildDefaultEchoesContext,
@@ -1400,51 +1401,8 @@ async function reconcileExistingEchoesRegistration(
   };
 }
 
-const KNOWN_3D_EXTENSIONS = new Set(['.glb', '.gltf', '.ply', '.obj', '.fbx', '.stl', '.dae', '.3ds']);
-
-function guessTypeFrom3dUrl(source: string): boolean {
-  try {
-    const pathname = new URL(source).pathname.toLowerCase();
-    const dot = pathname.lastIndexOf('.');
-    return dot !== -1 && KNOWN_3D_EXTENSIONS.has(pathname.slice(dot));
-  } catch {
-    return false;
-  }
-}
-
-function mapEchoesFormatToOcrAssetType(format: string | null): DigitalAssetCreateRequest['type'] {
-  if (!format) {
-    return 'other';
-  }
-
-  const normalized = format.trim().toLowerCase();
-  if (normalized === 'image/rti') {
-    return 'rti';
-  }
-  if (normalized === 'application/zip') {
-    return 'rti';
-  }
-  if (normalized.startsWith('model/') || normalized.includes('3d')) {
-    return '3d-model';
-  }
-  if (normalized.startsWith('image/')) {
-    return 'image';
-  }
-  if (normalized.startsWith('video/')) {
-    return 'video';
-  }
-  return 'other';
-}
-
 function mapEchoesAssetToOcrType(format: string | null, source: string | null): DigitalAssetCreateRequest['type'] {
-  const typeFromFormat = mapEchoesFormatToOcrAssetType(format);
-  if (typeFromFormat !== 'other') {
-    return typeFromFormat;
-  }
-  if (source && guessTypeFrom3dUrl(source)) {
-    return '3d-model';
-  }
-  return 'other';
+  return classifyPortableAssetType(format, source);
 }
 
 function getEchoesAssetImportability(asset: Pick<EchoesHdtAsset, 'source' | 'format'>): {
@@ -1459,7 +1417,7 @@ function getEchoesAssetImportability(asset: Pick<EchoesHdtAsset, 'source' | 'for
   }
 
   const mappedType = mapEchoesAssetToOcrType(asset.format, asset.source);
-  if (mappedType !== '3d-model' && mappedType !== 'rti') {
+  if (mappedType !== '3d-model' && mappedType !== 'rti' && mappedType !== 'image') {
     return {
       importable: false,
       importIssue: asset.format ? `Unsupported format: ${asset.format}` : 'Unsupported or missing format',
