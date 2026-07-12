@@ -23,8 +23,8 @@ import type { SceneDescription } from 'shared/scene-types';
 import type { RoleEnum } from 'shared/types';
 import { formatZodIssues, sceneAssetReferenceUpdateSchema } from 'shared/scene-schema';
 import { formatVector3, formatScale, parseOptionalVector3, parseOptionalScale } from '../utils/vector';
-import Viewer3DPanel from './components/Viewer3DPanel';
 
+const Viewer3DPanel = lazy(() => import('./components/Viewer3DPanel'));
 const Viewer2DPanel = lazy(() => import('./components/Viewer2DPanel'));
 
 function ViewerChunkFallback({ label }: { label: string }) {
@@ -825,42 +825,44 @@ export default function ProjectPage() {
             )}
 
             {!annotationTestMode && mode === '3d' && (
-              <Viewer3DPanel
-                ref={viewerRef}
-                sceneDesc={viewerSceneDesc}
-                loadingModels={loadingModels}
-                modelLoadProgress={modelLoadProgress}
-                annotationToolsVisible={activeTab === 'annotations' && annotationMode === 'edit'}
-                onReady={() => {
-                  console.log('✅ 3D viewer ready');
-                }}
-                onLoadProgress={(progress: LoadingProgress) => {
-                  setLoadingModels(true);
-                  setModelLoadProgress(prev => ({
-                    ...prev,
-                    [progress.modelId]: progress.percentage
-                  }));
-                }}
-                onLoadComplete={(modelId: string) => {
-                  setModelLoadProgress(prev => {
-                    const updated = { ...prev };
-                    delete updated[modelId];
-                    // Check if all models are done after this deletion
-                    if (Object.keys(updated).length === 0) {
-                      setLoadingModels(false);
-                    }
-                    return updated;
-                  });
-                }}
-                onLoadError={(modelId: string, error: Error) => {
-                  console.error(`Failed to load model ${modelId}:`, error);
-                  setModelLoadProgress(prev => {
-                    const updated = { ...prev };
-                    delete updated[modelId];
-                    return updated;
-                  });
-                }}
-              />
+              <Suspense fallback={<ViewerChunkFallback label="3D" />}>
+                <Viewer3DPanel
+                  ref={viewerRef}
+                  sceneDesc={viewerSceneDesc}
+                  loadingModels={loadingModels}
+                  modelLoadProgress={modelLoadProgress}
+                  annotationToolsVisible={activeTab === 'annotations' && annotationMode === 'edit'}
+                  onReady={() => {
+                    console.log('✅ 3D viewer ready');
+                  }}
+                  onLoadProgress={(progress: LoadingProgress) => {
+                    setLoadingModels(true);
+                    setModelLoadProgress(prev => ({
+                      ...prev,
+                      [progress.modelId]: progress.percentage
+                    }));
+                  }}
+                  onLoadComplete={(modelId: string) => {
+                    setModelLoadProgress(prev => {
+                      const updated = { ...prev };
+                      delete updated[modelId];
+                      // Check if all models are done after this deletion
+                      if (Object.keys(updated).length === 0) {
+                        setLoadingModels(false);
+                      }
+                      return updated;
+                    });
+                  }}
+                  onLoadError={(modelId: string, error: Error) => {
+                    console.error(`Failed to load model ${modelId}:`, error);
+                    setModelLoadProgress(prev => {
+                      const updated = { ...prev };
+                      delete updated[modelId];
+                      return updated;
+                    });
+                  }}
+                />
+              </Suspense>
             )}
 
             {!annotationTestMode && mode === '2d' && (
