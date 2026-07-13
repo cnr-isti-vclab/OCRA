@@ -25,8 +25,10 @@ import AnnotationClassFilter from './AnnotationClassFilter';
 import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import AnnotationCreationPanel from '../../features/annotation-creation/AnnotationCreationPanel';
+import AnnotationCreationDataStep from '../../features/annotation-creation/AnnotationCreationDataStep';
+import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
+import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
-import VocabularyClassPicker from '../../shared/ui/VocabularyClassPicker';
 import type {
   VocabularyConcept,
   VocabularyProperty,
@@ -72,75 +74,21 @@ function EditDataModal({
   }
 
   return (
-    <div
-      className="modal d-block"
-      role="dialog"
-      aria-modal="true"
-      style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'block',
+    <AnnotationDataFormModal
+      title="Edit annotation data"
+      saveLabel="Save"
+      values={{
+        label: draft.label,
+        description: draft.description,
+        annotationClass: draft.annotationClass,
       }}
-    >
-      <div className="modal-dialog">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Edit annotation data</h5>
-          </div>
-          <div className="modal-body">
-            <div className="mb-3">
-              <label htmlFor="annotationLabel" className="form-label">
-                Label
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                id="annotationLabel"
-                value={draft.label}
-                onChange={(e) => onChange({ label: e.target.value })}
-              />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="annotationDescription" className="form-label">
-                Description
-              </label>
-              <textarea
-                className="form-control"
-                id="annotationDescription"
-                value={draft.description}
-                onChange={(e) => onChange({ description: e.target.value })}
-                rows={6}
-                style={{ resize: 'vertical', overflowY: 'auto' }}
-              />
-            </div>
-            <div className="mb-0">
-              <label htmlFor="annotationClass" className="form-label">
-                Class
-              </label>
-              <VocabularyClassPicker
-                inputId="annotationClass"
-                value={draft.annotationClass ?? ''}
-                onChange={(value) => onChange({ annotationClass: value })}
-                schemes={vocabularySchemes}
-                concepts={vocabularyConcepts}
-                properties={vocabularyProperties}
-              />
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onSave}
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      onChange={onChange}
+      onSave={onSave}
+      onCancel={onCancel}
+      vocabularySchemes={vocabularySchemes}
+      vocabularyConcepts={vocabularyConcepts}
+      vocabularyProperties={vocabularyProperties}
+    />
   );
 }
 
@@ -183,6 +131,7 @@ export default function AnnotationPanelEditor({
     discardCreationDraft,
     beginCreationWizard,
     advanceCreationStep,
+    toggleCreationDataSelection,
     updateData,
     markDataErasable,
     markAnnotationTripletErasable,
@@ -197,9 +146,17 @@ export default function AnnotationPanelEditor({
     panelShowsFilteredData,
   } = useAnnotationLinkView();
 
+  const {
+    isCreationDataStep,
+    isCreationDataNew,
+    isCreationGeometryStep,
+    searchableData,
+  } = useAnnotationCreationWizard();
+
   const [createSectionExpanded, setCreateSectionExpanded] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [discardCreationModal, setDiscardCreationModal] = useState<MessageModalDescriptor | null>(null);
+  const [creationDataModalOpen, setCreationDataModalOpen] = useState(false);
 
   const scopeOptions = useMemo(
     () => buildAnnotationScopeOptions({ sceneId, sceneLabel, assets: sceneAssets }),
@@ -259,6 +216,30 @@ export default function AnnotationPanelEditor({
       // store onError surfaces API failures
     }
   }, [advanceCreationStep]);
+
+  const handleOpenCreationDataModal = useCallback(() => {
+    setCreationDataModalOpen(true);
+  }, []);
+
+  const handleCancelCreationDataModal = useCallback(() => {
+    setCreationDataModalOpen(false);
+  }, []);
+
+  const handleSaveCreationDataModal = useCallback(() => {
+    if (!creationDraft || creationDraft.newDataLabel.trim().length === 0) {
+      return;
+    }
+    setCreationDataModalOpen(false);
+  }, [creationDraft]);
+
+  useEffect(() => {
+    if (isCreationDataNew && creationDraft && creationDraft.newDataLabel.trim().length === 0) {
+      setCreationDataModalOpen(true);
+    }
+    if (!isCreationDataStep) {
+      setCreationDataModalOpen(false);
+    }
+  }, [creationDraft, isCreationDataNew, isCreationDataStep]);
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
@@ -696,14 +677,24 @@ export default function AnnotationPanelEditor({
       {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
 
       {isCreationWizardActive ? (
-        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-          <p className="text-muted fst-italic text-center px-3">
-            Annotation list is hidden while creation is in progress.
-            {creationDraft?.step === 'data'
-              ? ' Use this area in the next milestone for data search and selection.'
-              : ' Use the viewer in the next milestone to draw or select geometries.'}
-          </p>
-        </div>
+        isCreationDataStep && creationDraft ? (
+          <div className="flex-grow-1 overflow-auto d-flex flex-column">
+            <AnnotationCreationDataStep
+              draft={creationDraft}
+              candidates={searchableData}
+              onToggleDataSelection={toggleCreationDataSelection}
+              onOpenCreateModal={handleOpenCreationDataModal}
+            />
+          </div>
+        ) : (
+          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+            <p className="text-muted fst-italic text-center px-3">
+              {isCreationGeometryStep
+                ? 'Use the viewer to draw or select geometries for this annotation.'
+                : 'Annotation list is hidden while creation is in progress.'}
+            </p>
+          </div>
+        )
       ) : visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <p className="text-muted fst-italic text-center">
@@ -841,6 +832,30 @@ export default function AnnotationPanelEditor({
           void handleEditCancel();
         }}
       />
+      {creationDataModalOpen && creationDraft ? (
+        <AnnotationDataFormModal
+          title="Create annotation data"
+          saveLabel="Save"
+          values={{
+            label: creationDraft.newDataLabel,
+            description: creationDraft.newDataDescription,
+            annotationClass: creationDraft.newDataClass,
+          }}
+          saveDisabled={creationDraft.newDataLabel.trim().length === 0}
+          onChange={(patch) => {
+            updateCreationDraft({
+              ...(patch.label !== undefined ? { newDataLabel: patch.label } : {}),
+              ...(patch.description !== undefined ? { newDataDescription: patch.description } : {}),
+              ...(patch.annotationClass !== undefined ? { newDataClass: patch.annotationClass } : {}),
+            });
+          }}
+          onSave={handleSaveCreationDataModal}
+          onCancel={handleCancelCreationDataModal}
+          vocabularySchemes={vocabularySchemes}
+          vocabularyConcepts={vocabularyConcepts}
+          vocabularyProperties={vocabularyProperties}
+        />
+      ) : null}
       <AppMessageModal
         descriptor={messageModal}
         onClose={() => {

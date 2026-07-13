@@ -39,6 +39,8 @@ export interface AnnotationScopeOption {
 export interface AnnotationCreationDraft extends AnnotationCreationSetupDraft {
   step: AnnotationCreationStep;
   draftShapes: AnnotationShape[];
+  /** OpenLIME annotation id for in-progress new geometry (not persisted until confirm). */
+  draftGeometryViewerId: string | null;
   selectedGeometryIds: string[];
   selectedDataIds: string[];
   newDataLabel: string;

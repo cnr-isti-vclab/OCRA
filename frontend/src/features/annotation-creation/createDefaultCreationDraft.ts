@@ -15,6 +15,7 @@ export function createDefaultCreationDraft(sceneId: string): AnnotationCreationD
     },
     multiSide: null,
     draftShapes: [],
+    draftGeometryViewerId: null,
     selectedGeometryIds: [],
     selectedDataIds: [],
     newDataLabel: '',

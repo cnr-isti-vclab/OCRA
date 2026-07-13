@@ -146,18 +146,20 @@ export function syncOpenLimeAnnotations(
   manager: OpenLimeAnnotationManager | null,
   viewerAnnotations: ViewerAnnotation[],
   excludeIds?: Set<string>,
+  preserveIds?: Set<string>,
 ): void {
   if (!manager || (manager.mode === 'create' && manager._session)) {
     return;
   }
 
   const targetIds = new Set(viewerAnnotations.map((a) => a.id));
+  const preserved = preserveIds ?? new Set<string>();
   const existingIds = manager.getAnnotations().map((a) => a.id);
   let labelsUpdated = false;
   let stylesUpdated = false;
 
   for (const id of existingIds) {
-    if (!targetIds.has(id)) {
+    if (!targetIds.has(id) && !preserved.has(id)) {
       manager.deleteAnnotation(id);
     }
   }
@@ -165,6 +167,10 @@ export function syncOpenLimeAnnotations(
   const toImport: OpenLimeJsonLdImportEntry[] = [];
 
   for (const viewerAnno of viewerAnnotations) {
+    if (preserved.has(viewerAnno.id)) {
+      continue;
+    }
+
     let existing = manager.getAnnotationById(viewerAnno.id);
 
     if (existing) {

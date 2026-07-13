@@ -26,13 +26,21 @@ import {
   type ActiveAnnotationSelection,
   type SelectionCriteria,
 } from './annotation-selection';
-import type { AnnotationCreationDraft } from '../features/annotation-creation/types';
+import type { AnnotationCreationDraft, AnnotationCreationSetupDraft } from '../features/annotation-creation/types';
 import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
 import {
+  applyRememberedCreationSetup,
+  extractCreationSetup,
+  patchTouchesCreationSetup,
+} from '../features/annotation-creation/rememberCreationSetup';
+import {
+  allowsMultipleDataSelection,
+  allowsMultipleGeometrySelection,
   buildLinkPairs,
   resolveInitialCreationStep,
   validateCreationDraftForCommit,
   validateCreationSetup,
+  validateCreationStep,
 } from '../features/annotation-creation/annotationCreationValidation';
 
 export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
@@ -147,6 +155,7 @@ export class AnnotationStore {
   private selectionCriteria: SelectionCriteria = { includeErasable: false };
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
   private creationDraft: AnnotationCreationDraft | null = null;
+  private rememberedCreationSetup: AnnotationCreationSetupDraft | null = null;
 
   constructor(
     private readonly projectId: string,
@@ -197,7 +206,11 @@ export class AnnotationStore {
   }
 
   initCreationDraft(): void {
-    this.creationDraft = createDefaultCreationDraft(this.sceneId);
+    let draft = createDefaultCreationDraft(this.sceneId);
+    if (this.rememberedCreationSetup) {
+      draft = applyRememberedCreationSetup(draft, this.rememberedCreationSetup);
+    }
+    this.creationDraft = draft;
     this.bump();
   }
 
@@ -206,6 +219,9 @@ export class AnnotationStore {
       return;
     }
     this.creationDraft = { ...this.creationDraft, ...patch };
+    if (patchTouchesCreationSetup(patch)) {
+      this.rememberedCreationSetup = extractCreationSetup(this.creationDraft);
+    }
     this.bump();
   }
 
@@ -213,6 +229,7 @@ export class AnnotationStore {
     if (!this.creationDraft) {
       return;
     }
+    this.rememberedCreationSetup = extractCreationSetup(this.creationDraft);
     this.creationDraft = null;
     this.bump();
   }
@@ -231,6 +248,7 @@ export class AnnotationStore {
       ...this.creationDraft,
       step: resolveInitialCreationStep(this.creationDraft),
       draftShapes: [],
+      draftGeometryViewerId: null,
       selectedGeometryIds: [],
       selectedDataIds: [],
     };
@@ -241,6 +259,11 @@ export class AnnotationStore {
   async advanceCreationStep(): Promise<{ ok: true } | { ok: false; message: string }> {
     if (!this.creationDraft) {
       return { ok: false, message: 'No creation session is active.' };
+    }
+
+    const stepValidation = validateCreationStep(this.creationDraft);
+    if (!stepValidation.ok) {
+      return { ok: false, message: stepValidation.message ?? 'Step is not complete.' };
     }
 
     if (this.creationDraft.step === 'geometry') {
@@ -257,6 +280,136 @@ export class AnnotationStore {
     }
 
     return { ok: false, message: 'Creation cannot advance from the current step.' };
+  }
+
+  setCreationDraftShapes(shapes: AnnotationShape[]): void {
+    if (
+      !this.creationDraft
+      || this.creationDraft.geometryChoice !== 'new'
+      || (this.creationDraft.step !== 'geometry'
+        && this.creationDraft.step !== 'data'
+        && this.creationDraft.step !== 'committing')
+    ) {
+      return;
+    }
+    this.creationDraft = { ...this.creationDraft, draftShapes: shapes };
+    // 2D keeps the live OpenLIME shape without a store-driven resync; 3D renders from the draft.
+    if (!this.creationDraft.draftGeometryViewerId) {
+      this.bump();
+    }
+  }
+
+  setCreationDraftGeometry(viewerId: string, shapes: AnnotationShape[]): void {
+    if (
+      !this.creationDraft
+      || this.creationDraft.step !== 'geometry'
+      || this.creationDraft.geometryChoice !== 'new'
+    ) {
+      return;
+    }
+    this.creationDraft = {
+      ...this.creationDraft,
+      draftGeometryViewerId: viewerId,
+      draftShapes: shapes,
+    };
+    this.bump();
+  }
+
+  toggleCreationGeometrySelection(geometryId: string): void {
+    if (
+      !this.creationDraft
+      || this.creationDraft.step !== 'geometry'
+      || this.creationDraft.geometryChoice !== 'search'
+    ) {
+      return;
+    }
+
+    const geometry = this.geometryMap.get(geometryId);
+    if (
+      !geometry
+      || geometry.referenceType !== this.creationDraft.geometryScope.referenceType
+      || geometry.referenceId !== this.creationDraft.geometryScope.referenceId
+    ) {
+      return;
+    }
+
+    const current = this.creationDraft.selectedGeometryIds;
+    const allowsMultiple = allowsMultipleGeometrySelection(this.creationDraft);
+    let next: string[];
+
+    if (current.includes(geometryId)) {
+      next = current.filter((id) => id !== geometryId);
+    } else if (allowsMultiple) {
+      next = [...current, geometryId];
+    } else {
+      next = [geometryId];
+    }
+
+    this.creationDraft = { ...this.creationDraft, selectedGeometryIds: next };
+    this.bump();
+  }
+
+  setCreationGeometrySelection(geometryIds: string[]): void {
+    if (
+      !this.creationDraft
+      || this.creationDraft.step !== 'geometry'
+      || this.creationDraft.geometryChoice !== 'search'
+    ) {
+      return;
+    }
+
+    const searchableIds = new Set(
+      [...this.geometryMap.values()]
+        .filter(
+          (geometry) =>
+            geometry.referenceType === this.creationDraft!.geometryScope.referenceType
+            && geometry.referenceId === this.creationDraft!.geometryScope.referenceId,
+        )
+        .map((geometry) => geometry.id),
+    );
+
+    const filtered = geometryIds.filter((id) => searchableIds.has(id));
+    const allowsMultiple = allowsMultipleGeometrySelection(this.creationDraft);
+    const next = allowsMultiple
+      ? filtered
+      : (filtered.length > 0 ? [filtered[filtered.length - 1]] : []);
+
+    this.creationDraft = { ...this.creationDraft, selectedGeometryIds: next };
+    this.bump();
+  }
+
+  toggleCreationDataSelection(dataId: string): void {
+    if (
+      !this.creationDraft
+      || this.creationDraft.step !== 'data'
+      || this.creationDraft.dataChoice !== 'search'
+    ) {
+      return;
+    }
+
+    const datum = this.dataMap.get(dataId);
+    if (
+      !datum
+      || datum.visibilityType !== this.creationDraft.dataVisibility.visibilityType
+      || datum.visibilityId !== this.creationDraft.dataVisibility.visibilityId
+    ) {
+      return;
+    }
+
+    const current = this.creationDraft.selectedDataIds;
+    const allowsMultiple = allowsMultipleDataSelection(this.creationDraft);
+    let next: string[];
+
+    if (current.includes(dataId)) {
+      next = current.filter((id) => id !== dataId);
+    } else if (allowsMultiple) {
+      next = [...current, dataId];
+    } else {
+      next = [dataId];
+    }
+
+    this.creationDraft = { ...this.creationDraft, selectedDataIds: next };
+    this.bump();
   }
 
   async commitCreationDraft(): Promise<AnnotationStoreActionResult> {
@@ -345,6 +498,7 @@ export class AnnotationStore {
         }
       }
 
+      this.rememberedCreationSetup = extractCreationSetup(draftSnapshot);
       this.creationDraft = null;
       this.bump();
       return { ok: true };

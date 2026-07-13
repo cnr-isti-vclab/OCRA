@@ -114,6 +114,10 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   discardCreationDraft: () => void;
   beginCreationWizard: () => { ok: true } | { ok: false; message: string };
   advanceCreationStep: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  setCreationDraftShapes: (shapes: import('shared/annotation-types').AnnotationShape[]) => void;
+  setCreationDraftGeometry: (viewerId: string, shapes: import('shared/annotation-types').AnnotationShape[]) => void;
+  setCreationGeometrySelection: (geometryIds: string[]) => void;
+  toggleCreationDataSelection: (dataId: string) => void;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
   currentStreamId: string | null;
@@ -763,6 +767,25 @@ export function AnnotationStoreProvider({
     return storeRef.current?.advanceCreationStep() ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
 
+  const setCreationDraftShapes = useCallback((shapes: import('shared/annotation-types').AnnotationShape[]) => {
+    storeRef.current?.setCreationDraftShapes(shapes);
+  }, []);
+
+  const setCreationDraftGeometry = useCallback((
+    viewerId: string,
+    shapes: import('shared/annotation-types').AnnotationShape[],
+  ) => {
+    storeRef.current?.setCreationDraftGeometry(viewerId, shapes);
+  }, []);
+
+  const setCreationGeometrySelection = useCallback((geometryIds: string[]) => {
+    storeRef.current?.setCreationGeometrySelection(geometryIds);
+  }, []);
+
+  const toggleCreationDataSelection = useCallback((dataId: string) => {
+    storeRef.current?.toggleCreationDataSelection(dataId);
+  }, []);
+
   const loadProjectData = useCallback(async () => {
     await storeRef.current?.loadProjectData();
   }, []);
@@ -864,6 +887,10 @@ export function AnnotationStoreProvider({
     discardCreationDraft,
     beginCreationWizard,
     advanceCreationStep,
+    setCreationDraftShapes,
+    setCreationDraftGeometry,
+    setCreationGeometrySelection,
+    toggleCreationDataSelection,
     eventLog,
     activeSocialLocks,
     currentStreamId,

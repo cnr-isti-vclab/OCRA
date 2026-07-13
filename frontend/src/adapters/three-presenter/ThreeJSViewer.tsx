@@ -57,6 +57,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
     const uiRef = useRef<DefaultUI | null>(null);
+    const onPointPickedRef = useRef<((point: [number, number, number]) => void) | null>(null);
     const isFirstLoadRef = useRef<boolean>(true);
     const prevSceneRef = useRef<SceneDescription | null>(null);
     const onReadyRef = useRef(onReady);
@@ -89,6 +90,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         uiRef.current?.setButtonVisible('annotation', visible);
       },
       setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => {
+        onPointPickedRef.current = callback;
         if (presenterRef.current) {
           presenterRef.current.onPointPicked = callback;
         }
@@ -131,6 +133,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         mount: mountRef.current,
         fileUrlResolver: fileResolver
       });
+      presenterRef.current.onPointPicked = onPointPickedRef.current;
 
       // Initialize default UI overlay; use the shared OpenLIME skin so the 3D
       // toolbar icons match the 2D viewer.

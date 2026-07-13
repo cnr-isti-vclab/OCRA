@@ -5,6 +5,13 @@ import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scen
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
+import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/constants';
+import { draftShapesToViewerAnnotation } from '../../features/annotation-creation/draftGeometryToViewerAnnotation';
+import { hasPendingCreationDraftShapes } from '../../features/annotation-creation/creationDraftGeometry';
+import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
+import {
+  resolveCreationToolbarMode,
+} from '../../features/annotation-creation/resolveCreationToolbarMode';
 import AnnotationToolbar, {
   type AnnotationToolbarMode,
 } from '../../components/AnnotationToolbar';
@@ -72,37 +79,89 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       updateGeometry,
     } = useAnnotationStore();
     const { visibleGeometries } = useAnnotationLinkView();
+    const {
+      creationDraft,
+      isCreationGeometryNew,
+      isCreationGeometrySearch,
+      isCreationWizardActive,
+      isCreationPendingNewGeometry,
+      blockImmediateAnnotationCreate,
+      creationHighlightGeometryIds,
+      searchableGeometries,
+      setCreationDraftShapes,
+      setCreationGeometrySelection,
+    } = useAnnotationCreationWizard();
 
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
     const activeGeometriesRef = useRef(visibleGeometries);
     activeGeometriesRef.current = visibleGeometries;
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
+    const [viewerReady, setViewerReady] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
+    const isCreationGeometryNewRef = useRef(isCreationGeometryNew);
+    isCreationGeometryNewRef.current = isCreationGeometryNew;
+    const wasCreationGeometryNewRef = useRef(false);
+
+    const handleViewerReady = useCallback(() => {
+      setViewerReady(true);
+      onReady();
+    }, [onReady]);
 
     const viewerAnnotations = useMemo(
-      () =>
-        activeGeometriesToViewerAnnotations(
+      () => {
+        const base = activeGeometriesToViewerAnnotations(
           visibleGeometries,
           activeAnnotationSelection,
           focusedDataIds,
-        ),
-      [visibleGeometries, activeAnnotationSelection, focusedDataIds],
+        );
+        if (
+          creationDraft
+          && hasPendingCreationDraftShapes(creationDraft)
+          && !creationDraft.draftGeometryViewerId
+        ) {
+          const draftAnnotation = draftShapesToViewerAnnotation(creationDraft.draftShapes);
+          if (draftAnnotation) {
+            return [...base, { ...draftAnnotation, strokeDasharray: null }];
+          }
+        }
+        return base;
+      },
+      [visibleGeometries, activeAnnotationSelection, focusedDataIds, creationDraft],
     );
 
     const highlightGeometryIds = useMemo(
-      () =>
-        getViewerHighlightGeometryIds(
+      () => {
+        if (creationHighlightGeometryIds !== null) {
+          return creationHighlightGeometryIds;
+        }
+        return getViewerHighlightGeometryIds(
           focusedGeometryIds,
           focusedDataIds,
           activeAnnotationSelection,
-        ),
-      [focusedGeometryIds, focusedDataIds, activeAnnotationSelection],
+        );
+      },
+      [
+        creationHighlightGeometryIds,
+        focusedGeometryIds,
+        focusedDataIds,
+        activeAnnotationSelection,
+      ],
     );
 
     function normalizeIds(ids: string[]): string[] {
       return [...ids].sort();
     }
+
+    const resolveToolbarMode = useCallback(
+      (currentMode: AnnotationToolbarMode = toolbarMode): AnnotationToolbarMode =>
+        resolveCreationToolbarMode(currentMode, {
+          isCreationGeometryNew,
+          isCreationGeometrySearch,
+          defaultCreateMode: 'point',
+        }),
+      [isCreationGeometryNew, isCreationGeometrySearch, toolbarMode],
+    );
 
     const applyToolbarMode = useCallback((mode: AnnotationToolbarMode) => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
@@ -120,13 +179,37 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setToolbarMode('edit');
     }, [ref]);
 
-    useEffect(() => {
+    const keepCreationPointPickingActive = useCallback(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
       if (!viewer) {
         return;
       }
+      requestAnimationFrame(() => {
+        if (!isCreationGeometryNewRef.current) {
+          return;
+        }
+        viewer.setPickingMode(true);
+        setToolbarMode('point');
+      });
+    }, [ref]);
+
+    useEffect(() => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer || !viewerReady) {
+        return;
+      }
 
       const handler = (point: [number, number, number]) => {
+        if (isCreationGeometryNew) {
+          setCreationDraftShapes([{ type: 'ShapePoints', vertices: [point] }]);
+          keepCreationPointPickingActive();
+          return;
+        }
+
+        if (blockImmediateAnnotationCreate) {
+          return;
+        }
+
         void createAnnotation({
           shapes: [{ type: 'ShapePoints', vertices: [point] }],
           label: '',
@@ -147,10 +230,87 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           // ignore
         }
       };
-    }, [ref, createAnnotation]);
+    }, [
+      ref,
+      viewerReady,
+      createAnnotation,
+      isCreationGeometryNew,
+      blockImmediateAnnotationCreate,
+      setCreationDraftShapes,
+      keepCreationPointPickingActive,
+    ]);
+
+    const viewer3dDisabledModes = useMemo((): AnnotationToolbarMode[] => {
+      if (isCreationGeometrySearch) {
+        return ['point', 'line', 'area'];
+      }
+      if (isCreationGeometryNew) {
+        return ['edit', 'line', 'area'];
+      }
+      return ['line', 'area'];
+    }, [isCreationGeometryNew, isCreationGeometrySearch]);
 
     useEffect(() => {
-      if (annotationToolsVisible) {
+      if (!viewerReady) {
+        return;
+      }
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) {
+        return;
+      }
+
+      if (isCreationGeometryNew) {
+        const effectiveMode = resolveToolbarMode();
+        if (effectiveMode !== toolbarMode) {
+          setToolbarMode(effectiveMode);
+        }
+        applyToolbarMode(effectiveMode);
+        return;
+      }
+
+      if (isCreationGeometrySearch) {
+        if (toolbarMode !== 'edit') {
+          setToolbarMode('edit');
+        }
+        applyToolbarMode('edit');
+        return;
+      }
+
+      if (isCreationWizardActive) {
+        viewer.setPickingMode(false);
+        if (toolbarMode !== 'edit') {
+          setToolbarMode('edit');
+        }
+      }
+    }, [
+      isCreationGeometryNew,
+      isCreationGeometrySearch,
+      isCreationWizardActive,
+      toolbarMode,
+      applyToolbarMode,
+      resolveToolbarMode,
+      ref,
+      viewerReady,
+    ]);
+
+    useEffect(() => {
+      if (!viewerReady) {
+        return;
+      }
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer) {
+        return;
+      }
+
+      if (wasCreationGeometryNewRef.current && !isCreationGeometryNew) {
+        viewer.setPickingMode(false);
+        setToolbarMode('edit');
+      }
+      wasCreationGeometryNewRef.current = isCreationGeometryNew;
+    }, [isCreationGeometryNew, ref, viewerReady]);
+
+    useEffect(() => {
+      if (annotationToolsVisible || isCreationGeometryNew || isCreationGeometrySearch) {
         return;
       }
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
@@ -159,7 +319,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
       viewer.setPickingMode(false);
       setToolbarMode('edit');
-    }, [annotationToolsVisible, ref]);
+    }, [annotationToolsVisible, isCreationGeometryNew, isCreationGeometrySearch, ref]);
 
     useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
@@ -223,7 +383,20 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
 
       if (ids.length === 0) {
-        clearFocus();
+        if (isCreationGeometrySearch) {
+          setCreationGeometrySelection([]);
+        } else {
+          clearFocus();
+        }
+        return;
+      }
+
+      if (isCreationGeometrySearch) {
+        const searchableIds = new Set(searchableGeometries.map((geometry) => geometry.id));
+        const filtered = ids.filter(
+          (id) => id !== CREATION_DRAFT_GEOMETRY_ID && searchableIds.has(id),
+        );
+        setCreationGeometrySelection(filtered);
         return;
       }
 
@@ -234,11 +407,35 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     };
 
     const handlePickingModeChange = (enabled: boolean) => {
+      if (isCreationGeometryNew) {
+        setToolbarMode('point');
+        if (!enabled) {
+          keepCreationPointPickingActive();
+        }
+        return;
+      }
       setToolbarMode(enabled ? 'point' : 'edit');
     };
 
     const handleAnnotationEditStart = (annotation: ViewerAnnotation) => {
       if (editSnapshotsRef.current.has(annotation.id)) {
+        return;
+      }
+      if (
+        creationDraft?.draftGeometryViewerId
+        && annotation.id === creationDraft.draftGeometryViewerId
+      ) {
+        editSnapshotsRef.current.set(annotation.id, {
+          version: 0,
+          shapes: cloneShapes(creationDraft.draftShapes),
+        });
+        return;
+      }
+      if (annotation.id === CREATION_DRAFT_GEOMETRY_ID && creationDraft) {
+        editSnapshotsRef.current.set(annotation.id, {
+          version: 0,
+          shapes: cloneShapes(creationDraft.draftShapes),
+        });
         return;
       }
       const geometry = activeGeometriesRef.current.find((item) => item.id === annotation.id);
@@ -253,6 +450,24 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
     const handleAnnotationUpdated = (annotation: ViewerAnnotation) => {
       const nextShapes = viewerGeometryToShapes(annotation.type, annotation.geometry);
+
+      const draftViewerId = creationDraft?.draftGeometryViewerId;
+      if (draftViewerId && annotation.id === draftViewerId) {
+        if (isCreationPendingNewGeometry) {
+          setCreationDraftShapes(nextShapes);
+        }
+        editSnapshotsRef.current.delete(annotation.id);
+        return;
+      }
+
+      if (annotation.id === CREATION_DRAFT_GEOMETRY_ID) {
+        if (isCreationPendingNewGeometry) {
+          setCreationDraftShapes(nextShapes);
+        }
+        editSnapshotsRef.current.delete(annotation.id);
+        return;
+      }
+
       const snapshot = editSnapshotsRef.current.get(annotation.id);
       const baselineShapes =
         snapshot?.shapes ?? activeGeometriesRef.current.find((item) => item.id === annotation.id)?.shapes;
@@ -309,7 +524,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           ref={ref}
           height="100%"
           sceneDesc={sceneDesc}
-          onReady={onReady}
+          onReady={handleViewerReady}
           onLoadProgress={onLoadProgress}
           onLoadComplete={onLoadComplete}
           onLoadError={onLoadError}
@@ -318,7 +533,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
         />
-        {annotationToolsVisible && (
+        {(annotationToolsVisible || isCreationWizardActive) && (
           <div
             style={{
               position: 'absolute',
@@ -332,7 +547,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             <AnnotationToolbar
               mode={toolbarMode}
               onModeChange={applyToolbarMode}
-              disabledModes={['line', 'area']}
+              disabledModes={viewer3dDisabledModes}
             />
           </div>
         )}

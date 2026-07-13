@@ -99,3 +99,53 @@ export function buildLinkPairs(
   }
   return pairs;
 }
+
+export function allowsMultipleGeometrySelection(
+  draft: Pick<AnnotationCreationDraft, 'geometryChoice' | 'dataChoice' | 'multiSide'>,
+): boolean {
+  if (draft.geometryChoice !== 'search') {
+    return false;
+  }
+  if (draft.dataChoice !== 'search') {
+    return true;
+  }
+  return draft.multiSide === 'geometry';
+}
+
+export function allowsMultipleDataSelection(
+  draft: Pick<AnnotationCreationDraft, 'geometryChoice' | 'dataChoice' | 'multiSide'>,
+): boolean {
+  if (draft.dataChoice !== 'search') {
+    return false;
+  }
+  if (draft.geometryChoice !== 'search') {
+    return true;
+  }
+  return draft.multiSide === 'data';
+}
+
+export function validateCreationStep(
+  draft: AnnotationCreationDraft,
+): AnnotationCreationValidationResult {
+  if (draft.step === 'geometry') {
+    if (draft.geometryChoice === 'new' && draft.draftShapes.length === 0) {
+      return { ok: false, message: 'Draw a geometry in the viewer before continuing.' };
+    }
+    if (draft.geometryChoice === 'search' && draft.selectedGeometryIds.length === 0) {
+      return { ok: false, message: 'Select at least one geometry in the viewer.' };
+    }
+    return { ok: true };
+  }
+
+  if (draft.step === 'data') {
+    if (draft.dataChoice === 'new' && !isNonEmpty(draft.newDataLabel)) {
+      return { ok: false, message: 'Create annotation data before continuing.' };
+    }
+    if (draft.dataChoice === 'search' && draft.selectedDataIds.length === 0) {
+      return { ok: false, message: 'Select at least one annotation data record.' };
+    }
+    return { ok: true };
+  }
+
+  return { ok: false, message: 'Creation step is not ready to advance.' };
+}

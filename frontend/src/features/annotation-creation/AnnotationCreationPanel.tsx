@@ -216,10 +216,46 @@ export default function AnnotationCreationPanel({
           </div>
           <p className="text-muted mb-2">
             {draft.step === 'geometry'
-              ? 'Draw or select geometries in the viewer (viewer integration arrives in the next milestone).'
-              : 'Create or search annotation data in the panel list (data step UI arrives in the next milestone).'}
+              ? draft.geometryChoice === 'new'
+                ? 'Draw a geometry in the viewer. You can adjust it before continuing.'
+                : 'Select one or more geometries in the viewer that match the chosen scope.'
+              : draft.dataChoice === 'new'
+                ? 'Create annotation data using the form below, then confirm.'
+                : 'Search and select annotation data records below.'}
           </p>
           <div className="text-muted">
+            {draft.step === 'geometry' && draft.geometryChoice === 'new' ? (
+              <>
+                Draft shapes:
+                {' '}
+                {draft.draftShapes.length > 0 ? draft.draftShapes.length : 'none yet'}
+                <br />
+              </>
+            ) : null}
+            {draft.step === 'geometry' && draft.geometryChoice === 'search' ? (
+              <>
+                Selected geometries:
+                {' '}
+                {draft.selectedGeometryIds.length}
+                <br />
+              </>
+            ) : null}
+            {draft.step === 'data' && draft.dataChoice === 'new' ? (
+              <>
+                Draft label:
+                {' '}
+                {draft.newDataLabel.trim().length > 0 ? draft.newDataLabel : 'not set'}
+                <br />
+              </>
+            ) : null}
+            {draft.step === 'data' && draft.dataChoice === 'search' ? (
+              <>
+                Selected data:
+                {' '}
+                {draft.selectedDataIds.length}
+                <br />
+              </>
+            ) : null}
             Geometry:
             {' '}
             {draft.geometryChoice}
