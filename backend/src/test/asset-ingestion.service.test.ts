@@ -116,6 +116,24 @@ describe('asset ingestion RTI ZIP detection', () => {
     expect(prepared.type).toBe('3d-direct');
   });
 
+  it('accepts directly viewable raster images', async () => {
+    const workingDir = await createTempDir('ocra-direct-image-');
+    tempDirs.push(workingDir);
+
+    const imagePath = path.join(workingDir, 'condition-map.png');
+    await fsp.writeFile(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+
+    const prepared = await prepareAssetProcessingFromLocalFile({
+      file: {
+        path: imagePath,
+        originalname: 'condition-map.png',
+        mimetype: 'image/png',
+      },
+    });
+
+    expect(prepared.type).toBe('image-direct');
+  });
+
   it('accepts ZIPs with a single top-level directory wrapping the RTI dataset', async () => {
     const workingDir = await createTempDir('ocra-rti-legacy-');
     const archiveDir = await createTempDir('ocra-rti-legacy-archive-');

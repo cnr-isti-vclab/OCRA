@@ -20,6 +20,8 @@ import {
   listEchoesNamedGraphs,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
+  NamedGraphLineageConflictError,
+  NamedGraphSelectionRequiredError,
 } from '../services/echoes-kb.service.js';
 import { getPublicBaseUrl } from '../utils/public-base-url.js';
 import { getPrismaClient } from '../../db.js';
@@ -368,9 +370,19 @@ async function handleEchoesProjectMutation(
   }
 
   try {
+    const selectedNamedGraphUri =
+      action === 'register' && typeof req.body?.namedGraphUri === 'string' && req.body.namedGraphUri.trim()
+        ? req.body.namedGraphUri.trim()
+        : undefined;
     const result =
       action === 'register'
-        ? await registerProjectHdtInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id)
+        ? await registerProjectHdtInEchoes(
+            sessionId,
+            projectId,
+            getPublicBaseUrl(req),
+            user.id,
+            selectedNamedGraphUri,
+          )
         : action === 'enrich'
           ? await enrichProjectHdtInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id)
           : await replaceProjectHdtContentInEchoes(sessionId, projectId, getPublicBaseUrl(req), user.id);
@@ -390,6 +402,32 @@ async function handleEchoesProjectMutation(
 
     res.json({ success: true, ...result });
   } catch (error) {
+    if (error instanceof NamedGraphSelectionRequiredError) {
+      sendEchoesError(
+        req,
+        res,
+        409,
+        'namedGraphSelectionRequired',
+        error.message,
+        {
+          digitalTwinUri: error.digitalTwinUri,
+          digitalTwinLabel: error.digitalTwinLabel,
+          currentNamedGraphs: error.currentNamedGraphs,
+        },
+      );
+      return;
+    }
+    if (error instanceof NamedGraphLineageConflictError) {
+      sendEchoesError(
+        req,
+        res,
+        409,
+        'namedGraphConflict',
+        'The named graph was updated by another user.',
+        { currentNamedGraphUri: error.currentNamedGraphUri },
+      );
+      return;
+    }
     sendEchoesError(
       req,
       res,

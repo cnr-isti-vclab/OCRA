@@ -1158,9 +1158,9 @@ router.get('/:projectId/files', listProjectFiles);
  *   post:
  *     summary: Upload file for an existing asset
  *     description: |
- *       Uploads a file and associates it with an existing asset.
+ *       Uploads an image, 3D model, or RTI/3D ZIP and associates it with an existing asset.
  *       Files are stored under:
- *         project_files/{projectId}/3d-model/{assetId}/{filename}
+ *         project_files/{projectId}/{image|3d-model|rti}/{assetId}/...
  *     tags:
  *       - Projects
  *     security:
@@ -1209,14 +1209,13 @@ router.post(
  * @openapi
  * /api/projects/{projectId}/files/import-url:
  *   post:
- *     summary: Import a 3D or RTI asset from a remote URL
+ *     summary: Import an image, 3D, or RTI asset from a remote URL
  *     description: |
- *       Downloads a remote asset on the backend and ingests it through the same
- *       storage pipeline used for direct uploads. Only project managers can use
- *       this endpoint. The remote URL must use HTTP or HTTPS and must not resolve
- *       to localhost or private network addresses. Optional HTTP Basic Auth can
- *       be supplied as separate fields when the remote server is protected by
- *       .htaccess/.htpasswd.
+ *       Stores OpenLIME image entry points as remote URL references so manifests
+ *       can continue resolving their adjacent tiles. Downloads 3D files and RTI
+ *       packages through the regular ingestion pipeline. Only project managers
+ *       can use this endpoint. Optional HTTP Basic Auth applies only to assets
+ *       downloaded by the backend, not to browser-loaded OpenLIME references.
  *     tags:
  *       - Projects
  *     security:

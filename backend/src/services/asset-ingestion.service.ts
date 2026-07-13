@@ -6,6 +6,10 @@ import {
   type DetectedArchiveFile,
 } from './model-archive-utils.js';
 import { extractZipArchive, listZipEntries } from './zip-extraction.service.js';
+import {
+  isSupportedOpenLimeRasterImage,
+  OPENLIME_RASTER_IMAGE_EXTENSIONS,
+} from 'shared/openlime-layout';
 
 export interface PreparedAssetFile {
   path: string;
@@ -14,7 +18,7 @@ export interface PreparedAssetFile {
 }
 
 export interface PreparedAssetProcessing {
-  type: 'rti' | '3d' | '3d-direct';
+  type: 'rti' | '3d' | '3d-direct' | 'image-direct';
   extractedPath?: string;
   originalFile: PreparedAssetFile;
   detectedFiles?: DetectedArchiveFile[];
@@ -30,6 +34,8 @@ export const SUPPORTED_3D_EXTENSIONS = [
   '.ply', '.obj', '.gltf', '.glb', '.fbx', '.dae', '.x3d',
   '.stl', '.3ds', '.blend', '.ase', '.ifc',
 ];
+
+export const SUPPORTED_IMAGE_EXTENSIONS = [...OPENLIME_RASTER_IMAGE_EXTENSIONS];
 
 /**
  * Check if a file extension indicates a 3D model.
@@ -48,13 +54,22 @@ function isSupported3dMimeType(mimetype: string | undefined): boolean {
   return normalized === 'model/gltf-binary' || normalized === 'model/gltf+json';
 }
 
-async function detectFileKind(file: PreparedAssetFile): Promise<'3d-direct' | 'zip' | 'unknown'> {
+/** Returns whether a filename or MIME type identifies a directly viewable raster image. */
+export function isSupportedImageFile(filename: string, mimetype?: string): boolean {
+  return isSupportedOpenLimeRasterImage(filename, mimetype);
+}
+
+async function detectFileKind(file: PreparedAssetFile): Promise<'3d-direct' | 'image-direct' | 'zip' | 'unknown'> {
   if (is3DModelFile(file.originalname) || isSupported3dMimeType(file.mimetype)) {
     return '3d-direct';
   }
 
   if (path.extname(file.originalname).toLowerCase() === '.zip') {
     return 'zip';
+  }
+
+  if (isSupportedImageFile(file.originalname, file.mimetype)) {
+    return 'image-direct';
   }
 
   const handle = await fsp.open(file.path, 'r');
@@ -229,9 +244,16 @@ export async function prepareAssetProcessingFromLocalFile(input: {
     };
   }
 
+  if (detectedKind === 'image-direct') {
+    return {
+      type: 'image-direct',
+      originalFile: file,
+    };
+  }
+
   if (detectedKind !== 'zip') {
     throw new Error(
-      `Unsupported file type. Accepted: ZIP archives or 3D models (${SUPPORTED_3D_EXTENSIONS.join(', ')})`,
+      `Unsupported file type. Accepted: ZIP archives, images (${SUPPORTED_IMAGE_EXTENSIONS.join(', ')}), or 3D models (${SUPPORTED_3D_EXTENSIONS.join(', ')})`,
     );
   }
 

@@ -32,6 +32,7 @@ import type { SceneDescription, ModelDefinition } from 'shared/scene-types';
 import fs from 'fs/promises';
 import path from 'path';
 import { normalizePhysicalObjectMetadata } from './physical-object-import/normalize.js';
+import { isDisplayableSceneAsset } from 'shared/openlime-layout';
 
 async function getCollection() {
   return getHdtCollection();
@@ -767,7 +768,8 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
 
   if (scene.assets && scene.assets.length > 0) {
     for (const assetRef of scene.assets) {
-      if (!assetRef.visible) {
+      // Scene references are visible by default; only an explicit false hides them.
+      if (assetRef.visible === false) {
         continue;
       }
 
@@ -777,13 +779,8 @@ export async function generateSceneFile(projectId: string, sceneId: string): Pro
         continue;
       }
 
-      if (asset.type !== '3d-model' && asset.type !== 'rti') {
-        console.log(`⏭️  Skipping non-3D & non-RTI asset ${asset.id} (type: ${asset.type})`);
-        continue;
-      }
-
-      if (!asset.entryPointUrl) {
-        console.warn(`⚠️  Asset ${asset.id} has no entryPointUrl`);
+      if (!isDisplayableSceneAsset(asset)) {
+        console.log(`⏭️  Skipping non-viewable asset ${asset.id} (type: ${asset.type})`);
         continue;
       }
 

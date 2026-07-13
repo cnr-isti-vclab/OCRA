@@ -1,6 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
@@ -13,11 +13,14 @@ import {
 import {
   duplicateProjectHdtAsNewInEchoes,
   enrichProjectHdtInEchoes,
+  createProjectFromEchoesHdt,
+  EchoesApiError,
   fetchEchoesProjectStatus,
   registerProjectHdtInEchoes,
   replaceProjectHdtContentInEchoes,
 } from '../services/EchoesApi';
 import type { EchoesProjectStatus } from '../types';
+import { OPENLIME_RASTER_IMAGE_EXTENSIONS } from 'shared/openlime-layout';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -99,6 +102,52 @@ interface EchoesPreparationState {
   missingFieldLabels: string[];
 }
 
+function isNamedGraphConflictDetails(value: unknown): value is { currentNamedGraphUri: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'currentNamedGraphUri' in value &&
+    typeof value.currentNamedGraphUri === 'string' &&
+    value.currentNamedGraphUri.length > 0
+  );
+}
+
+interface RegistrationNamedGraphChoice {
+  namedGraphUri: string;
+  graphDate: string | null;
+}
+
+interface RegistrationGraphSelectionState {
+  digitalTwinUri: string;
+  digitalTwinLabel: string | null;
+  currentNamedGraphs: RegistrationNamedGraphChoice[];
+  selectedNamedGraphUri: string;
+}
+
+function isRegistrationGraphSelectionDetails(value: unknown): value is {
+  digitalTwinUri: string;
+  digitalTwinLabel: string | null;
+  currentNamedGraphs: RegistrationNamedGraphChoice[];
+} {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.digitalTwinUri === 'string' &&
+    (typeof candidate.digitalTwinLabel === 'string' || candidate.digitalTwinLabel === null) &&
+    Array.isArray(candidate.currentNamedGraphs) &&
+    candidate.currentNamedGraphs.every((item) => {
+      if (typeof item !== 'object' || item === null) return false;
+      const graph = item as Record<string, unknown>;
+      return (
+        typeof graph.namedGraphUri === 'string' &&
+        (typeof graph.graphDate === 'string' || graph.graphDate === null)
+      );
+    })
+  );
+}
+
 interface SceneConfig {
   id: string;
   label: string;
@@ -145,6 +194,7 @@ interface HDTMetadata {
 
 export default function HDTPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [projectNameDraft, setProjectNameDraft] = useState('');
   const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
@@ -164,6 +214,8 @@ export default function HDTPage() {
   const [isProjectManager, setIsProjectManager] = useState(false);
   const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
   const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
+  const [conflictingCurrentNamedGraphUri, setConflictingCurrentNamedGraphUri] = useState<string | null>(null);
+  const [registrationGraphSelection, setRegistrationGraphSelection] = useState<RegistrationGraphSelectionState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
   const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
   const [duplicateEchoesHeritageEntityUri, setDuplicateEchoesHeritageEntityUri] = useState('');
@@ -275,12 +327,13 @@ export default function HDTPage() {
 
   /**
    * Normalize asset type across backend migrations.
-   * Backend uses '3d-model'/'rti'. We keep a tolerant mapper anyway.
+   * Backend uses '3d-model'/'rti'/'image'. We keep a tolerant mapper anyway.
    */
-  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'other' => {
+  const normalizeAssetType = (t: any): '3d-model' | 'rti' | 'image' | 'other' => {
     const s = String(t || '').toLowerCase();
     if (s === '3d-model' || s === 'model3d' || s === '3d' || s.includes('3d')) return '3d-model';
     if (s === 'rti' || s.includes('rti')) return 'rti';
+    if (s === 'image' || s.startsWith('image/')) return 'image';
     return 'other';
   };
 
@@ -833,7 +886,7 @@ export default function HDTPage() {
     };
   };
 
-  const executeEchoesAction = async (action: EchoesAction) => {
+  const executeEchoesAction = async (action: EchoesAction, selectedNamedGraphUri?: string) => {
     if (!projectId) {
       return;
     }
@@ -844,8 +897,9 @@ export default function HDTPage() {
       setError(null);
 
       if (action === 'register') {
-        const result = await registerProjectHdtInEchoes(projectId);
+        const result = await registerProjectHdtInEchoes(projectId, selectedNamedGraphUri);
         setEchoesStatus(result.status);
+        setRegistrationGraphSelection(null);
         setEchoesMessage(result.message || 'The project was registered in ECCCH and its first named graph was published.');
       } else if (action === 'enrich') {
         const result = await enrichProjectHdtInEchoes(projectId);
@@ -854,13 +908,71 @@ export default function HDTPage() {
       } else {
         const result = await replaceProjectHdtContentInEchoes(projectId);
         setEchoesStatus(result.status);
-        setEchoesMessage(`ECCCH named graph replaced (${result.rdf.size} bytes).`);
+        setEchoesMessage(`New ECCCH named graph version published (${result.rdf.size} bytes).`);
       }
 
       await fetchProjectAndMetadata();
     } catch (error) {
       setEchoesMessage(null);
+      if (
+        action === 'register' &&
+        error instanceof EchoesApiError &&
+        error.status === 409 &&
+        isRegistrationGraphSelectionDetails(error.details)
+      ) {
+        const currentNamedGraphs = error.details.currentNamedGraphs;
+        setRegistrationGraphSelection({
+          digitalTwinUri: error.details.digitalTwinUri,
+          digitalTwinLabel: error.details.digitalTwinLabel,
+          currentNamedGraphs,
+          selectedNamedGraphUri: currentNamedGraphs[0]?.namedGraphUri ?? '',
+        });
+        return;
+      }
+      if (error instanceof EchoesApiError && error.status === 409 && isNamedGraphConflictDetails(error.details)) {
+        const currentNamedGraphUri = error.details.currentNamedGraphUri;
+        setConflictingCurrentNamedGraphUri(currentNamedGraphUri);
+        setMessageModal(new MessageModalDescriptor({
+          tone: 'warning',
+          title: 'Named Graph Updated Elsewhere',
+          message: 'Another user has published a newer version in this named graph lineage. Your changes were not published.',
+          details: [
+            `Current named graph: ${currentNamedGraphUri}`,
+            'Loading it creates a separate local project, so this project and its unpublished changes remain intact.',
+          ],
+          actions: [
+            { key: 'cancel', label: 'Cancel', tone: 'secondary' },
+            { key: 'load_current_named_graph', label: 'Load Current Named Graph', tone: 'primary' },
+          ],
+        }));
+        return;
+      }
       setError(error instanceof Error ? error.message : 'Failed to publish this project to ECCCH.');
+    } finally {
+      setEchoesBusy(false);
+    }
+  };
+
+  const loadCurrentNamedGraph = async () => {
+    const digitalTwinUri = echoesStatus?.digitalTwinUri || metadata?.echoesContext?.digitalTwinUri;
+    if (!digitalTwinUri || !conflictingCurrentNamedGraphUri) {
+      return;
+    }
+
+    try {
+      setEchoesBusy(true);
+      setError(null);
+      const result = await createProjectFromEchoesHdt({
+        digitalTwinUri,
+        namedGraphUri: conflictingCurrentNamedGraphUri,
+        namedGraphImportMode: 'continue_selected_graph',
+        importMode: 'metadata_assets',
+      });
+      setMessageModal(null);
+      navigate(`/projects/${result.project.id}/hdt`);
+    } catch (error) {
+      setMessageModal(null);
+      setError(error instanceof Error ? error.message : 'Failed to load the current named graph.');
     } finally {
       setEchoesBusy(false);
     }
@@ -1257,6 +1369,9 @@ export default function HDTPage() {
       };
 
       switch (responseData.type) {
+        case 'image':
+          updatePayload.type = 'image';
+          break;
         case 'rti':
           updatePayload.type = 'rti';
           break;
@@ -1274,7 +1389,11 @@ export default function HDTPage() {
       // 6) Refresh data and show success
       await fetchProjectAndMetadata();
 
-      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      const typeLabel = responseData.type === 'rti'
+        ? 'RTI'
+        : responseData.type === 'image'
+          ? 'Image'
+          : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset "${file.name}" uploaded and saved successfully!`);
       setWarningMessages(uploadWarnings);
     } catch (err: any) {
@@ -1400,6 +1519,9 @@ export default function HDTPage() {
       };
 
       switch (responseData.type) {
+        case 'image':
+          updatePayload.type = 'image';
+          break;
         case 'rti':
           updatePayload.type = 'rti';
           break;
@@ -1414,7 +1536,11 @@ export default function HDTPage() {
       await updateHdtAsset(assetId, updatePayload);
       await fetchProjectAndMetadata();
 
-      const typeLabel = responseData.type === 'rti' ? 'RTI' : '3D model';
+      const typeLabel = responseData.type === 'rti'
+        ? 'RTI'
+        : responseData.type === 'image'
+          ? 'Image'
+          : '3D model';
       setSuccessMessage(`✓ ${typeLabel} asset imported successfully from URL!`);
       setWarningMessages(importWarnings);
       resetUrlImportForm();
@@ -1978,7 +2104,7 @@ export default function HDTPage() {
                 <div className="d-flex gap-2 flex-wrap">
                   <span className="badge bg-primary">3D Models (GLB, GLTF, PLY, OBJ, NXS, NXZ)</span>
                   <span className="badge bg-primary">RTI</span>
-                  <span className="badge bg-secondary text-muted">Images (Coming Soon)</span>
+                  <span className="badge bg-primary">Images (JPG, PNG, WebP, GIF, AVIF)</span>
                   <span className="badge bg-secondary text-muted">Videos (Coming Soon)</span>
                 </div>
                 <div className="form-text mt-2">
@@ -2152,6 +2278,28 @@ export default function HDTPage() {
                                       </>
                                     )}
 
+                                    {kind === 'image' && url && (
+                                      <>
+                                        <a
+                                          className="btn btn-sm btn-outline-primary"
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title="Open the image entry point"
+                                        >
+                                          Open
+                                        </a>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => copyAssetUrlToClipboard(url)}
+                                          title="Copy image entry-point URL to clipboard"
+                                        >
+                                          Copy URL
+                                        </button>
+                                      </>
+                                    )}
+
                                     {!url && (
                                       <span className="text-muted small">
                                         No URL available yet
@@ -2208,7 +2356,7 @@ export default function HDTPage() {
                   id="unifiedAssetInput"
                   type="file"
                   className="d-none"
-                  accept=".ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip"
+                  accept={`.ply,.obj,.gltf,.glb,.fbx,.dae,.x3d,.stl,.3ds,.zip,${OPENLIME_RASTER_IMAGE_EXTENSIONS.join(',')}`}
                   onChange={async (e) => {
                     if (!canManageAssets) {
                       (e.target as HTMLInputElement).value = '';
@@ -2222,9 +2370,11 @@ export default function HDTPage() {
                     const isDirectObj = file.name.toLowerCase().endsWith('.obj') && !isZip;
                     const is3DFile = ['.ply', '.obj', '.gltf', '.glb', '.fbx', '.dae', '.x3d', '.stl', '.3ds']
                       .some(ext => file.name.toLowerCase().endsWith(ext));
+                    const isImageFile = OPENLIME_RASTER_IMAGE_EXTENSIONS
+                      .some(ext => file.name.toLowerCase().endsWith(ext));
 
-                    if (!isZip && !is3DFile) {
-                      setError('Please select a 3D model file or ZIP archive.');
+                    if (!isZip && !is3DFile && !isImageFile) {
+                      setError('Please select an image, 3D model file, or ZIP archive.');
                       setWarningMessages([]);
                       (e.target as HTMLInputElement).value = '';
                       return;
@@ -2292,14 +2442,14 @@ export default function HDTPage() {
                           id="assetImportUrl"
                           type="url"
                           className="form-control"
-                          placeholder="https://example.org/path/to/asset.zip"
+                          placeholder="https://example.org/path/to/image.dzi"
                           value={importSourceUrl}
                           onChange={(e) => setImportSourceUrl(e.target.value)}
                           onBlur={(e) => populateUrlImportSuggestions(e.target.value)}
                           disabled={assetUploadDisabled}
                         />
                         <div className="form-text">
-                          The backend will download the remote file and detect the asset type automatically.
+                          OpenLIME image URLs are stored as remote references; 3D files and RTI packages are imported into OCRA storage.
                         </div>
                       </div>
 
@@ -2888,6 +3038,82 @@ export default function HDTPage() {
         </div>
       </div>
     )}
+    {registrationGraphSelection && (
+      <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal-dialog modal-lg modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Choose Current Named Graph</h5>
+              <button
+                type="button"
+                className="btn-close"
+                disabled={echoesBusy}
+                onClick={() => setRegistrationGraphSelection(null)}
+              ></button>
+            </div>
+            <div className="modal-body">
+              <p>
+                ECCCH already contains the Digital Twin
+                {registrationGraphSelection.digitalTwinLabel
+                  ? ` “${registrationGraphSelection.digitalTwinLabel}”`
+                  : ''}
+                {' '}with multiple current named graph lineages. Choose which lineage this OCRA project should continue.
+              </p>
+              <div className="small text-muted text-break mb-3">
+                Digital Twin: {registrationGraphSelection.digitalTwinUri}
+              </div>
+              <div className="list-group">
+                {registrationGraphSelection.currentNamedGraphs.map((graph) => (
+                  <label className="list-group-item d-flex gap-3" key={graph.namedGraphUri}>
+                    <input
+                      className="form-check-input flex-shrink-0"
+                      type="radio"
+                      name="registration-current-named-graph"
+                      value={graph.namedGraphUri}
+                      checked={registrationGraphSelection.selectedNamedGraphUri === graph.namedGraphUri}
+                      disabled={echoesBusy}
+                      onChange={() => setRegistrationGraphSelection((current) =>
+                        current ? { ...current, selectedNamedGraphUri: graph.namedGraphUri } : current
+                      )}
+                    />
+                    <span>
+                      <span className="d-block text-break">{graph.namedGraphUri}</span>
+                      <span className="small text-muted">
+                        {graph.graphDate ? `Graph date: ${graph.graphDate}` : 'Graph date unavailable'}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="alert alert-info mt-3 mb-0">
+                OCRA will only store the selected graph as the update base. No named graph is created or modified by this choice.
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                disabled={echoesBusy}
+                onClick={() => setRegistrationGraphSelection(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={echoesBusy || !registrationGraphSelection.selectedNamedGraphUri}
+                onClick={() => void executeEchoesAction(
+                  'register',
+                  registrationGraphSelection.selectedNamedGraphUri,
+                )}
+              >
+                {echoesBusy ? 'Linking...' : 'Link Selected Named Graph'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     <AppMessageModal
       descriptor={messageModal}
       onClose={() => setMessageModal(null)}
@@ -2915,6 +3141,10 @@ export default function HDTPage() {
         if (actionKey === 'confirm_echoes_replace') {
           setMessageModal(null);
           void handleEchoesPublishAction('replace');
+          return;
+        }
+        if (actionKey === 'load_current_named_graph') {
+          void loadCurrentNamedGraph();
           return;
         }
         setMessageModal(null);

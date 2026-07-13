@@ -6,17 +6,10 @@ import type {
 import { DefaultMetadataView, defaultMapToHdtOntology, getSourceRecordField } from './shared';
 import ArcoBrowser, { type ArcoBrowserSelection } from '../../components/arco/ArcoBrowser';
 
-const ARCO_LODVIEW_BASE =
-  'https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty';
-
 export interface ArcoFormState {
   selectedUri: string;
   selectedTitle: string;
   catalogId: string;
-}
-
-function buildEndpoint(catalogId: string): string {
-  return `${ARCO_LODVIEW_BASE}/${encodeURIComponent(catalogId)}.html?output=application%2Fld%2Bjson`;
 }
 
 function extractCatalogId(uri: string): string {
@@ -103,11 +96,10 @@ export const arcoSourceAdapter: PhysicalObjectSourceAdapter<ArcoFormState> = {
   ImportForm: ArcoImportForm,
   buildImportRequest: (_projectId: string, state: ArcoFormState) => {
     const catalogId = state.catalogId || extractCatalogId(state.selectedUri);
-    const endpoint = buildEndpoint(catalogId);
     return {
       sourceType: 'arco',
       sourceUri: state.selectedUri,
-      payload: { catalogId, endpoint },
+      payload: { catalogId },
     };
   },
   MetadataView: ArcoMetadataView,

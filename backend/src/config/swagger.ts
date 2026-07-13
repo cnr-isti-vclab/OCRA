@@ -1073,6 +1073,11 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               type: 'string',
               enum: ['image', 'deepzoom', 'deepzoom1px', 'google', 'zoomify', 'iiif', 'iip', 'tarzoom', 'itarzoom'],
             },
+            openLimeLayout: {
+              type: 'string',
+              enum: ['image', 'deepzoom', 'deepzoom1px', 'google', 'zoomify', 'iiif', 'iip', 'tarzoom', 'itarzoom'],
+              description: 'OpenLIME layout for directly viewable image assets.',
+            },
             zipName: { type: 'string' },
             width: { type: 'number' },
             height: { type: 'number' },

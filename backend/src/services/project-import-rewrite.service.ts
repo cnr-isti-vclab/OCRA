@@ -10,6 +10,7 @@ import { createAnnotationEntityId } from '../repositories/annotation.repository.
 import { generateSceneFile } from './hdt-metadata.service.js';
 import { projectModel3dDir } from '../utils/project-static-paths.js';
 import fs from 'fs/promises';
+import { isDisplayableSceneAsset } from 'shared/openlime-layout';
 
 export interface ProjectImportProjectPayload {
   project: {
@@ -232,11 +233,7 @@ export function rewriteImportedAnnotations(
 }
 
 export function normalizeImportedHdtDocument(document: Omit<HDTDocument, '_id'>): Omit<HDTDocument, '_id'> {
-  const displayableAssets = document.digitalAssets.filter((asset) => (
-    (asset.type === '3d-model' || asset.type === 'rti') &&
-    typeof asset.entryPointUrl === 'string' &&
-    asset.entryPointUrl.length > 0
-  ));
+  const displayableAssets = document.digitalAssets.filter(isDisplayableSceneAsset);
   const assetIds = new Set(document.digitalAssets.map((asset) => asset.id));
 
   const normalizedScenes = (document.scenes ?? []).map((scene, index) => ({

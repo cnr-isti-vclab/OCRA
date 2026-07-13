@@ -14,6 +14,7 @@
     "./annotation-types": "./annotation-types.ts",
     "./annotation-events": "./annotation-events.ts",
     "./annotation-schema": "./annotation-schema.ts",
-    "./structuring-events": "./structuring-events.ts"
+    "./structuring-events": "./structuring-events.ts",
+    "./openlime-layout": "./openlime-layout.ts"
   }
 }

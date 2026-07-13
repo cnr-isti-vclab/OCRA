@@ -23,12 +23,12 @@ This ink cartridge is called elvita. It is a glass bottle containing cyan-black 
 
   <rdf:Description rdf:about="http://echoes-eccch.eu/HDT/FZuJwStf1N1">
     <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC2_Heritage_Digital_Twin"/>
+    <ocra:rdfProfile rdf:resource="https://data.ocra.echoes.eu/rdf-profile/hdto-v1.1-ocra-v1"/>
     <rdfs:label>Ink</rdfs:label>
-    <hdto:HP3_is_digital_twin_component_of rdf:resource="http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943"/>
-    <ocra:hasProjectSnapshot rdf:resource="http://localhost:3002/assets/projects/cmrd7i4pi0000m3pso2lgy99l/echoes/project-snapshot-2026-07-09T07-57-37.835Z-1f96076d-4d8b-44ac-b6dd-4497704dd46c.json"/>
+    <ocra:hasProjectSnapshot rdf:resource="http://localhost:3002/assets/projects/cmrendwuc001bzhuaa2hk0t7w/echoes/project-snapshot-2026-07-10T11-54-41.806Z-42343abd-037e-4e0c-bd17-83725422e3c8.json"/>
   </rdf:Description>
 
-  <rdf:Description rdf:about="http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943">
+  <rdf:Description rdf:about="urn:ocra:asset:cmrendwuc001bzhuaa2hk0t7w:asset_1783670539947_r309widwf">
     <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC8_3D_Model"/>
     <rdfs:label>Ink</rdfs:label>
     <dc:title>Ink</dc:title>
@@ -41,19 +41,19 @@ This ink cartridge is called elvita. It is a glass bottle containing cyan-black 
   </rdf:Description>
 
 
-  <rdf:Description rdf:about="http://localhost:3002/assets/projects/cmrd7i4pi0000m3pso2lgy99l/echoes/project-snapshot-2026-07-09T07-57-37.835Z-1f96076d-4d8b-44ac-b6dd-4497704dd46c.json">
+  <rdf:Description rdf:about="http://localhost:3002/assets/projects/cmrendwuc001bzhuaa2hk0t7w/echoes/project-snapshot-2026-07-10T11-54-41.806Z-42343abd-037e-4e0c-bd17-83725422e3c8.json">
     <rdf:type rdf:resource="https://data.ocra.echoes.eu/ontology#ProjectSnapshot"/>
     <dcterms:format>application/vnd.ocra.project-snapshot+json</dcterms:format>
     <ocra:snapshotVersion>1</ocra:snapshotVersion>
-    <dcterms:created>2026-07-09T07:57:37.834Z</dcterms:created>
-    <ocra:sha256>e74bf10ffdb0b266b455a7c7ea7f6178fe81d6b4e143eedbe3d6b6b30efa9d74</ocra:sha256>
+    <dcterms:created>2026-07-10T11:54:41.806Z</dcterms:created>
+    <ocra:sha256>c39ffbb4ccb9a9869147733bfb21ed0ce7da719764c569afade1ed1c6e258b55</ocra:sha256>
     <ocra:snapshotIncludesAnnotations>false</ocra:snapshotIncludesAnnotations>
     <ocra:snapshotJson>{
   &quot;manifest&quot;: {
     &quot;format&quot;: &quot;ocra-project-snapshot&quot;,
     &quot;version&quot;: 1,
-    &quot;exportedAt&quot;: &quot;2026-07-09T07:57:37.834Z&quot;,
-    &quot;sourceProjectId&quot;: &quot;cmrd7i4pi0000m3pso2lgy99l&quot;,
+    &quot;exportedAt&quot;: &quot;2026-07-10T11:54:41.806Z&quot;,
+    &quot;sourceProjectId&quot;: &quot;cmrendwuc001bzhuaa2hk0t7w&quot;,
     &quot;sourceProjectName&quot;: &quot;ELVITA Ink Bottle&quot;,
     &quot;includes&quot;: {
       &quot;hdt&quot;: true,
@@ -61,26 +61,30 @@ This ink cartridge is called elvita. It is a glass bottle containing cyan-black 
     }
   },
   &quot;project&quot;: {
-    &quot;id&quot;: &quot;cmrd7i4pi0000m3pso2lgy99l&quot;,
+    &quot;id&quot;: &quot;cmrendwuc001bzhuaa2hk0t7w&quot;,
     &quot;name&quot;: &quot;ELVITA Ink Bottle&quot;,
-    &quot;description&quot;: &quot;&quot;,
+    &quot;description&quot;: &quot;The Didaskaleion of Crete in Heraklion had in its possession a number of visual aiding teaching materials (visual material and school equipment) that were used during its educational function. These materials constituted an important part of the movable property of the institution, as it can be seen from the official correspondence of the Didaskaleion. This material and equipment are divided into the following categories: a. School pictures. b. School maps. c. Embroidery of the Didaskaleion. d. School furniture. e. Various items of collections and school equipment. f. Photographs of students and teaching staff. f. Aiding material for natural science courses. g. Stationery. \nThe category \&quot;Stationery\&quot; contains teaching and writing materials of the students located in the Standard Primary Schools of the Didaskaleion of Crete. Among the objects of school life are caskets, tubers, chalks, inks, inkwells, etc., which make up aspects of the daily life of the school. It should be noted that the purchase of stationery, which was required for the students&apos; studies, was several times an additional cost for the families. The Greek state, adopting a welfare concept (Law 5019/1932), founded in 1937 the semi-governmental organization \&quot;Student&apos;s Clothing Store\&quot;, which came under the Ministry of Welfare, with the aim of clothing, footwear and supplying students that were in need, with books and stationery. \nThis ink cartridge is called elvita. It is a glass bottle containing cyan-black ink. It was employed to fill the ink tanks  that teachers and students used in order to do their homework. The inks used had three colors: blue, black and red. Until the early 20th century the ink was made from plants or by various other techniques. After World War I, ready-made ink, in small or larger glass containers, was released, Initially, writing ink was imported to Greece from the USA and Great Britain. Later the manufacture of the specific product was also developed in Greece by the company \&quot;Menounos\&quot;.&quot;,
     &quot;public&quot;: false,
     &quot;counter&quot;: &quot;0&quot;,
-    &quot;createdAt&quot;: &quot;2026-07-09T07:49:56.694Z&quot;,
-    &quot;updatedAt&quot;: &quot;2026-07-09T07:49:56.694Z&quot;
+    &quot;createdAt&quot;: &quot;2026-07-10T08:02:19.908Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-07-10T08:02:19.908Z&quot;
   },
   &quot;hdtDocument&quot;: {
-    &quot;projectId&quot;: &quot;cmrd7i4pi0000m3pso2lgy99l&quot;,
+    &quot;projectId&quot;: &quot;cmrendwuc001bzhuaa2hk0t7w&quot;,
     &quot;physicalObjectMetadata&quot;: {
       &quot;sourceUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
-      &quot;sourceType&quot;: &quot;europeana&quot;,
+      &quot;sourceType&quot;: &quot;echoes&quot;,
       &quot;sourceSelectionLocked&quot;: true,
       &quot;dublinCore&quot;: {
         &quot;title&quot;: &quot;Ink&quot;,
+        &quot;creator&quot;: null,
+        &quot;subject&quot;: null,
         &quot;description&quot;: &quot;The Didaskaleion of Crete in Heraklion had in its possession a number of visual aiding teaching materials (visual material and school equipment) that were used during its educational function. These materials constituted an important part of the movable property of the institution, as it can be seen from the official correspondence of the Didaskaleion. This material and equipment are divided into the following categories: a. School pictures. b. School maps. c. Embroidery of the Didaskaleion. d. School furniture. e. Various items of collections and school equipment. f. Photographs of students and teaching staff. f. Aiding material for natural science courses. g. Stationery. \nThe category \&quot;Stationery\&quot; contains teaching and writing materials of the students located in the Standard Primary Schools of the Didaskaleion of Crete. Among the objects of school life are caskets, tubers, chalks, inks, inkwells, etc., which make up aspects of the daily life of the school. It should be noted that the purchase of stationery, which was required for the students&apos; studies, was several times an additional cost for the families. The Greek state, adopting a welfare concept (Law 5019/1932), founded in 1937 the semi-governmental organization \&quot;Student&apos;s Clothing Store\&quot;, which came under the Ministry of Welfare, with the aim of clothing, footwear and supplying students that were in need, with books and stationery. \nThis ink cartridge is called elvita. It is a glass bottle containing cyan-black ink. It was employed to fill the ink tanks  that teachers and students used in order to do their homework. The inks used had three colors: blue, black and red. Until the early 20th century the ink was made from plants or by various other techniques. After World War I, ready-made ink, in small or larger glass containers, was released, Initially, writing ink was imported to Greece from the USA and Great Britain. Later the manufacture of the specific product was also developed in Greece by the company \&quot;Menounos\&quot;.&quot;,
+        &quot;date&quot;: null,
         &quot;type&quot;: &quot;http://semantics.gr/authorities/ekt-item-types/ergaleia-kai-eksoplismos&quot;,
-        &quot;identifier&quot;: &quot;https://e-her.org/collection/category/1022/object/943&quot;,
+        &quot;identifier&quot;: null,
         &quot;source&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
+        &quot;language&quot;: null,
         &quot;coverage&quot;: &quot;-&quot;,
         &quot;rights&quot;: &quot;http://creativecommons.org/licenses/by-nc/4.0/&quot;
       },
@@ -92,69 +96,71 @@ This ink cartridge is called elvita. It is a glass bottle containing cyan-black 
         &quot;provider&quot;: &quot;http://data.europeana.eu/organization/1331&quot;,
         &quot;dataProvider&quot;: &quot;http://data.europeana.eu/organization/4610&quot;,
         &quot;thumbnailUrl&quot;: &quot;https://www.searchculture.gr/aggregator/thumbnails/edm-record/e_her/000161-943&quot;,
-        &quot;importedAt&quot;: &quot;2026-07-09T07:50:07.922Z&quot;,
-        &quot;sourceUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;
-      }
+        &quot;importedAt&quot;: &quot;2026-07-09T08:39:31.128Z&quot;,
+        &quot;sourceUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
+        &quot;namedGraphUri&quot;: &quot;http://echoes-eccch.eu/kb/graph/user-fbettio/1783670323763/2026-07-10&quot;,
+        &quot;digitalTwinUri&quot;: &quot;http://echoes-eccch.eu/HDT/FZuJwStf1N1&quot;,
+        &quot;digitalTwinLabel&quot;: &quot;Ink&quot;,
+        &quot;heritageEntityUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
+        &quot;heritageEntityLabel&quot;: &quot;Ink&quot;
+      },
+      &quot;label&quot;: &quot;Ink&quot;
     },
     &quot;echoesContext&quot;: {
-      &quot;origin&quot;: &quot;local&quot;,
+      &quot;origin&quot;: &quot;imported&quot;,
+      &quot;syncStatus&quot;: &quot;synced&quot;,
       &quot;projectUri&quot;: &quot;http://echoes-eccch.eu/project/ECHOES&quot;,
       &quot;heritageEntityUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
       &quot;digitalTwinUri&quot;: &quot;http://echoes-eccch.eu/HDT/FZuJwStf1N1&quot;,
+      &quot;namedGraphUri&quot;: &quot;http://echoes-eccch.eu/kb/graph/user-fbettio/1783670323763/2026-07-10&quot;,
       &quot;digitalTwinLabel&quot;: &quot;Ink&quot;,
-      &quot;syncStatus&quot;: &quot;synced&quot;,
-      &quot;lastRegisteredAt&quot;: &quot;2026-07-09T07:50:24.853Z&quot;,
-      &quot;namedGraphUri&quot;: &quot;http://echoes-eccch.eu/kb/graph/user-fbettio/1783583425206/2026-07-09&quot;,
+      &quot;importedFromEchoesAt&quot;: &quot;2026-07-10T08:02:19.925Z&quot;,
+      &quot;projectSnapshot&quot;: {
+        &quot;url&quot;: &quot;http://ocra.isti.cnr.it/assets/projects/cmremfdb8001iae0v0qihicph/echoes/project-snapshot-2026-07-10T07-58-43.428Z-fba9c686-1232-4cb3-88eb-fc9b388c8436.json&quot;,
+        &quot;format&quot;: &quot;application/vnd.ocra.project-snapshot+json&quot;,
+        &quot;version&quot;: 1,
+        &quot;exportedAt&quot;: &quot;2026-07-10T07:58:43.428Z&quot;,
+        &quot;checksum&quot;: &quot;89faff555aa811e9d27928c3b9c18b8f3ce9460f000b114069e683074e686282&quot;,
+        &quot;includesAnnotations&quot;: false
+      },
       &quot;assetRecords&quot;: [
         {
-          &quot;assetId&quot;: &quot;asset_1783583407953_3e1zdsci9&quot;,
-          &quot;assetUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
+          &quot;assetId&quot;: &quot;asset_1783670539947_r309widwf&quot;,
+          &quot;assetUri&quot;: &quot;urn:ocra:asset:cmrendwuc001bzhuaa2hk0t7w:asset_1783670539947_r309widwf&quot;,
           &quot;sourceUrl&quot;: &quot;https://e-her.org/omeka/files/original/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;
         }
       ],
-      &quot;lastSyncedAt&quot;: &quot;2026-07-09T07:50:25.463Z&quot;,
-      &quot;lastSyncedProjectUpdatedAt&quot;: &quot;2026-07-09T07:50:24.859Z&quot;,
-      &quot;projectSnapshot&quot;: {
-        &quot;url&quot;: &quot;http://localhost:3002/assets/projects/cmrd7i4pi0000m3pso2lgy99l/echoes/project-snapshot-2026-07-09T07-50-24.931Z-f7bf1200-9198-410a-9053-f5451b68d150.json&quot;,
-        &quot;format&quot;: &quot;application/vnd.ocra.project-snapshot+json&quot;,
-        &quot;version&quot;: 1,
-        &quot;checksum&quot;: &quot;b62b2a634e698bcd0596220e999c219ea150ab5bfa22c0e446f43daedfef3f8c&quot;,
-        &quot;exportedAt&quot;: &quot;2026-07-09T07:50:24.931Z&quot;,
-        &quot;includesAnnotations&quot;: false,
-        &quot;payloadJson&quot;: &quot;{\n  \&quot;manifest\&quot;: {\n    \&quot;format\&quot;: \&quot;ocra-project-snapshot\&quot;,\n    \&quot;version\&quot;: 1,\n    \&quot;exportedAt\&quot;: \&quot;2026-07-09T07:50:24.931Z\&quot;,\n    \&quot;sourceProjectId\&quot;: \&quot;cmrd7i4pi0000m3pso2lgy99l\&quot;,\n    \&quot;sourceProjectName\&quot;: \&quot;ELVITA Ink Bottle\&quot;,\n    \&quot;includes\&quot;: {\n      \&quot;hdt\&quot;: true,\n      \&quot;annotations\&quot;: false\n    }\n  },\n  \&quot;project\&quot;: {\n    \&quot;id\&quot;: \&quot;cmrd7i4pi0000m3pso2lgy99l\&quot;,\n    \&quot;name\&quot;: \&quot;ELVITA Ink Bottle\&quot;,\n    \&quot;description\&quot;: \&quot;\&quot;,\n    \&quot;public\&quot;: false,\n    \&quot;counter\&quot;: \&quot;0\&quot;,\n    \&quot;createdAt\&quot;: \&quot;2026-07-09T07:49:56.694Z\&quot;,\n    \&quot;updatedAt\&quot;: \&quot;2026-07-09T07:49:56.694Z\&quot;\n  },\n  \&quot;hdtDocument\&quot;: {\n    \&quot;projectId\&quot;: \&quot;cmrd7i4pi0000m3pso2lgy99l\&quot;,\n    \&quot;physicalObjectMetadata\&quot;: {\n      \&quot;sourceUri\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;,\n      \&quot;sourceType\&quot;: \&quot;europeana\&quot;,\n      \&quot;sourceSelectionLocked\&quot;: true,\n      \&quot;dublinCore\&quot;: {\n        \&quot;title\&quot;: \&quot;Ink\&quot;,\n        \&quot;description\&quot;: \&quot;The Didaskaleion of Crete in Heraklion had in its possession a number of visual aiding teaching materials (visual material and school equipment) that were used during its educational function. These materials constituted an important part of the movable property of the institution, as it can be seen from the official correspondence of the Didaskaleion. This material and equipment are divided into the following categories: a. School pictures. b. School maps. c. Embroidery of the Didaskaleion. d. School furniture. e. Various items of collections and school equipment. f. Photographs of students and teaching staff. f. Aiding material for natural science courses. g. Stationery. \\nThe category \\\&quot;Stationery\\\&quot; contains teaching and writing materials of the students located in the Standard Primary Schools of the Didaskaleion of Crete. Among the objects of school life are caskets, tubers, chalks, inks, inkwells, etc., which make up aspects of the daily life of the school. It should be noted that the purchase of stationery, which was required for the students&apos; studies, was several times an additional cost for the families. The Greek state, adopting a welfare concept (Law 5019/1932), founded in 1937 the semi-governmental organization \\\&quot;Student&apos;s Clothing Store\\\&quot;, which came under the Ministry of Welfare, with the aim of clothing, footwear and supplying students that were in need, with books and stationery. \\nThis ink cartridge is called elvita. It is a glass bottle containing cyan-black ink. It was employed to fill the ink tanks  that teachers and students used in order to do their homework. The inks used had three colors: blue, black and red. Until the early 20th century the ink was made from plants or by various other techniques. After World War I, ready-made ink, in small or larger glass containers, was released, Initially, writing ink was imported to Greece from the USA and Great Britain. Later the manufacture of the specific product was also developed in Greece by the company \\\&quot;Menounos\\\&quot;.\&quot;,\n        \&quot;type\&quot;: \&quot;http://semantics.gr/authorities/ekt-item-types/ergaleia-kai-eksoplismos\&quot;,\n        \&quot;identifier\&quot;: \&quot;https://e-her.org/collection/category/1022/object/943\&quot;,\n        \&quot;source\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;,\n        \&quot;coverage\&quot;: \&quot;-\&quot;,\n        \&quot;rights\&quot;: \&quot;http://creativecommons.org/licenses/by-nc/4.0/\&quot;\n      },\n      \&quot;cidocCrm\&quot;: {},\n      \&quot;sourceRecord\&quot;: {\n        \&quot;choUri\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;,\n        \&quot;mediaUrl\&quot;: \&quot;https://e-her.org/omeka/files/original/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb\&quot;,\n        \&quot;license\&quot;: \&quot;http://creativecommons.org/licenses/by-nc/4.0/\&quot;,\n        \&quot;provider\&quot;: \&quot;http://data.europeana.eu/organization/1331\&quot;,\n        \&quot;dataProvider\&quot;: \&quot;http://data.europeana.eu/organization/4610\&quot;,\n        \&quot;thumbnailUrl\&quot;: \&quot;https://www.searchculture.gr/aggregator/thumbnails/edm-record/e_her/000161-943\&quot;,\n        \&quot;importedAt\&quot;: \&quot;2026-07-09T07:50:07.922Z\&quot;,\n        \&quot;sourceUri\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;\n      }\n    },\n    \&quot;echoesContext\&quot;: {\n      \&quot;origin\&quot;: \&quot;local\&quot;,\n      \&quot;projectUri\&quot;: \&quot;http://echoes-eccch.eu/project/ECHOES\&quot;,\n      \&quot;heritageEntityUri\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;,\n      \&quot;digitalTwinUri\&quot;: \&quot;http://echoes-eccch.eu/HDT/FZuJwStf1N1\&quot;,\n      \&quot;digitalTwinLabel\&quot;: \&quot;Ink\&quot;,\n      \&quot;syncStatus\&quot;: \&quot;registered\&quot;,\n      \&quot;lastRegisteredAt\&quot;: \&quot;2026-07-09T07:50:24.853Z\&quot;\n    },\n    \&quot;digitalAssets\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;asset_1783583407953_3e1zdsci9\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrd7i4pi0000m3pso2lgy99l\&quot;,\n        \&quot;type\&quot;: \&quot;3d-model\&quot;,\n        \&quot;label\&quot;: \&quot;Ink\&quot;,\n        \&quot;title\&quot;: \&quot;Ink\&quot;,\n        \&quot;description\&quot;: \&quot;The Didaskaleion of Crete in Heraklion had in its possession a number of visual aiding teaching materials (visual material and school equipment) that were used during its educational function. These materials constituted an important part of the movable property of the institution, as it can be seen from the official correspondence of the Didaskaleion. This material and equipment are divided into the following categories: a. School pictures. b. School maps. c. Embroidery of the Didaskaleion. d. School furniture. e. Various items of collections and school equipment. f. Photographs of students and teaching staff. f. Aiding material for natural science courses. g. Stationery. \\nThe category \\\&quot;Stationery\\\&quot; contains teaching and writing materials of the students located in the Standard Primary Schools of the Didaskaleion of Crete. Among the objects of school life are caskets, tubers, chalks, inks, inkwells, etc., which make up aspects of the daily life of the school. It should be noted that the purchase of stationery, which was required for the students&apos; studies, was several times an additional cost for the families. The Greek state, adopting a welfare concept (Law 5019/1932), founded in 1937 the semi-governmental organization \\\&quot;Student&apos;s Clothing Store\\\&quot;, which came under the Ministry of Welfare, with the aim of clothing, footwear and supplying students that were in need, with books and stationery. \\nThis ink cartridge is called elvita. It is a glass bottle containing cyan-black ink. It was employed to fill the ink tanks  that teachers and students used in order to do their homework. The inks used had three colors: blue, black and red. Until the early 20th century the ink was made from plants or by various other techniques. After World War I, ready-made ink, in small or larger glass containers, was released, Initially, writing ink was imported to Greece from the USA and Great Britain. Later the manufacture of the specific product was also developed in Greece by the company \\\&quot;Menounos\\\&quot;.\&quot;,\n        \&quot;entryPointUrl\&quot;: \&quot;http://localhost:3002/assets/projects/cmrd7i4pi0000m3pso2lgy99l/3d-model/asset_1783583407953_3e1zdsci9/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb\&quot;,\n        \&quot;entryPoint\&quot;: \&quot;/assets/projects/cmrd7i4pi0000m3pso2lgy99l/3d-model/asset_1783583407953_3e1zdsci9/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb\&quot;,\n        \&quot;mimeType\&quot;: \&quot;model/gltf-binary\&quot;,\n        \&quot;entrySize\&quot;: 2935480,\n        \&quot;metadata\&quot;: {\n          \&quot;sourceUrl\&quot;: \&quot;https://e-her.org/omeka/files/original/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb\&quot;,\n          \&quot;sourceAssetUri\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;,\n          \&quot;linkedHeritageEntityUri\&quot;: \&quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943\&quot;\n        },\n        \&quot;uploadedAt\&quot;: \&quot;2026-07-09T07:50:09.839Z\&quot;,\n        \&quot;uploadedBy\&quot;: \&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\&quot;,\n        \&quot;fileName\&quot;: \&quot;963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb\&quot;\n      }\n    ],\n    \&quot;scenes\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;scene_1783583407956\&quot;,\n        \&quot;label\&quot;: \&quot;Default Scene\&quot;,\n        \&quot;description\&quot;: \&quot;Default scene created automatically\&quot;,\n        \&quot;isDefault\&quot;: true,\n        \&quot;assets\&quot;: [\n          {\n            \&quot;assetId\&quot;: \&quot;asset_1783583407953_3e1zdsci9\&quot;,\n            \&quot;visible\&quot;: true\n          }\n        ],\n        \&quot;environment\&quot;: {\n          \&quot;showGround\&quot;: true,\n          \&quot;backgroundColor\&quot;: \&quot;#404040\&quot;\n        }\n      }\n    ],\n    \&quot;createdAt\&quot;: \&quot;2026-07-09T07:50:07.930Z\&quot;,\n    \&quot;updatedAt\&quot;: \&quot;2026-07-09T07:50:24.859Z\&quot;,\n    \&quot;createdBy\&quot;: \&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\&quot;,\n    \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n  },\n  \&quot;annotations\&quot;: {\n    \&quot;geometries\&quot;: [],\n    \&quot;data\&quot;: [],\n    \&quot;links\&quot;: []\n  }\n}\n&quot;
-      }
+      &quot;lastSyncedAt&quot;: &quot;2026-07-10T08:02:21.693Z&quot;,
+      &quot;lastSyncedProjectUpdatedAt&quot;: &quot;2026-07-10T08:02:21.678Z&quot;
     },
     &quot;digitalAssets&quot;: [
       {
-        &quot;id&quot;: &quot;asset_1783583407953_3e1zdsci9&quot;,
-        &quot;projectId&quot;: &quot;cmrd7i4pi0000m3pso2lgy99l&quot;,
+        &quot;id&quot;: &quot;asset_1783670539947_r309widwf&quot;,
+        &quot;projectId&quot;: &quot;cmrendwuc001bzhuaa2hk0t7w&quot;,
         &quot;type&quot;: &quot;3d-model&quot;,
         &quot;label&quot;: &quot;Ink&quot;,
         &quot;title&quot;: &quot;Ink&quot;,
         &quot;description&quot;: &quot;The Didaskaleion of Crete in Heraklion had in its possession a number of visual aiding teaching materials (visual material and school equipment) that were used during its educational function. These materials constituted an important part of the movable property of the institution, as it can be seen from the official correspondence of the Didaskaleion. This material and equipment are divided into the following categories: a. School pictures. b. School maps. c. Embroidery of the Didaskaleion. d. School furniture. e. Various items of collections and school equipment. f. Photographs of students and teaching staff. f. Aiding material for natural science courses. g. Stationery. \nThe category \&quot;Stationery\&quot; contains teaching and writing materials of the students located in the Standard Primary Schools of the Didaskaleion of Crete. Among the objects of school life are caskets, tubers, chalks, inks, inkwells, etc., which make up aspects of the daily life of the school. It should be noted that the purchase of stationery, which was required for the students&apos; studies, was several times an additional cost for the families. The Greek state, adopting a welfare concept (Law 5019/1932), founded in 1937 the semi-governmental organization \&quot;Student&apos;s Clothing Store\&quot;, which came under the Ministry of Welfare, with the aim of clothing, footwear and supplying students that were in need, with books and stationery. \nThis ink cartridge is called elvita. It is a glass bottle containing cyan-black ink. It was employed to fill the ink tanks  that teachers and students used in order to do their homework. The inks used had three colors: blue, black and red. Until the early 20th century the ink was made from plants or by various other techniques. After World War I, ready-made ink, in small or larger glass containers, was released, Initially, writing ink was imported to Greece from the USA and Great Britain. Later the manufacture of the specific product was also developed in Greece by the company \&quot;Menounos\&quot;.&quot;,
-        &quot;entryPointUrl&quot;: &quot;http://localhost:3002/assets/projects/cmrd7i4pi0000m3pso2lgy99l/3d-model/asset_1783583407953_3e1zdsci9/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;,
-        &quot;entryPoint&quot;: &quot;/assets/projects/cmrd7i4pi0000m3pso2lgy99l/3d-model/asset_1783583407953_3e1zdsci9/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;,
+        &quot;entryPointUrl&quot;: &quot;http://localhost:3002/assets/projects/cmrendwuc001bzhuaa2hk0t7w/3d-model/asset_1783670539947_r309widwf/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;,
+        &quot;entryPoint&quot;: &quot;/assets/projects/cmrendwuc001bzhuaa2hk0t7w/3d-model/asset_1783670539947_r309widwf/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;,
         &quot;mimeType&quot;: &quot;model/gltf-binary&quot;,
         &quot;entrySize&quot;: 2935480,
         &quot;metadata&quot;: {
-          &quot;sourceUrl&quot;: &quot;https://e-her.org/omeka/files/original/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;,
-          &quot;sourceAssetUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;,
-          &quot;linkedHeritageEntityUri&quot;: &quot;http://data.europeana.eu/item/1102/https___www_searchculture_gr_aggregator_edm_e_her_000161_943&quot;
+          &quot;sourceUrl&quot;: &quot;https://e-her.org/omeka/files/original/963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;
         },
-        &quot;uploadedAt&quot;: &quot;2026-07-09T07:50:09.839Z&quot;,
-        &quot;uploadedBy&quot;: &quot;2b35dba7-f5c2-48ba-882d-802a45eb661e&quot;,
-        &quot;fileName&quot;: &quot;963f2f24b631dfd79a7c90e7fe196dabdddbb47d.glb&quot;
+        &quot;uploadedAt&quot;: &quot;2026-07-10T08:02:19.947Z&quot;,
+        &quot;uploadedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
       }
     ],
     &quot;scenes&quot;: [
       {
-        &quot;id&quot;: &quot;scene_1783583407956&quot;,
+        &quot;id&quot;: &quot;scene_de5a1e4b-169c-4983-8bd1-4dfe54a8d5d5&quot;,
         &quot;label&quot;: &quot;Default Scene&quot;,
         &quot;description&quot;: &quot;Default scene created automatically&quot;,
         &quot;isDefault&quot;: true,
         &quot;assets&quot;: [
           {
-            &quot;assetId&quot;: &quot;asset_1783583407953_3e1zdsci9&quot;,
+            &quot;assetId&quot;: &quot;asset_1783670539947_r309widwf&quot;,
             &quot;visible&quot;: true
           }
         ],
@@ -164,9 +170,9 @@ This ink cartridge is called elvita. It is a glass bottle containing cyan-black 
         }
       }
     ],
-    &quot;createdAt&quot;: &quot;2026-07-09T07:50:07.930Z&quot;,
-    &quot;updatedAt&quot;: &quot;2026-07-09T07:50:24.859Z&quot;,
-    &quot;createdBy&quot;: &quot;2b35dba7-f5c2-48ba-882d-802a45eb661e&quot;,
+    &quot;createdAt&quot;: &quot;2026-07-10T08:02:19.932Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-07-10T08:02:21.678Z&quot;,
+    &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
     &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
   },
   &quot;annotations&quot;: {
