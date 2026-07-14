@@ -28,6 +28,7 @@
     "db:reset": "cd backend && npx prisma migrate reset --force",
     "test": "cd backend && npm test -- src/test/comprehensive-workflow.e2e.test.ts",
     "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:annotation-creation": "cd backend && npx vitest run src/test/annotation-creation.api.test.ts",
     "test:watch": "cd backend && npm run test:watch",
     "test:ui": "cd backend && npm run test:ui",
     "test:coverage": "cd backend && npm run test:coverage",

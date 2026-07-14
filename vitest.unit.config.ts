@@ -7,6 +7,8 @@ export default defineConfig({
     include: [
       'shared/**/*.test.ts',
       'frontend/src/features/annotation-creation/**/*.test.ts',
+      'frontend/src/features/annotation-link-view/**/*.test.ts',
+      'frontend/src/stores/AnnotationStore.creation.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'build'],
     reporters: ['verbose'],

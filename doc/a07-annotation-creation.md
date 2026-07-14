@@ -9,10 +9,10 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | M1 | Link view modes (Show all / By geometry / By data) | **Done** |
 | M2 | Draft store + expandable Create setup form | **Done** |
 | M3 | Geometry step (viewer), data step (panel), block immediate `createAnnotation` | **Done** |
-| M4 | Polish, edge cases, UX completeness | **In progress** |
-| M5 | Tests, docs sync, hardening | **In progress** |
+| M4 | Polish, edge cases, UX completeness | **Done** |
+| M5 | Tests, docs sync, hardening | **Done** |
 
-- **Implemented in the app** (M1–M3, partial M4/M5): see module list below.
+- **Implemented in the app** (M1–M5): see module list and testing section below.
 - **Related docs**:
   - `doc/annotation-current-status.md` — broader annotation feature status
   - `doc/a06-active-annotations.md` — active vs focus mental model
@@ -47,6 +47,37 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | 2D viewer wiring | `frontend/src/routes/components/Viewer2DPanel.tsx` |
 | 3D viewer wiring | `frontend/src/routes/components/Viewer3DPanel.tsx` |
 | Panel | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
+
+### Testing
+
+**Automated**
+
+| Suite | Command | Coverage |
+| ----- | ------- | -------- |
+| Frontend unit + store | `npm run test:unit` | Validation, link view, toolbar mode, draft helpers, `commitCreationDraft` rollback/interrupt |
+| Backend creation API | `npm run test:annotation-creation` | Sequential geometry/data/link create, link-only, version 0 on create, 409 on update OCC |
+
+Key test files:
+
+- `frontend/src/features/annotation-creation/*.test.ts`
+- `frontend/src/features/annotation-link-view/annotationLinkViewMode.test.ts`
+- `frontend/src/stores/AnnotationStore.creation.test.ts`
+- `backend/src/test/annotation-creation.api.test.ts`
+
+**Manual checklist** (2D unless noted)
+
+- [ ] All 9 geometry×data choice mixes (new/search/void combinations that are valid)
+- [ ] 2D: point / line / area create → edit vertices → Next → data → Confirm
+- [ ] 2D: redraw geometry replaces draft; Confirm persists final shape only
+- [ ] 3D: point create → edit/drag → data step → Confirm
+- [ ] 3D: second point pick replaces draft
+- [ ] Search: multi-select on configured side only (both-side search + multi-side radio)
+- [ ] Data modal Cancel → discard confirm; Keep editing stays in modal
+- [ ] Back / data-modal discard at each wizard step
+- [ ] Setup choices remembered in-memory across repeated Create opens (same page session)
+- [ ] Commit failure shows error; partial artifacts not left active in panel
+- [ ] Link view modes during wizard do not hide draft/search geometry
+- [ ] Regression: normal (non-wizard) annotation create/edit in 2D/3D when wizard inactive
 
 ---
 
