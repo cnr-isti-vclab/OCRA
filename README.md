@@ -69,8 +69,8 @@ Notes:
 
 ## Maintainers
 
-[Visual Computing Lab, ISTI-CNR](https://vcg.isti.cnr.it/)
-[Visual and data-intensive computing, CRS4](https://www.crs4.it/en/research-and-development-sectors/vidic/)
+- [Visual Computing Lab, ISTI-CNR](https://vcg.isti.cnr.it/)
+- [Visual and data-intensive computing, CRS4](https://www.crs4.it/en/research-and-development-sectors/vidic/)
 
 ## License
 
