@@ -5,10 +5,15 @@ export function resolveCreationToolbarMode(
   options: {
     isCreationGeometryNew: boolean;
     isCreationGeometrySearch: boolean;
+    /** When true, a draft shape exists and edit/replace is allowed. */
+    hasDraftGeometry?: boolean;
     defaultCreateMode?: AnnotationToolbarMode;
   },
 ): AnnotationToolbarMode {
   if (options.isCreationGeometryNew) {
+    if (options.hasDraftGeometry) {
+      return currentMode;
+    }
     if (currentMode === 'edit') {
       return options.defaultCreateMode ?? 'area';
     }
@@ -23,9 +28,10 @@ export function resolveCreationToolbarMode(
 export function creationToolbarDisabledModes(
   isCreationGeometryNew: boolean,
   isCreationGeometrySearch: boolean,
+  hasDraftGeometry = false,
 ): AnnotationToolbarMode[] {
   if (isCreationGeometryNew) {
-    return ['edit'];
+    return hasDraftGeometry ? [] : ['edit'];
   }
   if (isCreationGeometrySearch) {
     return ['point', 'line', 'area'];

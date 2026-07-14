@@ -28,6 +28,8 @@ import {
 } from './annotation-selection';
 import type { AnnotationCreationDraft, AnnotationCreationSetupDraft } from '../features/annotation-creation/types';
 import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
+import { flushCreationDraftGeometry } from '../features/annotation-creation/creationDraftGeometryFlush';
+import { formatCreationCommitError } from '../features/annotation-creation/formatCreationCommitError';
 import {
   applyRememberedCreationSetup,
   extractCreationSetup,
@@ -259,6 +261,10 @@ export class AnnotationStore {
   async advanceCreationStep(): Promise<{ ok: true } | { ok: false; message: string }> {
     if (!this.creationDraft) {
       return { ok: false, message: 'No creation session is active.' };
+    }
+
+    if (this.creationDraft.step === 'geometry' && this.creationDraft.geometryChoice === 'new') {
+      flushCreationDraftGeometry();
     }
 
     const stepValidation = validateCreationStep(this.creationDraft);
@@ -503,16 +509,31 @@ export class AnnotationStore {
       this.bump();
       return { ok: true };
     } catch (err) {
+      const hadPersistedArtifacts =
+        created.geometries.length > 0
+        || created.data.length > 0
+        || created.links.length > 0;
+      const rollbackMessage = hadPersistedArtifacts
+        ? ' Partially saved items were marked erasable and removed from this session.'
+        : '';
+
       if (this.generation === myGen) {
         await this.revertWizardCommitArtifacts(created);
         this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };
         this.callbacks.onError(err);
         this.bump();
-      } else {
-        await this.revertWizardCommitArtifacts(created);
-        this.restoreCreationDraftAfterInterruptedCommit(draftSnapshot, myGen);
+        return {
+          ok: false,
+          message: `${formatCreationCommitError(err)}${rollbackMessage}`,
+        };
       }
-      throw err;
+
+      await this.revertWizardCommitArtifacts(created);
+      this.restoreCreationDraftAfterInterruptedCommit(draftSnapshot, myGen);
+      return {
+        ok: false,
+        message: 'Creation was interrupted by a scene reload.',
+      };
     } finally {
       if (this.creationDraft?.step === 'committing' && this.generation === myGen) {
         this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };

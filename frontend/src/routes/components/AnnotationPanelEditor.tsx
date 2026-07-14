@@ -52,6 +52,19 @@ interface AnnotationDataDraft {
   content: Record<string, unknown>;
 }
 
+function discardCreationModalDescriptor(): MessageModalDescriptor {
+  return new MessageModalDescriptor({
+    tone: 'warning',
+    title: 'Discard annotation creation?',
+    message: 'This will cancel the current creation draft.',
+    actions: [
+      { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
+      { key: 'discard', label: 'Discard', tone: 'danger' },
+    ],
+    dismissOnBackdrop: false,
+  });
+}
+
 function EditDataModal({
   draft,
   onSave,
@@ -189,31 +202,19 @@ export default function AnnotationPanelEditor({
     discardCreationDraft();
     setSetupError(null);
     setDiscardCreationModal(null);
+    setCreationDataModalOpen(false);
     setCreateSectionExpanded(false);
   }, [discardCreationDraft]);
 
   const handleCreationBack = useCallback(() => {
-    setDiscardCreationModal(new MessageModalDescriptor({
-      tone: 'warning',
-      title: 'Discard annotation creation?',
-      message: 'Going back will cancel the current creation draft.',
-      actions: [
-        { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
-        { key: 'discard', label: 'Discard', tone: 'danger' },
-      ],
-      dismissOnBackdrop: false,
-    }));
+    setDiscardCreationModal(discardCreationModalDescriptor());
   }, []);
 
   const handleCreationNext = useCallback(async () => {
     setSetupError(null);
-    try {
-      const result = await advanceCreationStep();
-      if (!result.ok) {
-        setSetupError(result.message);
-      }
-    } catch {
-      // store onError surfaces API failures
+    const result = await advanceCreationStep();
+    if (!result.ok) {
+      setSetupError(result.message);
     }
   }, [advanceCreationStep]);
 
@@ -222,7 +223,7 @@ export default function AnnotationPanelEditor({
   }, []);
 
   const handleCancelCreationDataModal = useCallback(() => {
-    setCreationDataModalOpen(false);
+    setDiscardCreationModal(discardCreationModalDescriptor());
   }, []);
 
   const handleSaveCreationDataModal = useCallback(() => {

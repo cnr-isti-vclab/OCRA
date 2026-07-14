@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import OpenLIMEViewer, {
   type OpenLIMEViewerRef,
+  simplifiedAnnotationToViewerAnnotation,
 } from '../../adapters/openlime-viewer/OpenLIMEViewer';
 import { applyOpenLimeToolbarMode } from '../../adapters/openlime-viewer/openlimeToolbarMode';
 import AnnotationToolbar, {
@@ -12,6 +13,7 @@ import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/constants';
+import { registerCreationDraftGeometryFlush } from '../../features/annotation-creation/creationDraftGeometryFlush';
 import { purgeCreationGeometryDrafts } from '../../features/annotation-creation/purgeCreationGeometryDrafts';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import {
@@ -139,7 +141,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
       annotationMode === 'viewer' || !pencilActive
         ? 'preserve'
-        : isCreationGeometryNew
+        : isCreationGeometryNew && !isCreationPendingNewGeometry
           ? 'preserve'
           : 'edit';
 
@@ -148,9 +150,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         resolveCreationToolbarMode(currentMode, {
           isCreationGeometryNew,
           isCreationGeometrySearch,
+          hasDraftGeometry: isCreationPendingNewGeometry,
           defaultCreateMode: 'area',
         }),
-      [isCreationGeometryNew, isCreationGeometrySearch, toolbarMode],
+      [isCreationGeometryNew, isCreationGeometrySearch, isCreationPendingNewGeometry, toolbarMode],
     );
 
     const applyToolbarMode = useCallback(
@@ -191,6 +194,26 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setAnnotationManagerRevision((revision) => revision + 1);
       onReady();
     }, [onReady]);
+
+    useEffect(() => {
+      return registerCreationDraftGeometryFlush(() => {
+        if (!isCreationGeometryNew || !creationDraft?.draftGeometryViewerId) {
+          return;
+        }
+        const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+        const simplified = viewer?.getAnnotationById(creationDraft.draftGeometryViewerId);
+        if (!simplified) {
+          return;
+        }
+        const viewerAnno = simplifiedAnnotationToViewerAnnotation(simplified);
+        setCreationDraftShapes(viewerGeometryToShapes(viewerAnno.type, viewerAnno.geometry));
+      });
+    }, [
+      creationDraft?.draftGeometryViewerId,
+      isCreationGeometryNew,
+      ref,
+      setCreationDraftShapes,
+    ]);
 
     function normalizeIds(ids: string[]): string[] {
       return [...ids].sort();
@@ -299,6 +322,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           purgeCreationGeometryDrafts(manager, { keepViewerId: anno.id });
         }
         setCreationDraftGeometry(anno.id, shapes);
+        requestAnimationFrame(() => {
+          applyToolbarMode('edit');
+        });
         return;
       }
 
@@ -842,6 +868,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
               disabledModes={creationToolbarDisabledModes(
                 isCreationGeometryNew,
                 isCreationGeometrySearch,
+                isCreationPendingNewGeometry,
               )}
             />
           </div>

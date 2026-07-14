@@ -113,9 +113,23 @@ export default function AnnotationCreationPanel({
   onNext,
 }: AnnotationCreationPanelProps) {
   const isSetup = draft.step === 'setup';
+  const isCommitting = draft.step === 'committing' || creating;
   const showMultiSide = bothSidesSearch(draft);
-  const createEnabled = isSetup && canBeginCreationWizard(draft) && !creating;
-  const wizardActive = draft.step === 'geometry' || draft.step === 'data';
+  const createEnabled = isSetup && canBeginCreationWizard(draft) && !isCommitting;
+  const wizardActive = draft.step === 'geometry' || draft.step === 'data' || draft.step === 'committing';
+
+  const nextButtonLabel = (() => {
+    if (isCommitting) {
+      return 'Saving…';
+    }
+    if (draft.step === 'geometry' && draft.dataChoice === 'void') {
+      return 'Confirm';
+    }
+    if (draft.step === 'data') {
+      return 'Confirm';
+    }
+    return 'Next';
+  })();
 
   const handleGeometryChoice = (choice: AnnotationEntityChoice) => {
     onDraftChange({
@@ -147,6 +161,15 @@ export default function AnnotationCreationPanel({
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
+      <div className="visually-hidden" aria-live="polite" aria-atomic="true">
+        {isCommitting
+          ? 'Saving annotation creation'
+          : draft.step === 'geometry'
+            ? 'Geometry step'
+            : draft.step === 'data'
+              ? 'Data step'
+              : 'Creation setup'}
+      </div>
       {isSetup ? (
         <>
           <div className="row g-2">
@@ -212,17 +235,27 @@ export default function AnnotationCreationPanel({
       ) : (
         <div className="small">
           <div className="fw-semibold mb-1">
-            {draft.step === 'geometry' ? 'Geometry step' : 'Data step'}
+            {draft.step === 'committing'
+              ? 'Saving annotation…'
+              : draft.step === 'geometry'
+                ? 'Geometry step'
+                : 'Data step'}
           </div>
-          <p className="text-muted mb-2">
-            {draft.step === 'geometry'
-              ? draft.geometryChoice === 'new'
-                ? 'Draw a geometry in the viewer. You can adjust it before continuing.'
-                : 'Select one or more geometries in the viewer that match the chosen scope.'
-              : draft.dataChoice === 'new'
-                ? 'Create annotation data using the form below, then confirm.'
-                : 'Search and select annotation data records below.'}
-          </p>
+          {isCommitting ? (
+            <p className="text-muted mb-2">
+              Persisting geometry, data, and links. Please wait.
+            </p>
+          ) : (
+            <p className="text-muted mb-2">
+              {draft.step === 'geometry'
+                ? draft.geometryChoice === 'new'
+                  ? 'Draw a geometry in the viewer. You can adjust it before continuing.'
+                  : 'Select one or more geometries in the viewer that match the chosen scope.'
+                : draft.dataChoice === 'new'
+                  ? 'Create annotation data using the form below, then confirm.'
+                  : 'Search and select annotation data records below.'}
+            </p>
+          )}
           <div className="text-muted">
             {draft.step === 'geometry' && draft.geometryChoice === 'new' ? (
               <>
@@ -277,7 +310,7 @@ export default function AnnotationCreationPanel({
         <button
           type="button"
           className="btn btn-outline-secondary btn-sm"
-          disabled={!wizardActive || creating}
+          disabled={!wizardActive || isCommitting}
           onClick={onBack}
         >
           Back
@@ -296,10 +329,11 @@ export default function AnnotationCreationPanel({
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={creating}
+            disabled={isCommitting}
             onClick={onNext}
+            aria-busy={isCommitting}
           >
-            {draft.step === 'geometry' && draft.dataChoice === 'void' ? 'Confirm' : 'Next'}
+            {nextButtonLabel}
           </button>
         )}
       </div>

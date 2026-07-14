@@ -1,19 +1,54 @@
-# Annotation Creation and Visualization (proposal)
+# Annotation Creation and Visualization
 
-This document is a **proposal** for extending current annotation handling so users can fully exploit the capabilities of the **decomposed annotation model**.
+Guided creation and link-aware visualization for OCRA’s decomposed annotation model (geometry, data, link).
 
 ## Status and scope
 
-- **Status**: proposed UX + implementation plan (not fully implemented in the app yet).
-- **Current implementation references**:
-  - `doc/annotation-current-status.md` (what is implemented today)
-  - `doc/a06-active-annotations.md` (active vs focus mental model)
-  - `doc/a00-annotation-model.md` (canonical model semantics)
-- **This proposal adds**:
-  - A special way to visualize linked triplets (without explicit connector lines).
-  - A guided UI flow to create and link geometry/data entities into linked triplets.
+| Milestone | Scope | Status |
+| --------- | ----- | ------ |
+| M1 | Link view modes (Show all / By geometry / By data) | **Done** |
+| M2 | Draft store + expandable Create setup form | **Done** |
+| M3 | Geometry step (viewer), data step (panel), block immediate `createAnnotation` | **Done** |
+| M4 | Polish, edge cases, UX completeness | **In progress** |
+| M5 | Tests, docs sync, hardening | **In progress** |
 
+- **Implemented in the app** (M1–M3, partial M4/M5): see module list below.
+- **Related docs**:
+  - `doc/annotation-current-status.md` — broader annotation feature status
+  - `doc/a06-active-annotations.md` — active vs focus mental model
+  - `doc/a00-annotation-model.md` — canonical model semantics
 
+### Behaviour summary (as implemented)
+
+- **Draft until confirm**: geometry/data selections and new shapes stay client-side until the final confirm (`Next` / `Confirm`). Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
+- **Setup form**: per-side choice New / Search / Void, scope pickers, multi-side rule when both sides search. Choices are **remembered in-memory** for the current browser session only (not persisted to the server or `localStorage`/`sessionStorage`).
+- **Geometry step** (viewer):
+  - **New (2D)**: native OpenLIME annotation kept via `draftGeometryViewerId`; shapes flushed into the draft before advance.
+  - **New (3D)**: point picking only; draft rendered from store (`creation-draft` id).
+  - **Search**: viewer selection → `selectedGeometryIds` (scoped, respects multi-side rule).
+  - Immediate `createAnnotation` is blocked while the wizard is active (except new-geometry capture).
+- **Data step** (panel):
+  - **New**: `AnnotationDataFormModal`.
+  - **Search**: toggle list with project data load.
+- **Void paths**: geometry void → data-only; data void → geometry-only after geometry step; both search → link-only.
+- **Link view during wizard**: filtering is bypassed so draft/search geometries are not hidden.
+- **Commit failure**: partial artifacts are marked erasable (rollback); user sees an error message in the creation panel.
+- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
+
+### Key modules
+
+| Area | Path |
+| ---- | ---- |
+| Proposal / this doc | `doc/a07-annotation-creation.md` |
+| Store | `frontend/src/stores/AnnotationStore.ts` |
+| Setup UI | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
+| Validation | `frontend/src/features/annotation-creation/annotationCreationValidation.ts` |
+| Link view | `frontend/src/features/annotation-link-view/` |
+| 2D viewer wiring | `frontend/src/routes/components/Viewer2DPanel.tsx` |
+| 3D viewer wiring | `frontend/src/routes/components/Viewer3DPanel.tsx` |
+| Panel | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
+
+---
 
 ## Annotation connection (link) visualization
 
@@ -90,9 +125,7 @@ On create pressed, the section  containing the creation user interface will be e
 
 ### Database Update
 
-In this proposal the remote database is updated only when the user confirms the creation flow by pressing the final `NEXT` (confirm) button. Until that confirmation, geometry and data edits/selections remain client-side drafts and are not persisted.
-
-> Note: this “draft until confirm” behaviour is a **proposed change**. Today the UI persists immediately via separate REST calls (see `doc/annotation-current-status.md`).
+On confirm, the remote database is updated via sequential REST calls. Until then, geometry and data edits/selections remain client-side drafts and are not persisted.
 
 What is written
 

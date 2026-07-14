@@ -16,19 +16,29 @@ export function useAnnotationLinkView() {
     linkViewMode,
     setLinkViewMode,
     annotationClassFilterValues,
+    isCreationWizardActive,
   } = useAnnotationStore();
 
   const linkViewResult = useMemo(
-    () =>
-      applyAnnotationLinkViewMode({
+    () => {
+      if (isCreationWizardActive) {
+        return {
+          visibleGeometries: [...activeGeometries],
+          visibleData: [...activeData],
+        };
+      }
+
+      return applyAnnotationLinkViewMode({
         mode: linkViewMode,
         activeGeometries,
         activeData,
         selection: activeAnnotationSelection,
         focusedGeometryIds,
         focusedDataIds,
-      }),
+      });
+    },
     [
+      isCreationWizardActive,
       linkViewMode,
       activeGeometries,
       activeData,

@@ -122,8 +122,7 @@ export interface SimplifiedAnnotation {
   state?: any;
 }
 
-function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
-  console.log('Converting SimplifiedAnnotation to OCRA Annotation:', anno);
+export function simplifiedAnnotationToViewerAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   let annoType: ViewerAnnotationShapeType = 'point';
   let geometry: ViewerAnnotationGeometry = ([]);
 
@@ -147,8 +146,6 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
   } else if (markerType === 'rect') {
     annoType = 'area';
-    //geometry = anno.data?._markerCorners.map((point: any) => [point.x, point.y, 0]);
-    // Convert the two markerCorners into 4 explicit points
     geometry = [];
     geometry.push([anno.data?._markerCorners[0].x, anno.data?._markerCorners[0].y, 0]);
     geometry.push([anno.data?._markerCorners[1].x, anno.data?._markerCorners[0].y, 0]);
@@ -157,17 +154,11 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
   } else if (markerType === 'freehand') {
     annoType = 'line';
     geometry = anno.data?._markerPoints.map((point: any) => [point.x, point.y, 0]);
-  } else {
-    console.log('Unknown annotation type:', anno.type, 'markerType:', markerType);
   }
 
   if (geometry.length === 0) {
     geometry = [anno.data?._x || 0, anno.data?._y || 0, 0];
   }
-  // console.log('Data:', anno.data);
-  // console.log('Type:', anno.type);
-  // console.log('MarkerPoints:', anno.data?._markerPoints);
-  // console.log('Extracted geometry:', geometry);
 
   const ocraAnno: ViewerAnnotation = {
     id: anno.id || `anno-${Date.now()}`,
@@ -178,6 +169,10 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
     createdBy: 'User to be defined'
   };
   return ocraAnno;
+}
+
+function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
+  return simplifiedAnnotationToViewerAnnotation(anno);
 }
 
 export interface OpenLIMEViewerRef {

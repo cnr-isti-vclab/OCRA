@@ -10,6 +10,7 @@ import { draftShapesToViewerAnnotation } from '../../features/annotation-creatio
 import { hasPendingCreationDraftShapes } from '../../features/annotation-creation/creationDraftGeometry';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import {
+  creationToolbarDisabledModes,
   resolveCreationToolbarMode,
 } from '../../features/annotation-creation/resolveCreationToolbarMode';
 import AnnotationToolbar, {
@@ -89,6 +90,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       creationHighlightGeometryIds,
       searchableGeometries,
       setCreationDraftShapes,
+      setCreationDraftGeometry,
       setCreationGeometrySelection,
     } = useAnnotationCreationWizard();
 
@@ -115,14 +117,15 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           activeAnnotationSelection,
           focusedDataIds,
         );
-        if (
-          creationDraft
-          && hasPendingCreationDraftShapes(creationDraft)
-          && !creationDraft.draftGeometryViewerId
-        ) {
-          const draftAnnotation = draftShapesToViewerAnnotation(creationDraft.draftShapes);
-          if (draftAnnotation) {
-            return [...base, { ...draftAnnotation, strokeDasharray: null }];
+        if (creationDraft && hasPendingCreationDraftShapes(creationDraft)) {
+          const viewerId = creationDraft.draftGeometryViewerId;
+          // 2D native OpenLIME drafts are rendered in-canvas; 3D drafts use the store overlay id.
+          if (!viewerId || viewerId === CREATION_DRAFT_GEOMETRY_ID) {
+            const draftAnnotation = draftShapesToViewerAnnotation(creationDraft.draftShapes);
+            if (draftAnnotation) {
+              const withoutDraft = base.filter((item) => item.id !== CREATION_DRAFT_GEOMETRY_ID);
+              return [...withoutDraft, { ...draftAnnotation, strokeDasharray: null }];
+            }
           }
         }
         return base;
@@ -158,9 +161,10 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         resolveCreationToolbarMode(currentMode, {
           isCreationGeometryNew,
           isCreationGeometrySearch,
+          hasDraftGeometry: isCreationPendingNewGeometry,
           defaultCreateMode: 'point',
         }),
-      [isCreationGeometryNew, isCreationGeometrySearch, toolbarMode],
+      [isCreationGeometryNew, isCreationGeometrySearch, isCreationPendingNewGeometry, toolbarMode],
     );
 
     const applyToolbarMode = useCallback((mode: AnnotationToolbarMode) => {
@@ -201,8 +205,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
       const handler = (point: [number, number, number]) => {
         if (isCreationGeometryNew) {
-          setCreationDraftShapes([{ type: 'ShapePoints', vertices: [point] }]);
-          keepCreationPointPickingActive();
+          setCreationDraftGeometry(CREATION_DRAFT_GEOMETRY_ID, [
+            { type: 'ShapePoints', vertices: [point] },
+          ]);
+          viewer.setPickingMode(false);
+          setToolbarMode('edit');
           return;
         }
 
@@ -236,8 +243,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       createAnnotation,
       isCreationGeometryNew,
       blockImmediateAnnotationCreate,
-      setCreationDraftShapes,
-      keepCreationPointPickingActive,
+      setCreationDraftGeometry,
     ]);
 
     const viewer3dDisabledModes = useMemo((): AnnotationToolbarMode[] => {
@@ -245,10 +251,10 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return ['point', 'line', 'area'];
       }
       if (isCreationGeometryNew) {
-        return ['edit', 'line', 'area'];
+        return isCreationPendingNewGeometry ? ['line', 'area'] : ['edit', 'line', 'area'];
       }
       return ['line', 'area'];
-    }, [isCreationGeometryNew, isCreationGeometrySearch]);
+    }, [isCreationGeometryNew, isCreationGeometrySearch, isCreationPendingNewGeometry]);
 
     useEffect(() => {
       if (!viewerReady) {
@@ -408,9 +414,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
     const handlePickingModeChange = (enabled: boolean) => {
       if (isCreationGeometryNew) {
-        setToolbarMode('point');
-        if (!enabled) {
+        if (enabled) {
+          setToolbarMode('point');
+          return;
+        }
+        if (!isCreationPendingNewGeometry) {
           keepCreationPointPickingActive();
+        } else {
+          setToolbarMode('edit');
         }
         return;
       }
