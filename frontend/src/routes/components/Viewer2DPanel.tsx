@@ -100,7 +100,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setFocusedDataIds,
       setFocusSelection,
       clearFocus,
-      createAnnotation,
       updateGeometry,
       startEditorLock,
       stopEditorLock,
@@ -108,10 +107,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const { visibleGeometries } = useAnnotationLinkView();
     const {
       creationDraft,
+      isCreationGeometryStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
       isCreationPendingNewGeometry,
-      blockImmediateAnnotationCreate,
       creationHighlightGeometryIds,
       searchableGeometries,
       setCreationDraftShapes,
@@ -139,11 +138,15 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const lastDraftGeometryViewerIdRef = useRef<string | null>(null);
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
-      annotationMode === 'viewer' || !pencilActive
+      annotationMode === 'viewer'
         ? 'preserve'
-        : isCreationGeometryNew && !isCreationPendingNewGeometry
-          ? 'preserve'
-          : 'edit';
+        : isCreationGeometryStep
+          ? isCreationGeometryNew && !isCreationPendingNewGeometry
+            ? 'preserve'
+            : 'edit'
+          : !pencilActive
+            ? 'preserve'
+            : 'edit';
 
     const resolveToolbarMode = useCallback(
       (currentMode: AnnotationToolbarMode = toolbarMode): AnnotationToolbarMode =>
@@ -175,7 +178,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     /** Full pencil + interaction mode for panel-driven focus and creation wizard. */
     const enableAnnotationEditInteraction = useCallback(() => {
-      if (annotationMode !== 'edit' || !pencilActive) {
+      if (annotationMode !== 'edit' || (!pencilActive && !isCreationGeometryStep)) {
         return null;
       }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
@@ -187,7 +190,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setToolbarMode(mode);
       applyOpenLimeToolbarMode(manager, viewer, mode);
       return manager;
-    }, [annotationMode, pencilActive, ref, resolveToolbarMode]);
+    }, [annotationMode, pencilActive, isCreationGeometryStep, ref, resolveToolbarMode]);
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
@@ -308,38 +311,31 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      if (isCreationGeometryNew) {
-        const shapes = viewerGeometryToShapes(anno.type, anno.geometry);
+      if (!isCreationGeometryNew) {
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
         const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
-        const previousViewerId = creationDraft?.draftGeometryViewerId ?? null;
-        if (previousViewerId && previousViewerId !== anno.id) {
-          purgeCreationGeometryDrafts(manager, {
-            removeViewerIds: [previousViewerId],
-            keepViewerId: anno.id,
-          });
-        } else {
-          purgeCreationGeometryDrafts(manager, { keepViewerId: anno.id });
+        if (manager?.getAnnotationById(anno.id)) {
+          manager.deleteAnnotation(anno.id);
+          manager.viewer?.redraw?.();
         }
-        setCreationDraftGeometry(anno.id, shapes);
-        requestAnimationFrame(() => {
-          applyToolbarMode('edit');
+        return;
+      }
+
+      const shapes = viewerGeometryToShapes(anno.type, anno.geometry);
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+      const previousViewerId = creationDraft?.draftGeometryViewerId ?? null;
+      if (previousViewerId && previousViewerId !== anno.id) {
+        purgeCreationGeometryDrafts(manager, {
+          removeViewerIds: [previousViewerId],
+          keepViewerId: anno.id,
         });
-        return;
+      } else {
+        purgeCreationGeometryDrafts(manager, { keepViewerId: anno.id });
       }
-
-      if (blockImmediateAnnotationCreate) {
-        return;
-      }
-
-      void createAnnotation({
-        shapes: viewerGeometryToShapes(anno.type, anno.geometry),
-        label: anno.label || '',
-        description: anno.description ?? '',
-        class: null,
-        content: {},
-      }).catch((err) => {
-        console.error('Failed to create 2D annotation:', err);
+      setCreationDraftGeometry(anno.id, shapes);
+      requestAnimationFrame(() => {
+        applyToolbarMode('edit');
       });
     };
 
@@ -735,25 +731,44 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       selectionInteractionMode,
     ]);
 
-    // When the OpenLIME pencil is enabled, apply the React toolbar mode (creation-aware).
+    // Apply toolbar modes during the wizard geometry step; otherwise keep edit-only when pencil is on.
     useEffect(() => {
-      if (annotationMode !== 'edit' || !pencilActive || !viewerReady) {
+      if (annotationMode !== 'edit' || !viewerReady) {
         return;
       }
-      const effectiveMode = resolveToolbarMode();
-      if (effectiveMode !== toolbarMode) {
-        setToolbarMode(effectiveMode);
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      if (!viewer) {
+        return;
       }
-      applyToolbarMode(effectiveMode);
+
+      if (isCreationGeometryStep) {
+        viewer.enableEditing(true);
+        const effectiveMode = resolveToolbarMode();
+        if (effectiveMode !== toolbarMode) {
+          setToolbarMode(effectiveMode);
+        }
+        applyToolbarMode(effectiveMode);
+        return;
+      }
+
+      if (pencilActive) {
+        if (toolbarMode !== 'edit') {
+          setToolbarMode('edit');
+        }
+        applyToolbarMode('edit');
+      }
     }, [
       annotationMode,
-      pencilActive,
       viewerReady,
-      toolbarMode,
+      pencilActive,
+      isCreationGeometryStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
+      isCreationPendingNewGeometry,
+      toolbarMode,
       applyToolbarMode,
       resolveToolbarMode,
+      ref,
     ]);
 
     // Keep editor social locks aligned with this viewer's focused geometries.
@@ -851,7 +866,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           onSettingsRequested={() => setSettingsOpen(true)}
           annotationLabelVisibility={labelVisibility}
         />
-        {annotationMode === 'edit' && pencilActive && viewerReady && (
+        {annotationMode === 'edit' && isCreationGeometryStep && viewerReady && (
           <div
             style={{
               position: 'absolute',

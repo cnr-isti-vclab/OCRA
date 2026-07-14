@@ -38,7 +38,6 @@ interface Viewer3DPanelProps {
   onLoadProgress: (progress: LoadingProgress) => void;
   onLoadComplete: (modelId: string) => void;
   onLoadError: (modelId: string, error: Error) => void;
-  annotationToolsVisible: boolean;
 }
 
 interface GeometryEditSnapshot {
@@ -66,7 +65,6 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       onLoadProgress,
       onLoadComplete,
       onLoadError,
-      annotationToolsVisible,
     },
     ref
   ) => {
@@ -76,17 +74,15 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       focusedGeometryIds,
       setFocusSelection,
       clearFocus,
-      createAnnotation,
       updateGeometry,
     } = useAnnotationStore();
     const { visibleGeometries } = useAnnotationLinkView();
     const {
       creationDraft,
+      isCreationGeometryStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
-      isCreationWizardActive,
       isCreationPendingNewGeometry,
-      blockImmediateAnnotationCreate,
       creationHighlightGeometryIds,
       searchableGeometries,
       setCreationDraftShapes,
@@ -204,28 +200,15 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
 
       const handler = (point: [number, number, number]) => {
-        if (isCreationGeometryNew) {
-          setCreationDraftGeometry(CREATION_DRAFT_GEOMETRY_ID, [
-            { type: 'ShapePoints', vertices: [point] },
-          ]);
-          viewer.setPickingMode(false);
-          setToolbarMode('edit');
+        if (!isCreationGeometryNew) {
           return;
         }
 
-        if (blockImmediateAnnotationCreate) {
-          return;
-        }
-
-        void createAnnotation({
-          shapes: [{ type: 'ShapePoints', vertices: [point] }],
-          label: '',
-          description: '',
-          class: null,
-          content: {},
-        }).catch((err) => {
-          console.error('Failed to create annotation from 3D viewer:', err);
-        });
+        setCreationDraftGeometry(CREATION_DRAFT_GEOMETRY_ID, [
+          { type: 'ShapePoints', vertices: [point] },
+        ]);
+        viewer.setPickingMode(false);
+        setToolbarMode('edit');
       };
 
       viewer.setOnPointPicked(handler);
@@ -240,9 +223,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     }, [
       ref,
       viewerReady,
-      createAnnotation,
       isCreationGeometryNew,
-      blockImmediateAnnotationCreate,
       setCreationDraftGeometry,
     ]);
 
@@ -265,6 +246,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return;
       }
 
+      if (!isCreationGeometryStep) {
+        viewer.setPickingMode(false);
+        if (toolbarMode !== 'edit') {
+          setToolbarMode('edit');
+        }
+        return;
+      }
+
       if (isCreationGeometryNew) {
         const effectiveMode = resolveToolbarMode();
         if (effectiveMode !== toolbarMode) {
@@ -279,19 +268,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           setToolbarMode('edit');
         }
         applyToolbarMode('edit');
-        return;
-      }
-
-      if (isCreationWizardActive) {
-        viewer.setPickingMode(false);
-        if (toolbarMode !== 'edit') {
-          setToolbarMode('edit');
-        }
       }
     }, [
+      isCreationGeometryStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
-      isCreationWizardActive,
       toolbarMode,
       applyToolbarMode,
       resolveToolbarMode,
@@ -316,7 +297,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     }, [isCreationGeometryNew, ref, viewerReady]);
 
     useEffect(() => {
-      if (annotationToolsVisible || isCreationGeometryNew || isCreationGeometrySearch) {
+      if (!viewerReady || isCreationGeometryStep) {
         return;
       }
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
@@ -325,7 +306,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
       viewer.setPickingMode(false);
       setToolbarMode('edit');
-    }, [annotationToolsVisible, isCreationGeometryNew, isCreationGeometrySearch, ref]);
+    }, [isCreationGeometryStep, ref, viewerReady]);
 
     useEffect(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
@@ -544,7 +525,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
         />
-        {(annotationToolsVisible || isCreationWizardActive) && (
+        {isCreationGeometryStep && (
           <div
             style={{
               position: 'absolute',

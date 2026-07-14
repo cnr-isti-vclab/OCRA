@@ -19,7 +19,6 @@ export interface AnnotationCreationWizardState {
   searchableGeometries: ReturnType<typeof filterGeometriesForCreationSearch>;
   searchableData: ReturnType<typeof filterDataForCreationSearch>;
   creationHighlightGeometryIds: string[] | null;
-  blockImmediateAnnotationCreate: boolean;
 }
 
 export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
@@ -86,10 +85,6 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
     return null;
   }, [creationDraft, isCreationGeometrySearch, isCreationPendingNewGeometry]);
 
-  const blockImmediateAnnotationCreate = Boolean(
-    isCreationWizardActive && !isCreationGeometryNew,
-  );
-
   return {
     creationDraft,
     isCreationWizardActive,
@@ -104,7 +99,6 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
     searchableGeometries,
     searchableData,
     creationHighlightGeometryIds,
-    blockImmediateAnnotationCreate,
     setCreationDraftShapes,
     setCreationDraftGeometry,
     setCreationGeometrySelection,

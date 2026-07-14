@@ -833,7 +833,6 @@ export default function ProjectPage() {
                   sceneDesc={viewerSceneDesc}
                   loadingModels={loadingModels}
                   modelLoadProgress={modelLoadProgress}
-                  annotationToolsVisible={activeTab === 'annotations' && annotationMode === 'edit'}
                   onReady={() => {
                     console.log('✅ 3D viewer ready');
                   }}

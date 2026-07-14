@@ -8,7 +8,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | --------- | ----- | ------ |
 | M1 | Link view modes (Show all / By geometry / By data) | **Done** |
 | M2 | Draft store + expandable Create setup form | **Done** |
-| M3 | Geometry step (viewer), data step (panel), block immediate `createAnnotation` | **Done** |
+| M3 | Geometry step (viewer), data step (panel), wizard-only creation (no immediate `createAnnotation`) | **Done** |
 | M4 | Polish, edge cases, UX completeness | **Done** |
 | M5 | Tests, docs sync, hardening | **Done** |
 
@@ -26,7 +26,8 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
   - **New (2D)**: native OpenLIME annotation kept via `draftGeometryViewerId`; shapes flushed into the draft before advance.
   - **New (3D)**: point picking only; draft rendered from store (`creation-draft` id).
   - **Search**: viewer selection → `selectedGeometryIds` (scoped, respects multi-side rule).
-  - Immediate `createAnnotation` is blocked while the wizard is active (except new-geometry capture).
+  - Annotations are created only through the wizard; viewer draw/pick outside the wizard does not persist.
+  - `AnnotationToolbar` is shown only on the wizard geometry step (not when the OpenLIME pencil is toggled).
 - **Data step** (panel):
   - **New**: `AnnotationDataFormModal`.
   - **Search**: toggle list with project data load.
