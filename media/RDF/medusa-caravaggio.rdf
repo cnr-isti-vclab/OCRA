@@ -1,0 +1,1047 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:dcterms="http://purl.org/dc/terms/"
+  xmlns:hdto="http://isl.ics.forth.gr/ontology/echoes/"
+  xmlns:ocra="https://data.ocra.echoes.eu/ontology#">
+
+  <rdf:Description rdf:about="https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC1_Heritage_Entity"/>
+    <rdfs:label>testa di Medusa (dipinto) di Merisi Michelangelo detto Caravaggio (sec. XVI)</rdfs:label>
+    <dc:title>dipinto</dc:title>
+    <dc:description>Il dipinto, gia&apos; creduto uno scudo da torneo cinquecentesco semplicemente ridipinto da Caravaggio, a seguito di un esame radiografico, e&apos; stato riconosciuto come opera perfettamente autonoma e pertinente ad un unico artista,cioe&apos; Caravaggio. Il celebre dipinto fu donato dal cardinale Francesco Anton Mario del Monte al Granduca Cosimo II (figlio di Ferdinando I) nel 1608 in occasione delle sue nozze con Maria Maddalena d&apos;Austria. Il Caravaggio aveva dipinto la testa di Medusa sopra un vecchio scudo da giostra cinto da fini ornamenti ad oro su fondo scuro che presentano il carattere di quelli che si dipingevano sulle cornici, specialmente a Bologna nell&apos;ambito culturale di Innocenzo da Imola. Di questa pittura fa menzione Gaspare Murtola sin dal 1604 nelle sue &quot;Rime&quot; con un madrigale, ma si discute sia stata portata personalmente a Firenze dal cardinale nel 1608 o inviato precedentemente anche prima che il Murtola lo menzionasse nella sua composizione poetica; di qui il controverso problema della datazione, problema d&apos;altra parte sempre presente nella cronologia delle opere giovanili del Caravaggio. La collocazione originaria dell&apos;opera era nell&apos;armeria, locali degli Uffizi mai inglobati nella galleria ed era collocato in mano ad un armatura di cavalier a cavallo che, in base alla descrizione resane dagli antichi inventari, e&apos; stata riconosciuta come orientale ed identificata dallo Heikamp come una donata nel 1601 dallo Scia&apos; Abbas di Persia. Internamente lo scudo presenta ornamenti dipinti, un cuscinetto di velluto su cui poggiava il braccio del cavaliere, frammenti di cuoio, sfilacciature di velluto e seta che sono resti delle cinghie che serravano il braccio stesso. Non e&apos; anzi escluso che in origine sullo scudo fosse dipinta in oro una figura come nello scudo di Bentivoglio posseduto dalla famiglia Rodriguez di Bologna. D&apos;altra parte il soggetto mitologico non era estraneo a questi oggetti, poiche&apos; Jacopo Rainieri, nel suo &quot;Diario Bolognese&quot; del 1887, descrivendo una giostra del 1549 parla di un cavaliere che al braccio &quot;avea uno scudo... dove era una testa di Medusa di oro, crinata di serpenti&quot;. A proposito del significato della Medusa sullo scudo, Battisti cita un passo del &apos;Dialogo dei colori&apos; di Lodovico Dolce, relativo al dono di una &quot;Gorgone di Medusa&quot;: &quot;chi cio&apos; inviasse denoterebbe che colui a cui si mandasse dovesse stare armato contro le lascivie del mondo che fanno gli uomini divenire sassi, cioe&apos; gli priva dei sensi umani e gl&apos;indurisce alle operazioni virtuose in guisa che niuna ne possono fare&quot;. Secondo il Friedlander il Caravaggio si sarebbe ispirato alle opere degli armaioli milanesi Piccinini, in particolare allo scudo rotondo con Medusa al centro, donato a Carlo V nel 1522</dc:description>
+    <dc:creator>arco-res:Agent/b97439afc00e0474a9552804c4de4bf2</dc:creator>
+    <dc:subject>testa di Medusa</dc:subject>
+    <dc:date>1598-1599</dc:date>
+    <dc:type>dipinto, arco-res:CulturalPropertyType/54764e0bac66f48b0e7af57043f65a0c, arco:HistoricOrArtisticProperty, arco:MovableCulturalProperty</dc:type>
+    <dc:source>arco-res:CatalogueRecordOA/0900289175, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0900289175</dc:source>
+    <dc:coverage>Firenze (FI)</dc:coverage>
+    <dc:rights>proprietà Stato</dc:rights>
+    <hdto:HP1_has_digital_twin rdf:resource="http://echoes-eccch.eu/HDT/8qSKRycODoI"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="http://echoes-eccch.eu/HDT/8qSKRycODoI">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC2_Heritage_Digital_Twin"/>
+    <ocra:rdfProfile rdf:resource="https://data.ocra.echoes.eu/rdf-profile/hdto-v1.1-ocra-v1"/>
+    <rdfs:label>dipinto</rdfs:label>
+    <ocra:hasProjectSnapshot rdf:resource="http://localhost:3002/assets/projects/cmrhmm45m000qhwhxutkp8k2b/echoes/project-snapshot-2026-07-13T09-37-41.711Z-a074c0f2-8c5e-4f9f-aef7-ce3e0aacca8c.json"/>
+  </rdf:Description>
+
+  <rdf:Description rdf:about="urn:ocra:asset:cmrhmm45m000qhwhxutkp8k2b:asset_1783858554838_4s3it157v">
+    <rdf:type rdf:resource="http://isl.ics.forth.gr/ontology/echoes/HC8_3D_Model"/>
+    <rdfs:label>medusa-caravaggio.dzi</rdfs:label>
+    <dc:title>medusa-caravaggio</dc:title>
+    <dc:source>https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi</dc:source>
+    <dc:format>application/octet-stream</dc:format>
+    <hdto:HP21_is_3D_representation_output_of rdf:resource="https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175"/>
+  </rdf:Description>
+
+
+  <rdf:Description rdf:about="http://localhost:3002/assets/projects/cmrhmm45m000qhwhxutkp8k2b/echoes/project-snapshot-2026-07-13T09-37-41.711Z-a074c0f2-8c5e-4f9f-aef7-ce3e0aacca8c.json">
+    <rdf:type rdf:resource="https://data.ocra.echoes.eu/ontology#ProjectSnapshot"/>
+    <dcterms:format>application/vnd.ocra.project-snapshot+json</dcterms:format>
+    <ocra:snapshotVersion>1</ocra:snapshotVersion>
+    <dcterms:created>2026-07-13T09:37:41.710Z</dcterms:created>
+    <ocra:sha256>f874659ed0e7b51d50932e3177abf055996fdafd3da518a89294168e6d60a9e5</ocra:sha256>
+    <ocra:snapshotIncludesAnnotations>true</ocra:snapshotIncludesAnnotations>
+    <ocra:snapshotJson>{
+  &quot;manifest&quot;: {
+    &quot;format&quot;: &quot;ocra-project-snapshot&quot;,
+    &quot;version&quot;: 1,
+    &quot;exportedAt&quot;: &quot;2026-07-13T09:37:41.710Z&quot;,
+    &quot;sourceProjectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+    &quot;sourceProjectName&quot;: &quot;Medusa - Caravaggio&quot;,
+    &quot;includes&quot;: {
+      &quot;hdt&quot;: true,
+      &quot;annotations&quot;: true
+    }
+  },
+  &quot;project&quot;: {
+    &quot;id&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+    &quot;name&quot;: &quot;Medusa - Caravaggio&quot;,
+    &quot;description&quot;: &quot;&quot;,
+    &quot;public&quot;: false,
+    &quot;counter&quot;: &quot;12&quot;,
+    &quot;createdAt&quot;: &quot;2026-07-12T10:04:01.546Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-07-12T10:04:01.546Z&quot;
+  },
+  &quot;hdtDocument&quot;: {
+    &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+    &quot;physicalObjectMetadata&quot;: {
+      &quot;sourceUri&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175&quot;,
+      &quot;sourceType&quot;: &quot;arco&quot;,
+      &quot;sourceSelectionLocked&quot;: true,
+      &quot;dublinCore&quot;: {
+        &quot;title&quot;: &quot;dipinto&quot;,
+        &quot;creator&quot;: &quot;arco-res:Agent/b97439afc00e0474a9552804c4de4bf2&quot;,
+        &quot;subject&quot;: &quot;testa di Medusa&quot;,
+        &quot;description&quot;: &quot;Il dipinto, gia&apos; creduto uno scudo da torneo cinquecentesco semplicemente ridipinto da Caravaggio, a seguito di un esame radiografico, e&apos; stato riconosciuto come opera perfettamente autonoma e pertinente ad un unico artista,cioe&apos; Caravaggio. Il celebre dipinto fu donato dal cardinale Francesco Anton Mario del Monte al Granduca Cosimo II (figlio di Ferdinando I) nel 1608 in occasione delle sue nozze con Maria Maddalena d&apos;Austria. Il Caravaggio aveva dipinto la testa di Medusa sopra un vecchio scudo da giostra cinto da fini ornamenti ad oro su fondo scuro che presentano il carattere di quelli che si dipingevano sulle cornici, specialmente a Bologna nell&apos;ambito culturale di Innocenzo da Imola. Di questa pittura fa menzione Gaspare Murtola sin dal 1604 nelle sue \&quot;Rime\&quot; con un madrigale, ma si discute sia stata portata personalmente a Firenze dal cardinale nel 1608 o inviato precedentemente anche prima che il Murtola lo menzionasse nella sua composizione poetica; di qui il controverso problema della datazione, problema d&apos;altra parte sempre presente nella cronologia delle opere giovanili del Caravaggio. La collocazione originaria dell&apos;opera era nell&apos;armeria, locali degli Uffizi mai inglobati nella galleria ed era collocato in mano ad un armatura di cavalier a cavallo che, in base alla descrizione resane dagli antichi inventari, e&apos; stata riconosciuta come orientale ed identificata dallo Heikamp come una donata nel 1601 dallo Scia&apos; Abbas di Persia. Internamente lo scudo presenta ornamenti dipinti, un cuscinetto di velluto su cui poggiava il braccio del cavaliere, frammenti di cuoio, sfilacciature di velluto e seta che sono resti delle cinghie che serravano il braccio stesso. Non e&apos; anzi escluso che in origine sullo scudo fosse dipinta in oro una figura come nello scudo di Bentivoglio posseduto dalla famiglia Rodriguez di Bologna. D&apos;altra parte il soggetto mitologico non era estraneo a questi oggetti, poiche&apos; Jacopo Rainieri, nel suo \&quot;Diario Bolognese\&quot; del 1887, descrivendo una giostra del 1549 parla di un cavaliere che al braccio \&quot;avea uno scudo... dove era una testa di Medusa di oro, crinata di serpenti\&quot;. A proposito del significato della Medusa sullo scudo, Battisti cita un passo del &apos;Dialogo dei colori&apos; di Lodovico Dolce, relativo al dono di una \&quot;Gorgone di Medusa\&quot;: \&quot;chi cio&apos; inviasse denoterebbe che colui a cui si mandasse dovesse stare armato contro le lascivie del mondo che fanno gli uomini divenire sassi, cioe&apos; gli priva dei sensi umani e gl&apos;indurisce alle operazioni virtuose in guisa che niuna ne possono fare\&quot;. Secondo il Friedlander il Caravaggio si sarebbe ispirato alle opere degli armaioli milanesi Piccinini, in particolare allo scudo rotondo con Medusa al centro, donato a Carlo V nel 1522&quot;,
+        &quot;publisher&quot;: &quot;arco-res:Agent/1ff3eed3d94ddff483bf4962460df697&quot;,
+        &quot;contributor&quot;: &quot;arco-res:AgentRole/0900289175-cataloguing-agency, arco-res:AgentRole/0900289175-heritage-protection-agency&quot;,
+        &quot;date&quot;: &quot;1598-1599&quot;,
+        &quot;type&quot;: &quot;dipinto, arco-res:CulturalPropertyType/54764e0bac66f48b0e7af57043f65a0c, arco:HistoricOrArtisticProperty, arco:MovableCulturalProperty&quot;,
+        &quot;format&quot;: &quot;arco-res:MeasurementCollection/0900289175-1&quot;,
+        &quot;identifier&quot;: &quot;0900289175&quot;,
+        &quot;source&quot;: &quot;arco-res:CatalogueRecordOA/0900289175, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0900289175&quot;,
+        &quot;coverage&quot;: &quot;Firenze (FI)&quot;,
+        &quot;rights&quot;: &quot;proprietà Stato&quot;
+      },
+      &quot;cidocCrm&quot;: {},
+      &quot;label&quot;: &quot;testa di Medusa (dipinto) di Merisi Michelangelo detto Caravaggio (sec. XVI)&quot;,
+      &quot;sourceRecord&quot;: {
+        &quot;endpoint&quot;: &quot;https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty/0900289175.html?output=application%2Fld%2Bjson&quot;,
+        &quot;catalogId&quot;: &quot;0900289175&quot;,
+        &quot;resourceClass&quot;: &quot;HistoricOrArtisticProperty&quot;,
+        &quot;importedAt&quot;: &quot;2026-07-12T10:04:24.729Z&quot;,
+        &quot;sourceUri&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175&quot;,
+        &quot;contentType&quot;: &quot;application/ld+json;charset=UTF-8&quot;,
+        &quot;recordId&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175&quot;,
+        &quot;candidateRecordCount&quot;: 1
+      }
+    },
+    &quot;echoesContext&quot;: {
+      &quot;origin&quot;: &quot;local&quot;,
+      &quot;projectUri&quot;: &quot;http://echoes-eccch.eu/project/ECHOES&quot;,
+      &quot;heritageEntityUri&quot;: &quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175&quot;,
+      &quot;digitalTwinUri&quot;: &quot;http://echoes-eccch.eu/HDT/8qSKRycODoI&quot;,
+      &quot;digitalTwinLabel&quot;: &quot;dipinto&quot;,
+      &quot;syncStatus&quot;: &quot;synced&quot;,
+      &quot;lastRegisteredAt&quot;: &quot;2026-07-12T12:31:30.846Z&quot;,
+      &quot;namedGraphUri&quot;: &quot;http://echoes-eccch.eu/kb/graph/user-fbettio/1783935452551/2026-07-13&quot;,
+      &quot;assetRecords&quot;: [
+        {
+          &quot;assetId&quot;: &quot;asset_1783858554838_4s3it157v&quot;,
+          &quot;assetUri&quot;: &quot;urn:ocra:asset:cmrhmm45m000qhwhxutkp8k2b:asset_1783858554838_4s3it157v&quot;,
+          &quot;sourceUrl&quot;: &quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi&quot;
+        }
+      ],
+      &quot;lastSyncedAt&quot;: &quot;2026-07-13T09:37:32.990Z&quot;,
+      &quot;lastSyncedProjectUpdatedAt&quot;: &quot;2026-07-12T12:31:30.852Z&quot;,
+      &quot;projectSnapshot&quot;: {
+        &quot;url&quot;: &quot;http://localhost:3002/assets/projects/cmrhmm45m000qhwhxutkp8k2b/echoes/project-snapshot-2026-07-13T09-37-32.237Z-08aa7e4b-4477-4756-a03e-2c8fc532ef61.json&quot;,
+        &quot;format&quot;: &quot;application/vnd.ocra.project-snapshot+json&quot;,
+        &quot;version&quot;: 1,
+        &quot;checksum&quot;: &quot;3712365d83455dab484599ec034644fb58389857ba5197565ea130cc84a381de&quot;,
+        &quot;exportedAt&quot;: &quot;2026-07-13T09:37:32.235Z&quot;,
+        &quot;includesAnnotations&quot;: true,
+        &quot;payloadJson&quot;: &quot;{\n  \&quot;manifest\&quot;: {\n    \&quot;format\&quot;: \&quot;ocra-project-snapshot\&quot;,\n    \&quot;version\&quot;: 1,\n    \&quot;exportedAt\&quot;: \&quot;2026-07-13T09:37:32.235Z\&quot;,\n    \&quot;sourceProjectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n    \&quot;sourceProjectName\&quot;: \&quot;Medusa - Caravaggio\&quot;,\n    \&quot;includes\&quot;: {\n      \&quot;hdt\&quot;: true,\n      \&quot;annotations\&quot;: true\n    }\n  },\n  \&quot;project\&quot;: {\n    \&quot;id\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n    \&quot;name\&quot;: \&quot;Medusa - Caravaggio\&quot;,\n    \&quot;description\&quot;: \&quot;\&quot;,\n    \&quot;public\&quot;: false,\n    \&quot;counter\&quot;: \&quot;12\&quot;,\n    \&quot;createdAt\&quot;: \&quot;2026-07-12T10:04:01.546Z\&quot;,\n    \&quot;updatedAt\&quot;: \&quot;2026-07-12T10:04:01.546Z\&quot;\n  },\n  \&quot;hdtDocument\&quot;: {\n    \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n    \&quot;physicalObjectMetadata\&quot;: {\n      \&quot;sourceUri\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\&quot;,\n      \&quot;sourceType\&quot;: \&quot;arco\&quot;,\n      \&quot;sourceSelectionLocked\&quot;: true,\n      \&quot;dublinCore\&quot;: {\n        \&quot;title\&quot;: \&quot;dipinto\&quot;,\n        \&quot;creator\&quot;: \&quot;arco-res:Agent/b97439afc00e0474a9552804c4de4bf2\&quot;,\n        \&quot;subject\&quot;: \&quot;testa di Medusa\&quot;,\n        \&quot;description\&quot;: \&quot;Il dipinto, gia&apos; creduto uno scudo da torneo cinquecentesco semplicemente ridipinto da Caravaggio, a seguito di un esame radiografico, e&apos; stato riconosciuto come opera perfettamente autonoma e pertinente ad un unico artista,cioe&apos; Caravaggio. Il celebre dipinto fu donato dal cardinale Francesco Anton Mario del Monte al Granduca Cosimo II (figlio di Ferdinando I) nel 1608 in occasione delle sue nozze con Maria Maddalena d&apos;Austria. Il Caravaggio aveva dipinto la testa di Medusa sopra un vecchio scudo da giostra cinto da fini ornamenti ad oro su fondo scuro che presentano il carattere di quelli che si dipingevano sulle cornici, specialmente a Bologna nell&apos;ambito culturale di Innocenzo da Imola. Di questa pittura fa menzione Gaspare Murtola sin dal 1604 nelle sue \\\&quot;Rime\\\&quot; con un madrigale, ma si discute sia stata portata personalmente a Firenze dal cardinale nel 1608 o inviato precedentemente anche prima che il Murtola lo menzionasse nella sua composizione poetica; di qui il controverso problema della datazione, problema d&apos;altra parte sempre presente nella cronologia delle opere giovanili del Caravaggio. La collocazione originaria dell&apos;opera era nell&apos;armeria, locali degli Uffizi mai inglobati nella galleria ed era collocato in mano ad un armatura di cavalier a cavallo che, in base alla descrizione resane dagli antichi inventari, e&apos; stata riconosciuta come orientale ed identificata dallo Heikamp come una donata nel 1601 dallo Scia&apos; Abbas di Persia. Internamente lo scudo presenta ornamenti dipinti, un cuscinetto di velluto su cui poggiava il braccio del cavaliere, frammenti di cuoio, sfilacciature di velluto e seta che sono resti delle cinghie che serravano il braccio stesso. Non e&apos; anzi escluso che in origine sullo scudo fosse dipinta in oro una figura come nello scudo di Bentivoglio posseduto dalla famiglia Rodriguez di Bologna. D&apos;altra parte il soggetto mitologico non era estraneo a questi oggetti, poiche&apos; Jacopo Rainieri, nel suo \\\&quot;Diario Bolognese\\\&quot; del 1887, descrivendo una giostra del 1549 parla di un cavaliere che al braccio \\\&quot;avea uno scudo... dove era una testa di Medusa di oro, crinata di serpenti\\\&quot;. A proposito del significato della Medusa sullo scudo, Battisti cita un passo del &apos;Dialogo dei colori&apos; di Lodovico Dolce, relativo al dono di una \\\&quot;Gorgone di Medusa\\\&quot;: \\\&quot;chi cio&apos; inviasse denoterebbe che colui a cui si mandasse dovesse stare armato contro le lascivie del mondo che fanno gli uomini divenire sassi, cioe&apos; gli priva dei sensi umani e gl&apos;indurisce alle operazioni virtuose in guisa che niuna ne possono fare\\\&quot;. Secondo il Friedlander il Caravaggio si sarebbe ispirato alle opere degli armaioli milanesi Piccinini, in particolare allo scudo rotondo con Medusa al centro, donato a Carlo V nel 1522\&quot;,\n        \&quot;publisher\&quot;: \&quot;arco-res:Agent/1ff3eed3d94ddff483bf4962460df697\&quot;,\n        \&quot;contributor\&quot;: \&quot;arco-res:AgentRole/0900289175-cataloguing-agency, arco-res:AgentRole/0900289175-heritage-protection-agency\&quot;,\n        \&quot;date\&quot;: \&quot;1598-1599\&quot;,\n        \&quot;type\&quot;: \&quot;dipinto, arco-res:CulturalPropertyType/54764e0bac66f48b0e7af57043f65a0c, arco:HistoricOrArtisticProperty, arco:MovableCulturalProperty\&quot;,\n        \&quot;format\&quot;: \&quot;arco-res:MeasurementCollection/0900289175-1\&quot;,\n        \&quot;identifier\&quot;: \&quot;0900289175\&quot;,\n        \&quot;source\&quot;: \&quot;arco-res:CatalogueRecordOA/0900289175, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0900289175\&quot;,\n        \&quot;coverage\&quot;: \&quot;Firenze (FI)\&quot;,\n        \&quot;rights\&quot;: \&quot;proprietà Stato\&quot;\n      },\n      \&quot;cidocCrm\&quot;: {},\n      \&quot;label\&quot;: \&quot;testa di Medusa (dipinto) di Merisi Michelangelo detto Caravaggio (sec. XVI)\&quot;,\n      \&quot;sourceRecord\&quot;: {\n        \&quot;endpoint\&quot;: \&quot;https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty/0900289175.html?output=application%2Fld%2Bjson\&quot;,\n        \&quot;catalogId\&quot;: \&quot;0900289175\&quot;,\n        \&quot;resourceClass\&quot;: \&quot;HistoricOrArtisticProperty\&quot;,\n        \&quot;importedAt\&quot;: \&quot;2026-07-12T10:04:24.729Z\&quot;,\n        \&quot;sourceUri\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\&quot;,\n        \&quot;contentType\&quot;: \&quot;application/ld+json;charset=UTF-8\&quot;,\n        \&quot;recordId\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\&quot;,\n        \&quot;candidateRecordCount\&quot;: 1\n      }\n    },\n    \&quot;echoesContext\&quot;: {\n      \&quot;origin\&quot;: \&quot;local\&quot;,\n      \&quot;projectUri\&quot;: \&quot;http://echoes-eccch.eu/project/ECHOES\&quot;,\n      \&quot;heritageEntityUri\&quot;: \&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\&quot;,\n      \&quot;digitalTwinUri\&quot;: \&quot;http://echoes-eccch.eu/HDT/8qSKRycODoI\&quot;,\n      \&quot;digitalTwinLabel\&quot;: \&quot;dipinto\&quot;,\n      \&quot;syncStatus\&quot;: \&quot;synced\&quot;,\n      \&quot;lastRegisteredAt\&quot;: \&quot;2026-07-12T12:31:30.846Z\&quot;,\n      \&quot;namedGraphUri\&quot;: \&quot;http://echoes-eccch.eu/kb/graph/user-fbettio/1783859491182/2026-07-12\&quot;,\n      \&quot;assetRecords\&quot;: [\n        {\n          \&quot;assetId\&quot;: \&quot;asset_1783858554838_4s3it157v\&quot;,\n          \&quot;assetUri\&quot;: \&quot;urn:ocra:asset:cmrhmm45m000qhwhxutkp8k2b:asset_1783858554838_4s3it157v\&quot;,\n          \&quot;sourceUrl\&quot;: \&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\&quot;\n        }\n      ],\n      \&quot;lastSyncedAt\&quot;: \&quot;2026-07-12T12:31:31.461Z\&quot;,\n      \&quot;lastSyncedProjectUpdatedAt\&quot;: \&quot;2026-07-12T12:31:30.852Z\&quot;,\n      \&quot;projectSnapshot\&quot;: {\n        \&quot;url\&quot;: \&quot;http://localhost:3002/assets/projects/cmrhmm45m000qhwhxutkp8k2b/echoes/project-snapshot-2026-07-12T12-31-30.905Z-0afe1ee6-a312-474d-a5d3-d5236d298f8a.json\&quot;,\n        \&quot;format\&quot;: \&quot;application/vnd.ocra.project-snapshot+json\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;checksum\&quot;: \&quot;c7f2088f606e3131aa4f41fe61152a13b5c703b484f7b0df26bc5dba9cbb423a\&quot;,\n        \&quot;exportedAt\&quot;: \&quot;2026-07-12T12:31:30.904Z\&quot;,\n        \&quot;includesAnnotations\&quot;: true,\n        \&quot;payloadJson\&quot;: \&quot;{\\n  \\\&quot;manifest\\\&quot;: {\\n    \\\&quot;format\\\&quot;: \\\&quot;ocra-project-snapshot\\\&quot;,\\n    \\\&quot;version\\\&quot;: 1,\\n    \\\&quot;exportedAt\\\&quot;: \\\&quot;2026-07-12T12:31:30.904Z\\\&quot;,\\n    \\\&quot;sourceProjectId\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n    \\\&quot;sourceProjectName\\\&quot;: \\\&quot;Medusa - Caravaggio\\\&quot;,\\n    \\\&quot;includes\\\&quot;: {\\n      \\\&quot;hdt\\\&quot;: true,\\n      \\\&quot;annotations\\\&quot;: true\\n    }\\n  },\\n  \\\&quot;project\\\&quot;: {\\n    \\\&quot;id\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n    \\\&quot;name\\\&quot;: \\\&quot;Medusa - Caravaggio\\\&quot;,\\n    \\\&quot;description\\\&quot;: \\\&quot;\\\&quot;,\\n    \\\&quot;public\\\&quot;: false,\\n    \\\&quot;counter\\\&quot;: \\\&quot;1\\\&quot;,\\n    \\\&quot;createdAt\\\&quot;: \\\&quot;2026-07-12T10:04:01.546Z\\\&quot;,\\n    \\\&quot;updatedAt\\\&quot;: \\\&quot;2026-07-12T10:04:01.546Z\\\&quot;\\n  },\\n  \\\&quot;hdtDocument\\\&quot;: {\\n    \\\&quot;projectId\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n    \\\&quot;physicalObjectMetadata\\\&quot;: {\\n      \\\&quot;sourceUri\\\&quot;: \\\&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\\\&quot;,\\n      \\\&quot;sourceType\\\&quot;: \\\&quot;arco\\\&quot;,\\n      \\\&quot;sourceSelectionLocked\\\&quot;: true,\\n      \\\&quot;dublinCore\\\&quot;: {\\n        \\\&quot;title\\\&quot;: \\\&quot;dipinto\\\&quot;,\\n        \\\&quot;creator\\\&quot;: \\\&quot;arco-res:Agent/b97439afc00e0474a9552804c4de4bf2\\\&quot;,\\n        \\\&quot;subject\\\&quot;: \\\&quot;testa di Medusa\\\&quot;,\\n        \\\&quot;description\\\&quot;: \\\&quot;Il dipinto, gia&apos; creduto uno scudo da torneo cinquecentesco semplicemente ridipinto da Caravaggio, a seguito di un esame radiografico, e&apos; stato riconosciuto come opera perfettamente autonoma e pertinente ad un unico artista,cioe&apos; Caravaggio. Il celebre dipinto fu donato dal cardinale Francesco Anton Mario del Monte al Granduca Cosimo II (figlio di Ferdinando I) nel 1608 in occasione delle sue nozze con Maria Maddalena d&apos;Austria. Il Caravaggio aveva dipinto la testa di Medusa sopra un vecchio scudo da giostra cinto da fini ornamenti ad oro su fondo scuro che presentano il carattere di quelli che si dipingevano sulle cornici, specialmente a Bologna nell&apos;ambito culturale di Innocenzo da Imola. Di questa pittura fa menzione Gaspare Murtola sin dal 1604 nelle sue \\\\\\\&quot;Rime\\\\\\\&quot; con un madrigale, ma si discute sia stata portata personalmente a Firenze dal cardinale nel 1608 o inviato precedentemente anche prima che il Murtola lo menzionasse nella sua composizione poetica; di qui il controverso problema della datazione, problema d&apos;altra parte sempre presente nella cronologia delle opere giovanili del Caravaggio. La collocazione originaria dell&apos;opera era nell&apos;armeria, locali degli Uffizi mai inglobati nella galleria ed era collocato in mano ad un armatura di cavalier a cavallo che, in base alla descrizione resane dagli antichi inventari, e&apos; stata riconosciuta come orientale ed identificata dallo Heikamp come una donata nel 1601 dallo Scia&apos; Abbas di Persia. Internamente lo scudo presenta ornamenti dipinti, un cuscinetto di velluto su cui poggiava il braccio del cavaliere, frammenti di cuoio, sfilacciature di velluto e seta che sono resti delle cinghie che serravano il braccio stesso. Non e&apos; anzi escluso che in origine sullo scudo fosse dipinta in oro una figura come nello scudo di Bentivoglio posseduto dalla famiglia Rodriguez di Bologna. D&apos;altra parte il soggetto mitologico non era estraneo a questi oggetti, poiche&apos; Jacopo Rainieri, nel suo \\\\\\\&quot;Diario Bolognese\\\\\\\&quot; del 1887, descrivendo una giostra del 1549 parla di un cavaliere che al braccio \\\\\\\&quot;avea uno scudo... dove era una testa di Medusa di oro, crinata di serpenti\\\\\\\&quot;. A proposito del significato della Medusa sullo scudo, Battisti cita un passo del &apos;Dialogo dei colori&apos; di Lodovico Dolce, relativo al dono di una \\\\\\\&quot;Gorgone di Medusa\\\\\\\&quot;: \\\\\\\&quot;chi cio&apos; inviasse denoterebbe che colui a cui si mandasse dovesse stare armato contro le lascivie del mondo che fanno gli uomini divenire sassi, cioe&apos; gli priva dei sensi umani e gl&apos;indurisce alle operazioni virtuose in guisa che niuna ne possono fare\\\\\\\&quot;. Secondo il Friedlander il Caravaggio si sarebbe ispirato alle opere degli armaioli milanesi Piccinini, in particolare allo scudo rotondo con Medusa al centro, donato a Carlo V nel 1522\\\&quot;,\\n        \\\&quot;publisher\\\&quot;: \\\&quot;arco-res:Agent/1ff3eed3d94ddff483bf4962460df697\\\&quot;,\\n        \\\&quot;contributor\\\&quot;: \\\&quot;arco-res:AgentRole/0900289175-cataloguing-agency, arco-res:AgentRole/0900289175-heritage-protection-agency\\\&quot;,\\n        \\\&quot;date\\\&quot;: \\\&quot;1598-1599\\\&quot;,\\n        \\\&quot;type\\\&quot;: \\\&quot;dipinto, arco-res:CulturalPropertyType/54764e0bac66f48b0e7af57043f65a0c, arco:HistoricOrArtisticProperty, arco:MovableCulturalProperty\\\&quot;,\\n        \\\&quot;format\\\&quot;: \\\&quot;arco-res:MeasurementCollection/0900289175-1\\\&quot;,\\n        \\\&quot;identifier\\\&quot;: \\\&quot;0900289175\\\&quot;,\\n        \\\&quot;source\\\&quot;: \\\&quot;arco-res:CatalogueRecordOA/0900289175, https://catalogo.beniculturali.it/detail/HistoricOrArtisticProperty/0900289175\\\&quot;,\\n        \\\&quot;coverage\\\&quot;: \\\&quot;Firenze (FI)\\\&quot;,\\n        \\\&quot;rights\\\&quot;: \\\&quot;proprietà Stato\\\&quot;\\n      },\\n      \\\&quot;cidocCrm\\\&quot;: {},\\n      \\\&quot;label\\\&quot;: \\\&quot;testa di Medusa (dipinto) di Merisi Michelangelo detto Caravaggio (sec. XVI)\\\&quot;,\\n      \\\&quot;sourceRecord\\\&quot;: {\\n        \\\&quot;endpoint\\\&quot;: \\\&quot;https://dati.cultura.gov.it/lodview-arco/resource/HistoricOrArtisticProperty/0900289175.html?output=application%2Fld%2Bjson\\\&quot;,\\n        \\\&quot;catalogId\\\&quot;: \\\&quot;0900289175\\\&quot;,\\n        \\\&quot;resourceClass\\\&quot;: \\\&quot;HistoricOrArtisticProperty\\\&quot;,\\n        \\\&quot;importedAt\\\&quot;: \\\&quot;2026-07-12T10:04:24.729Z\\\&quot;,\\n        \\\&quot;sourceUri\\\&quot;: \\\&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\\\&quot;,\\n        \\\&quot;contentType\\\&quot;: \\\&quot;application/ld+json;charset=UTF-8\\\&quot;,\\n        \\\&quot;recordId\\\&quot;: \\\&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\\\&quot;,\\n        \\\&quot;candidateRecordCount\\\&quot;: 1\\n      }\\n    },\\n    \\\&quot;echoesContext\\\&quot;: {\\n      \\\&quot;origin\\\&quot;: \\\&quot;local\\\&quot;,\\n      \\\&quot;projectUri\\\&quot;: \\\&quot;http://echoes-eccch.eu/project/ECHOES\\\&quot;,\\n      \\\&quot;heritageEntityUri\\\&quot;: \\\&quot;https://w3id.org/arco/resource/HistoricOrArtisticProperty/0900289175\\\&quot;,\\n      \\\&quot;digitalTwinUri\\\&quot;: \\\&quot;http://echoes-eccch.eu/HDT/8qSKRycODoI\\\&quot;,\\n      \\\&quot;digitalTwinLabel\\\&quot;: \\\&quot;dipinto\\\&quot;,\\n      \\\&quot;syncStatus\\\&quot;: \\\&quot;registered\\\&quot;,\\n      \\\&quot;lastRegisteredAt\\\&quot;: \\\&quot;2026-07-12T12:31:30.846Z\\\&quot;\\n    },\\n    \\\&quot;digitalAssets\\\&quot;: [\\n      {\\n        \\\&quot;id\\\&quot;: \\\&quot;asset_1783858554838_4s3it157v\\\&quot;,\\n        \\\&quot;projectId\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n        \\\&quot;type\\\&quot;: \\\&quot;image\\\&quot;,\\n        \\\&quot;label\\\&quot;: \\\&quot;medusa-caravaggio.dzi\\\&quot;,\\n        \\\&quot;title\\\&quot;: \\\&quot;medusa-caravaggio\\\&quot;,\\n        \\\&quot;description\\\&quot;: null,\\n        \\\&quot;entryPointUrl\\\&quot;: \\\&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\\\&quot;,\\n        \\\&quot;entryPoint\\\&quot;: \\\&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\\\&quot;,\\n        \\\&quot;mimeType\\\&quot;: \\\&quot;application/octet-stream\\\&quot;,\\n        \\\&quot;entrySize\\\&quot;: null,\\n        \\\&quot;metadata\\\&quot;: {\\n          \\\&quot;openLimeLayout\\\&quot;: \\\&quot;deepzoom\\\&quot;,\\n          \\\&quot;sourceUrl\\\&quot;: \\\&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\\\&quot;\\n        },\\n        \\\&quot;uploadedAt\\\&quot;: \\\&quot;2026-07-12T12:15:54.903Z\\\&quot;,\\n        \\\&quot;uploadedBy\\\&quot;: \\\&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\\\&quot;,\\n        \\\&quot;fileName\\\&quot;: \\\&quot;medusa-caravaggio.dzi\\\&quot;\\n      }\\n    ],\\n    \\\&quot;scenes\\\&quot;: [\\n      {\\n        \\\&quot;id\\\&quot;: \\\&quot;scene_1783850731857\\\&quot;,\\n        \\\&quot;label\\\&quot;: \\\&quot;Default Scene\\\&quot;,\\n        \\\&quot;description\\\&quot;: \\\&quot;Default scene created automatically\\\&quot;,\\n        \\\&quot;isDefault\\\&quot;: true,\\n        \\\&quot;assets\\\&quot;: [\\n          {\\n            \\\&quot;assetId\\\&quot;: \\\&quot;asset_1783858554838_4s3it157v\\\&quot;,\\n            \\\&quot;visible\\\&quot;: true\\n          }\\n        ],\\n        \\\&quot;environment\\\&quot;: {\\n          \\\&quot;showGround\\\&quot;: true,\\n          \\\&quot;backgroundColor\\\&quot;: \\\&quot;#404040\\\&quot;\\n        }\\n      }\\n    ],\\n    \\\&quot;createdAt\\\&quot;: \\\&quot;2026-07-12T10:04:24.733Z\\\&quot;,\\n    \\\&quot;updatedAt\\\&quot;: \\\&quot;2026-07-12T12:31:30.852Z\\\&quot;,\\n    \\\&quot;createdBy\\\&quot;: \\\&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\\\&quot;,\\n    \\\&quot;updatedBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;\\n  },\\n  \\\&quot;annotations\\\&quot;: {\\n    \\\&quot;geometries\\\&quot;: [\\n      {\\n        \\\&quot;id\\\&quot;: \\\&quot;ag_ddf56e77-daff-411b-9750-b0b83cf17b00\\\&quot;,\\n        \\\&quot;projectId\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n        \\\&quot;shapes\\\&quot;: [\\n          {\\n            \\\&quot;type\\\&quot;: \\\&quot;ShapePolygon\\\&quot;,\\n            \\\&quot;vertices\\\&quot;: [\\n              [\\n                1547.7898351579586,\\n                1384.626392344995,\\n                0\\n              ],\\n              [\\n                1635.3038934003916,\\n                1366.1090797162733,\\n                0\\n              ],\\n              [\\n                1716.6775509729775,\\n                1404.8203013305283,\\n                0\\n              ],\\n              [\\n                1740.1712578836978,\\n                1491.0956004813052,\\n                0\\n              ],\\n              [\\n                1599.2303743347493,\\n                1496.3496476631572,\\n                0\\n              ],\\n              [\\n                1523.6874276590968,\\n                1433.8991031113878,\\n                0\\n              ]\\n            ]\\n          }\\n        ],\\n        \\\&quot;referenceType\\\&quot;: \\\&quot;scene\\\&quot;,\\n        \\\&quot;referenceId\\\&quot;: \\\&quot;scene_1783850731857\\\&quot;,\\n        \\\&quot;version\\\&quot;: 1,\\n        \\\&quot;erasableAt\\\&quot;: \\\&quot;2026-07-12T12:26:08.483Z\\\&quot;,\\n        \\\&quot;erasableBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;,\\n        \\\&quot;createdAt\\\&quot;: \\\&quot;2026-07-12T12:25:57.433Z\\\&quot;,\\n        \\\&quot;createdBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;,\\n        \\\&quot;updatedAt\\\&quot;: \\\&quot;2026-07-12T12:26:08.483Z\\\&quot;,\\n        \\\&quot;updatedBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;\\n      }\\n    ],\\n    \\\&quot;data\\\&quot;: [\\n      {\\n        \\\&quot;id\\\&quot;: \\\&quot;ad_fc7d9128-6ada-42f3-be40-35173a0303eb\\\&quot;,\\n        \\\&quot;projectId\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n        \\\&quot;label\\\&quot;: \\\&quot;A000000\\\&quot;,\\n        \\\&quot;description\\\&quot;: \\\&quot;\\\&quot;,\\n        \\\&quot;class\\\&quot;: null,\\n        \\\&quot;content\\\&quot;: {},\\n        \\\&quot;visibilityType\\\&quot;: \\\&quot;scene\\\&quot;,\\n        \\\&quot;visibilityId\\\&quot;: \\\&quot;scene_1783850731857\\\&quot;,\\n        \\\&quot;version\\\&quot;: 1,\\n        \\\&quot;erasableAt\\\&quot;: \\\&quot;2026-07-12T12:26:08.539Z\\\&quot;,\\n        \\\&quot;erasableBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;,\\n        \\\&quot;createdAt\\\&quot;: \\\&quot;2026-07-12T12:25:57.490Z\\\&quot;,\\n        \\\&quot;createdBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;,\\n        \\\&quot;updatedAt\\\&quot;: \\\&quot;2026-07-12T12:26:08.539Z\\\&quot;,\\n        \\\&quot;updatedBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;\\n      }\\n    ],\\n    \\\&quot;links\\\&quot;: [\\n      {\\n        \\\&quot;id\\\&quot;: \\\&quot;al_9bdfda0c-e328-4044-acad-7f70a8cfe7e1\\\&quot;,\\n        \\\&quot;projectId\\\&quot;: \\\&quot;cmrhmm45m000qhwhxutkp8k2b\\\&quot;,\\n        \\\&quot;geometryId\\\&quot;: \\\&quot;ag_ddf56e77-daff-411b-9750-b0b83cf17b00\\\&quot;,\\n        \\\&quot;dataId\\\&quot;: \\\&quot;ad_fc7d9128-6ada-42f3-be40-35173a0303eb\\\&quot;,\\n        \\\&quot;version\\\&quot;: 1,\\n        \\\&quot;erasableAt\\\&quot;: \\\&quot;2026-07-12T12:26:08.417Z\\\&quot;,\\n        \\\&quot;erasableBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;,\\n        \\\&quot;createdAt\\\&quot;: \\\&quot;2026-07-12T12:25:57.524Z\\\&quot;,\\n        \\\&quot;createdBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;,\\n        \\\&quot;updatedAt\\\&quot;: \\\&quot;2026-07-12T12:26:08.417Z\\\&quot;,\\n        \\\&quot;updatedBy\\\&quot;: \\\&quot;cmpdyui3t0000lxshmqc2zlp2\\\&quot;\\n      }\\n    ]\\n  }\\n}\\n\&quot;\n      }\n    },\n    \&quot;digitalAssets\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;asset_1783858554838_4s3it157v\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;type\&quot;: \&quot;image\&quot;,\n        \&quot;label\&quot;: \&quot;medusa-caravaggio.dzi\&quot;,\n        \&quot;title\&quot;: \&quot;medusa-caravaggio\&quot;,\n        \&quot;description\&quot;: null,\n        \&quot;entryPointUrl\&quot;: \&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\&quot;,\n        \&quot;entryPoint\&quot;: \&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\&quot;,\n        \&quot;mimeType\&quot;: \&quot;application/octet-stream\&quot;,\n        \&quot;entrySize\&quot;: null,\n        \&quot;metadata\&quot;: {\n          \&quot;openLimeLayout\&quot;: \&quot;deepzoom\&quot;,\n          \&quot;sourceUrl\&quot;: \&quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi\&quot;\n        },\n        \&quot;uploadedAt\&quot;: \&quot;2026-07-12T12:15:54.903Z\&quot;,\n        \&quot;uploadedBy\&quot;: \&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\&quot;,\n        \&quot;fileName\&quot;: \&quot;medusa-caravaggio.dzi\&quot;\n      }\n    ],\n    \&quot;scenes\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;label\&quot;: \&quot;Default Scene\&quot;,\n        \&quot;description\&quot;: \&quot;Default scene created automatically\&quot;,\n        \&quot;isDefault\&quot;: true,\n        \&quot;assets\&quot;: [\n          {\n            \&quot;assetId\&quot;: \&quot;asset_1783858554838_4s3it157v\&quot;,\n            \&quot;visible\&quot;: true\n          }\n        ],\n        \&quot;environment\&quot;: {\n          \&quot;showGround\&quot;: true,\n          \&quot;backgroundColor\&quot;: \&quot;#404040\&quot;\n        }\n      }\n    ],\n    \&quot;createdAt\&quot;: \&quot;2026-07-12T10:04:24.733Z\&quot;,\n    \&quot;updatedAt\&quot;: \&quot;2026-07-12T12:31:30.852Z\&quot;,\n    \&quot;createdBy\&quot;: \&quot;2b35dba7-f5c2-48ba-882d-802a45eb661e\&quot;,\n    \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n  },\n  \&quot;annotations\&quot;: {\n    \&quot;geometries\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;ag_03b1a2f9-9f0e-4633-8f16-a39282db8388\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                1711.3020488566272,\n                1996.4036125319692,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:25:02.314Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:25:02.314Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_06e70323-e892-4cbe-8ad3-a5794a647f0a\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                1859.2571507823081,\n                1187.8129090191064,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:22:28.329Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:22:28.329Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_337f2afb-1860-43fe-ac93-f4e65edc90cd\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePolygon\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                907.1070503091853,\n                962.4931670369879,\n                0\n              ],\n              [\n                894.2932606982558,\n                1171.262963069833,\n                0\n              ],\n              [\n                994.760844661082,\n                1321.2761622208732,\n                0\n              ],\n              [\n                1303.2602251092953,\n                1317.4460379872294,\n                0\n              ],\n              [\n                1413.9321319287476,\n                1076.7056033309545,\n                0\n              ],\n              [\n                1397.9327999673974,\n                881.2478244516265,\n                0\n              ],\n              [\n                1059.0104001999177,\n                846.303390183376,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:30:55.259Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:30:55.259Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_4ab118df-32bb-492b-960a-127ab40a03a0\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                1277.51794982699,\n                2408.905163983752,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:35:38.513Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:35:38.513Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_63e3ffbe-4a13-4d0c-b9da-2a8e254779d0\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePolygon\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                2074.777441891079,\n                1858.0427025349782,\n                0\n              ],\n              [\n                2044.5175878215737,\n                1923.870872197984,\n                0\n              ],\n              [\n                2057.228674590041,\n                2038.660264969159,\n                0\n              ],\n              [\n                2138.300408078833,\n                1993.5302251015496,\n                0\n              ],\n              [\n                2149.42057977283,\n                1898.6272707612457,\n                0\n              ],\n              [\n                2141.287432300286,\n                1832.3770215886866,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 2,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:27:31.527Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:27:43.175Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_86eb00c7-158c-4266-9334-16e50f31ddd5\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                1295.716070219648,\n                2940.871450466376,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:33:06.999Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:33:06.999Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_882bac0c-4243-425c-a986-1263f4baaf96\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                476.02142884007844,\n                1061.5299665262523,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:19:28.403Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:19:28.403Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_8efc2042-9c6f-4792-86a8-80f2b5312e71\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                330.61503779900727,\n                1532.586933014894,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:33:43.137Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:33:43.137Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_963429d0-60b4-4511-8c45-41b8d3916e64\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePolyline\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                939.1227128313641,\n                956.0411174978299,\n                0\n              ],\n              [\n                936.9429673325426,\n                972.7099427195326,\n                0\n              ],\n              [\n                934.5514751281212,\n                989.104742792812,\n                0\n              ],\n              [\n                935.26456329845,\n                1007.7477946520185,\n                0\n              ],\n              [\n                933.6702351621691,\n                1031.7343369054788,\n                0\n              ],\n              [\n                930.7556040380305,\n                1047.7118714118405,\n                0\n              ],\n              [\n                929.95843996989,\n                1070.2878069353496,\n                0\n              ],\n              [\n                935.0808418921207,\n                1090.0892378310728,\n                0\n              ],\n              [\n                935.9060312595317,\n                1106.378164551552,\n                0\n              ],\n              [\n                932.0323121159117,\n                1121.187978254974,\n                0\n              ],\n              [\n                941.3958759944209,\n                1132.285996766117,\n                0\n              ],\n              [\n                953.845336714833,\n                1148.4472526788081,\n                0\n              ],\n              [\n                953.0481726466926,\n                1164.1725594917348,\n                0\n              ],\n              [\n                954.6331590165499,\n                1199.4097024412558,\n                0\n              ],\n              [\n                956.1496390993016,\n                1215.8325278138054,\n                0\n              ],\n              [\n                952.9703245931632,\n                1236.2567431377634,\n                0\n              ],\n              [\n                952.1731605250228,\n                1252.5830369239366,\n                0\n              ],\n              [\n                947.0787839020627,\n                1270.9396079461553,\n                0\n              ],\n              [\n                942.582280330208,\n                1282.2649427736037,\n                0\n              ],\n              [\n                936.3326385928725,\n                1303.445841177867,\n                0\n              ],\n              [\n                936.413600568543,\n                1316.8076810856428,\n                0\n              ],\n              [\n                934.8192724322621,\n                1336.9734408718837,\n                0\n              ],\n              [\n                940.3122310892925,\n                1356.2890999135834,\n                0\n              ],\n              [\n                939.5742315418343,\n                1372.9952922009802,\n                0\n              ],\n              [\n                942.367419702467,\n                1382.498982575842,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: \&quot;2026-07-13T09:30:38.797Z\&quot;,\n        \&quot;erasableBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:29:48.063Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:30:38.797Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_ddf56e77-daff-411b-9750-b0b83cf17b00\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePolygon\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                1547.7898351579586,\n                1384.626392344995,\n                0\n              ],\n              [\n                1635.3038934003916,\n                1366.1090797162733,\n                0\n              ],\n              [\n                1716.6775509729775,\n                1404.8203013305283,\n                0\n              ],\n              [\n                1740.1712578836978,\n                1491.0956004813052,\n                0\n              ],\n              [\n                1599.2303743347493,\n                1496.3496476631572,\n                0\n              ],\n              [\n                1523.6874276590968,\n                1433.8991031113878,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: \&quot;2026-07-12T12:26:08.483Z\&quot;,\n        \&quot;erasableBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;createdAt\&quot;: \&quot;2026-07-12T12:25:57.433Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-12T12:26:08.483Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_e4187f73-285b-4856-a6e0-4109cb8c26e8\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                277.10834304949617,\n                3124.005256130585,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:23:39.254Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:23:39.254Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ag_f7976974-cbe8-4d2c-b7cb-0e40ddbfa1bf\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;shapes\&quot;: [\n          {\n            \&quot;type\&quot;: \&quot;ShapePoints\&quot;,\n            \&quot;vertices\&quot;: [\n              [\n                2727.734443169851,\n                1168.169977997593,\n                0\n              ]\n            ]\n          }\n        ],\n        \&quot;referenceType\&quot;: \&quot;scene\&quot;,\n        \&quot;referenceId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:26:21.241Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:26:21.241Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      }\n    ],\n    \&quot;data\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;ad_1f39acfa-d52a-4e5c-baeb-0fb4929994b0\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Lead\&quot;,\n        \&quot;description\&quot;: \&quot;Analysis identified white lead as the principal white pigment.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra-voc:lead\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:33:07.048Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:33:23.363Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_3f93b7ef-2fbf-4f9a-a155-b04fbdcfef43\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Face\&quot;,\n        \&quot;description\&quot;: \&quot;Many scholars believe Medusa&apos;s face is a self-portrait of Caravaggio.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra:artisticDescription\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:22:28.417Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:22:44.309Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_4933da15-3c9d-47de-a8f1-0f79a4d23f05\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Oil paint\&quot;,\n        \&quot;description\&quot;: \&quot;Oil paint applied on canvas mounted over a convex wooden parade shield\&quot;,\n        \&quot;class\&quot;: \&quot;ocra-voc:inpainting\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 2,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:19:28.452Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:21:22.290Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_4e4584e1-1ace-4f1c-908e-4b5cb00fbc16\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Cracks\&quot;,\n        \&quot;description\&quot;: \&quot;The wooden shield has developed a network of surface cracks caused by the movement of the laminated wooden support over time.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra-voc:crackle\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 2,\n        \&quot;erasableAt\&quot;: \&quot;2026-07-13T09:30:38.859Z\&quot;,\n        \&quot;erasableBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:29:48.110Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:30:38.859Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_95e27212-9b64-40a3-af14-9b7c6ca69dc2\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Copper\&quot;,\n        \&quot;description\&quot;: \&quot;Green passages were painted using verdigris, a copper-based pigment prone to chemical alteration.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra-voc:copperAlloy\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:33:43.216Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:34:20.074Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_bfc3548b-45e0-43b2-9fd8-ca687a0921c0\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;The mouth\&quot;,\n        \&quot;description\&quot;: \&quot;The painting captures the exact instant of Medusa&apos;s decapitation.\\nThe mouth is frozen in a scream between life and death.\\n\&quot;,\n        \&quot;class\&quot;: \&quot;ocra:artisticDescription\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:25:02.371Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:25:43.481Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_c2d949cc-28c4-4362-a08c-4a960947fc31\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;The snakes\&quot;,\n        \&quot;description\&quot;: \&quot;The snakes remain animated, enhancing the sense of motion.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra:artisticDescription\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:26:21.331Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:26:46.177Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_c4872e9b-0c11-48bc-ad63-6df92e3793ab\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;La Medusa\&quot;,\n        \&quot;description\&quot;: \&quot;Painted by Michelangelo Merisi da Caravaggio around 1597–1598.\\nCommissioned by Cardinal Francesco Maria del Monte.\\nCreated as a diplomatic gift for Ferdinando I de&apos; Medici.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra:historicalDescription\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 2,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:23:39.366Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:26:06.404Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_d2a1acbb-3dee-41d4-91bb-9acaa26b2852\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Chiaroscuro\&quot;,\n        \&quot;description\&quot;: \&quot;Strong chiaroscuro increases the emotional impact.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra:technicalDescription\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:27:31.568Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:28:25.659Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_dcfc9bae-48e8-4e73-992f-9b950a0725c3\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Cracks\&quot;,\n        \&quot;description\&quot;: \&quot;The wooden shield has developed a network of surface cracks caused by the movement of the laminated wooden support over time.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra-voc:crackle\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:30:55.355Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:31:24.865Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_fc7d9128-6ada-42f3-be40-35173a0303eb\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;A000000\&quot;,\n        \&quot;description\&quot;: \&quot;\&quot;,\n        \&quot;class\&quot;: null,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: \&quot;2026-07-12T12:26:08.539Z\&quot;,\n        \&quot;erasableBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;createdAt\&quot;: \&quot;2026-07-12T12:25:57.490Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-12T12:26:08.539Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;ad_fd18cf94-9de5-423a-b41c-53c75e1b68b6\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;label\&quot;: \&quot;Blood\&quot;,\n        \&quot;description\&quot;: \&quot;Lead-based pigments contribute to the bright modelling of the flesh and blood.\&quot;,\n        \&quot;class\&quot;: \&quot;ocra-voc:inpainting\&quot;,\n        \&quot;content\&quot;: {},\n        \&quot;visibilityType\&quot;: \&quot;scene\&quot;,\n        \&quot;visibilityId\&quot;: \&quot;scene_1783850731857\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:35:38.606Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:36:18.760Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      }\n    ],\n    \&quot;links\&quot;: [\n      {\n        \&quot;id\&quot;: \&quot;al_0c481ff9-d93b-4bb5-bdb6-fa11b3019224\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_03b1a2f9-9f0e-4633-8f16-a39282db8388\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_bfc3548b-45e0-43b2-9fd8-ca687a0921c0\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:25:02.400Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:25:02.400Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_35ce5735-89eb-4acb-9021-af761d6c16b4\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_337f2afb-1860-43fe-ac93-f4e65edc90cd\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_dcfc9bae-48e8-4e73-992f-9b950a0725c3\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:30:55.401Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:30:55.401Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_41dde61c-e199-41a1-87ee-1db93012a4af\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_963429d0-60b4-4511-8c45-41b8d3916e64\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_4e4584e1-1ace-4f1c-908e-4b5cb00fbc16\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: \&quot;2026-07-13T09:30:38.726Z\&quot;,\n        \&quot;erasableBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:29:48.136Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:30:38.726Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_4714c2ac-e4c9-46ea-aef8-4ff193552a5f\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_86eb00c7-158c-4266-9334-16e50f31ddd5\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_1f39acfa-d52a-4e5c-baeb-0fb4929994b0\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:33:07.088Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:33:07.088Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_4974de3d-ffdc-4771-aeb5-f83b10424e7a\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_e4187f73-285b-4856-a6e0-4109cb8c26e8\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_c4872e9b-0c11-48bc-ad63-6df92e3793ab\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:23:39.447Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:23:39.447Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_4b843a98-a014-42c9-90f1-a12cdf548e3e\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_63e3ffbe-4a13-4d0c-b9da-2a8e254779d0\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_d2a1acbb-3dee-41d4-91bb-9acaa26b2852\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:27:31.595Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:27:31.595Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_5115b0b6-b065-48a1-8613-b12bb0ae4fa5\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_f7976974-cbe8-4d2c-b7cb-0e40ddbfa1bf\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_c2d949cc-28c4-4362-a08c-4a960947fc31\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:26:21.371Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:26:21.371Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_769b354d-c2d0-473e-9596-64ff6b240d07\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_8efc2042-9c6f-4792-86a8-80f2b5312e71\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_95e27212-9b64-40a3-af14-9b7c6ca69dc2\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:33:43.254Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:33:43.254Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_8e0759bd-42c0-4a68-b3ad-a247b7230d6e\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_882bac0c-4243-425c-a986-1263f4baaf96\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_4933da15-3c9d-47de-a8f1-0f79a4d23f05\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:19:28.487Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:19:28.487Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_9bdfda0c-e328-4044-acad-7f70a8cfe7e1\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_ddf56e77-daff-411b-9750-b0b83cf17b00\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_fc7d9128-6ada-42f3-be40-35173a0303eb\&quot;,\n        \&quot;version\&quot;: 1,\n        \&quot;erasableAt\&quot;: \&quot;2026-07-12T12:26:08.417Z\&quot;,\n        \&quot;erasableBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;createdAt\&quot;: \&quot;2026-07-12T12:25:57.524Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-12T12:26:08.417Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_a44cc063-ec5a-4190-80b1-e9ed942142de\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_06e70323-e892-4cbe-8ad3-a5794a647f0a\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_3f93b7ef-2fbf-4f9a-a155-b04fbdcfef43\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:22:28.475Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:22:28.475Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      },\n      {\n        \&quot;id\&quot;: \&quot;al_c2651fa1-44d1-4f35-8f9d-302a2c6a204e\&quot;,\n        \&quot;projectId\&quot;: \&quot;cmrhmm45m000qhwhxutkp8k2b\&quot;,\n        \&quot;geometryId\&quot;: \&quot;ag_4ab118df-32bb-492b-960a-127ab40a03a0\&quot;,\n        \&quot;dataId\&quot;: \&quot;ad_fd18cf94-9de5-423a-b41c-53c75e1b68b6\&quot;,\n        \&quot;version\&quot;: 0,\n        \&quot;erasableAt\&quot;: null,\n        \&quot;erasableBy\&quot;: null,\n        \&quot;createdAt\&quot;: \&quot;2026-07-13T09:35:38.660Z\&quot;,\n        \&quot;createdBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;,\n        \&quot;updatedAt\&quot;: \&quot;2026-07-13T09:35:38.660Z\&quot;,\n        \&quot;updatedBy\&quot;: \&quot;cmpdyui3t0000lxshmqc2zlp2\&quot;\n      }\n    ]\n  }\n}\n&quot;
+      }
+    },
+    &quot;digitalAssets&quot;: [
+      {
+        &quot;id&quot;: &quot;asset_1783858554838_4s3it157v&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;type&quot;: &quot;image&quot;,
+        &quot;label&quot;: &quot;medusa-caravaggio.dzi&quot;,
+        &quot;title&quot;: &quot;medusa-caravaggio&quot;,
+        &quot;description&quot;: null,
+        &quot;entryPointUrl&quot;: &quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi&quot;,
+        &quot;entryPoint&quot;: &quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi&quot;,
+        &quot;mimeType&quot;: &quot;application/octet-stream&quot;,
+        &quot;entrySize&quot;: null,
+        &quot;metadata&quot;: {
+          &quot;openLimeLayout&quot;: &quot;deepzoom&quot;,
+          &quot;sourceUrl&quot;: &quot;https://vicserver.crs4.it/ocra-assets/medusa-caravaggio.dzi&quot;
+        },
+        &quot;uploadedAt&quot;: &quot;2026-07-12T12:15:54.903Z&quot;,
+        &quot;uploadedBy&quot;: &quot;2b35dba7-f5c2-48ba-882d-802a45eb661e&quot;,
+        &quot;fileName&quot;: &quot;medusa-caravaggio.dzi&quot;
+      }
+    ],
+    &quot;scenes&quot;: [
+      {
+        &quot;id&quot;: &quot;scene_1783850731857&quot;,
+        &quot;label&quot;: &quot;Default Scene&quot;,
+        &quot;description&quot;: &quot;Default scene created automatically&quot;,
+        &quot;isDefault&quot;: true,
+        &quot;assets&quot;: [
+          {
+            &quot;assetId&quot;: &quot;asset_1783858554838_4s3it157v&quot;,
+            &quot;visible&quot;: true
+          }
+        ],
+        &quot;environment&quot;: {
+          &quot;showGround&quot;: true,
+          &quot;backgroundColor&quot;: &quot;#404040&quot;
+        }
+      }
+    ],
+    &quot;createdAt&quot;: &quot;2026-07-12T10:04:24.733Z&quot;,
+    &quot;updatedAt&quot;: &quot;2026-07-12T12:31:30.852Z&quot;,
+    &quot;createdBy&quot;: &quot;2b35dba7-f5c2-48ba-882d-802a45eb661e&quot;,
+    &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+  },
+  &quot;annotations&quot;: {
+    &quot;geometries&quot;: [
+      {
+        &quot;id&quot;: &quot;ag_03b1a2f9-9f0e-4633-8f16-a39282db8388&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                1711.3020488566272,
+                1996.4036125319692,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:25:02.314Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:25:02.314Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_06e70323-e892-4cbe-8ad3-a5794a647f0a&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                1859.2571507823081,
+                1187.8129090191064,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:22:28.329Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:22:28.329Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_337f2afb-1860-43fe-ac93-f4e65edc90cd&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePolygon&quot;,
+            &quot;vertices&quot;: [
+              [
+                907.1070503091853,
+                962.4931670369879,
+                0
+              ],
+              [
+                894.2932606982558,
+                1171.262963069833,
+                0
+              ],
+              [
+                994.760844661082,
+                1321.2761622208732,
+                0
+              ],
+              [
+                1303.2602251092953,
+                1317.4460379872294,
+                0
+              ],
+              [
+                1413.9321319287476,
+                1076.7056033309545,
+                0
+              ],
+              [
+                1397.9327999673974,
+                881.2478244516265,
+                0
+              ],
+              [
+                1059.0104001999177,
+                846.303390183376,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:30:55.259Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:30:55.259Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_4ab118df-32bb-492b-960a-127ab40a03a0&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                1277.51794982699,
+                2408.905163983752,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:35:38.513Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:35:38.513Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_63e3ffbe-4a13-4d0c-b9da-2a8e254779d0&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePolygon&quot;,
+            &quot;vertices&quot;: [
+              [
+                2074.777441891079,
+                1858.0427025349782,
+                0
+              ],
+              [
+                2044.5175878215737,
+                1923.870872197984,
+                0
+              ],
+              [
+                2057.228674590041,
+                2038.660264969159,
+                0
+              ],
+              [
+                2138.300408078833,
+                1993.5302251015496,
+                0
+              ],
+              [
+                2149.42057977283,
+                1898.6272707612457,
+                0
+              ],
+              [
+                2141.287432300286,
+                1832.3770215886866,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 2,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:27:31.527Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:27:43.175Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_86eb00c7-158c-4266-9334-16e50f31ddd5&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                1295.716070219648,
+                2940.871450466376,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:33:06.999Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:33:06.999Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_882bac0c-4243-425c-a986-1263f4baaf96&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                476.02142884007844,
+                1061.5299665262523,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:19:28.403Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:19:28.403Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_8efc2042-9c6f-4792-86a8-80f2b5312e71&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                330.61503779900727,
+                1532.586933014894,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:33:43.137Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:33:43.137Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_963429d0-60b4-4511-8c45-41b8d3916e64&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePolyline&quot;,
+            &quot;vertices&quot;: [
+              [
+                939.1227128313641,
+                956.0411174978299,
+                0
+              ],
+              [
+                936.9429673325426,
+                972.7099427195326,
+                0
+              ],
+              [
+                934.5514751281212,
+                989.104742792812,
+                0
+              ],
+              [
+                935.26456329845,
+                1007.7477946520185,
+                0
+              ],
+              [
+                933.6702351621691,
+                1031.7343369054788,
+                0
+              ],
+              [
+                930.7556040380305,
+                1047.7118714118405,
+                0
+              ],
+              [
+                929.95843996989,
+                1070.2878069353496,
+                0
+              ],
+              [
+                935.0808418921207,
+                1090.0892378310728,
+                0
+              ],
+              [
+                935.9060312595317,
+                1106.378164551552,
+                0
+              ],
+              [
+                932.0323121159117,
+                1121.187978254974,
+                0
+              ],
+              [
+                941.3958759944209,
+                1132.285996766117,
+                0
+              ],
+              [
+                953.845336714833,
+                1148.4472526788081,
+                0
+              ],
+              [
+                953.0481726466926,
+                1164.1725594917348,
+                0
+              ],
+              [
+                954.6331590165499,
+                1199.4097024412558,
+                0
+              ],
+              [
+                956.1496390993016,
+                1215.8325278138054,
+                0
+              ],
+              [
+                952.9703245931632,
+                1236.2567431377634,
+                0
+              ],
+              [
+                952.1731605250228,
+                1252.5830369239366,
+                0
+              ],
+              [
+                947.0787839020627,
+                1270.9396079461553,
+                0
+              ],
+              [
+                942.582280330208,
+                1282.2649427736037,
+                0
+              ],
+              [
+                936.3326385928725,
+                1303.445841177867,
+                0
+              ],
+              [
+                936.413600568543,
+                1316.8076810856428,
+                0
+              ],
+              [
+                934.8192724322621,
+                1336.9734408718837,
+                0
+              ],
+              [
+                940.3122310892925,
+                1356.2890999135834,
+                0
+              ],
+              [
+                939.5742315418343,
+                1372.9952922009802,
+                0
+              ],
+              [
+                942.367419702467,
+                1382.498982575842,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: &quot;2026-07-13T09:30:38.797Z&quot;,
+        &quot;erasableBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:29:48.063Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:30:38.797Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_ddf56e77-daff-411b-9750-b0b83cf17b00&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePolygon&quot;,
+            &quot;vertices&quot;: [
+              [
+                1547.7898351579586,
+                1384.626392344995,
+                0
+              ],
+              [
+                1635.3038934003916,
+                1366.1090797162733,
+                0
+              ],
+              [
+                1716.6775509729775,
+                1404.8203013305283,
+                0
+              ],
+              [
+                1740.1712578836978,
+                1491.0956004813052,
+                0
+              ],
+              [
+                1599.2303743347493,
+                1496.3496476631572,
+                0
+              ],
+              [
+                1523.6874276590968,
+                1433.8991031113878,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: &quot;2026-07-12T12:26:08.483Z&quot;,
+        &quot;erasableBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;createdAt&quot;: &quot;2026-07-12T12:25:57.433Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-12T12:26:08.483Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_e4187f73-285b-4856-a6e0-4109cb8c26e8&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                277.10834304949617,
+                3124.005256130585,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:23:39.254Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:23:39.254Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ag_f7976974-cbe8-4d2c-b7cb-0e40ddbfa1bf&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;shapes&quot;: [
+          {
+            &quot;type&quot;: &quot;ShapePoints&quot;,
+            &quot;vertices&quot;: [
+              [
+                2727.734443169851,
+                1168.169977997593,
+                0
+              ]
+            ]
+          }
+        ],
+        &quot;referenceType&quot;: &quot;scene&quot;,
+        &quot;referenceId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:26:21.241Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:26:21.241Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      }
+    ],
+    &quot;data&quot;: [
+      {
+        &quot;id&quot;: &quot;ad_1f39acfa-d52a-4e5c-baeb-0fb4929994b0&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Lead&quot;,
+        &quot;description&quot;: &quot;Analysis identified white lead as the principal white pigment.&quot;,
+        &quot;class&quot;: &quot;ocra-voc:lead&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:33:07.048Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:33:23.363Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_3f93b7ef-2fbf-4f9a-a155-b04fbdcfef43&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Face&quot;,
+        &quot;description&quot;: &quot;Many scholars believe Medusa&apos;s face is a self-portrait of Caravaggio.&quot;,
+        &quot;class&quot;: &quot;ocra:artisticDescription&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:22:28.417Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:22:44.309Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_4933da15-3c9d-47de-a8f1-0f79a4d23f05&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Oil paint&quot;,
+        &quot;description&quot;: &quot;Oil paint applied on canvas mounted over a convex wooden parade shield&quot;,
+        &quot;class&quot;: &quot;ocra-voc:inpainting&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 2,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:19:28.452Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:21:22.290Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_4e4584e1-1ace-4f1c-908e-4b5cb00fbc16&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Cracks&quot;,
+        &quot;description&quot;: &quot;The wooden shield has developed a network of surface cracks caused by the movement of the laminated wooden support over time.&quot;,
+        &quot;class&quot;: &quot;ocra-voc:crackle&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 2,
+        &quot;erasableAt&quot;: &quot;2026-07-13T09:30:38.859Z&quot;,
+        &quot;erasableBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:29:48.110Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:30:38.859Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_95e27212-9b64-40a3-af14-9b7c6ca69dc2&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Copper&quot;,
+        &quot;description&quot;: &quot;Green passages were painted using verdigris, a copper-based pigment prone to chemical alteration.&quot;,
+        &quot;class&quot;: &quot;ocra-voc:copperAlloy&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:33:43.216Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:34:20.074Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_bfc3548b-45e0-43b2-9fd8-ca687a0921c0&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;The mouth&quot;,
+        &quot;description&quot;: &quot;The painting captures the exact instant of Medusa&apos;s decapitation.\nThe mouth is frozen in a scream between life and death.\n&quot;,
+        &quot;class&quot;: &quot;ocra:artisticDescription&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:25:02.371Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:25:43.481Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_c2d949cc-28c4-4362-a08c-4a960947fc31&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;The snakes&quot;,
+        &quot;description&quot;: &quot;The snakes remain animated, enhancing the sense of motion.&quot;,
+        &quot;class&quot;: &quot;ocra:artisticDescription&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:26:21.331Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:26:46.177Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_c4872e9b-0c11-48bc-ad63-6df92e3793ab&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;La Medusa&quot;,
+        &quot;description&quot;: &quot;Painted by Michelangelo Merisi da Caravaggio around 1597–1598.\nCommissioned by Cardinal Francesco Maria del Monte.\nCreated as a diplomatic gift for Ferdinando I de&apos; Medici.&quot;,
+        &quot;class&quot;: &quot;ocra:historicalDescription&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 2,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:23:39.366Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:26:06.404Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_d2a1acbb-3dee-41d4-91bb-9acaa26b2852&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Chiaroscuro&quot;,
+        &quot;description&quot;: &quot;Strong chiaroscuro increases the emotional impact.&quot;,
+        &quot;class&quot;: &quot;ocra:technicalDescription&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:27:31.568Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:28:25.659Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_dcfc9bae-48e8-4e73-992f-9b950a0725c3&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Cracks&quot;,
+        &quot;description&quot;: &quot;The wooden shield has developed a network of surface cracks caused by the movement of the laminated wooden support over time.&quot;,
+        &quot;class&quot;: &quot;ocra-voc:crackle&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:30:55.355Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:31:24.865Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_fc7d9128-6ada-42f3-be40-35173a0303eb&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;A000000&quot;,
+        &quot;description&quot;: &quot;&quot;,
+        &quot;class&quot;: null,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: &quot;2026-07-12T12:26:08.539Z&quot;,
+        &quot;erasableBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;createdAt&quot;: &quot;2026-07-12T12:25:57.490Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-12T12:26:08.539Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;ad_fd18cf94-9de5-423a-b41c-53c75e1b68b6&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;label&quot;: &quot;Blood&quot;,
+        &quot;description&quot;: &quot;Lead-based pigments contribute to the bright modelling of the flesh and blood.&quot;,
+        &quot;class&quot;: &quot;ocra-voc:inpainting&quot;,
+        &quot;content&quot;: {},
+        &quot;visibilityType&quot;: &quot;scene&quot;,
+        &quot;visibilityId&quot;: &quot;scene_1783850731857&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:35:38.606Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:36:18.760Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      }
+    ],
+    &quot;links&quot;: [
+      {
+        &quot;id&quot;: &quot;al_0c481ff9-d93b-4bb5-bdb6-fa11b3019224&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_03b1a2f9-9f0e-4633-8f16-a39282db8388&quot;,
+        &quot;dataId&quot;: &quot;ad_bfc3548b-45e0-43b2-9fd8-ca687a0921c0&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:25:02.400Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:25:02.400Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_35ce5735-89eb-4acb-9021-af761d6c16b4&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_337f2afb-1860-43fe-ac93-f4e65edc90cd&quot;,
+        &quot;dataId&quot;: &quot;ad_dcfc9bae-48e8-4e73-992f-9b950a0725c3&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:30:55.401Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:30:55.401Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_41dde61c-e199-41a1-87ee-1db93012a4af&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_963429d0-60b4-4511-8c45-41b8d3916e64&quot;,
+        &quot;dataId&quot;: &quot;ad_4e4584e1-1ace-4f1c-908e-4b5cb00fbc16&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: &quot;2026-07-13T09:30:38.726Z&quot;,
+        &quot;erasableBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:29:48.136Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:30:38.726Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_4714c2ac-e4c9-46ea-aef8-4ff193552a5f&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_86eb00c7-158c-4266-9334-16e50f31ddd5&quot;,
+        &quot;dataId&quot;: &quot;ad_1f39acfa-d52a-4e5c-baeb-0fb4929994b0&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:33:07.088Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:33:07.088Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_4974de3d-ffdc-4771-aeb5-f83b10424e7a&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_e4187f73-285b-4856-a6e0-4109cb8c26e8&quot;,
+        &quot;dataId&quot;: &quot;ad_c4872e9b-0c11-48bc-ad63-6df92e3793ab&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:23:39.447Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:23:39.447Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_4b843a98-a014-42c9-90f1-a12cdf548e3e&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_63e3ffbe-4a13-4d0c-b9da-2a8e254779d0&quot;,
+        &quot;dataId&quot;: &quot;ad_d2a1acbb-3dee-41d4-91bb-9acaa26b2852&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:27:31.595Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:27:31.595Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_5115b0b6-b065-48a1-8613-b12bb0ae4fa5&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_f7976974-cbe8-4d2c-b7cb-0e40ddbfa1bf&quot;,
+        &quot;dataId&quot;: &quot;ad_c2d949cc-28c4-4362-a08c-4a960947fc31&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:26:21.371Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:26:21.371Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_769b354d-c2d0-473e-9596-64ff6b240d07&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_8efc2042-9c6f-4792-86a8-80f2b5312e71&quot;,
+        &quot;dataId&quot;: &quot;ad_95e27212-9b64-40a3-af14-9b7c6ca69dc2&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:33:43.254Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:33:43.254Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_8e0759bd-42c0-4a68-b3ad-a247b7230d6e&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_882bac0c-4243-425c-a986-1263f4baaf96&quot;,
+        &quot;dataId&quot;: &quot;ad_4933da15-3c9d-47de-a8f1-0f79a4d23f05&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:19:28.487Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:19:28.487Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_9bdfda0c-e328-4044-acad-7f70a8cfe7e1&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_ddf56e77-daff-411b-9750-b0b83cf17b00&quot;,
+        &quot;dataId&quot;: &quot;ad_fc7d9128-6ada-42f3-be40-35173a0303eb&quot;,
+        &quot;version&quot;: 1,
+        &quot;erasableAt&quot;: &quot;2026-07-12T12:26:08.417Z&quot;,
+        &quot;erasableBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;createdAt&quot;: &quot;2026-07-12T12:25:57.524Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-12T12:26:08.417Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_a44cc063-ec5a-4190-80b1-e9ed942142de&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_06e70323-e892-4cbe-8ad3-a5794a647f0a&quot;,
+        &quot;dataId&quot;: &quot;ad_3f93b7ef-2fbf-4f9a-a155-b04fbdcfef43&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:22:28.475Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:22:28.475Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      },
+      {
+        &quot;id&quot;: &quot;al_c2651fa1-44d1-4f35-8f9d-302a2c6a204e&quot;,
+        &quot;projectId&quot;: &quot;cmrhmm45m000qhwhxutkp8k2b&quot;,
+        &quot;geometryId&quot;: &quot;ag_4ab118df-32bb-492b-960a-127ab40a03a0&quot;,
+        &quot;dataId&quot;: &quot;ad_fd18cf94-9de5-423a-b41c-53c75e1b68b6&quot;,
+        &quot;version&quot;: 0,
+        &quot;erasableAt&quot;: null,
+        &quot;erasableBy&quot;: null,
+        &quot;createdAt&quot;: &quot;2026-07-13T09:35:38.660Z&quot;,
+        &quot;createdBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;,
+        &quot;updatedAt&quot;: &quot;2026-07-13T09:35:38.660Z&quot;,
+        &quot;updatedBy&quot;: &quot;cmpdyui3t0000lxshmqc2zlp2&quot;
+      }
+    ]
+  }
+}
+</ocra:snapshotJson>
+  </rdf:Description>
+</rdf:RDF>

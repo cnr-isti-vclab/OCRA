@@ -186,6 +186,7 @@ export interface EchoesProjectStatus {
   projectUri: string;
   origin: 'local' | 'imported';
   syncStatus: EchoesSyncStatus;
+  canUpdatePublishedNamedGraph: boolean;
   heritageEntityUri: string | null;
   digitalTwinUri: string | null;
   namedGraphUri: string | null;

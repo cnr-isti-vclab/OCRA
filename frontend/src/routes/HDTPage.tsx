@@ -112,42 +112,6 @@ function isNamedGraphConflictDetails(value: unknown): value is { currentNamedGra
   );
 }
 
-interface RegistrationNamedGraphChoice {
-  namedGraphUri: string;
-  graphDate: string | null;
-}
-
-interface RegistrationGraphSelectionState {
-  digitalTwinUri: string;
-  digitalTwinLabel: string | null;
-  currentNamedGraphs: RegistrationNamedGraphChoice[];
-  selectedNamedGraphUri: string;
-}
-
-function isRegistrationGraphSelectionDetails(value: unknown): value is {
-  digitalTwinUri: string;
-  digitalTwinLabel: string | null;
-  currentNamedGraphs: RegistrationNamedGraphChoice[];
-} {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.digitalTwinUri === 'string' &&
-    (typeof candidate.digitalTwinLabel === 'string' || candidate.digitalTwinLabel === null) &&
-    Array.isArray(candidate.currentNamedGraphs) &&
-    candidate.currentNamedGraphs.every((item) => {
-      if (typeof item !== 'object' || item === null) return false;
-      const graph = item as Record<string, unknown>;
-      return (
-        typeof graph.namedGraphUri === 'string' &&
-        (typeof graph.graphDate === 'string' || graph.graphDate === null)
-      );
-    })
-  );
-}
-
 interface SceneConfig {
   id: string;
   label: string;
@@ -172,6 +136,7 @@ interface HDTMetadata {
   echoesContext?: {
     origin?: 'local' | 'imported';
     syncStatus?: 'local' | 'registered' | 'synced' | 'dirty';
+    canUpdatePublishedNamedGraph?: boolean;
     projectUri?: string;
     heritageEntityUri?: string;
     digitalTwinUri?: string;
@@ -215,7 +180,6 @@ export default function HDTPage() {
   const [showDuplicateEchoesForm, setShowDuplicateEchoesForm] = useState(false);
   const [echoesPreparation, setEchoesPreparation] = useState<EchoesPreparationState | null>(null);
   const [conflictingCurrentNamedGraphUri, setConflictingCurrentNamedGraphUri] = useState<string | null>(null);
-  const [registrationGraphSelection, setRegistrationGraphSelection] = useState<RegistrationGraphSelectionState | null>(null);
   const [duplicateEchoesTitle, setDuplicateEchoesTitle] = useState('');
   const [duplicateEchoesDescription, setDuplicateEchoesDescription] = useState('');
   const [duplicateEchoesHeritageEntityUri, setDuplicateEchoesHeritageEntityUri] = useState('');
@@ -310,6 +274,10 @@ export default function HDTPage() {
     echoesStatus !== null
       ? echoesStatus.namedGraphUri
       : metadata?.echoesContext?.namedGraphUri;
+  const canUpdatePublishedNamedGraph =
+    echoesStatus !== null
+      ? echoesStatus.canUpdatePublishedNamedGraph
+      : metadata?.echoesContext?.canUpdatePublishedNamedGraph ?? false;
   const hasEchoesRegistration = Boolean(effectiveEchoesDigitalTwinUri);
   const echoesReadiness = echoesStatus?.readiness ?? null;
   const echoesRequiredIssues = echoesReadiness?.requiredIssues ?? [];
@@ -529,8 +497,8 @@ export default function HDTPage() {
         title: 'Register in ECCCH',
         message: 'Proceed with ECCCH registration for this HDT?',
         details: [
-          'If OCRA creates a brand new ECCCH Digital Twin, it will immediately publish the current RDF as the first named graph.',
-          'If the Heritage Entity URI is already known in ECCCH, OCRA may reconcile the existing HDT instead of creating a new one.',
+          'Registration creates or links the ECCCH Digital Twin without selecting or modifying a named graph.',
+          'Use Create New Named Graph when you are ready to publish the local RDF.',
         ],
         actions: [
           { key: 'cancel', label: 'Cancel', tone: 'secondary' },
@@ -886,7 +854,7 @@ export default function HDTPage() {
     };
   };
 
-  const executeEchoesAction = async (action: EchoesAction, selectedNamedGraphUri?: string) => {
+  const executeEchoesAction = async (action: EchoesAction) => {
     if (!projectId) {
       return;
     }
@@ -897,10 +865,9 @@ export default function HDTPage() {
       setError(null);
 
       if (action === 'register') {
-        const result = await registerProjectHdtInEchoes(projectId, selectedNamedGraphUri);
+        const result = await registerProjectHdtInEchoes(projectId);
         setEchoesStatus(result.status);
-        setRegistrationGraphSelection(null);
-        setEchoesMessage(result.message || 'The project was registered in ECCCH and its first named graph was published.');
+        setEchoesMessage(result.message || 'The project was registered in ECCCH.');
       } else if (action === 'enrich') {
         const result = await enrichProjectHdtInEchoes(projectId);
         setEchoesStatus(result.status);
@@ -914,21 +881,6 @@ export default function HDTPage() {
       await fetchProjectAndMetadata();
     } catch (error) {
       setEchoesMessage(null);
-      if (
-        action === 'register' &&
-        error instanceof EchoesApiError &&
-        error.status === 409 &&
-        isRegistrationGraphSelectionDetails(error.details)
-      ) {
-        const currentNamedGraphs = error.details.currentNamedGraphs;
-        setRegistrationGraphSelection({
-          digitalTwinUri: error.details.digitalTwinUri,
-          digitalTwinLabel: error.details.digitalTwinLabel,
-          currentNamedGraphs,
-          selectedNamedGraphUri: currentNamedGraphs[0]?.namedGraphUri ?? '',
-        });
-        return;
-      }
       if (error instanceof EchoesApiError && error.status === 409 && isNamedGraphConflictDetails(error.details)) {
         const currentNamedGraphUri = error.details.currentNamedGraphUri;
         setConflictingCurrentNamedGraphUri(currentNamedGraphUri);
@@ -1678,7 +1630,7 @@ export default function HDTPage() {
                 </span>
               </div>
               <p className="text-muted small mb-3">
-                Register the local HDT in ECCCH, let OCRA publish the first named graph automatically when needed, then create or replace named graphs after local changes.
+                Register the local HDT in ECCCH, then create a named graph when the RDF is ready to publish. Updates are available after a named graph is linked.
               </p>
 
               <div className="row g-3 small">
@@ -1759,7 +1711,7 @@ export default function HDTPage() {
                     CREATE New Named Graph
                   </button>
                 )}
-                {canPublishProjectInEchoes && (
+                {canPublishProjectInEchoes && canUpdatePublishedNamedGraph && (
                   <button
                     type="button"
                     className="btn btn-outline-dark"
@@ -3032,82 +2984,6 @@ export default function HDTPage() {
                 }
               >
                 {echoesBusy ? 'Saving...' : 'Save Missing Data and Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-    {registrationGraphSelection && (
-      <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <div className="modal-dialog modal-lg modal-dialog-scrollable">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Choose Current Named Graph</h5>
-              <button
-                type="button"
-                className="btn-close"
-                disabled={echoesBusy}
-                onClick={() => setRegistrationGraphSelection(null)}
-              ></button>
-            </div>
-            <div className="modal-body">
-              <p>
-                ECCCH already contains the Digital Twin
-                {registrationGraphSelection.digitalTwinLabel
-                  ? ` “${registrationGraphSelection.digitalTwinLabel}”`
-                  : ''}
-                {' '}with multiple current named graph lineages. Choose which lineage this OCRA project should continue.
-              </p>
-              <div className="small text-muted text-break mb-3">
-                Digital Twin: {registrationGraphSelection.digitalTwinUri}
-              </div>
-              <div className="list-group">
-                {registrationGraphSelection.currentNamedGraphs.map((graph) => (
-                  <label className="list-group-item d-flex gap-3" key={graph.namedGraphUri}>
-                    <input
-                      className="form-check-input flex-shrink-0"
-                      type="radio"
-                      name="registration-current-named-graph"
-                      value={graph.namedGraphUri}
-                      checked={registrationGraphSelection.selectedNamedGraphUri === graph.namedGraphUri}
-                      disabled={echoesBusy}
-                      onChange={() => setRegistrationGraphSelection((current) =>
-                        current ? { ...current, selectedNamedGraphUri: graph.namedGraphUri } : current
-                      )}
-                    />
-                    <span>
-                      <span className="d-block text-break">{graph.namedGraphUri}</span>
-                      <span className="small text-muted">
-                        {graph.graphDate ? `Graph date: ${graph.graphDate}` : 'Graph date unavailable'}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <div className="alert alert-info mt-3 mb-0">
-                OCRA will only store the selected graph as the update base. No named graph is created or modified by this choice.
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                disabled={echoesBusy}
-                onClick={() => setRegistrationGraphSelection(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={echoesBusy || !registrationGraphSelection.selectedNamedGraphUri}
-                onClick={() => void executeEchoesAction(
-                  'register',
-                  registrationGraphSelection.selectedNamedGraphUri,
-                )}
-              >
-                {echoesBusy ? 'Linking...' : 'Link Selected Named Graph'}
               </button>
             </div>
           </div>

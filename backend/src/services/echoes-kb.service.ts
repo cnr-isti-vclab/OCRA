@@ -295,6 +295,7 @@ export interface EchoesProjectStatus {
   projectUri: string;
   origin: 'local' | 'imported';
   syncStatus: EchoesSyncStatus;
+  canUpdatePublishedNamedGraph: boolean;
   heritageEntityUri: string | null;
   digitalTwinUri: string | null;
   namedGraphUri: string | null;
@@ -311,22 +312,6 @@ export class NamedGraphLineageConflictError extends Error {
   constructor(readonly currentNamedGraphUri: string) {
     super(`Named graph conflict: the current graph in this lineage is <${currentNamedGraphUri}>.`);
     this.name = 'NamedGraphLineageConflictError';
-  }
-}
-
-export interface EchoesCurrentNamedGraphChoice {
-  namedGraphUri: string;
-  graphDate: string | null;
-}
-
-export class NamedGraphSelectionRequiredError extends Error {
-  constructor(
-    readonly digitalTwinUri: string,
-    readonly digitalTwinLabel: string | null,
-    readonly currentNamedGraphs: EchoesCurrentNamedGraphChoice[],
-  ) {
-    super('Multiple current named graphs are available for the existing ECCCH Digital Twin.');
-    this.name = 'NamedGraphSelectionRequiredError';
   }
 }
 
@@ -1063,7 +1048,6 @@ async function findCurrentEchoesRegistrationByHeritageEntityUri(
   projectUri: string,
 ): Promise<{
   digitalTwinUri: string;
-  currentNamedGraphs: EchoesCurrentNamedGraphChoice[];
   digitalTwinLabel: string | null;
 } | null> {
   const trimmedHeritageEntityUri = sanitizeOptionalString(heritageEntityUri);
@@ -1099,17 +1083,8 @@ LIMIT 1`;
     return null;
   }
 
-  const maintainedNamedGraphs = await listDigitalTwinMaintainedNamedGraphs(sessionId, digitalTwinUri);
-  const currentNamedGraphs = maintainedNamedGraphs
-    .filter((item) => item.graphState === 'current')
-    .map((item) => ({
-      namedGraphUri: item.namedGraphUri,
-      graphDate: extractGraphDateFromNamedGraphUri(item.namedGraphUri),
-    }));
-
   return {
     digitalTwinUri,
-    currentNamedGraphs,
     digitalTwinLabel: getBindingValue(first, 'label'),
   };
 }
@@ -1342,7 +1317,6 @@ async function reconcileExistingEchoesRegistration(
   currentContext: EchoesContext,
   heritageEntityUri: string,
   _title: string | undefined,
-  selectedNamedGraphUri?: string,
 ): Promise<EchoesRegisterProjectResult | null> {
   const existingRegistration = await findCurrentEchoesRegistrationByHeritageEntityUri(
     sessionId,
@@ -1353,36 +1327,15 @@ async function reconcileExistingEchoesRegistration(
     return null;
   }
 
-  const currentNamedGraphs = existingRegistration.currentNamedGraphs;
-  let namedGraphUri: string | null = null;
-  if (selectedNamedGraphUri) {
-    const selectedCurrentGraph = currentNamedGraphs.find((item) => item.namedGraphUri === selectedNamedGraphUri);
-    if (!selectedCurrentGraph) {
-      throw new NamedGraphSelectionRequiredError(
-        existingRegistration.digitalTwinUri,
-        existingRegistration.digitalTwinLabel,
-        currentNamedGraphs,
-      );
-    }
-    namedGraphUri = selectedCurrentGraph.namedGraphUri;
-  } else if (currentNamedGraphs.length === 1) {
-    namedGraphUri = currentNamedGraphs[0]!.namedGraphUri;
-  } else if (currentNamedGraphs.length > 1) {
-    throw new NamedGraphSelectionRequiredError(
-      existingRegistration.digitalTwinUri,
-      existingRegistration.digitalTwinLabel,
-      currentNamedGraphs,
-    );
-  }
-
   const reconciled = await updateHdtEchoesContext(projectId, {
     origin: currentContext.origin,
     projectUri: currentContext.projectUri,
     heritageEntityUri,
     digitalTwinUri: existingRegistration.digitalTwinUri,
     digitalTwinLabel: existingRegistration.digitalTwinLabel ?? (_title || currentContext.digitalTwinLabel),
-    namedGraphUri,
+    namedGraphUri: null,
     syncStatus: 'registered',
+    canUpdatePublishedNamedGraph: false,
     lastRegisteredAt: new Date(),
   }, userId);
 
@@ -1395,9 +1348,7 @@ async function reconcileExistingEchoesRegistration(
     message:
       `Heritage Entity <${heritageEntityUri}> is already present in ECCCH. ` +
       `OCRA automatically linked this project to Digital Twin <${existingRegistration.digitalTwinUri}>. ` +
-      (namedGraphUri
-        ? `Current named graph <${namedGraphUri}> was selected.`
-        : `No named graph was assigned yet.`),
+      'No named graph was selected or modified.',
   };
 }
 
@@ -1557,6 +1508,7 @@ function buildLiveEchoesImportedContext(
     heritageEntityUri: detail.heritageEntityUri || detail.physicalObjectMetadata.sourceUri,
     digitalTwinUri: detail.digitalTwinUri,
     namedGraphUri: namedGraphImportMode === 'continue_selected_graph' ? detail.namedGraphUri : undefined,
+    canUpdatePublishedNamedGraph: namedGraphImportMode === 'continue_selected_graph',
     digitalTwinLabel: detail.digitalTwinLabel || undefined,
     importedFromEchoesAt: new Date(),
     projectSnapshot: toSnapshotReference(detail.projectSnapshot),
@@ -1901,7 +1853,7 @@ function deriveEchoesContext(projectId: string, hdtDocument: HDTDocument): Echoe
         : undefined
       : undefined;
 
-  return {
+  const context = {
     ...buildDefaultEchoesContext(projectId),
     ...(hdtDocument.echoesContext ?? {}),
     ...(fallbackDigitalTwinUri ? { digitalTwinUri: fallbackDigitalTwinUri } : {}),
@@ -1913,6 +1865,16 @@ function deriveEchoesContext(projectId: string, hdtDocument: HDTDocument): Echoe
               : undefined,
         }
       : {}),
+  };
+
+  return {
+    ...context,
+    canUpdatePublishedNamedGraph:
+      context.canUpdatePublishedNamedGraph === true ||
+      (context.canUpdatePublishedNamedGraph === undefined &&
+        context.origin === 'imported' &&
+        typeof context.namedGraphUri === 'string' &&
+        context.namedGraphUri.trim().length > 0),
   };
 }
 
@@ -1974,6 +1936,7 @@ function toProjectStatus(hdtDocument: HDTDocument): EchoesProjectStatus {
     projectUri: context.projectUri,
     origin: context.origin,
     syncStatus,
+    canUpdatePublishedNamedGraph: context.canUpdatePublishedNamedGraph === true,
     heritageEntityUri: context.heritageEntityUri ?? hdtDocument.physicalObjectMetadata?.sourceUri ?? null,
     digitalTwinUri: context.digitalTwinUri ?? null,
     namedGraphUri: context.namedGraphUri ?? null,
@@ -2174,9 +2137,7 @@ function createRdfUploadForm(rdf: string): FormData {
 export async function registerProjectHdtInEchoes(
   sessionId: string,
   projectId: string,
-  publicBaseUrl: string,
   userId?: string,
-  selectedNamedGraphUri?: string,
 ): Promise<EchoesRegisterProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
   await assertProjectCanRegisterInEchoes(projectId, hdtDocument);
@@ -2202,24 +2163,10 @@ export async function registerProjectHdtInEchoes(
     currentContext,
     heritageEntityUri,
     title,
-    selectedNamedGraphUri,
   );
   if (reconciledRegistration) {
-    if (reconciledRegistration.status.namedGraphUri) {
-      return reconciledRegistration;
-    }
-
-    const publishResult = await publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'enrich');
-    return {
-      status: publishResult.status,
-      message:
-        `Heritage Entity URI <${heritageEntityUri}> is already present in ECCCH. ` +
-        `OCRA linked this project to the existing Digital Twin <${publishResult.status.digitalTwinUri}> ` +
-        `and published the first named graph for it.`,
-    };
+    return reconciledRegistration;
   }
-
-  await assertProjectCanPublishToEchoes(projectId, hdtDocument);
 
   const params = new URLSearchParams({
     heritageEntityUri,
@@ -2232,8 +2179,8 @@ export async function registerProjectHdtInEchoes(
   if (title) {
     params.set('name', title);
   }
-  // ECCCH currently treats register metadata very defensively. Keep this step limited to
-  // a short safe label and let the immediate RDF publish carry the full descriptive content.
+  // Registration creates the Digital Twin only. Local projects publish RDF through the
+  // explicit "Create New Named Graph" action.
 
   let payload: EchoesRegisterResponse;
   try {
@@ -2292,6 +2239,7 @@ export async function registerProjectHdtInEchoes(
     digitalTwinUri: payload.dtUri,
     digitalTwinLabel: title || currentContext.digitalTwinLabel,
     syncStatus: 'registered',
+    canUpdatePublishedNamedGraph: false,
     lastRegisteredAt: new Date(),
   }, userId);
 
@@ -2299,59 +2247,10 @@ export async function registerProjectHdtInEchoes(
     throw new Error('Failed to persist the registered ECCCH identifiers locally');
   }
 
-  try {
-    const publishResult = await publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'enrich');
-    return {
-      status: publishResult.status,
-      message:
-        `The project was registered in ECCCH as Digital Twin <${payload.dtUri}> ` +
-        `and its first named graph was published successfully.`,
-    };
-  } catch (error) {
-    let rollbackMessage = '';
-
-    try {
-      const rollbackPayload = await fetchEchoesJson<EchoesUnregisterResponse>(
-        sessionId,
-        `${getEchoesKbApiBase()}/hdt/unregister?${new URLSearchParams({ digitalTwinUri: payload.dtUri }).toString()}`,
-        {
-          method: 'POST',
-        },
-      );
-
-      if (!rollbackPayload.succeed) {
-        rollbackMessage =
-          ` Automatic rollback unregister also failed: ${rollbackPayload.message || 'unknown ECCCH error'}.`;
-      } else {
-        await updateHdtEchoesContext(projectId, {
-          origin: currentContext.origin,
-          projectUri: currentContext.projectUri,
-          heritageEntityUri,
-          digitalTwinUri: null,
-          digitalTwinLabel: null,
-          namedGraphUri: null,
-          syncStatus: 'local',
-          lastRegisteredAt: null,
-          lastSyncedAt: null,
-          lastSyncedProjectUpdatedAt: null,
-          projectSnapshot: null,
-        }, userId);
-        rollbackMessage =
-          ' The temporary ECCCH registration was rolled back automatically, so no empty HDT was left behind.';
-      }
-    } catch (rollbackError) {
-      rollbackMessage =
-        ` Automatic rollback unregister failed: ${
-          rollbackError instanceof Error ? rollbackError.message : 'unknown ECCCH error'
-        }.`;
-    }
-
-    throw new Error(
-      `ECCCH registration succeeded for <${payload.dtUri}>, but the first named graph could not be published: ${
-        error instanceof Error ? error.message : 'unknown publish error'
-      }.${rollbackMessage}`,
-    );
-  }
+  return {
+    status: toProjectStatus(updated),
+    message: `The project was registered in ECCCH as Digital Twin <${payload.dtUri}>. Create a new named graph when you are ready to publish RDF content.`,
+  };
 }
 
 async function disconnectLocalProjectsFromDigitalTwin(
@@ -2490,7 +2389,7 @@ async function publishProjectRdfToEchoes(
   projectId: string,
   userId: string | undefined,
   publicBaseUrl: string,
-  mode: 'enrich' | 'replace',
+  publicationIntent: 'new-named-graph' | 'replace',
 ): Promise<EchoesPublishProjectResult> {
   const hdtDocument = await requireProjectHdtDocument(projectId);
   const currentContext = deriveEchoesContext(projectId, hdtDocument);
@@ -2499,11 +2398,17 @@ async function publishProjectRdfToEchoes(
     throw new Error('Register the HDT in ECCCH before publishing RDF content');
   }
 
-  if (mode === 'replace' && !currentContext.namedGraphUri) {
+  const isReplace = publicationIntent === 'replace';
+
+  if (isReplace && !currentContext.namedGraphUri) {
     throw new Error('No ECCCH named graph is linked to this project yet');
   }
 
-  if (mode === 'replace' && currentContext.namedGraphUri) {
+  if (isReplace && !currentContext.canUpdatePublishedNamedGraph) {
+    throw new Error('Create a new named graph before updating published content.');
+  }
+
+  if (isReplace && currentContext.namedGraphUri) {
     const currentNamedGraphUri = await resolveCurrentNamedGraphInLineage(
       sessionId,
       currentContext.digitalTwinUri,
@@ -2520,7 +2425,7 @@ async function publishProjectRdfToEchoes(
   const form = createRdfUploadForm(rdf);
   form.append('digitalTwinUri', currentContext.digitalTwinUri);
 
-  if (mode === 'enrich') {
+  if (!isReplace) {
     form.append('triplestoreId', getEchoesPublicTripleStoreId());
   } else if (currentContext.namedGraphUri) {
     form.append('namedGraphUri', currentContext.namedGraphUri);
@@ -2528,7 +2433,7 @@ async function publishProjectRdfToEchoes(
 
   const payload = await postRdfMultipart(
     sessionId,
-    mode === 'enrich' ? '/hdt/enrich' : '/hdt/replaceContent',
+    !isReplace ? '/hdt/enrich' : '/hdt/replaceContent',
     form,
   );
 
@@ -2536,7 +2441,7 @@ async function publishProjectRdfToEchoes(
     throw new Error(payload.message || 'ECCCH publish failed');
   }
 
-  if (mode === 'replace') {
+  if (isReplace) {
     const replacementNamedGraphUri = payload.namedGraph?.trim();
     if (!replacementNamedGraphUri) {
       throw new Error('ECCCH did not return the named graph URI created by replaceContent. The legacy graph was not relinked locally.');
@@ -2556,6 +2461,7 @@ async function publishProjectRdfToEchoes(
     digitalTwinUri: currentContext.digitalTwinUri,
     digitalTwinLabel: currentContext.digitalTwinLabel || sourceDocument.physicalObjectMetadata.dublinCore?.title,
     namedGraphUri: payload.namedGraph?.trim() || currentContext.namedGraphUri,
+    canUpdatePublishedNamedGraph: true,
     syncStatus: 'synced',
     assetRecords: sourceDocument.digitalAssets.map((asset) => ({
       assetId: asset.id,
@@ -2592,7 +2498,7 @@ export async function enrichProjectHdtInEchoes(
   publicBaseUrl: string,
   userId?: string,
 ): Promise<EchoesPublishProjectResult> {
-  return publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'enrich');
+  return publishProjectRdfToEchoes(sessionId, projectId, userId, publicBaseUrl, 'new-named-graph');
 }
 
 export async function replaceProjectHdtContentInEchoes(
@@ -2685,6 +2591,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
     projectUri: currentContext.projectUri,
     origin: 'local',
     syncStatus: 'synced',
+    canUpdatePublishedNamedGraph: true,
     heritageEntityUri,
     digitalTwinUri: registerPayload.dtUri,
     namedGraphUri: enrichPayload.namedGraph ?? null,
