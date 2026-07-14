@@ -2617,7 +2617,7 @@ export async function duplicateProjectHdtAsNewInEchoes(
   const description = normalizeEchoesQueryParam(input.description) || normalizeEchoesQueryParam(hdtDocument.physicalObjectMetadata.dublinCore?.description);
   const heritageEntityUri =
     sanitizeOptionalString(input.heritageEntityUri) ||
-    `${currentContext.projectUri.replace(/\/$/, '')}/heritage-entity/${projectId}-${Date.now()}`;
+    `http://echoes-eccch.eu/heritage-entity/${projectId}-${Date.now()}`;
 
   const registerParams = new URLSearchParams({
     heritageEntityUri,
