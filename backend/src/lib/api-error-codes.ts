@@ -135,7 +135,6 @@ export const API_ERROR_CODES = {
     enrichFailed: 'echoes.enrich_failed',
     replaceFailed: 'echoes.replace_failed',
     namedGraphConflict: 'echoes.named_graph_conflict',
-    namedGraphSelectionRequired: 'echoes.named_graph_selection_required',
     duplicateFailed: 'echoes.duplicate_failed',
   },
   annotation: {

@@ -219,6 +219,8 @@ export interface EchoesProjectSnapshotReference {
 export interface EchoesContext {
   origin: 'local' | 'imported';
   syncStatus: EchoesSyncStatus;
+  /** Whether the linked named graph is eligible for replacement by OCRA. */
+  canUpdatePublishedNamedGraph?: boolean;
   projectUri: string;
   heritageEntityUri?: string;
   digitalTwinUri?: string;

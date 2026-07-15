@@ -319,13 +319,8 @@ async function postEchoesProjectAction(
 
 export async function registerProjectHdtInEchoes(
   projectId: string,
-  namedGraphUri?: string,
 ): Promise<EchoesRegisterProjectResult> {
-  const payload = (await postEchoesProjectAction(
-    projectId,
-    'register',
-    namedGraphUri ? { namedGraphUri } : undefined,
-  )) as EchoesProjectStatusResponse;
+  const payload = (await postEchoesProjectAction(projectId, 'register')) as EchoesProjectStatusResponse;
   return {
     status: payload.status,
     message: payload.message,

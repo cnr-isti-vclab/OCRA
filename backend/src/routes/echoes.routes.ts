@@ -233,13 +233,10 @@ router.get('/projects/:projectId/status', getEchoesProjectStatusHandler);
  * @openapi
  * /api/eccch/projects/{projectId}/register:
  *   post:
- *     summary: Register the local HDT in ECCCH and publish its first named graph when newly created
+ *     summary: Register the local HDT in ECCCH
  *     description: |
  *       Creates or confirms the ECCCH Digital Twin identifier for the local OCRA HDT.
- *       If OCRA creates a brand new Digital Twin, it immediately uploads the current RDF as the first named graph,
- *       so OCRA does not leave behind an empty ECCCH registration without content.
- *       If the heritage entity is already registered in ECCCH, OCRA reuses the existing Digital Twin link without forcing a new publish.
- *       When that Digital Twin has multiple current lineages, the first request returns 409 and the client repeats the request with the selected namedGraphUri.
+ *       Registration does not select, create, or modify a named graph. Publish RDF through the dedicated enrich endpoint.
  *     tags:
  *       - ECCCH
  *     security:
@@ -251,16 +248,6 @@ router.get('/projects/:projectId/status', getEchoesProjectStatusHandler);
  *         required: true
  *         schema:
  *           type: string
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               namedGraphUri:
- *                 type: string
- *                 description: Current named graph selected when the existing HDT has multiple active lineages.
  *     responses:
  *       200:
  *         description: HDT registered in ECCCH
@@ -268,8 +255,6 @@ router.get('/projects/:projectId/status', getEchoesProjectStatusHandler);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/EchoesRegisterProjectResponse'
- *       409:
- *         description: Multiple current named graph lineages require an explicit selection
  */
 router.post('/projects/:projectId/register', registerProjectHdtInEchoesHandler);
 

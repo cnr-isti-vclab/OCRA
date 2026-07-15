@@ -449,6 +449,10 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               enum: ['local', 'registered', 'synced', 'dirty'],
               example: 'synced',
             },
+            canUpdatePublishedNamedGraph: {
+              type: 'boolean',
+              example: true,
+            },
             projectUri: {
               type: 'string',
               example: 'http://echoes-eccch.eu/project/ECHOES',
@@ -902,7 +906,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
             heritageEntityUri: {
               type: 'string',
-              example: 'https://data.ocra.echoes.eu/heritage-entity/uc2-lamina-demo-copy',
+              example: 'http://echoes-eccch.eu/heritage-entity/uc2-lamina-demo-copy',
             },
           },
         },
