@@ -368,6 +368,7 @@ export default function EchoesHdtBrowser({
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
+                  event.stopPropagation();
                   void handleSearch();
                 }
               }}

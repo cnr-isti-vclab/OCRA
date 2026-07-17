@@ -143,6 +143,7 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
+                  e.stopPropagation();
                   void handleSearch();
                 }
               }}
