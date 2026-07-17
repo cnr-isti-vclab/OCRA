@@ -42,6 +42,7 @@ import {
   type CreateAnnotationInput,
   type UpdateDataInput,
   type AnnotationCreationDraft,
+  type AnnotationDeletionDraft,
 } from '../stores/AnnotationStore';
 import AppMessageModal from '../shared/ui/AppMessageModal';
 import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
@@ -118,6 +119,13 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   setCreationDraftGeometry: (viewerId: string, shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   setCreationGeometrySelection: (geometryIds: string[]) => void;
   toggleCreationDataSelection: (dataId: string) => void;
+  deletionDraft: Readonly<AnnotationDeletionDraft> | null;
+  isDeletionWizardActive: boolean;
+  initDeletionDraft: () => void;
+  updateDeletionDraft: (patch: Partial<AnnotationDeletionDraft>) => void;
+  discardDeletionDraft: () => void;
+  beginDeletionWizard: () => { ok: true } | { ok: false; message: string };
+  advanceDeletionStep: () => { ok: true } | { ok: false; message: string };
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
   currentStreamId: string | null;
@@ -786,6 +794,26 @@ export function AnnotationStoreProvider({
     storeRef.current?.toggleCreationDataSelection(dataId);
   }, []);
 
+  const initDeletionDraft = useCallback(() => {
+    storeRef.current?.initDeletionDraft();
+  }, []);
+
+  const updateDeletionDraft = useCallback((patch: Partial<AnnotationDeletionDraft>) => {
+    storeRef.current?.updateDeletionDraft(patch);
+  }, []);
+
+  const discardDeletionDraft = useCallback(() => {
+    storeRef.current?.discardDeletionDraft();
+  }, []);
+
+  const beginDeletionWizard = useCallback(() => {
+    return storeRef.current?.beginDeletionWizard() ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
+  const advanceDeletionStep = useCallback(() => {
+    return storeRef.current?.advanceDeletionStep() ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
   const loadProjectData = useCallback(async () => {
     await storeRef.current?.loadProjectData();
   }, []);
@@ -891,6 +919,13 @@ export function AnnotationStoreProvider({
     setCreationDraftGeometry,
     setCreationGeometrySelection,
     toggleCreationDataSelection,
+    deletionDraft: store?.deletionDraftState ?? null,
+    isDeletionWizardActive: store?.isDeletionWizardActive ?? false,
+    initDeletionDraft,
+    updateDeletionDraft,
+    discardDeletionDraft,
+    beginDeletionWizard,
+    advanceDeletionStep,
     eventLog,
     activeSocialLocks,
     currentStreamId,

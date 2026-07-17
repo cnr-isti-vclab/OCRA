@@ -44,8 +44,15 @@ import {
   validateCreationSetup,
   validateCreationStep,
 } from '../features/annotation-creation/annotationCreationValidation';
+import type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
+import { createDefaultDeletionDraft } from '../features/annotation-deletion/createDefaultDeletionDraft';
+import {
+  applyDeletionIntentAutoLink,
+  validateDeletionSetup,
+} from '../features/annotation-deletion/annotationDeletionValidation';
 
 export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
+export type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
 
 export type AnnotationStoreActionResult =
   | { ok: true }
@@ -158,6 +165,7 @@ export class AnnotationStore {
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
   private creationDraft: AnnotationCreationDraft | null = null;
   private rememberedCreationSetup: AnnotationCreationSetupDraft | null = null;
+  private deletionDraft: AnnotationDeletionDraft | null = null;
 
   constructor(
     private readonly projectId: string,
@@ -207,7 +215,23 @@ export class AnnotationStore {
         || this.creationDraft.step === 'committing');
   }
 
+  get deletionDraftState(): Readonly<AnnotationDeletionDraft> | null {
+    return this.deletionDraft;
+  }
+
+  get isDeletionWizardActive(): boolean {
+    return this.deletionDraft !== null
+      && (this.deletionDraft.step === 'selecting'
+        || this.deletionDraft.step === 'committing');
+  }
+
   initCreationDraft(): void {
+    if (this.isDeletionWizardActive) {
+      return;
+    }
+    if (this.deletionDraft) {
+      this.deletionDraft = null;
+    }
     let draft = createDefaultCreationDraft(this.sceneId);
     if (this.rememberedCreationSetup) {
       draft = applyRememberedCreationSetup(draft, this.rememberedCreationSetup);
@@ -237,6 +261,9 @@ export class AnnotationStore {
   }
 
   beginCreationWizard(): { ok: true } | { ok: false; message: string } {
+    if (this.isDeletionWizardActive) {
+      return { ok: false, message: 'Finish or cancel deletion before creating.' };
+    }
     if (!this.creationDraft || this.creationDraft.step !== 'setup') {
       return { ok: false, message: 'Creation setup is not active.' };
     }
@@ -255,6 +282,78 @@ export class AnnotationStore {
       selectedDataIds: [],
     };
     this.bump();
+    return { ok: true };
+  }
+
+  initDeletionDraft(): void {
+    if (this.isCreationWizardActive) {
+      return;
+    }
+    if (this.creationDraft) {
+      this.rememberedCreationSetup = extractCreationSetup(this.creationDraft);
+      this.creationDraft = null;
+    }
+    this.deletionDraft = createDefaultDeletionDraft();
+    this.bump();
+  }
+
+  updateDeletionDraft(patch: Partial<AnnotationDeletionDraft>): void {
+    if (!this.deletionDraft) {
+      return;
+    }
+
+    const intentPatch = applyDeletionIntentAutoLink(patch, this.deletionDraft);
+    this.deletionDraft = {
+      ...this.deletionDraft,
+      ...patch,
+      ...intentPatch,
+    };
+    this.bump();
+  }
+
+  discardDeletionDraft(): void {
+    if (!this.deletionDraft) {
+      return;
+    }
+    this.deletionDraft = null;
+    this.bump();
+  }
+
+  beginDeletionWizard(): { ok: true } | { ok: false; message: string } {
+    if (this.isCreationWizardActive) {
+      return { ok: false, message: 'Finish or cancel creation before deleting.' };
+    }
+    if (!this.deletionDraft || this.deletionDraft.step !== 'setup') {
+      return { ok: false, message: 'Deletion setup is not active.' };
+    }
+
+    const validation = validateDeletionSetup(this.deletionDraft);
+    if (!validation.ok) {
+      return { ok: false, message: validation.message ?? 'Invalid deletion setup.' };
+    }
+
+    this.deletionDraft = {
+      ...this.deletionDraft,
+      step: 'selecting',
+      candidateLinkIds: [],
+      candidateGeometryIds: [],
+      candidateDataIds: [],
+    };
+    this.bump();
+    return { ok: true };
+  }
+
+  /**
+   * M1: only advances setup → selecting (same as {@link beginDeletionWizard}).
+   * Later milestones will advance through selection/commit.
+   */
+  advanceDeletionStep(): { ok: true } | { ok: false; message: string } {
+    if (!this.deletionDraft) {
+      return { ok: false, message: 'No deletion session is active.' };
+    }
+    if (this.deletionDraft.step === 'setup') {
+      return this.beginDeletionWizard();
+    }
     return { ok: true };
   }
 
@@ -659,6 +758,7 @@ export class AnnotationStore {
     this.selectionCriteria = { includeErasable: false };
     this.activeSelection = createEmptyActiveSelection();
     this.creationDraft = null;
+    this.deletionDraft = null;
     if (hadPending) {
       this.callbacks.onEditsCancelled();
     }
@@ -958,6 +1058,7 @@ export class AnnotationStore {
     this.isSaving.clear();
     this.isCreating = false;
     this.creationDraft = null;
+    this.deletionDraft = null;
     if (hadPending) {
       this.callbacks.onEditsCancelled();
     }

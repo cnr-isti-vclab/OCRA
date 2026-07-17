@@ -9,9 +9,7 @@ import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts';
 import {
-  areAnyDataIdsUnderRemoteEditorLock,
   isDataIdUnderEditorLock,
-  isDataIdUnderRemoteEditorLock,
 } from '../../stores/annotation-social-locks';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
@@ -29,6 +27,7 @@ import AnnotationCreationDataStep from '../../features/annotation-creation/Annot
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
+import AnnotationDeletionPanel from '../../features/annotation-deletion/AnnotationDeletionPanel';
 import type {
   VocabularyConcept,
   VocabularyProperty,
@@ -57,6 +56,19 @@ function discardCreationModalDescriptor(): MessageModalDescriptor {
     tone: 'warning',
     title: 'Discard annotation creation?',
     message: 'This will cancel the current creation draft.',
+    actions: [
+      { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
+      { key: 'discard', label: 'Discard', tone: 'danger' },
+    ],
+    dismissOnBackdrop: false,
+  });
+}
+
+function discardDeletionModalDescriptor(): MessageModalDescriptor {
+  return new MessageModalDescriptor({
+    tone: 'warning',
+    title: 'Discard annotation deletion?',
+    message: 'This will cancel the current deletion draft and clear the selection basket.',
     actions: [
       { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
       { key: 'discard', label: 'Discard', tone: 'danger' },
@@ -145,9 +157,13 @@ export default function AnnotationPanelEditor({
     beginCreationWizard,
     advanceCreationStep,
     toggleCreationDataSelection,
+    deletionDraft,
+    isDeletionWizardActive,
+    initDeletionDraft,
+    updateDeletionDraft,
+    discardDeletionDraft,
+    beginDeletionWizard,
     updateData,
-    markDataErasable,
-    markAnnotationTripletErasable,
     startEditorLock,
     stopEditorLock,
   } = useAnnotationStore();
@@ -167,8 +183,11 @@ export default function AnnotationPanelEditor({
   } = useAnnotationCreationWizard();
 
   const [createSectionExpanded, setCreateSectionExpanded] = useState(false);
+  const [deleteSectionExpanded, setDeleteSectionExpanded] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [deletionSetupError, setDeletionSetupError] = useState<string | null>(null);
   const [discardCreationModal, setDiscardCreationModal] = useState<MessageModalDescriptor | null>(null);
+  const [discardDeletionModal, setDiscardDeletionModal] = useState<MessageModalDescriptor | null>(null);
   const [creationDataModalOpen, setCreationDataModalOpen] = useState(false);
 
   const scopeOptions = useMemo(
@@ -177,17 +196,61 @@ export default function AnnotationPanelEditor({
   );
 
   const handleCreateSectionToggle = useCallback(() => {
+    if (isDeletionWizardActive) {
+      return;
+    }
     setCreateSectionExpanded((expanded) => {
       const next = !expanded;
-      if (next && !creationDraft) {
-        initCreationDraft();
-      }
-      if (!next) {
+      if (next) {
+        if (deletionDraft) {
+          discardDeletionDraft();
+          setDeleteSectionExpanded(false);
+          setDeletionSetupError(null);
+        }
+        if (!creationDraft) {
+          initCreationDraft();
+        }
+      } else {
         setSetupError(null);
       }
       return next;
     });
-  }, [creationDraft, initCreationDraft]);
+  }, [
+    creationDraft,
+    deletionDraft,
+    discardDeletionDraft,
+    initCreationDraft,
+    isDeletionWizardActive,
+  ]);
+
+  const handleDeleteSectionToggle = useCallback(() => {
+    if (isCreationWizardActive) {
+      return;
+    }
+    setDeleteSectionExpanded((expanded) => {
+      const next = !expanded;
+      if (next) {
+        if (creationDraft) {
+          discardCreationDraft();
+          setCreateSectionExpanded(false);
+          setSetupError(null);
+          setCreationDataModalOpen(false);
+        }
+        if (!deletionDraft) {
+          initDeletionDraft();
+        }
+      } else {
+        setDeletionSetupError(null);
+      }
+      return next;
+    });
+  }, [
+    creationDraft,
+    deletionDraft,
+    discardCreationDraft,
+    initDeletionDraft,
+    isCreationWizardActive,
+  ]);
 
   const handleBeginCreation = useCallback(() => {
     const result = beginCreationWizard();
@@ -198,6 +261,15 @@ export default function AnnotationPanelEditor({
     setSetupError(null);
   }, [beginCreationWizard]);
 
+  const handleBeginDeletion = useCallback(() => {
+    const result = beginDeletionWizard();
+    if (!result.ok) {
+      setDeletionSetupError(result.message);
+      return;
+    }
+    setDeletionSetupError(null);
+  }, [beginDeletionWizard]);
+
   const handleDiscardCreation = useCallback(() => {
     discardCreationDraft();
     setSetupError(null);
@@ -206,8 +278,19 @@ export default function AnnotationPanelEditor({
     setCreateSectionExpanded(false);
   }, [discardCreationDraft]);
 
+  const handleDiscardDeletion = useCallback(() => {
+    discardDeletionDraft();
+    setDeletionSetupError(null);
+    setDiscardDeletionModal(null);
+    setDeleteSectionExpanded(false);
+  }, [discardDeletionDraft]);
+
   const handleCreationBack = useCallback(() => {
     setDiscardCreationModal(discardCreationModalDescriptor());
+  }, []);
+
+  const handleDeletionBack = useCallback(() => {
+    setDiscardDeletionModal(discardDeletionModalDescriptor());
   }, []);
 
   const handleCreationNext = useCallback(async () => {
@@ -269,38 +352,6 @@ export default function AnnotationPanelEditor({
             : 'Disconnected';
 
   const focusedDataIdList = [...focusedDataIds];
-
-  const deleteBlockedTitle =
-    'Cannot delete while another user is editing this annotation';
-
-  const deleteButtonClass = (disabled: boolean, size: 'sm' | 'md' = 'sm') =>
-    [
-      'btn',
-      size === 'sm' ? 'btn-sm' : '',
-      disabled
-        ? 'btn-outline-secondary text-muted annotation-delete-btn--inactive'
-        : 'btn-outline-danger',
-    ]
-      .filter(Boolean)
-      .join(' ');
-
-  const bulkDeleteBlocked = useMemo(
-    () =>
-      areAnyDataIdsUnderRemoteEditorLock(
-        focusedDataIdList,
-        activeSocialLocks,
-        currentStreamId,
-        activeAnnotationSelection.geometryIdsByDataId,
-        allLinks,
-      ),
-    [
-      focusedDataIdList,
-      activeSocialLocks,
-      currentStreamId,
-      activeAnnotationSelection.geometryIdsByDataId,
-      allLinks,
-    ],
-  );
 
   const collaborativeEditInfo = useMemo(() => {
     if (!currentStreamId) {
@@ -449,44 +500,6 @@ export default function AnnotationPanelEditor({
     focusData(dataId, e.ctrlKey || e.metaKey);
   };
 
-  const handleDelete = async (dataId: string) => {
-    if (
-      isDataIdUnderRemoteEditorLock(
-        dataId,
-        activeSocialLocks,
-        currentStreamId,
-        activeAnnotationSelection.geometryIdsByDataId,
-        allLinks,
-      )
-    ) {
-      return;
-    }
-    if (window.confirm('Mark annotation triplet (data + link + geometry) as erasable (soft delete)?')) {
-      try {
-        await markAnnotationTripletErasable(dataId);
-      } catch (err) {
-        console.error('Failed to mark data erasable:', err);
-        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data'));
-      }
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (focusedDataIdList.length === 0 || bulkDeleteBlocked) {
-      return;
-    }
-    const count = focusedDataIdList.length;
-    if (window.confirm(`Mark ${count} annotation triplet${count > 1 ? 's' : ''} as erasable?`)) {
-      try {
-        await Promise.all(focusedDataIdList.map((id) => markAnnotationTripletErasable(id)));
-        clearFocus();
-      } catch (err) {
-        console.error('Failed to delete annotation data:', err);
-        setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'delete_data_bulk'));
-      }
-    }
-  };
-
   const handleEditSave = async () => {
     if (!editingDraft) {
       return;
@@ -582,6 +595,19 @@ export default function AnnotationPanelEditor({
     }
   }, [creationDraft]);
 
+  const hadDeletionDraftRef = useRef(false);
+  useEffect(() => {
+    if (deletionDraft) {
+      hadDeletionDraftRef.current = true;
+      return;
+    }
+    if (hadDeletionDraftRef.current) {
+      hadDeletionDraftRef.current = false;
+      setDeleteSectionExpanded(false);
+      setDeletionSetupError(null);
+    }
+  }, [deletionDraft]);
+
   useEffect(() => {
     return () => {
       if (editingDataIdRef.current) {
@@ -595,16 +621,6 @@ export default function AnnotationPanelEditor({
       title="Annotations"
       headerRight={focusedDataIdList.length > 0 ? (
         <div className="btn-group btn-group-sm" role="group">
-          <button
-            type="button"
-            className={deleteButtonClass(creating || bulkDeleteBlocked, 'md')}
-            onClick={() => void handleBulkDelete()}
-            disabled={creating || bulkDeleteBlocked}
-            title={bulkDeleteBlocked ? deleteBlockedTitle : undefined}
-          >
-            <i className="bi bi-trash me-1" aria-hidden />
-            Delete ({focusedDataIdList.length})
-          </button>
           <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
             <i className="bi bi-x-lg" aria-hidden />
           </button>
@@ -627,7 +643,7 @@ export default function AnnotationPanelEditor({
           </div>
         </div>
       }
-      classFilter={isCreationWizardActive ? null : (
+      classFilter={isCreationWizardActive || isDeletionWizardActive ? null : (
         <AnnotationClassFilter
           idPrefix="annotation-editor"
           pool={sceneAnnotationClassPool}
@@ -641,15 +657,28 @@ export default function AnnotationPanelEditor({
       )}
       toggle={(
         <>
-          <div className="mb-3">
+          <div className="mb-2 d-flex gap-2">
             <button
               type="button"
-              className={`btn btn-sm w-100 ${createSectionExpanded ? 'btn-primary' : 'btn-outline-primary'}`}
+              className={`btn btn-sm flex-fill ${createSectionExpanded ? 'btn-primary' : 'btn-outline-primary'}`}
               onClick={handleCreateSectionToggle}
               aria-expanded={createSectionExpanded}
+              disabled={isDeletionWizardActive}
+              title={isDeletionWizardActive ? 'Finish or cancel deletion before creating' : undefined}
             >
               <i className={`bi ${createSectionExpanded ? 'bi-chevron-up' : 'bi-plus-lg'} me-1`} aria-hidden />
-              Create annotation
+              Create
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm flex-fill ${deleteSectionExpanded ? 'btn-danger' : 'btn-outline-danger'}`}
+              onClick={handleDeleteSectionToggle}
+              aria-expanded={deleteSectionExpanded}
+              disabled={isCreationWizardActive}
+              title={isCreationWizardActive ? 'Finish or cancel creation before deleting' : undefined}
+            >
+              <i className={`bi ${deleteSectionExpanded ? 'bi-chevron-up' : 'bi-trash'} me-1`} aria-hidden />
+              Delete
             </button>
           </div>
           {createSectionExpanded && creationDraft ? (
@@ -664,7 +693,19 @@ export default function AnnotationPanelEditor({
               onNext={() => void handleCreationNext()}
             />
           ) : null}
-          {!isCreationWizardActive ? (
+          {deleteSectionExpanded && deletionDraft ? (
+            <AnnotationDeletionPanel
+              draft={deletionDraft}
+              setupError={deletionSetupError}
+              onDraftChange={updateDeletionDraft}
+              onStartDelete={handleBeginDeletion}
+              onBack={handleDeletionBack}
+              onConfirmDelete={() => {
+                setDeletionSetupError('Confirm delete is not available yet.');
+              }}
+            />
+          ) : null}
+          {!isCreationWizardActive && !isDeletionWizardActive ? (
             <AnnotationLinkViewModeToggle
               idPrefix="annotation-editor"
               mode={linkViewMode}
@@ -719,15 +760,6 @@ export default function AnnotationPanelEditor({
                 activeAnnotationSelection.geometryIdsByDataId,
                 allLinks,
               );
-              const deleteDisabled =
-                creating ||
-                isDataIdUnderRemoteEditorLock(
-                  datum.id,
-                  activeSocialLocks,
-                  currentStreamId,
-                  activeAnnotationSelection.geometryIdsByDataId,
-                  allLinks,
-                );
 
               const itemColors = isUnderEditing
                 ? {
@@ -772,24 +804,9 @@ export default function AnnotationPanelEditor({
                               },
                             );
                           }}
-                          disabled={creating}
+                          disabled={creating || isDeletionWizardActive}
                         >
                           <i className="bi bi-pencil"></i>
-                        </button>
-                        <button
-                          type="button"
-                          className={deleteButtonClass(deleteDisabled)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDelete(datum.id);
-                          }}
-                          disabled={deleteDisabled}
-                          title={deleteDisabled ? deleteBlockedTitle : undefined}
-                          aria-label={
-                            deleteDisabled ? 'Delete unavailable (annotation under edit)' : 'Delete annotation'
-                          }
-                        >
-                          <i className="bi bi-trash" aria-hidden />
                         </button>
                       </div>
                     </div>
@@ -874,6 +891,19 @@ export default function AnnotationPanelEditor({
             return;
           }
           setDiscardCreationModal(null);
+        }}
+      />
+      <AppMessageModal
+        descriptor={discardDeletionModal}
+        onClose={() => {
+          setDiscardDeletionModal(null);
+        }}
+        onAction={(actionKey) => {
+          if (actionKey === 'discard') {
+            handleDiscardDeletion();
+            return;
+          }
+          setDiscardDeletionModal(null);
         }}
       />
     </AnnotationPanelBase>

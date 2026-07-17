@@ -6,7 +6,7 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 
 | Milestone | Scope | Status |
 | --------- | ----- | ------ |
-| M1 | Remove card/bulk triplet delete; expandable Delete setup | **Planned** |
+| M1 | Remove card/bulk triplet delete; expandable Delete setup | **Done** |
 | M2 | Selection phase + link view integration | **Planned** |
 | M3 | One-to-many disambiguation modals | **Planned** |
 | M4 | Sequential commit, OCC, still-linked guard, rollback | **Planned** |
@@ -399,11 +399,11 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 
 **Exit criteria**
 
-- [ ] Delete section expands/collapses; invalid checkbox combos show inline validation (Geometry/Data without Link)
-- [ ] Checking Geometry or Data auto-checks Link and locks Link checkbox on
-- [ ] Start delete → step becomes `selecting`; Back → discard confirm (mirror creation discard modal)
-- [ ] No delete buttons on data cards or bulk toolbar
-- [ ] Create and Delete wizards are mutually exclusive
+- [x] Delete section expands/collapses; invalid checkbox combos show inline validation (Geometry/Data without Link)
+- [x] Checking Geometry or Data auto-checks Link and locks Link checkbox on
+- [x] Start delete → step becomes `selecting`; Back → discard confirm (mirror creation discard modal)
+- [x] No delete buttons on data cards or bulk toolbar
+- [x] Create and Delete wizards are mutually exclusive
 
 **Not in M1:** viewer/panel selection wiring, modals, commit, basket UI beyond empty state placeholder.
 
