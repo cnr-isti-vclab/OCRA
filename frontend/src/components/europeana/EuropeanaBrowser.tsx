@@ -132,7 +132,13 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
       <div className="col-12 col-lg-5">
         <div className="border rounded-3 p-3 h-100" style={{ background: 'linear-gradient(180deg,#f8fbff 0%,#fff 100%)' }}>
           <h6 className="fw-bold mb-3">Search Europeana 3D</h6>
-          <div className="input-group mb-2">
+          <form
+            className="input-group mb-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSearch();
+            }}
+          >
             <input
               type="text"
               className="form-control"
@@ -140,23 +146,15 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Title or description keyword"
               disabled={searchBusy || disabled}
-              onKeyDownCapture={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void handleSearch();
-                }
-              }}
             />
             <button
-              type="button"
+              type="submit"
               className="btn btn-primary"
-              onClick={() => void handleSearch()}
               disabled={searchBusy || disabled || !searchTerm.trim()}
             >
               {searchBusy ? 'Searching…' : 'Search'}
             </button>
-          </div>
+          </form>
           <div className="small text-muted mb-2">
             {results.length > 0
               ? `${results.length} result${results.length === 1 ? '' : 's'}${hasMore ? ' — scroll for more' : ''}`
