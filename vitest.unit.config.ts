@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       'shared/**/*.test.ts',
       'frontend/src/features/annotation-creation/**/*.test.ts',
+      'frontend/src/features/annotation-deletion/**/*.test.ts',
       'frontend/src/features/annotation-link-view/**/*.test.ts',
       'frontend/src/stores/AnnotationStore.creation.test.ts',
     ],
