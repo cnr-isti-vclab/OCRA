@@ -126,7 +126,7 @@ export default function ArcoBrowser({ disabled = false, onSelectionChange }: Arc
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Title, keyword or catalog ID (e.g. 0901078520)"
               disabled={searchBusy || disabled}
-              onKeyDown={(event) => {
+              onKeyDownCapture={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   event.stopPropagation();

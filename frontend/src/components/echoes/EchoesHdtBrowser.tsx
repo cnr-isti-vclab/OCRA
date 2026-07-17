@@ -365,7 +365,7 @@ export default function EchoesHdtBrowser({
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={searchPlaceholder}
               disabled={searchBusy || disabled}
-              onKeyDown={(event) => {
+              onKeyDownCapture={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   event.stopPropagation();

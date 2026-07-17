@@ -140,7 +140,7 @@ export default function EuropeanaBrowser({ disabled = false, onSelectionChange }
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Title or description keyword"
               disabled={searchBusy || disabled}
-              onKeyDown={(e) => {
+              onKeyDownCapture={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   e.stopPropagation();
