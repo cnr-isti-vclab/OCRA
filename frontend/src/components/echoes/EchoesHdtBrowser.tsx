@@ -357,7 +357,13 @@ export default function EchoesHdtBrowser({
       <div className="col-12 col-lg-5">
         <div className="border rounded-3 p-3 h-100" style={{ background: searchPanelBackground }}>
           <h6 className="fw-bold mb-3">{searchPanelTitle}</h6>
-          <div className="input-group mb-3">
+          <form
+            className="input-group mb-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSearch();
+            }}
+          >
             <input
               type="text"
               className="form-control"
@@ -365,22 +371,15 @@ export default function EchoesHdtBrowser({
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={searchPlaceholder}
               disabled={searchBusy || disabled}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  void handleSearch();
-                }
-              }}
             />
             <button
-              type="button"
+              type="submit"
               className="btn btn-primary"
-              onClick={() => void handleSearch()}
               disabled={searchBusy || disabled}
             >
               {searchBusy ? 'Searching...' : 'Search'}
             </button>
-          </div>
+          </form>
 
           {searchError && <div className="alert alert-danger">{searchError}</div>}
 
