@@ -13,4 +13,6 @@ export interface AnnotationDeletionDraft {
   candidateLinkIds: string[];
   candidateGeometryIds: string[];
   candidateDataIds: string[];
+  /** Last selection feedback (e.g. no links / many links / lock). */
+  selectionMessage: string | null;
 }

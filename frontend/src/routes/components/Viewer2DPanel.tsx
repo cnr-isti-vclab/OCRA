@@ -16,6 +16,8 @@ import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/c
 import { registerCreationDraftGeometryFlush } from '../../features/annotation-creation/creationDraftGeometryFlush';
 import { purgeCreationGeometryDrafts } from '../../features/annotation-creation/purgeCreationGeometryDrafts';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
+import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
+import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
 import {
   creationToolbarDisabledModes,
   resolveCreationToolbarMode,
@@ -91,6 +93,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       activeAnnotationSelection,
       activeSocialLocks,
       currentStreamId,
+      allLinks,
       revision,
       sceneAnnotationClassPool,
       annotationClassFilterValues,
@@ -117,6 +120,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setCreationDraftGeometry,
       setCreationGeometrySelection,
     } = useAnnotationCreationWizard();
+    const {
+      deletionDraft,
+      isDeletionSelectingStep,
+      deletionHighlightGeometryIds,
+      addGeometryToDeletionBasket,
+      addLinkOnlyFromEndpoint,
+      reportDeletionSelectionBlocked,
+    } = useAnnotationDeletionWizard();
 
     const isStoreSyncRef = useRef(false);
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
@@ -274,6 +285,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         if (creationHighlightGeometryIds !== null) {
           return creationHighlightGeometryIds;
         }
+        if (deletionHighlightGeometryIds !== null) {
+          return deletionHighlightGeometryIds;
+        }
         return getViewerHighlightGeometryIds(
           focusedGeometryIds,
           focusedDataIds,
@@ -282,6 +296,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       },
       [
         creationHighlightGeometryIds,
+        deletionHighlightGeometryIds,
         focusedGeometryIds,
         focusedDataIds,
         activeAnnotationSelection,
@@ -511,7 +526,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (ids.length === 0) {
         if (isCreationGeometrySearch) {
           setCreationGeometrySelection([]);
-        } else {
+        } else if (!isDeletionSelectingStep) {
           clearFocus();
         }
         return;
@@ -523,6 +538,25 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           (id) => id !== CREATION_DRAFT_GEOMETRY_ID && searchableIds.has(id),
         );
         setCreationGeometrySelection(filtered);
+        return;
+      }
+
+      if (isDeletionSelectingStep && deletionDraft) {
+        applyDeletionGeometryPicks(
+          ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID),
+          deletionDraft,
+          {
+            addGeometryToDeletionBasket,
+            addLinkOnlyFromEndpoint,
+            reportDeletionSelectionBlocked,
+          },
+          {
+            activeSocialLocks,
+            currentStreamId,
+            links: allLinks,
+            geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
+          },
+        );
         return;
       }
 

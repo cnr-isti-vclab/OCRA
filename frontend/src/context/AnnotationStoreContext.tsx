@@ -43,6 +43,7 @@ import {
   type UpdateDataInput,
   type AnnotationCreationDraft,
   type AnnotationDeletionDraft,
+  type DeletionBasketAddResult,
 } from '../stores/AnnotationStore';
 import AppMessageModal from '../shared/ui/AppMessageModal';
 import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
@@ -126,6 +127,18 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   discardDeletionDraft: () => void;
   beginDeletionWizard: () => { ok: true } | { ok: false; message: string };
   advanceDeletionStep: () => { ok: true } | { ok: false; message: string };
+  addGeometryToDeletionBasket: (geometryId: string) => DeletionBasketAddResult;
+  addDataToDeletionBasket: (dataId: string) => DeletionBasketAddResult;
+  addLinkOnlyFromEndpoint: (
+    endpointKind: 'geometry' | 'data',
+    endpointId: string,
+  ) => DeletionBasketAddResult;
+  removeFromDeletionBasket: (args: {
+    linkId?: string;
+    geometryId?: string;
+    dataId?: string;
+  }) => void;
+  reportDeletionSelectionBlocked: (message: string) => void;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
   currentStreamId: string | null;
@@ -814,6 +827,36 @@ export function AnnotationStoreProvider({
     return storeRef.current?.advanceDeletionStep() ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
 
+  const addGeometryToDeletionBasket = useCallback((geometryId: string) => {
+    return storeRef.current?.addGeometryToDeletionBasket(geometryId)
+      ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
+  const addDataToDeletionBasket = useCallback((dataId: string) => {
+    return storeRef.current?.addDataToDeletionBasket(dataId)
+      ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
+  const addLinkOnlyFromEndpoint = useCallback((
+    endpointKind: 'geometry' | 'data',
+    endpointId: string,
+  ) => {
+    return storeRef.current?.addLinkOnlyFromEndpoint(endpointKind, endpointId)
+      ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
+  const removeFromDeletionBasket = useCallback((args: {
+    linkId?: string;
+    geometryId?: string;
+    dataId?: string;
+  }) => {
+    storeRef.current?.removeFromDeletionBasket(args);
+  }, []);
+
+  const reportDeletionSelectionBlocked = useCallback((message: string) => {
+    storeRef.current?.reportDeletionSelectionBlocked(message);
+  }, []);
+
   const loadProjectData = useCallback(async () => {
     await storeRef.current?.loadProjectData();
   }, []);
@@ -926,6 +969,11 @@ export function AnnotationStoreProvider({
     discardDeletionDraft,
     beginDeletionWizard,
     advanceDeletionStep,
+    addGeometryToDeletionBasket,
+    addDataToDeletionBasket,
+    addLinkOnlyFromEndpoint,
+    removeFromDeletionBasket,
+    reportDeletionSelectionBlocked,
     eventLog,
     activeSocialLocks,
     currentStreamId,

@@ -9,6 +9,8 @@ import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/c
 import { draftShapesToViewerAnnotation } from '../../features/annotation-creation/draftGeometryToViewerAnnotation';
 import { hasPendingCreationDraftShapes } from '../../features/annotation-creation/creationDraftGeometry';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
+import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
+import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
 import {
   creationToolbarDisabledModes,
   resolveCreationToolbarMode,
@@ -70,6 +72,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
   ) => {
     const {
       activeAnnotationSelection,
+      activeSocialLocks,
+      currentStreamId,
+      allLinks,
       focusedDataIds,
       focusedGeometryIds,
       setFocusSelection,
@@ -89,6 +94,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setCreationDraftGeometry,
       setCreationGeometrySelection,
     } = useAnnotationCreationWizard();
+    const {
+      deletionDraft,
+      isDeletionSelectingStep,
+      deletionHighlightGeometryIds,
+      addGeometryToDeletionBasket,
+      addLinkOnlyFromEndpoint,
+      reportDeletionSelectionBlocked,
+    } = useAnnotationDeletionWizard();
 
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
     const activeGeometriesRef = useRef(visibleGeometries);
@@ -134,6 +147,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         if (creationHighlightGeometryIds !== null) {
           return creationHighlightGeometryIds;
         }
+        if (deletionHighlightGeometryIds !== null) {
+          return deletionHighlightGeometryIds;
+        }
         return getViewerHighlightGeometryIds(
           focusedGeometryIds,
           focusedDataIds,
@@ -142,6 +158,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       },
       [
         creationHighlightGeometryIds,
+        deletionHighlightGeometryIds,
         focusedGeometryIds,
         focusedDataIds,
         activeAnnotationSelection,
@@ -372,7 +389,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       if (ids.length === 0) {
         if (isCreationGeometrySearch) {
           setCreationGeometrySelection([]);
-        } else {
+        } else if (!isDeletionSelectingStep) {
           clearFocus();
         }
         return;
@@ -384,6 +401,25 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           (id) => id !== CREATION_DRAFT_GEOMETRY_ID && searchableIds.has(id),
         );
         setCreationGeometrySelection(filtered);
+        return;
+      }
+
+      if (isDeletionSelectingStep && deletionDraft) {
+        applyDeletionGeometryPicks(
+          ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID),
+          deletionDraft,
+          {
+            addGeometryToDeletionBasket,
+            addLinkOnlyFromEndpoint,
+            reportDeletionSelectionBlocked,
+          },
+          {
+            activeSocialLocks,
+            currentStreamId,
+            links: allLinks,
+            geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
+          },
+        );
         return;
       }
 

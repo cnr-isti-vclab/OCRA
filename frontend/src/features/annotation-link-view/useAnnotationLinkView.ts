@@ -17,14 +17,35 @@ export function useAnnotationLinkView() {
     setLinkViewMode,
     annotationClassFilterValues,
     isCreationWizardActive,
+    isDeletionWizardActive,
+    deletionDraft,
   } = useAnnotationStore();
 
   const linkViewResult = useMemo(
     () => {
-      if (isCreationWizardActive) {
+      if (isCreationWizardActive || isDeletionWizardActive) {
+        const geometries = [...activeGeometries];
+        const data = [...activeData];
+
+        // Keep basket endpoints visible even if focus/filter would hide them.
+        if (isDeletionWizardActive && deletionDraft) {
+          const geometryIds = new Set(deletionDraft.candidateGeometryIds);
+          const dataIds = new Set(deletionDraft.candidateDataIds);
+          for (const geometry of activeGeometries) {
+            if (geometryIds.has(geometry.id) && !geometries.some((g) => g.id === geometry.id)) {
+              geometries.push(geometry);
+            }
+          }
+          for (const datum of activeData) {
+            if (dataIds.has(datum.id) && !data.some((d) => d.id === datum.id)) {
+              data.push(datum);
+            }
+          }
+        }
+
         return {
-          visibleGeometries: [...activeGeometries],
-          visibleData: [...activeData],
+          visibleGeometries: geometries,
+          visibleData: data,
         };
       }
 
@@ -39,6 +60,8 @@ export function useAnnotationLinkView() {
     },
     [
       isCreationWizardActive,
+      isDeletionWizardActive,
+      deletionDraft,
       linkViewMode,
       activeGeometries,
       activeData,

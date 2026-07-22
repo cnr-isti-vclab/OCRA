@@ -7,7 +7,7 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 | Milestone | Scope | Status |
 | --------- | ----- | ------ |
 | M1 | Remove card/bulk triplet delete; expandable Delete setup | **Done** |
-| M2 | Selection phase + link view integration | **Planned** |
+| M2 | Selection phase + link view integration | **Done** |
 | M3 | One-to-many disambiguation modals | **Planned** |
 | M4 | Sequential commit, OCC, still-linked guard, rollback | **Planned** |
 | M5 | Tests, docs sync, hardening | **Planned** |
@@ -437,14 +437,14 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 
 **Exit criteria**
 
-- [ ] Geometry + Link: select one geometry with exactly one link → basket shows geometry + link (+ data if checked)
-- [ ] Data + Link: select one data with exactly one link → basket correct
-- [ ] Link only: select geometry or data with exactly one incident link → basket shows that link only (no endpoints)
-- [ ] Link only: select geometry or data with zero links → user message; basket unchanged
-- [ ] Multi-link endpoint selection shows “not yet supported” or is ignored until M3
-- [ ] Locked entity cannot enter basket
-- [ ] Link view mode switches on Start delete; basket items remain visible during wizard
-- [ ] Confirm still no-op or disabled message (commit is M4)
+- [x] Geometry + Link: select one geometry with exactly one link → basket shows geometry + link (+ data if checked)
+- [x] Data + Link: select one data with exactly one link → basket correct
+- [x] Link only: select geometry or data with exactly one incident link → basket shows that link only (no endpoints)
+- [x] Link only: select geometry or data with zero links → user message; basket unchanged
+- [x] Multi-link endpoint selection shows “not yet supported” or is ignored until M3
+- [x] Locked entity cannot enter basket
+- [x] Link view mode switches on Start delete; basket items remain visible during wizard
+- [x] Confirm still no-op or disabled message (commit is M4)
 
 **Not in M2:** 1:N modals, server calls, rollback.
 

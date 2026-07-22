@@ -50,9 +50,21 @@ import {
   applyDeletionIntentAutoLink,
   validateDeletionSetup,
 } from '../features/annotation-deletion/annotationDeletionValidation';
+import {
+  nonErasableLinksForData,
+  nonErasableLinksForGeometry,
+} from '../features/annotation-deletion/annotationDeletionCardinality';
+import {
+  DELETION_MANY_LINKS_MESSAGE,
+  DELETION_NO_LINKS_MESSAGE,
+} from '../features/annotation-deletion/isEntityBlockedForDeletion';
 
 export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
 export type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
+
+export type DeletionBasketAddResult =
+  | { ok: true }
+  | { ok: false; message: string };
 
 export type AnnotationStoreActionResult =
   | { ok: true }
@@ -338,6 +350,7 @@ export class AnnotationStore {
       candidateLinkIds: [],
       candidateGeometryIds: [],
       candidateDataIds: [],
+      selectionMessage: null,
     };
     this.bump();
     return { ok: true };
@@ -355,6 +368,191 @@ export class AnnotationStore {
       return this.beginDeletionWizard();
     }
     return { ok: true };
+  }
+
+  private ensureDeletionSelecting(): AnnotationDeletionDraft | null {
+    if (!this.deletionDraft || this.deletionDraft.step !== 'selecting') {
+      return null;
+    }
+    return this.deletionDraft;
+  }
+
+  private mergeUniqueIds(current: string[], additions: string[]): string[] {
+    const next = new Set(current);
+    for (const id of additions) {
+      next.add(id);
+    }
+    return [...next];
+  }
+
+  private finishDeletionBasketAdd(
+    draft: AnnotationDeletionDraft,
+    next: Pick<
+      AnnotationDeletionDraft,
+      'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'
+    >,
+  ): DeletionBasketAddResult {
+    this.deletionDraft = {
+      ...draft,
+      ...next,
+      selectionMessage: null,
+    };
+    this.bump();
+    return { ok: true };
+  }
+
+  private failDeletionBasketAdd(
+    draft: AnnotationDeletionDraft,
+    message: string,
+  ): DeletionBasketAddResult {
+    this.deletionDraft = {
+      ...draft,
+      selectionMessage: message,
+    };
+    this.bump();
+    return { ok: false, message };
+  }
+
+  /**
+   * Geometry-led basket add (Geometry+Link or full triplet). 1:1 only in M2.
+   */
+  addGeometryToDeletionBasket(geometryId: string): DeletionBasketAddResult {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return { ok: false, message: 'Deletion selection is not active.' };
+    }
+    if (!draft.deleteGeometry) {
+      return this.failDeletionBasketAdd(draft, 'Geometry is not part of the current delete intent.');
+    }
+    if (!this.geometryMap.has(geometryId)) {
+      return this.failDeletionBasketAdd(draft, 'Geometry not found in this scene.');
+    }
+
+    const incident = nonErasableLinksForGeometry(this.linkMap.values(), geometryId);
+    if (incident.length === 0) {
+      return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
+    }
+    if (incident.length > 1) {
+      return this.failDeletionBasketAdd(draft, DELETION_MANY_LINKS_MESSAGE);
+    }
+
+    const link = incident[0]!;
+    return this.finishDeletionBasketAdd(draft, {
+      candidateGeometryIds: this.mergeUniqueIds(draft.candidateGeometryIds, [geometryId]),
+      candidateLinkIds: this.mergeUniqueIds(draft.candidateLinkIds, [link.id]),
+      candidateDataIds: draft.deleteData
+        ? this.mergeUniqueIds(draft.candidateDataIds, [link.dataId])
+        : draft.candidateDataIds,
+    });
+  }
+
+  /**
+   * Data-led basket add (Data+Link or full triplet). 1:1 only in M2.
+   */
+  addDataToDeletionBasket(dataId: string): DeletionBasketAddResult {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return { ok: false, message: 'Deletion selection is not active.' };
+    }
+    if (!draft.deleteData) {
+      return this.failDeletionBasketAdd(draft, 'Data is not part of the current delete intent.');
+    }
+    if (!this.dataMap.has(dataId)) {
+      return this.failDeletionBasketAdd(draft, 'Annotation data not found.');
+    }
+
+    const incident = nonErasableLinksForData(this.linkMap.values(), dataId);
+    if (incident.length === 0) {
+      return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
+    }
+    if (incident.length > 1) {
+      return this.failDeletionBasketAdd(draft, DELETION_MANY_LINKS_MESSAGE);
+    }
+
+    const link = incident[0]!;
+    return this.finishDeletionBasketAdd(draft, {
+      candidateDataIds: this.mergeUniqueIds(draft.candidateDataIds, [dataId]),
+      candidateLinkIds: this.mergeUniqueIds(draft.candidateLinkIds, [link.id]),
+      candidateGeometryIds: draft.deleteGeometry
+        ? this.mergeUniqueIds(draft.candidateGeometryIds, [link.geometryId])
+        : draft.candidateGeometryIds,
+    });
+  }
+
+  /**
+   * Link-only: identify a link by selecting a geometry or data endpoint.
+   * 0 / 1 / N incident links — N deferred to M3.
+   */
+  addLinkOnlyFromEndpoint(
+    endpointKind: 'geometry' | 'data',
+    endpointId: string,
+  ): DeletionBasketAddResult {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return { ok: false, message: 'Deletion selection is not active.' };
+    }
+    if (!draft.deleteLink || draft.deleteGeometry || draft.deleteData) {
+      return this.failDeletionBasketAdd(
+        draft,
+        'Link-only selection requires Link without Geometry or Data.',
+      );
+    }
+
+    const incident = endpointKind === 'geometry'
+      ? nonErasableLinksForGeometry(this.linkMap.values(), endpointId)
+      : nonErasableLinksForData(this.linkMap.values(), endpointId);
+
+    if (incident.length === 0) {
+      return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
+    }
+    if (incident.length > 1) {
+      return this.failDeletionBasketAdd(draft, DELETION_MANY_LINKS_MESSAGE);
+    }
+
+    const link = incident[0]!;
+    return this.finishDeletionBasketAdd(draft, {
+      candidateLinkIds: this.mergeUniqueIds(draft.candidateLinkIds, [link.id]),
+      candidateGeometryIds: [],
+      candidateDataIds: [],
+    });
+  }
+
+  /**
+   * Record a selection-time lock rejection without changing the basket.
+   */
+  reportDeletionSelectionBlocked(message: string): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return;
+    }
+    this.deletionDraft = { ...draft, selectionMessage: message };
+    this.bump();
+  }
+
+  removeFromDeletionBasket(args: {
+    linkId?: string;
+    geometryId?: string;
+    dataId?: string;
+  }): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return;
+    }
+
+    this.deletionDraft = {
+      ...draft,
+      candidateLinkIds: args.linkId
+        ? draft.candidateLinkIds.filter((id) => id !== args.linkId)
+        : draft.candidateLinkIds,
+      candidateGeometryIds: args.geometryId
+        ? draft.candidateGeometryIds.filter((id) => id !== args.geometryId)
+        : draft.candidateGeometryIds,
+      candidateDataIds: args.dataId
+        ? draft.candidateDataIds.filter((id) => id !== args.dataId)
+        : draft.candidateDataIds,
+      selectionMessage: null,
+    };
+    this.bump();
   }
 
   async advanceCreationStep(): Promise<{ ok: true } | { ok: false; message: string }> {

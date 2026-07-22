@@ -9,5 +9,6 @@ export function createDefaultDeletionDraft(): AnnotationDeletionDraft {
     candidateLinkIds: [],
     candidateGeometryIds: [],
     candidateDataIds: [],
+    selectionMessage: null,
   };
 }
