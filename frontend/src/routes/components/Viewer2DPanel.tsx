@@ -6,6 +6,7 @@ import { applyOpenLimeToolbarMode } from '../../adapters/openlime-viewer/openlim
 import AnnotationToolbar, {
   type AnnotationToolbarMode,
 } from '../../components/AnnotationToolbar';
+import Sam2Overlay from '../../features/sam2/Sam2Overlay';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { DigitalAsset } from '../HDTPage';
@@ -100,6 +101,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const isPointerDownRef = useRef(false);
+    // Sam2Overlay measures/captures against this
+    const panelContainerRef = useRef<HTMLDivElement>(null);
     // Always-current refs for use inside pointer event handlers (avoids stale closures).
     const focusedGeometryIdsRef = useRef(focusedGeometryIds);
     focusedGeometryIdsRef.current = focusedGeometryIds;
@@ -127,6 +130,21 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         applyOpenLimeToolbarMode(manager, viewer, mode);
       },
       [ref],
+    );
+
+    const handleSam2Accept = useCallback(
+      (shapes: AnnotationShape[]) => {
+        void createAnnotation({
+          shapes,
+          label: '',
+          description: '',
+          class: null,
+          content: {},
+        }).catch((err) => {
+          console.error('Failed to create SAM2 annotation:', err);
+        });
+      },
+      [createAnnotation],
     );
 
     const handlePencilActiveChange = useCallback((active: boolean) => {
@@ -604,8 +622,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       );
     }
 
+    const isSam2Mode = annotationMode === 'edit' && pencilActive && viewerReady && toolbarMode === 'sam2';
+
     return (
       <div
+        ref={panelContainerRef}
         style={{ position: 'relative', width: '100%', height: '100%' }}
         onPointerDown={handleViewerPointerDown}
         onPointerUp={handleViewerPointerUpOrCancel}
@@ -626,6 +647,17 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           onSettingsRequested={() => setSettingsOpen(true)}
           annotationLabelVisibility={labelVisibility}
         />
+
+        {isSam2Mode && (
+          <Sam2Overlay
+            viewer={(ref as React.RefObject<OpenLIMEViewerRef>)?.current ?? null}
+            sceneDesc={sceneDesc}
+            digitalAssets={digitalAssets}
+            container={panelContainerRef.current}
+            onAccept={handleSam2Accept}
+          />
+        )}
+
         {annotationMode === 'edit' && pencilActive && viewerReady && (
           <div
             style={{
@@ -640,6 +672,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             <AnnotationToolbar mode={toolbarMode} onModeChange={applyToolbarMode} />
           </div>
         )}
+
         <AppMessageModal
           descriptor={messageModal}
           onClose={releaseConflictSnapshotsAndSync}

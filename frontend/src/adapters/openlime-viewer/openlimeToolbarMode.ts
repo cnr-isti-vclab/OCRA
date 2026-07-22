@@ -4,7 +4,7 @@ import type { OpenLIMEViewerRef } from './OpenLIMEViewer';
 
 /** OpenLIME marker mapping for {@link AnnotationToolbarMode} (2D only). */
 const OPENLIME_CREATE_MARKER: Record<
-  Exclude<AnnotationToolbarMode, 'edit'>,
+  Exclude<AnnotationToolbarMode, 'edit' | 'sam2'>,
   { type: string; opts: Record<string, unknown> }
 > = {
   point: { type: 'disk', opts: {} },
@@ -21,7 +21,7 @@ export function applyOpenLimeToolbarMode(
   viewer: OpenLIMEViewerRef,
   mode: AnnotationToolbarMode,
 ): void {
-  if (mode === 'edit') {
+  if (mode === 'edit' || mode === 'sam2') {
     viewer.enableEditing(true);
     manager.setMode('edit');
     return;

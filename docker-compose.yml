@@ -101,6 +101,27 @@ services:
       backend:
         condition: service_healthy
 
+  sam2:
+    build:
+      context: .
+      dockerfile: sam2-service/Dockerfile
+    container_name: ocra-sam2
+    environment:
+      MODEL_SIZE: ${SAM2_MODEL_SIZE:-tiny}
+      SAM2_FORCE_CPU: ${SAM2_FORCE_CPU:-1}
+      APP_ROOT: /opt/sam2
+      PORT: 5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./sam2/checkpoints:/opt/sam2/checkpoints:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
 volumes:
   postgres_data:
   project_files:
