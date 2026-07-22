@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { filterDataByClassFilter } from '../../stores/annotation-class-filter';
+import { resolveDeletionLinkViewFocus } from '../annotation-deletion/annotationDeletionCardinality';
 import {
   applyAnnotationLinkViewMode,
   type AnnotationLinkViewMode,
@@ -21,42 +22,55 @@ export function useAnnotationLinkView() {
     deletionDraft,
   } = useAnnotationStore();
 
+  const deletionFocus = useMemo(() => {
+    if (!isDeletionWizardActive || !deletionDraft) {
+      return null;
+    }
+    return resolveDeletionLinkViewFocus(deletionDraft);
+  }, [deletionDraft, isDeletionWizardActive]);
+
+  const effectiveFocusedGeometryIds = deletionFocus?.focusedGeometryIds ?? focusedGeometryIds;
+  const effectiveFocusedDataIds = deletionFocus?.focusedDataIds ?? focusedDataIds;
+
   const linkViewResult = useMemo(
     () => {
-      if (isCreationWizardActive || isDeletionWizardActive) {
-        const geometries = [...activeGeometries];
-        const data = [...activeData];
-
-        // Keep basket endpoints visible even if focus/filter would hide them.
-        if (isDeletionWizardActive && deletionDraft) {
-          const geometryIds = new Set(deletionDraft.candidateGeometryIds);
-          const dataIds = new Set(deletionDraft.candidateDataIds);
-          for (const geometry of activeGeometries) {
-            if (geometryIds.has(geometry.id) && !geometries.some((g) => g.id === geometry.id)) {
-              geometries.push(geometry);
-            }
-          }
-          for (const datum of activeData) {
-            if (dataIds.has(datum.id) && !data.some((d) => d.id === datum.id)) {
-              data.push(datum);
-            }
-          }
-        }
-
+      // Creation still shows the full active sets (wizard has its own visibility rules).
+      if (isCreationWizardActive) {
         return {
-          visibleGeometries: geometries,
-          visibleData: data,
+          visibleGeometries: [...activeGeometries],
+          visibleData: [...activeData],
         };
       }
 
-      return applyAnnotationLinkViewMode({
+      const result = applyAnnotationLinkViewMode({
         mode: linkViewMode,
         activeGeometries,
         activeData,
         selection: activeAnnotationSelection,
-        focusedGeometryIds,
-        focusedDataIds,
+        focusedGeometryIds: effectiveFocusedGeometryIds,
+        focusedDataIds: effectiveFocusedDataIds,
       });
+
+      // Keep basket endpoints visible even if filtering would hide them.
+      if (isDeletionWizardActive && deletionDraft) {
+        const geometryIds = new Set(deletionDraft.candidateGeometryIds);
+        const dataIds = new Set(deletionDraft.candidateDataIds);
+        const geometries = [...result.visibleGeometries];
+        const data = [...result.visibleData];
+        for (const geometry of activeGeometries) {
+          if (geometryIds.has(geometry.id) && !geometries.some((g) => g.id === geometry.id)) {
+            geometries.push(geometry);
+          }
+        }
+        for (const datum of activeData) {
+          if (dataIds.has(datum.id) && !data.some((d) => d.id === datum.id)) {
+            data.push(datum);
+          }
+        }
+        return { visibleGeometries: geometries, visibleData: data };
+      }
+
+      return result;
     },
     [
       isCreationWizardActive,
@@ -66,8 +80,8 @@ export function useAnnotationLinkView() {
       activeGeometries,
       activeData,
       activeAnnotationSelection,
-      focusedGeometryIds,
-      focusedDataIds,
+      effectiveFocusedGeometryIds,
+      effectiveFocusedDataIds,
     ],
   );
 
@@ -83,10 +97,10 @@ export function useAnnotationLinkView() {
     visibleData: classFilteredVisibleData,
     panelShowsFilteredData:
       linkViewMode === 'selectGeometry'
-      && (focusedGeometryIds.size > 0 || focusedDataIds.size > 0),
+      && (effectiveFocusedGeometryIds.size > 0 || effectiveFocusedDataIds.size > 0),
     viewerShowsFilteredGeometries:
       linkViewMode === 'selectData'
-      && (focusedDataIds.size > 0 || focusedGeometryIds.size > 0),
+      && (effectiveFocusedDataIds.size > 0 || effectiveFocusedGeometryIds.size > 0),
   };
 }
 

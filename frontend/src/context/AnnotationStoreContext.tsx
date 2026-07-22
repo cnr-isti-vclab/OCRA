@@ -125,7 +125,9 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   initDeletionDraft: () => void;
   updateDeletionDraft: (patch: Partial<AnnotationDeletionDraft>) => void;
   discardDeletionDraft: () => void;
-  beginDeletionWizard: () => { ok: true } | { ok: false; message: string };
+  beginDeletionWizard: (
+    intent?: Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>,
+  ) => { ok: true } | { ok: false; message: string };
   advanceDeletionStep: () => { ok: true } | { ok: false; message: string };
   addGeometryToDeletionBasket: (geometryId: string) => DeletionBasketAddResult;
   addDataToDeletionBasket: (dataId: string) => DeletionBasketAddResult;
@@ -819,8 +821,11 @@ export function AnnotationStoreProvider({
     storeRef.current?.discardDeletionDraft();
   }, []);
 
-  const beginDeletionWizard = useCallback(() => {
-    return storeRef.current?.beginDeletionWizard() ?? { ok: false as const, message: 'Store not ready.' };
+  const beginDeletionWizard = useCallback((
+    intent?: Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>,
+  ) => {
+    return storeRef.current?.beginDeletionWizard(intent)
+      ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
 
   const advanceDeletionStep = useCallback(() => {

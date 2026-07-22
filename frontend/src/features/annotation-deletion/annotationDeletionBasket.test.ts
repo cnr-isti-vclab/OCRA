@@ -5,6 +5,7 @@ import {
   isOneToManyLinks,
   nonErasableLinksForData,
   nonErasableLinksForGeometry,
+  resolveDeletionLinkViewFocus,
   resolveDeletionLinkViewMode,
 } from './annotationDeletionCardinality';
 import { createDefaultDeletionDraft } from './createDefaultDeletionDraft';
@@ -55,6 +56,47 @@ describe('resolveDeletionLinkViewMode', () => {
   });
 });
 
+describe('resolveDeletionLinkViewFocus', () => {
+  it('anchors Link+Geo on basket geometries', () => {
+    expect(resolveDeletionLinkViewFocus({
+      deleteGeometry: true,
+      deleteData: false,
+      candidateGeometryIds: ['g1', 'g2'],
+      candidateDataIds: ['d-ignored'],
+    })).toEqual({
+      focusedGeometryIds: new Set(['g1', 'g2']),
+      focusedDataIds: new Set(),
+    });
+  });
+
+  it('anchors Link+Data on basket data', () => {
+    expect(resolveDeletionLinkViewFocus({
+      deleteGeometry: false,
+      deleteData: true,
+      candidateGeometryIds: ['g-ignored'],
+      candidateDataIds: ['d1'],
+    })).toEqual({
+      focusedGeometryIds: new Set(),
+      focusedDataIds: new Set(['d1']),
+    });
+  });
+
+  it('returns null for showAll intents', () => {
+    expect(resolveDeletionLinkViewFocus({
+      deleteGeometry: false,
+      deleteData: false,
+      candidateGeometryIds: [],
+      candidateDataIds: [],
+    })).toBeNull();
+    expect(resolveDeletionLinkViewFocus({
+      deleteGeometry: true,
+      deleteData: true,
+      candidateGeometryIds: ['g1'],
+      candidateDataIds: ['d1'],
+    })).toBeNull();
+  });
+});
+
 describe('annotationDeletionCardinality', () => {
   it('filters non-erasable links per endpoint', () => {
     const links = [
@@ -73,6 +115,7 @@ describe('validateDeletionBasket', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
+      deleteLink: true,
     };
     expect(validateDeletionBasket(draft, { links: [] }).ok).toBe(false);
   });
@@ -81,6 +124,7 @@ describe('validateDeletionBasket', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
+      deleteLink: true,
       candidateLinkIds: ['l1'],
     };
     expect(canConfirmDeletionBasket(draft, {
@@ -92,6 +136,7 @@ describe('validateDeletionBasket', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
+      deleteLink: true,
       deleteGeometry: true,
       candidateGeometryIds: ['g1'],
       candidateLinkIds: ['l1'],
@@ -105,6 +150,7 @@ describe('validateDeletionBasket', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
+      deleteLink: true,
       deleteGeometry: true,
       candidateGeometryIds: ['g1'],
       candidateLinkIds: [],
@@ -118,6 +164,7 @@ describe('validateDeletionBasket', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
+      deleteLink: true,
       candidateLinkIds: ['l1'],
       candidateGeometryIds: ['g1'],
     };

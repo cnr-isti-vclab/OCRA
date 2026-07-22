@@ -165,7 +165,6 @@ export default function AnnotationPanelEditor({
     deletionDraft,
     isDeletionWizardActive,
     initDeletionDraft,
-    updateDeletionDraft,
     discardDeletionDraft,
     beginDeletionWizard,
     updateData,
@@ -276,8 +275,12 @@ export default function AnnotationPanelEditor({
     setSetupError(null);
   }, [beginCreationWizard]);
 
-  const handleBeginDeletion = useCallback(() => {
-    const result = beginDeletionWizard();
+  const handleBeginDeletion = useCallback((intent: {
+    deleteLink: boolean;
+    deleteGeometry: boolean;
+    deleteData: boolean;
+  }) => {
+    const result = beginDeletionWizard(intent);
     if (!result.ok) {
       setDeletionSetupError(result.message);
       return;
@@ -736,7 +739,6 @@ export default function AnnotationPanelEditor({
             <AnnotationDeletionPanel
               draft={deletionDraft}
               setupError={deletionSetupError}
-              onDraftChange={updateDeletionDraft}
               onStartDelete={handleBeginDeletion}
               onBack={handleDeletionBack}
               onConfirmDelete={() => {

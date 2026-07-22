@@ -50,11 +50,13 @@ The Delete button expands a setup section, mirroring the creation panel:
 
 | Control | Purpose |
 | ------- | ------- |
-| Checkboxes: **Link** \| **Geometry** \| **Data** | What to mark erasable |
-| **Start delete** | Enter selection phase (becomes **Back** to abort) |
+| Intent grid (2×2): **Link** \| **Link+Geo+Data** / **Link+Geo** \| **Link+Data** | Choose what to mark erasable and **immediately** enter selection |
+| **Back** | Abort selection (discard confirm) |
 | **Confirm delete** | Commit the delete basket (enabled when valid) |
 
-After **Start delete**, the user selects candidates in the viewer and/or panel. **Confirm delete** runs the commit algorithm below.
+There is **no separate Start delete** step: pressing an intent button sets the flags and starts selection in one action, so the user cannot select in the viewer/panel thinking deletion is already active.
+
+After an intent is chosen, the user selects candidates in the viewer and/or panel. **Confirm delete** runs the commit algorithm below.
 
 ### Delete intent matrix
 
@@ -68,7 +70,7 @@ After **Start delete**, the user selects candidates in the viewer and/or panel. 
 | — | — | ✓ | **Invalid** — Data requires Link |
 | — | ✓ | ✓ | **Invalid** — both endpoints require Link |
 
-**Auto-rule**: when **Geometry** or **Data** is checked, **Link** is automatically checked and cannot be unchecked. An endpoint cannot be marked erasable while any **non-erasable** link that references it remains outside the basket (client-side, for links known in the current scene). The server applies the same rule project-wide — see [Cross-scene links](#cross-scene-links-and-server-still-linked-guard).
+**Auto-rule**: every setup preset includes **Link**. An endpoint cannot be marked erasable while any **non-erasable** link that references it remains outside the basket (client-side, for links known in the current scene). The server applies the same rule project-wide — see [Cross-scene links](#cross-scene-links-and-server-still-linked-guard).
 
 **Link-only** is valid: mark selected links erasable without marking endpoints.
 
@@ -80,11 +82,11 @@ After **Start delete**, the user selects candidates in the viewer and/or panel. 
 
 Reuse annotation link view modes from `a07` (`showAll`, `selectGeometry`, `selectData`):
 
-| User checks | Link view mode | Where user selects |
+| User intent | Link view mode | Where user selects |
 | ----------- | -------------- | ------------------ |
-| Geometry (+ Link) | `selectGeometry` | Viewer — one or more geometries |
-| Data (+ Link) | `selectData` | Panel — one or more data rows |
-| Link only | `showAll` | Viewer **or** panel — select a geometry or a data row (not a raw link list) |
+| **Link+Geo** | `selectGeometry` (By geometry) | Viewer — one or more geometries; panel shows only data linked to basket geometries |
+| **Link+Data** | `selectData` (By data) | Panel — one or more data rows; viewer shows only geometries linked to basket data |
+| **Link** / **Link+Geo+Data** | `showAll` | Viewer **or** panel — select a geometry or a data row (not a raw link list) |
 
 There is **no panel link list**. Links are `geometryId` + `dataId` pairs; showing them as opaque id pairs is not understandable. For **Link-only** intent, the user identifies links by selecting an endpoint in `showAll` mode:
 
@@ -94,7 +96,7 @@ There is **no panel link list**. Links are `geometryId` + `dataId` pairs; showin
 | **1** | Add that link to the basket (endpoints stay out of the basket) |
 | **N (>1)** | Open the [link resolution modal](#link-resolution-modal-link--geometry--data-or-link-only) to choose which links to remove |
 
-During the delete wizard, link-view filtering is **bypassed** for candidates already in the basket (same principle as creation wizard bypass), so partial selections are not hidden mid-flow.
+During the delete wizard, link-view mode follows the intent above. Filtering is driven by the **basket** (not the normal focus set). Basket endpoints are **unioned** into the visible sets so already-selected candidates are never hidden mid-flow.
 
 ### Delete basket
 
@@ -304,7 +306,7 @@ If another user marks an entity erasable while the wizard is open, refresh or dr
 | Wizard hook | `frontend/src/features/annotation-deletion/useAnnotationDeletionWizard.ts` |
 | Store draft + commit | `frontend/src/stores/AnnotationStore.ts` |
 | Backend still-linked guard | `backend/src/services/annotation.service.ts`, annotation controllers/routes |
-| Link view bypass | `frontend/src/features/annotation-link-view/useAnnotationLinkView.ts` |
+| Link view (intent-driven) | `frontend/src/features/annotation-link-view/useAnnotationLinkView.ts` |
 | Panel shell | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
 | Viewer wiring (M2/M3) | `Viewer2DPanel.tsx`, `Viewer3DPanel.tsx` |
 | Social lock checks | `frontend/src/stores/annotation-social-locks.ts` (reuse) |
@@ -365,7 +367,7 @@ flowchart LR
 | Milestone | Outcome | Touchpoints | PR note |
 | --------- | ------- | ----------- | ------- |
 | M1 | Delete panel expands; card/bulk delete gone | `AnnotationDeletionPanel`, `AnnotationPanelEditor`, store draft skeleton | Low risk; ship first |
-| M2 | Start delete → pick items → basket list | `useAnnotationDeletionWizard`, link view, viewer/panel selection | Testable without server |
+| M2 | Intent button → pick items → basket list | `useAnnotationDeletionWizard`, link view, viewer/panel selection | Testable without server |
 | M3 | 1:N warnings and link-resolution modals work | Modal components, transient selection state | Builds on M2 |
 | M4 | Confirm delete persists; still-linked guard; failures roll back | `commitDeletionDraft`, backend `still_linked`, `revertDeletionCommitArtifacts` | Highest risk; isolate |
 | M5 | Automated coverage + doc status **Done** | `*.test.ts`, manual checklist signed off | Can merge with M4 if small |
@@ -384,10 +386,10 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
    - `types.ts` — `AnnotationDeletionDraft`, step union, basket ids
    - `createDefaultDeletionDraft.ts`
    - `annotationDeletionValidation.ts` — intent matrix (Link/Geometry/Data combos), `validateDeletionSetup()`
-   - `AnnotationDeletionPanel.tsx` — checkboxes, Start delete / Back, disabled Confirm delete
+   - `AnnotationDeletionPanel.tsx` — 2×2 intent grid (starts selecting immediately), Back / Confirm delete
 2. **Store skeleton** — in `AnnotationStore.ts`:
    - `deletionDraft`, `isDeletionWizardActive`, getters mirroring creation (`creationDraftState` pattern)
-   - `initDeletionDraft()`, `patchDeletionDraft()`, `discardDeletionDraft()`, `advanceDeletionStep()` (setup → selecting only for now)
+   - `initDeletionDraft()`, `updateDeletionDraft()`, `discardDeletionDraft()`, `beginDeletionWizard(intent)`, `advanceDeletionStep()`
    - Clear deletion draft on scene reload (`generation` bump), same as creation
 3. **Context + hook** — `useAnnotationDeletionWizard.ts` exposing draft flags and store actions (mirror `useAnnotationCreationWizard.ts`)
 4. **Panel integration** — `AnnotationPanelEditor.tsx`:
@@ -399,9 +401,9 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 
 **Exit criteria**
 
-- [x] Delete section expands/collapses; invalid checkbox combos show inline validation (Geometry/Data without Link)
-- [x] Checking Geometry or Data auto-checks Link and locks Link checkbox on
-- [x] Start delete → step becomes `selecting`; Back → discard confirm (mirror creation discard modal)
+- [x] Delete section expands/collapses; intent grid offers the four valid Link / Link+Geo / Link+Data / Link+Geo+Data presets
+- [x] Pressing an intent button → step becomes `selecting` with that intent (no separate Start delete)
+- [x] Back → discard confirm (mirror creation discard modal)
 - [x] No delete buttons on data cards or bulk toolbar
 - [x] Create and Delete wizards are mutually exclusive
 
@@ -419,10 +421,11 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
    - Geometry (+ Link) → `selectGeometry`
    - Data (+ Link) → `selectData`
    - Link only → `showAll` (select endpoints to identify links; no link list UI)
-2. **Link view bypass** — extend `useAnnotationLinkView.ts`:
-   - Add `isDeletionWizardActive` (store getter)
-   - When active, bypass filtering like creation; optionally union basket ids into visible sets so selected items stay visible
-3. **Auto link view on Start delete** — store or hook sets `linkViewMode` when entering `selecting`; restore previous mode on discard (optional, nice-to-have)
+2. **Link view during deletion** — extend `useAnnotationLinkView.ts`:
+   - Apply normal link-view filtering (mode from intent)
+   - Drive focus anchors from the delete basket for Link+Geo / Link+Data
+   - Union basket ids into visible sets so selected items stay visible
+3. **Auto link view on intent start** — store or hook sets `linkViewMode` when entering `selecting`; restore previous mode on discard (optional, nice-to-have)
 4. **Basket state + UI** — extend draft and panel:
    - `candidateLinkIds`, `candidateGeometryIds`, `candidateDataIds`
    - Basket summary list in `AnnotationDeletionPanel` (labels, remove-from-basket per row)
@@ -443,7 +446,7 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 - [x] Link only: select geometry or data with zero links → user message; basket unchanged
 - [x] Multi-link endpoint selection shows “not yet supported” or is ignored until M3
 - [x] Locked entity cannot enter basket
-- [x] Link view mode switches on Start delete; basket items remain visible during wizard
+- [x] Link view mode switches when an intent button starts selection; basket items remain visible during wizard
 - [x] Confirm still no-op or disabled message (commit is M4)
 
 **Not in M2:** 1:N modals, server calls, rollback.
@@ -556,7 +559,7 @@ Each request body includes `expectedVersion` (same as edit/OCC elsewhere).
    - Partial failure rollback (`markNonErasable` calls)
    - Interrupt on generation change
    - Create/delete wizard exclusivity
-3. **Link view test** — extend `annotationLinkViewMode.test.ts` or deletion-specific test for bypass when `isDeletionWizardActive`
+3. **Link view test** — deletion focus anchors + filtering for Link+Geo / Link+Data
 4. **Backend** — `annotation-deletion.api.test.ts` covering erasable + **still_linked** (cross-scene remaining link); reuse patterns from `annotation-creation.api.test.ts`
 5. **npm script** — `test:annotation-deletion` in root `package.json`
 6. **Hardening pass:**

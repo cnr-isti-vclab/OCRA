@@ -331,7 +331,9 @@ export class AnnotationStore {
     this.bump();
   }
 
-  beginDeletionWizard(): { ok: true } | { ok: false; message: string } {
+  beginDeletionWizard(
+    intent?: Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>,
+  ): { ok: true } | { ok: false; message: string } {
     if (this.isCreationWizardActive) {
       return { ok: false, message: 'Finish or cancel creation before deleting.' };
     }
@@ -339,13 +341,22 @@ export class AnnotationStore {
       return { ok: false, message: 'Deletion setup is not active.' };
     }
 
-    const validation = validateDeletionSetup(this.deletionDraft);
+    const nextIntent = intent
+      ? applyDeletionIntentAutoLink(intent, this.deletionDraft)
+      : {
+        deleteLink: this.deletionDraft.deleteLink,
+        deleteGeometry: this.deletionDraft.deleteGeometry,
+        deleteData: this.deletionDraft.deleteData,
+      };
+
+    const validation = validateDeletionSetup(nextIntent);
     if (!validation.ok) {
       return { ok: false, message: validation.message ?? 'Invalid deletion setup.' };
     }
 
     this.deletionDraft = {
       ...this.deletionDraft,
+      ...nextIntent,
       step: 'selecting',
       candidateLinkIds: [],
       candidateGeometryIds: [],
@@ -357,8 +368,8 @@ export class AnnotationStore {
   }
 
   /**
-   * M1: only advances setup → selecting (same as {@link beginDeletionWizard}).
-   * Later milestones will advance through selection/commit.
+   * Advances setup → selecting when an intent is already on the draft.
+   * Prefer {@link beginDeletionWizard} with an explicit intent from the setup grid.
    */
   advanceDeletionStep(): { ok: true } | { ok: false; message: string } {
     if (!this.deletionDraft) {

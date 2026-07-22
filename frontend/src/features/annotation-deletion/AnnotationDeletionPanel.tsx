@@ -1,17 +1,39 @@
 import { useMemo } from 'react';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
-import type { AnnotationDeletionDraft } from './types';
-import {
-  applyDeletionIntentAutoLink,
-  canBeginDeletionWizard,
-} from './annotationDeletionValidation';
+import type { AnnotationDeletionDraft, AnnotationDeletionIntent } from './types';
 import { canConfirmDeletionBasket } from './annotationDeletionBasket';
+
+const INTENT_PRESETS: Array<{
+  id: string;
+  label: string;
+  intent: AnnotationDeletionIntent;
+}> = [
+  {
+    id: 'link',
+    label: 'Link',
+    intent: { deleteLink: true, deleteGeometry: false, deleteData: false },
+  },
+  {
+    id: 'link-geo-data',
+    label: 'Link+Geo+Data',
+    intent: { deleteLink: true, deleteGeometry: true, deleteData: true },
+  },
+  {
+    id: 'link-geo',
+    label: 'Link+Geo',
+    intent: { deleteLink: true, deleteGeometry: true, deleteData: false },
+  },
+  {
+    id: 'link-data',
+    label: 'Link+Data',
+    intent: { deleteLink: true, deleteGeometry: false, deleteData: true },
+  },
+];
 
 interface AnnotationDeletionPanelProps {
   draft: AnnotationDeletionDraft;
   setupError: string | null;
-  onDraftChange: (patch: Partial<AnnotationDeletionDraft>) => void;
-  onStartDelete: () => void;
+  onStartDelete: (intent: AnnotationDeletionIntent) => void;
   onBack: () => void;
   onConfirmDelete: () => void;
   onRemoveFromBasket: (args: {
@@ -24,7 +46,6 @@ interface AnnotationDeletionPanelProps {
 export default function AnnotationDeletionPanel({
   draft,
   setupError,
-  onDraftChange,
   onStartDelete,
   onBack,
   onConfirmDelete,
@@ -35,8 +56,6 @@ export default function AnnotationDeletionPanel({
   const isSelecting = draft.step === 'selecting';
   const isCommitting = draft.step === 'committing';
   const wizardActive = isSelecting || isCommitting;
-  const startEnabled = isSetup && canBeginDeletionWizard(draft) && !isCommitting;
-  const linkLocked = draft.deleteGeometry || draft.deleteData;
   const confirmEnabled = isSelecting
     && !isCommitting
     && canConfirmDeletionBasket(draft, { links: allLinks });
@@ -73,12 +92,6 @@ export default function AnnotationDeletionPanel({
     });
   }, [allData, allLinks, draft.candidateLinkIds]);
 
-  const patchIntent = (
-    patch: Partial<Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>>,
-  ) => {
-    onDraftChange(applyDeletionIntentAutoLink(patch, draft));
-  };
-
   const selectionHint = (() => {
     if (draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
       return 'Link only: select a geometry in the viewer or a data row in the panel. Items with one link are added; multiple links are not yet supported.';
@@ -91,6 +104,12 @@ export default function AnnotationDeletionPanel({
     }
     return 'Select a geometry in the viewer or data in the panel (one link each).';
   })();
+
+  const activeIntentLabel = INTENT_PRESETS.find((preset) => (
+    preset.intent.deleteLink === draft.deleteLink
+    && preset.intent.deleteGeometry === draft.deleteGeometry
+    && preset.intent.deleteData === draft.deleteData
+  ))?.label ?? 'Custom';
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
@@ -105,47 +124,23 @@ export default function AnnotationDeletionPanel({
       {isSetup ? (
         <>
           <div className="small fw-semibold mb-2">What to mark erasable</div>
-          <div className="d-flex flex-column gap-1 mb-2">
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                id="deletion-intent-link"
-                checked={draft.deleteLink}
-                disabled={linkLocked}
-                onChange={(e) => patchIntent({ deleteLink: e.target.checked })}
-              />
-              <label className="form-check-label small" htmlFor="deletion-intent-link">
-                Link
-                {linkLocked ? (
-                  <span className="text-muted"> (required with Geometry or Data)</span>
-                ) : null}
-              </label>
-            </div>
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                id="deletion-intent-geometry"
-                checked={draft.deleteGeometry}
-                onChange={(e) => patchIntent({ deleteGeometry: e.target.checked })}
-              />
-              <label className="form-check-label small" htmlFor="deletion-intent-geometry">
-                Geometry
-              </label>
-            </div>
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                id="deletion-intent-data"
-                checked={draft.deleteData}
-                onChange={(e) => patchIntent({ deleteData: e.target.checked })}
-              />
-              <label className="form-check-label small" htmlFor="deletion-intent-data">
-                Data
-              </label>
-            </div>
+          <div
+            className="d-grid gap-2"
+            style={{ gridTemplateColumns: '1fr 1fr' }}
+            role="group"
+            aria-label="Deletion intent"
+          >
+            {INTENT_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="btn btn-outline-danger btn-sm"
+                disabled={isCommitting}
+                onClick={() => onStartDelete(preset.intent)}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
           {setupError ? (
             <div className="alert alert-warning py-2 px-3 small mt-2 mb-0">{setupError}</div>
@@ -154,7 +149,7 @@ export default function AnnotationDeletionPanel({
       ) : (
         <div className="small">
           <div className="fw-semibold mb-1">
-            {isCommitting ? 'Deleting…' : 'Select items to delete'}
+            {isCommitting ? 'Deleting…' : `Select items (${activeIntentLabel})`}
           </div>
           <p className="text-muted mb-2">{selectionHint}</p>
 
@@ -225,26 +220,17 @@ export default function AnnotationDeletionPanel({
         </div>
       )}
 
-      <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm"
-          disabled={!wizardActive || isCommitting}
-          onClick={onBack}
-        >
-          Back
-        </button>
-
-        {isSetup ? (
+      {wizardActive ? (
+        <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
           <button
             type="button"
-            className="btn btn-danger btn-sm"
-            disabled={!startEnabled}
-            onClick={onStartDelete}
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isCommitting}
+            onClick={onBack}
           >
-            Start delete
+            Back
           </button>
-        ) : (
+
           <button
             type="button"
             className="btn btn-danger btn-sm"
@@ -254,8 +240,8 @@ export default function AnnotationDeletionPanel({
           >
             Confirm delete
           </button>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

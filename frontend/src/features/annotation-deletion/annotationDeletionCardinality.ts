@@ -41,3 +41,29 @@ export function resolveDeletionLinkViewMode(
   }
   return 'showAll';
 }
+
+/**
+ * Focus anchors for link-view filtering during deletion.
+ * Link+Geo / Link+Data drive the opposite side from the basket; other intents
+ * return null so the normal focus / showAll path is used.
+ */
+export function resolveDeletionLinkViewFocus(
+  draft: Pick<
+    AnnotationDeletionDraft,
+    'deleteGeometry' | 'deleteData' | 'candidateGeometryIds' | 'candidateDataIds'
+  >,
+): { focusedGeometryIds: Set<string>; focusedDataIds: Set<string> } | null {
+  if (draft.deleteGeometry && !draft.deleteData) {
+    return {
+      focusedGeometryIds: new Set(draft.candidateGeometryIds),
+      focusedDataIds: new Set(),
+    };
+  }
+  if (draft.deleteData && !draft.deleteGeometry) {
+    return {
+      focusedGeometryIds: new Set(),
+      focusedDataIds: new Set(draft.candidateDataIds),
+    };
+  }
+  return null;
+}

@@ -5,11 +5,15 @@
 
 export type AnnotationDeletionStep = 'setup' | 'selecting' | 'committing';
 
-export interface AnnotationDeletionDraft {
-  step: AnnotationDeletionStep;
+/** Valid delete-intent flags (Link always on for the four setup presets). */
+export interface AnnotationDeletionIntent {
   deleteLink: boolean;
   deleteGeometry: boolean;
   deleteData: boolean;
+}
+
+export interface AnnotationDeletionDraft extends AnnotationDeletionIntent {
+  step: AnnotationDeletionStep;
   candidateLinkIds: string[];
   candidateGeometryIds: string[];
   candidateDataIds: string[];
