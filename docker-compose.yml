@@ -105,6 +105,8 @@ services:
     build:
       context: .
       dockerfile: sam2-service/Dockerfile
+      args:
+        MODEL_SIZE: ${SAM2_MODEL_SIZE:-tiny}
     container_name: ocra-sam2
     environment:
       MODEL_SIZE: ${SAM2_MODEL_SIZE:-tiny}
@@ -113,8 +115,6 @@ services:
       PORT: 5001
     ports:
       - "5001:5001"
-    volumes:
-      - ./sam2/checkpoints:/opt/sam2/checkpoints:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')\""]
       interval: 30s

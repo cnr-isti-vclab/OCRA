@@ -36,7 +36,7 @@ def _load_predictor() -> SAM2ImagePredictor:
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(
             f"SAM2 checkpoint not found at {checkpoint}. "
-            f"Run ./sam2/checkpoints/download_ckpts.sh to download."
+            f"It should have been downloaded during `docker compose build sam2` - rebuild the image."
         )
 
     force_cpu = os.environ.get("SAM2_FORCE_CPU", "0") == "1"
