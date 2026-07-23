@@ -28,6 +28,7 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
   ) => DeletionBasketAddResult;
   deselectGeometryFromDeletionBasket: (geometryId: string) => void;
   deselectDataFromDeletionBasket: (dataId: string) => void;
+  clearDeletionBasket: () => void;
   removeFromDeletionBasket: (args: {
     linkId?: string;
     geometryId?: string;
@@ -46,6 +47,7 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     addLinkOnlyFromEndpoint,
     deselectGeometryFromDeletionBasket,
     deselectDataFromDeletionBasket,
+    clearDeletionBasket,
     removeFromDeletionBasket,
     reportDeletionSelectionBlocked,
   } = useAnnotationStore();
@@ -104,6 +106,7 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     addLinkOnlyFromEndpoint,
     deselectGeometryFromDeletionBasket,
     deselectDataFromDeletionBasket,
+    clearDeletionBasket,
     removeFromDeletionBasket,
     reportDeletionSelectionBlocked,
   };

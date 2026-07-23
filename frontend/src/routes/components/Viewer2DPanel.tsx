@@ -128,11 +128,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
       deselectGeometryFromDeletionBasket,
+      clearDeletionBasket,
       reportDeletionSelectionBlocked,
     } = useAnnotationDeletionWizard();
 
     const isStoreSyncRef = useRef(false);
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+    const applyingProgrammaticSelectionRef = useRef(false);
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const isPointerDownRef = useRef(false);
     const deletionPointerToggleRef = useRef(false);
@@ -533,10 +535,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           expectedProgrammaticSelectionRef.current = null;
           return;
         }
-        // OpenLIME may emit a transient empty selection when the pencil is enabled.
-        // During deletion, Ctrl/Meta + empty is a real "deselect last" — do not ignore it.
+        // OpenLIME may emit a transient empty selection during programmatic highlight sync.
+        // Otherwise, during deletion, fall through so Link+Geo can clear the basket and
+        // Link+Data can restore highlight-only selection.
         if (expected.length > 0 && ids.length === 0) {
-          if (!(isDeletionSelectingStep && deletionPointerToggleRef.current)) {
+          if (applyingProgrammaticSelectionRef.current || !isDeletionSelectingStep) {
             return;
           }
         }
@@ -549,42 +552,23 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           return;
         }
         if (isDeletionSelectingStep && deletionDraft) {
-          // Link+Data: geometries are highlight-only — snap back; do not clear basket.
+          // Link+Data: viewer is highlight-only — ignore background clear, snap highlights back.
           if (isDeletionDataLed) {
             const restoreIds = (deletionHighlightGeometryIds ?? highlightGeometryIds)
               .filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
             const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
             const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+            applyingProgrammaticSelectionRef.current = true;
             expectedProgrammaticSelectionRef.current = normalizeIds(restoreIds);
             applyOpenLimeSelection(manager, restoreIds, selectionInteractionMode);
             deletionPreviousSelectionRef.current = restoreIds;
+            requestAnimationFrame(() => {
+              applyingProgrammaticSelectionRef.current = false;
+            });
             return;
           }
-          if (deletionPointerToggleRef.current) {
-            applyDeletionGeometryPicks(
-              [],
-              deletionDraft,
-              {
-                addGeometryToDeletionBasket,
-                addLinkOnlyFromEndpoint,
-                deselectGeometryFromDeletionBasket,
-                reportDeletionSelectionBlocked,
-              },
-              {
-                activeSocialLocks,
-                currentStreamId,
-                links: allLinks,
-                geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
-              },
-              {
-                toggle: true,
-                previousSelectedIds: deletionPreviousSelectionRef.current,
-                links: allLinks,
-              },
-            );
-            deletionPreviousSelectionRef.current = [];
-            return;
-          }
+          clearDeletionBasket();
+          deletionPreviousSelectionRef.current = [];
           return;
         }
         clearFocus();
@@ -618,9 +602,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           }
           const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
           const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+          applyingProgrammaticSelectionRef.current = true;
           expectedProgrammaticSelectionRef.current = normalizedRestore;
           applyOpenLimeSelection(manager, restoreIds, selectionInteractionMode);
           deletionPreviousSelectionRef.current = restoreIds;
+          requestAnimationFrame(() => {
+            applyingProgrammaticSelectionRef.current = false;
+          });
           return;
         }
 
@@ -702,8 +690,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (idsToSelect.length > 0 && !isPointerDownRef.current) {
         const managerForSelect =
           enableAnnotationEditInteraction() ?? annotationManager;
+        applyingProgrammaticSelectionRef.current = true;
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
         applyOpenLimeSelection(managerForSelect, idsToSelect, selectionInteractionMode);
+        requestAnimationFrame(() => {
+          applyingProgrammaticSelectionRef.current = false;
+        });
       }
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
     }, [lockedGeometryIds, ref, viewerAnnotationsForSync, enableAnnotationEditInteraction]);
@@ -784,8 +776,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (idsToSelect.length > 0) {
         const managerForSelect =
           enableAnnotationEditInteraction() ?? annotationManager;
+        applyingProgrammaticSelectionRef.current = true;
         expectedProgrammaticSelectionRef.current = normalizeIds(idsToSelect);
         applyOpenLimeSelection(managerForSelect, idsToSelect, selectionInteractionMode);
+        requestAnimationFrame(() => {
+          applyingProgrammaticSelectionRef.current = false;
+        });
       }
       // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
       applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
@@ -830,8 +826,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
       if (highlightGeometryIds.length === 0 && focusedDataIds.size === 0) {
+        applyingProgrammaticSelectionRef.current = true;
         expectedProgrammaticSelectionRef.current = [];
         annotationManager.deselectAll();
+        requestAnimationFrame(() => {
+          applyingProgrammaticSelectionRef.current = false;
+        });
         return;
       }
 
@@ -843,8 +843,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
       const managerForSelect =
         enableAnnotationEditInteraction() ?? annotationManager;
+      applyingProgrammaticSelectionRef.current = true;
       expectedProgrammaticSelectionRef.current = normalizeIds(highlightGeometryIds);
       applyOpenLimeSelection(managerForSelect, highlightGeometryIds, selectionInteractionMode);
+      requestAnimationFrame(() => {
+        applyingProgrammaticSelectionRef.current = false;
+      });
     }, [
       annotationManagerRevision,
       highlightGeometryIds,

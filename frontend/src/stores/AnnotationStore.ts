@@ -596,6 +596,30 @@ export class AnnotationStore {
     this.bump();
   }
 
+  /** Clear all deletion basket candidates (e.g. viewer background click). */
+  clearDeletionBasket(): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return;
+    }
+    if (
+      draft.candidateLinkIds.length === 0
+      && draft.candidateGeometryIds.length === 0
+      && draft.candidateDataIds.length === 0
+      && draft.selectionMessage === null
+    ) {
+      return;
+    }
+    this.deletionDraft = {
+      ...draft,
+      candidateLinkIds: [],
+      candidateGeometryIds: [],
+      candidateDataIds: [],
+      selectionMessage: null,
+    };
+    this.bump();
+  }
+
   async advanceCreationStep(): Promise<{ ok: true } | { ok: false; message: string }> {
     if (!this.creationDraft) {
       return { ok: false, message: 'No creation session is active.' };

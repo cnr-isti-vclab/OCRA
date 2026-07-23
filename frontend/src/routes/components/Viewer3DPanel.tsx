@@ -102,10 +102,12 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
       deselectGeometryFromDeletionBasket,
+      clearDeletionBasket,
       reportDeletionSelectionBlocked,
     } = useAnnotationDeletionWizard();
 
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+    const applyingProgrammaticSelectionRef = useRef(false);
     const deletionPointerToggleRef = useRef(false);
     const deletionPreviousSelectionRef = useRef<string[]>([]);
     const activeGeometriesRef = useRef(visibleGeometries);
@@ -375,12 +377,16 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         }
 
         expectedProgrammaticSelectionRef.current = nextSelection;
+        applyingProgrammaticSelectionRef.current = true;
         if (nextSelection.length === 0) {
           annotationMgr.clearSelection();
         } else {
           annotationMgr.clearSelection();
           annotationMgr.select(nextSelection, false);
         }
+        requestAnimationFrame(() => {
+          applyingProgrammaticSelectionRef.current = false;
+        });
       } catch {
         // ignore
       }
@@ -397,9 +403,10 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           expectedProgrammaticSelectionRef.current = null;
           return;
         }
-        // Transient empty while syncing highlights — ignore, except Ctrl deselect-last in deletion.
+        // Transient empty while syncing highlights — ignore only while applying programmatic selection.
+        // Otherwise during deletion fall through: Link+Geo clears basket; Link+Data restores highlights.
         if (expected.length > 0 && ids.length === 0) {
-          if (!(isDeletionSelectingStep && deletionPointerToggleRef.current)) {
+          if (applyingProgrammaticSelectionRef.current || !isDeletionSelectingStep) {
             return;
           }
         }
@@ -412,7 +419,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           return;
         }
         if (isDeletionSelectingStep && deletionDraft) {
-          // Link+Data: geometries are highlight-only — snap back; do not clear basket.
+          // Link+Data: viewer is highlight-only — ignore background clear, snap highlights back.
           if (isDeletionDataLed) {
             const restoreIds = normalizeIds(
               (deletionHighlightGeometryIds ?? highlightGeometryIds)
@@ -420,6 +427,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             );
             const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
             const annotationMgr = viewer?.getAnnotationManager?.();
+            applyingProgrammaticSelectionRef.current = true;
             expectedProgrammaticSelectionRef.current = restoreIds;
             if (annotationMgr) {
               if (restoreIds.length === 0) {
@@ -430,33 +438,13 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               }
             }
             deletionPreviousSelectionRef.current = restoreIds;
+            requestAnimationFrame(() => {
+              applyingProgrammaticSelectionRef.current = false;
+            });
             return;
           }
-          if (deletionPointerToggleRef.current) {
-            applyDeletionGeometryPicks(
-              [],
-              deletionDraft,
-              {
-                addGeometryToDeletionBasket,
-                addLinkOnlyFromEndpoint,
-                deselectGeometryFromDeletionBasket,
-                reportDeletionSelectionBlocked,
-              },
-              {
-                activeSocialLocks,
-                currentStreamId,
-                links: allLinks,
-                geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
-              },
-              {
-                toggle: true,
-                previousSelectedIds: deletionPreviousSelectionRef.current,
-                links: allLinks,
-              },
-            );
-            deletionPreviousSelectionRef.current = [];
-            return;
-          }
+          clearDeletionBasket();
+          deletionPreviousSelectionRef.current = [];
           return;
         }
         clearFocus();
@@ -491,6 +479,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           }
           const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
           const annotationMgr = viewer?.getAnnotationManager?.();
+          applyingProgrammaticSelectionRef.current = true;
           expectedProgrammaticSelectionRef.current = restoreIds;
           if (annotationMgr) {
             if (restoreIds.length === 0) {
@@ -501,6 +490,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             }
           }
           deletionPreviousSelectionRef.current = restoreIds;
+          requestAnimationFrame(() => {
+            applyingProgrammaticSelectionRef.current = false;
+          });
           return;
         }
 
