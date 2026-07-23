@@ -211,7 +211,7 @@ export default function AnnotationPanelEditor({
   );
 
   const handleCreateSectionToggle = useCallback(() => {
-    if (isDeletionWizardActive) {
+    if (isDeletionWizardActive || isCreationWizardActive) {
       return;
     }
     setCreateSectionExpanded((expanded) => {
@@ -235,11 +235,12 @@ export default function AnnotationPanelEditor({
     deletionDraft,
     discardDeletionDraft,
     initCreationDraft,
+    isCreationWizardActive,
     isDeletionWizardActive,
   ]);
 
   const handleDeleteSectionToggle = useCallback(() => {
-    if (isCreationWizardActive) {
+    if (isCreationWizardActive || isDeletionWizardActive) {
       return;
     }
     setDeleteSectionExpanded((expanded) => {
@@ -265,6 +266,7 @@ export default function AnnotationPanelEditor({
     discardCreationDraft,
     initDeletionDraft,
     isCreationWizardActive,
+    isDeletionWizardActive,
   ]);
 
   const handleBeginCreation = useCallback(() => {
@@ -706,8 +708,14 @@ export default function AnnotationPanelEditor({
               className={`btn btn-sm flex-fill ${createSectionExpanded ? 'btn-primary' : 'btn-outline-primary'}`}
               onClick={handleCreateSectionToggle}
               aria-expanded={createSectionExpanded}
-              disabled={isDeletionWizardActive}
-              title={isDeletionWizardActive ? 'Finish or cancel deletion before creating' : undefined}
+              disabled={isDeletionWizardActive || isCreationWizardActive}
+              title={
+                isCreationWizardActive
+                  ? 'Use Back to cancel the creation session before closing'
+                  : isDeletionWizardActive
+                    ? 'Finish or cancel deletion before creating'
+                    : undefined
+              }
             >
               <i className={`bi ${createSectionExpanded ? 'bi-chevron-up' : 'bi-plus-lg'} me-1`} aria-hidden />
               Create
@@ -717,8 +725,14 @@ export default function AnnotationPanelEditor({
               className={`btn btn-sm flex-fill ${deleteSectionExpanded ? 'btn-danger' : 'btn-outline-danger'}`}
               onClick={handleDeleteSectionToggle}
               aria-expanded={deleteSectionExpanded}
-              disabled={isCreationWizardActive}
-              title={isCreationWizardActive ? 'Finish or cancel creation before deleting' : undefined}
+              disabled={isCreationWizardActive || isDeletionWizardActive}
+              title={
+                isDeletionWizardActive
+                  ? 'Use Back to cancel the deletion session before closing'
+                  : isCreationWizardActive
+                    ? 'Finish or cancel creation before deleting'
+                    : undefined
+              }
             >
               <i className={`bi ${deleteSectionExpanded ? 'bi-chevron-up' : 'bi-trash'} me-1`} aria-hidden />
               Delete
