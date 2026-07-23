@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { canConfirmDeletionBasket } from './annotationDeletionBasket';
 import { resolveDeletionLinkViewMode } from './annotationDeletionCardinality';
+import { resolveDeletionHighlightIds } from './resolveDeletionHighlightIds';
 import type { AnnotationDeletionDraft } from './types';
 import type { DeletionBasketAddResult } from '../../stores/AnnotationStore';
 
@@ -14,6 +15,7 @@ export interface AnnotationDeletionWizardState {
   isDeletionGeometryLed: boolean;
   isDeletionDataLed: boolean;
   deletionHighlightGeometryIds: string[] | null;
+  deletionHighlightDataIds: string[] | null;
   canConfirmDeletion: boolean;
 }
 
@@ -24,6 +26,8 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     endpointKind: 'geometry' | 'data',
     endpointId: string,
   ) => DeletionBasketAddResult;
+  deselectGeometryFromDeletionBasket: (geometryId: string) => void;
+  deselectDataFromDeletionBasket: (dataId: string) => void;
   removeFromDeletionBasket: (args: {
     linkId?: string;
     geometryId?: string;
@@ -40,6 +44,8 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     addGeometryToDeletionBasket,
     addDataToDeletionBasket,
     addLinkOnlyFromEndpoint,
+    deselectGeometryFromDeletionBasket,
+    deselectDataFromDeletionBasket,
     removeFromDeletionBasket,
     reportDeletionSelectionBlocked,
   } = useAnnotationStore();
@@ -62,15 +68,15 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     return canConfirmDeletionBasket(deletionDraft, { links: allLinks });
   }, [allLinks, deletionDraft]);
 
-  const deletionHighlightGeometryIds = useMemo(() => {
+  const deletionHighlights = useMemo(() => {
     if (!isDeletionSelectingStep || !deletionDraft) {
       return null;
     }
-    if (deletionDraft.candidateGeometryIds.length > 0) {
-      return [...deletionDraft.candidateGeometryIds];
-    }
-    return null;
-  }, [deletionDraft, isDeletionSelectingStep]);
+    return resolveDeletionHighlightIds(deletionDraft, allLinks);
+  }, [allLinks, deletionDraft, isDeletionSelectingStep]);
+
+  const deletionHighlightGeometryIds = deletionHighlights?.geometryIds ?? null;
+  const deletionHighlightDataIds = deletionHighlights?.dataIds ?? null;
 
   useEffect(() => {
     if (!deletionDraft || deletionDraft.step !== 'selecting') {
@@ -91,10 +97,13 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     isDeletionGeometryLed,
     isDeletionDataLed,
     deletionHighlightGeometryIds,
+    deletionHighlightDataIds,
     canConfirmDeletion,
     addGeometryToDeletionBasket,
     addDataToDeletionBasket,
     addLinkOnlyFromEndpoint,
+    deselectGeometryFromDeletionBasket,
+    deselectDataFromDeletionBasket,
     removeFromDeletionBasket,
     reportDeletionSelectionBlocked,
   };

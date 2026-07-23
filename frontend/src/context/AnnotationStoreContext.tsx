@@ -140,6 +140,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
     geometryId?: string;
     dataId?: string;
   }) => void;
+  deselectGeometryFromDeletionBasket: (geometryId: string) => void;
+  deselectDataFromDeletionBasket: (dataId: string) => void;
   reportDeletionSelectionBlocked: (message: string) => void;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
@@ -858,6 +860,14 @@ export function AnnotationStoreProvider({
     storeRef.current?.removeFromDeletionBasket(args);
   }, []);
 
+  const deselectGeometryFromDeletionBasket = useCallback((geometryId: string) => {
+    storeRef.current?.deselectGeometryFromDeletionBasket(geometryId);
+  }, []);
+
+  const deselectDataFromDeletionBasket = useCallback((dataId: string) => {
+    storeRef.current?.deselectDataFromDeletionBasket(dataId);
+  }, []);
+
   const reportDeletionSelectionBlocked = useCallback((message: string) => {
     storeRef.current?.reportDeletionSelectionBlocked(message);
   }, []);
@@ -978,6 +988,8 @@ export function AnnotationStoreProvider({
     addDataToDeletionBasket,
     addLinkOnlyFromEndpoint,
     removeFromDeletionBasket,
+    deselectGeometryFromDeletionBasket,
+    deselectDataFromDeletionBasket,
     reportDeletionSelectionBlocked,
     eventLog,
     activeSocialLocks,

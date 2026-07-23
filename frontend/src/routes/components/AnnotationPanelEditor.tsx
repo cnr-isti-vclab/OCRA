@@ -29,10 +29,7 @@ import { useAnnotationCreationWizard } from '../../features/annotation-creation/
 import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
 import AnnotationDeletionPanel from '../../features/annotation-deletion/AnnotationDeletionPanel';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
-import {
-  DELETION_BLOCKED_BY_LOCK_MESSAGE,
-  isEntityBlockedForDeletion,
-} from '../../features/annotation-deletion/isEntityBlockedForDeletion';
+import { applyDeletionDataPick } from '../../features/annotation-deletion/applyDeletionDataPick';
 import type {
   VocabularyConcept,
   VocabularyProperty,
@@ -188,13 +185,17 @@ export default function AnnotationPanelEditor({
 
   const {
     isDeletionSelectingStep,
-    isDeletionLinkOnly,
-    isDeletionDataLed,
+    deletionHighlightDataIds,
     addDataToDeletionBasket,
     addLinkOnlyFromEndpoint,
-    removeFromDeletionBasket,
+    deselectDataFromDeletionBasket,
     reportDeletionSelectionBlocked,
   } = useAnnotationDeletionWizard();
+
+  const deletionHighlightDataIdSet = useMemo(
+    () => new Set(deletionHighlightDataIds ?? []),
+    [deletionHighlightDataIds],
+  );
 
   const [createSectionExpanded, setCreateSectionExpanded] = useState(false);
   const [deleteSectionExpanded, setDeleteSectionExpanded] = useState(false);
@@ -515,28 +516,28 @@ export default function AnnotationPanelEditor({
   }, [focusedGeometryIds, focusedDataIds, activeAnnotationSelection, onSelectionChanged]);
 
   const handleDataClick = (dataId: string, e: React.MouseEvent) => {
-    if (isDeletionSelectingStep) {
+    if (isDeletionSelectingStep && deletionDraft) {
       e.stopPropagation();
-      if (
-        isEntityBlockedForDeletion({
-          entityKind: 'data',
-          entityId: dataId,
+      applyDeletionDataPick(
+        dataId,
+        deletionDraft,
+        {
+          addDataToDeletionBasket,
+          addLinkOnlyFromEndpoint,
+          deselectDataFromDeletionBasket,
+          reportDeletionSelectionBlocked,
+        },
+        {
           activeSocialLocks,
           currentStreamId,
           links: allLinks,
           geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
-        })
-      ) {
-        reportDeletionSelectionBlocked(DELETION_BLOCKED_BY_LOCK_MESSAGE);
-        return;
-      }
-      if (isDeletionLinkOnly) {
-        addLinkOnlyFromEndpoint('data', dataId);
-        return;
-      }
-      if (isDeletionDataLed || deletionDraft?.deleteData) {
-        addDataToDeletionBasket(dataId);
-      }
+        },
+        {
+          toggle: e.ctrlKey || e.metaKey,
+          links: allLinks,
+        },
+      );
       return;
     }
     focusData(dataId, e.ctrlKey || e.metaKey);
@@ -744,7 +745,6 @@ export default function AnnotationPanelEditor({
               onConfirmDelete={() => {
                 setDeletionSetupError('Confirm delete lands in M4 — basket is ready.');
               }}
-              onRemoveFromBasket={removeFromDeletionBasket}
             />
           ) : null}
           {!isCreationWizardActive && !isDeletionWizardActive ? (
@@ -795,7 +795,9 @@ export default function AnnotationPanelEditor({
             {visibleData.map((datum) => {
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
-              const isSelected = isDataFocused(datum.id);
+              const isSelected = isDeletionSelectingStep
+                ? deletionHighlightDataIdSet.has(datum.id)
+                : isDataFocused(datum.id);
               const isUnderEditing = isDataIdUnderEditorLock(
                 datum.id,
                 activeSocialLocks,

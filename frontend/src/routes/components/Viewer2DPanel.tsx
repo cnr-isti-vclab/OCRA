@@ -126,6 +126,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       deletionHighlightGeometryIds,
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
+      deselectGeometryFromDeletionBasket,
       reportDeletionSelectionBlocked,
     } = useAnnotationDeletionWizard();
 
@@ -133,6 +134,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const isPointerDownRef = useRef(false);
+    const deletionPointerToggleRef = useRef(false);
+    const deletionPreviousSelectionRef = useRef<string[]>([]);
     // Always-current refs for use inside pointer event handlers (avoids stale closures).
     const focusedGeometryIdsRef = useRef(focusedGeometryIds);
     focusedGeometryIdsRef.current = focusedGeometryIds;
@@ -158,6 +161,19 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           : !pencilActive
             ? 'preserve'
             : 'edit';
+
+    useEffect(() => {
+      if (!isDeletionSelectingStep) {
+        deletionPointerToggleRef.current = false;
+        deletionPreviousSelectionRef.current = [];
+        return;
+      }
+      const onPointerDown = (event: PointerEvent) => {
+        deletionPointerToggleRef.current = event.ctrlKey || event.metaKey;
+      };
+      window.addEventListener('pointerdown', onPointerDown, true);
+      return () => window.removeEventListener('pointerdown', onPointerDown, true);
+    }, [isDeletionSelectingStep]);
 
     const resolveToolbarMode = useCallback(
       (currentMode: AnnotationToolbarMode = toolbarMode): AnnotationToolbarMode =>
@@ -542,12 +558,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
 
       if (isDeletionSelectingStep && deletionDraft) {
+        const filteredIds = ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
         applyDeletionGeometryPicks(
-          ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID),
+          filteredIds,
           deletionDraft,
           {
             addGeometryToDeletionBasket,
             addLinkOnlyFromEndpoint,
+            deselectGeometryFromDeletionBasket,
             reportDeletionSelectionBlocked,
           },
           {
@@ -556,7 +574,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             links: allLinks,
             geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
           },
+          {
+            toggle: deletionPointerToggleRef.current,
+            previousSelectedIds: deletionPreviousSelectionRef.current,
+            links: allLinks,
+          },
         );
+        deletionPreviousSelectionRef.current = filteredIds;
         return;
       }
 

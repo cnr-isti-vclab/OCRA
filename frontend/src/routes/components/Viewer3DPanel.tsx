@@ -100,10 +100,13 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       deletionHighlightGeometryIds,
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
+      deselectGeometryFromDeletionBasket,
       reportDeletionSelectionBlocked,
     } = useAnnotationDeletionWizard();
 
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
+    const deletionPointerToggleRef = useRef(false);
+    const deletionPreviousSelectionRef = useRef<string[]>([]);
     const activeGeometriesRef = useRef(visibleGeometries);
     activeGeometriesRef.current = visibleGeometries;
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
@@ -118,6 +121,19 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setViewerReady(true);
       onReady();
     }, [onReady]);
+
+    useEffect(() => {
+      if (!isDeletionSelectingStep) {
+        deletionPointerToggleRef.current = false;
+        deletionPreviousSelectionRef.current = [];
+        return;
+      }
+      const onPointerDown = (event: PointerEvent) => {
+        deletionPointerToggleRef.current = event.ctrlKey || event.metaKey;
+      };
+      window.addEventListener('pointerdown', onPointerDown, true);
+      return () => window.removeEventListener('pointerdown', onPointerDown, true);
+    }, [isDeletionSelectingStep]);
 
     const viewerAnnotations = useMemo(
       () => {
@@ -405,12 +421,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
 
       if (isDeletionSelectingStep && deletionDraft) {
+        const filteredIds = ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
         applyDeletionGeometryPicks(
-          ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID),
+          filteredIds,
           deletionDraft,
           {
             addGeometryToDeletionBasket,
             addLinkOnlyFromEndpoint,
+            deselectGeometryFromDeletionBasket,
             reportDeletionSelectionBlocked,
           },
           {
@@ -419,7 +437,13 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             links: allLinks,
             geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
           },
+          {
+            toggle: deletionPointerToggleRef.current,
+            previousSelectedIds: deletionPreviousSelectionRef.current,
+            links: allLinks,
+          },
         );
+        deletionPreviousSelectionRef.current = filteredIds;
         return;
       }
 

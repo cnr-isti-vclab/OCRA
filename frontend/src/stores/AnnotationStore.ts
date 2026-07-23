@@ -55,6 +55,10 @@ import {
   nonErasableLinksForGeometry,
 } from '../features/annotation-deletion/annotationDeletionCardinality';
 import {
+  deselectDataFromDeletionBasket as computeDataDeselection,
+  deselectGeometryFromDeletionBasket as computeGeometryDeselection,
+} from '../features/annotation-deletion/deselectFromDeletionBasket';
+import {
   DELETION_MANY_LINKS_MESSAGE,
   DELETION_NO_LINKS_MESSAGE,
 } from '../features/annotation-deletion/isEntityBlockedForDeletion';
@@ -561,6 +565,32 @@ export class AnnotationStore {
       candidateDataIds: args.dataId
         ? draft.candidateDataIds.filter((id) => id !== args.dataId)
         : draft.candidateDataIds,
+      selectionMessage: null,
+    };
+    this.bump();
+  }
+
+  deselectGeometryFromDeletionBasket(geometryId: string): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return;
+    }
+    this.deletionDraft = {
+      ...draft,
+      ...computeGeometryDeselection(draft, geometryId, this.linkMap.values()),
+      selectionMessage: null,
+    };
+    this.bump();
+  }
+
+  deselectDataFromDeletionBasket(dataId: string): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft) {
+      return;
+    }
+    this.deletionDraft = {
+      ...draft,
+      ...computeDataDeselection(draft, dataId, this.linkMap.values()),
       selectionMessage: null,
     };
     this.bump();
