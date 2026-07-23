@@ -52,7 +52,7 @@ describe('applyDeletionGeometryPicks', () => {
         activeSocialLocks: [],
         currentStreamId: null,
         links,
-        geometryIdsByDataId: {},
+        geometryIdsByDataId: new Map(),
       },
       { toggle: false, previousSelectedIds: ['g2'], links },
     );
@@ -85,7 +85,7 @@ describe('applyDeletionGeometryPicks', () => {
         activeSocialLocks: [],
         currentStreamId: null,
         links,
-        geometryIdsByDataId: {},
+        geometryIdsByDataId: new Map(),
       },
       { toggle: true, previousSelectedIds: ['g1'], links },
     );
@@ -116,13 +116,108 @@ describe('applyDeletionGeometryPicks', () => {
         activeSocialLocks: [],
         currentStreamId: null,
         links,
-        geometryIdsByDataId: {},
+        geometryIdsByDataId: new Map(),
       },
       { toggle: true, previousSelectedIds: ['g1', 'g2'], links },
     );
 
     expect(actions.deselectGeometryFromDeletionBasket).toHaveBeenCalledWith('g2');
     expect(actions.deselectGeometryFromDeletionBasket).toHaveBeenCalledTimes(1);
+    expect(actions.addGeometryToDeletionBasket).not.toHaveBeenCalled();
+  });
+
+  it('ctrl empty selection deselects the last remaining geometry', () => {
+    const draft = linkGeoDraft({
+      candidateGeometryIds: ['g1'],
+      candidateLinkIds: ['l1'],
+    });
+    const actions = {
+      addGeometryToDeletionBasket: vi.fn(() => ({ ok: true as const })),
+      addLinkOnlyFromEndpoint: vi.fn(() => ({ ok: true as const })),
+      deselectGeometryFromDeletionBasket: vi.fn(),
+      reportDeletionSelectionBlocked: vi.fn(),
+    };
+    const links = [link('l1', 'g1', 'd1')];
+
+    applyDeletionGeometryPicks(
+      [],
+      draft,
+      actions,
+      {
+        activeSocialLocks: [],
+        currentStreamId: null,
+        links,
+        geometryIdsByDataId: new Map(),
+      },
+      { toggle: true, previousSelectedIds: ['g1'], links },
+    );
+
+    expect(actions.deselectGeometryFromDeletionBasket).toHaveBeenCalledWith('g1');
+    expect(actions.deselectGeometryFromDeletionBasket).toHaveBeenCalledTimes(1);
+    expect(actions.addGeometryToDeletionBasket).not.toHaveBeenCalled();
+  });
+
+  it('ctrl empty selection falls back to basket highlights when previous ids are empty', () => {
+    const draft = linkGeoDraft({
+      candidateGeometryIds: ['g1'],
+      candidateLinkIds: ['l1'],
+    });
+    const actions = {
+      addGeometryToDeletionBasket: vi.fn(() => ({ ok: true as const })),
+      addLinkOnlyFromEndpoint: vi.fn(() => ({ ok: true as const })),
+      deselectGeometryFromDeletionBasket: vi.fn(),
+      reportDeletionSelectionBlocked: vi.fn(),
+    };
+    const links = [link('l1', 'g1', 'd1')];
+
+    applyDeletionGeometryPicks(
+      [],
+      draft,
+      actions,
+      {
+        activeSocialLocks: [],
+        currentStreamId: null,
+        links,
+        geometryIdsByDataId: new Map(),
+      },
+      { toggle: true, previousSelectedIds: [], links },
+    );
+
+    expect(actions.deselectGeometryFromDeletionBasket).toHaveBeenCalledWith('g1');
+  });
+
+  it('ignores geometry picks in Link+Data mode (counterpart highlight only)', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: false,
+      deleteData: true,
+      candidateDataIds: ['d1'],
+      candidateLinkIds: ['l1'],
+    };
+    const actions = {
+      addGeometryToDeletionBasket: vi.fn(() => ({ ok: true as const })),
+      addLinkOnlyFromEndpoint: vi.fn(() => ({ ok: true as const })),
+      deselectGeometryFromDeletionBasket: vi.fn(),
+      reportDeletionSelectionBlocked: vi.fn(),
+    };
+    const links = [link('l1', 'g1', 'd1')];
+
+    applyDeletionGeometryPicks(
+      [],
+      draft,
+      actions,
+      {
+        activeSocialLocks: [],
+        currentStreamId: null,
+        links,
+        geometryIdsByDataId: new Map(),
+      },
+      { toggle: true, previousSelectedIds: ['g1'], links },
+    );
+
+    expect(actions.deselectGeometryFromDeletionBasket).not.toHaveBeenCalled();
     expect(actions.addGeometryToDeletionBasket).not.toHaveBeenCalled();
   });
 });

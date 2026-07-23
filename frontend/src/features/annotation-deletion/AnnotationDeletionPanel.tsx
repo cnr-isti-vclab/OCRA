@@ -55,15 +55,15 @@ export default function AnnotationDeletionPanel({
 
   const selectionHint = (() => {
     if (draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
-      return 'Link only: click a geometry or data row to select (replaces previous). Ctrl/Cmd+click to add or remove. Items with one link are added; multiple links are not yet supported.';
+      return 'Link only: click a geometry or data row to identify the link (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now; multiple links are not yet supported.';
     }
     if (draft.deleteGeometry && !draft.deleteData) {
-      return 'Click a geometry to select it (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now.';
+      return 'Select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Linked data is shown for context and is not selectable. One link each for now.';
     }
     if (draft.deleteData && !draft.deleteGeometry) {
-      return 'Click a data row to select it (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now.';
+      return 'Select data rows in the panel (replaces previous). Ctrl/Cmd+click to add or remove. Linked geometries are shown for context and are not selectable. One link each for now.';
     }
-    return 'Click a geometry or data row to select it (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now.';
+    return 'Select a geometry or data row (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now.';
   })();
 
   const activeIntentLabel = INTENT_PRESETS.find((preset) => (

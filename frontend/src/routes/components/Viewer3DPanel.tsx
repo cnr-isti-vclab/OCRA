@@ -97,6 +97,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const {
       deletionDraft,
       isDeletionSelectingStep,
+      isDeletionDataLed,
       deletionHighlightGeometryIds,
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
@@ -396,8 +397,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           expectedProgrammaticSelectionRef.current = null;
           return;
         }
+        // Transient empty while syncing highlights — ignore, except Ctrl deselect-last in deletion.
         if (expected.length > 0 && ids.length === 0) {
-          return;
+          if (!(isDeletionSelectingStep && deletionPointerToggleRef.current)) {
+            return;
+          }
         }
         expectedProgrammaticSelectionRef.current = null;
       }
@@ -405,9 +409,57 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       if (ids.length === 0) {
         if (isCreationGeometrySearch) {
           setCreationGeometrySelection([]);
-        } else if (!isDeletionSelectingStep) {
-          clearFocus();
+          return;
         }
+        if (isDeletionSelectingStep && deletionDraft) {
+          // Link+Data: geometries are highlight-only — snap back; do not clear basket.
+          if (isDeletionDataLed) {
+            const restoreIds = normalizeIds(
+              (deletionHighlightGeometryIds ?? highlightGeometryIds)
+                .filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID),
+            );
+            const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+            const annotationMgr = viewer?.getAnnotationManager?.();
+            expectedProgrammaticSelectionRef.current = restoreIds;
+            if (annotationMgr) {
+              if (restoreIds.length === 0) {
+                annotationMgr.clearSelection();
+              } else {
+                annotationMgr.clearSelection();
+                annotationMgr.select(restoreIds, false);
+              }
+            }
+            deletionPreviousSelectionRef.current = restoreIds;
+            return;
+          }
+          if (deletionPointerToggleRef.current) {
+            applyDeletionGeometryPicks(
+              [],
+              deletionDraft,
+              {
+                addGeometryToDeletionBasket,
+                addLinkOnlyFromEndpoint,
+                deselectGeometryFromDeletionBasket,
+                reportDeletionSelectionBlocked,
+              },
+              {
+                activeSocialLocks,
+                currentStreamId,
+                links: allLinks,
+                geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
+              },
+              {
+                toggle: true,
+                previousSelectedIds: deletionPreviousSelectionRef.current,
+                links: allLinks,
+              },
+            );
+            deletionPreviousSelectionRef.current = [];
+            return;
+          }
+          return;
+        }
+        clearFocus();
         return;
       }
 
@@ -422,6 +474,36 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
       if (isDeletionSelectingStep && deletionDraft) {
         const filteredIds = ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
+
+        // Link+Data: geometries are highlight-only — ignore user picks and restore basket highlights.
+        if (isDeletionDataLed) {
+          const restoreIds = normalizeIds(
+            (deletionHighlightGeometryIds ?? highlightGeometryIds)
+              .filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID),
+          );
+          const normalizedIncoming = normalizeIds(filteredIds);
+          if (
+            normalizedIncoming.length === restoreIds.length
+            && normalizedIncoming.every((id, index) => id === restoreIds[index])
+          ) {
+            deletionPreviousSelectionRef.current = filteredIds;
+            return;
+          }
+          const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+          const annotationMgr = viewer?.getAnnotationManager?.();
+          expectedProgrammaticSelectionRef.current = restoreIds;
+          if (annotationMgr) {
+            if (restoreIds.length === 0) {
+              annotationMgr.clearSelection();
+            } else {
+              annotationMgr.clearSelection();
+              annotationMgr.select(restoreIds, false);
+            }
+          }
+          deletionPreviousSelectionRef.current = restoreIds;
+          return;
+        }
+
         applyDeletionGeometryPicks(
           filteredIds,
           deletionDraft,

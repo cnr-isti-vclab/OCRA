@@ -123,6 +123,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const {
       deletionDraft,
       isDeletionSelectingStep,
+      isDeletionDataLed,
       deletionHighlightGeometryIds,
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
@@ -533,8 +534,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           return;
         }
         // OpenLIME may emit a transient empty selection when the pencil is enabled.
+        // During deletion, Ctrl/Meta + empty is a real "deselect last" — do not ignore it.
         if (expected.length > 0 && ids.length === 0) {
-          return;
+          if (!(isDeletionSelectingStep && deletionPointerToggleRef.current)) {
+            return;
+          }
         }
         // If it doesn't match, it is a real user selection; clear the expectation.
         expectedProgrammaticSelectionRef.current = null;
@@ -542,9 +546,48 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (ids.length === 0) {
         if (isCreationGeometrySearch) {
           setCreationGeometrySelection([]);
-        } else if (!isDeletionSelectingStep) {
-          clearFocus();
+          return;
         }
+        if (isDeletionSelectingStep && deletionDraft) {
+          // Link+Data: geometries are highlight-only — snap back; do not clear basket.
+          if (isDeletionDataLed) {
+            const restoreIds = (deletionHighlightGeometryIds ?? highlightGeometryIds)
+              .filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
+            const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+            const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+            expectedProgrammaticSelectionRef.current = normalizeIds(restoreIds);
+            applyOpenLimeSelection(manager, restoreIds, selectionInteractionMode);
+            deletionPreviousSelectionRef.current = restoreIds;
+            return;
+          }
+          if (deletionPointerToggleRef.current) {
+            applyDeletionGeometryPicks(
+              [],
+              deletionDraft,
+              {
+                addGeometryToDeletionBasket,
+                addLinkOnlyFromEndpoint,
+                deselectGeometryFromDeletionBasket,
+                reportDeletionSelectionBlocked,
+              },
+              {
+                activeSocialLocks,
+                currentStreamId,
+                links: allLinks,
+                geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
+              },
+              {
+                toggle: true,
+                previousSelectedIds: deletionPreviousSelectionRef.current,
+                links: allLinks,
+              },
+            );
+            deletionPreviousSelectionRef.current = [];
+            return;
+          }
+          return;
+        }
+        clearFocus();
         return;
       }
 
@@ -559,6 +602,28 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
       if (isDeletionSelectingStep && deletionDraft) {
         const filteredIds = ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
+
+        // Link+Data: geometries are highlight-only — ignore user picks and restore basket highlights.
+        if (isDeletionDataLed) {
+          const restoreIds = (deletionHighlightGeometryIds ?? highlightGeometryIds)
+            .filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
+          const normalizedRestore = normalizeIds(restoreIds);
+          const normalizedIncoming = normalizeIds(filteredIds);
+          if (
+            normalizedIncoming.length === normalizedRestore.length
+            && normalizedIncoming.every((id, index) => id === normalizedRestore[index])
+          ) {
+            deletionPreviousSelectionRef.current = filteredIds;
+            return;
+          }
+          const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+          const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
+          expectedProgrammaticSelectionRef.current = normalizedRestore;
+          applyOpenLimeSelection(manager, restoreIds, selectionInteractionMode);
+          deletionPreviousSelectionRef.current = restoreIds;
+          return;
+        }
+
         applyDeletionGeometryPicks(
           filteredIds,
           deletionDraft,

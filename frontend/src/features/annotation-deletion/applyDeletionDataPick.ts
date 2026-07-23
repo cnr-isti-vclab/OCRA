@@ -26,6 +26,8 @@ export interface DeletionDataPickActions {
 /**
  * Apply a panel data pick to the deletion basket.
  * Plain click = single-select replace; Ctrl/Meta = multi-select toggle.
+ *
+ * Counterpart data in Link+Geo are highlight-only (not selectable/deselectable).
  */
 export function applyDeletionDataPick(
   dataId: string,
@@ -38,8 +40,8 @@ export function applyDeletionDataPick(
   if (!isLinkOnly && !draft.deleteData && !draft.deleteGeometry) {
     return;
   }
-  // Link+Geo: data rows are only highlights via links — still allow ctrl deselect.
-  if (!isLinkOnly && !draft.deleteData && !options.toggle) {
+  // Link+Geo: data rows are link counterparts — visible only, not interactive.
+  if (!isLinkOnly && !draft.deleteData) {
     return;
   }
 

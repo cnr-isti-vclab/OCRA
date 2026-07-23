@@ -46,6 +46,8 @@ function selectionDiff(
 /**
  * Apply viewer geometry picks to the deletion basket (M2: 1:1 only).
  * Plain click = single-select replace; Ctrl/Meta = multi-select toggle.
+ *
+ * Counterpart geometries in Link+Data are highlight-only (not selectable/deselectable).
  */
 export function applyDeletionGeometryPicks(
   geometryIds: string[],
@@ -58,8 +60,8 @@ export function applyDeletionGeometryPicks(
   if (!isLinkOnly && !draft.deleteGeometry && !draft.deleteData) {
     return;
   }
-  // Link+Data: geometries are only highlights via links — still allow ctrl deselect.
-  if (!isLinkOnly && !draft.deleteGeometry && !options.toggle) {
+  // Link+Data: geometries are link counterparts — visible only, not interactive.
+  if (!isLinkOnly && !draft.deleteGeometry) {
     return;
   }
 
@@ -99,6 +101,20 @@ export function applyDeletionGeometryPicks(
     for (const geometryId of geometryIds) {
       if (!isGeometryHighlightedForDeletion(geometryId, draft, options.links)) {
         addOne(geometryId);
+      }
+    }
+    return;
+  }
+
+  // Ctrl/Meta empty selection = deselect last (viewer cleared). Prefer the selection
+  // diff; if previousSelectedIds is stale/empty, fall back to current basket highlights.
+  if (geometryIds.length === 0) {
+    const toRemove = options.previousSelectedIds.length > 0
+      ? options.previousSelectedIds
+      : resolveDeletionHighlightIds(draft, options.links).geometryIds;
+    for (const geometryId of toRemove) {
+      if (isGeometryHighlightedForDeletion(geometryId, draft, options.links)) {
+        deselectOne(geometryId);
       }
     }
     return;
