@@ -72,10 +72,10 @@ export default function AnnotationDeletionPanel({
     && preset.intent.deleteData === draft.deleteData
   ))?.label ?? 'Custom';
 
-  const basketCount =
-    draft.candidateLinkIds.length
-    + draft.candidateGeometryIds.length
-    + draft.candidateDataIds.length;
+  const geometryCount = draft.candidateGeometryIds.length;
+  const dataCount = draft.candidateDataIds.length;
+  const linkCount = draft.candidateLinkIds.length;
+  const basketEmpty = geometryCount === 0 && dataCount === 0 && linkCount === 0;
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
@@ -118,10 +118,31 @@ export default function AnnotationDeletionPanel({
             {isCommitting ? 'Deleting…' : `Select items (${activeIntentLabel})`}
           </div>
           <p className="text-muted mb-2">{selectionHint}</p>
-          <p className="text-muted mb-2">
-            {basketCount === 0
+          <p className="text-muted mb-2 mb-0" aria-live="polite">
+            {basketEmpty
               ? 'Nothing selected yet.'
-              : `${basketCount} item${basketCount === 1 ? '' : 's'} selected.`}
+              : (
+                <>
+                  Selected:
+                  {' '}
+                  {geometryCount}
+                  {' '}
+                  geometr
+                  {geometryCount === 1 ? 'y' : 'ies'}
+                  ,
+                  {' '}
+                  {dataCount}
+                  {' '}
+                  data
+                  ,
+                  {' '}
+                  {linkCount}
+                  {' '}
+                  link
+                  {linkCount === 1 ? '' : 's'}
+                  .
+                </>
+              )}
           </p>
 
           {/* Basket list temporarily hidden — labels/cascade UX TBD.
@@ -131,10 +152,10 @@ export default function AnnotationDeletionPanel({
           */}
 
           {draft.selectionMessage ? (
-            <div className="alert alert-warning py-2 px-3 small mb-2">{draft.selectionMessage}</div>
+            <div className="alert alert-warning py-2 px-3 small mb-2 mt-2">{draft.selectionMessage}</div>
           ) : null}
           {setupError ? (
-            <div className="alert alert-warning py-2 px-3 small mb-0">{setupError}</div>
+            <div className="alert alert-warning py-2 px-3 small mb-0 mt-2">{setupError}</div>
           ) : null}
         </div>
       )}
