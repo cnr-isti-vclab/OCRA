@@ -5,7 +5,10 @@ import {
   isEntityBlockedForDeletion,
   type DeletionLockCheckInput,
 } from './isEntityBlockedForDeletion';
-import { isGeometryHighlightedForDeletion } from './resolveDeletionHighlightIds';
+import {
+  isGeometryHighlightedForDeletion,
+  resolveDeletionHighlightIds,
+} from './resolveDeletionHighlightIds';
 import type { AnnotationLink } from 'shared/annotation-types';
 
 type LockContext = Omit<DeletionLockCheckInput, 'entityKind' | 'entityId'>;
@@ -21,7 +24,7 @@ export interface DeletionGeometryPickActions {
 }
 
 export interface DeletionGeometryPickOptions {
-  /** Ctrl/Meta held — toggle/deselect instead of always adding. */
+  /** Ctrl/Meta held — multi-select toggle. Without it, replace with a single selection. */
   toggle: boolean;
   /** Previous viewer selection ids (for ctrl multi-select diffs). */
   previousSelectedIds: readonly string[];
@@ -42,7 +45,7 @@ function selectionDiff(
 
 /**
  * Apply viewer geometry picks to the deletion basket (M2: 1:1 only).
- * Plain click always adds; Ctrl/Meta toggles deselect with cascade rules.
+ * Plain click = single-select replace; Ctrl/Meta = multi-select toggle.
  */
 export function applyDeletionGeometryPicks(
   geometryIds: string[],
@@ -85,8 +88,18 @@ export function applyDeletionGeometryPicks(
   };
 
   if (!options.toggle) {
+    // Single-select: keep only the new pick(s); drop other highlighted geometries.
+    const next = new Set(geometryIds);
+    const currentlyHighlighted = resolveDeletionHighlightIds(draft, options.links).geometryIds;
+    for (const geometryId of currentlyHighlighted) {
+      if (!next.has(geometryId)) {
+        deselectOne(geometryId);
+      }
+    }
     for (const geometryId of geometryIds) {
-      addOne(geometryId);
+      if (!isGeometryHighlightedForDeletion(geometryId, draft, options.links)) {
+        addOne(geometryId);
+      }
     }
     return;
   }
@@ -98,9 +111,9 @@ export function applyDeletionGeometryPicks(
     }
   }
   for (const geometryId of added) {
-    if (isGeometryHighlightedForDeletion(geometryId, draft, options.links)) {
-      deselectOne(geometryId);
-    } else {
+    // Only add; never treat "already highlighted" as deselect — previousSelectedIds
+    // can lag behind basket highlights after plain single-select clicks.
+    if (!isGeometryHighlightedForDeletion(geometryId, draft, options.links)) {
       addOne(geometryId);
     }
   }

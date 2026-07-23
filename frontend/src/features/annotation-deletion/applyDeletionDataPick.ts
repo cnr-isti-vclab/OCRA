@@ -5,7 +5,10 @@ import {
   isEntityBlockedForDeletion,
   type DeletionLockCheckInput,
 } from './isEntityBlockedForDeletion';
-import { isDataHighlightedForDeletion } from './resolveDeletionHighlightIds';
+import {
+  isDataHighlightedForDeletion,
+  resolveDeletionHighlightIds,
+} from './resolveDeletionHighlightIds';
 import type { AnnotationLink } from 'shared/annotation-types';
 
 type LockContext = Omit<DeletionLockCheckInput, 'entityKind' | 'entityId'>;
@@ -22,7 +25,7 @@ export interface DeletionDataPickActions {
 
 /**
  * Apply a panel data pick to the deletion basket.
- * Plain click always adds; Ctrl/Meta toggles deselect with cascade rules.
+ * Plain click = single-select replace; Ctrl/Meta = multi-select toggle.
  */
 export function applyDeletionDataPick(
   dataId: string,
@@ -40,27 +43,43 @@ export function applyDeletionDataPick(
     return;
   }
 
-  if (options.toggle && isDataHighlightedForDeletion(dataId, draft, options.links)) {
-    actions.deselectDataFromDeletionBasket(dataId);
+  const addOne = () => {
+    if (
+      isEntityBlockedForDeletion({
+        entityKind: 'data',
+        entityId: dataId,
+        ...lockContext,
+      })
+    ) {
+      actions.reportDeletionSelectionBlocked(DELETION_BLOCKED_BY_LOCK_MESSAGE);
+      return;
+    }
+    if (isLinkOnly) {
+      actions.addLinkOnlyFromEndpoint('data', dataId);
+      return;
+    }
+    if (draft.deleteData) {
+      actions.addDataToDeletionBasket(dataId);
+    }
+  };
+
+  if (options.toggle) {
+    if (isDataHighlightedForDeletion(dataId, draft, options.links)) {
+      actions.deselectDataFromDeletionBasket(dataId);
+      return;
+    }
+    addOne();
     return;
   }
 
-  if (
-    isEntityBlockedForDeletion({
-      entityKind: 'data',
-      entityId: dataId,
-      ...lockContext,
-    })
-  ) {
-    actions.reportDeletionSelectionBlocked(DELETION_BLOCKED_BY_LOCK_MESSAGE);
-    return;
+  // Single-select: keep only this data id; drop other highlighted data.
+  const currentlyHighlighted = resolveDeletionHighlightIds(draft, options.links).dataIds;
+  for (const otherId of currentlyHighlighted) {
+    if (otherId !== dataId) {
+      actions.deselectDataFromDeletionBasket(otherId);
+    }
   }
-
-  if (isLinkOnly) {
-    actions.addLinkOnlyFromEndpoint('data', dataId);
-    return;
-  }
-  if (draft.deleteData) {
-    actions.addDataToDeletionBasket(dataId);
+  if (!isDataHighlightedForDeletion(dataId, draft, options.links)) {
+    addOne();
   }
 }
