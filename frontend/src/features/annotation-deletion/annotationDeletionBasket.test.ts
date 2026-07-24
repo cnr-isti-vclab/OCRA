@@ -160,6 +160,30 @@ describe('validateDeletionBasket', () => {
     }).ok).toBe(false);
   });
 
+  it('accepts orphan geometry with no links', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      candidateGeometryIds: ['g-orphan'],
+      candidateLinkIds: [],
+    };
+    expect(canConfirmDeletionBasket(draft, { links: [] })).toBe(true);
+  });
+
+  it('accepts orphan data with no links', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteData: true,
+      candidateDataIds: ['d-orphan'],
+      candidateLinkIds: [],
+    };
+    expect(canConfirmDeletionBasket(draft, { links: [] })).toBe(true);
+  });
+
   it('rejects link-only basket that still has endpoints', () => {
     const draft = {
       ...createDefaultDeletionDraft(),

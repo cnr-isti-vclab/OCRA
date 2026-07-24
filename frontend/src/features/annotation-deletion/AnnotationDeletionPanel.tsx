@@ -74,10 +74,10 @@ export default function AnnotationDeletionPanel({
       return 'Link only: click a geometry or data row to identify the link (replaces previous). Ctrl/Cmd+click to add or remove. Multiple links open a resolution dialog.';
     }
     if (draft.deleteGeometry && !draft.deleteData) {
-      return 'Select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Linked data is shown for context and is not selectable. Multiple links ask for confirmation.';
+      return 'Select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Linked data is shown for context and is not selectable. Geometries with no links can still be selected. Multiple links ask for confirmation.';
     }
     if (draft.deleteData && !draft.deleteGeometry) {
-      return 'Select data rows in the panel (replaces previous). Ctrl/Cmd+click to add or remove. Linked geometries are shown for context and are not selectable. Multiple links ask for confirmation.';
+      return 'Select data rows in the panel (replaces previous). Ctrl/Cmd+click to add or remove. Linked geometries are shown for context and are not selectable. Data with no links can still be selected. Multiple links ask for confirmation.';
     }
     return 'Select a geometry or data row (replaces previous). Ctrl/Cmd+click to add or remove. Multiple links open a resolution dialog.';
   })();

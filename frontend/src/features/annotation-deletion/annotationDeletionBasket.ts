@@ -11,8 +11,9 @@ export interface DeletionBasketContext {
 }
 
 /**
- * Confirm gating for M2: non-empty basket, setup still valid, and every
- * endpoint in the basket has all its scene-visible non-erasable links included.
+ * Confirm gating: non-empty basket, setup still valid, and every endpoint in the
+ * basket either is an orphan (0 non-erasable links) or has all of its non-erasable
+ * links included. Link-only baskets must not contain endpoints.
  */
 export function validateDeletionBasket(
   draft: AnnotationDeletionDraft,
@@ -46,11 +47,9 @@ export function validateDeletionBasket(
   if (draft.deleteGeometry) {
     for (const geometryId of draft.candidateGeometryIds) {
       const incident = nonErasableLinksForGeometry(links, geometryId);
+      // Orphan geometry (no links) is allowed — Link intent is vacuous.
       if (incident.length === 0) {
-        return {
-          ok: false,
-          message: `Geometry ${geometryId} has no non-erasable links in this scene.`,
-        };
+        continue;
       }
       if (incident.some((link) => !linkIdSet.has(link.id))) {
         return {
@@ -64,11 +63,9 @@ export function validateDeletionBasket(
   if (draft.deleteData) {
     for (const dataId of draft.candidateDataIds) {
       const incident = nonErasableLinksForData(links, dataId);
+      // Orphan data (no links) is allowed — Link intent is vacuous.
       if (incident.length === 0) {
-        return {
-          ok: false,
-          message: `Data ${dataId} has no non-erasable links in this scene.`,
-        };
+        continue;
       }
       if (incident.some((link) => !linkIdSet.has(link.id))) {
         return {

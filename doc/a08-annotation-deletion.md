@@ -96,6 +96,8 @@ There is **no panel link list**. Links are `geometryId` + `dataId` pairs; showin
 | **1** | Add that link to the basket (endpoints stay out of the basket) |
 | **N (>1)** | Open the [link resolution modal](#link-resolution-modal-link--geometry--data-or-link-only) to choose which links to remove |
 
+For **Link+Geo**, an orphan geometry (0 non-erasable links) is added to the basket alone. For **Link+Data**, an orphan data record is added alone. Link is vacuous in both cases; no new delete preset is required. **Link+Geo+Data** does not apply to orphans — without a link there is no triplet to remove (selecting an orphan under that intent still only stages that one endpoint). Endpoints that still have links must include all of those links in the basket before Confirm is enabled.
+
 During the delete wizard, link-view mode follows the intent above. Filtering is driven by the **basket** (not the normal focus set). Basket endpoints are **unioned** into the visible sets so already-selected candidates are never hidden mid-flow.
 
 ### Delete basket
@@ -120,7 +122,7 @@ deletionDraft: {
 
 1. At least one candidate exists in the basket.
 2. Every one-to-many selection has been resolved (see below).
-3. For every geometry/data in the basket, all **scene-visible** non-erasable links attached to that endpoint are also in the basket (when endpoint delete is requested). Counterpart endpoints added via “All” / “Let me select” must satisfy the same rule; if a counterpart still has other non-erasable links outside the basket, either omit it from the basket or keep Confirm disabled until those links are included or resolved.
+3. For every geometry/data in the basket, either it has **no** non-erasable links (orphan — allowed), or all **scene-visible** non-erasable links attached to that endpoint are also in the basket (when endpoint delete is requested). Counterpart endpoints added via “All” / “Let me select” must satisfy the same rule; if a counterpart still has other non-erasable links outside the basket, either omit it from the basket or keep Confirm disabled until those links are included or resolved.
 4. No candidate is blocked by a remote editor social lock.
 
 ### Social locks

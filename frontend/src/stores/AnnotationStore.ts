@@ -473,8 +473,13 @@ export class AnnotationStore {
     }
 
     const incident = nonErasableLinksForGeometry(this.linkMap.values(), geometryId);
+    // Orphan geometry (created without links yet): add endpoint only.
     if (incident.length === 0) {
-      return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
+      return this.finishDeletionBasketAdd(draft, {
+        candidateGeometryIds: this.mergeUniqueIds(draft.candidateGeometryIds, [geometryId]),
+        candidateLinkIds: draft.candidateLinkIds,
+        candidateDataIds: draft.candidateDataIds,
+      });
     }
 
     const cardinality = needsCardinalityResolution(draft, incident);
@@ -518,8 +523,13 @@ export class AnnotationStore {
     }
 
     const incident = nonErasableLinksForData(this.linkMap.values(), dataId);
+    // Orphan data (created without links yet): add endpoint only.
     if (incident.length === 0) {
-      return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
+      return this.finishDeletionBasketAdd(draft, {
+        candidateDataIds: this.mergeUniqueIds(draft.candidateDataIds, [dataId]),
+        candidateLinkIds: draft.candidateLinkIds,
+        candidateGeometryIds: draft.candidateGeometryIds,
+      });
     }
 
     const cardinality = needsCardinalityResolution(draft, incident);
