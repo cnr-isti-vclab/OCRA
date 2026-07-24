@@ -19,6 +19,7 @@ import { useAnnotationCreationWizard } from '../../features/annotation-creation/
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionCounterpartGeometryPicks } from '../../features/annotation-deletion/applyDeletionCounterpartGeometryPicks';
 import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
+import DeletionGeometryPickBar from '../../features/annotation-deletion/DeletionGeometryPickBar';
 import {
   creationToolbarDisabledModes,
   resolveCreationToolbarMode,
@@ -93,6 +94,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const {
       activeAnnotationSelection,
       activeSocialLocks,
+      activeData,
       currentStreamId,
       allLinks,
       revision,
@@ -132,6 +134,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       deselectGeometryFromDeletionBasket,
       clearDeletionBasket,
       setDeletionCounterpartSelection,
+      confirmDeletionCounterpartPick,
+      cancelDeletionPendingResolution,
       reportDeletionSelectionBlocked,
     } = useAnnotationDeletionWizard();
 
@@ -180,6 +184,16 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       window.addEventListener('pointerdown', onPointerDown, true);
       return () => window.removeEventListener('pointerdown', onPointerDown, true);
     }, [isDeletionSelectingStep]);
+
+    // Entering data-led pick mode: drop basket selection from the viewer baseline.
+    useEffect(() => {
+      if (!isDeletionGeometryPickActive) {
+        return;
+      }
+      deletionPreviousSelectionRef.current = [
+        ...(deletionDraft?.pendingResolution?.selectedCounterpartIds ?? []),
+      ];
+    }, [isDeletionGeometryPickActive, deletionDraft?.pendingResolution?.endpointId]);
 
     const resolveToolbarMode = useCallback(
       (currentMode: AnnotationToolbarMode = toolbarMode): AnnotationToolbarMode =>
@@ -541,8 +555,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         // OpenLIME may emit a transient empty selection during programmatic highlight sync.
         // Otherwise, during deletion, fall through so Link+Geo can clear the basket and
         // Link+Data can restore highlight-only selection.
+        // During geometry pick mode always ignore transient empties — clearing expected
+        // here would drop in-progress counterpart picks after every sync.
         if (expected.length > 0 && ids.length === 0) {
-          if (applyingProgrammaticSelectionRef.current || !isDeletionSelectingStep) {
+          if (
+            applyingProgrammaticSelectionRef.current
+            || !isDeletionSelectingStep
+            || isDeletionGeometryPickActive
+          ) {
             return;
           }
         }
@@ -607,7 +627,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
               ? (activeAnnotationSelection.geometryIdsByDataId.get(pending.endpointId) ?? [])
               : [],
           );
-          applyDeletionCounterpartGeometryPicks(
+          const nextIds = applyDeletionCounterpartGeometryPicks(
             filteredIds,
             deletionDraft,
             {
@@ -626,7 +646,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
               allowedGeometryIds: allowed,
             },
           );
-          deletionPreviousSelectionRef.current = filteredIds;
+          deletionPreviousSelectionRef.current = nextIds;
           return;
         }
 
@@ -1062,6 +1082,29 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             />
           </div>
         )}
+        {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              pointerEvents: 'auto',
+            }}
+          >
+            <DeletionGeometryPickBar
+              selectedCount={deletionDraft.pendingResolution.selectedCounterpartIds.length}
+              endpointLabel={(() => {
+                const dataId = deletionDraft.pendingResolution.endpointId;
+                const datum = activeData.find((entry) => entry.id === dataId);
+                return datum?.label?.trim() || dataId;
+              })()}
+              onConfirm={confirmDeletionCounterpartPick}
+              onCancel={cancelDeletionPendingResolution}
+            />
+          </div>
+        ) : null}
         <AppMessageModal
           descriptor={messageModal}
           onClose={releaseConflictSnapshotsAndSync}

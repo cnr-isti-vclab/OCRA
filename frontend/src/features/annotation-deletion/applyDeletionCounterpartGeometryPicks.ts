@@ -15,14 +15,33 @@ export interface DeletionCounterpartGeometryPickActions {
 export interface DeletionCounterpartGeometryPickOptions {
   /** Ctrl/Meta held — multi-select toggle. Without it, replace with a single selection. */
   toggle: boolean;
+  /** Previous viewer selection ids (for ctrl multi-select diffs). */
   previousSelectedIds: readonly string[];
   /** Geometries linked to the pending data endpoint. */
   allowedGeometryIds: ReadonlySet<string>;
 }
 
+function selectionDiff(
+  previous: readonly string[],
+  next: readonly string[],
+): { added: string[]; removed: string[] } {
+  const prevSet = new Set(previous);
+  const nextSet = new Set(next);
+  return {
+    added: next.filter((id) => !prevSet.has(id)),
+    removed: previous.filter((id) => !nextSet.has(id)),
+  };
+}
+
 /**
  * Apply viewer geometry picks while resolving data-led Let-me-select (M3).
  * Updates pending `selectedCounterpartIds` only — does not touch the basket.
+ *
+ * Toggle diffs are applied against the authoritative pending selection (not a
+ * stale mix of basket highlights), so ctrl+click stays stable when the basket
+ * already has other data.
+ *
+ * @returns The next counterpart selection (for viewer previousSelected tracking).
  */
 export function applyDeletionCounterpartGeometryPicks(
   geometryIds: string[],
@@ -30,18 +49,18 @@ export function applyDeletionCounterpartGeometryPicks(
   actions: DeletionCounterpartGeometryPickActions,
   lockContext: LockContext,
   options: DeletionCounterpartGeometryPickOptions,
-): void {
+): string[] {
   const pending = draft.pendingResolution;
   if (
     !pending
     || pending.modal !== 'pickCounterparts'
     || pending.endpointKind !== 'data'
   ) {
-    return;
+    return [];
   }
 
   const allowed = options.allowedGeometryIds;
-  const current = new Set(pending.selectedCounterpartIds);
+  const filterAllowed = (ids: readonly string[]) => ids.filter((id) => allowed.has(id));
 
   const tryInclude = (geometryId: string, into: Set<string>): void => {
     if (!allowed.has(geometryId)) {
@@ -62,42 +81,44 @@ export function applyDeletionCounterpartGeometryPicks(
 
   if (!options.toggle) {
     const next = new Set<string>();
-    for (const geometryId of geometryIds) {
+    for (const geometryId of filterAllowed(geometryIds)) {
       tryInclude(geometryId, next);
     }
-    actions.setDeletionCounterpartSelection([...next]);
-    return;
+    const nextIds = [...next];
+    actions.setDeletionCounterpartSelection(nextIds);
+    return nextIds;
   }
 
-  if (geometryIds.length === 0) {
+  // Authoritative pending picks — ignore basket geometries that may linger in
+  // previousSelectedIds from before pick mode started.
+  const next = new Set(pending.selectedCounterpartIds);
+  const previousViewer = filterAllowed(options.previousSelectedIds);
+  const nextViewer = filterAllowed(geometryIds);
+
+  if (nextViewer.length === 0) {
     actions.setDeletionCounterpartSelection([]);
-    return;
+    return [];
   }
 
-  const prevSet = new Set(options.previousSelectedIds);
-  const nextSet = new Set(geometryIds);
-  const next = new Set(current);
-
-  for (const geometryId of options.previousSelectedIds) {
-    if (!nextSet.has(geometryId) && allowed.has(geometryId)) {
-      next.delete(geometryId);
-    }
+  const { added, removed } = selectionDiff(previousViewer, nextViewer);
+  for (const geometryId of removed) {
+    next.delete(geometryId);
   }
-  for (const geometryId of geometryIds) {
-    if (!prevSet.has(geometryId)) {
-      tryInclude(geometryId, next);
-    }
+  for (const geometryId of added) {
+    tryInclude(geometryId, next);
   }
 
   // OpenLime may re-emit the same single selection on ctrl+click without a diff.
   if (
-    geometryIds.length === 1
-    && prevSet.has(geometryIds[0]!)
-    && nextSet.has(geometryIds[0]!)
-    && current.has(geometryIds[0]!)
+    added.length === 0
+    && removed.length === 0
+    && nextViewer.length === 1
+    && next.has(nextViewer[0]!)
   ) {
-    next.delete(geometryIds[0]!);
+    next.delete(nextViewer[0]!);
   }
 
-  actions.setDeletionCounterpartSelection([...next]);
+  const nextIds = [...next];
+  actions.setDeletionCounterpartSelection(nextIds);
+  return nextIds;
 }

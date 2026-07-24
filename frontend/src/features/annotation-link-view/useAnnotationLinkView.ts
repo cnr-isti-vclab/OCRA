@@ -108,8 +108,24 @@ export function useAnnotationLinkView() {
   );
 
   const classFilteredVisibleData = useMemo(
-    () => filterDataByClassFilter(linkViewResult.visibleData, annotationClassFilterValues),
-    [linkViewResult.visibleData, annotationClassFilterValues],
+    () => {
+      // Data-led Let-me-select already narrowed to the pending row — don't hide it via class filter.
+      const pending = deletionDraft?.pendingResolution;
+      if (
+        isDeletionWizardActive
+        && pending?.modal === 'pickCounterparts'
+        && pending.endpointKind === 'data'
+      ) {
+        return linkViewResult.visibleData;
+      }
+      return filterDataByClassFilter(linkViewResult.visibleData, annotationClassFilterValues);
+    },
+    [
+      annotationClassFilterValues,
+      deletionDraft?.pendingResolution,
+      isDeletionWizardActive,
+      linkViewResult.visibleData,
+    ],
   );
 
   return {

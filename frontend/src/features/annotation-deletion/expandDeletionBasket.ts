@@ -63,7 +63,8 @@ export function expandBasketForFanOut(
   pending: DeletionPendingResolution,
   links: Iterable<AnnotationLink>,
 ): Pick<AnnotationDeletionDraft, 'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'> {
-  const linkById = new Map([...links].map((link) => [link.id, link]));
+  const linkList = [...links];
+  const linkById = new Map(linkList.map((link) => [link.id, link]));
   const nextLinks = new Set(draft.candidateLinkIds);
   for (const linkId of pending.incidentLinkIds) {
     if (linkById.has(linkId)) {
@@ -90,7 +91,7 @@ export function expandBasketForFanOut(
 
 /**
  * Whether a counterpart endpoint may enter the basket: every non-erasable link
- * on that counterpart must be among `selectedLinkIds`.
+ * on that counterpart must be among `selectedLinkIds` (typically basket ∪ chosen).
  */
 export function counterpartFullyCoveredByLinks(
   endpointKind: 'geometry' | 'data',
@@ -113,6 +114,8 @@ export function counterpartFullyCoveredByLinks(
  * - Adds initiating endpoint only if intent deletes it and all its links are chosen.
  * - Adds counterparts only if intent deletes that side and each is fully covered.
  * - Link-only: never adds endpoints.
+ *
+ * Note: `links` may be a one-shot iterator (e.g. Map.values()); it is materialized once.
  */
 export function expandBasketForSelectedLinks(
   draft: AnnotationDeletionDraft,
@@ -120,9 +123,9 @@ export function expandBasketForSelectedLinks(
   selectedLinkIds: readonly string[],
   links: Iterable<AnnotationLink>,
 ): Pick<AnnotationDeletionDraft, 'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'> {
-  const linkById = new Map([...links].map((link) => [link.id, link]));
+  const linkList = [...links];
+  const linkById = new Map(linkList.map((link) => [link.id, link]));
   const chosen = selectedLinkIds.filter((id) => linkById.has(id));
-  const chosenSet = new Set(chosen);
 
   const nextLinks = new Set(draft.candidateLinkIds);
   for (const id of chosen) {
@@ -140,18 +143,21 @@ export function expandBasketForSelectedLinks(
 
   const nextGeometry = new Set(draft.candidateGeometryIds);
   const nextData = new Set(draft.candidateDataIds);
+  // Coverage is against the merged basket, not only this operation's chosen ids
+  // (counterparts may already have other links from earlier basket entries).
+  const coverageLinks = nextLinks;
 
   if (
     pending.endpointKind === 'geometry'
     && draft.deleteGeometry
-    && counterpartFullyCoveredByLinks('geometry', pending.endpointId, chosenSet, links)
+    && counterpartFullyCoveredByLinks('geometry', pending.endpointId, coverageLinks, linkList)
   ) {
     nextGeometry.add(pending.endpointId);
   }
   if (
     pending.endpointKind === 'data'
     && draft.deleteData
-    && counterpartFullyCoveredByLinks('data', pending.endpointId, chosenSet, links)
+    && counterpartFullyCoveredByLinks('data', pending.endpointId, coverageLinks, linkList)
   ) {
     nextData.add(pending.endpointId);
   }
@@ -163,12 +169,12 @@ export function expandBasketForSelectedLinks(
       continue;
     }
     if (draft.deleteData && pending.endpointKind === 'geometry') {
-      if (counterpartFullyCoveredByLinks('data', link.dataId, chosenSet, links)) {
+      if (counterpartFullyCoveredByLinks('data', link.dataId, coverageLinks, linkList)) {
         nextData.add(link.dataId);
       }
     }
     if (draft.deleteGeometry && pending.endpointKind === 'data') {
-      if (counterpartFullyCoveredByLinks('geometry', link.geometryId, chosenSet, links)) {
+      if (counterpartFullyCoveredByLinks('geometry', link.geometryId, coverageLinks, linkList)) {
         nextGeometry.add(link.geometryId);
       }
     }
@@ -187,9 +193,10 @@ export function linkIdsForCounterparts(
   counterpartIds: readonly string[],
   links: Iterable<AnnotationLink>,
 ): string[] {
+  const linkList = [...links];
   const counterparts = new Set(counterpartIds);
   const out: string[] = [];
-  for (const link of links) {
+  for (const link of linkList) {
     if (link.erasableAt !== null) {
       continue;
     }

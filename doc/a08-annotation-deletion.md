@@ -190,20 +190,20 @@ When one selected endpoint has multiple links and the user must choose which ass
 | ------ | ------ |
 | **All** | Add all relevant links to the basket; also add counterpart endpoints **only if** Geometry / Data checkboxes are on **and** that endpoint’s remaining non-erasable links are all among the links just added (otherwise omit the endpoint and leave Confirm disabled until resolved) |
 | **None** | Discard transient selection; nothing added (or remove the endpoint from the basket if it was already staged) |
-| **Let me select** | Open a checklist of linked counterparts (data if geometry was selected; geometries if data was selected) |
+| **Let me select** | Geometry-led: checklist modal of linked data. Data-led: non-modal viewer pick mode (OK/Cancel bar; panel shows only that data) |
 
 **Let me select — data led, multiple geometries:**
 
-1. Store current viewer/panel selection state.
-2. Show a small modal: *Select the geometries whose links should be deleted.*
-3. In the viewer, show only geometries linked to the selected data (others hidden or de-emphasized).
-4. User multi-selects geometries in the viewer.
-5. **OK** — add chosen links (and geometry ids **only if** Geometry is checked) to the basket; restore prior view/selection.
-6. **Cancel** — discard; nothing added.
+1. Dismiss the link-resolution modal and enter **viewer pick mode** (non-modal).
+2. Show a small **OK | Cancel** bar in viewer chrome (bottom) and matching controls in the deletion panel; live selection count.
+3. In the viewer, show only geometries linked to the selected data; in the panel, show only that data row (others hidden).
+4. User multi-selects geometries in the viewer (Ctrl/Cmd).
+5. **OK** — add chosen links (and geometry ids **only if** Geometry is checked) to the basket; exit pick mode.
+6. **Cancel** — discard pending resolution; nothing added; restore normal panel/viewer lists.
 
 **Let me select — geometry led, multiple data:**
 
-Same pattern with a checklist of linked data rows in the modal (or panel list). Add data ids to the basket **only if** Data is checked.
+Same pattern with a checklist of linked data rows in a modal (selection happens in the UI, not the viewer). Add data ids to the basket **only if** Data is checked.
 
 ### Completion rule
 
@@ -304,7 +304,8 @@ If another user marks an entity erasable while the wizard is open, refresh or dr
 | Validation + commit plan | `frontend/src/features/annotation-deletion/annotationDeletionValidation.ts`, `buildDeletionCommitPlan.ts` |
 | Cardinality + errors | `frontend/src/features/annotation-deletion/annotationDeletionCardinality.ts`, `formatDeletionCommitError.ts` |
 | Setup + basket UI | `frontend/src/features/annotation-deletion/AnnotationDeletionPanel.tsx` |
-| Modals (M3) | `DeletionFanOutConfirmModal.tsx`, `DeletionLinkResolutionModal.tsx`, `DeletionCounterpartPickModal.tsx` |
+| Modals (M3) | `DeletionFanOutConfirmModal.tsx`, `DeletionLinkResolutionModal.tsx`, `DeletionCounterpartPickModal.tsx` (geometry-led checklist) |
+| Viewer pick chrome (M3) | `DeletionGeometryPickBar.tsx` (data-led Let-me-select; non-modal) |
 | Wizard hook | `frontend/src/features/annotation-deletion/useAnnotationDeletionWizard.ts` |
 | Store draft + commit | `frontend/src/stores/AnnotationStore.ts` |
 | Backend still-linked guard | `backend/src/services/annotation.service.ts`, annotation controllers/routes |
@@ -342,7 +343,7 @@ Key test files (planned):
 - [x] 1:N geometry, Geometry + Link only → fan-out warning → Yes adds geometry + all links; Cancel drops selection
 - [x] 1:N geometry, Link + Geometry + Data → link resolution modal (not fan-out warning)
 - [x] 1:N data, Data + Link only → fan-out warning
-- [x] 1:N data + Geometry → link resolution → “Let me select” → viewer subset → OK/Cancel
+- [x] 1:N data + Geometry → link resolution → “Let me select” → viewer subset (non-modal OK/Cancel) → OK/Cancel
 - [x] Link + Geometry + Data → link resolution modal (All / None / Let me select)
 - [x] Geometry/Data checked without all links in basket → confirm disabled
 - [x] Remote editor lock → cannot select or confirm
@@ -472,12 +473,12 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
    - Actions: All / None / Let me select
    - Used for **Link-only** (N incident links; endpoints never added) and **Link + Geometry + Data**
    - **Let me select — geometry led:** checklist of linked data rows in modal
-   - **Let me select — data led:** `DeletionGeometryPickModal` + viewer subset (see below)
-4. **Viewer subset mode** — `deletionGeometryPick` state on draft or hook:
-   - Store pre-pick viewer focus/selection snapshot
-   - Filter viewer to geometries linked to focused data (`filterGeometriesForDeletionPick`)
-   - Modal OK → merge chosen links/geometries into basket; Cancel → restore snapshot
-5. **Transient selection** — distinguish “focus in progress” vs “committed to basket” so Cancel on modals does not corrupt basket
+   - **Let me select — data led:** dismiss modal → `DeletionGeometryPickBar` + viewer subset + panel shows only the pending data row; OK/Cancel (see below)
+4. **Viewer pick mode** — `pendingResolution.modal === 'pickCounterparts'` with `endpointKind === 'data'`:
+   - Filter viewer to geometries linked to focused data (`useAnnotationLinkView`)
+   - Filter panel to that data row only; highlight it
+   - OK → merge chosen links/geometries into basket; Cancel → clear pending only
+5. **Transient selection** — distinguish “focus in progress” vs “committed to basket” so Cancel on modals / pick bar does not corrupt basket
 6. **Update validation** — `validateDeletionBasket` requires no unresolved pending fan-out; every endpoint in the basket has all scene-visible non-erasable links in `candidateLinkIds` (do not leave counterpart endpoints half-included after All / Let me select)
 7. **Link-only 0/1/N wiring** — complete the Link-only path from M2: 0 → message; 1 → add link; N → open link resolution (endpoints never added)
 
@@ -486,7 +487,7 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 - [x] 1:N geometry, Geometry + Link only → fan-out warning → Yes / Cancel
 - [x] 1:N geometry, Link + Geometry + Data → link resolution (not fan-out)
 - [x] 1:N data, Data + Link only → fan-out warning
-- [x] 1:N data + Geometry → link resolution → Let me select → viewer subset → OK/Cancel
+- [x] 1:N data + Geometry → link resolution → Let me select → viewer subset (non-modal OK/Cancel bar) → OK/Cancel
 - [x] Link + Geometry + Data → resolution modal All / None / Let me select
 - [x] Link only, 0 / 1 / N incident links → message / add link / resolution modal (endpoints never in basket)
 - [x] None removes endpoint from basket

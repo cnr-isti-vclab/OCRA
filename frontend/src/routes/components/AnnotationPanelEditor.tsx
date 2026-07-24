@@ -185,6 +185,7 @@ export default function AnnotationPanelEditor({
 
   const {
     isDeletionSelectingStep,
+    isDeletionGeometryPickActive,
     deletionHighlightDataIds,
     addDataToDeletionBasket,
     addLinkOnlyFromEndpoint,
@@ -798,6 +799,8 @@ export default function AnnotationPanelEditor({
           <p className="text-muted fst-italic text-center">
             {activeData.length === 0
               ? 'No active annotation data. Adjust the query filter or create annotations in the viewer.'
+              : isDeletionGeometryPickActive
+              ? 'The selected data annotation is not visible in this scene.'
               : panelShowsFilteredData && focusedGeometryIds.size === 0 && focusedDataIds.size === 0
               ? 'Select a geometry in the viewer to see linked annotation data.'
               : 'No annotation data matches the current filter.'}
@@ -805,6 +808,11 @@ export default function AnnotationPanelEditor({
         </div>
       ) : (
         <div className="flex-grow-1 overflow-auto">
+          {isDeletionGeometryPickActive ? (
+            <div className="alert alert-info py-2 px-3 small mb-2">
+              Selecting geometries for the annotation below. Other data rows are hidden until you press OK or Cancel.
+            </div>
+          ) : null}
           <div className="list-group">
             {visibleData.map((datum) => {
               const linkedCount =
@@ -812,6 +820,8 @@ export default function AnnotationPanelEditor({
               const isSelected = isDeletionSelectingStep
                 ? deletionHighlightDataIdSet.has(datum.id)
                 : isDataFocused(datum.id);
+              const isPickFocus = isDeletionGeometryPickActive
+                && deletionDraft?.pendingResolution?.endpointId === datum.id;
               const isUnderEditing = isDataIdUnderEditorLock(
                 datum.id,
                 activeSocialLocks,
@@ -824,7 +834,7 @@ export default function AnnotationPanelEditor({
                     background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundUnderEditing,
                     text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textUnderEditing,
                   }
-                : isSelected
+                : isSelected || isPickFocus
                 ? {
                     background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundSelected,
                     text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textSelected,
@@ -839,9 +849,11 @@ export default function AnnotationPanelEditor({
                   className="list-group-item list-group-item-action d-flex flex-column align-items-stretch"
                   onClick={(e) => handleDataClick(datum.id, e)}
                   style={{
-                    cursor: 'pointer',
+                    cursor: isDeletionGeometryPickActive ? 'default' : 'pointer',
                     backgroundColor: itemColors.background,
                     color: itemColors.text,
+                    outline: isPickFocus ? '2px solid var(--bs-primary)' : undefined,
+                    outlineOffset: isPickFocus ? '-2px' : undefined,
                   }}
                 >
                   <div className="d-flex flex-column gap-1 w-100">

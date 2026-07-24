@@ -48,8 +48,9 @@ export default function AnnotationDeletionPanel({
   onBack,
   onConfirmDelete,
 }: AnnotationDeletionPanelProps) {
-  const { allLinks, activeData, activeGeometries, activeAnnotationSelection } = useAnnotationStore();
+  const { allLinks, activeData, activeGeometries } = useAnnotationStore();
   const {
+    isDeletionGeometryPickActive,
     confirmDeletionPendingAll,
     cancelDeletionPendingResolution,
     beginDeletionCounterpartPick,
@@ -66,6 +67,9 @@ export default function AnnotationDeletionPanel({
     && canConfirmDeletionBasket(draft, { links: allLinks });
 
   const selectionHint = (() => {
+    if (isDeletionGeometryPickActive) {
+      return 'Select linked geometries in the viewer (Ctrl/Cmd+click to multi-select), then press OK.';
+    }
     if (draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
       return 'Link only: click a geometry or data row to identify the link (replaces previous). Ctrl/Cmd+click to add or remove. Multiple links open a resolution dialog.';
     }
@@ -101,44 +105,38 @@ export default function AnnotationDeletionPanel({
     return datum?.label?.trim() || datum?.id || pending.endpointId;
   })();
 
-  const counterpartOptions = (() => {
-    if (!pending || pending.modal !== 'pickCounterparts') {
+  const counterpartDataOptions = (() => {
+    if (!pending || pending.modal !== 'pickCounterparts' || pending.endpointKind !== 'geometry') {
       return [];
     }
     const linkById = new Map([...allLinks].map((link) => [link.id, link]));
-    if (pending.endpointKind === 'geometry') {
-      const dataIds = new Set<string>();
-      for (const linkId of pending.incidentLinkIds) {
-        const link = linkById.get(linkId);
-        if (link) {
-          dataIds.add(link.dataId);
-        }
-      }
-      return [...dataIds].map((id) => {
-        const datum = activeData.find((d) => d.id === id);
-        return { id, label: datum?.label?.trim() || id };
-      });
-    }
-    const geometryIds = new Set(
-      activeAnnotationSelection.geometryIdsByDataId.get(pending.endpointId) ?? [],
-    );
+    const dataIds = new Set<string>();
     for (const linkId of pending.incidentLinkIds) {
       const link = linkById.get(linkId);
       if (link) {
-        geometryIds.add(link.geometryId);
+        dataIds.add(link.dataId);
       }
     }
-    return [...geometryIds].map((id) => ({ id, label: id }));
+    return [...dataIds].map((id) => {
+      const datum = activeData.find((d) => d.id === id);
+      return { id, label: datum?.label?.trim() || id };
+    });
   })();
+
+  const pickSelectedCount = pending?.modal === 'pickCounterparts'
+    ? pending.selectedCounterpartIds.length
+    : 0;
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
       <div className="visually-hidden" aria-live="polite" aria-atomic="true">
         {isCommitting
           ? 'Saving annotation deletion'
-          : isSelecting
-            ? 'Deletion selection step'
-            : 'Deletion setup'}
+          : isDeletionGeometryPickActive
+            ? 'Select geometries in the viewer'
+            : isSelecting
+              ? 'Deletion selection step'
+              : 'Deletion setup'}
       </div>
 
       {isSetup ? (
@@ -169,35 +167,47 @@ export default function AnnotationDeletionPanel({
       ) : (
         <div className="small">
           <div className="fw-semibold mb-1">
-            {isCommitting ? 'Deleting…' : `Select items (${activeIntentLabel})`}
+            {isCommitting
+              ? 'Deleting…'
+              : isDeletionGeometryPickActive
+                ? `Select geometries for ${pendingEndpointLabel}`
+                : `Select items (${activeIntentLabel})`}
           </div>
           <p className="text-muted mb-2">{selectionHint}</p>
-          <p className="text-muted mb-2 mb-0" aria-live="polite">
-            {basketEmpty
-              ? 'Nothing selected yet.'
-              : (
-                <>
-                  Selected:
-                  {' '}
-                  {geometryCount}
-                  {' '}
-                  geometr
-                  {geometryCount === 1 ? 'y' : 'ies'}
-                  ,
-                  {' '}
-                  {dataCount}
-                  {' '}
-                  data
-                  ,
-                  {' '}
-                  {linkCount}
-                  {' '}
-                  link
-                  {linkCount === 1 ? '' : 's'}
-                  .
-                </>
-              )}
-          </p>
+          {isDeletionGeometryPickActive ? (
+            <p className="mb-0" aria-live="polite">
+              {pickSelectedCount === 0
+                ? 'No geometries selected yet.'
+                : `${pickSelectedCount} geometr${pickSelectedCount === 1 ? 'y' : 'ies'} selected.`}
+            </p>
+          ) : (
+            <p className="text-muted mb-2 mb-0" aria-live="polite">
+              {basketEmpty
+                ? 'Nothing selected yet.'
+                : (
+                  <>
+                    Selected:
+                    {' '}
+                    {geometryCount}
+                    {' '}
+                    geometr
+                    {geometryCount === 1 ? 'y' : 'ies'}
+                    ,
+                    {' '}
+                    {dataCount}
+                    {' '}
+                    data
+                    ,
+                    {' '}
+                    {linkCount}
+                    {' '}
+                    link
+                    {linkCount === 1 ? '' : 's'}
+                    .
+                  </>
+                )}
+            </p>
+          )}
 
           {draft.selectionMessage ? (
             <div className="alert alert-warning py-2 px-3 small mb-2 mt-2">{draft.selectionMessage}</div>
@@ -209,27 +219,47 @@ export default function AnnotationDeletionPanel({
       )}
 
       {wizardActive ? (
-        <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            disabled={isCommitting || Boolean(pending)}
-            onClick={onBack}
-            title={pending ? 'Resolve or cancel the multi-link dialog first' : undefined}
-          >
-            Back
-          </button>
+        isDeletionGeometryPickActive ? (
+          <div className="d-flex justify-content-end align-items-center mt-3 gap-2">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={cancelDeletionPendingResolution}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={pickSelectedCount === 0}
+              onClick={confirmDeletionCounterpartPick}
+            >
+              OK
+            </button>
+          </div>
+        ) : (
+          <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              disabled={isCommitting || Boolean(pending)}
+              onClick={onBack}
+              title={pending ? 'Resolve or cancel the multi-link dialog first' : undefined}
+            >
+              Back
+            </button>
 
-          <button
-            type="button"
-            className="btn btn-danger btn-sm"
-            disabled={!confirmEnabled || isCommitting}
-            onClick={onConfirmDelete}
-            title={confirmEnabled ? 'Confirm delete lands in M4' : 'Select a valid basket first'}
-          >
-            Confirm delete
-          </button>
-        </div>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              disabled={!confirmEnabled || isCommitting}
+              onClick={onConfirmDelete}
+              title={confirmEnabled ? 'Confirm delete lands in M4' : 'Select a valid basket first'}
+            >
+              Confirm delete
+            </button>
+          </div>
+        )
       ) : null}
 
       {pending?.modal === 'fanOut' ? (
@@ -253,13 +283,11 @@ export default function AnnotationDeletionPanel({
         />
       ) : null}
 
-      {pending?.modal === 'pickCounterparts' ? (
+      {pending?.modal === 'pickCounterparts' && pending.endpointKind === 'geometry' ? (
         <DeletionCounterpartPickModal
-          endpointKind={pending.endpointKind}
           endpointLabel={pendingEndpointLabel}
-          options={counterpartOptions}
+          options={counterpartDataOptions}
           selectedIds={pending.selectedCounterpartIds}
-          viewerPickMode={pending.endpointKind === 'data'}
           onToggle={toggleDeletionCounterpartSelection}
           onConfirm={confirmDeletionCounterpartPick}
           onCancel={cancelDeletionPendingResolution}

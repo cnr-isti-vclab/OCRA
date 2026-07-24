@@ -191,6 +191,60 @@ describe('expandBasketForSelectedLinks', () => {
       candidateDataIds: [],
     });
   });
+
+  it('still adds endpoints when links come from a one-shot iterator (Map.values)', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: true,
+    };
+    const pending = buildPendingResolution(
+      'geometry',
+      'g1',
+      [links[0]!, links[1]!],
+      'linkResolution',
+    );
+    const linkMap = new Map(links.map((entry) => [entry.id, entry]));
+    // Same expectation as the array-backed "full triplet All" case — proves coverage
+    // still runs after the first [...links] materialization inside expand.
+    expect(expandBasketForSelectedLinks(
+      draft,
+      pending,
+      ['l1', 'l2'],
+      linkMap.values(),
+    )).toEqual({
+      candidateLinkIds: ['l1', 'l2'],
+      candidateGeometryIds: ['g1'],
+      candidateDataIds: ['d2'],
+    });
+  });
+
+  it('counts basket links toward counterpart coverage', () => {
+    // g1↔d1 (l1) already in basket; resolving g1→d2 (l2) should cover g1 fully.
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: true,
+      candidateLinkIds: ['l1'],
+      candidateGeometryIds: [],
+      candidateDataIds: ['d1'],
+    };
+    const pending = buildPendingResolution(
+      'geometry',
+      'g1',
+      [links[0]!, links[1]!],
+      'linkResolution',
+    );
+    expect(expandBasketForSelectedLinks(draft, pending, ['l2'], links)).toEqual({
+      candidateLinkIds: ['l1', 'l2'],
+      candidateGeometryIds: ['g1'],
+      candidateDataIds: ['d1', 'd2'],
+    });
+  });
 });
 
 describe('counterpartFullyCoveredByLinks / linkIdsForCounterparts', () => {

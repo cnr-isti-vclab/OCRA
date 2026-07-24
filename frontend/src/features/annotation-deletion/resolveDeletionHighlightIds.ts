@@ -16,12 +16,22 @@ type DeletionHighlightDraft = Pick<
 /**
  * Ids to highlight during deletion selection.
  * Basket endpoints plus both ends of every basket link (so Link-only is visible).
- * During Let-me-select, also highlights the pending endpoint and chosen counterparts.
+ * During data-led Let-me-select, geometry highlights are ONLY the in-progress
+ * counterpart picks — basket geometries must not be forced into the filtered
+ * viewer or ctrl multi-select fights the sync effect.
  */
 export function resolveDeletionHighlightIds(
   draft: DeletionHighlightDraft,
   links: Iterable<AnnotationLink>,
 ): DeletionHighlightIds {
+  const pending = draft.pendingResolution;
+  if (pending?.modal === 'pickCounterparts' && pending.endpointKind === 'data') {
+    return {
+      geometryIds: [...pending.selectedCounterpartIds],
+      dataIds: [pending.endpointId],
+    };
+  }
+
   const geometryIds = new Set(draft.candidateGeometryIds);
   const dataIds = new Set(draft.candidateDataIds);
   const linkById = new Map([...links].map((link) => [link.id, link]));
@@ -35,18 +45,10 @@ export function resolveDeletionHighlightIds(
     dataIds.add(link.dataId);
   }
 
-  const pending = draft.pendingResolution;
-  if (pending?.modal === 'pickCounterparts') {
-    if (pending.endpointKind === 'geometry') {
-      geometryIds.add(pending.endpointId);
-      for (const dataId of pending.selectedCounterpartIds) {
-        dataIds.add(dataId);
-      }
-    } else {
-      dataIds.add(pending.endpointId);
-      for (const geometryId of pending.selectedCounterpartIds) {
-        geometryIds.add(geometryId);
-      }
+  if (pending?.modal === 'pickCounterparts' && pending.endpointKind === 'geometry') {
+    geometryIds.add(pending.endpointId);
+    for (const dataId of pending.selectedCounterpartIds) {
+      dataIds.add(dataId);
     }
   }
 
