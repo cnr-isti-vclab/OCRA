@@ -14,6 +14,8 @@ export interface AnnotationDeletionWizardState {
   isDeletionLinkOnly: boolean;
   isDeletionGeometryLed: boolean;
   isDeletionDataLed: boolean;
+  /** True while picking geometries in the viewer for data-led Let-me-select. */
+  isDeletionGeometryPickActive: boolean;
   deletionHighlightGeometryIds: string[] | null;
   deletionHighlightDataIds: string[] | null;
   canConfirmDeletion: boolean;
@@ -34,6 +36,12 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     geometryId?: string;
     dataId?: string;
   }) => void;
+  confirmDeletionPendingAll: () => void;
+  cancelDeletionPendingResolution: () => void;
+  beginDeletionCounterpartPick: () => void;
+  setDeletionCounterpartSelection: (counterpartIds: string[]) => void;
+  toggleDeletionCounterpartSelection: (counterpartId: string) => void;
+  confirmDeletionCounterpartPick: () => void;
   reportDeletionSelectionBlocked: (message: string) => void;
 } {
   const {
@@ -49,6 +57,12 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     deselectDataFromDeletionBasket,
     clearDeletionBasket,
     removeFromDeletionBasket,
+    confirmDeletionPendingAll,
+    cancelDeletionPendingResolution,
+    beginDeletionCounterpartPick,
+    setDeletionCounterpartSelection,
+    toggleDeletionCounterpartSelection,
+    confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
   } = useAnnotationStore();
 
@@ -62,6 +76,10 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
   );
   const isDeletionGeometryLed = Boolean(deletionDraft?.deleteGeometry);
   const isDeletionDataLed = Boolean(deletionDraft?.deleteData && !deletionDraft.deleteGeometry);
+  const isDeletionGeometryPickActive = Boolean(
+    deletionDraft?.pendingResolution?.modal === 'pickCounterparts'
+    && deletionDraft.pendingResolution.endpointKind === 'data',
+  );
 
   const canConfirmDeletion = useMemo(() => {
     if (!deletionDraft || deletionDraft.step !== 'selecting') {
@@ -98,6 +116,7 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     isDeletionLinkOnly,
     isDeletionGeometryLed,
     isDeletionDataLed,
+    isDeletionGeometryPickActive,
     deletionHighlightGeometryIds,
     deletionHighlightDataIds,
     canConfirmDeletion,
@@ -108,6 +127,12 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     deselectDataFromDeletionBasket,
     clearDeletionBasket,
     removeFromDeletionBasket,
+    confirmDeletionPendingAll,
+    cancelDeletionPendingResolution,
+    beginDeletionCounterpartPick,
+    setDeletionCounterpartSelection,
+    toggleDeletionCounterpartSelection,
+    confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
   };
 }

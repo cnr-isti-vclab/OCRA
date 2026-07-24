@@ -143,6 +143,12 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   deselectGeometryFromDeletionBasket: (geometryId: string) => void;
   deselectDataFromDeletionBasket: (dataId: string) => void;
   clearDeletionBasket: () => void;
+  confirmDeletionPendingAll: () => void;
+  cancelDeletionPendingResolution: () => void;
+  beginDeletionCounterpartPick: () => void;
+  setDeletionCounterpartSelection: (counterpartIds: string[]) => void;
+  toggleDeletionCounterpartSelection: (counterpartId: string) => void;
+  confirmDeletionCounterpartPick: () => void;
   reportDeletionSelectionBlocked: (message: string) => void;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
@@ -873,6 +879,30 @@ export function AnnotationStoreProvider({
     storeRef.current?.clearDeletionBasket();
   }, []);
 
+  const confirmDeletionPendingAll = useCallback(() => {
+    storeRef.current?.confirmDeletionPendingAll();
+  }, []);
+
+  const cancelDeletionPendingResolution = useCallback(() => {
+    storeRef.current?.cancelDeletionPendingResolution();
+  }, []);
+
+  const beginDeletionCounterpartPick = useCallback(() => {
+    storeRef.current?.beginDeletionCounterpartPick();
+  }, []);
+
+  const setDeletionCounterpartSelection = useCallback((counterpartIds: string[]) => {
+    storeRef.current?.setDeletionCounterpartSelection(counterpartIds);
+  }, []);
+
+  const toggleDeletionCounterpartSelection = useCallback((counterpartId: string) => {
+    storeRef.current?.toggleDeletionCounterpartSelection(counterpartId);
+  }, []);
+
+  const confirmDeletionCounterpartPick = useCallback(() => {
+    storeRef.current?.confirmDeletionCounterpartPick();
+  }, []);
+
   const reportDeletionSelectionBlocked = useCallback((message: string) => {
     storeRef.current?.reportDeletionSelectionBlocked(message);
   }, []);
@@ -996,6 +1026,12 @@ export function AnnotationStoreProvider({
     deselectGeometryFromDeletionBasket,
     deselectDataFromDeletionBasket,
     clearDeletionBasket,
+    confirmDeletionPendingAll,
+    cancelDeletionPendingResolution,
+    beginDeletionCounterpartPick,
+    setDeletionCounterpartSelection,
+    toggleDeletionCounterpartSelection,
+    confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
     eventLog,
     activeSocialLocks,

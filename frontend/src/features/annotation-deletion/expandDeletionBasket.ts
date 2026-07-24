@@ -1,0 +1,228 @@
+import type { AnnotationLink } from 'shared/annotation-types';
+import type {
+  AnnotationDeletionDraft,
+  AnnotationDeletionIntent,
+  DeletionCardinalityModal,
+  DeletionPendingResolution,
+} from './types';
+import {
+  isOneToManyLinks,
+  nonErasableLinksForData,
+  nonErasableLinksForGeometry,
+} from './annotationDeletionCardinality';
+
+export type DeletionCardinalityKind = 'fanOut' | 'linkResolution' | null;
+
+/**
+ * Which 1:N modal applies for the current intent when an endpoint has N links.
+ * @see doc/a08-annotation-deletion.md — Which modal applies
+ */
+export function resolveDeletionCardinalityModal(
+  intent: AnnotationDeletionIntent,
+): DeletionCardinalityKind {
+  const { deleteLink, deleteGeometry, deleteData } = intent;
+  if (!deleteLink) {
+    return null;
+  }
+  // Link-only → link resolution
+  if (!deleteGeometry && !deleteData) {
+    return 'linkResolution';
+  }
+  // Full triplet → link resolution
+  if (deleteGeometry && deleteData) {
+    return 'linkResolution';
+  }
+  // Exactly one endpoint type → fan-out warning
+  if (deleteGeometry !== deleteData) {
+    return 'fanOut';
+  }
+  return null;
+}
+
+export function buildPendingResolution(
+  endpointKind: 'geometry' | 'data',
+  endpointId: string,
+  incident: readonly AnnotationLink[],
+  modal: DeletionCardinalityModal,
+): DeletionPendingResolution {
+  return {
+    modal,
+    endpointKind,
+    endpointId,
+    incidentLinkIds: incident.map((link) => link.id),
+    selectedCounterpartIds: [],
+  };
+}
+
+/**
+ * Expand basket for fan-out "Yes": endpoint + all its non-erasable links.
+ * Does not add counterpart endpoints (Data/Geometry off on the other side).
+ */
+export function expandBasketForFanOut(
+  draft: AnnotationDeletionDraft,
+  pending: DeletionPendingResolution,
+  links: Iterable<AnnotationLink>,
+): Pick<AnnotationDeletionDraft, 'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'> {
+  const linkById = new Map([...links].map((link) => [link.id, link]));
+  const nextLinks = new Set(draft.candidateLinkIds);
+  for (const linkId of pending.incidentLinkIds) {
+    if (linkById.has(linkId)) {
+      nextLinks.add(linkId);
+    }
+  }
+
+  const nextGeometry = new Set(draft.candidateGeometryIds);
+  const nextData = new Set(draft.candidateDataIds);
+
+  if (pending.endpointKind === 'geometry' && draft.deleteGeometry) {
+    nextGeometry.add(pending.endpointId);
+  }
+  if (pending.endpointKind === 'data' && draft.deleteData) {
+    nextData.add(pending.endpointId);
+  }
+
+  return {
+    candidateLinkIds: [...nextLinks],
+    candidateGeometryIds: [...nextGeometry],
+    candidateDataIds: [...nextData],
+  };
+}
+
+/**
+ * Whether a counterpart endpoint may enter the basket: every non-erasable link
+ * on that counterpart must be among `selectedLinkIds`.
+ */
+export function counterpartFullyCoveredByLinks(
+  endpointKind: 'geometry' | 'data',
+  endpointId: string,
+  selectedLinkIds: ReadonlySet<string>,
+  links: Iterable<AnnotationLink>,
+): boolean {
+  const incident = endpointKind === 'geometry'
+    ? nonErasableLinksForGeometry(links, endpointId)
+    : nonErasableLinksForData(links, endpointId);
+  if (incident.length === 0) {
+    return false;
+  }
+  return incident.every((link) => selectedLinkIds.has(link.id));
+}
+
+/**
+ * Expand basket from a set of chosen incident links (All or Let-me-select OK).
+ * - Always adds the chosen links.
+ * - Adds initiating endpoint only if intent deletes it and all its links are chosen.
+ * - Adds counterparts only if intent deletes that side and each is fully covered.
+ * - Link-only: never adds endpoints.
+ */
+export function expandBasketForSelectedLinks(
+  draft: AnnotationDeletionDraft,
+  pending: DeletionPendingResolution,
+  selectedLinkIds: readonly string[],
+  links: Iterable<AnnotationLink>,
+): Pick<AnnotationDeletionDraft, 'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'> {
+  const linkById = new Map([...links].map((link) => [link.id, link]));
+  const chosen = selectedLinkIds.filter((id) => linkById.has(id));
+  const chosenSet = new Set(chosen);
+
+  const nextLinks = new Set(draft.candidateLinkIds);
+  for (const id of chosen) {
+    nextLinks.add(id);
+  }
+
+  const isLinkOnly = draft.deleteLink && !draft.deleteGeometry && !draft.deleteData;
+  if (isLinkOnly) {
+    return {
+      candidateLinkIds: [...nextLinks],
+      candidateGeometryIds: [],
+      candidateDataIds: [],
+    };
+  }
+
+  const nextGeometry = new Set(draft.candidateGeometryIds);
+  const nextData = new Set(draft.candidateDataIds);
+
+  if (
+    pending.endpointKind === 'geometry'
+    && draft.deleteGeometry
+    && counterpartFullyCoveredByLinks('geometry', pending.endpointId, chosenSet, links)
+  ) {
+    nextGeometry.add(pending.endpointId);
+  }
+  if (
+    pending.endpointKind === 'data'
+    && draft.deleteData
+    && counterpartFullyCoveredByLinks('data', pending.endpointId, chosenSet, links)
+  ) {
+    nextData.add(pending.endpointId);
+  }
+
+  // Counterparts from chosen links
+  for (const linkId of chosen) {
+    const link = linkById.get(linkId);
+    if (!link) {
+      continue;
+    }
+    if (draft.deleteData && pending.endpointKind === 'geometry') {
+      if (counterpartFullyCoveredByLinks('data', link.dataId, chosenSet, links)) {
+        nextData.add(link.dataId);
+      }
+    }
+    if (draft.deleteGeometry && pending.endpointKind === 'data') {
+      if (counterpartFullyCoveredByLinks('geometry', link.geometryId, chosenSet, links)) {
+        nextGeometry.add(link.geometryId);
+      }
+    }
+  }
+
+  return {
+    candidateLinkIds: [...nextLinks],
+    candidateGeometryIds: [...nextGeometry],
+    candidateDataIds: [...nextData],
+  };
+}
+
+/** Map selected counterpart ids → incident link ids between endpoint and counterparts. */
+export function linkIdsForCounterparts(
+  pending: DeletionPendingResolution,
+  counterpartIds: readonly string[],
+  links: Iterable<AnnotationLink>,
+): string[] {
+  const counterparts = new Set(counterpartIds);
+  const out: string[] = [];
+  for (const link of links) {
+    if (link.erasableAt !== null) {
+      continue;
+    }
+    if (!pending.incidentLinkIds.includes(link.id)) {
+      continue;
+    }
+    if (pending.endpointKind === 'geometry') {
+      if (link.geometryId === pending.endpointId && counterparts.has(link.dataId)) {
+        out.push(link.id);
+      }
+    } else if (link.dataId === pending.endpointId && counterparts.has(link.geometryId)) {
+      out.push(link.id);
+    }
+  }
+  return out;
+}
+
+export function incidentLinksForEndpoint(
+  endpointKind: 'geometry' | 'data',
+  endpointId: string,
+  links: Iterable<AnnotationLink>,
+): AnnotationLink[] {
+  return endpointKind === 'geometry'
+    ? nonErasableLinksForGeometry(links, endpointId)
+    : nonErasableLinksForData(links, endpointId);
+}
+
+export function needsCardinalityResolution(
+  intent: AnnotationDeletionIntent,
+  incident: readonly AnnotationLink[],
+): DeletionCardinalityKind {
+  if (!isOneToManyLinks(incident)) {
+    return null;
+  }
+  return resolveDeletionCardinalityModal(intent);
+}

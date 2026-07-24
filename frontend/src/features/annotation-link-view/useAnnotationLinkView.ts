@@ -53,6 +53,28 @@ export function useAnnotationLinkView() {
 
       // Keep basket endpoints visible even if filtering would hide them.
       if (isDeletionWizardActive && deletionDraft) {
+        const pending = deletionDraft.pendingResolution;
+        // Data-led Let-me-select: show only geometries linked to the pending data.
+        if (
+          pending?.modal === 'pickCounterparts'
+          && pending.endpointKind === 'data'
+        ) {
+          const allowed = new Set(
+            activeAnnotationSelection.geometryIdsByDataId.get(pending.endpointId) ?? [],
+          );
+          const pickGeometries = activeGeometries.filter((geometry) => {
+            if (allowed.size > 0) {
+              return allowed.has(geometry.id);
+            }
+            return (activeAnnotationSelection.dataIdsByGeometryId.get(geometry.id) ?? [])
+              .includes(pending.endpointId);
+          });
+          return {
+            visibleGeometries: pickGeometries,
+            visibleData: activeData.filter((datum) => datum.id === pending.endpointId),
+          };
+        }
+
         const geometryIds = new Set(deletionDraft.candidateGeometryIds);
         const dataIds = new Set(deletionDraft.candidateDataIds);
         const geometries = [...result.visibleGeometries];

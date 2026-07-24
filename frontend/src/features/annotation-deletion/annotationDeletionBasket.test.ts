@@ -172,4 +172,23 @@ describe('validateDeletionBasket', () => {
       links: [link('l1', 'g1', 'd1')],
     }).ok).toBe(false);
   });
+
+  it('rejects while a pending 1:N resolution is open', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      candidateLinkIds: ['l1'],
+      pendingResolution: {
+        modal: 'fanOut' as const,
+        endpointKind: 'geometry' as const,
+        endpointId: 'g1',
+        incidentLinkIds: ['l1', 'l2'],
+        selectedCounterpartIds: [],
+      },
+    };
+    expect(validateDeletionBasket(draft, {
+      links: [link('l1', 'g1', 'd1')],
+    }).ok).toBe(false);
+  });
 });

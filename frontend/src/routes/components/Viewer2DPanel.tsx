@@ -17,6 +17,7 @@ import { registerCreationDraftGeometryFlush } from '../../features/annotation-cr
 import { purgeCreationGeometryDrafts } from '../../features/annotation-creation/purgeCreationGeometryDrafts';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
+import { applyDeletionCounterpartGeometryPicks } from '../../features/annotation-deletion/applyDeletionCounterpartGeometryPicks';
 import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
 import {
   creationToolbarDisabledModes,
@@ -124,11 +125,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       deletionDraft,
       isDeletionSelectingStep,
       isDeletionDataLed,
+      isDeletionGeometryPickActive,
       deletionHighlightGeometryIds,
       addGeometryToDeletionBasket,
       addLinkOnlyFromEndpoint,
       deselectGeometryFromDeletionBasket,
       clearDeletionBasket,
+      setDeletionCounterpartSelection,
       reportDeletionSelectionBlocked,
     } = useAnnotationDeletionWizard();
 
@@ -552,6 +555,16 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           return;
         }
         if (isDeletionSelectingStep && deletionDraft) {
+          // Data-led Let-me-select: clear counterpart picks only (basket stays intact).
+          if (isDeletionGeometryPickActive) {
+            setDeletionCounterpartSelection([]);
+            deletionPreviousSelectionRef.current = [];
+            return;
+          }
+          // Other pending 1:N modals: ignore background clicks.
+          if (deletionDraft.pendingResolution) {
+            return;
+          }
           // Link+Data: viewer is highlight-only — ignore background clear, snap highlights back.
           if (isDeletionDataLed) {
             const restoreIds = (deletionHighlightGeometryIds ?? highlightGeometryIds)
@@ -586,6 +599,40 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
       if (isDeletionSelectingStep && deletionDraft) {
         const filteredIds = ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
+
+        if (isDeletionGeometryPickActive) {
+          const pending = deletionDraft.pendingResolution;
+          const allowed = new Set(
+            pending?.endpointKind === 'data'
+              ? (activeAnnotationSelection.geometryIdsByDataId.get(pending.endpointId) ?? [])
+              : [],
+          );
+          applyDeletionCounterpartGeometryPicks(
+            filteredIds,
+            deletionDraft,
+            {
+              setDeletionCounterpartSelection,
+              reportDeletionSelectionBlocked,
+            },
+            {
+              activeSocialLocks,
+              currentStreamId,
+              links: allLinks,
+              geometryIdsByDataId: activeAnnotationSelection.geometryIdsByDataId,
+            },
+            {
+              toggle: deletionPointerToggleRef.current,
+              previousSelectedIds: deletionPreviousSelectionRef.current,
+              allowedGeometryIds: allowed,
+            },
+          );
+          deletionPreviousSelectionRef.current = filteredIds;
+          return;
+        }
+
+        if (deletionDraft.pendingResolution) {
+          return;
+        }
 
         // Link+Data: geometries are highlight-only — ignore user picks and restore basket highlights.
         if (isDeletionDataLed) {

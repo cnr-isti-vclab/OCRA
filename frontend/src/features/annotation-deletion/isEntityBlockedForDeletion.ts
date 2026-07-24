@@ -129,8 +129,5 @@ export function isEntityBlockedForDeletion(input: DeletionLockCheckInput): boole
 export const DELETION_BLOCKED_BY_LOCK_MESSAGE =
   'Cannot delete while another user is editing this annotation';
 
-export const DELETION_MANY_LINKS_MESSAGE =
-  'This item has multiple links. Multi-link selection lands in the next milestone.';
-
 export const DELETION_NO_LINKS_MESSAGE =
   'No links are incident on this entry. Nothing was added.';

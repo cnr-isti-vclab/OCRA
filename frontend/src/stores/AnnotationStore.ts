@@ -55,11 +55,17 @@ import {
   nonErasableLinksForGeometry,
 } from '../features/annotation-deletion/annotationDeletionCardinality';
 import {
+  buildPendingResolution,
+  expandBasketForFanOut,
+  expandBasketForSelectedLinks,
+  linkIdsForCounterparts,
+  needsCardinalityResolution,
+} from '../features/annotation-deletion/expandDeletionBasket';
+import {
   deselectDataFromDeletionBasket as computeDataDeselection,
   deselectGeometryFromDeletionBasket as computeGeometryDeselection,
 } from '../features/annotation-deletion/deselectFromDeletionBasket';
 import {
-  DELETION_MANY_LINKS_MESSAGE,
   DELETION_NO_LINKS_MESSAGE,
 } from '../features/annotation-deletion/isEntityBlockedForDeletion';
 
@@ -68,7 +74,8 @@ export type { AnnotationDeletionDraft } from '../features/annotation-deletion/ty
 
 export type DeletionBasketAddResult =
   | { ok: true }
-  | { ok: false; message: string };
+  | { ok: false; message: string }
+  | { ok: true; pendingResolution: true };
 
 export type AnnotationStoreActionResult =
   | { ok: true }
@@ -366,6 +373,7 @@ export class AnnotationStore {
       candidateGeometryIds: [],
       candidateDataIds: [],
       selectionMessage: null,
+      pendingResolution: null,
     };
     this.bump();
     return { ok: true };
@@ -411,6 +419,7 @@ export class AnnotationStore {
       ...draft,
       ...next,
       selectionMessage: null,
+      pendingResolution: null,
     };
     this.bump();
     return { ok: true };
@@ -428,13 +437,33 @@ export class AnnotationStore {
     return { ok: false, message };
   }
 
+  private beginDeletionPendingResolution(
+    draft: AnnotationDeletionDraft,
+    endpointKind: 'geometry' | 'data',
+    endpointId: string,
+    incident: ReturnType<typeof nonErasableLinksForGeometry>,
+    modal: 'fanOut' | 'linkResolution',
+  ): DeletionBasketAddResult {
+    this.deletionDraft = {
+      ...draft,
+      selectionMessage: null,
+      pendingResolution: buildPendingResolution(endpointKind, endpointId, incident, modal),
+    };
+    this.bump();
+    return { ok: true, pendingResolution: true };
+  }
+
   /**
-   * Geometry-led basket add (Geometry+Link or full triplet). 1:1 only in M2.
+   * Geometry-led basket add (Geometry+Link or full triplet).
+   * 1:N opens pendingResolution (fan-out or link resolution) instead of adding.
    */
   addGeometryToDeletionBasket(geometryId: string): DeletionBasketAddResult {
     const draft = this.ensureDeletionSelecting();
     if (!draft) {
       return { ok: false, message: 'Deletion selection is not active.' };
+    }
+    if (draft.pendingResolution) {
+      return { ok: false, message: 'Finish or cancel the current multi-link selection first.' };
     }
     if (!draft.deleteGeometry) {
       return this.failDeletionBasketAdd(draft, 'Geometry is not part of the current delete intent.');
@@ -447,8 +476,16 @@ export class AnnotationStore {
     if (incident.length === 0) {
       return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
     }
-    if (incident.length > 1) {
-      return this.failDeletionBasketAdd(draft, DELETION_MANY_LINKS_MESSAGE);
+
+    const cardinality = needsCardinalityResolution(draft, incident);
+    if (cardinality) {
+      return this.beginDeletionPendingResolution(
+        draft,
+        'geometry',
+        geometryId,
+        incident,
+        cardinality,
+      );
     }
 
     const link = incident[0]!;
@@ -462,12 +499,16 @@ export class AnnotationStore {
   }
 
   /**
-   * Data-led basket add (Data+Link or full triplet). 1:1 only in M2.
+   * Data-led basket add (Data+Link or full triplet).
+   * 1:N opens pendingResolution (fan-out or link resolution) instead of adding.
    */
   addDataToDeletionBasket(dataId: string): DeletionBasketAddResult {
     const draft = this.ensureDeletionSelecting();
     if (!draft) {
       return { ok: false, message: 'Deletion selection is not active.' };
+    }
+    if (draft.pendingResolution) {
+      return { ok: false, message: 'Finish or cancel the current multi-link selection first.' };
     }
     if (!draft.deleteData) {
       return this.failDeletionBasketAdd(draft, 'Data is not part of the current delete intent.');
@@ -480,8 +521,16 @@ export class AnnotationStore {
     if (incident.length === 0) {
       return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
     }
-    if (incident.length > 1) {
-      return this.failDeletionBasketAdd(draft, DELETION_MANY_LINKS_MESSAGE);
+
+    const cardinality = needsCardinalityResolution(draft, incident);
+    if (cardinality) {
+      return this.beginDeletionPendingResolution(
+        draft,
+        'data',
+        dataId,
+        incident,
+        cardinality,
+      );
     }
 
     const link = incident[0]!;
@@ -496,7 +545,7 @@ export class AnnotationStore {
 
   /**
    * Link-only: identify a link by selecting a geometry or data endpoint.
-   * 0 / 1 / N incident links — N deferred to M3.
+   * 0 → message; 1 → add link; N → link resolution modal.
    */
   addLinkOnlyFromEndpoint(
     endpointKind: 'geometry' | 'data',
@@ -505,6 +554,9 @@ export class AnnotationStore {
     const draft = this.ensureDeletionSelecting();
     if (!draft) {
       return { ok: false, message: 'Deletion selection is not active.' };
+    }
+    if (draft.pendingResolution) {
+      return { ok: false, message: 'Finish or cancel the current multi-link selection first.' };
     }
     if (!draft.deleteLink || draft.deleteGeometry || draft.deleteData) {
       return this.failDeletionBasketAdd(
@@ -520,8 +572,16 @@ export class AnnotationStore {
     if (incident.length === 0) {
       return this.failDeletionBasketAdd(draft, DELETION_NO_LINKS_MESSAGE);
     }
-    if (incident.length > 1) {
-      return this.failDeletionBasketAdd(draft, DELETION_MANY_LINKS_MESSAGE);
+
+    const cardinality = needsCardinalityResolution(draft, incident);
+    if (cardinality) {
+      return this.beginDeletionPendingResolution(
+        draft,
+        endpointKind,
+        endpointId,
+        incident,
+        cardinality,
+      );
     }
 
     const link = incident[0]!;
@@ -530,6 +590,103 @@ export class AnnotationStore {
       candidateGeometryIds: [],
       candidateDataIds: [],
     });
+  }
+
+  /** Fan-out Yes / link-resolution All. */
+  confirmDeletionPendingAll(): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft?.pendingResolution) {
+      return;
+    }
+    const pending = draft.pendingResolution;
+    const next = pending.modal === 'fanOut'
+      ? expandBasketForFanOut(draft, pending, this.linkMap.values())
+      : expandBasketForSelectedLinks(
+        draft,
+        pending,
+        pending.incidentLinkIds,
+        this.linkMap.values(),
+      );
+    this.finishDeletionBasketAdd(draft, next);
+  }
+
+  /** Fan-out Cancel / link-resolution None — discard pending only. */
+  cancelDeletionPendingResolution(): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft?.pendingResolution) {
+      return;
+    }
+    this.deletionDraft = {
+      ...draft,
+      pendingResolution: null,
+      selectionMessage: null,
+    };
+    this.bump();
+  }
+
+  /** Switch link-resolution to counterpart pick (checklist or viewer). */
+  beginDeletionCounterpartPick(): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft?.pendingResolution || draft.pendingResolution.modal !== 'linkResolution') {
+      return;
+    }
+    this.deletionDraft = {
+      ...draft,
+      pendingResolution: {
+        ...draft.pendingResolution,
+        modal: 'pickCounterparts',
+        selectedCounterpartIds: [],
+      },
+    };
+    this.bump();
+  }
+
+  setDeletionCounterpartSelection(counterpartIds: string[]): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft?.pendingResolution || draft.pendingResolution.modal !== 'pickCounterparts') {
+      return;
+    }
+    this.deletionDraft = {
+      ...draft,
+      pendingResolution: {
+        ...draft.pendingResolution,
+        selectedCounterpartIds: [...new Set(counterpartIds)],
+      },
+    };
+    this.bump();
+  }
+
+  toggleDeletionCounterpartSelection(counterpartId: string): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft?.pendingResolution || draft.pendingResolution.modal !== 'pickCounterparts') {
+      return;
+    }
+    const current = new Set(draft.pendingResolution.selectedCounterpartIds);
+    if (current.has(counterpartId)) {
+      current.delete(counterpartId);
+    } else {
+      current.add(counterpartId);
+    }
+    this.setDeletionCounterpartSelection([...current]);
+  }
+
+  /** OK on counterpart pick — merge chosen links (and covered endpoints) into basket. */
+  confirmDeletionCounterpartPick(): void {
+    const draft = this.ensureDeletionSelecting();
+    if (!draft?.pendingResolution || draft.pendingResolution.modal !== 'pickCounterparts') {
+      return;
+    }
+    const pending = draft.pendingResolution;
+    if (pending.selectedCounterpartIds.length === 0) {
+      return;
+    }
+    const linkIds = linkIdsForCounterparts(
+      pending,
+      pending.selectedCounterpartIds,
+      this.linkMap.values(),
+    );
+    const next = expandBasketForSelectedLinks(draft, pending, linkIds, this.linkMap.values());
+    this.finishDeletionBasketAdd(draft, next);
   }
 
   /**
@@ -607,6 +764,7 @@ export class AnnotationStore {
       && draft.candidateGeometryIds.length === 0
       && draft.candidateDataIds.length === 0
       && draft.selectionMessage === null
+      && draft.pendingResolution === null
     ) {
       return;
     }
@@ -616,6 +774,7 @@ export class AnnotationStore {
       candidateGeometryIds: [],
       candidateDataIds: [],
       selectionMessage: null,
+      pendingResolution: null,
     };
     this.bump();
   }

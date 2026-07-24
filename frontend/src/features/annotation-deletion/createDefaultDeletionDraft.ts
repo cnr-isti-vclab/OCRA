@@ -11,5 +11,6 @@ export function createDefaultDeletionDraft(): AnnotationDeletionDraft {
     candidateGeometryIds: [],
     candidateDataIds: [],
     selectionMessage: null,
+    pendingResolution: null,
   };
 }

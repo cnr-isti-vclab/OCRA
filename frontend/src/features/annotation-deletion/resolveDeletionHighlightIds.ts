@@ -6,15 +6,20 @@ export interface DeletionHighlightIds {
   dataIds: string[];
 }
 
+type DeletionHighlightDraft = Pick<
+  AnnotationDeletionDraft,
+  'candidateGeometryIds' | 'candidateDataIds' | 'candidateLinkIds'
+> & {
+  pendingResolution?: AnnotationDeletionDraft['pendingResolution'];
+};
+
 /**
  * Ids to highlight during deletion selection.
  * Basket endpoints plus both ends of every basket link (so Link-only is visible).
+ * During Let-me-select, also highlights the pending endpoint and chosen counterparts.
  */
 export function resolveDeletionHighlightIds(
-  draft: Pick<
-    AnnotationDeletionDraft,
-    'candidateGeometryIds' | 'candidateDataIds' | 'candidateLinkIds'
-  >,
+  draft: DeletionHighlightDraft,
   links: Iterable<AnnotationLink>,
 ): DeletionHighlightIds {
   const geometryIds = new Set(draft.candidateGeometryIds);
@@ -30,6 +35,21 @@ export function resolveDeletionHighlightIds(
     dataIds.add(link.dataId);
   }
 
+  const pending = draft.pendingResolution;
+  if (pending?.modal === 'pickCounterparts') {
+    if (pending.endpointKind === 'geometry') {
+      geometryIds.add(pending.endpointId);
+      for (const dataId of pending.selectedCounterpartIds) {
+        dataIds.add(dataId);
+      }
+    } else {
+      dataIds.add(pending.endpointId);
+      for (const geometryId of pending.selectedCounterpartIds) {
+        geometryIds.add(geometryId);
+      }
+    }
+  }
+
   return {
     geometryIds: [...geometryIds],
     dataIds: [...dataIds],
@@ -38,10 +58,7 @@ export function resolveDeletionHighlightIds(
 
 export function isGeometryHighlightedForDeletion(
   geometryId: string,
-  draft: Pick<
-    AnnotationDeletionDraft,
-    'candidateGeometryIds' | 'candidateDataIds' | 'candidateLinkIds'
-  >,
+  draft: DeletionHighlightDraft,
   links: Iterable<AnnotationLink>,
 ): boolean {
   return resolveDeletionHighlightIds(draft, links).geometryIds.includes(geometryId);
@@ -49,10 +66,7 @@ export function isGeometryHighlightedForDeletion(
 
 export function isDataHighlightedForDeletion(
   dataId: string,
-  draft: Pick<
-    AnnotationDeletionDraft,
-    'candidateGeometryIds' | 'candidateDataIds' | 'candidateLinkIds'
-  >,
+  draft: DeletionHighlightDraft,
   links: Iterable<AnnotationLink>,
 ): boolean {
   return resolveDeletionHighlightIds(draft, links).dataIds.includes(dataId);

@@ -56,6 +56,9 @@ export function applyDeletionGeometryPicks(
   lockContext: LockContext,
   options: DeletionGeometryPickOptions,
 ): void {
+  if (draft.pendingResolution) {
+    return;
+  }
   const isLinkOnly = draft.deleteLink && !draft.deleteGeometry && !draft.deleteData;
   if (!isLinkOnly && !draft.deleteGeometry && !draft.deleteData) {
     return;

@@ -8,7 +8,7 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 | --------- | ----- | ------ |
 | M1 | Remove card/bulk triplet delete; expandable Delete setup | **Done** |
 | M2 | Selection phase + link view integration | **Done** |
-| M3 | One-to-many disambiguation modals | **Planned** |
+| M3 | One-to-many disambiguation modals | **Done** |
 | M4 | Sequential commit, OCC, still-linked guard, rollback | **Planned** |
 | M5 | Tests, docs sync, hardening | **Planned** |
 
@@ -111,6 +111,8 @@ deletionDraft: {
   candidateLinkIds: string[];
   candidateGeometryIds: string[];
   candidateDataIds: string[];
+  selectionMessage: string | null;
+  pendingResolution: DeletionPendingResolution | null;
 }
 ```
 
@@ -302,7 +304,7 @@ If another user marks an entity erasable while the wizard is open, refresh or dr
 | Validation + commit plan | `frontend/src/features/annotation-deletion/annotationDeletionValidation.ts`, `buildDeletionCommitPlan.ts` |
 | Cardinality + errors | `frontend/src/features/annotation-deletion/annotationDeletionCardinality.ts`, `formatDeletionCommitError.ts` |
 | Setup + basket UI | `frontend/src/features/annotation-deletion/AnnotationDeletionPanel.tsx` |
-| Modals (M3) | `DeletionFanOutConfirmModal.tsx`, `DeletionLinkResolutionModal.tsx`, `DeletionGeometryPickModal.tsx` |
+| Modals (M3) | `DeletionFanOutConfirmModal.tsx`, `DeletionLinkResolutionModal.tsx`, `DeletionCounterpartPickModal.tsx` |
 | Wizard hook | `frontend/src/features/annotation-deletion/useAnnotationDeletionWizard.ts` |
 | Store draft + commit | `frontend/src/stores/AnnotationStore.ts` |
 | Backend still-linked guard | `backend/src/services/annotation.service.ts`, annotation controllers/routes |
@@ -337,13 +339,13 @@ Key test files (planned):
 - [ ] Geometry + Link: select geometry 1:1 → confirm → geometry + link erasable
 - [ ] Data + Link: select data 1:1 → confirm → data + link erasable
 - [ ] Full triplet: Link + Geometry + Data, 1:1 selection
-- [ ] 1:N geometry, Geometry + Link only → fan-out warning → Yes adds geometry + all links; Cancel drops selection
-- [ ] 1:N geometry, Link + Geometry + Data → link resolution modal (not fan-out warning)
-- [ ] 1:N data, Data + Link only → fan-out warning
-- [ ] 1:N data + Geometry → link resolution → “Let me select” → viewer subset → OK/Cancel
-- [ ] Link + Geometry + Data → link resolution modal (All / None / Let me select)
-- [ ] Geometry/Data checked without all links in basket → confirm disabled
-- [ ] Remote editor lock → cannot select or confirm
+- [x] 1:N geometry, Geometry + Link only → fan-out warning → Yes adds geometry + all links; Cancel drops selection
+- [x] 1:N geometry, Link + Geometry + Data → link resolution modal (not fan-out warning)
+- [x] 1:N data, Data + Link only → fan-out warning
+- [x] 1:N data + Geometry → link resolution → “Let me select” → viewer subset → OK/Cancel
+- [x] Link + Geometry + Data → link resolution modal (All / None / Let me select)
+- [x] Geometry/Data checked without all links in basket → confirm disabled
+- [x] Remote editor lock → cannot select or confirm
 - [ ] 409 on commit → basket preserved, partial rollback message
 - [ ] Cross-scene: asset data linked from two scenes → delete data in scene A after local links only → `still_linked`; after marking the other scene’s link erasable (or including it) → endpoint erasable succeeds
 - [ ] Scene reload mid-commit → interrupt handling
@@ -444,7 +446,7 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 - [x] Data + Link: select one data with exactly one link → basket correct
 - [x] Link only: select geometry or data with exactly one incident link → basket shows that link only (no endpoints)
 - [x] Link only: select geometry or data with zero links → user message; basket unchanged
-- [x] Multi-link endpoint selection shows “not yet supported” or is ignored until M3
+- [x] Multi-link endpoint selection opens fan-out / link-resolution (M3)
 - [x] Locked entity cannot enter basket
 - [x] Link view mode switches when an intent button starts selection; basket items remain visible during wizard
 - [x] Confirm still no-op or disabled message (commit is M4)
@@ -481,14 +483,14 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 
 **Exit criteria**
 
-- [ ] 1:N geometry, Geometry + Link only → fan-out warning → Yes / Cancel
-- [ ] 1:N geometry, Link + Geometry + Data → link resolution (not fan-out)
-- [ ] 1:N data, Data + Link only → fan-out warning
-- [ ] 1:N data + Geometry → link resolution → Let me select → viewer subset → OK/Cancel
-- [ ] Link + Geometry + Data → resolution modal All / None / Let me select
-- [ ] Link only, 0 / 1 / N incident links → message / add link / resolution modal (endpoints never in basket)
-- [ ] None removes endpoint from basket
-- [ ] Confirm still disabled until basket fully resolved
+- [x] 1:N geometry, Geometry + Link only → fan-out warning → Yes / Cancel
+- [x] 1:N geometry, Link + Geometry + Data → link resolution (not fan-out)
+- [x] 1:N data, Data + Link only → fan-out warning
+- [x] 1:N data + Geometry → link resolution → Let me select → viewer subset → OK/Cancel
+- [x] Link + Geometry + Data → resolution modal All / None / Let me select
+- [x] Link only, 0 / 1 / N incident links → message / add link / resolution modal (endpoints never in basket)
+- [x] None removes endpoint from basket
+- [x] Confirm still disabled until basket fully resolved
 
 **Not in M3:** server commit (stub Confirm with “coming in M4” ok during dev).
 

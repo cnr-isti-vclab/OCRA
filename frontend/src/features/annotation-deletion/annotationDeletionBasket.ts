@@ -27,6 +27,10 @@ export function validateDeletionBasket(
     return { ok: false, message: 'Deletion selection is not active.' };
   }
 
+  if (draft.pendingResolution) {
+    return { ok: false, message: 'Resolve the multi-link selection before confirming.' };
+  }
+
   const hasCandidates =
     draft.candidateLinkIds.length > 0
     || draft.candidateGeometryIds.length > 0

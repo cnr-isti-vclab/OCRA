@@ -36,6 +36,9 @@ export function applyDeletionDataPick(
   lockContext: LockContext,
   options: { toggle: boolean; links: Iterable<AnnotationLink> },
 ): void {
+  if (draft.pendingResolution) {
+    return;
+  }
   const isLinkOnly = draft.deleteLink && !draft.deleteGeometry && !draft.deleteData;
   if (!isLinkOnly && !draft.deleteData && !draft.deleteGeometry) {
     return;

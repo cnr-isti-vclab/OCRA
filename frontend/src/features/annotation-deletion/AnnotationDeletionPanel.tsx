@@ -1,6 +1,10 @@
 import type { AnnotationDeletionDraft, AnnotationDeletionIntent } from './types';
 import { canConfirmDeletionBasket } from './annotationDeletionBasket';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
+import DeletionFanOutConfirmModal from './DeletionFanOutConfirmModal';
+import DeletionLinkResolutionModal from './DeletionLinkResolutionModal';
+import DeletionCounterpartPickModal from './DeletionCounterpartPickModal';
+import { useAnnotationDeletionWizard } from './useAnnotationDeletionWizard';
 
 const INTENT_PRESETS: Array<{
   id: string;
@@ -44,7 +48,15 @@ export default function AnnotationDeletionPanel({
   onBack,
   onConfirmDelete,
 }: AnnotationDeletionPanelProps) {
-  const { allLinks } = useAnnotationStore();
+  const { allLinks, activeData, activeGeometries, activeAnnotationSelection } = useAnnotationStore();
+  const {
+    confirmDeletionPendingAll,
+    cancelDeletionPendingResolution,
+    beginDeletionCounterpartPick,
+    toggleDeletionCounterpartSelection,
+    confirmDeletionCounterpartPick,
+  } = useAnnotationDeletionWizard();
+
   const isSetup = draft.step === 'setup';
   const isSelecting = draft.step === 'selecting';
   const isCommitting = draft.step === 'committing';
@@ -55,15 +67,15 @@ export default function AnnotationDeletionPanel({
 
   const selectionHint = (() => {
     if (draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
-      return 'Link only: click a geometry or data row to identify the link (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now; multiple links are not yet supported.';
+      return 'Link only: click a geometry or data row to identify the link (replaces previous). Ctrl/Cmd+click to add or remove. Multiple links open a resolution dialog.';
     }
     if (draft.deleteGeometry && !draft.deleteData) {
-      return 'Select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Linked data is shown for context and is not selectable. One link each for now.';
+      return 'Select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Linked data is shown for context and is not selectable. Multiple links ask for confirmation.';
     }
     if (draft.deleteData && !draft.deleteGeometry) {
-      return 'Select data rows in the panel (replaces previous). Ctrl/Cmd+click to add or remove. Linked geometries are shown for context and are not selectable. One link each for now.';
+      return 'Select data rows in the panel (replaces previous). Ctrl/Cmd+click to add or remove. Linked geometries are shown for context and are not selectable. Multiple links ask for confirmation.';
     }
-    return 'Select a geometry or data row (replaces previous). Ctrl/Cmd+click to add or remove. One link each for now.';
+    return 'Select a geometry or data row (replaces previous). Ctrl/Cmd+click to add or remove. Multiple links open a resolution dialog.';
   })();
 
   const activeIntentLabel = INTENT_PRESETS.find((preset) => (
@@ -76,6 +88,48 @@ export default function AnnotationDeletionPanel({
   const dataCount = draft.candidateDataIds.length;
   const linkCount = draft.candidateLinkIds.length;
   const basketEmpty = geometryCount === 0 && dataCount === 0 && linkCount === 0;
+
+  const pending = draft.pendingResolution;
+  const pendingEndpointLabel = (() => {
+    if (!pending) {
+      return '';
+    }
+    if (pending.endpointKind === 'geometry') {
+      return activeGeometries.find((g) => g.id === pending.endpointId)?.id ?? pending.endpointId;
+    }
+    const datum = activeData.find((d) => d.id === pending.endpointId);
+    return datum?.label?.trim() || datum?.id || pending.endpointId;
+  })();
+
+  const counterpartOptions = (() => {
+    if (!pending || pending.modal !== 'pickCounterparts') {
+      return [];
+    }
+    const linkById = new Map([...allLinks].map((link) => [link.id, link]));
+    if (pending.endpointKind === 'geometry') {
+      const dataIds = new Set<string>();
+      for (const linkId of pending.incidentLinkIds) {
+        const link = linkById.get(linkId);
+        if (link) {
+          dataIds.add(link.dataId);
+        }
+      }
+      return [...dataIds].map((id) => {
+        const datum = activeData.find((d) => d.id === id);
+        return { id, label: datum?.label?.trim() || id };
+      });
+    }
+    const geometryIds = new Set(
+      activeAnnotationSelection.geometryIdsByDataId.get(pending.endpointId) ?? [],
+    );
+    for (const linkId of pending.incidentLinkIds) {
+      const link = linkById.get(linkId);
+      if (link) {
+        geometryIds.add(link.geometryId);
+      }
+    }
+    return [...geometryIds].map((id) => ({ id, label: id }));
+  })();
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
@@ -145,12 +199,6 @@ export default function AnnotationDeletionPanel({
               )}
           </p>
 
-          {/* Basket list temporarily hidden — labels/cascade UX TBD.
-          <div className="border rounded bg-white p-2 mb-2">
-            ...
-          </div>
-          */}
-
           {draft.selectionMessage ? (
             <div className="alert alert-warning py-2 px-3 small mb-2 mt-2">{draft.selectionMessage}</div>
           ) : null}
@@ -165,8 +213,9 @@ export default function AnnotationDeletionPanel({
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm"
-            disabled={isCommitting}
+            disabled={isCommitting || Boolean(pending)}
             onClick={onBack}
+            title={pending ? 'Resolve or cancel the multi-link dialog first' : undefined}
           >
             Back
           </button>
@@ -176,11 +225,45 @@ export default function AnnotationDeletionPanel({
             className="btn btn-danger btn-sm"
             disabled={!confirmEnabled || isCommitting}
             onClick={onConfirmDelete}
-            title={confirmEnabled ? 'Confirm delete lands in M4' : 'Select a valid 1:1 basket first'}
+            title={confirmEnabled ? 'Confirm delete lands in M4' : 'Select a valid basket first'}
           >
             Confirm delete
           </button>
         </div>
+      ) : null}
+
+      {pending?.modal === 'fanOut' ? (
+        <DeletionFanOutConfirmModal
+          endpointKind={pending.endpointKind}
+          endpointLabel={pendingEndpointLabel}
+          linkCount={pending.incidentLinkIds.length}
+          onConfirm={confirmDeletionPendingAll}
+          onCancel={cancelDeletionPendingResolution}
+        />
+      ) : null}
+
+      {pending?.modal === 'linkResolution' ? (
+        <DeletionLinkResolutionModal
+          endpointKind={pending.endpointKind}
+          endpointLabel={pendingEndpointLabel}
+          linkCount={pending.incidentLinkIds.length}
+          onAll={confirmDeletionPendingAll}
+          onNone={cancelDeletionPendingResolution}
+          onLetMeSelect={beginDeletionCounterpartPick}
+        />
+      ) : null}
+
+      {pending?.modal === 'pickCounterparts' ? (
+        <DeletionCounterpartPickModal
+          endpointKind={pending.endpointKind}
+          endpointLabel={pendingEndpointLabel}
+          options={counterpartOptions}
+          selectedIds={pending.selectedCounterpartIds}
+          viewerPickMode={pending.endpointKind === 'data'}
+          onToggle={toggleDeletionCounterpartSelection}
+          onConfirm={confirmDeletionCounterpartPick}
+          onCancel={cancelDeletionPendingResolution}
+        />
       ) : null}
     </div>
   );
