@@ -25,9 +25,10 @@ async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function createRemoteModelAsset(
+export async function createRemoteAsset(
   projectId: string,
   input: {
+    type: '3d-model' | 'image';
     label: string;
     title?: string;
     description?: string;
@@ -43,7 +44,7 @@ export async function createRemoteModelAsset(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      type: '3d-model',
+      type: input.type,
       label: input.label,
       title: input.title,
       description: input.description,
@@ -57,6 +58,13 @@ export async function createRemoteModelAsset(
   }
 
   return data.assetId;
+}
+
+export async function createRemoteModelAsset(
+  projectId: string,
+  input: Omit<Parameters<typeof createRemoteAsset>[1], 'type'>,
+): Promise<string> {
+  return createRemoteAsset(projectId, { ...input, type: '3d-model' });
 }
 
 export async function importRemoteAssetIntoHdt(
