@@ -65,6 +65,13 @@ import {
   deselectDataFromDeletionBasket as computeDataDeselection,
   deselectGeometryFromDeletionBasket as computeGeometryDeselection,
 } from '../features/annotation-deletion/deselectFromDeletionBasket';
+import { canConfirmDeletionBasket } from '../features/annotation-deletion/annotationDeletionBasket';
+import { buildDeletionCommitPlan } from '../features/annotation-deletion/buildDeletionCommitPlan';
+import { formatDeletionCommitError } from '../features/annotation-deletion/formatDeletionCommitError';
+import {
+  pruneLockedFromDeletionBasket,
+  type DeletionLockPruneContext,
+} from '../features/annotation-deletion/pruneLockedFromDeletionBasket';
 import {
   DELETION_NO_LINKS_MESSAGE,
 } from '../features/annotation-deletion/isEntityBlockedForDeletion';
@@ -78,7 +85,7 @@ export type DeletionBasketAddResult =
   | { ok: true; pendingResolution: true };
 
 export type AnnotationStoreActionResult =
-  | { ok: true }
+  | { ok: true; message?: string }
   | { ok: false; message: string };
 
 export type AnnotationEntityKind = 'geometry' | 'data' | 'link';
@@ -177,6 +184,7 @@ export class AnnotationStore {
 
   private readonly isSaving = new Set<string>();
   private isCreating = false;
+  private isDeleting = false;
   private generation = 0;
   private realtimeState: AnnotationRealtimeState = 'idle';
   private isLoadingAdditionalData = false;
@@ -225,6 +233,10 @@ export class AnnotationStore {
 
   get creating(): boolean {
     return this.isCreating;
+  }
+
+  get deleting(): boolean {
+    return this.isDeleting;
   }
 
   get creationDraftState(): Readonly<AnnotationCreationDraft> | null {
@@ -789,6 +801,143 @@ export class AnnotationStore {
     this.bump();
   }
 
+  /**
+   * Confirm delete: prune remote editor locks, then mark erasable links → geometries → data.
+   */
+  async commitDeletionDraft(
+    lockContext: Pick<DeletionLockPruneContext, 'activeSocialLocks' | 'currentStreamId'>,
+  ): Promise<AnnotationStoreActionResult> {
+    if (!this.deletionDraft || this.deletionDraft.step !== 'selecting') {
+      return { ok: false, message: 'Deletion is not ready to commit.' };
+    }
+    if (this.isDeleting) {
+      return { ok: false, message: 'Deletion is already in progress.' };
+    }
+    if (this.isCreating || this.isCreationWizardActive) {
+      return { ok: false, message: 'Finish or cancel creation before deleting.' };
+    }
+
+    const geometryIdsByDataId = this.buildGeometryIdsByDataId();
+    const pruned = pruneLockedFromDeletionBasket(this.deletionDraft, {
+      activeSocialLocks: lockContext.activeSocialLocks,
+      currentStreamId: lockContext.currentStreamId,
+      links: this.linkMap.values(),
+      geometryIdsByDataId,
+    });
+
+    if (!canConfirmDeletionBasket(pruned.draft, { links: this.linkMap.values() })) {
+      this.deletionDraft = {
+        ...pruned.draft,
+        selectionMessage: pruned.skipMessage
+          ?? 'Nothing left to delete after removing items edited by another user.',
+      };
+      this.bump();
+      return {
+        ok: false,
+        message: this.deletionDraft.selectionMessage ?? 'Deletion basket is empty.',
+      };
+    }
+
+    const planResult = buildDeletionCommitPlan(pruned.draft, {
+      getLink: (id) => this.linkMap.get(id),
+      getGeometry: (id) => this.geometryMap.get(id),
+      getData: (id) => this.dataMap.get(id),
+      links: this.linkMap.values(),
+    });
+    if (!planResult.ok) {
+      this.deletionDraft = {
+        ...pruned.draft,
+        selectionMessage: planResult.message,
+      };
+      this.bump();
+      return { ok: false, message: planResult.message };
+    }
+
+    const draftSnapshot: AnnotationDeletionDraft = {
+      ...pruned.draft,
+      selectionMessage: pruned.skipMessage,
+    };
+    const myGen = this.generation;
+    this.isDeleting = true;
+    this.deletionDraft = { ...draftSnapshot, step: 'committing' };
+    this.bump();
+
+    const marked: Array<{
+      kind: 'link' | 'geometry' | 'data';
+      id: string;
+      version: number;
+    }> = [];
+
+    try {
+      for (const item of planResult.plan.items) {
+        if (this.generation !== myGen) {
+          await this.revertDeletionCommitArtifacts(marked);
+          this.restoreDeletionDraftAfterInterruptedCommit(draftSnapshot, myGen);
+          return { ok: false, message: 'Deletion was interrupted by a scene reload.' };
+        }
+
+        try {
+          const nextVersion = await this.markDeletionPlanItemErasable(item);
+          marked.push({ kind: item.kind, id: item.id, version: nextVersion });
+        } catch (err) {
+          if (
+            err instanceof AnnotationApiError
+            && (
+              err.code === 'annotation.link.already_erasable'
+              || err.code === 'annotation.geometry.already_erasable'
+              || err.code === 'annotation.data.already_erasable'
+            )
+          ) {
+            // Treat as done for this id; keep going.
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      if (this.generation !== myGen) {
+        await this.revertDeletionCommitArtifacts(marked);
+        this.restoreDeletionDraftAfterInterruptedCommit(draftSnapshot, myGen);
+        return { ok: false, message: 'Deletion was interrupted by a scene reload.' };
+      }
+
+      // Soft-deleted entities drop out of the active set via includeErasable=false.
+      this.recomputeActiveSelection();
+      this.deletionDraft = null;
+      this.bump();
+      return {
+        ok: true,
+        message: pruned.skipMessage ?? undefined,
+      };
+    } catch (err) {
+      const hadPersisted = marked.length > 0;
+      await this.revertDeletionCommitArtifacts(marked);
+      if (this.generation === myGen) {
+        this.deletionDraft = {
+          ...draftSnapshot,
+          step: 'selecting',
+          selectionMessage: null,
+        };
+        this.bump();
+      }
+      const rollbackSuffix = hadPersisted
+        ? ' Changes from this delete were rolled back.'
+        : '';
+      return {
+        ok: false,
+        message: `${formatDeletionCommitError(err)}${rollbackSuffix}`,
+      };
+    } finally {
+      if (this.generation === myGen) {
+        this.isDeleting = false;
+        if (this.deletionDraft?.step === 'committing') {
+          this.deletionDraft = { ...this.deletionDraft, step: 'selecting' };
+        }
+        this.bump();
+      }
+    }
+  }
+
   async advanceCreationStep(): Promise<{ ok: true } | { ok: false; message: string }> {
     if (!this.creationDraft) {
       return { ok: false, message: 'No creation session is active.' };
@@ -1171,10 +1320,11 @@ export class AnnotationStore {
   }
 
   private releaseCurrentScene(): void {
-    const hadPending = this.isSaving.size > 0 || this.isCreating;
+    const hadPending = this.isSaving.size > 0 || this.isCreating || this.isDeleting;
     this.generation += 1;
     this.isSaving.clear();
     this.isCreating = false;
+    this.isDeleting = false;
     this.client.disconnectRealtime();
     this.realtimeState = 'idle';
     this.callbacks.onRealtimeStateChange('idle');
@@ -1484,11 +1634,12 @@ export class AnnotationStore {
   }
 
   private async handleReconnect(): Promise<void> {
-    const hadPending = this.isSaving.size > 0 || this.isCreating;
+    const hadPending = this.isSaving.size > 0 || this.isCreating || this.isDeleting;
     this.generation += 1;
     const myGen = this.generation;
     this.isSaving.clear();
     this.isCreating = false;
+    this.isDeleting = false;
     this.creationDraft = null;
     this.deletionDraft = null;
     if (hadPending) {
@@ -1770,6 +1921,78 @@ export class AnnotationStore {
 
     this.creationDraft = { ...draftSnapshot, step: draftSnapshot.step };
     this.bump();
+  }
+
+  private restoreDeletionDraftAfterInterruptedCommit(
+    draftSnapshot: AnnotationDeletionDraft,
+    myGen: number,
+  ): void {
+    if (this.generation !== myGen) {
+      this.deletionDraft = null;
+      this.isDeleting = false;
+      this.bump();
+      return;
+    }
+
+    this.deletionDraft = { ...draftSnapshot, step: 'selecting' };
+    this.isDeleting = false;
+    this.bump();
+  }
+
+  private buildGeometryIdsByDataId(): Map<string, string[]> {
+    const map = new Map<string, string[]>();
+    for (const link of this.linkMap.values()) {
+      const list = map.get(link.dataId) ?? [];
+      list.push(link.geometryId);
+      map.set(link.dataId, list);
+    }
+    return map;
+  }
+
+  private async markDeletionPlanItemErasable(item: {
+    kind: 'link' | 'geometry' | 'data';
+    id: string;
+    expectedVersion: number;
+  }): Promise<number> {
+    const result = await this.patchErasable(item.kind, item.id, item.expectedVersion, true);
+    const entity = this.getEntity(item.kind, item.id);
+    if (entity) {
+      this.setEntity(item.kind, item.id, {
+        ...entity,
+        version: result.version,
+        erasableAt: result.updatedAt ?? new Date().toISOString(),
+        erasableBy: entity.erasableBy,
+      });
+    }
+    return result.version;
+  }
+
+  private async revertDeletionCommitArtifacts(
+    marked: Array<{ kind: 'link' | 'geometry' | 'data'; id: string; version: number }>,
+  ): Promise<void> {
+    try {
+      // Reverse order: data → geometry → link (opposite of commit).
+      for (const item of [...marked].reverse()) {
+        try {
+          const restored = await this.patchErasable(item.kind, item.id, item.version, false);
+          const entity = this.getEntity(item.kind, item.id);
+          if (entity) {
+            this.setEntity(item.kind, item.id, {
+              ...entity,
+              version: restored.version,
+              erasableAt: null,
+              erasableBy: null,
+            });
+          }
+        } catch (compensateErr) {
+          console.error('[AnnotationStore] deletion commit rollback item failed', item, compensateErr);
+        }
+      }
+      this.recomputeActiveSelection();
+      this.bump();
+    } catch (compensateErr) {
+      console.error('[AnnotationStore] deletion commit rollback failed', compensateErr);
+    }
   }
 
   private async revertWizardCommitArtifacts(created: {

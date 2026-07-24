@@ -150,6 +150,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   toggleDeletionCounterpartSelection: (counterpartId: string) => void;
   confirmDeletionCounterpartPick: () => void;
   reportDeletionSelectionBlocked: (message: string) => void;
+  commitDeletionDraft: () => Promise<{ ok: true; message?: string } | { ok: false; message: string }>;
+  deleting: boolean;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
   currentStreamId: string | null;
@@ -907,6 +909,13 @@ export function AnnotationStoreProvider({
     storeRef.current?.reportDeletionSelectionBlocked(message);
   }, []);
 
+  const commitDeletionDraft = useCallback(async () => {
+    return storeRef.current?.commitDeletionDraft({
+      activeSocialLocks,
+      currentStreamId,
+    }) ?? { ok: false as const, message: 'Store not ready.' };
+  }, [activeSocialLocks, currentStreamId]);
+
   const loadProjectData = useCallback(async () => {
     await storeRef.current?.loadProjectData();
   }, []);
@@ -1001,6 +1010,7 @@ export function AnnotationStoreProvider({
     realtimeState,
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,
+    deleting: store?.deleting ?? false,
     creationDraft: store?.creationDraftState ?? null,
     isCreationWizardActive: store?.isCreationWizardActive ?? false,
     initCreationDraft,
@@ -1033,6 +1043,7 @@ export function AnnotationStoreProvider({
     toggleDeletionCounterpartSelection,
     confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
+    commitDeletionDraft,
     eventLog,
     activeSocialLocks,
     currentStreamId,

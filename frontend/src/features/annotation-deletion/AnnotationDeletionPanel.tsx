@@ -39,6 +39,7 @@ interface AnnotationDeletionPanelProps {
   onStartDelete: (intent: AnnotationDeletionIntent) => void;
   onBack: () => void;
   onConfirmDelete: () => void;
+  confirming?: boolean;
 }
 
 export default function AnnotationDeletionPanel({
@@ -47,6 +48,7 @@ export default function AnnotationDeletionPanel({
   onStartDelete,
   onBack,
   onConfirmDelete,
+  confirming = false,
 }: AnnotationDeletionPanelProps) {
   const { allLinks, activeData, activeGeometries } = useAnnotationStore();
   const {
@@ -60,8 +62,8 @@ export default function AnnotationDeletionPanel({
 
   const isSetup = draft.step === 'setup';
   const isSelecting = draft.step === 'selecting';
-  const isCommitting = draft.step === 'committing';
-  const wizardActive = isSelecting || isCommitting;
+  const isCommitting = draft.step === 'committing' || confirming;
+  const wizardActive = isSelecting || isCommitting || confirming;
   const confirmEnabled = isSelecting
     && !isCommitting
     && canConfirmDeletionBasket(draft, { links: allLinks });
@@ -254,9 +256,9 @@ export default function AnnotationDeletionPanel({
               className="btn btn-danger btn-sm"
               disabled={!confirmEnabled || isCommitting}
               onClick={onConfirmDelete}
-              title={confirmEnabled ? 'Confirm delete lands in M4' : 'Select a valid basket first'}
+              title={confirmEnabled ? 'Mark selected annotations erasable' : 'Select a valid basket first'}
             >
-              Confirm delete
+              {isCommitting ? 'Deleting…' : 'Confirm delete'}
             </button>
           </div>
         )

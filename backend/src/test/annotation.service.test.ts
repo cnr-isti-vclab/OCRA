@@ -366,7 +366,9 @@ describe('annotation.service erasable cascades', () => {
     };
     vi.mocked(getAnnotationDataCollection).mockResolvedValue(dataCollection as never);
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue({} as never);
-    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({} as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({
+      findOne: vi.fn().mockResolvedValue(null),
+    } as never);
 
     await expect(markAnnotationDataErasable('project-1', 'ad_1', 2, 'user-2')).resolves.toEqual({
       ok: true,
@@ -404,12 +406,52 @@ describe('annotation.service erasable cascades', () => {
     };
     vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
     vi.mocked(getAnnotationDataCollection).mockResolvedValue({} as never);
-    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({} as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({
+      findOne: vi.fn().mockResolvedValue(null),
+    } as never);
 
     await expect(markAnnotationGeometryErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toEqual({
       ok: true,
       value: 5,
     });
+  });
+
+  it('rejects geometry erasable when a non-erasable link still references it', async () => {
+    const existingGeometry = {
+      id: 'ag_1',
+      projectId: 'project-1',
+      shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+      referenceType: 'scene',
+      referenceId: 'scene-1',
+      version: 4,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    };
+    const geometryCollection = {
+      findOne: vi.fn().mockResolvedValue(existingGeometry),
+      findOneAndUpdate: vi.fn(),
+    };
+    vi.mocked(getAnnotationGeometryCollection).mockResolvedValue(geometryCollection as never);
+    vi.mocked(getAnnotationDataCollection).mockResolvedValue({} as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue({
+      findOne: vi.fn().mockResolvedValue({
+        id: 'al_1',
+        projectId: 'project-1',
+        geometryId: 'ag_1',
+        dataId: 'ad_other_scene',
+        erasableAt: null,
+      }),
+    } as never);
+
+    await expect(markAnnotationGeometryErasable('project-1', 'ag_1', 4, 'user-2')).resolves.toEqual({
+      ok: false,
+      code: 'still_linked',
+    });
+    expect(geometryCollection.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it('restores only geometry when geometry becomes non-erasable', async () => {

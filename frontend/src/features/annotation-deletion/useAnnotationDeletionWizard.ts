@@ -43,6 +43,7 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
   toggleDeletionCounterpartSelection: (counterpartId: string) => void;
   confirmDeletionCounterpartPick: () => void;
   reportDeletionSelectionBlocked: (message: string) => void;
+  commitDeletionDraft: () => Promise<{ ok: true; message?: string } | { ok: false; message: string }>;
 } {
   const {
     deletionDraft,
@@ -64,6 +65,7 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     toggleDeletionCounterpartSelection,
     confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
+    commitDeletionDraft,
   } = useAnnotationStore();
 
   const isDeletionSetupStep = deletionDraft?.step === 'setup';
@@ -134,5 +136,6 @@ export function useAnnotationDeletionWizard(): AnnotationDeletionWizardState & {
     toggleDeletionCounterpartSelection,
     confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
+    commitDeletionDraft,
   };
 }

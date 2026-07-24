@@ -274,10 +274,10 @@ function matchesLinkPredicate(
 }
 
 /**
- * When hiding erasable entities, drop geometries that only existed via erased data.
- * Panel delete marks data erasable, not the shape — without this pass those geometries
- * stay active with no labels ("(no data)" in the viewer).
- * Unlinked geometries (no links) remain visible.
+ * When hiding erasable entities, drop geometries that only exist via strong links
+ * to inactive data (avoids shapes with no active labels).
+ * Geometries with no remaining non-erasable links are orphans and stay visible
+ * (e.g. after Link+Data delete marks the link erasable).
  */
 function excludeGeometriesWithoutActiveData(
   geometryIds: Set<string>,
@@ -382,7 +382,13 @@ export function evaluateActiveSelection(
 ): ActiveAnnotationSelection {
   const includeErasable = criteria.includeErasable ?? true;
   const linkMode = criteria.linkMode ?? 'bothEndpoints';
-  const linkIndexes = buildLinkIndexes(maps.links.values());
+  // When erasable entities are hidden, indexes must ignore erasable links so a
+  // geometry whose only links were soft-deleted is treated as an orphan (kept),
+  // not as "linked only to erased data" (hidden until reload).
+  const linksForIndexes = includeErasable
+    ? maps.links.values()
+    : [...maps.links.values()].filter((link) => link.erasableAt === null);
+  const linkIndexes = buildLinkIndexes(linksForIndexes);
   const ctx: SelectionEvaluationContext = {
     sceneId,
     linksByGeometryId: linkIndexes.linksByGeometryId,

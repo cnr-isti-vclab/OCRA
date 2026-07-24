@@ -164,6 +164,8 @@ export default function AnnotationPanelEditor({
     initDeletionDraft,
     discardDeletionDraft,
     beginDeletionWizard,
+    commitDeletionDraft,
+    deleting,
     updateData,
     startEditorLock,
     stopEditorLock,
@@ -755,10 +757,27 @@ export default function AnnotationPanelEditor({
             <AnnotationDeletionPanel
               draft={deletionDraft}
               setupError={deletionSetupError}
+              confirming={deleting}
               onStartDelete={handleBeginDeletion}
               onBack={handleDeletionBack}
               onConfirmDelete={() => {
-                setDeletionSetupError('Confirm delete lands in M4 — basket is ready.');
+                void (async () => {
+                  setDeletionSetupError(null);
+                  const result = await commitDeletionDraft();
+                  if (!result.ok) {
+                    setDeletionSetupError(result.message);
+                    return;
+                  }
+                  setDeleteSectionExpanded(false);
+                  clearFocus();
+                  if (result.message) {
+                    setMessageModal(new MessageModalDescriptor({
+                      tone: 'success',
+                      title: 'Delete completed',
+                      message: result.message,
+                    }));
+                  }
+                })();
               }}
             />
           ) : null}

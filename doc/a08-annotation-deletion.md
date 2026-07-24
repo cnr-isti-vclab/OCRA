@@ -9,7 +9,7 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 | M1 | Remove card/bulk triplet delete; expandable Delete setup | **Done** |
 | M2 | Selection phase + link view integration | **Done** |
 | M3 | One-to-many disambiguation modals | **Done** |
-| M4 | Sequential commit, OCC, still-linked guard, rollback | **Planned** |
+| M4 | Sequential commit, OCC, still-linked guard, rollback | **Done** |
 | M5 | Tests, docs sync, hardening | **Planned** |
 
 **Dependency order:** M1 → M2 → M3 → M4 → M5 (each milestone should be mergeable and manually testable before the next).
@@ -123,16 +123,22 @@ deletionDraft: {
 1. At least one candidate exists in the basket.
 2. Every one-to-many selection has been resolved (see below).
 3. For every geometry/data in the basket, either it has **no** non-erasable links (orphan — allowed), or all **scene-visible** non-erasable links attached to that endpoint are also in the basket (when endpoint delete is requested). Counterpart endpoints added via “All” / “Let me select” must satisfy the same rule; if a counterpart still has other non-erasable links outside the basket, either omit it from the basket or keep Confirm disabled until those links are included or resolved.
-4. No candidate is blocked by a remote editor social lock.
+
+Remote editor locks are **not** a Confirm-disable rule: they are re-checked at Confirm and pruned (see [Social locks](#social-locks)).
 
 ### Social locks
 
-Match current panel delete behaviour:
+Match current panel delete behaviour at selection; at commit, prefer partial progress over a full abort:
 
 - **Selection**: cannot add geometry, data, or link to the basket if another user holds an **editor** social lock on that entity or on a linked entity that would be affected.
-- **Commit**: re-check locks immediately before commit; abort with a clear message if a lock appeared after selection.
+- **Commit**: re-check editor locks immediately before the first write. If any basket candidate (or a linked entity that blocks it) is locked:
+  1. Remove the locked entity from the basket.
+  2. Remove every basket **link** that touches a removed entity.
+  3. Drop any remaining geometry/data that no longer satisfies the endpoint–link rule on what is left.
+  4. If the basket is empty after prune → do not commit; show a clear message.
+  5. Otherwise commit the remaining set and summarize what was skipped (never silent).
 
-Presence locks are informational only; editor locks are blocking.
+Presence locks are informational only; editor locks are blocking for selection and for inclusion in the commit set.
 
 ---
 
@@ -514,12 +520,12 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 3. **`commitDeletionDraft()`** in `AnnotationStore.ts`:
    - Guard: `step === 'selecting'`, basket valid, not `isDeleting` (new flag, mirror `isCreating`)
    - Set `step: 'committing'`
+   - **Prune** remotely editor-locked basket entities (+ dependent links / uncovered endpoints); summarize skipped ids; abort only if nothing remains
    - Sequential `markLinkErasable` → `markGeometryErasable` → `markDataErasable` via existing `markEntityErasable` / `AnnotationApiClient`
-   - Re-check social locks immediately before first write
    - Map `still_linked` via `formatDeletionCommitError` (cross-scene / still linked message + refresh hint)
-   - On success: remove entities from local maps (or rely on SSE + active-set filter); `deletionDraft = null`; `clearFocus()`
+   - On success: remove entities from local store maps (or rely on SSE + active-set filter); `deletionDraft = null`; `clearFocus()`
 4. **Rollback** — `revertDeletionCommitArtifacts(marked)`:
-   - Reverse order: restore endpoints to `nonerasable` only if this commit marked them (track `marked` set during commit)
+   - Reverse order: restore endpoints/links to `nonerasable` only if this commit marked them (track `marked` set during commit)
    - Deletion rollback should call `mark*NonErasable` on entities successfully marked erasable during the failed commit (client methods: `markGeometryNonErasable`, etc.)
 5. **Interrupt** — on `generation` change mid-commit: rollback marked set, restore draft to pre-commit step, message “interrupted by scene reload”
 6. **Error UX** — `formatDeletionCommitError.ts` (mirror `formatCreationCommitError.ts`); include `still_linked`; show in delete panel `aria-live` region; disable buttons while committing
@@ -529,13 +535,14 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 
 **Exit criteria**
 
-- [ ] Link-only commit: only links marked erasable; endpoints remain in active set
-- [ ] Full triplet commit: links then geometry then data when all in basket
-- [ ] Simulated 409 mid-commit → rollback + error message + basket preserved
-- [ ] Endpoint erasable rejected when another scene still has a non-erasable link (`still_linked`); partial rollback of links marked in the same commit
-- [ ] After marking the only remaining strong link erasable, endpoint erasable succeeds
-- [ ] Scene reload mid-commit → interrupt message + rollback
-- [ ] Successful commit clears wizard and updates panel/viewer
+- [x] Link-only commit: only links marked erasable; endpoints remain in active set
+- [x] Full triplet commit: links then geometry then data when all in basket
+- [x] Simulated 409 mid-commit → rollback + error message + basket preserved
+- [x] Endpoint erasable rejected when another scene still has a non-erasable link (`still_linked`); partial rollback of links marked in the same commit
+- [x] After marking the only remaining strong link erasable, endpoint erasable succeeds
+- [x] Scene reload mid-commit → interrupt message + rollback
+- [x] Successful commit clears wizard and updates panel/viewer
+- [x] Remote editor lock on a basket item at Confirm → prune that subgraph, commit the rest (or abort if empty) with a skip summary
 
 **API surface**
 
@@ -544,6 +551,8 @@ One PR per milestone is preferred. M5 may land with M4 when the commit PR alread
 - `PATCH /api/projects/{projectId}/annotations/data/{dataId}/erasable` — **+ project-wide still-linked guard**
 
 Each request body includes `expectedVersion` (same as edit/OCC elsewhere).
+
+**Note:** Live SSE basket prune when a remote user marks a basket id erasable is deferred to M5 hardening (version conflicts still surface as 409 on Confirm).
 
 ---
 
