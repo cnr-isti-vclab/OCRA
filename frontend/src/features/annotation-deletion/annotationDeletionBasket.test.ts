@@ -146,6 +146,45 @@ describe('validateDeletionBasket', () => {
     }).ok).toBe(true);
   });
 
+  it('accepts data-led triplet pick when geometry still has other links', () => {
+    // Same as geometry→Let-me-select one data: basket is data+link, not the shared geo.
+    const sceneLinks = [
+      link('l1', 'g1', 'd1'),
+      link('l2', 'g1', 'd2'),
+      link('l3', 'g1', 'd3'),
+    ];
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: true,
+      candidateLinkIds: ['l2'],
+      candidateGeometryIds: [] as string[],
+      candidateDataIds: ['d2'],
+    };
+    expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(true);
+  });
+
+  it('rejects data-led triplet pick that eagerly included uncovered geometry', () => {
+    const sceneLinks = [
+      link('l1', 'g1', 'd1'),
+      link('l2', 'g1', 'd2'),
+      link('l3', 'g1', 'd3'),
+    ];
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: true,
+      candidateLinkIds: ['l2'],
+      candidateGeometryIds: ['g1'],
+      candidateDataIds: ['d2'],
+    };
+    expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(false);
+  });
+
   it('rejects geometry basket missing its link', () => {
     const draft = {
       ...createDefaultDeletionDraft(),

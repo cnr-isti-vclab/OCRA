@@ -187,6 +187,59 @@ export function expandBasketForSelectedLinks(
   };
 }
 
+/**
+ * Expand basket for a direct 1:1 endpoint pick (no cardinality modal).
+ * Same coverage rules as {@link expandBasketForSelectedLinks}: initiating endpoint
+ * is added when fully covered; counterpart only when fully covered by the merged basket.
+ */
+export function expandBasketForEndpointOneToOne(
+  draft: AnnotationDeletionDraft,
+  endpointKind: 'geometry' | 'data',
+  endpointId: string,
+  link: AnnotationLink,
+  links: Iterable<AnnotationLink>,
+): Pick<AnnotationDeletionDraft, 'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'> {
+  const linkList = [...links];
+  const nextLinks = new Set(draft.candidateLinkIds);
+  nextLinks.add(link.id);
+  const coverageLinks = nextLinks;
+
+  const nextGeometry = new Set(draft.candidateGeometryIds);
+  const nextData = new Set(draft.candidateDataIds);
+
+  if (
+    endpointKind === 'geometry'
+    && draft.deleteGeometry
+    && counterpartFullyCoveredByLinks('geometry', endpointId, coverageLinks, linkList)
+  ) {
+    nextGeometry.add(endpointId);
+  }
+  if (
+    endpointKind === 'data'
+    && draft.deleteData
+    && counterpartFullyCoveredByLinks('data', endpointId, coverageLinks, linkList)
+  ) {
+    nextData.add(endpointId);
+  }
+
+  if (draft.deleteData && endpointKind === 'geometry') {
+    if (counterpartFullyCoveredByLinks('data', link.dataId, coverageLinks, linkList)) {
+      nextData.add(link.dataId);
+    }
+  }
+  if (draft.deleteGeometry && endpointKind === 'data') {
+    if (counterpartFullyCoveredByLinks('geometry', link.geometryId, coverageLinks, linkList)) {
+      nextGeometry.add(link.geometryId);
+    }
+  }
+
+  return {
+    candidateLinkIds: [...nextLinks],
+    candidateGeometryIds: [...nextGeometry],
+    candidateDataIds: [...nextData],
+  };
+}
+
 /** Map selected counterpart ids → incident link ids between endpoint and counterparts. */
 export function linkIdsForCounterparts(
   pending: DeletionPendingResolution,

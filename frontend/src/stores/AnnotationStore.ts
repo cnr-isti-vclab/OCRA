@@ -56,6 +56,7 @@ import {
 } from '../features/annotation-deletion/annotationDeletionCardinality';
 import {
   buildPendingResolution,
+  expandBasketForEndpointOneToOne,
   expandBasketForFanOut,
   expandBasketForSelectedLinks,
   linkIdsForCounterparts,
@@ -506,13 +507,16 @@ export class AnnotationStore {
     }
 
     const link = incident[0]!;
-    return this.finishDeletionBasketAdd(draft, {
-      candidateGeometryIds: this.mergeUniqueIds(draft.candidateGeometryIds, [geometryId]),
-      candidateLinkIds: this.mergeUniqueIds(draft.candidateLinkIds, [link.id]),
-      candidateDataIds: draft.deleteData
-        ? this.mergeUniqueIds(draft.candidateDataIds, [link.dataId])
-        : draft.candidateDataIds,
-    });
+    return this.finishDeletionBasketAdd(
+      draft,
+      expandBasketForEndpointOneToOne(
+        draft,
+        'geometry',
+        geometryId,
+        link,
+        this.linkMap.values(),
+      ),
+    );
   }
 
   /**
@@ -556,13 +560,16 @@ export class AnnotationStore {
     }
 
     const link = incident[0]!;
-    return this.finishDeletionBasketAdd(draft, {
-      candidateDataIds: this.mergeUniqueIds(draft.candidateDataIds, [dataId]),
-      candidateLinkIds: this.mergeUniqueIds(draft.candidateLinkIds, [link.id]),
-      candidateGeometryIds: draft.deleteGeometry
-        ? this.mergeUniqueIds(draft.candidateGeometryIds, [link.geometryId])
-        : draft.candidateGeometryIds,
-    });
+    return this.finishDeletionBasketAdd(
+      draft,
+      expandBasketForEndpointOneToOne(
+        draft,
+        'data',
+        dataId,
+        link,
+        this.linkMap.values(),
+      ),
+    );
   }
 
   /**

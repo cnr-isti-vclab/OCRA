@@ -4,6 +4,7 @@ import { createDefaultDeletionDraft } from './createDefaultDeletionDraft';
 import {
   buildPendingResolution,
   counterpartFullyCoveredByLinks,
+  expandBasketForEndpointOneToOne,
   expandBasketForFanOut,
   expandBasketForSelectedLinks,
   linkIdsForCounterparts,
@@ -243,6 +244,52 @@ describe('expandBasketForSelectedLinks', () => {
       candidateLinkIds: ['l1', 'l2'],
       candidateGeometryIds: ['g1'],
       candidateDataIds: ['d1', 'd2'],
+    });
+  });
+});
+
+describe('expandBasketForEndpointOneToOne', () => {
+  it('data-led: adds data+link but omits geometry that still has other links', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: true,
+    };
+    // d2 only has l2; g1 also has l1 → g1 not fully covered.
+    expect(expandBasketForEndpointOneToOne(
+      draft,
+      'data',
+      'd2',
+      links[1]!,
+      links,
+    )).toEqual({
+      candidateLinkIds: ['l2'],
+      candidateGeometryIds: [],
+      candidateDataIds: ['d2'],
+    });
+  });
+
+  it('geometry-led: adds geometry+link+data when both sides are 1:1', () => {
+    const only = [link('l9', 'g9', 'd9')];
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: true,
+    };
+    expect(expandBasketForEndpointOneToOne(
+      draft,
+      'geometry',
+      'g9',
+      only[0]!,
+      only,
+    )).toEqual({
+      candidateLinkIds: ['l9'],
+      candidateGeometryIds: ['g9'],
+      candidateDataIds: ['d9'],
     });
   });
 });
