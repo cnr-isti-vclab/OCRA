@@ -40,17 +40,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
-      mongodb:
-        image: mongo:7
-        options: >-
-          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 27017:27017
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,6 +50,30 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name ocra-ci-mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          echo "Waiting for MongoDB to accept connections..."
+          for i in $(seq 1 30); do
+            if docker exec ocra-ci-mongo mongosh --quiet --eval "db.adminCommand({ ping: 1 }).ok" 2>/dev/null | grep -q 1; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec ocra-ci-mongo mongosh --quiet --eval \
+            'rs.initiate({_id:"rs0", members:[{_id:0, host:"127.0.0.1:27017"}]})'
+          echo "Waiting for replica set primary..."
+          for i in $(seq 1 30); do
+            if docker exec ocra-ci-mongo mongosh --quiet --eval "db.hello().isWritablePrimary" 2>/dev/null | grep -q true; then
+              echo "MongoDB replica set is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MongoDB replica set did not become primary in time" >&2
+          docker logs ocra-ci-mongo >&2 || true
+          exit 1
       
       - name: Install dependencies
         run: npm ci
@@ -91,7 +105,7 @@ jobs:
           NODE_ENV: test
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
           DATABASE_URL_TEST: ${{ env.TEST_DATABASE_URL }}
-          MONGO_URL: mongodb://localhost:27017
+          MONGO_URL: mongodb://127.0.0.1:27017/?replicaSet=rs0
           MONGO_AUDIT_DB: ocra_audit_test
           MONGO_CONTENT_DB: ocra_content_test
         run: |
