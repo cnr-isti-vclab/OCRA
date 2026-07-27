@@ -44,6 +44,7 @@ import {
   validateCreationSetup,
   validateCreationStep,
 } from '../features/annotation-creation/annotationCreationValidation';
+import { filterGeometriesForCreationSearch } from '../features/annotation-creation/filterCreationCandidates';
 import type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
 import { createDefaultDeletionDraft } from '../features/annotation-deletion/createDefaultDeletionDraft';
 import {
@@ -1020,6 +1021,7 @@ export class AnnotationStore {
     const geometry = this.geometryMap.get(geometryId);
     if (
       !geometry
+      || geometry.erasableAt !== null
       || geometry.referenceType !== this.creationDraft.geometryScope.referenceType
       || geometry.referenceId !== this.creationDraft.geometryScope.referenceId
     ) {
@@ -1052,13 +1054,10 @@ export class AnnotationStore {
     }
 
     const searchableIds = new Set(
-      [...this.geometryMap.values()]
-        .filter(
-          (geometry) =>
-            geometry.referenceType === this.creationDraft!.geometryScope.referenceType
-            && geometry.referenceId === this.creationDraft!.geometryScope.referenceId,
-        )
-        .map((geometry) => geometry.id),
+      filterGeometriesForCreationSearch(
+        [...this.geometryMap.values()],
+        this.creationDraft,
+      ).map((geometry) => geometry.id),
     );
 
     const filtered = geometryIds.filter((id) => searchableIds.has(id));
@@ -1083,6 +1082,7 @@ export class AnnotationStore {
     const datum = this.dataMap.get(dataId);
     if (
       !datum
+      || datum.erasableAt !== null
       || datum.visibilityType !== this.creationDraft.dataVisibility.visibilityType
       || datum.visibilityId !== this.creationDraft.dataVisibility.visibilityId
     ) {

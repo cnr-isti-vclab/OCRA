@@ -18,7 +18,7 @@ const geometry = (id: string, referenceId: string): AnnotationGeometry => ({
   erasableBy: null,
 });
 
-const datum = (id: string, visibilityId: string): AnnotationData => ({
+const datum = (id: string, visibilityId: string, erasableAt: string | null = null): AnnotationData => ({
   id,
   projectId: 'p1',
   label: id,
@@ -32,8 +32,8 @@ const datum = (id: string, visibilityId: string): AnnotationData => ({
   createdBy: 'u1',
   updatedAt: '',
   updatedBy: '',
-  erasableAt: null,
-  erasableBy: null,
+  erasableAt,
+  erasableBy: erasableAt ? 'u1' : null,
 });
 
 describe('filterCreationCandidates', () => {
@@ -51,5 +51,35 @@ describe('filterCreationCandidates', () => {
         draft,
       ).map((item) => item.id),
     ).toEqual(['d1']);
+  });
+
+  it('excludes erasable data and geometries by default', () => {
+    const draft = createDefaultCreationDraft('scene-1');
+    expect(
+      filterDataForCreationSearch(
+        [datum('d-active', 'scene-1'), datum('d-erased', 'scene-1', '2026-01-01T00:00:00.000Z')],
+        draft,
+      ).map((item) => item.id),
+    ).toEqual(['d-active']);
+    expect(
+      filterGeometriesForCreationSearch(
+        [
+          { ...geometry('g-active', 'scene-1') },
+          { ...geometry('g-erased', 'scene-1'), erasableAt: '2026-01-01T00:00:00.000Z', erasableBy: 'u1' },
+        ],
+        draft,
+      ).map((item) => item.id),
+    ).toEqual(['g-active']);
+  });
+
+  it('can include erasable entities when requested', () => {
+    const draft = createDefaultCreationDraft('scene-1');
+    expect(
+      filterDataForCreationSearch(
+        [datum('d-erased', 'scene-1', '2026-01-01T00:00:00.000Z')],
+        draft,
+        { includeErasable: true },
+      ).map((item) => item.id),
+    ).toEqual(['d-erased']);
   });
 });
