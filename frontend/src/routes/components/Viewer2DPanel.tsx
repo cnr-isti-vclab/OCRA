@@ -869,14 +869,20 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      annotationManager.setSemanticClasses?.(semanticClassesForFilter, false);
-      for (const annotation of viewerAnnotationsForSync) {
-        annotationManager.setAnnotationSemanticClass?.(
-          annotation.id,
-          annotation.semanticClass ?? null,
-        );
+      // Class/style sync must not be treated as user geometry edits (OpenLIME `update`).
+      isStoreSyncRef.current = true;
+      try {
+        annotationManager.setSemanticClasses?.(semanticClassesForFilter, false);
+        for (const annotation of viewerAnnotationsForSync) {
+          annotationManager.setAnnotationSemanticClass?.(
+            annotation.id,
+            annotation.semanticClass ?? null,
+          );
+        }
+        annotationManager.viewer?.redraw?.();
+      } finally {
+        isStoreSyncRef.current = false;
       }
-      annotationManager.viewer?.redraw?.();
     }, [
       annotationManagerRevision,
       semanticClassesForFilter,
@@ -984,7 +990,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+      isStoreSyncRef.current = true;
+      try {
+        applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+      } finally {
+        isStoreSyncRef.current = false;
+      }
     }, [annotationManagerRevision, lockedGeometryIds, ref]);
 
     useEffect(() => {

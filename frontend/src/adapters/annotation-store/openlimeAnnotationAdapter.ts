@@ -371,7 +371,14 @@ export function applyOpenLimeUnderEditing(
 
   if (typeof manager.setAnnotationStructuralClass === 'function') {
     allIds.forEach((id) => {
-      manager.setAnnotationStructuralClass?.(id, underEditing.has(id) ? 'underEditing' : null);
+      const anno = manager.getAnnotationById(id) as
+        | (OpenLimeSyncedAnnotation & { structuralClass?: string | null })
+        | null;
+      const nextClass = underEditing.has(id) ? 'underEditing' : null;
+      if ((anno?.structuralClass ?? null) === nextClass) {
+        return;
+      }
+      manager.setAnnotationStructuralClass?.(id, nextClass);
     });
     manager.viewer?.redraw?.();
     return;
