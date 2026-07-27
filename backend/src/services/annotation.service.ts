@@ -57,6 +57,38 @@ class AnnotationServiceAbort<Code extends string = string> extends Error {
   }
 }
 
+/**
+ * Mongo `withTransaction` may wrap callback errors (lost `instanceof`).
+ * Prefer an outer abort flag; also walk `cause` / duck-type `code`+`message`.
+ */
+function extractAnnotationServiceAbortCode(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 8 && current != null; depth += 1) {
+    if (current instanceof AnnotationServiceAbort) {
+      return current.code;
+    }
+    if (typeof current !== 'object') {
+      break;
+    }
+    const record = current as {
+      code?: unknown;
+      message?: unknown;
+      cause?: unknown;
+      error?: unknown;
+      errmsg?: unknown;
+    };
+    if (
+      typeof record.code === 'string'
+      && typeof record.message === 'string'
+      && record.message === record.code
+    ) {
+      return record.code;
+    }
+    current = record.cause ?? record.error ?? null;
+  }
+  return null;
+}
+
 interface AnnotationServiceSuccess<T> {
   ok: true;
   value: T;
@@ -947,6 +979,7 @@ export async function markAnnotationGeometryErasable(
 
   const client = await getMongoClient();
   const session = client.startSession();
+  let abortCode: MarkAnnotationGeometryErasableErrorCode | null = null;
 
   try {
     let nextVersion: number | null = null;
@@ -956,10 +989,12 @@ export async function markAnnotationGeometryErasable(
       const { geometryCollection, linkCollection } = await getAnnotationCollections();
       const existing = await geometryCollection.findOne({ projectId, id: geometryId }, { session });
       if (!existing) {
+        abortCode = 'geometry_not_found';
         throw new AnnotationServiceAbort('geometry_not_found');
       }
 
       if (existing.erasableAt !== null) {
+        abortCode = 'already_erasable';
         throw new AnnotationServiceAbort('already_erasable');
       }
 
@@ -968,6 +1003,7 @@ export async function markAnnotationGeometryErasable(
         { session },
       );
       if (stillLinked) {
+        abortCode = 'still_linked';
         throw new AnnotationServiceAbort('still_linked');
       }
 
@@ -980,6 +1016,7 @@ export async function markAnnotationGeometryErasable(
       };
 
       if (!validateSchema(annotationGeometrySchema.safeParse(candidate))) {
+        abortCode = 'invalid_geometry_document';
         throw new AnnotationServiceAbort('invalid_geometry_document');
       }
 
@@ -997,10 +1034,12 @@ export async function markAnnotationGeometryErasable(
       );
       const updated = updatedResult.value;
       if (!updated) {
+        abortCode = 'version_conflict';
         throw new AnnotationServiceAbort('version_conflict');
       }
 
       if (!validateSchema(annotationGeometrySchema.safeParse(updated))) {
+        abortCode = 'invalid_geometry_document';
         throw new AnnotationServiceAbort('invalid_geometry_document');
       }
 
@@ -1013,8 +1052,9 @@ export async function markAnnotationGeometryErasable(
 
     return okResult(nextVersion);
   } catch (error) {
-    if (error instanceof AnnotationServiceAbort) {
-      return failResult(error.code as MarkAnnotationGeometryErasableErrorCode);
+    const code = abortCode ?? extractAnnotationServiceAbortCode(error);
+    if (code) {
+      return failResult(code as MarkAnnotationGeometryErasableErrorCode);
     }
 
     throw error;
@@ -1093,8 +1133,9 @@ export async function markAnnotationGeometryNonErasable(
 
     return okResult(nextVersion);
   } catch (error) {
-    if (error instanceof AnnotationServiceAbort) {
-      return failResult(error.code as MarkAnnotationGeometryNonErasableErrorCode);
+    const code = extractAnnotationServiceAbortCode(error);
+    if (code) {
+      return failResult(code as MarkAnnotationGeometryNonErasableErrorCode);
     }
 
     throw error;
@@ -1226,6 +1267,7 @@ export async function markAnnotationDataErasable(
 
   const client = await getMongoClient();
   const session = client.startSession();
+  let abortCode: MarkAnnotationDataErasableErrorCode | null = null;
 
   try {
     let nextVersion: number | null = null;
@@ -1235,10 +1277,12 @@ export async function markAnnotationDataErasable(
       const { dataCollection, linkCollection } = await getAnnotationCollections();
       const existing = await dataCollection.findOne({ projectId, id: dataId }, { session });
       if (!existing) {
+        abortCode = 'data_not_found';
         throw new AnnotationServiceAbort('data_not_found');
       }
 
       if (existing.erasableAt !== null) {
+        abortCode = 'already_erasable';
         throw new AnnotationServiceAbort('already_erasable');
       }
 
@@ -1247,6 +1291,7 @@ export async function markAnnotationDataErasable(
         { session },
       );
       if (stillLinked) {
+        abortCode = 'still_linked';
         throw new AnnotationServiceAbort('still_linked');
       }
 
@@ -1259,6 +1304,7 @@ export async function markAnnotationDataErasable(
       };
 
       if (!validateSchema(annotationDataSchema.safeParse(candidate))) {
+        abortCode = 'invalid_data_document';
         throw new AnnotationServiceAbort('invalid_data_document');
       }
 
@@ -1276,10 +1322,12 @@ export async function markAnnotationDataErasable(
       );
       const updated = updatedResult.value;
       if (!updated) {
+        abortCode = 'version_conflict';
         throw new AnnotationServiceAbort('version_conflict');
       }
 
       if (!validateSchema(annotationDataSchema.safeParse(updated))) {
+        abortCode = 'invalid_data_document';
         throw new AnnotationServiceAbort('invalid_data_document');
       }
 
@@ -1292,8 +1340,9 @@ export async function markAnnotationDataErasable(
 
     return okResult(nextVersion);
   } catch (error) {
-    if (error instanceof AnnotationServiceAbort) {
-      return failResult(error.code as MarkAnnotationDataErasableErrorCode);
+    const code = abortCode ?? extractAnnotationServiceAbortCode(error);
+    if (code) {
+      return failResult(code as MarkAnnotationDataErasableErrorCode);
     }
 
     throw error;
@@ -1372,8 +1421,9 @@ export async function markAnnotationDataNonErasable(
 
     return okResult(nextVersion);
   } catch (error) {
-    if (error instanceof AnnotationServiceAbort) {
-      return failResult(error.code as MarkAnnotationDataNonErasableErrorCode);
+    const code = extractAnnotationServiceAbortCode(error);
+    if (code) {
+      return failResult(code as MarkAnnotationDataNonErasableErrorCode);
     }
 
     throw error;
@@ -1559,8 +1609,9 @@ export async function markAnnotationLinkNonErasable(
 
     return okResult(nextVersion);
   } catch (error) {
-    if (error instanceof AnnotationServiceAbort) {
-      return failResult(error.code as MarkAnnotationLinkNonErasableErrorCode);
+    const code = extractAnnotationServiceAbortCode(error);
+    if (code) {
+      return failResult(code as MarkAnnotationLinkNonErasableErrorCode);
     }
 
     throw error;
