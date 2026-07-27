@@ -10,7 +10,7 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 | M2 | Selection phase + link view integration | **Done** |
 | M3 | One-to-many disambiguation modals | **Done** |
 | M4 | Sequential commit, OCC, still-linked guard, rollback | **Done** |
-| M5 | Tests, docs sync, hardening | **Planned** |
+| M5 | Tests, docs sync, hardening | **Done** |
 
 **Dependency order:** M1 → M2 → M3 → M4 → M5 (each milestone should be mergeable and manually testable before the next).
 
@@ -585,8 +585,8 @@ Each request body includes `expectedVersion` (same as edit/OCC elsewhere).
 
 **Exit criteria**
 
-- [ ] `npm run test:unit` includes deletion tests and passes
+- [x] `npm run test:unit` includes deletion tests and passes
 - [ ] Manual checklist (above) executed on 2D scene (3D for data-led geometry pick)
-- [ ] `doc/a08-annotation-deletion.md` status table updated to **Done** for M1–M5
+- [x] `doc/a08-annotation-deletion.md` status table updated to **Done** for M1–M5
 
 ---

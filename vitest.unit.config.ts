@@ -10,6 +10,7 @@ export default defineConfig({
       'frontend/src/features/annotation-deletion/**/*.test.ts',
       'frontend/src/features/annotation-link-view/**/*.test.ts',
       'frontend/src/stores/AnnotationStore.creation.test.ts',
+      'frontend/src/stores/AnnotationStore.deletion.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'build'],
     reporters: ['verbose'],
