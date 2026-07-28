@@ -222,6 +222,76 @@ describe.sequential('annotation creation API', () => {
     expect(links.some((link) => link.id === response.body.link.id)).toBe(true);
   });
 
+  it('reactivates an erasable link when recreating the same geometry/data pair', async () => {
+    const geometryId = createAnnotationEntityId('geometry');
+    const dataId = createAnnotationEntityId('data');
+    const linkId = createAnnotationEntityId('link');
+    const timestamp = new Date().toISOString();
+
+    await insertAnnotationGeometry({
+      id: geometryId,
+      projectId: project.id,
+      shapes: [shapePayload],
+      referenceType: 'scene',
+      referenceId: 'scene-create-1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: timestamp,
+      createdBy: editorUser.id,
+      updatedAt: timestamp,
+      updatedBy: editorUser.id,
+    } as never);
+
+    await insertAnnotationData({
+      id: dataId,
+      projectId: project.id,
+      label: 'Detached note',
+      description: '',
+      class: null,
+      content: {},
+      visibilityType: 'scene',
+      visibilityId: 'scene-create-1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: timestamp,
+      createdBy: editorUser.id,
+      updatedAt: timestamp,
+      updatedBy: editorUser.id,
+    } as never);
+
+    await insertAnnotationLink({
+      id: linkId,
+      projectId: project.id,
+      geometryId,
+      dataId,
+      version: 2,
+      erasableAt: timestamp,
+      erasableBy: editorUser.id,
+      createdAt: timestamp,
+      createdBy: editorUser.id,
+      updatedAt: timestamp,
+      updatedBy: editorUser.id,
+    } as never);
+
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/annotations/links`)
+      .set(authHeaders(editorUser))
+      .send({ geometryId, dataId })
+      .expect(200);
+
+    expect(response.body.link.id).toBe(linkId);
+    expect(response.body.link.erasableAt).toBeNull();
+    expect(response.body.link.version).toBe(3);
+
+    const links = await findAnnotationLinksByProjectId(project.id);
+    const stored = links.find((link) => link.id === linkId);
+    expect(stored?.erasableAt).toBeNull();
+    expect(stored?.version).toBe(3);
+    expect(links.filter((link) => link.geometryId === geometryId && link.dataId === dataId)).toHaveLength(1);
+  });
+
   it('returns 409 on geometry update OCC conflict but not on create', async () => {
     const createResponse = await request(app)
       .post(`/api/projects/${project.id}/annotations/geometry`)

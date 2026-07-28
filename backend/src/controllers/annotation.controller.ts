@@ -1046,25 +1046,27 @@ export async function createAnnotationLinkHandler(req: Request, res: Response) {
         duplicate_link_pair: { status: 409, code: 'annotation.link.duplicate_pair', error: 'Link pair already exists' },
         scope_incompatible: { status: 409, code: 'annotation.link.scope_incompatible', error: 'Geometry and annotation data scopes are incompatible' },
         invalid_link_document: { status: 400, code: 'annotation.link.invalid_document', error: 'Annotation link payload is semantically invalid' },
+        version_conflict: { status: 409, code: 'annotation.link.version_conflict', error: 'Annotation link version conflict' },
       });
       return;
     }
 
-    const link = await getAnnotationLink(projectId, createResult.value, true);
+    const { linkId, restored } = createResult.value;
+    const link = await getAnnotationLink(projectId, linkId, true);
     await publishMutationIfPossible(req, currentUser, {
       type: 'annotation.mutated',
       projectId,
-      mutation: 'link.created',
+      mutation: restored ? 'link.restored' : 'link.created',
       entity: {
         kind: 'link',
-        id: createResult.value,
+        id: linkId,
         version: link?.version ?? null,
         geometryId: link?.geometryId ?? geometryId,
         dataId: link?.dataId ?? dataId,
         erasable: link ? link.erasableAt !== null : null,
       },
     });
-    res.status(201).json({ success: true, link });
+    res.status(restored ? 200 : 201).json({ success: true, link });
   } catch (error: any) {
     console.error('Failed to create annotation link:', error);
     res.status(500).json({ error: 'Failed to create annotation link', message: error?.message });

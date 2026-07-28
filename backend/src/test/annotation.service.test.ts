@@ -121,7 +121,7 @@ describe('annotation.service createAnnotationLink edge cases', () => {
     vi.mocked(getHDTDocument).mockResolvedValue(compatibleHdt as never);
   });
 
-  it('returns null when the geometry/data pair already exists', async () => {
+  it('returns duplicate_link_pair when the geometry/data pair is already active', async () => {
     vi.mocked(findAnnotationGeometryById).mockResolvedValue(geometry as never);
     vi.mocked(findAnnotationDataById).mockResolvedValue({
       ...geometry,
@@ -133,13 +133,73 @@ describe('annotation.service createAnnotationLink edge cases', () => {
       visibilityType: 'asset',
       visibilityId: 'asset-1',
     } as never);
-    vi.mocked(findAnnotationLinkByPair).mockResolvedValue({ id: 'existing-link' } as never);
+    vi.mocked(findAnnotationLinkByPair).mockResolvedValue({
+      id: 'existing-link',
+      projectId: 'project-1',
+      geometryId: 'ag_1',
+      dataId: 'ad_1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+    } as never);
 
     await expect(createAnnotationLink('project-1', 'ag_1', 'ad_1', 'user-1')).resolves.toEqual({
       ok: false,
       code: 'duplicate_link_pair',
     });
     expect(insertAnnotationLink).not.toHaveBeenCalled();
+  });
+
+  it('restores an existing erasable link for the same geometry/data pair', async () => {
+    const session = createSessionMock();
+    const erasableLink = {
+      id: 'al_erasable',
+      projectId: 'project-1',
+      geometryId: 'ag_1',
+      dataId: 'ad_1',
+      version: 3,
+      erasableAt: '2026-04-24T10:00:00.000Z',
+      erasableBy: 'user-1',
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    };
+    const linkCollection = {
+      findOne: vi.fn().mockResolvedValue(erasableLink),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        value: {
+          ...erasableLink,
+          version: 4,
+          erasableAt: null,
+          erasableBy: null,
+          updatedAt: '2026-04-25T10:00:00.000Z',
+          updatedBy: 'user-2',
+        },
+      }),
+    };
+
+    vi.mocked(getMongoClient).mockResolvedValue({ startSession: () => session } as never);
+    vi.mocked(getAnnotationLinkCollection).mockResolvedValue(linkCollection as never);
+    vi.mocked(findAnnotationGeometryById).mockResolvedValue(geometry as never);
+    vi.mocked(findAnnotationDataById).mockResolvedValue({
+      ...geometry,
+      id: 'ad_1',
+      label: 'Label',
+      description: 'Description',
+      class: null,
+      content: {},
+      visibilityType: 'asset',
+      visibilityId: 'asset-1',
+    } as never);
+    vi.mocked(findAnnotationLinkByPair).mockResolvedValue(erasableLink as never);
+
+    await expect(createAnnotationLink('project-1', 'ag_1', 'ad_1', 'user-2')).resolves.toEqual({
+      ok: true,
+      value: { linkId: 'al_erasable', restored: true },
+    });
+    expect(insertAnnotationLink).not.toHaveBeenCalled();
+    expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
   });
 
   it('returns null when geometry and data scopes are incompatible', async () => {

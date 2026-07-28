@@ -163,7 +163,15 @@ export type CreateAnnotationLinkErrorCode =
   | 'data_not_found'
   | 'duplicate_link_pair'
   | 'scope_incompatible'
-  | 'invalid_link_document';
+  | 'invalid_link_document'
+  | 'version_conflict';
+
+/** Outcome of create-or-reactivate for a geometry/data link pair. */
+export interface CreateAnnotationLinkOutcome {
+  linkId: string;
+  /** True when an existing erasable link for the pair was restored. */
+  restored: boolean;
+}
 
 export type MarkAnnotationLinkErasableErrorCode =
   | 'invalid_input'
@@ -1432,12 +1440,45 @@ export async function markAnnotationDataNonErasable(
   }
 }
 
+async function restoreErasableAnnotationLink(
+  projectId: string,
+  linkId: string,
+  expectedVersion: number,
+  userId: string,
+): Promise<AnnotationServiceResult<CreateAnnotationLinkOutcome, CreateAnnotationLinkErrorCode>> {
+  const restoreResult = await markAnnotationLinkNonErasable(
+    projectId,
+    linkId,
+    expectedVersion,
+    userId,
+  );
+  if (!restoreResult.ok) {
+    if (restoreResult.code === 'already_non_erasable') {
+      return failResult('duplicate_link_pair');
+    }
+    if (
+      restoreResult.code === 'version_conflict'
+      || restoreResult.code === 'link_not_found'
+      || restoreResult.code === 'invalid_input'
+    ) {
+      return failResult(restoreResult.code === 'version_conflict' ? 'version_conflict' : 'invalid_input');
+    }
+    return failResult('invalid_link_document');
+  }
+
+  return okResult({ linkId, restored: true });
+}
+
+/**
+ * Creates a link for `(geometryId, dataId)`, or restores an existing erasable link for that pair.
+ * An active (non-erasable) pair still returns `duplicate_link_pair`.
+ */
 export async function createAnnotationLink(
   projectId: string,
   geometryId: string,
   dataId: string,
   userId: string,
-): Promise<AnnotationServiceResult<string, CreateAnnotationLinkErrorCode>> {
+): Promise<AnnotationServiceResult<CreateAnnotationLinkOutcome, CreateAnnotationLinkErrorCode>> {
   if (!isNonEmptyString(userId) || !isNonEmptyString(geometryId) || !isNonEmptyString(dataId)) {
     return failResult('invalid_input');
   }
@@ -1453,10 +1494,6 @@ export async function createAnnotationLink(
     findAnnotationLinkByPair(projectId, geometryId, dataId),
   ]);
 
-  if (existingLink) {
-    return failResult('duplicate_link_pair');
-  }
-
   if (!geometry || geometry.projectId !== projectId) {
     return failResult('geometry_not_found');
   }
@@ -1467,6 +1504,13 @@ export async function createAnnotationLink(
 
   if (!areLinkScopesCompatible(hdtDocument, geometry, data)) {
     return failResult('scope_incompatible');
+  }
+
+  if (existingLink) {
+    if (existingLink.erasableAt === null) {
+      return failResult('duplicate_link_pair');
+    }
+    return restoreErasableAnnotationLink(projectId, existingLink.id, existingLink.version, userId);
   }
 
   const timestamp = getTimestamp();
@@ -1487,9 +1531,13 @@ export async function createAnnotationLink(
 
   try {
     await insertAnnotationLink(document);
-    return okResult(document.id);
+    return okResult({ linkId: document.id, restored: false });
   } catch (error) {
     if (isDuplicateKeyError(error)) {
+      const racedLink = await findAnnotationLinkByPair(projectId, geometryId, dataId);
+      if (racedLink?.erasableAt !== null && racedLink) {
+        return restoreErasableAnnotationLink(projectId, racedLink.id, racedLink.version, userId);
+      }
       return failResult('duplicate_link_pair');
     }
 

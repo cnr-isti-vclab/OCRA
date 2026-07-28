@@ -220,7 +220,7 @@ async function createAnnotationSet(
       throw new Error(`Failed to create annotation link for geometry ${geometryId}: ${linkResult.code}.`);
     }
 
-    linkIds.push(linkResult.value);
+    linkIds.push(linkResult.value.linkId);
   }
 
   const [geometries, data, links] = await Promise.all([

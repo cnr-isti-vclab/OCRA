@@ -241,6 +241,53 @@ describe.sequential('Annotation controller edge cases', () => {
     expect(response.body.code).toBe('annotation.link.scope_incompatible');
   });
 
+  it('returns 200 and publishes link.restored when create reactivates an erasable pair', async () => {
+    vi.mocked(annotationService.createAnnotationLink).mockResolvedValueOnce({
+      ok: true,
+      value: { linkId: 'al_restored', restored: true },
+    } as never);
+
+    vi.mocked(annotationService.getAnnotationLink).mockResolvedValueOnce({
+      id: 'al_restored',
+      projectId: project.id,
+      geometryId: 'ag_test',
+      dataId: 'ad_test',
+      version: 4,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: user.id,
+      updatedAt: '2026-04-25T10:00:00.000Z',
+      updatedBy: user.id,
+    } as never);
+
+    vi.mocked(annotationService.resolveAnnotationImpactForLink).mockResolvedValueOnce({
+      originScopeType: 'scene',
+      originScopeId: 'scene-1',
+      affectedSceneIds: ['scene-1'],
+      affectedAssetIds: [],
+    } as never);
+
+    const response = await request(app)
+      .post(`/api/projects/${project.id}/annotations/links`)
+      .send({ geometryId: 'ag_test', dataId: 'ad_test' })
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(response.body.link.id).toBe('al_restored');
+    expect(response.body.link.erasableAt).toBeNull();
+    expect(annotationEvents.publishAnnotationMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mutation: 'link.restored',
+        entity: expect.objectContaining({
+          kind: 'link',
+          id: 'al_restored',
+          erasable: false,
+        }),
+      }),
+    );
+  });
+
   it('returns the restored link when a non-erasable transition succeeds', async () => {
     vi.mocked(annotationService.markAnnotationLinkNonErasable).mockResolvedValueOnce({
       ok: true,

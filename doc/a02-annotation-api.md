@@ -297,7 +297,7 @@ Marks only the data record non-erasable. It does **not** alter connected links.
 
 #### `createAnnotationLink(projectId, geometryId, dataId, userId)`
 
-Returns `linkId` or:
+Returns `{ linkId, restored }` or:
 
 - `invalid_input`
 - `project_context_not_available`
@@ -306,8 +306,11 @@ Returns `linkId` or:
 - `duplicate_link_pair`
 - `scope_incompatible`
 - `invalid_link_document`
+- `version_conflict`
 
-Atomicity: single-document insert.
+If a soft-deleted (`erasable`) link already exists for the same geometry/data pair, the service restores that link (`restored: true`) instead of inserting a new row. An active (non-erasable) pair still returns `duplicate_link_pair`.
+
+Atomicity: single-document insert, or OCC restore of the existing erasable link.
 
 #### `markAnnotationLinkErasable(projectId, linkId, expectedVersion, userId)`
 
