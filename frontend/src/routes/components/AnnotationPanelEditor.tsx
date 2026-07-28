@@ -129,6 +129,7 @@ export default function AnnotationPanelEditor({
     activeData,
     allData,
     allLinks,
+    activeLinks,
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
@@ -383,11 +384,11 @@ export default function AnnotationPanelEditor({
     }
 
     const dataById = new Map(allData.map((datum) => [datum.id, datum]));
-    const linkById = new Map(allLinks.map((link) => [link.id, link]));
+    const linkById = new Map(activeLinks.map((link) => [link.id, link]));
     const dataIdsByGeometryId = new Map<string, Set<string>>();
     const geometryIdsByDataId = new Map<string, Set<string>>();
 
-    for (const link of allLinks) {
+    for (const link of activeLinks) {
       const byGeometry = dataIdsByGeometryId.get(link.geometryId) ?? new Set<string>();
       byGeometry.add(link.dataId);
       dataIdsByGeometryId.set(link.geometryId, byGeometry);
@@ -502,7 +503,7 @@ export default function AnnotationPanelEditor({
   }, [
     activeSocialLocks,
     allData,
-    allLinks,
+    activeLinks,
     currentStreamId,
     focusedDataIds,
     focusedGeometryIds,
@@ -845,7 +846,7 @@ export default function AnnotationPanelEditor({
                 datum.id,
                 activeSocialLocks,
                 activeAnnotationSelection.geometryIdsByDataId,
-                allLinks,
+                activeLinks,
               );
 
               const itemColors = isUnderEditing
