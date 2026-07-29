@@ -22,22 +22,20 @@ describe('annotationDeletionValidation', () => {
     }).ok).toBe(true);
   });
 
-  it('rejects geometry without link', () => {
-    const result = validateDeletionSetup({
+  it('accepts geometry without link (ghost path)', () => {
+    expect(validateDeletionSetup({
       deleteLink: false,
       deleteGeometry: true,
       deleteData: false,
-    });
-    expect(result.ok).toBe(false);
-    expect(result.message).toMatch(/Link/i);
+    }).ok).toBe(true);
   });
 
-  it('rejects data without link', () => {
+  it('accepts data without link (ghost path)', () => {
     expect(validateDeletionSetup({
       deleteLink: false,
       deleteGeometry: false,
       deleteData: true,
-    }).ok).toBe(false);
+    }).ok).toBe(true);
   });
 
   it('accepts geometry + link, data + link, and full triplet', () => {
@@ -58,12 +56,12 @@ describe('annotationDeletionValidation', () => {
     })).toBe(true);
   });
 
-  it('auto-checks link when geometry or data is enabled', () => {
+  it('merges intent patches without forcing link', () => {
     expect(applyDeletionIntentAutoLink(
       { deleteGeometry: true },
       { deleteLink: false, deleteGeometry: false, deleteData: false },
     )).toEqual({
-      deleteLink: true,
+      deleteLink: false,
       deleteGeometry: true,
       deleteData: false,
     });
@@ -72,9 +70,18 @@ describe('annotationDeletionValidation', () => {
       { deleteData: true },
       { deleteLink: false, deleteGeometry: false, deleteData: false },
     )).toEqual({
-      deleteLink: true,
+      deleteLink: false,
       deleteGeometry: false,
       deleteData: true,
+    });
+
+    expect(applyDeletionIntentAutoLink(
+      { deleteLink: true, deleteGeometry: true },
+      { deleteLink: false, deleteGeometry: false, deleteData: false },
+    )).toEqual({
+      deleteLink: true,
+      deleteGeometry: true,
+      deleteData: false,
     });
   });
 });

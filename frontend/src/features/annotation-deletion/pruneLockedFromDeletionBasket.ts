@@ -129,31 +129,34 @@ export function pruneLockedFromDeletionBasket(
     };
   }
 
-  // Drop endpoints that no longer have full link coverage after prune.
-  const linkIdSet = new Set(next.candidateLinkIds);
-  if (next.deleteGeometry) {
-    next = {
-      ...next,
-      candidateGeometryIds: next.candidateGeometryIds.filter((geometryId) => {
-        const incident = nonErasableLinksForGeometry(linkList, geometryId);
-        if (incident.length === 0) {
-          return true;
-        }
-        return incident.every((link) => linkIdSet.has(link.id));
-      }),
-    };
-  }
-  if (next.deleteData) {
-    next = {
-      ...next,
-      candidateDataIds: next.candidateDataIds.filter((dataId) => {
-        const incident = nonErasableLinksForData(linkList, dataId);
-        if (incident.length === 0) {
-          return true;
-        }
-        return incident.every((link) => linkIdSet.has(link.id));
-      }),
-    };
+  // When Link is in the intent, drop endpoints that no longer have full link
+  // coverage after prune. Endpoint-only intents leave links active on purpose.
+  if (next.deleteLink) {
+    const linkIdSet = new Set(next.candidateLinkIds);
+    if (next.deleteGeometry) {
+      next = {
+        ...next,
+        candidateGeometryIds: next.candidateGeometryIds.filter((geometryId) => {
+          const incident = nonErasableLinksForGeometry(linkList, geometryId);
+          if (incident.length === 0) {
+            return true;
+          }
+          return incident.every((link) => linkIdSet.has(link.id));
+        }),
+      };
+    }
+    if (next.deleteData) {
+      next = {
+        ...next,
+        candidateDataIds: next.candidateDataIds.filter((dataId) => {
+          const incident = nonErasableLinksForData(linkList, dataId);
+          if (incident.length === 0) {
+            return true;
+          }
+          return incident.every((link) => linkIdSet.has(link.id));
+        }),
+      };
+    }
   }
 
   // Link-only: never keep endpoints.

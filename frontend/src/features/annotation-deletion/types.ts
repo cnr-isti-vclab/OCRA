@@ -5,7 +5,7 @@
 
 export type AnnotationDeletionStep = 'setup' | 'selecting' | 'committing';
 
-/** Valid delete-intent flags (Link always on for the four setup presets). */
+/** Valid delete-intent flags (setup presets include Link* and endpoint-only Geo/Data). */
 export interface AnnotationDeletionIntent {
   deleteLink: boolean;
   deleteGeometry: boolean;

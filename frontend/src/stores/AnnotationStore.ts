@@ -486,6 +486,15 @@ export class AnnotationStore {
       return this.failDeletionBasketAdd(draft, 'Geometry not found in this scene.');
     }
 
+    // Geometry-only (no Link): leave strong links so the endpoint becomes Ghost.
+    if (!draft.deleteLink) {
+      return this.finishDeletionBasketAdd(draft, {
+        candidateGeometryIds: this.mergeUniqueIds(draft.candidateGeometryIds, [geometryId]),
+        candidateLinkIds: draft.candidateLinkIds,
+        candidateDataIds: draft.candidateDataIds,
+      });
+    }
+
     const incident = nonErasableLinksForGeometry(this.linkMap.values(), geometryId);
     // Orphan geometry (created without links yet): add endpoint only.
     if (incident.length === 0) {
@@ -537,6 +546,15 @@ export class AnnotationStore {
     }
     if (!this.dataMap.has(dataId)) {
       return this.failDeletionBasketAdd(draft, 'Annotation data not found.');
+    }
+
+    // Data-only (no Link): leave strong links so the endpoint becomes Ghost.
+    if (!draft.deleteLink) {
+      return this.finishDeletionBasketAdd(draft, {
+        candidateDataIds: this.mergeUniqueIds(draft.candidateDataIds, [dataId]),
+        candidateLinkIds: draft.candidateLinkIds,
+        candidateGeometryIds: draft.candidateGeometryIds,
+      });
     }
 
     const incident = nonErasableLinksForData(this.linkMap.values(), dataId);

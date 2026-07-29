@@ -6,23 +6,14 @@ export interface AnnotationDeletionValidationResult {
 }
 
 /**
- * Enforce the delete intent matrix: Geometry/Data require Link;
- * at least Link must be selected to begin.
+ * Enforce the delete intent matrix: at least one of Link / Geometry / Data.
+ * Geometry-only and Data-only are valid (leave strong links → Ghost rendering).
  */
 export function validateDeletionSetup(
   draft: Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>,
 ): AnnotationDeletionValidationResult {
-  if (draft.deleteGeometry && !draft.deleteLink) {
-    return { ok: false, message: 'Geometry delete requires Link.' };
-  }
-  if (draft.deleteData && !draft.deleteLink) {
-    return { ok: false, message: 'Data delete requires Link.' };
-  }
   if (!draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
-    return { ok: false, message: 'Choose at least Link to delete.' };
-  }
-  if (!draft.deleteLink) {
-    return { ok: false, message: 'Link must be included when deleting geometry or data.' };
+    return { ok: false, message: 'Choose at least one of Link, Geometry, or Data.' };
   }
   return { ok: true };
 }
@@ -34,21 +25,16 @@ export function canBeginDeletionWizard(
 }
 
 /**
- * When Geometry or Data is checked, Link is forced on (auto-rule).
+ * Merges an intent patch onto the current flags.
+ * Does not force Link when Geometry/Data are set — endpoint-only delete is allowed.
  */
 export function applyDeletionIntentAutoLink(
   patch: Partial<Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>>,
   current: Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>,
 ): Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'> {
-  const next = {
+  return {
     deleteLink: patch.deleteLink ?? current.deleteLink,
     deleteGeometry: patch.deleteGeometry ?? current.deleteGeometry,
     deleteData: patch.deleteData ?? current.deleteData,
   };
-
-  if (next.deleteGeometry || next.deleteData) {
-    next.deleteLink = true;
-  }
-
-  return next;
 }

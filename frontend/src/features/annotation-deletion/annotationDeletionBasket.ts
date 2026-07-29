@@ -11,9 +11,10 @@ export interface DeletionBasketContext {
 }
 
 /**
- * Confirm gating: non-empty basket, setup still valid, and every endpoint in the
- * basket either is an orphan (0 non-erasable links) or has all of its non-erasable
- * links included. Link-only baskets must not contain endpoints.
+ * Confirm gating: non-empty basket, setup still valid.
+ * When Link is part of the intent, every endpoint in the basket must be an orphan
+ * or include all of its non-erasable links. Endpoint-only intents (Geo / Data without
+ * Link) intentionally leave strong links so the endpoint becomes Ghost.
  */
 export function validateDeletionBasket(
   draft: AnnotationDeletionDraft,
@@ -44,34 +45,35 @@ export function validateDeletionBasket(
   const linkIdSet = new Set(draft.candidateLinkIds);
   const links = [...context.links];
 
-  if (draft.deleteGeometry) {
-    for (const geometryId of draft.candidateGeometryIds) {
-      const incident = nonErasableLinksForGeometry(links, geometryId);
-      // Orphan geometry (no links) is allowed — Link intent is vacuous.
-      if (incident.length === 0) {
-        continue;
-      }
-      if (incident.some((link) => !linkIdSet.has(link.id))) {
-        return {
-          ok: false,
-          message: 'Every geometry in the basket must include all of its non-erasable links.',
-        };
+  // Link coverage is required only when links are being deleted with the endpoints.
+  if (draft.deleteLink) {
+    if (draft.deleteGeometry) {
+      for (const geometryId of draft.candidateGeometryIds) {
+        const incident = nonErasableLinksForGeometry(links, geometryId);
+        if (incident.length === 0) {
+          continue;
+        }
+        if (incident.some((link) => !linkIdSet.has(link.id))) {
+          return {
+            ok: false,
+            message: 'Every geometry in the basket must include all of its non-erasable links.',
+          };
+        }
       }
     }
-  }
 
-  if (draft.deleteData) {
-    for (const dataId of draft.candidateDataIds) {
-      const incident = nonErasableLinksForData(links, dataId);
-      // Orphan data (no links) is allowed — Link intent is vacuous.
-      if (incident.length === 0) {
-        continue;
-      }
-      if (incident.some((link) => !linkIdSet.has(link.id))) {
-        return {
-          ok: false,
-          message: 'Every data record in the basket must include all of its non-erasable links.',
-        };
+    if (draft.deleteData) {
+      for (const dataId of draft.candidateDataIds) {
+        const incident = nonErasableLinksForData(links, dataId);
+        if (incident.length === 0) {
+          continue;
+        }
+        if (incident.some((link) => !linkIdSet.has(link.id))) {
+          return {
+            ok: false,
+            message: 'Every data record in the basket must include all of its non-erasable links.',
+          };
+        }
       }
     }
   }
@@ -82,6 +84,24 @@ export function validateDeletionBasket(
     }
     if (draft.candidateGeometryIds.length > 0 || draft.candidateDataIds.length > 0) {
       return { ok: false, message: 'Link-only delete must not include geometry or data endpoints.' };
+    }
+  }
+
+  if (!draft.deleteLink && draft.deleteGeometry && !draft.deleteData) {
+    if (draft.candidateGeometryIds.length === 0) {
+      return { ok: false, message: 'Select at least one geometry to delete.' };
+    }
+    if (draft.candidateLinkIds.length > 0 || draft.candidateDataIds.length > 0) {
+      return { ok: false, message: 'Geometry-only delete must not include links or data.' };
+    }
+  }
+
+  if (!draft.deleteLink && draft.deleteData && !draft.deleteGeometry) {
+    if (draft.candidateDataIds.length === 0) {
+      return { ok: false, message: 'Select at least one data record to delete.' };
+    }
+    if (draft.candidateLinkIds.length > 0 || draft.candidateGeometryIds.length > 0) {
+      return { ok: false, message: 'Data-only delete must not include links or geometries.' };
     }
   }
 

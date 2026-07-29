@@ -586,7 +586,6 @@ export async function markAnnotationGeometryErasableHandler(req: Request, res: R
         invalid_input: { status: 400, code: 'annotation.geometry.invalid_input', error: 'expectedVersion is required' },
         geometry_not_found: { status: 404, code: 'annotation.geometry.not_found', error: 'Annotation geometry not found' },
         already_erasable: { status: 409, code: 'annotation.geometry.already_erasable', error: 'Annotation geometry is already erasable' },
-        still_linked: { status: 409, code: 'annotation.geometry.still_linked', error: 'Annotation geometry is still linked by a non-erasable link' },
         version_conflict: { status: 409, code: 'annotation.geometry.version_conflict', error: 'Geometry version conflict' },
         invalid_geometry_document: { status: 400, code: 'annotation.geometry.invalid_document', error: 'Geometry erasable transition produced an invalid document' },
       });
@@ -852,7 +851,6 @@ export async function markAnnotationDataErasableHandler(req: Request, res: Respo
         invalid_input: { status: 400, code: 'annotation.data.invalid_input', error: 'expectedVersion is required' },
         data_not_found: { status: 404, code: 'annotation.data.not_found', error: 'Annotation data not found' },
         already_erasable: { status: 409, code: 'annotation.data.already_erasable', error: 'Annotation data is already erasable' },
-        still_linked: { status: 409, code: 'annotation.data.still_linked', error: 'Annotation data is still linked by a non-erasable link' },
         version_conflict: { status: 409, code: 'annotation.data.version_conflict', error: 'Annotation data version conflict' },
         invalid_data_document: { status: 400, code: 'annotation.data.invalid_document', error: 'Annotation data erasable transition produced an invalid document' },
       });

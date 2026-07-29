@@ -201,6 +201,52 @@ describe('AnnotationStore deletion wizard commit', () => {
     expect(mockClient.markDataErasable).not.toHaveBeenCalled();
   });
 
+  it('commits geometry-only without marking the link (ghost path)', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1')],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: false, deleteGeometry: true, deleteData: false });
+    const add = store.addGeometryToDeletionBasket('g1');
+    expect(add.ok).toBe(true);
+    expect(store.deletionDraftState?.candidateGeometryIds).toEqual(['g1']);
+    expect(store.deletionDraftState?.candidateLinkIds).toEqual([]);
+
+    const result = await store.commitDeletionDraft(emptyLocks);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g1', 0);
+    expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
+    expect(mockClient.markDataErasable).not.toHaveBeenCalled();
+  });
+
+  it('commits data-only without marking the link (ghost path)', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1')],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: false, deleteGeometry: false, deleteData: true });
+    const add = store.addDataToDeletionBasket('d1');
+    expect(add.ok).toBe(true);
+    expect(store.deletionDraftState?.candidateDataIds).toEqual(['d1']);
+    expect(store.deletionDraftState?.candidateLinkIds).toEqual([]);
+
+    const result = await store.commitDeletionDraft(emptyLocks);
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClient.markDataErasable).toHaveBeenCalledWith('d1', 0);
+    expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
+    expect(mockClient.markGeometryErasable).not.toHaveBeenCalled();
+  });
+
   it('commits data + link in link-then-data order', async () => {
     const store = createTestStore();
     await seedScene(store, {

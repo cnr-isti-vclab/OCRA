@@ -66,11 +66,11 @@ After an intent is chosen, the user selects candidates in the viewer and/or pane
 | ✓ | ✓ | — | Remove selected geometries and their links (1:1 direct; 1:N via **fan-out warning** only — Data is off) |
 | ✓ | — | ✓ | Remove selected data and their links (1:1 direct; 1:N via **fan-out warning** only — Geometry is off) |
 | ✓ | ✓ | ✓ | Full triplet removal for resolved link set (1:N via **link resolution**) |
-| — | ✓ | — | **Invalid** — Geometry requires Link |
-| — | — | ✓ | **Invalid** — Data requires Link |
-| — | ✓ | ✓ | **Invalid** — both endpoints require Link |
+| — | ✓ | — | Geometry-only: mark selected geometries erasable; **links stay active** → Ghost rendering |
+| — | — | ✓ | Data-only: mark selected data erasable; **links stay active** → Ghost rendering |
+| — | ✓ | ✓ | **Invalid** — pick Geo or Data alone (or include Link) |
 
-**Auto-rule**: every setup preset includes **Link**. An endpoint cannot be marked erasable while any **non-erasable** link that references it remains outside the basket (client-side, for links known in the current scene). The server applies the same rule project-wide — see [Cross-scene links](#cross-scene-links-and-server-still-linked-guard).
+**Setup presets** include Link*, **Geo**, and **Data**. When Link is part of the intent, every endpoint in the basket must include all of its non-erasable links known in the scene. Endpoint-only intents intentionally leave those links so the endpoint becomes Ghost. The server allows geometry/data erasable while strong links remain.
 
 **Link-only** is valid: mark selected links erasable without marking endpoints.
 

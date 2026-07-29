@@ -117,7 +117,6 @@ export type MarkAnnotationGeometryErasableErrorCode =
   | 'invalid_input'
   | 'geometry_not_found'
   | 'already_erasable'
-  | 'still_linked'
   | 'version_conflict'
   | 'invalid_geometry_document';
 
@@ -145,7 +144,6 @@ export type MarkAnnotationDataErasableErrorCode =
   | 'invalid_input'
   | 'data_not_found'
   | 'already_erasable'
-  | 'still_linked'
   | 'version_conflict'
   | 'invalid_data_document';
 
@@ -994,7 +992,7 @@ export async function markAnnotationGeometryErasable(
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const { geometryCollection, linkCollection } = await getAnnotationCollections();
+      const { geometryCollection } = await getAnnotationCollections();
       const existing = await geometryCollection.findOne({ projectId, id: geometryId }, { session });
       if (!existing) {
         abortCode = 'geometry_not_found';
@@ -1004,15 +1002,6 @@ export async function markAnnotationGeometryErasable(
       if (existing.erasableAt !== null) {
         abortCode = 'already_erasable';
         throw new AnnotationServiceAbort('already_erasable');
-      }
-
-      const stillLinked = await linkCollection.findOne(
-        { projectId, geometryId, erasableAt: null },
-        { session },
-      );
-      if (stillLinked) {
-        abortCode = 'still_linked';
-        throw new AnnotationServiceAbort('still_linked');
       }
 
       const candidate = {
@@ -1282,7 +1271,7 @@ export async function markAnnotationDataErasable(
 
     await session.withTransaction(async () => {
       const timestamp = getTimestamp();
-      const { dataCollection, linkCollection } = await getAnnotationCollections();
+      const { dataCollection } = await getAnnotationCollections();
       const existing = await dataCollection.findOne({ projectId, id: dataId }, { session });
       if (!existing) {
         abortCode = 'data_not_found';
@@ -1292,15 +1281,6 @@ export async function markAnnotationDataErasable(
       if (existing.erasableAt !== null) {
         abortCode = 'already_erasable';
         throw new AnnotationServiceAbort('already_erasable');
-      }
-
-      const stillLinked = await linkCollection.findOne(
-        { projectId, dataId, erasableAt: null },
-        { session },
-      );
-      if (stillLinked) {
-        abortCode = 'still_linked';
-        throw new AnnotationServiceAbort('still_linked');
       }
 
       const candidate = {

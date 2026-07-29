@@ -185,7 +185,7 @@ describe('validateDeletionBasket', () => {
     expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(false);
   });
 
-  it('rejects geometry basket missing its link', () => {
+  it('rejects geometry basket missing its link when Link is in the intent', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
@@ -197,6 +197,48 @@ describe('validateDeletionBasket', () => {
     expect(validateDeletionBasket(draft, {
       links: [link('l1', 'g1', 'd1')],
     }).ok).toBe(false);
+  });
+
+  it('accepts geometry-only basket while strong links remain', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: false,
+      deleteGeometry: true,
+      candidateGeometryIds: ['g1'],
+      candidateLinkIds: [],
+    };
+    expect(canConfirmDeletionBasket(draft, {
+      links: [link('l1', 'g1', 'd1')],
+    })).toBe(true);
+  });
+
+  it('rejects geometry-only basket that includes links', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: false,
+      deleteGeometry: true,
+      candidateGeometryIds: ['g1'],
+      candidateLinkIds: ['l1'],
+    };
+    expect(validateDeletionBasket(draft, {
+      links: [link('l1', 'g1', 'd1')],
+    }).ok).toBe(false);
+  });
+
+  it('accepts data-only basket while strong links remain', () => {
+    const draft = {
+      ...createDefaultDeletionDraft(),
+      step: 'selecting' as const,
+      deleteLink: false,
+      deleteData: true,
+      candidateDataIds: ['d1'],
+      candidateLinkIds: [],
+    };
+    expect(canConfirmDeletionBasket(draft, {
+      links: [link('l1', 'g1', 'd1')],
+    })).toBe(true);
   });
 
   it('accepts orphan geometry with no links', () => {

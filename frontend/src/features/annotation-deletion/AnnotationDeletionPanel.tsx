@@ -31,6 +31,16 @@ const INTENT_PRESETS: Array<{
     label: 'Link+Data',
     intent: { deleteLink: true, deleteGeometry: false, deleteData: true },
   },
+  {
+    id: 'geo',
+    label: 'Geo',
+    intent: { deleteLink: false, deleteGeometry: true, deleteData: false },
+  },
+  {
+    id: 'data',
+    label: 'Data',
+    intent: { deleteLink: false, deleteGeometry: false, deleteData: true },
+  },
 ];
 
 interface AnnotationDeletionPanelProps {
@@ -74,6 +84,12 @@ export default function AnnotationDeletionPanel({
     }
     if (draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
       return 'Link only: click a geometry or data row to identify the link (replaces previous). Ctrl/Cmd+click to add or remove. Multiple links open a resolution dialog.';
+    }
+    if (!draft.deleteLink && draft.deleteGeometry && !draft.deleteData) {
+      return 'Geometry only: select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Links stay active so the geometry becomes a ghost.';
+    }
+    if (!draft.deleteLink && draft.deleteData && !draft.deleteGeometry) {
+      return 'Data only: select data rows in the panel (replaces previous). Ctrl/Cmd+click to add or remove. Links stay active so the data becomes a ghost.';
     }
     if (draft.deleteGeometry && !draft.deleteData) {
       return 'Select geometries in the viewer (replaces previous). Ctrl/Cmd+click to add or remove. Linked data is shown for context and is not selectable. Geometries with no links can still be selected. Multiple links ask for confirmation.';

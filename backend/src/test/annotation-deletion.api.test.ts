@@ -183,7 +183,7 @@ describe.sequential('annotation deletion API', () => {
     expect(data.find((entry) => entry.id === dataId)?.erasableAt).toBeNull();
   });
 
-  it('rejects geometry erasable while a non-erasable link still references it', async () => {
+  it('allows geometry erasable while a non-erasable link still references it', async () => {
     const geometryId = createAnnotationEntityId('geometry');
     const dataId = createAnnotationEntityId('data');
     const linkId = createAnnotationEntityId('link');
@@ -239,9 +239,15 @@ describe.sequential('annotation deletion API', () => {
       .patch(`/api/projects/${project.id}/annotations/geometry/${geometryId}/erasable`)
       .set(authHeaders(editorUser))
       .send({ expectedVersion: 0 })
-      .expect(409);
+      .expect(200);
 
-    expect(response.body.code).toBe('annotation.geometry.still_linked');
+    expect(response.body.success).toBe(true);
+    expect(response.body.version).toBe(1);
+
+    const geometries = await findAnnotationGeometriesByProjectId(project.id);
+    const links = await findAnnotationLinksByProjectId(project.id);
+    expect(geometries.find((entry) => entry.id === geometryId)?.erasableAt).not.toBeNull();
+    expect(links.find((entry) => entry.id === linkId)?.erasableAt).toBeNull();
   });
 
   it('allows geometry erasable after its only link is marked erasable', async () => {
@@ -315,7 +321,7 @@ describe.sequential('annotation deletion API', () => {
     expect(geometries.find((entry) => entry.id === geometryId)?.erasableAt).not.toBeNull();
   });
 
-  it('rejects data erasable when another scene still has a non-erasable link', async () => {
+  it('allows data erasable when another scene still has a non-erasable link', async () => {
     const geometryAId = createAnnotationEntityId('geometry');
     const geometryBId = createAnnotationEntityId('geometry');
     const dataId = createAnnotationEntityId('data');
@@ -408,11 +414,14 @@ describe.sequential('annotation deletion API', () => {
       .patch(`/api/projects/${project.id}/annotations/data/${dataId}/erasable`)
       .set(authHeaders(editorUser))
       .send({ expectedVersion: 0 })
-      .expect(409);
+      .expect(200);
 
-    expect(response.body.code).toBe('annotation.data.still_linked');
+    expect(response.body.success).toBe(true);
+    expect(response.body.version).toBe(1);
 
+    const data = await findAnnotationDataByProjectId(project.id);
     const links = await findAnnotationLinksByProjectId(project.id);
+    expect(data.find((entry) => entry.id === dataId)?.erasableAt).not.toBeNull();
     expect(links.find((entry) => entry.id === linkBId)?.erasableAt).toBeNull();
   });
 });
