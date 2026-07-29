@@ -70,7 +70,7 @@ describe('evaluateActiveSelection rendering visibility', () => {
       links: new Map([['l1', link('l1', 'g1', 'd1', ERASED)]]),
     };
 
-    const selection = evaluateActiveSelection(maps, 's1', { showGhost: false });
+    const selection = evaluateActiveSelection(maps, 's1', { showErased: false });
 
     expect([...selection.geometryIds]).toEqual(['g1']);
     expect([...selection.dataIds]).toEqual([]);
@@ -85,16 +85,16 @@ describe('evaluateActiveSelection rendering visibility', () => {
       links: new Map([['l1', link('l1', 'g1', 'd1', null)]]),
     };
 
-    const hidden = evaluateActiveSelection(maps, 's1', { showGhost: false });
+    const hidden = evaluateActiveSelection(maps, 's1', { showErased: false });
     expect([...hidden.geometryIds]).toEqual(['g1']);
     expect([...hidden.dataIds]).toEqual([]);
     expect(hidden.renderingModeByGeometryId.get('g1')).toBe('plain');
 
-    const withGhost = evaluateActiveSelection(maps, 's1', { showGhost: true });
-    expect([...withGhost.geometryIds]).toEqual(['g1']);
-    expect([...withGhost.dataIds]).toEqual(['d1']);
-    expect([...withGhost.linkIds]).toEqual(['l1']);
-    expect(withGhost.renderingModeByDataId.get('d1')).toBe('ghost');
+    const withErased = evaluateActiveSelection(maps, 's1', { showErased: true });
+    expect([...withErased.geometryIds]).toEqual(['g1']);
+    expect([...withErased.dataIds]).toEqual(['d1']);
+    expect([...withErased.linkIds]).toEqual(['l1']);
+    expect(withErased.renderingModeByDataId.get('d1')).toBe('ghost');
   });
 
   it('shows ghost geometry when retained by a strong link and toggle is on', () => {
@@ -104,21 +104,26 @@ describe('evaluateActiveSelection rendering visibility', () => {
       links: new Map([['l1', link('l1', 'g1', 'd1', null)]]),
     };
 
-    expect([...evaluateActiveSelection(maps, 's1', { showGhost: false }).geometryIds]).toEqual([]);
-    const selection = evaluateActiveSelection(maps, 's1', { showGhost: true });
+    expect([...evaluateActiveSelection(maps, 's1', { showErased: false }).geometryIds]).toEqual([]);
+    const selection = evaluateActiveSelection(maps, 's1', { showErased: true });
     expect([...selection.geometryIds]).toEqual(['g1']);
     expect(selection.renderingModeByGeometryId.get('g1')).toBe('ghost');
   });
 
-  it('hides weak orphans (none mode) even when toggle is on', () => {
+  it('shows weak orphans (none mode) when erased toggle is on', () => {
     const maps = {
       geometries: new Map([['g1', geometry('g1', ERASED)]]),
       data: new Map([['d1', datum('d1', ERASED)]]),
       links: new Map([['l1', link('l1', 'g1', 'd1', ERASED)]]),
     };
 
-    const selection = evaluateActiveSelection(maps, 's1', { showGhost: true });
-    expect([...selection.geometryIds]).toEqual([]);
-    expect([...selection.dataIds]).toEqual([]);
+    expect([...evaluateActiveSelection(maps, 's1', { showErased: false }).geometryIds]).toEqual([]);
+    const selection = evaluateActiveSelection(maps, 's1', { showErased: true });
+    expect([...selection.geometryIds]).toEqual(['g1']);
+    expect([...selection.dataIds]).toEqual(['d1']);
+    expect(selection.renderingModeByGeometryId.get('g1')).toBe('none');
+    expect(selection.renderingModeByDataId.get('d1')).toBe('none');
+    // Weak links stay out of active link indexes.
+    expect([...selection.linkIds]).toEqual([]);
   });
 });

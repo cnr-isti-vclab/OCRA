@@ -28,6 +28,21 @@ const UNDER_EDITING_COLOR = {
   background: 'rgba(254, 226, 226, 0.92)',
 } as const;
 
+const GHOST_COLOR = {
+  fill: 'rgba(148, 163, 184, 0.22)',
+  stroke: 'rgba(100, 116, 139, 0.85)',
+  text: 'rgba(71, 85, 105, 1)',
+  background: 'rgba(241, 245, 249, 0.95)',
+} as const;
+
+/** More faded / detached look for weak orphans with no strong link. */
+const ORPHAN_COLOR = {
+  fill: 'rgba(148, 163, 184, 0.10)',
+  stroke: 'rgba(148, 163, 184, 0.55)',
+  text: 'rgba(100, 116, 139, 0.9)',
+  background: 'rgba(248, 250, 252, 0.9)',
+} as const;
+
 const SELECTED_COLOR = {
   fill: 'rgba(219, 234, 254, 0.5)',
   stroke: 'rgba(30, 58, 138, 1)',
@@ -69,6 +84,21 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
       strokeWidth: 2,
       filter: 'drop-shadow(0px 0px 6.0px rgba(255,0,0,1.0))',
     },
+    ghost: {
+      fill: GHOST_COLOR.fill,
+      stroke: GHOST_COLOR.stroke,
+      fillOpacity: 1,
+      strokeWidth: 2,
+      filter: 'drop-shadow(1px 1px 1.5px rgba(0,0,0,0.35))',
+    },
+    orphan: {
+      fill: ORPHAN_COLOR.fill,
+      stroke: ORPHAN_COLOR.stroke,
+      fillOpacity: 1,
+      strokeWidth: 1.5,
+      strokeDasharray: '6,4',
+      filter: 'none',
+    },
   },
   labelStyle: {
     fontSizePx: 14,
@@ -83,8 +113,16 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
     textFillUnderEditing: UNDER_EDITING_COLOR.stroke,
     backgroundFillUnderEditing: UNDER_EDITING_COLOR.fill,
     backgroundStrokeUnderEditing: 'rgba(220, 38, 38, 1)',
+    textFillGhost: GHOST_COLOR.text,
+    backgroundFillGhost: GHOST_COLOR.background,
+    backgroundStrokeGhost: GHOST_COLOR.stroke,
+    textFillOrphan: ORPHAN_COLOR.text,
+    backgroundFillOrphan: ORPHAN_COLOR.background,
+    backgroundStrokeOrphan: ORPHAN_COLOR.stroke,
     backgroundStroke: 'none',
     backgroundStrokeWidthUnderEditingPx: 1,
+    backgroundStrokeWidthGhostPx: 1,
+    backgroundStrokeWidthOrphanPx: 1,
     backgroundStrokeWidthPx: 0,
     paddingPx: 6,
     borderRadiusPx: 4,
@@ -100,5 +138,9 @@ export const ANNOTATION_PANEL_STYLE_CONFIG = {
     textSelected: SELECTED_COLOR.text,
     backgroundUnderEditing: UNDER_EDITING_COLOR.background,
     textUnderEditing: UNDER_EDITING_COLOR.text,
+    backgroundGhost: GHOST_COLOR.background,
+    textGhost: GHOST_COLOR.text,
+    backgroundOrphan: ORPHAN_COLOR.background,
+    textOrphan: ORPHAN_COLOR.text,
   },
 } as const;

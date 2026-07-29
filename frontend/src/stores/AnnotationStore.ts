@@ -194,7 +194,7 @@ export class AnnotationStore {
   private client: AnnotationApiClient;
   private sceneId: string;
   // Default UX: hide erasable entities (soft-deleted) unless explicitly requested.
-  private selectionCriteria: SelectionCriteria = { showGhost: false };
+  private selectionCriteria: SelectionCriteria = { showErased: false };
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
   private creationDraft: AnnotationCreationDraft | null = null;
   private rememberedCreationSetup: AnnotationCreationSetupDraft | null = null;
@@ -909,7 +909,7 @@ export class AnnotationStore {
         return { ok: false, message: 'Deletion was interrupted by a scene reload.' };
       }
 
-      // Soft-deleted entities drop out of the active set via showGhost=false (Plain only).
+      // Soft-deleted entities drop out of the active set via showErased=false (Plain only).
       this.recomputeActiveSelection();
       this.deletionDraft = null;
       this.bump();
@@ -1344,7 +1344,7 @@ export class AnnotationStore {
       allProjectDataLoaded: false,
     };
     this.isLoadingAdditionalData = false;
-    this.selectionCriteria = { showGhost: false };
+    this.selectionCriteria = { showErased: false };
     this.activeSelection = createEmptyActiveSelection();
     this.creationDraft = null;
     this.deletionDraft = null;

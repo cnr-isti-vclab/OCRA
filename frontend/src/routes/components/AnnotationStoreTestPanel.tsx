@@ -107,8 +107,8 @@ export default function AnnotationStoreTestPanel() {
   };
 
   const applyDemoFilter = () => {
-    selectActiveAnnotations({ showGhost: false });
-    appendScriptLog('Demo filter: showGhost=false (plain only)', 'success');
+    selectActiveAnnotations({ showErased: false });
+    appendScriptLog('Demo filter: showErased=false (plain only)', 'success');
   };
 
   const criteriaSummary = useMemo(() => {

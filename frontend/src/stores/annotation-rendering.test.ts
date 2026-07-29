@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { AnnotationLink } from 'shared/annotation-types';
 import {
+  isRecoverableRenderingMode,
   isRenderingModeVisible,
   passesRenderingVisibility,
   resolveRenderingMode,
-  resolveShowGhost,
+  resolveShowErased,
+  structuralClassForRenderingMode,
 } from './annotation-rendering';
 
 const ERASED = '2026-01-02T00:00:00.000Z';
@@ -48,17 +50,33 @@ describe('resolveRenderingMode', () => {
   });
 });
 
+describe('structuralClassForRenderingMode', () => {
+  it('maps ghost and none to OpenLIME classes', () => {
+    expect(structuralClassForRenderingMode('plain')).toBeNull();
+    expect(structuralClassForRenderingMode('ghost')).toBe('ghost');
+    expect(structuralClassForRenderingMode('none')).toBe('orphan');
+  });
+});
+
+describe('isRecoverableRenderingMode', () => {
+  it('is true for ghost and orphan (none)', () => {
+    expect(isRecoverableRenderingMode('plain')).toBe(false);
+    expect(isRecoverableRenderingMode('ghost')).toBe(true);
+    expect(isRecoverableRenderingMode('none')).toBe(true);
+  });
+});
+
 describe('isRenderingModeVisible', () => {
-  it('always shows plain and never shows none', () => {
+  it('always shows plain', () => {
     expect(isRenderingModeVisible('plain', false)).toBe(true);
     expect(isRenderingModeVisible('plain', true)).toBe(true);
-    expect(isRenderingModeVisible('none', false)).toBe(false);
-    expect(isRenderingModeVisible('none', true)).toBe(false);
   });
 
-  it('shows ghost only when the toggle is on', () => {
+  it('shows ghost and orphan only when erased are visible', () => {
     expect(isRenderingModeVisible('ghost', false)).toBe(false);
     expect(isRenderingModeVisible('ghost', true)).toBe(true);
+    expect(isRenderingModeVisible('none', false)).toBe(false);
+    expect(isRenderingModeVisible('none', true)).toBe(true);
   });
 });
 
@@ -72,17 +90,18 @@ describe('passesRenderingVisibility', () => {
     expect(passesRenderingVisibility({ erasableAt: ERASED }, strong, false)).toBe(false);
     expect(passesRenderingVisibility({ erasableAt: ERASED }, strong, true)).toBe(true);
     expect(passesRenderingVisibility({ erasableAt: ERASED }, weak, false)).toBe(false);
-    expect(passesRenderingVisibility({ erasableAt: ERASED }, weak, true)).toBe(false);
+    expect(passesRenderingVisibility({ erasableAt: ERASED }, weak, true)).toBe(true);
     expect(passesRenderingVisibility({ erasableAt: ERASED }, [], false)).toBe(false);
-    expect(passesRenderingVisibility({ erasableAt: ERASED }, [], true)).toBe(false);
+    expect(passesRenderingVisibility({ erasableAt: ERASED }, [], true)).toBe(true);
   });
 });
 
-describe('resolveShowGhost', () => {
-  it('prefers showGhost over includeErasable and defaults to false', () => {
-    expect(resolveShowGhost({})).toBe(false);
-    expect(resolveShowGhost({ includeErasable: true })).toBe(true);
-    expect(resolveShowGhost({ showGhost: false, includeErasable: true })).toBe(false);
-    expect(resolveShowGhost({ showGhost: true })).toBe(true);
+describe('resolveShowErased', () => {
+  it('prefers showErased, then showGhost, then includeErasable', () => {
+    expect(resolveShowErased({})).toBe(false);
+    expect(resolveShowErased({ includeErasable: true })).toBe(true);
+    expect(resolveShowErased({ showGhost: true })).toBe(true);
+    expect(resolveShowErased({ showErased: false, showGhost: true })).toBe(false);
+    expect(resolveShowErased({ showErased: true })).toBe(true);
   });
 });

@@ -9,7 +9,7 @@ import {
   buildRenderingModeMaps,
   hasStrongIncidentLinks,
   passesRenderingVisibility,
-  resolveShowGhost,
+  resolveShowErased,
   type AnnotationRenderingMode,
 } from './annotation-rendering';
 
@@ -54,19 +54,23 @@ export interface LinkPredicate {
 /**
  * Declarative filter for which geometries, data, and links are "active" in the UI.
  * Omitted predicates do not filter that entity kind (all loaded entities of that kind qualify,
- * subject to {@link SelectionCriteria.showGhost} rendering visibility).
+ * subject to {@link SelectionCriteria.showErased} rendering visibility).
  */
 export interface SelectionCriteria {
   geometry?: GeometryPredicate;
   data?: DataPredicate;
   link?: LinkPredicate;
   /**
-   * When true, weak entities retained by a strong incident link (Ghost) are visible.
-   * Weak orphans (None) are never shown. Default false.
+   * When true, recoverable weak entities are visible: Ghost (retained by a strong
+   * link) and Orphan / none (no strong link). Default false (Plain only).
+   */
+  showErased?: boolean;
+  /**
+   * @deprecated Use {@link SelectionCriteria.showErased}.
    */
   showGhost?: boolean;
   /**
-   * @deprecated Use {@link SelectionCriteria.showGhost}. When true, equivalent to `showGhost: true`.
+   * @deprecated Use {@link SelectionCriteria.showErased}. When true, equivalent to `showErased: true`.
    */
   includeErasable?: boolean;
   /**
@@ -367,7 +371,7 @@ export function evaluateActiveSelection(
   sceneId: string,
   criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA,
 ): ActiveAnnotationSelection {
-  const showGhost = resolveShowGhost(criteria);
+  const showErased = resolveShowErased(criteria);
   const linkMode = criteria.linkMode ?? 'bothEndpoints';
   const linkIndexes = buildLinkIndexes(maps.links.values());
   const ctx: SelectionEvaluationContext = {
@@ -379,7 +383,7 @@ export function evaluateActiveSelection(
   const geometryIds = new Set<string>();
   for (const geometry of maps.geometries.values()) {
     const incidentLinks = linkIndexes.linksByGeometryId.get(geometry.id) ?? [];
-    if (!passesRenderingVisibility(geometry, incidentLinks, showGhost)) {
+    if (!passesRenderingVisibility(geometry, incidentLinks, showErased)) {
       continue;
     }
     if (matchesGeometryPredicate(geometry, criteria.geometry, ctx)) {
@@ -390,7 +394,7 @@ export function evaluateActiveSelection(
   const dataIds = new Set<string>();
   for (const datum of maps.data.values()) {
     const incidentLinks = linkIndexes.linksByDataId.get(datum.id) ?? [];
-    if (!passesRenderingVisibility(datum, incidentLinks, showGhost)) {
+    if (!passesRenderingVisibility(datum, incidentLinks, showErased)) {
       continue;
     }
     if (matchesDataPredicate(datum, criteria.data, ctx)) {

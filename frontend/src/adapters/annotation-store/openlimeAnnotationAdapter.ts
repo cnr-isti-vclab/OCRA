@@ -16,6 +16,7 @@ export type OpenLimeSyncedAnnotation = {
   label?: string;
   class?: string | number | null;
   semanticClass?: string | null;
+  structuralClass?: string | null;
   strokeDasharray?: string | null;
   type?: string;
   data?: Record<string, unknown>;
@@ -50,6 +51,19 @@ function applyStrokeDasharray(
       element.removeAttribute?.('stroke-dasharray');
     }
   }
+}
+
+function syncStructuralClass(
+  existing: OpenLimeSyncedAnnotation,
+  viewerAnno: ViewerAnnotation,
+): boolean {
+  const nextClass = viewerAnno.structuralClass ?? null;
+  if ((existing.structuralClass ?? null) === nextClass) {
+    return false;
+  }
+  existing.structuralClass = nextClass;
+  existing.needsUpdate = true;
+  return true;
 }
 
 function ensureElementsFromSvg(anno: OpenLimeSyncedAnnotation): void {
@@ -188,6 +202,9 @@ export function syncOpenLimeAnnotations(
           existing.needsUpdate = true;
           stylesUpdated = true;
         }
+        if (syncStructuralClass(existing, viewerAnno)) {
+          stylesUpdated = true;
+        }
         if ((existing.strokeDasharray ?? null) !== (viewerAnno.strokeDasharray ?? null)) {
           existing.strokeDasharray = viewerAnno.strokeDasharray ?? null;
           applyStrokeDasharray(existing, existing.strokeDasharray);
@@ -215,6 +232,9 @@ export function syncOpenLimeAnnotations(
       if (existing && (existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
         existing.semanticClass = viewerAnno.semanticClass ?? null;
         existing.needsUpdate = true;
+        stylesUpdated = true;
+      }
+      if (existing && syncStructuralClass(existing, viewerAnno)) {
         stylesUpdated = true;
       }
       if (existing && (existing.strokeDasharray ?? null) !== (viewerAnno.strokeDasharray ?? null)) {
@@ -355,26 +375,43 @@ export function applyViewerSelectionFromStore(
 }
 
 /**
- * Applies the OpenLIME `underEditing` structural class to locked geometries.
- * Used to surface remote editor social-locks in the 2D viewer.
+ * Applies OpenLIME structural presentation overlays.
+ * Priority: underEditing (remote lock) > ghost (retained weak) > orphan (weak detached) > none.
  */
-export function applyOpenLimeUnderEditing(
+export function applyOpenLimeStructuralPresentation(
   manager: OpenLimeAnnotationManager | null,
-  geometryIdsUnderEditing: string[],
+  options: {
+    geometryIdsUnderEditing?: string[];
+    geometryIdsGhost?: string[];
+    geometryIdsOrphan?: string[];
+  } = {},
 ): void {
   if (!manager) {
     return;
   }
 
-  const underEditing = new Set(geometryIdsUnderEditing);
+  const underEditing = new Set(options.geometryIdsUnderEditing ?? []);
+  const ghost = new Set(options.geometryIdsGhost ?? []);
+  const orphan = new Set(options.geometryIdsOrphan ?? []);
   const allIds = manager.getAnnotations().map((a) => a.id);
+
+  const resolveNextClass = (id: string): string | null => {
+    if (underEditing.has(id)) {
+      return 'underEditing';
+    }
+    if (ghost.has(id)) {
+      return 'ghost';
+    }
+    if (orphan.has(id)) {
+      return 'orphan';
+    }
+    return null;
+  };
 
   if (typeof manager.setAnnotationStructuralClass === 'function') {
     allIds.forEach((id) => {
-      const anno = manager.getAnnotationById(id) as
-        | (OpenLimeSyncedAnnotation & { structuralClass?: string | null })
-        | null;
-      const nextClass = underEditing.has(id) ? 'underEditing' : null;
+      const anno = manager.getAnnotationById(id) as OpenLimeSyncedAnnotation | null;
+      const nextClass = resolveNextClass(id);
       if ((anno?.structuralClass ?? null) === nextClass) {
         return;
       }
@@ -386,11 +423,11 @@ export function applyOpenLimeUnderEditing(
 
   // Fallback for older OpenLIME typings/builds without setAnnotationStructuralClass.
   allIds.forEach((id) => {
-    const anno = manager.getAnnotationById(id) as (OpenLimeSyncedAnnotation & { structuralClass?: string | null }) | null;
+    const anno = manager.getAnnotationById(id) as OpenLimeSyncedAnnotation | null;
     if (!anno) {
       return;
     }
-    const nextClass = underEditing.has(id) ? 'underEditing' : null;
+    const nextClass = resolveNextClass(id);
     if ((anno.structuralClass ?? null) === nextClass) {
       return;
     }
@@ -398,4 +435,16 @@ export function applyOpenLimeUnderEditing(
     anno.needsUpdate = true;
   });
   manager.viewer?.redraw?.();
+}
+
+/**
+ * Applies the OpenLIME `underEditing` structural class to locked geometries.
+ * Used to surface remote editor social-locks in the 2D viewer.
+ * @deprecated Prefer {@link applyOpenLimeStructuralPresentation}.
+ */
+export function applyOpenLimeUnderEditing(
+  manager: OpenLimeAnnotationManager | null,
+  geometryIdsUnderEditing: string[],
+): void {
+  applyOpenLimeStructuralPresentation(manager, { geometryIdsUnderEditing });
 }

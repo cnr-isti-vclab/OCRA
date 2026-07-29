@@ -1,7 +1,15 @@
 import type { AnnotationData, AnnotationGeometry, AnnotationLink } from 'shared/annotation-types';
 
-/** How an annotation entity is drawn in viewer/panel (Plain = normal, Ghost = retained weak, None = hidden). */
+/**
+ * How an annotation entity is drawn in viewer/panel.
+ * - plain: normal active entity
+ * - ghost: weak endpoint retained by a strong incident link
+ * - none: weak orphan (no strong incident link) — shown only when erased are visible
+ */
 export type AnnotationRenderingMode = 'plain' | 'ghost' | 'none';
+
+/** OpenLIME structural class used for recoverable weak geometries. */
+export type AnnotationStructuralClass = 'ghost' | 'orphan';
 
 export interface ErasableEntityRef {
   erasableAt: string | null;
@@ -40,26 +48,46 @@ export function resolveDataRenderingMode(
   return resolveRenderingMode(datum, incidentLinks);
 }
 
-/** Whether a rendering mode is visible for the current show-ghost toggle. None is never shown. */
+/** Maps rendering mode to OpenLIME structural class (plain has none). */
+export function structuralClassForRenderingMode(
+  mode: AnnotationRenderingMode | undefined,
+): AnnotationStructuralClass | null {
+  if (mode === 'ghost') {
+    return 'ghost';
+  }
+  if (mode === 'none') {
+    return 'orphan';
+  }
+  return null;
+}
+
+/** Ghost and orphan are selectable only for restore / unerase. */
+export function isRecoverableRenderingMode(
+  mode: AnnotationRenderingMode | undefined,
+): boolean {
+  return mode === 'ghost' || mode === 'none';
+}
+
+/**
+ * Whether a rendering mode is visible for the show-erased toggle.
+ * Toggle off: plain only. Toggle on: plain + ghost + orphan (none).
+ */
 export function isRenderingModeVisible(
   mode: AnnotationRenderingMode,
-  showGhost: boolean,
+  showErased: boolean,
 ): boolean {
-  if (mode === 'none') {
-    return false;
+  if (mode === 'plain') {
+    return true;
   }
-  if (mode === 'ghost') {
-    return showGhost;
-  }
-  return true;
+  return showErased;
 }
 
 export function passesRenderingVisibility(
   entity: ErasableEntityRef,
   incidentLinks: Iterable<AnnotationLink>,
-  showGhost: boolean,
+  showErased: boolean,
 ): boolean {
-  return isRenderingModeVisible(resolveRenderingMode(entity, incidentLinks), showGhost);
+  return isRenderingModeVisible(resolveRenderingMode(entity, incidentLinks), showErased);
 }
 
 /** Strong (non-erasable) links incident on an entity — used for relationship indexes and labels. */
@@ -76,8 +104,25 @@ export function hasStrongIncidentLinks(links: Iterable<AnnotationLink>): boolean
   return false;
 }
 
-export function resolveShowGhost(criteria: { showGhost?: boolean; includeErasable?: boolean }): boolean {
-  return criteria.showGhost ?? criteria.includeErasable ?? false;
+/**
+ * Resolves the show-erased toggle from selection criteria.
+ * Prefer `showErased`; `showGhost` / `includeErasable` remain as aliases.
+ */
+export function resolveShowErased(criteria: {
+  showErased?: boolean;
+  showGhost?: boolean;
+  includeErasable?: boolean;
+}): boolean {
+  return criteria.showErased ?? criteria.showGhost ?? criteria.includeErasable ?? false;
+}
+
+/** @deprecated Use {@link resolveShowErased}. */
+export function resolveShowGhost(criteria: {
+  showErased?: boolean;
+  showGhost?: boolean;
+  includeErasable?: boolean;
+}): boolean {
+  return resolveShowErased(criteria);
 }
 
 export function buildRenderingModeMaps(

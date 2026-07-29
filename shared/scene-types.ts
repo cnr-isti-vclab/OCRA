@@ -37,6 +37,11 @@ export interface ViewerAnnotation {
   label: string;
   /** Optional semantic class reference used by viewers for class-driven styling. */
   semanticClass?: string | null;
+  /**
+   * Optional structural class for presentation overlays (e.g. `ghost`, `underEditing`).
+   * Applied on top of semantic styling by OpenLIME.
+   */
+  structuralClass?: string | null;
   /** Optional dashed stroke pattern for viewer-side semantic overlays. */
   strokeDasharray?: string | null;
   /** Type of annotation */

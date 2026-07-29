@@ -8,6 +8,7 @@ import {
   buildGeometryLabelDisplay,
   type ActiveAnnotationSelection,
 } from '../../stores/annotation-selection';
+import { structuralClassForRenderingMode } from '../../stores/annotation-rendering';
 
 function shapeToViewerType(shape: AnnotationShape): ViewerAnnotationShapeType {
   switch (shape.type) {
@@ -83,11 +84,16 @@ export function geometryToViewerAnnotation(
       dataIds.some((dataId) => selection.dataById.get(dataId)?.class === classId),
     ) ?? null;
 
+  const renderingMode = selection.renderingModeByGeometryId.get(geometry.id);
+  const structuralClass = structuralClassForRenderingMode(renderingMode);
+  const multiClassDash = semanticClass !== null && linkedClasses.length > 1 ? '8,6' : null;
+
   return {
     id: geometry.id,
     label: pickDisplayLabel(geometry.id, selection, focusedDataIds),
     semanticClass,
-    strokeDasharray: semanticClass !== null && linkedClasses.length > 1 ? '8,6' : null,
+    structuralClass,
+    strokeDasharray: structuralClass === 'orphan' ? '6,4' : multiClassDash,
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
     description: datum?.description,

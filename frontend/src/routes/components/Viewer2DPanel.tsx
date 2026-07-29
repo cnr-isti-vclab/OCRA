@@ -32,7 +32,7 @@ import {
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
 import {
-  applyOpenLimeUnderEditing,
+  applyOpenLimeStructuralPresentation,
   applyOpenLimeSelection,
   syncOpenLimeAnnotations,
   type OpenLimeLabelVisibility,
@@ -354,6 +354,38 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       [activeSocialLocks, currentStreamId],
     );
 
+    const ghostGeometryIds = useMemo(
+      () =>
+        [...activeAnnotationSelection.renderingModeByGeometryId.entries()]
+          .filter(([, mode]) => mode === 'ghost')
+          .map(([id]) => id),
+      [activeAnnotationSelection.renderingModeByGeometryId],
+    );
+
+    const orphanGeometryIds = useMemo(
+      () =>
+        [...activeAnnotationSelection.renderingModeByGeometryId.entries()]
+          .filter(([, mode]) => mode === 'none')
+          .map(([id]) => id),
+      [activeAnnotationSelection.renderingModeByGeometryId],
+    );
+
+    const recoverableGeometryIdSet = useMemo(
+      () => new Set([...ghostGeometryIds, ...orphanGeometryIds]),
+      [ghostGeometryIds, orphanGeometryIds],
+    );
+
+    const applyStructuralPresentation = useCallback(
+      (annotationManager: OpenLimeAnnotationManager | null) => {
+        applyOpenLimeStructuralPresentation(annotationManager, {
+          geometryIdsUnderEditing: lockedGeometryIds,
+          geometryIdsGhost: ghostGeometryIds,
+          geometryIdsOrphan: orphanGeometryIds,
+        });
+      },
+      [ghostGeometryIds, lockedGeometryIds, orphanGeometryIds],
+    );
+
     const highlightGeometryIdsRef = useRef(highlightGeometryIds);
     highlightGeometryIdsRef.current = highlightGeometryIds;
 
@@ -391,6 +423,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     };
 
     const captureGeometryEditSnapshot = (geometryId: string) => {
+      if (recoverableGeometryIdSet.has(geometryId)) {
+        return;
+      }
       if (editSnapshotsRef.current.has(geometryId)) {
         return;
       }
@@ -507,6 +542,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
+      if (recoverableGeometryIdSet.has(anno.id)) {
+        editSnapshotsRef.current.delete(anno.id);
+        return;
+      }
+
       const nextShapes = viewerGeometryToShapes(anno.type, anno.geometry);
       const editSnapshot = editSnapshotsRef.current.get(anno.id);
       const baselineShapes =
@@ -618,7 +658,18 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
 
       if (isDeletionSelectingStep && deletionDraft) {
-        const filteredIds = ids.filter((id) => id !== CREATION_DRAFT_GEOMETRY_ID);
+        const filteredIds = ids.filter((id) => {
+          if (id === CREATION_DRAFT_GEOMETRY_ID) {
+            return false;
+          }
+          if (recoverableGeometryIdSet.has(id)) {
+            reportDeletionSelectionBlocked(
+              'Erased annotations can only be restored, not deleted again.',
+            );
+            return false;
+          }
+          return true;
+        });
 
         if (isDeletionGeometryPickActive) {
           const pending = deletionDraft.pendingResolution;
@@ -764,13 +815,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           applyingProgrammaticSelectionRef.current = false;
         });
       }
-      applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
-    }, [lockedGeometryIds, ref, viewerAnnotationsForSync, enableAnnotationEditInteraction]);
+      applyStructuralPresentation(annotationManager);
+    }, [applyStructuralPresentation, lockedGeometryIds, ref, viewerAnnotationsForSync, enableAnnotationEditInteraction]);
 
     const syncGeometryEditorLocks = useCallback(
       async (geometryIds: string[]) => {
+        const editableIds = geometryIds.filter((id) => !recoverableGeometryIdSet.has(id));
         const prev = geometryEditorLockIdsRef.current;
-        const next = new Set(geometryIds);
+        const next = new Set(editableIds);
 
         const toStart = [...next].filter((id) => !prev.has(id));
         const toStop = [...prev].filter((id) => !next.has(id));
@@ -794,7 +846,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
         geometryEditorLockIdsRef.current = next;
       },
-      [startEditorLock, stopEditorLock],
+      [recoverableGeometryIdSet, startEditorLock, stopEditorLock],
     );
 
     useEffect(() => {
@@ -850,12 +902,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           applyingProgrammaticSelectionRef.current = false;
         });
       }
-      // A geometry sync can recreate SVG nodes; re-apply remote underEditing classes.
-      applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+      // A geometry sync can recreate SVG nodes; re-apply structural overlays.
+      applyStructuralPresentation(annotationManager);
     }, [
       annotationManagerRevision,
       viewerAnnotationsForSync,
-      lockedGeometryIds,
+      applyStructuralPresentation,
       ref,
       enableAnnotationEditInteraction,
     ]);
@@ -980,7 +1032,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       void syncGeometryEditorLocks([...focusedGeometryIds]);
     }, [annotationMode, focusedGeometryIds, syncGeometryEditorLocks]);
 
-    // Apply remote geometry editor locks as OpenLIME underEditing style.
+    // Apply structural overlays (remote underEditing + ghost).
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
         return;
@@ -992,11 +1044,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
       isStoreSyncRef.current = true;
       try {
-        applyOpenLimeUnderEditing(annotationManager, lockedGeometryIds);
+        applyStructuralPresentation(annotationManager);
       } finally {
         isStoreSyncRef.current = false;
       }
-    }, [annotationManagerRevision, lockedGeometryIds, ref]);
+    }, [annotationManagerRevision, applyStructuralPresentation, ref]);
 
     useEffect(() => {
       return () => {

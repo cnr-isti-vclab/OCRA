@@ -11,6 +11,7 @@ import { ANNOTATION_PANEL_STYLE_CONFIG } from '../../config/annotationStyles.ts'
 import {
   isDataIdUnderEditorLock,
 } from '../../stores/annotation-social-locks';
+import { isRecoverableRenderingMode } from '../../stores/annotation-rendering';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
@@ -133,8 +134,8 @@ export default function AnnotationPanelEditor({
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
-    showGhost,
-    setShowGhost,
+    showErased,
+    setShowErased,
     sceneAnnotationClassPool,
     vocabularySchemes,
     vocabularyConcepts,
@@ -170,6 +171,8 @@ export default function AnnotationPanelEditor({
     commitDeletionDraft,
     deleting,
     updateData,
+    markDataNonErasable,
+    markGeometryNonErasable,
     startEditorLock,
     stopEditorLock,
   } = useAnnotationStore();
@@ -526,6 +529,10 @@ export default function AnnotationPanelEditor({
   const handleDataClick = (dataId: string, e: React.MouseEvent) => {
     if (isDeletionSelectingStep && deletionDraft) {
       e.stopPropagation();
+      if (isRecoverableRenderingMode(activeAnnotationSelection.renderingModeByDataId.get(dataId))) {
+        reportDeletionSelectionBlocked('Erased annotations can only be restored, not deleted again.');
+        return;
+      }
       applyDeletionDataPick(
         dataId,
         deletionDraft,
@@ -549,6 +556,32 @@ export default function AnnotationPanelEditor({
       return;
     }
     focusData(dataId, e.ctrlKey || e.metaKey);
+  };
+
+  const handleRestoreData = async (datum: AnnotationData) => {
+    try {
+      await markDataNonErasable(datum.id);
+    } catch (err) {
+      console.error('Failed to restore annotation data:', err);
+      setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+    }
+  };
+
+  const focusedRecoverableGeometryIds = useMemo(
+    () =>
+      [...focusedGeometryIds].filter((id) =>
+        isRecoverableRenderingMode(activeAnnotationSelection.renderingModeByGeometryId.get(id)),
+      ),
+    [activeAnnotationSelection.renderingModeByGeometryId, focusedGeometryIds],
+  );
+
+  const handleRestoreFocusedRecoverableGeometries = async () => {
+    try {
+      await Promise.all(focusedRecoverableGeometryIds.map((id) => markGeometryNonErasable(id)));
+    } catch (err) {
+      console.error('Failed to restore annotation geometry:', err);
+      setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
+    }
   };
 
   const handleEditSave = async () => {
@@ -599,6 +632,9 @@ export default function AnnotationPanelEditor({
   };
 
   const handleEditStart = async (datum: AnnotationData) => {
+    if (isRecoverableRenderingMode(activeAnnotationSelection.renderingModeByDataId.get(datum.id))) {
+      return;
+    }
     setEditingDraft({
       dataId: datum.id,
       expectedVersion: datum.version,
@@ -799,12 +835,12 @@ export default function AnnotationPanelEditor({
         <div className="mb-3">
           <button
             type="button"
-            className={`btn btn-sm w-100 ${showGhost ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setShowGhost(!showGhost)}
-            aria-pressed={showGhost}
+            className={`btn btn-sm w-100 ${showErased ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => setShowErased(!showErased)}
+            aria-pressed={showErased}
           >
-            <i className={`bi ${showGhost ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
-            {showGhost ? 'Erased visible (ghost)' : 'Erased hidden'}
+            <i className={`bi ${showErased ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
+            {showErased ? 'Erased visible' : 'Erased hidden'}
           </button>
         </div>
       ) : null}
@@ -847,16 +883,37 @@ export default function AnnotationPanelEditor({
               Selecting geometries for the annotation below. Other data rows are hidden until you press OK or Cancel.
             </div>
           ) : null}
+          {focusedRecoverableGeometryIds.length > 0 ? (
+            <div className="alert alert-secondary py-2 px-3 small mb-2 d-flex justify-content-between align-items-center gap-2">
+              <span>
+                Selected geometry is erased (ghost or orphan). Restore it to edit again.
+              </span>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary flex-shrink-0"
+                onClick={() => {
+                  void handleRestoreFocusedRecoverableGeometries();
+                }}
+              >
+                <i className="bi bi-arrow-counterclockwise me-1" aria-hidden />
+                Restore
+              </button>
+            </div>
+          ) : null}
           <div className="list-group">
             {visibleData.map((datum) => {
               const linkedCount =
                 activeAnnotationSelection.geometryIdsByDataId.get(datum.id)?.length ?? 0;
+              const renderingMode = activeAnnotationSelection.renderingModeByDataId.get(datum.id);
+              const isGhost = renderingMode === 'ghost';
+              const isOrphan = renderingMode === 'none';
+              const isRecoverable = isGhost || isOrphan;
               const isSelected = isDeletionSelectingStep
                 ? deletionHighlightDataIdSet.has(datum.id)
                 : isDataFocused(datum.id);
               const isPickFocus = isDeletionGeometryPickActive
                 && deletionDraft?.pendingResolution?.endpointId === datum.id;
-              const isUnderEditing = isDataIdUnderEditorLock(
+              const isUnderEditing = !isRecoverable && isDataIdUnderEditorLock(
                 datum.id,
                 activeSocialLocks,
                 activeAnnotationSelection.geometryIdsByDataId,
@@ -867,6 +924,16 @@ export default function AnnotationPanelEditor({
                 ? {
                     background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundUnderEditing,
                     text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textUnderEditing,
+                  }
+                : isGhost
+                ? {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundGhost,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textGhost,
+                  }
+                : isOrphan
+                ? {
+                    background: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.backgroundOrphan,
+                    text: ANNOTATION_PANEL_STYLE_CONFIG.dataItem.textOrphan,
                   }
                 : isSelected || isPickFocus
                 ? {
@@ -888,30 +955,54 @@ export default function AnnotationPanelEditor({
                     color: itemColors.text,
                     outline: isPickFocus ? '2px solid var(--bs-primary)' : undefined,
                     outlineOffset: isPickFocus ? '-2px' : undefined,
+                    opacity: isRecoverable ? 0.92 : undefined,
                   }}
                 >
                   <div className="d-flex flex-column gap-1 w-100">
                     <div className="d-flex justify-content-between align-items-center w-100">
-                      <span className="badge bg-secondary">
-                        {linkedCount} geom{linkedCount === 1 ? '' : 's'}
-                      </span>
+                      <div className="d-flex gap-1 align-items-center">
+                        <span className="badge bg-secondary">
+                          {linkedCount} geom{linkedCount === 1 ? '' : 's'}
+                        </span>
+                        {isGhost ? (
+                          <span className="badge text-bg-light border">ghost</span>
+                        ) : null}
+                        {isOrphan ? (
+                          <span className="badge text-bg-light border">orphan</span>
+                        ) : null}
+                      </div>
                       <div className="d-flex gap-1 flex-shrink-0">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFocusSelection(
-                              { geometryIds: [], dataIds: [datum.id] },
-                              () => {
-                                void handleEditStart(datum);
-                              },
-                            );
-                          }}
-                          disabled={creating || isDeletionWizardActive}
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </button>
+                        {isRecoverable ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            title="Restore erased annotation data"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRestoreData(datum);
+                            }}
+                            disabled={creating || isDeletionWizardActive}
+                          >
+                            <i className="bi bi-arrow-counterclockwise"></i>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFocusSelection(
+                                { geometryIds: [], dataIds: [datum.id] },
+                                () => {
+                                  void handleEditStart(datum);
+                                },
+                              );
+                            }}
+                            disabled={creating || isDeletionWizardActive}
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div
