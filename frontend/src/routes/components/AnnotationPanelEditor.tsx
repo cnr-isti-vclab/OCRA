@@ -133,6 +133,8 @@ export default function AnnotationPanelEditor({
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
+    showGhost,
+    setShowGhost,
     sceneAnnotationClassPool,
     vocabularySchemes,
     vocabularyConcepts,
@@ -793,7 +795,19 @@ export default function AnnotationPanelEditor({
       )}
     >
 
-      {/*\n        NOTE: \"show/hide erased\" toggle intentionally disabled for now.\n        Default behavior is to hide erasable entities; later this control will be\n        reintroduced alongside recovery/restore UI.\n\n        <div className=\"mb-3\">\n          <button\n            type=\"button\"\n            className={`btn btn-sm w-100 ${hideErasable ? 'btn-primary' : 'btn-outline-secondary'}`}\n            onClick={handleHideErasableToggle}\n            aria-pressed={hideErasable}\n          >\n            <i className={`bi ${hideErasable ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden />\n            {hideErasable ? 'Erased hidden' : 'Show all (incl. erased)'}\n          </button>\n        </div>\n      */}
+      {!isCreationWizardActive && !isDeletionWizardActive ? (
+        <div className="mb-3">
+          <button
+            type="button"
+            className={`btn btn-sm w-100 ${showGhost ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => setShowGhost(!showGhost)}
+            aria-pressed={showGhost}
+          >
+            <i className={`bi ${showGhost ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
+            {showGhost ? 'Erased visible (ghost)' : 'Erased hidden'}
+          </button>
+        </div>
+      ) : null}
 
       {isCreationWizardActive ? (
         isCreationDataStep && creationDraft ? (

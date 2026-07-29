@@ -107,8 +107,8 @@ export default function AnnotationStoreTestPanel() {
   };
 
   const applyDemoFilter = () => {
-    selectActiveAnnotations({ includeErasable: false });
-    appendScriptLog('Demo filter: includeErasable=false (non-erasable only)', 'success');
+    selectActiveAnnotations({ showGhost: false });
+    appendScriptLog('Demo filter: showGhost=false (plain only)', 'success');
   };
 
   const criteriaSummary = useMemo(() => {

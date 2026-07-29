@@ -194,7 +194,7 @@ export class AnnotationStore {
   private client: AnnotationApiClient;
   private sceneId: string;
   // Default UX: hide erasable entities (soft-deleted) unless explicitly requested.
-  private selectionCriteria: SelectionCriteria = { includeErasable: false };
+  private selectionCriteria: SelectionCriteria = { showGhost: false };
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
   private creationDraft: AnnotationCreationDraft | null = null;
   private rememberedCreationSetup: AnnotationCreationSetupDraft | null = null;
@@ -909,7 +909,7 @@ export class AnnotationStore {
         return { ok: false, message: 'Deletion was interrupted by a scene reload.' };
       }
 
-      // Soft-deleted entities drop out of the active set via includeErasable=false.
+      // Soft-deleted entities drop out of the active set via showGhost=false (Plain only).
       this.recomputeActiveSelection();
       this.deletionDraft = null;
       this.bump();
@@ -1269,14 +1269,14 @@ export class AnnotationStore {
    * Tear down the current scene (SSE, maps, in-flight writes) and load another scene
    * on a fresh {@link AnnotationApiClient}. Reuses the same store instance and callbacks.
    */
-  async loadScene(sceneId: string, includeErasable = false): Promise<void> {
+  async loadScene(sceneId: string, includeErasable = true): Promise<void> {
     this.releaseCurrentScene();
     this.sceneId = sceneId;
     this.client = new AnnotationApiClient({ projectId: this.projectId, sceneId });
     await this.init(includeErasable);
   }
 
-  async init(includeErasable = false): Promise<void> {
+  async init(includeErasable = true): Promise<void> {
     this.generation += 1;
     const myGen = this.generation;
     this.isSaving.clear();
@@ -1344,7 +1344,7 @@ export class AnnotationStore {
       allProjectDataLoaded: false,
     };
     this.isLoadingAdditionalData = false;
-    this.selectionCriteria = { includeErasable: false };
+    this.selectionCriteria = { showGhost: false };
     this.activeSelection = createEmptyActiveSelection();
     this.creationDraft = null;
     this.deletionDraft = null;
@@ -1356,7 +1356,7 @@ export class AnnotationStore {
 
   // ── On-demand loading ─────────────────────────────────────────────────────
 
-  async loadProjectData(includeErasable = false): Promise<void> {
+  async loadProjectData(includeErasable = true): Promise<void> {
     if (this.meta.allProjectDataLoaded || this.meta.loadingScopes.has(PROJECT_DATA_SCOPE)) {
       return;
     }

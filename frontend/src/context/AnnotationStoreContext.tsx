@@ -32,6 +32,7 @@ import {
   type ActiveAnnotationSelection,
   type SelectionCriteria,
 } from '../stores/annotation-selection';
+import { resolveShowGhost } from '../stores/annotation-rendering';
 import { UNCLASSIFIED_ANNOTATION_CLASS } from '../stores/annotation-class-filter';
 import type { AnnotationLinkViewMode } from '../features/annotation-link-view/annotationLinkViewMode';
 import {
@@ -93,6 +94,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   activeLinks: AnnotationLink[];
   activeAnnotationSelection: ActiveAnnotationSelection;
   currentSelectionCriteria: Readonly<SelectionCriteria>;
+  showGhost: boolean;
+  setShowGhost: (showGhost: boolean) => void;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
   linkViewMode: AnnotationLinkViewMode;
   setLinkViewMode: (mode: AnnotationLinkViewMode) => void;
@@ -561,6 +564,22 @@ export function AnnotationStoreProvider({
     [store, revision],
   );
 
+  const showGhost = useMemo(
+    () => resolveShowGhost(currentSelectionCriteria),
+    [currentSelectionCriteria],
+  );
+
+  const setShowGhost = useCallback((nextShowGhost: boolean) => {
+    const current = storeRef.current;
+    if (!current) {
+      return;
+    }
+    current.selectActiveAnnotations({
+      ...current.currentSelectionCriteria,
+      showGhost: nextShowGhost,
+    });
+  }, []);
+
   const activeGeometries = useMemo(
     () => [...activeAnnotationSelection.geometriesById.values()],
     [activeAnnotationSelection],
@@ -994,6 +1013,8 @@ export function AnnotationStoreProvider({
     activeLinks,
     activeAnnotationSelection,
     currentSelectionCriteria,
+    showGhost,
+    setShowGhost,
     selectActiveAnnotations,
     linkViewMode,
     setLinkViewMode,

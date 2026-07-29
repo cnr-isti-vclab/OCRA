@@ -5,6 +5,13 @@ import type {
   AnnotationScopeType,
   ResolvedAnnotation,
 } from 'shared/annotation-types';
+import {
+  buildRenderingModeMaps,
+  hasStrongIncidentLinks,
+  passesRenderingVisibility,
+  resolveShowGhost,
+  type AnnotationRenderingMode,
+} from './annotation-rendering';
 
 export interface AnnotationStoreMaps {
   geometries: Map<string, AnnotationGeometry>;
@@ -47,13 +54,20 @@ export interface LinkPredicate {
 /**
  * Declarative filter for which geometries, data, and links are "active" in the UI.
  * Omitted predicates do not filter that entity kind (all loaded entities of that kind qualify,
- * subject to {@link SelectionCriteria.includeErasable}).
+ * subject to {@link SelectionCriteria.showGhost} rendering visibility).
  */
 export interface SelectionCriteria {
   geometry?: GeometryPredicate;
   data?: DataPredicate;
   link?: LinkPredicate;
-  /** When false, entities with `erasableAt` set are excluded from active sets. Default true. */
+  /**
+   * When true, weak entities retained by a strong incident link (Ghost) are visible.
+   * Weak orphans (None) are never shown. Default false.
+   */
+  showGhost?: boolean;
+  /**
+   * @deprecated Use {@link SelectionCriteria.showGhost}. When true, equivalent to `showGhost: true`.
+   */
   includeErasable?: boolean;
   /**
    * How links are added when {@link LinkPredicate} is omitted.
@@ -79,6 +93,8 @@ export interface ActiveAnnotationSelection {
   linksByDataId: ReadonlyMap<string, AnnotationLink[]>;
   geometryIdsByDataId: ReadonlyMap<string, string[]>;
   dataIdsByGeometryId: ReadonlyMap<string, string[]>;
+  renderingModeByGeometryId: ReadonlyMap<string, AnnotationRenderingMode>;
+  renderingModeByDataId: ReadonlyMap<string, AnnotationRenderingMode>;
 }
 
 export const EMPTY_SELECTION_CRITERIA: SelectionCriteria = {};
@@ -95,6 +111,8 @@ export function createEmptyActiveSelection(): ActiveAnnotationSelection {
     linksByDataId: new Map(),
     geometryIdsByDataId: new Map(),
     dataIdsByGeometryId: new Map(),
+    renderingModeByGeometryId: new Map(),
+    renderingModeByDataId: new Map(),
   };
 }
 
@@ -121,16 +139,6 @@ function buildLinkIndexes(links: Iterable<AnnotationLink>) {
   return { linksByGeometryId, linksByDataId };
 }
 
-function passesErasableFilter(
-  erasableAt: string | null,
-  includeErasable: boolean,
-): boolean {
-  if (includeErasable) {
-    return true;
-  }
-  return erasableAt === null;
-}
-
 function matchesLinkPresence(
   presence: LinkPresence | undefined,
   hasLinks: boolean,
@@ -148,12 +156,7 @@ function matchesGeometryPredicate(
   geometry: AnnotationGeometry,
   predicate: GeometryPredicate | undefined,
   ctx: SelectionEvaluationContext,
-  includeErasable: boolean,
 ): boolean {
-  if (!passesErasableFilter(geometry.erasableAt, includeErasable)) {
-    return false;
-  }
-
   if (!predicate) {
     return true;
   }
@@ -175,8 +178,8 @@ function matchesGeometryPredicate(
     return false;
   }
 
-  const hasLinks = (ctx.linksByGeometryId.get(geometry.id)?.length ?? 0) > 0;
-  if (!matchesLinkPresence(predicate.linkPresence, hasLinks)) {
+  const incidentLinks = ctx.linksByGeometryId.get(geometry.id) ?? [];
+  if (!matchesLinkPresence(predicate.linkPresence, hasStrongIncidentLinks(incidentLinks))) {
     return false;
   }
 
@@ -191,12 +194,7 @@ function matchesDataPredicate(
   datum: AnnotationData,
   predicate: DataPredicate | undefined,
   ctx: SelectionEvaluationContext,
-  includeErasable: boolean,
 ): boolean {
-  if (!passesErasableFilter(datum.erasableAt, includeErasable)) {
-    return false;
-  }
-
   if (!predicate) {
     return true;
   }
@@ -227,8 +225,8 @@ function matchesDataPredicate(
     return false;
   }
 
-  const hasLinks = (ctx.linksByDataId.get(datum.id)?.length ?? 0) > 0;
-  if (!matchesLinkPresence(predicate.linkPresence, hasLinks)) {
+  const incidentLinks = ctx.linksByDataId.get(datum.id) ?? [];
+  if (!matchesLinkPresence(predicate.linkPresence, hasStrongIncidentLinks(incidentLinks))) {
     return false;
   }
 
@@ -243,9 +241,8 @@ function matchesLinkPredicate(
   link: AnnotationLink,
   predicate: LinkPredicate,
   ctx: SelectionEvaluationContext,
-  includeErasable: boolean,
 ): boolean {
-  if (!passesErasableFilter(link.erasableAt, includeErasable)) {
+  if (link.erasableAt !== null && predicate.erasable !== true) {
     return false;
   }
 
@@ -271,29 +268,6 @@ function matchesLinkPredicate(
   }
 
   return true;
-}
-
-/**
- * When hiding erasable entities, drop geometries that only exist via strong links
- * to inactive data (avoids shapes with no active labels).
- * Geometries with no remaining non-erasable links are orphans and stay visible
- * (e.g. after Link+Data delete marks the link erasable).
- */
-function excludeGeometriesWithoutActiveData(
-  geometryIds: Set<string>,
-  dataIds: Set<string>,
-  linkIndexes: ReturnType<typeof buildLinkIndexes>,
-): void {
-  for (const geometryId of [...geometryIds]) {
-    const geometryLinks = linkIndexes.linksByGeometryId.get(geometryId) ?? [];
-    if (geometryLinks.length === 0) {
-      continue;
-    }
-    const hasActiveDataLink = geometryLinks.some((link) => dataIds.has(link.dataId));
-    if (!hasActiveDataLink) {
-      geometryIds.delete(geometryId);
-    }
-  }
 }
 
 function materializeActiveSelection(
@@ -358,6 +332,17 @@ function materializeActiveSelection(
     geometryIdsByDataId.set(dataId, uniqueGeometryIds);
   }
 
+  const { renderingModeByGeometryId, renderingModeByDataId } = buildRenderingModeMaps(
+    geometryIds,
+    dataIds,
+    {
+      geometries: geometriesById,
+      data: dataById,
+      linksByGeometryId: linkIndexes.linksByGeometryId,
+      linksByDataId: linkIndexes.linksByDataId,
+    },
+  );
+
   return {
     geometryIds,
     dataIds,
@@ -369,6 +354,8 @@ function materializeActiveSelection(
     linksByDataId: activeLinksByDataId,
     geometryIdsByDataId,
     dataIdsByGeometryId,
+    renderingModeByGeometryId,
+    renderingModeByDataId,
   };
 }
 
@@ -380,15 +367,9 @@ export function evaluateActiveSelection(
   sceneId: string,
   criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA,
 ): ActiveAnnotationSelection {
-  const includeErasable = criteria.includeErasable ?? true;
+  const showGhost = resolveShowGhost(criteria);
   const linkMode = criteria.linkMode ?? 'bothEndpoints';
-  // When erasable entities are hidden, indexes must ignore erasable links so a
-  // geometry whose only links were soft-deleted is treated as an orphan (kept),
-  // not as "linked only to erased data" (hidden until reload).
-  const linksForIndexes = includeErasable
-    ? maps.links.values()
-    : [...maps.links.values()].filter((link) => link.erasableAt === null);
-  const linkIndexes = buildLinkIndexes(linksForIndexes);
+  const linkIndexes = buildLinkIndexes(maps.links.values());
   const ctx: SelectionEvaluationContext = {
     sceneId,
     linksByGeometryId: linkIndexes.linksByGeometryId,
@@ -397,33 +378,36 @@ export function evaluateActiveSelection(
 
   const geometryIds = new Set<string>();
   for (const geometry of maps.geometries.values()) {
-    if (matchesGeometryPredicate(geometry, criteria.geometry, ctx, includeErasable)) {
+    const incidentLinks = linkIndexes.linksByGeometryId.get(geometry.id) ?? [];
+    if (!passesRenderingVisibility(geometry, incidentLinks, showGhost)) {
+      continue;
+    }
+    if (matchesGeometryPredicate(geometry, criteria.geometry, ctx)) {
       geometryIds.add(geometry.id);
     }
   }
 
   const dataIds = new Set<string>();
   for (const datum of maps.data.values()) {
-    if (matchesDataPredicate(datum, criteria.data, ctx, includeErasable)) {
+    const incidentLinks = linkIndexes.linksByDataId.get(datum.id) ?? [];
+    if (!passesRenderingVisibility(datum, incidentLinks, showGhost)) {
+      continue;
+    }
+    if (matchesDataPredicate(datum, criteria.data, ctx)) {
       dataIds.add(datum.id);
     }
-  }
-
-  if (!includeErasable) {
-    // This step excludes geometries that would otherwise be active solely by being linked to erased data.
-    excludeGeometriesWithoutActiveData(geometryIds, dataIds, linkIndexes);
   }
 
   const linkIds = new Set<string>();
   if (criteria.link) {
     for (const link of maps.links.values()) {
-      if (matchesLinkPredicate(link, criteria.link, ctx, includeErasable)) {
+      if (matchesLinkPredicate(link, criteria.link, ctx)) {
         linkIds.add(link.id);
       }
     }
   } else if (linkMode !== 'independent') {
     for (const link of maps.links.values()) {
-      if (!passesErasableFilter(link.erasableAt, includeErasable)) {
+      if (link.erasableAt !== null) {
         continue;
       }
 

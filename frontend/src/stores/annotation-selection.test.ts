@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { AnnotationData, AnnotationGeometry, AnnotationLink } from 'shared/annotation-types';
 import { evaluateActiveSelection } from './annotation-selection';
 
-function geometry(id: string): AnnotationGeometry {
+const ERASED = '2026-01-02T00:00:00.000Z';
+
+function geometry(id: string, erasableAt: string | null = null): AnnotationGeometry {
   return {
     id,
     projectId: 'p1',
@@ -10,8 +12,8 @@ function geometry(id: string): AnnotationGeometry {
     referenceType: 'scene',
     referenceId: 's1',
     version: 0,
-    erasableAt: null,
-    erasableBy: null,
+    erasableAt,
+    erasableBy: erasableAt ? 'u1' : null,
     createdAt: '2026-01-01T00:00:00.000Z',
     createdBy: 'u1',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -60,31 +62,63 @@ function link(
   };
 }
 
-describe('evaluateActiveSelection after Link+Data soft-delete', () => {
-  it('keeps geometry when its link and data are erasable (orphan shape)', () => {
+describe('evaluateActiveSelection rendering visibility', () => {
+  it('keeps plain geometry when its only links are weak (orphan shape)', () => {
     const maps = {
       geometries: new Map([['g1', geometry('g1')]]),
-      data: new Map([['d1', datum('d1', '2026-01-02T00:00:00.000Z')]]),
-      links: new Map([['l1', link('l1', 'g1', 'd1', '2026-01-02T00:00:00.000Z')]]),
+      data: new Map([['d1', datum('d1', ERASED)]]),
+      links: new Map([['l1', link('l1', 'g1', 'd1', ERASED)]]),
     };
 
-    const selection = evaluateActiveSelection(maps, 's1', { includeErasable: false });
+    const selection = evaluateActiveSelection(maps, 's1', { showGhost: false });
 
     expect([...selection.geometryIds]).toEqual(['g1']);
     expect([...selection.dataIds]).toEqual([]);
     expect([...selection.linkIds]).toEqual([]);
+    expect(selection.renderingModeByGeometryId.get('g1')).toBe('plain');
   });
 
-  it('hides geometry that still has a strong link only to inactive data', () => {
+  it('keeps plain geometry visible when a strong link points to ghost data (toggle off)', () => {
     const maps = {
       geometries: new Map([['g1', geometry('g1')]]),
-      data: new Map([['d1', datum('d1', '2026-01-02T00:00:00.000Z')]]),
-      // Link still strong while data is erasable — geometry should not stay as a labeled orphan.
+      data: new Map([['d1', datum('d1', ERASED)]]),
       links: new Map([['l1', link('l1', 'g1', 'd1', null)]]),
     };
 
-    const selection = evaluateActiveSelection(maps, 's1', { includeErasable: false });
+    const hidden = evaluateActiveSelection(maps, 's1', { showGhost: false });
+    expect([...hidden.geometryIds]).toEqual(['g1']);
+    expect([...hidden.dataIds]).toEqual([]);
+    expect(hidden.renderingModeByGeometryId.get('g1')).toBe('plain');
 
+    const withGhost = evaluateActiveSelection(maps, 's1', { showGhost: true });
+    expect([...withGhost.geometryIds]).toEqual(['g1']);
+    expect([...withGhost.dataIds]).toEqual(['d1']);
+    expect([...withGhost.linkIds]).toEqual(['l1']);
+    expect(withGhost.renderingModeByDataId.get('d1')).toBe('ghost');
+  });
+
+  it('shows ghost geometry when retained by a strong link and toggle is on', () => {
+    const maps = {
+      geometries: new Map([['g1', geometry('g1', ERASED)]]),
+      data: new Map([['d1', datum('d1')]]),
+      links: new Map([['l1', link('l1', 'g1', 'd1', null)]]),
+    };
+
+    expect([...evaluateActiveSelection(maps, 's1', { showGhost: false }).geometryIds]).toEqual([]);
+    const selection = evaluateActiveSelection(maps, 's1', { showGhost: true });
+    expect([...selection.geometryIds]).toEqual(['g1']);
+    expect(selection.renderingModeByGeometryId.get('g1')).toBe('ghost');
+  });
+
+  it('hides weak orphans (none mode) even when toggle is on', () => {
+    const maps = {
+      geometries: new Map([['g1', geometry('g1', ERASED)]]),
+      data: new Map([['d1', datum('d1', ERASED)]]),
+      links: new Map([['l1', link('l1', 'g1', 'd1', ERASED)]]),
+    };
+
+    const selection = evaluateActiveSelection(maps, 's1', { showGhost: true });
     expect([...selection.geometryIds]).toEqual([]);
+    expect([...selection.dataIds]).toEqual([]);
   });
 });

@@ -41,10 +41,10 @@ function pickDisplayLabel(
   const display = buildGeometryLabelDisplay(geometryId, selection, focusedDataIds);
   const selectedLabels = display.labels.filter((_, i) => display.selected[i]);
   if (selectedLabels.length > 0) {
-    return selectedLabels.join(', ');
+    return selectedLabels.join(' | ');
   }
   if (display.labels.length > 0) {
-    return display.labels.join(', ');
+    return display.labels.join(' | ');
   }
   return '(no data)';
 }
