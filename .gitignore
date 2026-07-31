@@ -9,6 +9,7 @@ dist-standalone/
 .DS_Store
 *.log
 .claude/
+frontend/docs/
 
 # Environment variables
 # Production environment file (contains secrets) 
