@@ -15,8 +15,8 @@ OCRA is a collaborative platform for annotation and management of 3D assets. It 
 | Frontend | React 19 + TypeScript, Vite, Bootstrap 5 | 3001 |
 | Backend | Node.js + Express, TypeScript via `tsx` | 3002 |
 | Auth | Keycloak (OAuth2 PKCE) | 8081 |
-| App DB | PostgreSQL 15 + Prisma ORM | 5432 |
-| Content/Audit DB | MongoDB 8 (replica set `rs0`) | 27017 |
+| App DB | PostgreSQL 16 + Prisma ORM | 5432 |
+| Content/Audit DB | MongoDB 7 (replica set `rs0`) | 27017 |
 
 ### Data stores and what lives where
 
@@ -64,12 +64,19 @@ Project files (3D models, RTI images) are served at `/assets/projects/<projectId
 ### Option A — Full Docker Compose (recommended for first run)
 
 ```bash
-# Production-style, no source mounts
+# Whole stack. Compose auto-loads docker-compose.override.yml, which publishes
+# the host ports and adds the local Keycloak. No source mounts, no hot-reload:
+# the frontend is a built dist/ served by Nginx.
 docker compose up --build -d app
 
-# Hot-reload dev with source bind-mounts
-docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
+# Same stack minus the `app` container, for native Vite HMR on :3001 (see DEVELOPMENT.md).
+# `keycloak` must be named: `backend` has no depends_on for it but blocks on OIDC discovery.
+docker compose up --build keycloak backend
+npm run dev:frontend
 ```
+
+Keycloak is defined **only** in the override, so `docker compose -f docker-compose.yml up`
+starts a stack with no identity provider and the backend never becomes ready.
 
 ### Option B — Bare services + local processes
 
@@ -98,8 +105,11 @@ After editing `backend/prisma/schema.prisma`, always run `npm run db:generate`.
 Tests require running Postgres and Mongo. Use `npm run services:start` to bring them up.
 
 ```bash
-# Run the full e2e suite (from root or backend/)
+# Root script: only the comprehensive workflow e2e file
 npm test
+
+# Full suite (all of backend/src/test/)
+cd backend && npm test
 
 # Single test file
 cd backend && npx vitest run src/test/project-concurrency.api.test.ts
