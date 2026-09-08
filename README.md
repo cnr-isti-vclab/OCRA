@@ -58,7 +58,8 @@ Notes:
 - [Technical documentation index](doc/README.md)
 - [Architecture](doc/architecture.md)
 - [Workflows](doc/workflow.md)
-- [Local development setup](doc/local-dev-setup.md)
+- [Development workflows](DEVELOPMENT.md)
+- [Local development setup (bare services)](doc/local-dev-setup.md)
 - [Deployment guide](DEPLOYMENT_GUIDE.md)
 
 ## Related Source Code
