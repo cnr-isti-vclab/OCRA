@@ -14,6 +14,7 @@ import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAw
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanelEditor from './components/AnnotationPanelEditor';
 import AnnotationPanelViewer from './components/AnnotationPanelViewer';
+import AnnotationWorkbench from '../features/annotation-workbench/AnnotationWorkbench';
 import {
   resolveAnnotationMode,
   selectionPolicyForAnnotationMode,
@@ -138,6 +139,7 @@ export default function ProjectPage() {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
+  const [annotationWorkbenchOpen, setAnnotationWorkbenchOpen] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [editedPosition, setEditedPosition] = useState<string>('');
@@ -885,6 +887,18 @@ export default function ProjectPage() {
                 />
               </Suspense>
             )}
+            {!annotationTestMode && mode === '2d' && annotationMode === 'edit' && selectedSceneId ? (
+              <AnnotationWorkbench
+                isOpen={annotationWorkbenchOpen}
+                sceneId={selectedSceneId}
+                sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
+                sceneAssets={digitalAssets.map((asset) => ({
+                  id: asset.id,
+                  label: asset.label || asset.title || asset.id,
+                }))}
+                onClose={() => setAnnotationWorkbenchOpen(false)}
+              />
+            ) : null}
           </div>
 
           {/* Sidebar with Tabs */}
@@ -1550,6 +1564,7 @@ export default function ProjectPage() {
                           id: asset.id,
                           label: asset.label || asset.title || asset.id,
                         }))}
+                        onOpenCreationWorkbench={mode === '2d' ? () => setAnnotationWorkbenchOpen(true) : undefined}
                       />
                     )}
                   </div>

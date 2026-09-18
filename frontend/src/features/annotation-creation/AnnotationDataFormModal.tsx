@@ -41,15 +41,16 @@ export default function AnnotationDataFormModal({
       className="modal d-block"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="annotation-data-form-title"
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         display: 'block',
       }}
     >
-      <div className="modal-dialog">
+      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ maxHeight: 'calc(100dvh - 2rem)' }}>
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">{title}</h5>
+            <h5 className="modal-title" id="annotation-data-form-title">{title}</h5>
           </div>
           <div className="modal-body">
             <div className="mb-3">

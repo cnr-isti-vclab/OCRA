@@ -43,6 +43,8 @@ interface AnnotationPanelEditorProps {
   sceneId: string;
   sceneLabel?: string;
   sceneAssets?: Array<{ id: string; label: string }>;
+  /** Opens the viewer-adjacent authoring surface when one is available. */
+  onOpenCreationWorkbench?: () => void;
 }
 
 interface AnnotationDataDraft {
@@ -125,6 +127,7 @@ export default function AnnotationPanelEditor({
   sceneId,
   sceneLabel,
   sceneAssets = [],
+  onOpenCreationWorkbench,
 }: AnnotationPanelEditorProps) {
   const {
     activeData,
@@ -223,6 +226,10 @@ export default function AnnotationPanelEditor({
     if (isDeletionWizardActive || isCreationWizardActive) {
       return;
     }
+    if (onOpenCreationWorkbench) {
+      onOpenCreationWorkbench();
+      return;
+    }
     setCreateSectionExpanded((expanded) => {
       const next = !expanded;
       if (next) {
@@ -246,6 +253,7 @@ export default function AnnotationPanelEditor({
     initCreationDraft,
     isCreationWizardActive,
     isDeletionWizardActive,
+    onOpenCreationWorkbench,
   ]);
 
   const handleDeleteSectionToggle = useCallback(() => {
@@ -347,13 +355,13 @@ export default function AnnotationPanelEditor({
   }, [creationDraft]);
 
   useEffect(() => {
-    if (isCreationDataNew && creationDraft && creationDraft.newDataLabel.trim().length === 0) {
+    if (!onOpenCreationWorkbench && isCreationDataNew && creationDraft && creationDraft.newDataLabel.trim().length === 0) {
       setCreationDataModalOpen(true);
     }
     if (!isCreationDataStep) {
       setCreationDataModalOpen(false);
     }
-  }, [creationDraft, isCreationDataNew, isCreationDataStep]);
+  }, [creationDraft, isCreationDataNew, isCreationDataStep, onOpenCreationWorkbench]);
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
@@ -760,7 +768,7 @@ export default function AnnotationPanelEditor({
               }
             >
               <i className={`bi ${createSectionExpanded ? 'bi-chevron-up' : 'bi-plus-lg'} me-1`} aria-hidden />
-              Create
+              {onOpenCreationWorkbench ? 'Annotate' : 'Create'}
             </button>
             <button
               type="button"
@@ -846,7 +854,13 @@ export default function AnnotationPanelEditor({
       ) : null}
 
       {isCreationWizardActive ? (
-        isCreationDataStep && creationDraft ? (
+        onOpenCreationWorkbench ? (
+          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+            <p className="text-muted fst-italic text-center px-3">
+              Continue the annotation workflow in the workbench beside the viewer.
+            </p>
+          </div>
+        ) : isCreationDataStep && creationDraft ? (
           <div className="flex-grow-1 overflow-auto d-flex flex-column">
             <AnnotationCreationDataStep
               draft={creationDraft}

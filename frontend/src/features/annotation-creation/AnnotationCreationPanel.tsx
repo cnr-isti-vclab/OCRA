@@ -100,6 +100,54 @@ interface AnnotationCreationPanelProps {
   onCreate: () => void;
   onBack: () => void;
   onNext: () => void;
+  /** Render actions in an external persistent footer instead of this panel. */
+  showActions?: boolean;
+}
+
+export interface AnnotationCreationActionBarProps {
+  draft: AnnotationCreationDraft;
+  creating: boolean;
+  onCreate: () => void;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+/** Shared workflow actions, usable in either an inline panel or a sticky workbench footer. */
+export function AnnotationCreationActionBar({
+  draft,
+  creating,
+  onCreate,
+  onBack,
+  onNext,
+}: AnnotationCreationActionBarProps) {
+  const isSetup = draft.step === 'setup';
+  const isCommitting = draft.step === 'committing' || creating;
+  const wizardActive = draft.step === 'geometry' || draft.step === 'data' || draft.step === 'committing';
+  const createEnabled = isSetup && canBeginCreationWizard(draft) && !isCommitting;
+  const nextButtonLabel = isCommitting
+    ? 'Saving…'
+    : draft.step === 'geometry' && draft.dataChoice === 'void'
+      ? 'Confirm'
+      : draft.step === 'data'
+        ? 'Confirm'
+        : 'Next';
+
+  return (
+    <div className="d-flex justify-content-between align-items-center gap-2">
+      <button type="button" className="btn btn-outline-secondary" disabled={!wizardActive || isCommitting} onClick={onBack}>
+        Back
+      </button>
+      {isSetup ? (
+        <button type="button" className="btn btn-primary" disabled={!createEnabled} onClick={onCreate}>
+          Create
+        </button>
+      ) : (
+        <button type="button" className="btn btn-primary" disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
+          {nextButtonLabel}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function AnnotationCreationPanel({
@@ -111,26 +159,11 @@ export default function AnnotationCreationPanel({
   onCreate,
   onBack,
   onNext,
+  showActions = true,
 }: AnnotationCreationPanelProps) {
   const isSetup = draft.step === 'setup';
   const isCommitting = draft.step === 'committing' || creating;
   const showMultiSide = bothSidesSearch(draft);
-  const createEnabled = isSetup && canBeginCreationWizard(draft) && !isCommitting;
-  const wizardActive = draft.step === 'geometry' || draft.step === 'data' || draft.step === 'committing';
-
-  const nextButtonLabel = (() => {
-    if (isCommitting) {
-      return 'Saving…';
-    }
-    if (draft.step === 'geometry' && draft.dataChoice === 'void') {
-      return 'Confirm';
-    }
-    if (draft.step === 'data') {
-      return 'Confirm';
-    }
-    return 'Next';
-  })();
-
   const handleGeometryChoice = (choice: AnnotationEntityChoice) => {
     onDraftChange({
       geometryChoice: choice,
@@ -306,37 +339,17 @@ export default function AnnotationCreationPanel({
         </div>
       )}
 
-      <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm"
-          disabled={!wizardActive || isCommitting}
-          onClick={onBack}
-        >
-          Back
-        </button>
-
-        {isSetup ? (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={!createEnabled}
-            onClick={onCreate}
-          >
-            Create
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={isCommitting}
-            onClick={onNext}
-            aria-busy={isCommitting}
-          >
-            {nextButtonLabel}
-          </button>
-        )}
-      </div>
+      {showActions ? (
+        <div className="mt-3">
+          <AnnotationCreationActionBar
+            draft={draft}
+            creating={creating}
+            onCreate={onCreate}
+            onBack={onBack}
+            onNext={onNext}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
