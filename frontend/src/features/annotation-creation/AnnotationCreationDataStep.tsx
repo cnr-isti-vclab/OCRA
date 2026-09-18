@@ -8,6 +8,7 @@ interface AnnotationCreationDataStepProps {
   candidates: readonly AnnotationData[];
   onToggleDataSelection: (dataId: string) => void;
   onOpenCreateModal: () => void;
+  onDataChoiceChange: (choice: 'new' | 'search' | 'void') => void;
 }
 
 export default function AnnotationCreationDataStep({
@@ -15,6 +16,7 @@ export default function AnnotationCreationDataStep({
   candidates,
   onToggleDataSelection,
   onOpenCreateModal,
+  onDataChoiceChange,
 }: AnnotationCreationDataStepProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const allowsMultiple = allowsMultipleDataSelection(draft);
@@ -35,10 +37,49 @@ export default function AnnotationCreationDataStep({
     });
   }, [candidates, searchQuery]);
 
+  const choiceControls = (
+    <div className="btn-group w-100" role="group" aria-label="Data source">
+      <button
+        type="button"
+        className={`btn ${draft.dataChoice === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
+        aria-pressed={draft.dataChoice === 'new'}
+        onClick={() => onDataChoiceChange('new')}
+      >
+        <i className="bi bi-plus-lg me-2" aria-hidden />Create new
+      </button>
+      <button
+        type="button"
+        className={`btn ${draft.dataChoice === 'search' ? 'btn-primary' : 'btn-outline-primary'}`}
+        aria-pressed={draft.dataChoice === 'search'}
+        onClick={() => onDataChoiceChange('search')}
+      >
+        <i className="bi bi-list-check me-2" aria-hidden />Choose existing
+      </button>
+      <button
+        type="button"
+        className={`btn ${draft.dataChoice === 'void' ? 'btn-secondary' : 'btn-outline-secondary'}`}
+        aria-pressed={draft.dataChoice === 'void'}
+        onClick={() => onDataChoiceChange('void')}
+      >
+        <i className="bi bi-skip-forward me-2" aria-hidden />Skip
+      </button>
+    </div>
+  );
+
+  if (draft.dataChoice === 'void') {
+    return (
+      <div className="d-flex flex-column gap-3">
+        {choiceControls}
+        <p className="text-muted small mb-0">No data will be created or linked. Confirm to keep the geometry only.</p>
+      </div>
+    );
+  }
+
   if (draft.dataChoice === 'new') {
     const hasDraft = draft.newDataLabel.trim().length > 0;
     return (
       <div className="d-flex flex-column gap-3 h-100">
+        {choiceControls}
         <p className="text-muted small mb-0">
           Create a new annotation data record, then confirm to link it with the selected geometry.
         </p>
@@ -63,6 +104,7 @@ export default function AnnotationCreationDataStep({
 
   return (
     <div className="d-flex flex-column gap-2 h-100">
+      {choiceControls}
       <p className="text-muted small mb-0">
         {allowsMultiple
           ? 'Select one or more annotation data records to link. Click a row to toggle selection.'

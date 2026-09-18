@@ -118,6 +118,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   updateCreationDraft: (patch: Partial<AnnotationCreationDraft>) => void;
   discardCreationDraft: () => void;
   beginCreationWizard: () => { ok: true } | { ok: false; message: string };
+  beginDataCreationForGeometries: (geometryIds: readonly string[], dataChoice: 'new' | 'search') => { ok: true } | { ok: false; message: string };
   advanceCreationStep: () => Promise<{ ok: true } | { ok: false; message: string }>;
   setCreationDraftShapes: (shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   setCreationDraftGeometry: (viewerId: string, shapes: import('shared/annotation-types').AnnotationShape[]) => void;
@@ -816,6 +817,10 @@ export function AnnotationStoreProvider({
     return storeRef.current?.beginCreationWizard() ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
 
+  const beginDataCreationForGeometries = useCallback((geometryIds: readonly string[], dataChoice: 'new' | 'search') => {
+    return storeRef.current?.beginDataCreationForGeometries(geometryIds, dataChoice) ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
   const advanceCreationStep = useCallback(async () => {
     return storeRef.current?.advanceCreationStep() ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
@@ -1038,6 +1043,7 @@ export function AnnotationStoreProvider({
     updateCreationDraft,
     discardCreationDraft,
     beginCreationWizard,
+    beginDataCreationForGeometries,
     advanceCreationStep,
     setCreationDraftShapes,
     setCreationDraftGeometry,

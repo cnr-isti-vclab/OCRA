@@ -54,6 +54,7 @@ interface Viewer2DPanelProps {
   digitalAssets: DigitalAsset[];
   twoDimensionalAssetAvailable: boolean;
   annotationMode: AnnotationMode;
+  onOpenAnnotationWorkbench?: () => void;
   onReady: () => void;
   onError: (error: Error) => void;
 }
@@ -90,7 +91,7 @@ function hexToRgba(color: string, alpha: number): string {
  * OpenLIME 2D viewer wired to {@link AnnotationStore} active geometries and UI focus state.
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, twoDimensionalAssetAvailable, annotationMode, onReady, onError }, ref) => {
+  ({ sceneDesc, digitalAssets, twoDimensionalAssetAvailable, annotationMode, onReady, onError, onOpenAnnotationWorkbench }, ref) => {
     const {
       activeAnnotationSelection,
       activeSocialLocks,
@@ -106,6 +107,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setFocusedDataIds,
       setFocusSelection,
       clearFocus,
+      beginDataCreationForGeometries,
       updateGeometry,
       startEditorLock,
       stopEditorLock,
@@ -158,6 +160,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
+    const beginDataForFocusedGeometries = useCallback((dataChoice: 'new' | 'search') => {
+      const result = beginDataCreationForGeometries([...focusedGeometryIds], dataChoice);
+      if (result.ok) onOpenAnnotationWorkbench?.();
+      else setMessageModal(new MessageModalDescriptor({ tone: 'warning', title: 'Cannot start annotation', message: result.message }));
+    }, [beginDataCreationForGeometries, focusedGeometryIds, onOpenAnnotationWorkbench]);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const lastDraftGeometryViewerIdRef = useRef<string | null>(null);
@@ -1145,6 +1152,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             />
           </div>
         )}
+        {annotationMode === 'edit' && !isCreationGeometryStep && !isDeletionSelectingStep && focusedGeometryIds.size > 0 ? (
+          <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3 d-flex align-items-center gap-2 bg-white border rounded shadow p-2" style={{ zIndex: 100 }} role="toolbar" aria-label="Selected geometry actions">
+            <span className="small text-muted">{focusedGeometryIds.size} geometry selected</span>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => beginDataForFocusedGeometries('new')}>Describe</button>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => beginDataForFocusedGeometries('search')}>Link existing data</button>
+          </div>
+        ) : null}
         {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
           <div
             style={{

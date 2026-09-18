@@ -867,6 +867,7 @@ export default function AnnotationPanelEditor({
               candidates={searchableData}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={handleOpenCreationDataModal}
+              onDataChoiceChange={(dataChoice) => updateCreationDraft({ dataChoice })}
             />
           </div>
         ) : (

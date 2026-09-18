@@ -877,6 +877,7 @@ export default function ProjectPage() {
                   digitalAssets={digitalAssets}
                   twoDimensionalAssetAvailable={twoDimensionalAssetAvailable}
                   annotationMode={annotationMode}
+                  onOpenAnnotationWorkbench={() => setAnnotationWorkbenchOpen(true)}
                   onReady={() => {
                     console.log('📸 2D RTI viewer ready');
                   }}

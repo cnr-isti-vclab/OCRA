@@ -150,6 +150,8 @@ describe('AnnotationStore creation wizard commit', () => {
     store.beginCreationWizard();
     store.setCreationDraftGeometry('viewer-1', testShapes);
 
+    const geometryResult = await store.advanceCreationStep();
+    expect(geometryResult).toEqual({ ok: true });
     const result = await store.advanceCreationStep();
 
     expect(result).toEqual({ ok: true });

@@ -322,6 +322,20 @@ export class AnnotationStore {
     return { ok: true };
   }
 
+  /** Start directly at Data after the user selected existing geometries in a viewer. */
+  beginDataCreationForGeometries(geometryIds: readonly string[], dataChoice: 'new' | 'search'): { ok: true } | { ok: false; message: string } {
+    const selectedGeometryIds = [...new Set(geometryIds)];
+    if (selectedGeometryIds.length === 0) return { ok: false, message: 'Select at least one geometry first.' };
+    if (this.isDeletionWizardActive) return { ok: false, message: 'Finish or cancel deletion before creating.' };
+    if (this.isCreationWizardActive) return { ok: false, message: 'Finish or cancel the current creation first.' };
+    let draft = createDefaultCreationDraft(this.sceneId);
+    if (this.rememberedCreationSetup) draft = applyRememberedCreationSetup(draft, this.rememberedCreationSetup);
+    this.creationDraft = { ...draft, step: 'data', geometryChoice: 'search', dataChoice, multiSide: dataChoice === 'search' ? selectedGeometryIds.length > 1 ? 'geometry' : 'data' : null, selectedGeometryIds, selectedDataIds: [] };
+    this.rememberedCreationSetup = extractCreationSetup(this.creationDraft);
+    this.bump();
+    return { ok: true };
+  }
+
   initDeletionDraft(): void {
     if (this.isCreationWizardActive) {
       return;
@@ -979,9 +993,6 @@ export class AnnotationStore {
     }
 
     if (this.creationDraft.step === 'geometry') {
-      if (this.creationDraft.dataChoice === 'void') {
-        return this.commitCreationDraft();
-      }
       this.creationDraft = { ...this.creationDraft, step: 'data' };
       this.bump();
       return { ok: true };

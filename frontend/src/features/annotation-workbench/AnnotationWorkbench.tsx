@@ -4,8 +4,7 @@ import './annotation-workbench.css';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import AnnotationCreationDataStep from '../annotation-creation/AnnotationCreationDataStep';
 import AnnotationDataFormModal from '../annotation-creation/AnnotationDataFormModal';
-import AnnotationCreationPanel, { AnnotationCreationActionBar } from '../annotation-creation/AnnotationCreationPanel';
-import { buildAnnotationScopeOptions } from '../annotation-creation/buildAnnotationScopeOptions';
+import { AnnotationCreationActionBar } from '../annotation-creation/AnnotationCreationPanel';
 import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotationCreationWizard';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
@@ -29,14 +28,13 @@ interface FloatingWorkbenchPosition {
  */
 export default function AnnotationWorkbench({
   isOpen,
-  sceneId,
-  sceneLabel,
-  sceneAssets = [],
   onClose,
 }: AnnotationWorkbenchProps) {
   const {
     creationDraft,
     creating,
+    allData,
+    allLinks,
     initCreationDraft,
     updateCreationDraft,
     beginCreationWizard,
@@ -46,9 +44,10 @@ export default function AnnotationWorkbench({
     vocabularyConcepts,
     vocabularyProperties,
   } = useAnnotationStore();
-  const { isCreationDataStep, isCreationGeometryStep, searchableData, toggleCreationDataSelection } =
+  const { isCreationDataStep, isCreationGeometryStep, isCreationGeometrySearch, searchableData, searchableGeometries, setCreationGeometrySelection, toggleCreationDataSelection } =
     useAnnotationCreationWizard();
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [geometrySearchQuery, setGeometrySearchQuery] = useState('');
   const [dataEditorOpen, setDataEditorOpen] = useState(false);
   const [discardModal, setDiscardModal] = useState<MessageModalDescriptor | null>(null);
   const [isDetached, setIsDetached] = useState(false);
@@ -56,17 +55,52 @@ export default function AnnotationWorkbench({
   const hadCreationDraftRef = useRef(false);
   const wasOpenRef = useRef(false);
 
-  const scopeOptions = useMemo(
-    () => buildAnnotationScopeOptions({ sceneId, sceneLabel, assets: sceneAssets }),
-    [sceneAssets, sceneId, sceneLabel],
-  );
+  const geometryLabelsById = useMemo(() => {
+    const dataById = new Map(allData.map((datum) => [datum.id, datum]));
+    const labelsByGeometryId = new Map<string, string[]>();
+    for (const link of allLinks) {
+      if (link.erasableAt !== null) {
+        continue;
+      }
+      const datum = dataById.get(link.dataId);
+      const label = datum?.erasableAt === null ? datum.label.trim() : '';
+      if (!label) {
+        continue;
+      }
+      const labels = labelsByGeometryId.get(link.geometryId) ?? [];
+      if (!labels.includes(label)) {
+        labels.push(label);
+      }
+      labelsByGeometryId.set(link.geometryId, labels);
+    }
+    return labelsByGeometryId;
+  }, [allData, allLinks]);
+
+  const filteredSearchableGeometries = useMemo(() => {
+    const query = geometrySearchQuery.trim().toLocaleLowerCase();
+    if (!query) {
+      return searchableGeometries;
+    }
+    return searchableGeometries.filter((geometry) => {
+      const labels = geometryLabelsById.get(geometry.id) ?? [];
+      const searchableText = labels.length > 0
+        ? labels.join(' ')
+        : 'Unlabelled geometry';
+      return searchableText.toLocaleLowerCase().includes(query);
+    });
+  }, [geometryLabelsById, geometrySearchQuery, searchableGeometries]);
 
   useEffect(() => {
     if (isOpen && !wasOpenRef.current && !creationDraft) {
       initCreationDraft();
+      updateCreationDraft({ geometryChoice: 'new', dataChoice: 'void', multiSide: null });
+      const result = beginCreationWizard();
+      if (!result.ok) {
+        setSetupError(result.message);
+      }
     }
     wasOpenRef.current = isOpen;
-  }, [creationDraft, initCreationDraft, isOpen]);
+  }, [beginCreationWizard, creationDraft, initCreationDraft, isOpen, updateCreationDraft]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -128,6 +162,35 @@ export default function AnnotationWorkbench({
     }
   }, [advanceCreationStep]);
 
+  const finishGeometryOnly = useCallback(async () => {
+    updateCreationDraft({
+      dataChoice: 'void',
+      selectedDataIds: [],
+      multiSide: null,
+    });
+    const dataStepResult = await advanceCreationStep();
+    if (!dataStepResult.ok) {
+      setSetupError(dataStepResult.message);
+      return;
+    }
+    const commitResult = await advanceCreationStep();
+    if (!commitResult.ok) {
+      setSetupError(commitResult.message);
+    }
+  }, [advanceCreationStep, updateCreationDraft]);
+
+  const back = useCallback(() => {
+    if (creationDraft?.step === 'data') {
+      updateCreationDraft({
+        step: 'geometry',
+        geometryChoice: creationDraft.geometryChoice === 'void' ? 'new' : creationDraft.geometryChoice,
+      });
+      setSetupError(null);
+      return;
+    }
+    requestClose();
+  }, [creationDraft, requestClose, updateCreationDraft]);
+
   const startDetachedDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (!isDetached || (event.target instanceof Element && event.target.closest('button'))) {
       return;
@@ -167,13 +230,7 @@ export default function AnnotationWorkbench({
     return null;
   }
 
-  const step = creationDraft?.step ?? 'setup';
-  const geometryCount = creationDraft?.geometryChoice === 'search'
-    ? creationDraft.selectedGeometryIds.length
-    : creationDraft?.draftShapes.length ?? 0;
-  const dataCount = creationDraft?.dataChoice === 'search'
-    ? creationDraft.selectedDataIds.length
-    : creationDraft?.newDataLabel.trim().length ? 1 : 0;
+  const step = creationDraft?.step ?? 'geometry';
 
   return (
     <aside
@@ -214,12 +271,11 @@ export default function AnnotationWorkbench({
 
       <ol className="annotation-workbench__steps list-unstyled d-flex mb-0 px-3 pt-3 gap-1" aria-label="Creation progress">
         {[
-          ['setup', 'Set up'],
           ['geometry', 'Geometry'],
-          ['data', 'Data & link'],
+          ['data', 'Data'],
         ].map(([key, label], index) => {
           const active = step === key || (step === 'committing' && key === 'data');
-          const complete = (key === 'setup' && step !== 'setup') || (key === 'geometry' && (step === 'data' || step === 'committing'));
+          const complete = key === 'geometry' && (step === 'data' || step === 'committing');
           return (
             <li key={key} className={`annotation-workbench__step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''}`}>
               <span>{complete ? '✓' : index + 1}</span>{label}
@@ -229,26 +285,94 @@ export default function AnnotationWorkbench({
       </ol>
 
       <div className="annotation-workbench__body flex-grow-1 overflow-auto p-3">
-        {creationDraft ? (
-          <AnnotationCreationPanel
-            draft={creationDraft}
-            scopeOptions={scopeOptions}
-            creating={creating}
-            setupError={setupError}
-            onDraftChange={updateCreationDraft}
-            onCreate={begin}
-            onBack={requestClose}
-            onNext={() => void next()}
-            showActions={false}
-          />
-        ) : null}
-
-        {isCreationGeometryStep ? (
-          <section className="alert alert-primary small mb-0" aria-live="polite">
-            <i className="bi bi-mouse me-2" aria-hidden />
-            Work directly in the viewer to draw or select the geometry. Your draft remains visible here.
+        {isCreationGeometryStep && creationDraft ? (
+          <section aria-labelledby="annotation-geometry-step-title">
+            <h3 id="annotation-geometry-step-title" className="h6 mb-1">Geometry</h3>
+            <p className="small text-muted mb-3">Draw a new geometry or choose one already available in this scene.</p>
+            <div className="btn-group w-100 mb-3" role="group" aria-label="Geometry source">
+              <button
+                type="button"
+                className={`btn ${creationDraft.geometryChoice === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
+                aria-pressed={creationDraft.geometryChoice === 'new'}
+                onClick={() => updateCreationDraft({ geometryChoice: 'new', selectedGeometryIds: [] })}
+              >
+                <i className="bi bi-pencil me-2" aria-hidden />Draw new
+              </button>
+              <button
+                type="button"
+                className={`btn ${creationDraft.geometryChoice === 'search' ? 'btn-primary' : 'btn-outline-primary'}`}
+                aria-pressed={creationDraft.geometryChoice === 'search'}
+                onClick={() => updateCreationDraft({ geometryChoice: 'search', draftShapes: [], draftGeometryViewerId: null })}
+              >
+                <i className="bi bi-list-check me-2" aria-hidden />Choose existing
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => updateCreationDraft({
+                  step: 'data',
+                  geometryChoice: 'void',
+                  draftShapes: [],
+                  draftGeometryViewerId: null,
+                  selectedGeometryIds: [],
+                })}
+              >
+                <i className="bi bi-skip-forward me-2" aria-hidden />Skip
+              </button>
+            </div>
+            {creationDraft.geometryChoice === 'new' ? (
+              <div className="alert alert-primary small" aria-live="polite">
+                <i className="bi bi-mouse me-2" aria-hidden />
+                Drawing is active in the viewer.
+              </div>
+            ) : null}
           </section>
         ) : null}
+
+        {isCreationGeometrySearch && creationDraft ? (
+          <section className="mt-3" aria-label="Existing geometries">
+            <div className="fw-semibold small mb-2">Choose existing geometry</div>
+            <input
+              type="search"
+              className="form-control form-control-sm mb-2"
+              placeholder="Search geometry labels..."
+              value={geometrySearchQuery}
+              onChange={(event) => setGeometrySearchQuery(event.target.value)}
+              aria-label="Search existing geometries by label"
+            />
+            <div className="list-group">
+              {filteredSearchableGeometries.length === 0 ? (
+                <div className="text-muted small fst-italic">No geometry matches the current search and filters.</div>
+              ) : null}
+              {filteredSearchableGeometries.map((geometry) => {
+                const selected = creationDraft.selectedGeometryIds.includes(geometry.id);
+                const labels = geometryLabelsById.get(geometry.id) ?? [];
+                const displayLabel = labels.length === 0
+                  ? 'Unlabelled geometry'
+                  : labels.length === 1
+                    ? labels[0]
+                    : `${labels[0]} +${labels.length - 1}`;
+                return (
+                  <button
+                    key={geometry.id}
+                    type="button"
+                    className={`list-group-item list-group-item-action d-flex justify-content-between ${selected ? 'active' : ''}`}
+                    onClick={() => setCreationGeometrySelection(
+                      selected
+                        ? creationDraft.selectedGeometryIds.filter((id) => id !== geometry.id)
+                        : [...creationDraft.selectedGeometryIds, geometry.id],
+                    )}
+                  >
+                    <span className="text-truncate" title={labels.join(', ') || 'Unlabelled geometry'}>{displayLabel}</span>
+                    <span className="small ms-2 flex-shrink-0">{geometry.shapes.length} shape{geometry.shapes.length === 1 ? '' : 's'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {setupError ? <div className="alert alert-warning small mt-3 mb-0">{setupError}</div> : null}
 
         {isCreationDataStep && creationDraft ? (
           <section className="mt-3" aria-label="Annotation data">
@@ -257,25 +381,39 @@ export default function AnnotationWorkbench({
               candidates={searchableData}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={() => setDataEditorOpen(true)}
+              onDataChoiceChange={(dataChoice) => updateCreationDraft({
+                dataChoice,
+                selectedDataIds: dataChoice === 'search' ? creationDraft.selectedDataIds : [],
+                multiSide: dataChoice === 'search' && creationDraft.geometryChoice === 'search'
+                  ? creationDraft.selectedGeometryIds.length > 1 ? 'geometry' : 'data'
+                  : null,
+              })}
             />
           </section>
         ) : null}
       </div>
 
       <footer className="annotation-workbench__footer border-top p-3 bg-light-subtle small">
-        <div className="fw-semibold mb-1">Draft summary</div>
-        <div className="d-flex justify-content-between"><span>Geometry</span><span>{geometryCount || 'None'}</span></div>
-        <div className="d-flex justify-content-between"><span>Data</span><span>{dataCount || 'None'}</span></div>
         {creationDraft ? (
-          <div className="mt-3 pt-3 border-top">
-            <AnnotationCreationActionBar
-              draft={creationDraft}
-              creating={creating}
-              onCreate={begin}
-              onBack={requestClose}
-              onNext={() => void next()}
-            />
-          </div>
+          <AnnotationCreationActionBar
+            draft={creationDraft}
+            creating={creating}
+            onCreate={begin}
+            onBack={back}
+            onNext={() => void next()}
+            middleAction={isCreationGeometryStep
+              && creationDraft.geometryChoice === 'new'
+              && creationDraft.draftShapes.length > 0 ? (
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  disabled={creating}
+                  onClick={() => void finishGeometryOnly()}
+                >
+                  <i className="bi bi-check-lg me-2" aria-hidden />Done
+                </button>
+              ) : null}
+          />
         ) : null}
       </footer>
 

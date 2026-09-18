@@ -1,4 +1,5 @@
 import type { AnnotationScopeType } from 'shared/annotation-types';
+import type { ReactNode } from 'react';
 import type {
   AnnotationCreationDraft,
   AnnotationCreationMultiSide,
@@ -110,6 +111,7 @@ export interface AnnotationCreationActionBarProps {
   onCreate: () => void;
   onBack: () => void;
   onNext: () => void;
+  middleAction?: ReactNode;
 }
 
 /** Shared workflow actions, usable in either an inline panel or a sticky workbench footer. */
@@ -119,6 +121,7 @@ export function AnnotationCreationActionBar({
   onCreate,
   onBack,
   onNext,
+  middleAction,
 }: AnnotationCreationActionBarProps) {
   const isSetup = draft.step === 'setup';
   const isCommitting = draft.step === 'committing' || creating;
@@ -126,26 +129,29 @@ export function AnnotationCreationActionBar({
   const createEnabled = isSetup && canBeginCreationWizard(draft) && !isCommitting;
   const nextButtonLabel = isCommitting
     ? 'Saving…'
-    : draft.step === 'geometry' && draft.dataChoice === 'void'
-      ? 'Confirm'
-      : draft.step === 'data'
+    : draft.step === 'data'
         ? 'Confirm'
         : 'Next';
 
   return (
-    <div className="d-flex justify-content-between align-items-center gap-2">
-      <button type="button" className="btn btn-outline-secondary" disabled={!wizardActive || isCommitting} onClick={onBack}>
-        Back
-      </button>
-      {isSetup ? (
-        <button type="button" className="btn btn-primary" disabled={!createEnabled} onClick={onCreate}>
-          Create
+    <div className="d-grid align-items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+      <div className="d-flex justify-content-start">
+        <button type="button" className="btn btn-outline-secondary" disabled={!wizardActive || isCommitting} onClick={onBack}>
+          Back
         </button>
-      ) : (
-        <button type="button" className="btn btn-primary" disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
-          {nextButtonLabel}
-        </button>
-      )}
+      </div>
+      <div>{middleAction}</div>
+      <div className="d-flex justify-content-end">
+        {isSetup ? (
+          <button type="button" className="btn btn-primary" disabled={!createEnabled} onClick={onCreate}>
+            Create
+          </button>
+        ) : (
+          <button type="button" className="btn btn-primary" disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
+            {nextButtonLabel}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -169,6 +175,11 @@ export default function AnnotationCreationPanel({
       geometryChoice: choice,
       multiSide: normalizeMultiSideForChoices(choice, draft.dataChoice, draft.multiSide),
     });
+  };
+
+  const startWithGeometryChoice = (choice: AnnotationEntityChoice) => {
+    onDraftChange({ geometryChoice: choice, dataChoice: 'void', multiSide: null });
+    onCreate();
   };
 
   const handleDataChoice = (choice: AnnotationEntityChoice) => {
@@ -205,37 +216,18 @@ export default function AnnotationCreationPanel({
       </div>
       {isSetup ? (
         <>
-          <div className="row g-2">
-            <div className="col-md-6">
-              <EntityChoiceGroup
-                idPrefix="creation-geometry"
-                title="Geometry"
-                choice={draft.geometryChoice}
-                scopeType={draft.geometryScope.referenceType}
-                scopeId={draft.geometryScope.referenceId}
-                scopeOptions={scopeOptions}
-                onChoiceChange={handleGeometryChoice}
-                onScopeTypeChange={handleGeometryScopeType}
-                onScopeIdChange={(referenceId) =>
-                  onDraftChange({ geometryScope: { ...draft.geometryScope, referenceId } })
-                }
-              />
-            </div>
-            <div className="col-md-6">
-              <EntityChoiceGroup
-                idPrefix="creation-data"
-                title="Data"
-                choice={draft.dataChoice}
-                scopeType={draft.dataVisibility.visibilityType}
-                scopeId={draft.dataVisibility.visibilityId}
-                scopeOptions={scopeOptions}
-                onChoiceChange={handleDataChoice}
-                onScopeTypeChange={handleDataScopeType}
-                onScopeIdChange={(visibilityId) =>
-                  onDraftChange({ dataVisibility: { ...draft.dataVisibility, visibilityId } })
-                }
-              />
-            </div>
+          <div className="fw-semibold mb-1">Start with geometry</div>
+          <p className="small text-muted">Draw in the viewer, select an existing geometry, or continue without one.</p>
+          <div className="d-grid gap-2">
+            <button type="button" className="btn btn-primary text-start" onClick={() => startWithGeometryChoice('new')}>
+              <i className="bi bi-pencil me-2" aria-hidden />Draw geometry in viewer
+            </button>
+            <button type="button" className="btn btn-outline-primary text-start" onClick={() => startWithGeometryChoice('search')}>
+              <i className="bi bi-list-check me-2" aria-hidden />Choose existing geometry
+            </button>
+            <button type="button" className="btn btn-outline-secondary text-start" onClick={() => startWithGeometryChoice('void')}>
+              Skip geometry
+            </button>
           </div>
 
           {showMultiSide ? (
