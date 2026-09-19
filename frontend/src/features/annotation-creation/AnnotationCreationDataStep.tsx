@@ -2,10 +2,14 @@ import { useMemo, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
 import type { AnnotationCreationDraft } from './types';
 import { allowsMultipleDataSelection } from './annotationCreationValidation';
+import { orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
+import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 
 interface AnnotationCreationDataStepProps {
   draft: AnnotationCreationDraft;
   candidates: readonly AnnotationData[];
+  /** Optional presentation-only numbers for a workbench candidate list. */
+  displayNumbersById?: ReadonlyMap<string, number>;
   onToggleDataSelection: (dataId: string) => void;
   onOpenCreateModal: () => void;
   onDataChoiceChange: (choice: 'new' | 'search' | 'void') => void;
@@ -14,6 +18,7 @@ interface AnnotationCreationDataStepProps {
 export default function AnnotationCreationDataStep({
   draft,
   candidates,
+  displayNumbersById,
   onToggleDataSelection,
   onOpenCreateModal,
   onDataChoiceChange,
@@ -23,11 +28,14 @@ export default function AnnotationCreationDataStep({
   const selectedIds = new Set(draft.selectedDataIds);
 
   const filteredCandidates = useMemo(() => {
+    const ordered = displayNumbersById
+      ? orderByAnnotationDisplayNumber(candidates, displayNumbersById)
+      : candidates;
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
-      return candidates;
+      return ordered;
     }
-    return candidates.filter((datum) => {
+    return ordered.filter((datum) => {
       const haystack = [
         datum.label,
         datum.description ?? '',
@@ -35,7 +43,7 @@ export default function AnnotationCreationDataStep({
       ].join(' ').toLowerCase();
       return haystack.includes(query);
     });
-  }, [candidates, searchQuery]);
+  }, [candidates, displayNumbersById, searchQuery]);
 
   const choiceControls = (
     <div className="btn-group w-100" role="group" aria-label="Data source">
@@ -51,6 +59,8 @@ export default function AnnotationCreationDataStep({
         type="button"
         className={`btn ${draft.dataChoice === 'search' ? 'btn-primary' : 'btn-outline-primary'}`}
         aria-pressed={draft.dataChoice === 'search'}
+        disabled={draft.geometryChoice === 'void'}
+        title={draft.geometryChoice === 'void' ? 'Existing data needs a geometry to link to' : undefined}
         onClick={() => onDataChoiceChange('search')}
       >
         <i className="bi bi-list-check me-2" aria-hidden />Choose existing
@@ -59,6 +69,8 @@ export default function AnnotationCreationDataStep({
         type="button"
         className={`btn ${draft.dataChoice === 'void' ? 'btn-secondary' : 'btn-outline-secondary'}`}
         aria-pressed={draft.dataChoice === 'void'}
+        disabled={draft.geometryChoice !== 'new'}
+        title={draft.geometryChoice !== 'new' ? 'Skipping data would create nothing' : undefined}
         onClick={() => onDataChoiceChange('void')}
       >
         <i className="bi bi-skip-forward me-2" aria-hidden />Skip
@@ -70,7 +82,13 @@ export default function AnnotationCreationDataStep({
     return (
       <div className="d-flex flex-column gap-3">
         {choiceControls}
-        <p className="text-muted small mb-0">No data will be created or linked. Confirm to keep the geometry only.</p>
+        <p className="text-muted small mb-0">
+          {draft.geometryChoice === 'new'
+            ? 'No data will be created or linked. Confirm to keep the geometry only.'
+            : draft.geometryChoice === 'search'
+              ? 'Create new data or choose existing data to link to this geometry.'
+              : 'Create a new data record to continue.'}
+        </p>
       </div>
     );
   }
@@ -81,7 +99,9 @@ export default function AnnotationCreationDataStep({
       <div className="d-flex flex-column gap-3 h-100">
         {choiceControls}
         <p className="text-muted small mb-0">
-          Create a new annotation data record, then confirm to link it with the selected geometry.
+          {draft.geometryChoice === 'void'
+            ? 'Create a standalone data record. Existing data cannot be chosen without a geometry to link it to.'
+            : 'Create a new annotation data record, then confirm to link it with the selected geometry.'}
         </p>
         {hasDraft ? (
           <div className="list-group">
@@ -124,6 +144,7 @@ export default function AnnotationCreationDataStep({
         <div className="list-group flex-grow-1 overflow-auto">
           {filteredCandidates.map((datum) => {
             const isSelected = selectedIds.has(datum.id);
+            const displayNumber = displayNumbersById?.get(datum.id);
             return (
               <button
                 key={datum.id}
@@ -132,12 +153,21 @@ export default function AnnotationCreationDataStep({
                 onClick={() => onToggleDataSelection(datum.id)}
                 aria-pressed={isSelected}
               >
-                <div className="fw-semibold">{datum.label}</div>
-                {datum.description ? (
-                  <div className={`small ${isSelected ? 'opacity-75' : 'text-muted'}`}>
-                    {datum.description}
+                <div className="d-flex align-items-start gap-2">
+                  {displayNumber !== undefined ? (
+                    <span className="annotation-index-column">
+                      <AnnotationIndexBadge kind="data" number={displayNumber} />
+                    </span>
+                  ) : null}
+                  <div style={{ minWidth: 0 }}>
+                    <div className="fw-semibold">{datum.label}</div>
+                    {datum.description ? (
+                      <div className={`small ${isSelected ? 'opacity-75' : 'text-muted'}`}>
+                        {datum.description}
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                </div>
               </button>
             );
           })}

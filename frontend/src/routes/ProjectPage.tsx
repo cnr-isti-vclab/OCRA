@@ -14,6 +14,7 @@ import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAw
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import AnnotationPanelEditor from './components/AnnotationPanelEditor';
 import AnnotationPanelViewer from './components/AnnotationPanelViewer';
+import ProjectSceneSelector from './components/ProjectSceneSelector';
 import AnnotationWorkbench from '../features/annotation-workbench/AnnotationWorkbench';
 import {
   resolveAnnotationMode,
@@ -139,6 +140,7 @@ export default function ProjectPage() {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
+  const [annotationsSidebarOpen, setAnnotationsSidebarOpen] = useState(true);
   const [annotationWorkbenchOpen, setAnnotationWorkbenchOpen] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -793,8 +795,8 @@ export default function ProjectPage() {
               </div>
             </div>
           )}
-          <div className="d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div className="d-flex align-items-center flex-wrap gap-3">
               <div>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                   <h1 className="h3 mb-0 me-1">{project.name}</h1>
@@ -804,9 +806,18 @@ export default function ProjectPage() {
                   )}
                 </div>
               </div>
-            </div>
-            <div className="d-flex align-items-center gap-3">
-              {/* Header actions intentionally minimized to reduce duplication with top navigation */}
+              {mode === '2d' && selectedSceneId ? (
+                <div className="border-start ps-3">
+                  <ProjectSceneSelector
+                    scenes={availableScenes}
+                    selectedSceneId={selectedSceneId}
+                    onSceneChange={(sceneId) => {
+                      setAnnotationWorkbenchOpen(false);
+                      setSelectedSceneId(sceneId);
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -877,6 +888,7 @@ export default function ProjectPage() {
                   digitalAssets={digitalAssets}
                   twoDimensionalAssetAvailable={twoDimensionalAssetAvailable}
                   annotationMode={annotationMode}
+                  workbenchOpen={annotationWorkbenchOpen && annotationMode === 'edit'}
                   onOpenAnnotationWorkbench={() => setAnnotationWorkbenchOpen(true)}
                   onReady={() => {
                     console.log('📸 2D RTI viewer ready');
@@ -903,9 +915,24 @@ export default function ProjectPage() {
           </div>
 
           {/* Sidebar with Tabs */}
-          <div className="bg-white border-start" style={{ width: '350px', minWidth: '300px', flexShrink: 0 }}>
-            <div className="h-100 d-flex flex-column">
+          <div
+            className="bg-white border-start"
+            style={{
+              width: mode === '2d' && !annotationsSidebarOpen ? 0 : '350px',
+              minWidth: mode === '2d' && !annotationsSidebarOpen ? 0 : '300px',
+              flexShrink: 0,
+              position: 'relative',
+            }}
+          >
+            <div
+              id={mode === '2d' ? 'project-annotations-sidebar' : undefined}
+              className="h-100 flex-column"
+              role={mode === '2d' ? 'complementary' : undefined}
+              aria-label={mode === '2d' ? 'Annotations' : undefined}
+              style={{ display: mode === '2d' && !annotationsSidebarOpen ? 'none' : 'flex' }}
+            >
               {/* Tab Navigation */}
+              {mode !== '2d' ? (
               <ul className="nav nav-tabs px-3 pt-3 flex-shrink-0" role="tablist">
                 <li className="nav-item" role="presentation">
                   <button
@@ -943,11 +970,15 @@ export default function ProjectPage() {
                   </li>
                 )}
               </ul>
+              ) : null}
 
               {/* Tab Content */}
               <div className="tab-content flex-grow-1 overflow-hidden d-flex flex-column">
+                {mode === '2d' && !selectedSceneId ? (
+                  <div className="p-3 text-muted small">Loading scene…</div>
+                ) : null}
                 {/* Models Tab */}
-                {activeTab === 'models' && (
+                {mode !== '2d' && activeTab === 'models' && (
                   <div className="p-3 h-100 d-flex flex-column">
                     <div className="d-flex align-items-center justify-content-between mb-3">
                       <h3 className="h6 mb-0">Models in Scene</h3>
@@ -1201,7 +1232,7 @@ export default function ProjectPage() {
                 )}
 
                 {/* Scene Tab */}
-                {activeTab === 'scene' && (
+                {mode !== '2d' && activeTab === 'scene' && (
                   <div className="p-3 h-100 d-flex flex-column">
                     {/* Scene Selector */}
                     {availableScenes.length > 0 && (
@@ -1553,7 +1584,7 @@ export default function ProjectPage() {
                 )}
 
                 {/* Annotations Tab */}
-                {!annotationTestMode && activeTab === 'annotations' && (
+                {!annotationTestMode && selectedSceneId && (mode === '2d' || activeTab === 'annotations') && (
                   <div className="h-100 overflow-auto">
                     {annotationMode === 'viewer' ? (
                       <AnnotationPanelViewer />
@@ -1572,6 +1603,30 @@ export default function ProjectPage() {
                 )}
               </div>
             </div>
+            {mode === '2d' ? (
+              <button
+                type="button"
+                className="btn btn-light border d-flex align-items-center justify-content-center p-0"
+                style={{
+                  position: 'absolute',
+                  left: '-22px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '22px',
+                  height: '44px',
+                  borderRadius: '0.375rem 0 0 0.375rem',
+                  fontSize: '0.7rem',
+                  zIndex: 2,
+                }}
+                aria-controls="project-annotations-sidebar"
+                aria-expanded={annotationsSidebarOpen}
+                aria-label={annotationsSidebarOpen ? 'Hide annotations sidebar' : 'Show annotations sidebar'}
+                title={annotationsSidebarOpen ? 'Hide annotations' : 'Show annotations'}
+                onClick={() => setAnnotationsSidebarOpen((open) => !open)}
+              >
+                <i className={`bi bi-chevron-${annotationsSidebarOpen ? 'right' : 'left'}`} aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

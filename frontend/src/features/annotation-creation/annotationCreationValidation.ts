@@ -32,6 +32,14 @@ export function validateCreationSetup(setup: AnnotationCreationSetupDraft): Anno
     return { ok: false, message: 'Choose at least one of geometry or data to create.' };
   }
 
+  if (setup.geometryChoice === 'void' && setup.dataChoice === 'search') {
+    return { ok: false, message: 'Create new data when geometry is skipped; choosing existing data would create nothing.' };
+  }
+
+  if (setup.geometryChoice === 'search' && setup.dataChoice === 'void') {
+    return { ok: false, message: 'Create or choose data to link to the existing geometry.' };
+  }
+
   if (setup.geometryChoice !== 'void') {
     if (!isNonEmpty(setup.geometryScope.referenceId)) {
       return { ok: false, message: 'Geometry scope is required.' };

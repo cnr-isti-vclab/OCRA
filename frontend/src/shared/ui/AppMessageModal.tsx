@@ -4,6 +4,8 @@ interface AppMessageModalProps {
   descriptor: MessageModalDescriptor | null;
   onClose?: () => void;
   onAction?: (actionKey: string) => void;
+  /** Optional layer override for dialogs opened above floating workspace panels. */
+  zIndex?: number;
 }
 
 function toneClass(tone: MessageModalDescriptor['tone']): string {
@@ -20,7 +22,7 @@ function toneClass(tone: MessageModalDescriptor['tone']): string {
   }
 }
 
-export default function AppMessageModal({ descriptor, onClose, onAction }: AppMessageModalProps) {
+export default function AppMessageModal({ descriptor, onClose, onAction, zIndex }: AppMessageModalProps) {
   if (!descriptor) {
     return null;
   }
@@ -63,6 +65,7 @@ export default function AppMessageModal({ descriptor, onClose, onAction }: AppMe
       className="modal d-block"
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        zIndex,
       }}
       onClick={handleBackdropClose}
     >

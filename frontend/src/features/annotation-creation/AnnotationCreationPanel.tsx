@@ -178,7 +178,7 @@ export default function AnnotationCreationPanel({
   };
 
   const startWithGeometryChoice = (choice: AnnotationEntityChoice) => {
-    onDraftChange({ geometryChoice: choice, dataChoice: 'void', multiSide: null });
+    onDraftChange({ geometryChoice: choice, dataChoice: choice === 'new' ? 'void' : 'new', multiSide: null });
     onCreate();
   };
 

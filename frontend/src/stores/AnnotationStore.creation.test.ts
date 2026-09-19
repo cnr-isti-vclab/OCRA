@@ -177,6 +177,31 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(mockClient.createLink).not.toHaveBeenCalled();
   });
 
+  it('rejects existing-only no-op combinations without calling the API', async () => {
+    const store = createTestStore();
+    store.initCreationDraft();
+    store.updateCreationDraft({
+      step: 'data',
+      geometryChoice: 'void',
+      dataChoice: 'search',
+      selectedDataIds: ['d-existing'],
+    });
+
+    expect((await store.commitCreationDraft()).ok).toBe(false);
+
+    store.updateCreationDraft({
+      geometryChoice: 'search',
+      dataChoice: 'void',
+      selectedGeometryIds: ['g-existing'],
+      selectedDataIds: [],
+    });
+
+    expect((await store.commitCreationDraft()).ok).toBe(false);
+    expect(mockClient.createGeometry).not.toHaveBeenCalled();
+    expect(mockClient.createData).not.toHaveBeenCalled();
+    expect(mockClient.createLink).not.toHaveBeenCalled();
+  });
+
   it('creates links for existing search selections only', async () => {
     const store = createTestStore();
     mockClient.createLink

@@ -211,6 +211,7 @@ export function viewerAnnotationToOpenLimeJsonLd(
 export function applyOpenLimeImportMetadata(
   anno: {
     label?: string;
+    labelParts?: ViewerAnnotation['labelParts'];
     class?: string | number | null;
     type?: string;
     data?: Record<string, unknown>;
@@ -220,6 +221,11 @@ export function applyOpenLimeImportMetadata(
   viewerAnno: ViewerAnnotation,
 ): void {
   anno.label = viewerAnno.label ?? '';
+  if (viewerAnno.labelParts) {
+    anno.labelParts = viewerAnno.labelParts;
+  } else {
+    delete anno.labelParts;
+  }
   anno.data = anno.data ?? {};
   anno.class = 0;
   (anno as { semanticClass?: string | null }).semanticClass = viewerAnno.semanticClass ?? null;

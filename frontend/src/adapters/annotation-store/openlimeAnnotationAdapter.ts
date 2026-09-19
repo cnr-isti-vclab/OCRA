@@ -14,6 +14,7 @@ export type OpenLimeSelectionInteractionMode = 'preserve' | 'edit';
 export type OpenLimeSyncedAnnotation = {
   id: string;
   label?: string;
+  labelParts?: ViewerAnnotation['labelParts'];
   class?: string | number | null;
   semanticClass?: string | null;
   structuralClass?: string | null;
@@ -31,6 +32,42 @@ export type OpenLimeSyncedAnnotation = {
   ready?: boolean;
   needsUpdate?: boolean;
 };
+
+function labelPartsEqual(
+  left: ViewerAnnotation['labelParts'],
+  right: ViewerAnnotation['labelParts'],
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+  return left.every((part, index) => {
+    const other = right[index];
+    if (part.type !== other.type) {
+      return false;
+    }
+    return part.type === 'break' || (other.type !== 'break' && part.text === other.text);
+  });
+}
+
+function syncLabelPresentation(existing: OpenLimeSyncedAnnotation, viewerAnno: ViewerAnnotation): boolean {
+  const labelChanged = existing.label !== viewerAnno.label;
+  const partsChanged = !labelPartsEqual(existing.labelParts, viewerAnno.labelParts);
+  if (!labelChanged && !partsChanged) {
+    return false;
+  }
+  existing.label = viewerAnno.label;
+  if (viewerAnno.labelParts) {
+    existing.labelParts = viewerAnno.labelParts;
+  } else {
+    delete existing.labelParts;
+  }
+  delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
+  existing.needsUpdate = true;
+  return true;
+}
 
 function applyStrokeDasharray(
   anno: OpenLimeSyncedAnnotation,
@@ -191,10 +228,7 @@ export function syncOpenLimeAnnotations(
       // Skip geometry stale check for annotations being actively dragged by this user.
       // The local drag state in OpenLIME must not be overwritten by a concurrent SSE update.
       if (excludeIds?.has(viewerAnno.id)) {
-        if (viewerAnno.label && existing.label !== viewerAnno.label) {
-          existing.label = viewerAnno.label;
-          delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
-          existing.needsUpdate = true;
+        if (syncLabelPresentation(existing, viewerAnno)) {
           labelsUpdated = true;
         }
         if ((existing.semanticClass ?? null) !== (viewerAnno.semanticClass ?? null)) {
@@ -222,10 +256,7 @@ export function syncOpenLimeAnnotations(
       if (geometryStale || handlesMissing) {
         manager.deleteAnnotation(viewerAnno.id);
         existing = null;
-      } else if (viewerAnno.label && existing.label !== viewerAnno.label) {
-        existing.label = viewerAnno.label;
-        delete (existing as { _labelLayoutCacheKey?: string })._labelLayoutCacheKey;
-        existing.needsUpdate = true;
+      } else if (syncLabelPresentation(existing, viewerAnno)) {
         labelsUpdated = true;
       }
 

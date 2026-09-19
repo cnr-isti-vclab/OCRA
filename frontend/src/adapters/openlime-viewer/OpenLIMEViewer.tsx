@@ -333,20 +333,16 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         if (!mountRef.current) return;
 
+        let resizeObserver: ResizeObserver | null = null;
         const resize = () => {
           if (viewerRef.current && mountRef.current) {
             viewerRef.current.resize(
               mountRef.current.clientWidth,
               mountRef.current.clientHeight
             );
-            console.log('✅ OpenLIME resized to', mountRef.current.clientWidth, 'x', mountRef.current.clientHeight);
             viewerRef.current.redraw();
-          } else {
-            console.warn('⚠️ Cannot resize OpenLIME Viewer: viewer or mount element not available');
           }
         };
-
-        window.addEventListener('resize', resize);
 
         try {
           console.log('🎬 Initializing OpenLIME Viewer with scene:', sceneDesc);
@@ -360,6 +356,8 @@ const OpenLIMEViewer = forwardRef<
           viewerRef.current = viewer;
 
           resize();
+          resizeObserver = new ResizeObserver(resize);
+          resizeObserver.observe(mountRef.current);
           viewer.redraw();
           console.log('✅ OpenLIME Viewer initialized successfully');
 
@@ -377,8 +375,8 @@ const OpenLIMEViewer = forwardRef<
 
         return () => {
           console.log('🛑 Disposing OpenLIME Viewer');
+          resizeObserver?.disconnect();
           if (viewerRef.current) {
-            window.removeEventListener('resize', resize);
             viewerRef.current.dispose?.();
             viewerRef.current = null;
           }

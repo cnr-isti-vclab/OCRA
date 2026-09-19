@@ -35,6 +35,8 @@ export interface ViewerAnnotation {
   id: string;
   /** User-visible label/name for the annotation */
   label: string;
+  /** Optional presentation-only parts for viewers that support structured labels. */
+  labelParts?: Array<{ type: 'badge' | 'text'; text: string } | { type: 'break' }>;
   /** Optional semantic class reference used by viewers for class-driven styling. */
   semanticClass?: string | null;
   /**

@@ -101,7 +101,7 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
     },
   },
   labelStyle: {
-    fontSizePx: 14,
+    fontSizePx: 12,
     fontFamily: 'sans-serif',
     fontWeight: 600,
     textFill: DEFAULT_COLOR.text,
@@ -124,7 +124,8 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
     backgroundStrokeWidthGhostPx: 1,
     backgroundStrokeWidthOrphanPx: 1,
     backgroundStrokeWidthPx: 0,
-    paddingPx: 6,
+    paddingPx: 4,
+    lineGapPx: 2,
     borderRadiusPx: 4,
     offsetYPx: 4,
   },

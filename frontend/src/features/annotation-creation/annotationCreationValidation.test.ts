@@ -27,6 +27,26 @@ describe('annotationCreationValidation', () => {
     expect(canBeginCreationWizard(setup)).toBe(false);
   });
 
+  it('rejects existing-only choices that create neither an entity nor a link', () => {
+    const existingDataWithoutGeometry = draft({
+      step: 'data',
+      geometryChoice: 'void',
+      dataChoice: 'search',
+      selectedDataIds: ['data-1'],
+    });
+    const existingGeometryWithoutData = draft({
+      step: 'data',
+      geometryChoice: 'search',
+      dataChoice: 'void',
+      selectedGeometryIds: ['geometry-1'],
+    });
+
+    expect(validateCreationSetup(existingDataWithoutGeometry).ok).toBe(false);
+    expect(validateCreationDraftForCommit(existingDataWithoutGeometry).ok).toBe(false);
+    expect(validateCreationSetup(existingGeometryWithoutData).ok).toBe(false);
+    expect(validateCreationDraftForCommit(existingGeometryWithoutData).ok).toBe(false);
+  });
+
   it('requires multi-side when both sides search', () => {
     const setup = draft({
       geometryChoice: 'search',

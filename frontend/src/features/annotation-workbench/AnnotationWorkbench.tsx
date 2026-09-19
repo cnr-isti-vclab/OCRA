@@ -8,6 +8,9 @@ import { AnnotationCreationActionBar } from '../annotation-creation/AnnotationCr
 import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotationCreationWizard';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
+import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
+import { normalizeMultiSideForChoices } from '../annotation-creation/annotationCreationValidation';
+import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 
 interface AnnotationWorkbenchProps {
   isOpen: boolean;
@@ -33,6 +36,7 @@ export default function AnnotationWorkbench({
   const {
     creationDraft,
     creating,
+    allGeometries,
     allData,
     allLinks,
     initCreationDraft,
@@ -50,10 +54,12 @@ export default function AnnotationWorkbench({
   const [geometrySearchQuery, setGeometrySearchQuery] = useState('');
   const [dataEditorOpen, setDataEditorOpen] = useState(false);
   const [discardModal, setDiscardModal] = useState<MessageModalDescriptor | null>(null);
-  const [isDetached, setIsDetached] = useState(false);
+  const [isDetached, setIsDetached] = useState(true);
   const [floatingPosition, setFloatingPosition] = useState<FloatingWorkbenchPosition | null>(null);
   const hadCreationDraftRef = useRef(false);
   const wasOpenRef = useRef(false);
+  const geometryNumbers = useMemo(() => buildAnnotationDisplayNumbers(allGeometries), [allGeometries]);
+  const dataNumbers = useMemo(() => buildAnnotationDisplayNumbers(allData), [allData]);
 
   const geometryLabelsById = useMemo(() => {
     const dataById = new Map(allData.map((datum) => [datum.id, datum]));
@@ -77,18 +83,19 @@ export default function AnnotationWorkbench({
   }, [allData, allLinks]);
 
   const filteredSearchableGeometries = useMemo(() => {
+    const ordered = orderByAnnotationDisplayNumber(searchableGeometries, geometryNumbers);
     const query = geometrySearchQuery.trim().toLocaleLowerCase();
     if (!query) {
-      return searchableGeometries;
+      return ordered;
     }
-    return searchableGeometries.filter((geometry) => {
+    return ordered.filter((geometry) => {
       const labels = geometryLabelsById.get(geometry.id) ?? [];
       const searchableText = labels.length > 0
         ? labels.join(' ')
         : 'Unlabelled geometry';
       return searchableText.toLocaleLowerCase().includes(query);
     });
-  }, [geometryLabelsById, geometrySearchQuery, searchableGeometries]);
+  }, [geometryLabelsById, geometryNumbers, geometrySearchQuery, searchableGeometries]);
 
   useEffect(() => {
     if (isOpen && !wasOpenRef.current && !creationDraft) {
@@ -302,7 +309,16 @@ export default function AnnotationWorkbench({
                 type="button"
                 className={`btn ${creationDraft.geometryChoice === 'search' ? 'btn-primary' : 'btn-outline-primary'}`}
                 aria-pressed={creationDraft.geometryChoice === 'search'}
-                onClick={() => updateCreationDraft({ geometryChoice: 'search', draftShapes: [], draftGeometryViewerId: null })}
+                onClick={() => {
+                  const dataChoice = creationDraft.dataChoice === 'void' ? 'new' : creationDraft.dataChoice;
+                  updateCreationDraft({
+                    geometryChoice: 'search',
+                    dataChoice,
+                    multiSide: normalizeMultiSideForChoices('search', dataChoice, creationDraft.multiSide),
+                    draftShapes: [],
+                    draftGeometryViewerId: null,
+                  });
+                }}
               >
                 <i className="bi bi-list-check me-2" aria-hidden />Choose existing
               </button>
@@ -312,9 +328,12 @@ export default function AnnotationWorkbench({
                 onClick={() => updateCreationDraft({
                   step: 'data',
                   geometryChoice: 'void',
+                  dataChoice: 'new',
+                  multiSide: null,
                   draftShapes: [],
                   draftGeometryViewerId: null,
                   selectedGeometryIds: [],
+                  selectedDataIds: [],
                 })}
               >
                 <i className="bi bi-skip-forward me-2" aria-hidden />Skip
@@ -346,23 +365,29 @@ export default function AnnotationWorkbench({
               ) : null}
               {filteredSearchableGeometries.map((geometry) => {
                 const selected = creationDraft.selectedGeometryIds.includes(geometry.id);
+                const displayNumber = geometryNumbers.get(geometry.id);
                 const labels = geometryLabelsById.get(geometry.id) ?? [];
                 const displayLabel = labels.length === 0
                   ? 'Unlabelled geometry'
                   : labels.length === 1
                     ? labels[0]
-                    : `${labels[0]} +${labels.length - 1}`;
+                    : `${labels[0]} ...`;
                 return (
                   <button
                     key={geometry.id}
                     type="button"
-                    className={`list-group-item list-group-item-action d-flex justify-content-between ${selected ? 'active' : ''}`}
+                    className={`list-group-item list-group-item-action d-flex align-items-center justify-content-between ${selected ? 'active' : ''}`}
                     onClick={() => setCreationGeometrySelection(
                       selected
                         ? creationDraft.selectedGeometryIds.filter((id) => id !== geometry.id)
                         : [...creationDraft.selectedGeometryIds, geometry.id],
                     )}
                   >
+                    <span className="annotation-index-column me-2">
+                      {displayNumber !== undefined ? (
+                        <AnnotationIndexBadge kind="geometry" number={displayNumber} />
+                      ) : null}
+                    </span>
                     <span className="text-truncate" title={labels.join(', ') || 'Unlabelled geometry'}>{displayLabel}</span>
                     <span className="small ms-2 flex-shrink-0">{geometry.shapes.length} shape{geometry.shapes.length === 1 ? '' : 's'}</span>
                   </button>
@@ -379,6 +404,7 @@ export default function AnnotationWorkbench({
             <AnnotationCreationDataStep
               draft={creationDraft}
               candidates={searchableData}
+              displayNumbersById={dataNumbers}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={() => setDataEditorOpen(true)}
               onDataChoiceChange={(dataChoice) => updateCreationDraft({

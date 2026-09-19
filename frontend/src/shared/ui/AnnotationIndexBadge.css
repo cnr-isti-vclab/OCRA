@@ -1,0 +1,28 @@
+.annotation-index-column {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-inline-size: 2.75rem;
+}
+
+.annotation-index-badge {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  inline-size: max-content;
+  min-inline-size: 1.8rem;
+  aspect-ratio: 1;
+  padding: 0.3rem;
+  border-radius: 50%;
+  background: var(--bs-body-color);
+  color: var(--bs-body-bg);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.list-group-item.active .annotation-index-badge {
+  background: var(--bs-list-group-active-color);
+  color: var(--bs-list-group-active-bg);
+}

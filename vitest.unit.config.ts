@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'shared/**/*.test.ts',
+      'frontend/src/adapters/annotation-store/openlimeLabelParts.test.ts',
       'frontend/src/features/annotation-creation/**/*.test.ts',
       'frontend/src/features/annotation-deletion/**/*.test.ts',
       'frontend/src/features/annotation-link-view/**/*.test.ts',
@@ -14,6 +15,7 @@ export default defineConfig({
       'frontend/src/stores/annotation-rendering.test.ts',
       'frontend/src/stores/annotation-selection.test.ts',
       'frontend/src/stores/annotation-social-locks.test.ts',
+      'frontend/src/utils/annotationDisplayNumbers.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'build'],
     reporters: ['verbose'],

@@ -27,6 +27,7 @@ import {
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import {
   activeGeometriesToViewerAnnotations,
+  withWorkbenchDisplayNumbers,
   dataIdsForFocusedGeometries,
   getViewerHighlightGeometryIds,
 } from '../../adapters/annotation-store/geometryToViewerAnnotation';
@@ -48,12 +49,14 @@ import {
 import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode';
+import { buildAnnotationDisplayNumbers } from '../../utils/annotationDisplayNumbers';
 
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
   digitalAssets: DigitalAsset[];
   twoDimensionalAssetAvailable: boolean;
   annotationMode: AnnotationMode;
+  workbenchOpen: boolean;
   onOpenAnnotationWorkbench?: () => void;
   onReady: () => void;
   onError: (error: Error) => void;
@@ -91,10 +94,12 @@ function hexToRgba(color: string, alpha: number): string {
  * OpenLIME 2D viewer wired to {@link AnnotationStore} active geometries and UI focus state.
  */
 const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
-  ({ sceneDesc, digitalAssets, twoDimensionalAssetAvailable, annotationMode, onReady, onError, onOpenAnnotationWorkbench }, ref) => {
+  ({ sceneDesc, digitalAssets, twoDimensionalAssetAvailable, annotationMode, workbenchOpen, onReady, onError, onOpenAnnotationWorkbench }, ref) => {
     const {
       activeAnnotationSelection,
       activeSocialLocks,
+      allGeometries,
+      allData,
       activeData,
       currentStreamId,
       allLinks,
@@ -276,17 +281,23 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       return [...ids].sort();
     }
 
-    /** Stable labels for OpenLIME sync — exclude focus-driven label text to avoid resync storms. */
+    const geometryNumbers = useMemo(() => buildAnnotationDisplayNumbers(allGeometries), [allGeometries]);
+    const dataNumbers = useMemo(() => buildAnnotationDisplayNumbers(allData), [allData]);
+
     /** Stable labels for OpenLIME sync — exclude focus-driven label text to avoid resync storms. */
     const viewerAnnotationsForSync = useMemo(
-      () =>
-        activeGeometriesToViewerAnnotations(
+      () => {
+        const annotations = activeGeometriesToViewerAnnotations(
           visibleGeometries,
           activeAnnotationSelection,
           new Set(),
           annotationClassFilterValues,
-        ),
-      [visibleGeometries, activeAnnotationSelection, annotationClassFilterValues, revision],
+        );
+        return workbenchOpen
+          ? withWorkbenchDisplayNumbers(annotations, activeAnnotationSelection, geometryNumbers, dataNumbers)
+          : annotations;
+      },
+      [visibleGeometries, activeAnnotationSelection, annotationClassFilterValues, revision, workbenchOpen, geometryNumbers, dataNumbers],
     );
 
     const semanticClassesForFilter = useMemo(() => {

@@ -113,6 +113,57 @@ export function activeGeometriesToViewerAnnotations(
   );
 }
 
+/** Adds workbench-only list numbers to canvas labels without changing annotation data. */
+export function withWorkbenchDisplayNumbers(
+  annotations: readonly ViewerAnnotation[],
+  selection: ActiveAnnotationSelection,
+  geometryNumbers: ReadonlyMap<string, number>,
+  dataNumbers: ReadonlyMap<string, number>,
+): ViewerAnnotation[] {
+  return annotations.map((annotation) => {
+    const geometryNumber = geometryNumbers.get(annotation.id);
+    if (geometryNumber === undefined) {
+      return annotation;
+    }
+
+    const linkedData = (selection.dataIdsByGeometryId.get(annotation.id) ?? [])
+      .map((dataId) => {
+        const datum = selection.dataById.get(dataId);
+        if (!datum) {
+          return null;
+        }
+        return { label: datum.label, number: dataNumbers.get(dataId) };
+      })
+      .filter((datum): datum is { label: string; number: number | undefined } => datum !== null);
+
+    const labelParts: NonNullable<ViewerAnnotation['labelParts']> = [
+      { type: 'badge', text: `G${geometryNumber}` },
+    ];
+    if (linkedData.length === 0) {
+      labelParts.push({ type: 'text', text: ` ${annotation.label}` });
+    } else {
+      linkedData.forEach((datum, index) => {
+        if (index > 0) {
+          labelParts.push({ type: 'break' });
+        } else {
+          labelParts.push({ type: 'text', text: ' ' });
+        }
+        if (datum.number !== undefined) {
+          labelParts.push({ type: 'badge', text: `D${datum.number}` });
+          labelParts.push({ type: 'text', text: ` ${datum.label}` });
+        } else {
+          labelParts.push({ type: 'text', text: datum.label });
+        }
+      });
+    }
+
+    return {
+      ...annotation,
+      labelParts,
+    };
+  });
+}
+
 /** Geometry ids to highlight in the viewer for the current data focus set. */
 export function geometryIdsForFocusedData(
   dataIds: Iterable<string>,
