@@ -7,9 +7,13 @@ export function createDefaultDeletionDraft(): AnnotationDeletionDraft {
     deleteLink: false,
     deleteGeometry: false,
     deleteData: false,
+    targetKind: null,
+    targetId: null,
     candidateLinkIds: [],
     candidateGeometryIds: [],
     candidateDataIds: [],
+    restoreGeometryIds: [],
+    restoreDataIds: [],
     selectionMessage: null,
     pendingResolution: null,
   };

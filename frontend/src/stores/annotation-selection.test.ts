@@ -78,7 +78,7 @@ describe('evaluateActiveSelection rendering visibility', () => {
     expect(selection.renderingModeByGeometryId.get('g1')).toBe('plain');
   });
 
-  it('keeps plain geometry visible when a strong link points to ghost data (toggle off)', () => {
+  it('keeps linked ghost data visible beside plain geometry (toggle off)', () => {
     const maps = {
       geometries: new Map([['g1', geometry('g1')]]),
       data: new Map([['d1', datum('d1', ERASED)]]),
@@ -87,7 +87,8 @@ describe('evaluateActiveSelection rendering visibility', () => {
 
     const hidden = evaluateActiveSelection(maps, 's1', { showErased: false });
     expect([...hidden.geometryIds]).toEqual(['g1']);
-    expect([...hidden.dataIds]).toEqual([]);
+    expect([...hidden.dataIds]).toEqual(['d1']);
+    expect([...hidden.linkIds]).toEqual(['l1']);
     expect(hidden.renderingModeByGeometryId.get('g1')).toBe('plain');
 
     const withErased = evaluateActiveSelection(maps, 's1', { showErased: true });
@@ -97,14 +98,14 @@ describe('evaluateActiveSelection rendering visibility', () => {
     expect(withErased.renderingModeByDataId.get('d1')).toBe('ghost');
   });
 
-  it('shows ghost geometry when retained by a strong link and toggle is on', () => {
+  it('shows ghost geometry whenever a strong link retains it', () => {
     const maps = {
       geometries: new Map([['g1', geometry('g1', ERASED)]]),
       data: new Map([['d1', datum('d1')]]),
       links: new Map([['l1', link('l1', 'g1', 'd1', null)]]),
     };
 
-    expect([...evaluateActiveSelection(maps, 's1', { showErased: false }).geometryIds]).toEqual([]);
+    expect([...evaluateActiveSelection(maps, 's1', { showErased: false }).geometryIds]).toEqual(['g1']);
     const selection = evaluateActiveSelection(maps, 's1', { showErased: true });
     expect([...selection.geometryIds]).toEqual(['g1']);
     expect(selection.renderingModeByGeometryId.get('g1')).toBe('ghost');

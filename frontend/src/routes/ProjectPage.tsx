@@ -919,9 +919,10 @@ export default function ProjectPage() {
             className="bg-white border-start"
             style={{
               width: mode === '2d' && !annotationsSidebarOpen ? 0 : '350px',
-              minWidth: mode === '2d' && !annotationsSidebarOpen ? 0 : '300px',
+              minWidth: mode === '2d' ? 0 : '300px',
               flexShrink: 0,
               position: 'relative',
+              transition: mode === '2d' ? 'width 180ms ease-in-out' : undefined,
             }}
           >
             <div
@@ -929,7 +930,9 @@ export default function ProjectPage() {
               className="h-100 flex-column"
               role={mode === '2d' ? 'complementary' : undefined}
               aria-label={mode === '2d' ? 'Annotations' : undefined}
-              style={{ display: mode === '2d' && !annotationsSidebarOpen ? 'none' : 'flex' }}
+              aria-hidden={mode === '2d' && !annotationsSidebarOpen}
+              inert={mode === '2d' && !annotationsSidebarOpen}
+              style={{ display: 'flex', width: '100%', overflowX: 'hidden' }}
             >
               {/* Tab Navigation */}
               {mode !== '2d' ? (

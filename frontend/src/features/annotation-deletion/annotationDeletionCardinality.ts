@@ -51,18 +51,24 @@ export function resolveDeletionLinkViewFocus(
   draft: Pick<
     AnnotationDeletionDraft,
     'deleteGeometry' | 'deleteData' | 'candidateGeometryIds' | 'candidateDataIds'
-  >,
+  > & Partial<Pick<AnnotationDeletionDraft, 'targetKind' | 'targetId'>>,
 ): { focusedGeometryIds: Set<string>; focusedDataIds: Set<string> } | null {
   if (draft.deleteGeometry && !draft.deleteData) {
     return {
-      focusedGeometryIds: new Set(draft.candidateGeometryIds),
+      focusedGeometryIds: new Set([
+        ...draft.candidateGeometryIds,
+        ...(draft.targetKind === 'geometry' && draft.targetId ? [draft.targetId] : []),
+      ]),
       focusedDataIds: new Set(),
     };
   }
   if (draft.deleteData && !draft.deleteGeometry) {
     return {
       focusedGeometryIds: new Set(),
-      focusedDataIds: new Set(draft.candidateDataIds),
+      focusedDataIds: new Set([
+        ...draft.candidateDataIds,
+        ...(draft.targetKind === 'data' && draft.targetId ? [draft.targetId] : []),
+      ]),
     };
   }
   return null;

@@ -848,7 +848,7 @@ export default function AnnotationPanelEditor({
             aria-pressed={showErased}
           >
             <i className={`bi ${showErased ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
-            {showErased ? 'Erased visible' : 'Erased hidden'}
+            {showErased ? 'Show deleted without links' : 'Deleted without links hidden'}
           </button>
         </div>
       ) : null}
@@ -976,8 +976,10 @@ export default function AnnotationPanelEditor({
                   <div className="d-flex flex-column gap-1 w-100">
                     <div className="d-flex justify-content-between align-items-center w-100">
                       <div className="d-flex gap-1 align-items-center">
-                        <span className="badge bg-secondary">
-                          {linkedCount} geom{linkedCount === 1 ? '' : 's'}
+                        <span className={`badge ${linkedCount === 0 && !isRecoverable ? 'text-bg-light border' : 'bg-secondary'}`}>
+                          {linkedCount === 0 && !isRecoverable
+                            ? 'Available · no links'
+                            : `${linkedCount} geom${linkedCount === 1 ? '' : 's'}`}
                         </span>
                         {isGhost ? (
                           <span className="badge text-bg-light border">ghost</span>

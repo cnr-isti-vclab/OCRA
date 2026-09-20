@@ -155,6 +155,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   confirmDeletionCounterpartPick: () => void;
   reportDeletionSelectionBlocked: (message: string) => void;
   commitDeletionDraft: () => Promise<{ ok: true; message?: string } | { ok: false; message: string }>;
+  loadProjectLinksForDeletion: () => Promise<AnnotationLink[]>;
   deleting: boolean;
   eventLog: AnnotationStoreLogEntry[];
   activeSocialLocks: AnnotationSocialLockState[];
@@ -940,6 +941,10 @@ export function AnnotationStoreProvider({
     }) ?? { ok: false as const, message: 'Store not ready.' };
   }, [activeSocialLocks, currentStreamId]);
 
+  const loadProjectLinksForDeletion = useCallback(async () => {
+    return storeRef.current?.loadProjectLinksForDeletion() ?? [];
+  }, []);
+
   const loadProjectData = useCallback(async () => {
     await storeRef.current?.loadProjectData();
   }, []);
@@ -1071,6 +1076,7 @@ export function AnnotationStoreProvider({
     confirmDeletionCounterpartPick,
     reportDeletionSelectionBlocked,
     commitDeletionDraft,
+    loadProjectLinksForDeletion,
     eventLog,
     activeSocialLocks,
     currentStreamId,

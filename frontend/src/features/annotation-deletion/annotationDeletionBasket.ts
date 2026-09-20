@@ -45,18 +45,16 @@ export function validateDeletionBasket(
   const linkIdSet = new Set(draft.candidateLinkIds);
   const links = [...context.links];
 
-  // Link coverage is required only when links are being deleted with the endpoints.
+  // A linked initiating endpoint must remove at least one of its active links.
+  // Remaining links keep an erasable endpoint visible as a ghost.
   if (draft.deleteLink) {
     if (draft.deleteGeometry) {
       for (const geometryId of draft.candidateGeometryIds) {
         const incident = nonErasableLinksForGeometry(links, geometryId);
-        if (incident.length === 0) {
-          continue;
-        }
-        if (incident.some((link) => !linkIdSet.has(link.id))) {
+        if (incident.length > 0 && incident.every((link) => !linkIdSet.has(link.id))) {
           return {
             ok: false,
-            message: 'Every geometry in the basket must include all of its non-erasable links.',
+            message: 'Choose at least one link to remove from the selected geometry.',
           };
         }
       }
@@ -65,13 +63,10 @@ export function validateDeletionBasket(
     if (draft.deleteData) {
       for (const dataId of draft.candidateDataIds) {
         const incident = nonErasableLinksForData(links, dataId);
-        if (incident.length === 0) {
-          continue;
-        }
-        if (incident.some((link) => !linkIdSet.has(link.id))) {
+        if (incident.length > 0 && incident.every((link) => !linkIdSet.has(link.id))) {
           return {
             ok: false,
-            message: 'Every data record in the basket must include all of its non-erasable links.',
+            message: 'Choose at least one link to remove from the selected data record.',
           };
         }
       }

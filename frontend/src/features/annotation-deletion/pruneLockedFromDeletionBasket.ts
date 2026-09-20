@@ -129,8 +129,9 @@ export function pruneLockedFromDeletionBasket(
     };
   }
 
-  // When Link is in the intent, drop endpoints that no longer have full link
-  // coverage after prune. Endpoint-only intents leave links active on purpose.
+  // A remotely locked link can remove the only chosen relationship for an
+  // endpoint. Keep only endpoints whose deletion still has a selected link,
+  // except endpoints that were already unlinked.
   if (next.deleteLink) {
     const linkIdSet = new Set(next.candidateLinkIds);
     if (next.deleteGeometry) {
@@ -141,7 +142,7 @@ export function pruneLockedFromDeletionBasket(
           if (incident.length === 0) {
             return true;
           }
-          return incident.every((link) => linkIdSet.has(link.id));
+          return incident.some((link) => linkIdSet.has(link.id));
         }),
       };
     }
@@ -153,7 +154,7 @@ export function pruneLockedFromDeletionBasket(
           if (incident.length === 0) {
             return true;
           }
-          return incident.every((link) => linkIdSet.has(link.id));
+          return incident.some((link) => linkIdSet.has(link.id));
         }),
       };
     }

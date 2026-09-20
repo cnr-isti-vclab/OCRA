@@ -60,6 +60,9 @@ export default function AnnotationWorkbench({
   const wasOpenRef = useRef(false);
   const geometryNumbers = useMemo(() => buildAnnotationDisplayNumbers(allGeometries), [allGeometries]);
   const dataNumbers = useMemo(() => buildAnnotationDisplayNumbers(allData), [allData]);
+  const linkedGeometryIds = useMemo(() => new Set(
+    allLinks.filter((link) => link.erasableAt === null).map((link) => link.geometryId),
+  ), [allLinks]);
 
   const geometryLabelsById = useMemo(() => {
     const dataById = new Map(allData.map((datum) => [datum.id, datum]));
@@ -389,6 +392,7 @@ export default function AnnotationWorkbench({
                       ) : null}
                     </span>
                     <span className="text-truncate" title={labels.join(', ') || 'Unlabelled geometry'}>{displayLabel}</span>
+                    {!linkedGeometryIds.has(geometry.id) ? <span className="badge text-bg-light border ms-2 flex-shrink-0">Available · no links</span> : null}
                     <span className="small ms-2 flex-shrink-0">{geometry.shapes.length} shape{geometry.shapes.length === 1 ? '' : 's'}</span>
                   </button>
                 );

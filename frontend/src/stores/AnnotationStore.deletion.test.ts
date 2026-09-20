@@ -201,6 +201,80 @@ describe('AnnotationStore deletion wizard commit', () => {
     expect(mockClient.markDataErasable).not.toHaveBeenCalled();
   });
 
+  it('marks a geometry erasable after removing only one of its links', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1'), makeDatum('d2')],
+      links: [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g1', 'd2')],
+    });
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ candidateLinkIds: ['l1'] });
+
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(store.geometriesById.get('g1')?.erasableAt).not.toBeNull();
+    expect(store.linksById.get('l1')?.erasableAt).not.toBeNull();
+    expect(store.linksById.get('l2')?.erasableAt).toBeNull();
+    expect(store.activeAnnotationSelection.renderingModeByGeometryId.get('g1')).toBe('ghost');
+  });
+
+  it('restores an erasable counterpart before its final link is removed', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [{ ...makeDatum('d1'), erasableAt: '2026-01-01T12:00:00.000Z' }],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ candidateGeometryIds: [], restoreDataIds: ['d1'] });
+
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markDataNonErasable).toHaveBeenCalledBefore(mockClient.markLinkErasable as ReturnType<typeof vi.fn>);
+    expect(store.dataById.get('d1')?.erasableAt).toBeNull();
+    expect(store.linksById.get('l1')?.erasableAt).not.toBeNull();
+  });
+
+  it('compensates a restored counterpart when unlinking fails', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [{ ...makeDatum('d1'), erasableAt: '2026-01-01T12:00:00.000Z', erasableBy: 'user-1' }],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+    mockClient.markLinkErasable.mockRejectedValueOnce(new Error('unlink failed'));
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ candidateGeometryIds: [], restoreDataIds: ['d1'] });
+
+    expect((await store.commitDeletionDraft(emptyLocks)).ok).toBe(false);
+    expect(mockClient.markDataErasable).toHaveBeenCalledWith('d1', 2);
+    expect(store.dataById.get('d1')?.erasableAt).not.toBeNull();
+    expect(store.dataById.get('d1')?.erasableBy).toBe('user-1');
+  });
+
+  it('retains the selected target after a failed unlink when it was meant to stay available', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1')],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+    mockClient.markLinkErasable.mockRejectedValueOnce(new Error('unlink failed'));
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ candidateGeometryIds: [] });
+
+    expect((await store.commitDeletionDraft(emptyLocks)).ok).toBe(false);
+    expect(store.deletionDraftState?.targetKind).toBe('geometry');
+    expect(store.deletionDraftState?.targetId).toBe('g1');
+  });
+
   it('commits geometry-only without marking the link (ghost path)', async () => {
     const store = createTestStore();
     await seedScene(store, {

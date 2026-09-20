@@ -11,6 +11,8 @@ type DeletionHighlightDraft = Pick<
   'candidateGeometryIds' | 'candidateDataIds' | 'candidateLinkIds'
 > & {
   pendingResolution?: AnnotationDeletionDraft['pendingResolution'];
+  targetKind?: AnnotationDeletionDraft['targetKind'];
+  targetId?: AnnotationDeletionDraft['targetId'];
 };
 
 /**
@@ -34,6 +36,8 @@ export function resolveDeletionHighlightIds(
 
   const geometryIds = new Set(draft.candidateGeometryIds);
   const dataIds = new Set(draft.candidateDataIds);
+  if (draft.targetKind === 'geometry' && draft.targetId) geometryIds.add(draft.targetId);
+  if (draft.targetKind === 'data' && draft.targetId) dataIds.add(draft.targetId);
   const linkById = new Map([...links].map((link) => [link.id, link]));
 
   for (const linkId of draft.candidateLinkIds) {

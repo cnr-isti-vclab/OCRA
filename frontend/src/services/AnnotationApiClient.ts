@@ -219,6 +219,12 @@ export class AnnotationApiClient {
     return response.links;
   }
 
+  /** Active project-wide links, including relationships outside the current scene. */
+  async loadProjectLinks() {
+    const response = await this.request<LinksEnvelope>('/annotations/links');
+    return response.links;
+  }
+
   async getGeometry(geometryId: string, includeErasable = true) {
     const query = includeErasable ? '?includeErasable=true' : '';
     const response = await this.request<GeometryEnvelope>(

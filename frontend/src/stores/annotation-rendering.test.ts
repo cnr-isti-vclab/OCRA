@@ -72,8 +72,8 @@ describe('isRenderingModeVisible', () => {
     expect(isRenderingModeVisible('plain', true)).toBe(true);
   });
 
-  it('shows ghost and orphan only when erased are visible', () => {
-    expect(isRenderingModeVisible('ghost', false)).toBe(false);
+  it('shows linked ghosts, but hides erased orphans by default', () => {
+    expect(isRenderingModeVisible('ghost', false)).toBe(true);
     expect(isRenderingModeVisible('ghost', true)).toBe(true);
     expect(isRenderingModeVisible('none', false)).toBe(false);
     expect(isRenderingModeVisible('none', true)).toBe(true);
@@ -87,7 +87,7 @@ describe('passesRenderingVisibility', () => {
 
     expect(passesRenderingVisibility({ erasableAt: null }, strong, false)).toBe(true);
     expect(passesRenderingVisibility({ erasableAt: null }, strong, true)).toBe(true);
-    expect(passesRenderingVisibility({ erasableAt: ERASED }, strong, false)).toBe(false);
+    expect(passesRenderingVisibility({ erasableAt: ERASED }, strong, false)).toBe(true);
     expect(passesRenderingVisibility({ erasableAt: ERASED }, strong, true)).toBe(true);
     expect(passesRenderingVisibility({ erasableAt: ERASED }, weak, false)).toBe(false);
     expect(passesRenderingVisibility({ erasableAt: ERASED }, weak, true)).toBe(true);

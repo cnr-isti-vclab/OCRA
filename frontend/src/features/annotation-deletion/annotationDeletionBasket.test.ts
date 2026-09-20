@@ -166,7 +166,7 @@ describe('validateDeletionBasket', () => {
     expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(true);
   });
 
-  it('rejects data-led triplet pick that eagerly included uncovered geometry', () => {
+  it('accepts an endpoint marked erasable while other relationships remain active', () => {
     const sceneLinks = [
       link('l1', 'g1', 'd1'),
       link('l2', 'g1', 'd2'),
@@ -182,7 +182,7 @@ describe('validateDeletionBasket', () => {
       candidateGeometryIds: ['g1'],
       candidateDataIds: ['d2'],
     };
-    expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(false);
+    expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(true);
   });
 
   it('rejects geometry basket missing its link when Link is in the intent', () => {

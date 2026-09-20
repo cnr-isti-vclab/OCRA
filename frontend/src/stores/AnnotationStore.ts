@@ -76,6 +76,7 @@ import {
 } from '../features/annotation-deletion/pruneLockedFromDeletionBasket';
 import {
   DELETION_NO_LINKS_MESSAGE,
+  isEntityBlockedForDeletion,
 } from '../features/annotation-deletion/isEntityBlockedForDeletion';
 
 export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
@@ -219,6 +220,11 @@ export class AnnotationStore {
 
   get linksById(): ReadonlyMap<string, AnnotationLink> {
     return this.linkMap;
+  }
+
+  /** Read all active links before reviewing deletion consequences across scenes. */
+  async loadProjectLinksForDeletion(): Promise<AnnotationLink[]> {
+    return this.client.loadProjectLinks();
   }
 
   get metaState(): Readonly<AnnotationStoreMeta> {
@@ -397,9 +403,13 @@ export class AnnotationStore {
       ...this.deletionDraft,
       ...nextIntent,
       step: 'selecting',
+      targetKind: null,
+      targetId: null,
       candidateLinkIds: [],
       candidateGeometryIds: [],
       candidateDataIds: [],
+      restoreGeometryIds: [],
+      restoreDataIds: [],
       selectionMessage: null,
       pendingResolution: null,
     };
@@ -441,7 +451,7 @@ export class AnnotationStore {
     next: Pick<
       AnnotationDeletionDraft,
       'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'
-    >,
+    > & Partial<Pick<AnnotationDeletionDraft, 'targetKind' | 'targetId'>>,
   ): DeletionBasketAddResult {
     this.deletionDraft = {
       ...draft,
@@ -470,7 +480,7 @@ export class AnnotationStore {
     endpointKind: 'geometry' | 'data',
     endpointId: string,
     incident: ReturnType<typeof nonErasableLinksForGeometry>,
-    modal: 'fanOut' | 'linkResolution',
+    modal: 'fanOut' | 'linkResolution' | 'pickCounterparts',
   ): DeletionBasketAddResult {
     this.deletionDraft = {
       ...draft,
@@ -500,6 +510,17 @@ export class AnnotationStore {
       return this.failDeletionBasketAdd(draft, 'Geometry not found in this scene.');
     }
 
+    if (draft.deleteLink && draft.deleteGeometry && !draft.deleteData) {
+      const incident = nonErasableLinksForGeometry(this.linkMap.values(), geometryId);
+      return this.finishDeletionBasketAdd(draft, {
+        targetKind: 'geometry',
+        targetId: geometryId,
+        candidateGeometryIds: [geometryId],
+        candidateDataIds: [],
+        candidateLinkIds: incident.length === 1 ? [incident[0]!.id] : [],
+      });
+    }
+
     // Geometry-only (no Link): leave strong links so the endpoint becomes Ghost.
     if (!draft.deleteLink) {
       return this.finishDeletionBasketAdd(draft, {
@@ -519,14 +540,13 @@ export class AnnotationStore {
       });
     }
 
-    const cardinality = needsCardinalityResolution(draft, incident);
-    if (cardinality) {
+    if (incident.length > 1) {
       return this.beginDeletionPendingResolution(
         draft,
         'geometry',
         geometryId,
         incident,
-        cardinality,
+        'pickCounterparts',
       );
     }
 
@@ -562,6 +582,17 @@ export class AnnotationStore {
       return this.failDeletionBasketAdd(draft, 'Annotation data not found.');
     }
 
+    if (draft.deleteLink && draft.deleteData && !draft.deleteGeometry) {
+      const incident = nonErasableLinksForData(this.linkMap.values(), dataId);
+      return this.finishDeletionBasketAdd(draft, {
+        targetKind: 'data',
+        targetId: dataId,
+        candidateGeometryIds: [],
+        candidateDataIds: [dataId],
+        candidateLinkIds: incident.length === 1 ? [incident[0]!.id] : [],
+      });
+    }
+
     // Data-only (no Link): leave strong links so the endpoint becomes Ghost.
     if (!draft.deleteLink) {
       return this.finishDeletionBasketAdd(draft, {
@@ -581,14 +612,13 @@ export class AnnotationStore {
       });
     }
 
-    const cardinality = needsCardinalityResolution(draft, incident);
-    if (cardinality) {
+    if (incident.length > 1) {
       return this.beginDeletionPendingResolution(
         draft,
         'data',
         dataId,
         incident,
-        cardinality,
+        'pickCounterparts',
       );
     }
 
@@ -732,7 +762,7 @@ export class AnnotationStore {
     this.setDeletionCounterpartSelection([...current]);
   }
 
-  /** OK on counterpart pick — merge chosen links (and covered endpoints) into basket. */
+  /** Stage the chosen links and the endpoint that initiated deletion. */
   confirmDeletionCounterpartPick(): void {
     const draft = this.ensureDeletionSelecting();
     if (!draft?.pendingResolution || draft.pendingResolution.modal !== 'pickCounterparts') {
@@ -747,8 +777,11 @@ export class AnnotationStore {
       pending.selectedCounterpartIds,
       this.linkMap.values(),
     );
-    const next = expandBasketForSelectedLinks(draft, pending, linkIds, this.linkMap.values());
-    this.finishDeletionBasketAdd(draft, next);
+    this.finishDeletionBasketAdd(draft, {
+      candidateLinkIds: linkIds,
+      candidateGeometryIds: pending.endpointKind === 'geometry' ? [pending.endpointId] : [],
+      candidateDataIds: pending.endpointKind === 'data' ? [pending.endpointId] : [],
+    });
   }
 
   /**
@@ -784,6 +817,8 @@ export class AnnotationStore {
       candidateDataIds: args.dataId
         ? draft.candidateDataIds.filter((id) => id !== args.dataId)
         : draft.candidateDataIds,
+      ...(draft.targetKind === 'geometry' && draft.targetId === args.geometryId ? { targetKind: null, targetId: null } : {}),
+      ...(draft.targetKind === 'data' && draft.targetId === args.dataId ? { targetKind: null, targetId: null } : {}),
       selectionMessage: null,
     };
     this.bump();
@@ -797,6 +832,7 @@ export class AnnotationStore {
     this.deletionDraft = {
       ...draft,
       ...computeGeometryDeselection(draft, geometryId, this.linkMap.values()),
+      ...(draft.targetKind === 'geometry' && draft.targetId === geometryId ? { targetKind: null, targetId: null } : {}),
       selectionMessage: null,
     };
     this.bump();
@@ -810,6 +846,7 @@ export class AnnotationStore {
     this.deletionDraft = {
       ...draft,
       ...computeDataDeselection(draft, dataId, this.linkMap.values()),
+      ...(draft.targetKind === 'data' && draft.targetId === dataId ? { targetKind: null, targetId: null } : {}),
       selectionMessage: null,
     };
     this.bump();
@@ -825,6 +862,7 @@ export class AnnotationStore {
       draft.candidateLinkIds.length === 0
       && draft.candidateGeometryIds.length === 0
       && draft.candidateDataIds.length === 0
+      && draft.targetId === null
       && draft.selectionMessage === null
       && draft.pendingResolution === null
     ) {
@@ -835,6 +873,10 @@ export class AnnotationStore {
       candidateLinkIds: [],
       candidateGeometryIds: [],
       candidateDataIds: [],
+      targetKind: null,
+      targetId: null,
+      restoreGeometryIds: [],
+      restoreDataIds: [],
       selectionMessage: null,
       pendingResolution: null,
     };
@@ -864,6 +906,20 @@ export class AnnotationStore {
       links: this.linkMap.values(),
       geometryIdsByDataId,
     });
+
+    const restoreBlocked = [
+      ...this.deletionDraft.restoreGeometryIds.map((id) => ({ entityKind: 'geometry' as const, entityId: id })),
+      ...this.deletionDraft.restoreDataIds.map((id) => ({ entityKind: 'data' as const, entityId: id })),
+    ].some((item) => isEntityBlockedForDeletion({
+      ...item,
+      activeSocialLocks: lockContext.activeSocialLocks,
+      currentStreamId: lockContext.currentStreamId,
+      links: this.linkMap.values(),
+      geometryIdsByDataId,
+    }));
+    if (pruned.skipMessage || restoreBlocked) {
+      return { ok: false, message: 'An item is being edited by another user. Review the deletion before retrying.' };
+    }
 
     if (!canConfirmDeletionBasket(pruned.draft, { links: this.linkMap.values() })) {
       this.deletionDraft = {
@@ -906,6 +962,8 @@ export class AnnotationStore {
       kind: 'link' | 'geometry' | 'data';
       id: string;
       version: number;
+      action?: 'restore';
+      previousErasableBy: string | null;
     }> = [];
 
     try {
@@ -917,8 +975,9 @@ export class AnnotationStore {
         }
 
         try {
-          const nextVersion = await this.markDeletionPlanItemErasable(item);
-          marked.push({ kind: item.kind, id: item.id, version: nextVersion });
+          const previousErasableBy = this.getEntity(item.kind, item.id)?.erasableBy ?? null;
+          const nextVersion = await this.applyDeletionPlanItem(item);
+          marked.push({ kind: item.kind, id: item.id, version: nextVersion, action: item.action, previousErasableBy });
         } catch (err) {
           if (
             err instanceof AnnotationApiError
@@ -941,7 +1000,7 @@ export class AnnotationStore {
         return { ok: false, message: 'Deletion was interrupted by a scene reload.' };
       }
 
-      // Soft-deleted entities drop out of the active set via showErased=false (Plain only).
+      // Linked erasable endpoints stay visible as ghosts; unlinked ones disappear.
       this.recomputeActiveSelection();
       this.deletionDraft = null;
       this.bump();
@@ -1985,39 +2044,41 @@ export class AnnotationStore {
     return map;
   }
 
-  private async markDeletionPlanItemErasable(item: {
+  private async applyDeletionPlanItem(item: {
     kind: 'link' | 'geometry' | 'data';
     id: string;
     expectedVersion: number;
+    action?: 'restore';
   }): Promise<number> {
-    const result = await this.patchErasable(item.kind, item.id, item.expectedVersion, true);
+    const erase = item.action !== 'restore';
+    const result = await this.patchErasable(item.kind, item.id, item.expectedVersion, erase);
     const entity = this.getEntity(item.kind, item.id);
     if (entity) {
       this.setEntity(item.kind, item.id, {
         ...entity,
         version: result.version,
-        erasableAt: result.updatedAt ?? new Date().toISOString(),
-        erasableBy: entity.erasableBy,
+        erasableAt: erase ? result.updatedAt ?? new Date().toISOString() : null,
+        erasableBy: erase ? entity.erasableBy : null,
       });
     }
     return result.version;
   }
 
   private async revertDeletionCommitArtifacts(
-    marked: Array<{ kind: 'link' | 'geometry' | 'data'; id: string; version: number }>,
+    marked: Array<{ kind: 'link' | 'geometry' | 'data'; id: string; version: number; action?: 'restore'; previousErasableBy: string | null }>,
   ): Promise<void> {
     try {
-      // Reverse order: data → geometry → link (opposite of commit).
+      // Compensate each transition in reverse order.
       for (const item of [...marked].reverse()) {
         try {
-          const restored = await this.patchErasable(item.kind, item.id, item.version, false);
+          const reverted = await this.patchErasable(item.kind, item.id, item.version, item.action === 'restore');
           const entity = this.getEntity(item.kind, item.id);
           if (entity) {
             this.setEntity(item.kind, item.id, {
               ...entity,
-              version: restored.version,
-              erasableAt: null,
-              erasableBy: null,
+              version: reverted.version,
+              erasableAt: item.action === 'restore' ? reverted.updatedAt ?? new Date().toISOString() : null,
+              erasableBy: item.action === 'restore' ? item.previousErasableBy : null,
             });
           }
         } catch (compensateErr) {

@@ -33,9 +33,15 @@ export interface DeletionPendingResolution {
 
 export interface AnnotationDeletionDraft extends AnnotationDeletionIntent {
   step: AnnotationDeletionStep;
+  /** Selected item, independent of whether the final plan erases it. */
+  targetKind: 'geometry' | 'data' | null;
+  targetId: string | null;
   candidateLinkIds: string[];
   candidateGeometryIds: string[];
   candidateDataIds: string[];
+  /** Existing erasable endpoints to restore so they remain available after losing their last link. */
+  restoreGeometryIds: string[];
+  restoreDataIds: string[];
   /** Last selection feedback (e.g. no links / lock). */
   selectionMessage: string | null;
   /** Active 1:N modal state, or null when none. */

@@ -70,13 +70,14 @@ export function isRecoverableRenderingMode(
 
 /**
  * Whether a rendering mode is visible for the show-erased toggle.
- * Toggle off: plain only. Toggle on: plain + ghost + orphan (none).
+ * Linked erasable endpoints remain visible as ghosts. The toggle controls only
+ * erased endpoints without active links.
  */
 export function isRenderingModeVisible(
   mode: AnnotationRenderingMode,
   showErased: boolean,
 ): boolean {
-  if (mode === 'plain') {
+  if (mode === 'plain' || mode === 'ghost') {
     return true;
   }
   return showErased;

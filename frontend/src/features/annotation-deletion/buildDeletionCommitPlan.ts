@@ -8,6 +8,8 @@ export interface DeletionCommitPlanItem {
   kind: DeletionCommitEntityKind;
   id: string;
   expectedVersion: number;
+  /** Restore is performed before unlinking so the endpoint never vanishes mid-commit. */
+  action?: 'restore';
 }
 
 export interface DeletionCommitPlan {
@@ -22,7 +24,7 @@ export interface DeletionCommitEntityLookup {
 }
 
 /**
- * Ordered commit plan: links → geometries → data, with OCC versions snapshot.
+ * Ordered commit plan: restore retained endpoints → unlink → erase endpoints.
  */
 export function buildDeletionCommitPlan(
   draft: AnnotationDeletionDraft,
@@ -35,6 +37,21 @@ export function buildDeletionCommitPlan(
 
   const items: DeletionCommitPlanItem[] = [];
 
+  for (const geometryId of draft.restoreGeometryIds) {
+    const geometry = lookup.getGeometry(geometryId);
+    if (!geometry || geometry.erasableAt === null) {
+      return { ok: false, message: `Geometry ${geometryId} is no longer erasable. Refresh and review the deletion.` };
+    }
+    items.push({ kind: 'geometry', id: geometryId, expectedVersion: geometry.version, action: 'restore' });
+  }
+  for (const dataId of draft.restoreDataIds) {
+    const datum = lookup.getData(dataId);
+    if (!datum || datum.erasableAt === null) {
+      return { ok: false, message: `Data ${dataId} is no longer erasable. Refresh and review the deletion.` };
+    }
+    items.push({ kind: 'data', id: dataId, expectedVersion: datum.version, action: 'restore' });
+  }
+
   for (const linkId of draft.candidateLinkIds) {
     const link = lookup.getLink(linkId);
     if (!link) {
@@ -46,36 +63,32 @@ export function buildDeletionCommitPlan(
     items.push({ kind: 'link', id: linkId, expectedVersion: link.version });
   }
 
-  if (draft.deleteGeometry) {
-    for (const geometryId of draft.candidateGeometryIds) {
-      const geometry = lookup.getGeometry(geometryId);
-      if (!geometry) {
-        return {
-          ok: false,
-          message: `Geometry ${geometryId} is missing from the local store. Refresh and try again.`,
-        };
-      }
-      if (geometry.erasableAt !== null) {
-        continue;
-      }
-      items.push({ kind: 'geometry', id: geometryId, expectedVersion: geometry.version });
+  for (const geometryId of draft.candidateGeometryIds) {
+    const geometry = lookup.getGeometry(geometryId);
+    if (!geometry) {
+      return {
+        ok: false,
+        message: `Geometry ${geometryId} is missing from the local store. Refresh and try again.`,
+      };
     }
+    if (geometry.erasableAt !== null) {
+      continue;
+    }
+    items.push({ kind: 'geometry', id: geometryId, expectedVersion: geometry.version });
   }
 
-  if (draft.deleteData) {
-    for (const dataId of draft.candidateDataIds) {
-      const datum = lookup.getData(dataId);
-      if (!datum) {
-        return {
-          ok: false,
-          message: `Data ${dataId} is missing from the local store. Refresh and try again.`,
-        };
-      }
-      if (datum.erasableAt !== null) {
-        continue;
-      }
-      items.push({ kind: 'data', id: dataId, expectedVersion: datum.version });
+  for (const dataId of draft.candidateDataIds) {
+    const datum = lookup.getData(dataId);
+    if (!datum) {
+      return {
+        ok: false,
+        message: `Data ${dataId} is missing from the local store. Refresh and try again.`,
+      };
     }
+    if (datum.erasableAt !== null) {
+      continue;
+    }
+    items.push({ kind: 'data', id: dataId, expectedVersion: datum.version });
   }
 
   if (items.length === 0) {
