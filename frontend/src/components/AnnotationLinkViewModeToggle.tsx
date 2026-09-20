@@ -52,6 +52,13 @@ export default function AnnotationLinkViewModeToggle({
           );
         })}
       </div>
+      {mode !== 'showAll' ? (
+        <div className="form-text">
+          {mode === 'selectGeometry'
+            ? 'Select a geometry in the viewer to show its linked data.'
+            : 'Select a data record in the list to show its linked geometries.'}
+        </div>
+      ) : null}
     </div>
   );
 }

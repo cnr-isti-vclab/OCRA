@@ -101,4 +101,43 @@ describe('applyAnnotationLinkViewMode', () => {
     });
     expect(result.visibleData.map((item) => item.id)).toEqual(['d2']);
   });
+
+  it('shows no data when a focused geometry has no links', () => {
+    const result = applyAnnotationLinkViewMode({
+      mode: 'selectGeometry',
+      activeGeometries,
+      activeData,
+      selection,
+      focusedGeometryIds: new Set(['unlinked-geometry']),
+      focusedDataIds: new Set(),
+    });
+    expect(result.visibleData).toEqual([]);
+  });
+
+  it('shows no geometries when focused data has no links', () => {
+    const result = applyAnnotationLinkViewMode({
+      mode: 'selectData',
+      activeGeometries,
+      activeData,
+      selection,
+      focusedGeometryIds: new Set(),
+      focusedDataIds: new Set(['unlinked-data']),
+    });
+    expect(result.visibleGeometries).toEqual([]);
+  });
+
+  it('keeps both sides visible until an item is selected', () => {
+    for (const mode of ['selectGeometry', 'selectData'] as const) {
+      const result = applyAnnotationLinkViewMode({
+        mode,
+        activeGeometries,
+        activeData,
+        selection,
+        focusedGeometryIds: new Set(),
+        focusedDataIds: new Set(),
+      });
+      expect(result.visibleGeometries.map((item) => item.id)).toEqual(['g1', 'g2']);
+      expect(result.visibleData.map((item) => item.id)).toEqual(['d1', 'd2']);
+    }
+  });
 });

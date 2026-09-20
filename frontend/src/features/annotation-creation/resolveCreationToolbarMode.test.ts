@@ -40,6 +40,15 @@ describe('resolveCreationToolbarMode', () => {
     ).toBe('edit');
   });
 
+  it('forces edit mode outside the geometry creation step', () => {
+    expect(
+      resolveCreationToolbarMode('line', {
+        isCreationGeometryNew: false,
+        isCreationGeometrySearch: false,
+      }),
+    ).toBe('edit');
+  });
+
   it('lists disabled toolbar modes per wizard mode', () => {
     expect(creationToolbarDisabledModes(true, false)).toEqual(['edit']);
     expect(creationToolbarDisabledModes(true, false, true)).toEqual([]);

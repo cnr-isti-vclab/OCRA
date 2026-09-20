@@ -888,6 +888,8 @@ export default function AnnotationPanelEditor({
               ? 'The selected data annotation is not visible in this scene.'
               : panelShowsFilteredData && focusedGeometryIds.size === 0 && focusedDataIds.size === 0
               ? 'Select a geometry in the viewer to see linked annotation data.'
+              : panelShowsFilteredData
+              ? 'The selected geometry has no linked data matching the active filter.'
               : 'No annotation data matches the current filter.'}
           </p>
         </div>

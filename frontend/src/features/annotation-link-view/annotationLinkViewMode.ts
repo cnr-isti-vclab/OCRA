@@ -42,9 +42,6 @@ export interface AnnotationLinkViewResult {
 }
 
 function filterByIds<T extends { id: string }>(items: readonly T[], allowedIds: ReadonlySet<string>): T[] {
-  if (allowedIds.size === 0) {
-    return [...items];
-  }
   return items.filter((item) => allowedIds.has(item.id));
 }
 
@@ -104,7 +101,7 @@ export function applyAnnotationLinkViewMode({
       focusedDataIds,
       selection,
     );
-    if (anchorGeometryIds.size === 0) {
+    if (focusedGeometryIds.size === 0 && focusedDataIds.size === 0) {
       return {
         visibleGeometries: [...activeGeometries],
         visibleData: [...activeData],
@@ -125,7 +122,7 @@ export function applyAnnotationLinkViewMode({
     focusedDataIds,
     selection,
   );
-  if (anchorGeometryIds.size === 0) {
+  if (focusedGeometryIds.size === 0 && focusedDataIds.size === 0) {
     return {
       visibleGeometries: [...activeGeometries],
       visibleData: [...activeData],

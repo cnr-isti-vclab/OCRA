@@ -606,6 +606,10 @@ const OpenLIMEViewer = forwardRef<
 
           });
           annotationManagerRef.current = annotationManager;
+          if (!viewerOnlyMode) {
+            // Keep annotation picking available with the pencil off, without enabling edits.
+            annotationManager.setInspectEnabled(true);
+          }
 
           // After all layers are added, setup the UI and annotation callbacks
           const hasRelightableLayers = selectedAssets.some(
@@ -655,14 +659,8 @@ const OpenLIMEViewer = forwardRef<
             uiRef.current.actions.settings.display = true;
             console.log('🎬 Toolbar setup: pencil displayed');
 
-            // Leave the annotation manager in 'idle' mode at startup.
-            // Single-click selection still works from 'idle': LayerSvgAnnotation
-            // handles annotation clicks independently of mode, and _onSingleTap
-            // auto-transitions to 'edit' on the first canvas tap.
-            // Starting from 'idle' is required so the pencil button appears
-            // correctly inactive (UIBasic marks it active for any mode !== 'idle',
-            // so starting in 'edit' would make the button look already pressed,
-            // causing the first click to be visually silent).
+            // Inspection keeps annotations selectable in idle mode without activating
+            // the pencil or vertex handles. The pencil remains an explicit edit action.
 
 
             // ── Marker selector panel ────────────────────────────────────────

@@ -1,5 +1,6 @@
 import type { AnnotationToolbarMode } from '../../components/AnnotationToolbar';
 
+/** Resolve the 2D/3D toolbar mode; drawing is allowed only for a new geometry draft. */
 export function resolveCreationToolbarMode(
   currentMode: AnnotationToolbarMode,
   options: {
@@ -22,7 +23,7 @@ export function resolveCreationToolbarMode(
   if (options.isCreationGeometrySearch) {
     return 'edit';
   }
-  return currentMode;
+  return 'edit';
 }
 
 export function creationToolbarDisabledModes(

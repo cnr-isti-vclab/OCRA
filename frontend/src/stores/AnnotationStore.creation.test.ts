@@ -319,4 +319,20 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(store.creationDraftState?.geometryChoice).toBe('new');
     expect(store.creationDraftState?.dataChoice).toBe('new');
   });
+
+  it('starts Link existing data at Data with the selected geometries', () => {
+    const store = createTestStore();
+
+    const result = store.beginLinkExistingDataForGeometries(['g-1', 'g-2', 'g-1']);
+
+    expect(result).toEqual({ ok: true });
+    expect(store.creationDraftState).toMatchObject({
+      step: 'data',
+      geometryChoice: 'search',
+      dataChoice: 'search',
+      multiSide: 'geometry',
+      selectedGeometryIds: ['g-1', 'g-2'],
+      selectedDataIds: [],
+    });
+  });
 });

@@ -50,6 +50,7 @@ import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalMode
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode';
 import { buildAnnotationDisplayNumbers } from '../../utils/annotationDisplayNumbers';
+import { isGeometryEditingSession } from '../../features/annotation-editing/isGeometryEditingSession';
 
 interface Viewer2DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -112,7 +113,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setFocusedDataIds,
       setFocusSelection,
       clearFocus,
-      beginDataCreationForGeometries,
+      beginLinkExistingDataForGeometries,
       updateGeometry,
       startEditorLock,
       stopEditorLock,
@@ -120,6 +121,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const { visibleGeometries } = useAnnotationLinkView();
     const {
       creationDraft,
+      isCreationWizardActive,
       isCreationGeometryStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
@@ -132,6 +134,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     } = useAnnotationCreationWizard();
     const {
       deletionDraft,
+      isDeletionWizardActive,
       isDeletionSelectingStep,
       isDeletionDataLed,
       isDeletionGeometryPickActive,
@@ -162,24 +165,29 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [viewerReady, setViewerReady] = useState(false);
     const [annotationManagerRevision, setAnnotationManagerRevision] = useState(0);
     const [pencilActive, setPencilActive] = useState(false);
+    const geometryEditingSession = isGeometryEditingSession({
+      annotationMode,
+      pencilActive,
+      creationActive: isCreationWizardActive || workbenchOpen,
+      deletionActive: isDeletionWizardActive,
+    });
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
-    const beginDataForFocusedGeometries = useCallback((dataChoice: 'new' | 'search') => {
-      const result = beginDataCreationForGeometries([...focusedGeometryIds], dataChoice);
+    const linkExistingDataForFocusedGeometries = useCallback(() => {
+      const result = beginLinkExistingDataForGeometries([...focusedGeometryIds]);
       if (result.ok) onOpenAnnotationWorkbench?.();
       else setMessageModal(new MessageModalDescriptor({ tone: 'warning', title: 'Cannot start annotation', message: result.message }));
-    }, [beginDataCreationForGeometries, focusedGeometryIds, onOpenAnnotationWorkbench]);
+    }, [beginLinkExistingDataForGeometries, focusedGeometryIds, onOpenAnnotationWorkbench]);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const lastDraftGeometryViewerIdRef = useRef<string | null>(null);
+    const wasCreationGeometryStepRef = useRef(false);
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
-      annotationMode === 'viewer'
+      annotationMode === 'viewer' || isDeletionSelectingStep
         ? 'preserve'
         : isCreationGeometryStep
-          ? isCreationGeometryNew && !isCreationPendingNewGeometry
-            ? 'preserve'
-            : 'edit'
+          ? isCreationGeometryNew && isCreationPendingNewGeometry ? 'edit' : 'preserve'
           : !pencilActive
             ? 'preserve'
             : 'edit';
@@ -220,6 +228,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const applyToolbarMode = useCallback(
       (mode: AnnotationToolbarMode) => {
+        if (mode !== 'edit' && !isCreationGeometryNew) {
+          return;
+        }
         setToolbarMode(mode);
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
         const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
@@ -228,16 +239,26 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         }
         applyOpenLimeToolbarMode(manager, viewer, mode);
       },
-      [ref],
+      [isCreationGeometryNew, ref],
     );
 
     const handlePencilActiveChange = useCallback((active: boolean) => {
       setPencilActive(active);
     }, []);
 
+    useEffect(() => {
+      if (!isDeletionSelectingStep || !viewerReady) {
+        return;
+      }
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      if (viewer?.getAnnotationManager()?.active) {
+        viewer.enableEditing(false);
+      }
+    }, [isDeletionSelectingStep, viewerReady, pencilActive, ref]);
+
     /** Full pencil + interaction mode for panel-driven focus and creation wizard. */
     const enableAnnotationEditInteraction = useCallback(() => {
-      if (annotationMode !== 'edit' || (!pencilActive && !isCreationGeometryStep)) {
+      if (annotationMode !== 'edit' || isDeletionSelectingStep || isCreationGeometrySearch || (!pencilActive && !isCreationGeometryNew)) {
         return null;
       }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
@@ -249,7 +270,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setToolbarMode(mode);
       applyOpenLimeToolbarMode(manager, viewer, mode);
       return manager;
-    }, [annotationMode, pencilActive, isCreationGeometryStep, ref, resolveToolbarMode]);
+    }, [annotationMode, isDeletionSelectingStep, isCreationGeometrySearch, pencilActive, isCreationGeometryNew, ref, resolveToolbarMode]);
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
@@ -1001,9 +1022,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       selectionInteractionMode,
     ]);
 
-    // Apply toolbar modes during the wizard geometry step; otherwise keep edit-only when pencil is on.
+    // Creation search uses inspection; only new geometry drawing enables the pencil.
     useEffect(() => {
-      if (annotationMode !== 'edit' || !viewerReady) {
+      if (annotationMode !== 'edit' || !viewerReady || isDeletionSelectingStep) {
         return;
       }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
@@ -1011,7 +1032,17 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      if (isCreationGeometryStep) {
+      if (isCreationGeometrySearch) {
+        if (viewer.getAnnotationManager()?.active) {
+          viewer.enableEditing(false);
+        }
+        if (toolbarMode !== 'edit') {
+          setToolbarMode('edit');
+        }
+        return;
+      }
+
+      if (isCreationGeometryNew) {
         viewer.enableEditing(true);
         const effectiveMode = resolveToolbarMode();
         if (effectiveMode !== toolbarMode) {
@@ -1030,6 +1061,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }, [
       annotationMode,
       viewerReady,
+      isDeletionSelectingStep,
       pencilActive,
       isCreationGeometryStep,
       isCreationGeometryNew,
@@ -1041,14 +1073,26 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       ref,
     ]);
 
-    // Keep editor social locks aligned with this viewer's focused geometries.
     useEffect(() => {
-      if (annotationMode !== 'edit') {
+      const leftGeometryStep = wasCreationGeometryStepRef.current && !isCreationGeometryStep;
+      wasCreationGeometryStepRef.current = isCreationGeometryStep;
+      if (!viewerReady || (!leftGeometryStep && !(isCreationWizardActive && !isCreationGeometryStep))) {
+        return;
+      }
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      if (viewer?.getAnnotationManager()?.active) {
+        viewer.enableEditing(false);
+      }
+    }, [isCreationGeometryStep, isCreationWizardActive, pencilActive, ref, viewerReady]);
+
+    // Publish editor locks only for explicit pencil editing, never for inspection focus.
+    useEffect(() => {
+      if (!geometryEditingSession) {
         void syncGeometryEditorLocks([]);
         return;
       }
       void syncGeometryEditorLocks([...focusedGeometryIds]);
-    }, [annotationMode, focusedGeometryIds, syncGeometryEditorLocks]);
+    }, [geometryEditingSession, focusedGeometryIds, syncGeometryEditorLocks]);
 
     // Apply structural overlays (remote underEditing + ghost).
     useEffect(() => {
@@ -1163,11 +1207,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             />
           </div>
         )}
-        {annotationMode === 'edit' && !isCreationGeometryStep && !isDeletionSelectingStep && focusedGeometryIds.size > 0 ? (
+        {geometryEditingSession && focusedGeometryIds.size > 0 ? (
           <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3 d-flex align-items-center gap-2 bg-white border rounded shadow p-2" style={{ zIndex: 100 }} role="toolbar" aria-label="Selected geometry actions">
             <span className="small text-muted">{focusedGeometryIds.size} geometry selected</span>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => beginDataForFocusedGeometries('new')}>Describe</button>
-            <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => beginDataForFocusedGeometries('search')}>Link existing data</button>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={linkExistingDataForFocusedGeometries}>Link existing data</button>
           </div>
         ) : null}
         {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
