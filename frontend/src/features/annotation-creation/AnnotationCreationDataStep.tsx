@@ -51,7 +51,10 @@ export default function AnnotationCreationDataStep({
         type="button"
         className={`btn ${draft.dataChoice === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
         aria-pressed={draft.dataChoice === 'new'}
-        onClick={() => onDataChoiceChange('new')}
+        onClick={() => {
+          onDataChoiceChange('new');
+          onOpenCreateModal();
+        }}
       >
         <i className="bi bi-plus-lg me-2" aria-hidden />Create new
       </button>
@@ -64,16 +67,6 @@ export default function AnnotationCreationDataStep({
         onClick={() => onDataChoiceChange('search')}
       >
         <i className="bi bi-list-check me-2" aria-hidden />Choose existing
-      </button>
-      <button
-        type="button"
-        className={`btn ${draft.dataChoice === 'void' ? 'btn-secondary' : 'btn-outline-secondary'}`}
-        aria-pressed={draft.dataChoice === 'void'}
-        disabled={draft.geometryChoice !== 'new'}
-        title={draft.geometryChoice !== 'new' ? 'Skipping data would create nothing' : undefined}
-        onClick={() => onDataChoiceChange('void')}
-      >
-        <i className="bi bi-skip-forward me-2" aria-hidden />Skip
       </button>
     </div>
   );
@@ -115,9 +108,6 @@ export default function AnnotationCreationDataStep({
         ) : (
           <p className="text-muted fst-italic mb-0">No annotation data drafted yet.</p>
         )}
-        <button type="button" className="btn btn-outline-primary btn-sm align-self-start" onClick={onOpenCreateModal}>
-          {hasDraft ? 'Edit annotation data' : 'Create annotation data'}
-        </button>
       </div>
     );
   }

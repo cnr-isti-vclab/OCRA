@@ -431,6 +431,7 @@ export default function AnnotationWorkbench({
             onCreate={begin}
             onBack={back}
             onNext={() => void next()}
+            nextButtonClassName="annotation-workbench__primary-action"
             middleAction={isCreationGeometryStep
               && creationDraft.geometryChoice === 'new'
               && creationDraft.draftShapes.length > 0 ? (
@@ -440,7 +441,7 @@ export default function AnnotationWorkbench({
                   disabled={creating}
                   onClick={() => void finishGeometryOnly()}
                 >
-                  <i className="bi bi-check-lg me-2" aria-hidden />Done
+                  <i className="bi bi-check-lg me-2" aria-hidden />Save geometry only
                 </button>
               ) : null}
           />

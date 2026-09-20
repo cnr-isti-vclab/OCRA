@@ -848,7 +848,7 @@ export default function AnnotationPanelEditor({
             aria-pressed={showErased}
           >
             <i className={`bi ${showErased ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
-            {showErased ? 'Show deleted without links' : 'Deleted without links hidden'}
+            Show deleted without links
           </button>
         </div>
       ) : null}

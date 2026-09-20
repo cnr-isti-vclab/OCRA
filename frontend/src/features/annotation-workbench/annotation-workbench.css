@@ -40,6 +40,11 @@
   flex-shrink: 0;
 }
 
+.annotation-workbench__primary-action {
+  min-width: 7.5rem;
+  font-weight: 600;
+}
+
 .annotation-workbench__steps {
   counter-reset: workbench-step;
 }

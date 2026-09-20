@@ -112,6 +112,8 @@ export interface AnnotationCreationActionBarProps {
   onBack: () => void;
   onNext: () => void;
   middleAction?: ReactNode;
+  /** Optional presentation hook for the forward primary action. */
+  nextButtonClassName?: string;
 }
 
 /** Shared workflow actions, usable in either an inline panel or a sticky workbench footer. */
@@ -122,6 +124,7 @@ export function AnnotationCreationActionBar({
   onBack,
   onNext,
   middleAction,
+  nextButtonClassName,
 }: AnnotationCreationActionBarProps) {
   const isSetup = draft.step === 'setup';
   const isCommitting = draft.step === 'committing' || creating;
@@ -147,7 +150,7 @@ export function AnnotationCreationActionBar({
             Create
           </button>
         ) : (
-          <button type="button" className="btn btn-primary" disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
+          <button type="button" className={`btn btn-primary ${nextButtonClassName ?? ''}`} disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
             {nextButtonLabel}
           </button>
         )}
