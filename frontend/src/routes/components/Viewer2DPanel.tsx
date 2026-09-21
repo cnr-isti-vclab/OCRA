@@ -46,7 +46,7 @@ import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
 } from '../../shared/ui/AnnotationMessageModalCatalog';
-import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
+import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode';
 import { buildAnnotationDisplayNumbers } from '../../utils/annotationDisplayNumbers';
@@ -171,6 +171,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       creationActive: isCreationWizardActive || workbenchOpen,
       deletionActive: isDeletionWizardActive,
     });
+    // The viewer owns every geometry editor lock, including geometries selected
+    // for linking in the workbench. This keeps an existing pencil lock alive
+    // while the workbench opens and avoids competing start/stop sequences.
+    const linkingGeometryIds = creationDraft?.geometryChoice === 'search'
+      ? creationDraft.selectedGeometryIds
+      : [];
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
@@ -1088,14 +1094,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     }, [isCreationGeometryStep, isCreationWizardActive, pencilActive, ref, viewerReady]);
 
-    // Publish editor locks only for explicit pencil editing, never for inspection focus.
+    // Publish editor locks for pencil edits and existing geometries reserved for linking.
     useEffect(() => {
-      if (!geometryEditingSession) {
-        void syncGeometryEditorLocks([]);
-        return;
-      }
-      void syncGeometryEditorLocks([...focusedGeometryIds]);
-    }, [geometryEditingSession, focusedGeometryIds, syncGeometryEditorLocks]);
+      const geometryIds = geometryEditingSession
+        ? [...focusedGeometryIds]
+        : linkingGeometryIds;
+      void syncGeometryEditorLocks(geometryIds);
+    }, [geometryEditingSession, focusedGeometryIds, linkingGeometryIds, syncGeometryEditorLocks]);
 
     // Apply structural overlays (remote underEditing + ghost).
     useEffect(() => {

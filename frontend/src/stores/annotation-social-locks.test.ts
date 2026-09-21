@@ -15,7 +15,12 @@ function geometryEditorLock(geometryId: string): AnnotationSocialLockState {
     resourceId: geometryId,
     activity: 'editing annotation geometry',
     startedAt: '2026-01-01T00:00:00.000Z',
-    impact: { scope: 'resource' },
+    impact: {
+      originScopeType: 'scene',
+      originScopeId: 's1',
+      affectedSceneIds: ['s1'],
+      affectedAssetIds: [],
+    },
   };
 }
 

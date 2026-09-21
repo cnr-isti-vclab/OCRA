@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { AnnotationEventResourceType } from 'shared/annotation-events';
 import './annotation-workbench.css';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import AnnotationCreationDataStep from '../annotation-creation/AnnotationCreationDataStep';
@@ -25,6 +26,12 @@ interface FloatingWorkbenchPosition {
   top: number;
 }
 
+interface WorkbenchEditorLock {
+  resourceType: AnnotationEventResourceType;
+  resourceId: string;
+  activity: string;
+}
+
 /**
  * Non-modal authoring surface for Geometry, Data, and Link creation.
  * It deliberately leaves the viewer interactive while a draft is in progress.
@@ -47,6 +54,8 @@ export default function AnnotationWorkbench({
     vocabularySchemes,
     vocabularyConcepts,
     vocabularyProperties,
+    startEditorLock,
+    stopEditorLock,
   } = useAnnotationStore();
   const { isCreationDataStep, isCreationGeometryStep, isCreationGeometrySearch, searchableData, searchableGeometries, setCreationGeometrySelection, toggleCreationDataSelection } =
     useAnnotationCreationWizard();
@@ -58,11 +67,52 @@ export default function AnnotationWorkbench({
   const [floatingPosition, setFloatingPosition] = useState<FloatingWorkbenchPosition | null>(null);
   const hadCreationDraftRef = useRef(false);
   const wasOpenRef = useRef(false);
+  const selectedExistingLocksRef = useRef(new Map<string, WorkbenchEditorLock>());
   const geometryNumbers = useMemo(() => buildAnnotationDisplayNumbers(allGeometries), [allGeometries]);
   const dataNumbers = useMemo(() => buildAnnotationDisplayNumbers(allData), [allData]);
   const linkedGeometryIds = useMemo(() => new Set(
     allLinks.filter((link) => link.erasableAt === null).map((link) => link.geometryId),
   ), [allLinks]);
+  const selectedExistingDataLocks = useMemo<WorkbenchEditorLock[]>(() => {
+    if (!isOpen || !creationDraft) {
+      return [];
+    }
+    return [
+      ...(creationDraft.dataChoice === 'search'
+        ? creationDraft.selectedDataIds.map((resourceId) => ({
+          resourceType: 'data' as const,
+          resourceId,
+          activity: 'linking existing annotation data',
+        }))
+        : []),
+    ];
+  }, [creationDraft, isOpen]);
+
+  useEffect(() => {
+    const next = new Map(
+      selectedExistingDataLocks.map((lock) => [`${lock.resourceType}:${lock.resourceId}`, lock]),
+    );
+    const previous = selectedExistingLocksRef.current;
+    const toStart = [...next].filter(([key]) => !previous.has(key)).map(([, lock]) => lock);
+    const toStop = [...previous].filter(([key]) => !next.has(key)).map(([, lock]) => lock);
+    selectedExistingLocksRef.current = next;
+
+    void Promise.all([
+      ...toStart.map((lock) => startEditorLock(lock.resourceType, lock.resourceId, lock.activity)),
+      ...toStop.map((lock) => stopEditorLock(lock.resourceType, lock.resourceId, lock.activity)),
+    ]).catch((error: unknown) => {
+      console.warn('Failed to synchronize annotation workbench locks:', error);
+    });
+  }, [selectedExistingDataLocks, startEditorLock, stopEditorLock]);
+
+  useEffect(() => () => {
+    const locks = [...selectedExistingLocksRef.current.values()];
+    selectedExistingLocksRef.current.clear();
+    void Promise.all(locks.map((lock) => stopEditorLock(lock.resourceType, lock.resourceId, lock.activity)))
+      .catch((error: unknown) => {
+        console.warn('Failed to release annotation workbench locks:', error);
+      });
+  }, [stopEditorLock]);
 
   const geometryLabelsById = useMemo(() => {
     const dataById = new Map(allData.map((datum) => [datum.id, datum]));

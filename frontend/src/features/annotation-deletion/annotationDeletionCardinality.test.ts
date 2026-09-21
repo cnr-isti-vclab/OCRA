@@ -72,7 +72,6 @@ describe('resolveDeletionLinkViewFocus', () => {
     const base = createDefaultDeletionDraft();
     expect(resolveDeletionLinkViewFocus({
       ...base,
-      deleteLink: true,
       deleteGeometry: false,
       deleteData: false,
       candidateGeometryIds: ['g1'],
@@ -80,7 +79,6 @@ describe('resolveDeletionLinkViewFocus', () => {
     })).toBeNull();
     expect(resolveDeletionLinkViewFocus({
       ...base,
-      deleteLink: true,
       deleteGeometry: true,
       deleteData: true,
       candidateGeometryIds: ['g1'],

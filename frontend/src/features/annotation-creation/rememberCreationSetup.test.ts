@@ -21,7 +21,7 @@ describe('rememberCreationSetup', () => {
     const remembered = extractCreationSetup(patched);
     expect(remembered.geometryChoice).toBe('search');
     expect(remembered.dataChoice).toBe('void');
-    expect(remembered.selectedGeometryIds).toBeUndefined();
+    expect('selectedGeometryIds' in remembered).toBe(false);
 
     const next = applyRememberedCreationSetup(createDefaultCreationDraft('scene-b'), remembered);
     expect(next.geometryChoice).toBe('search');

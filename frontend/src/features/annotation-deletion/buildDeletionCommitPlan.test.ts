@@ -121,7 +121,12 @@ describe('pruneLockedFromDeletionBasket', () => {
         sessionId: 'sess-other',
         activity: 'edit',
         startedAt: '2026-01-01T00:00:00.000Z',
-        impact: { affectedSceneIds: ['s1'], affectedAssetIds: [] },
+        impact: {
+          originScopeType: 'scene',
+          originScopeId: 's1',
+          affectedSceneIds: ['s1'],
+          affectedAssetIds: [],
+        },
       }],
       currentStreamId: 'mine',
       links,

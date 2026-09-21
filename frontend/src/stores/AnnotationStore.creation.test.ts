@@ -50,8 +50,8 @@ function makeGeometry(id: string): AnnotationGeometry {
     version: 0,
     createdAt: '2026-01-01T00:00:00.000Z',
     createdBy: 'user-1',
-    updatedAt: null,
-    updatedBy: null,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    updatedBy: 'user-1',
     erasableAt: null,
     erasableBy: null,
   };
@@ -70,8 +70,8 @@ function makeDatum(id: string, label = 'Draft label'): AnnotationData {
     version: 0,
     createdAt: '2026-01-01T00:00:00.000Z',
     createdBy: 'user-1',
-    updatedAt: null,
-    updatedBy: null,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    updatedBy: 'user-1',
     erasableAt: null,
     erasableBy: null,
   };
@@ -86,8 +86,8 @@ function makeLink(id: string, geometryId: string, dataId: string): AnnotationLin
     version: 0,
     createdAt: '2026-01-01T00:00:00.000Z',
     createdBy: 'user-1',
-    updatedAt: null,
-    updatedBy: null,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    updatedBy: 'user-1',
     erasableAt: null,
     erasableBy: null,
   };
