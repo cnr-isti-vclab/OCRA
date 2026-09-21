@@ -50,20 +50,6 @@ function pickDisplayLabel(
   return '(no data)';
 }
 
-function distinctLinkedClasses(
-  dataIds: readonly string[],
-  selection: ActiveAnnotationSelection,
-): string[] {
-  const classes = new Set<string>();
-  for (const dataId of dataIds) {
-    const classId = selection.dataById.get(dataId)?.class;
-    if (classId) {
-      classes.add(classId);
-    }
-  }
-  return [...classes];
-}
-
 /**
  * Maps one active {@link AnnotationGeometry} to a viewer rendering DTO.
  * Geometry id is the viewer annotation id.
@@ -78,7 +64,6 @@ export function geometryToViewerAnnotation(
   const dataIds = selection.dataIdsByGeometryId.get(geometry.id) ?? [];
   const primaryDataId = [...focusedDataIds].find((id) => dataIds.includes(id)) ?? dataIds[0];
   const datum = primaryDataId ? selection.dataById.get(primaryDataId) : undefined;
-  const linkedClasses = distinctLinkedClasses(dataIds, selection);
   const semanticClass =
     semanticClassPreference.find((classId) =>
       dataIds.some((dataId) => selection.dataById.get(dataId)?.class === classId),
@@ -86,14 +71,16 @@ export function geometryToViewerAnnotation(
 
   const renderingMode = selection.renderingModeByGeometryId.get(geometry.id);
   const structuralClass = structuralClassForRenderingMode(renderingMode);
-  const multiClassDash = semanticClass !== null && linkedClasses.length > 1 ? '8,6' : null;
+  // The dash indicates that one geometry represents multiple Data records,
+  // regardless of whether those records use the same semantic class.
+  const multiDataDash = dataIds.length > 1 ? '8,6' : null;
 
   return {
     id: geometry.id,
     label: pickDisplayLabel(geometry.id, selection, focusedDataIds),
     semanticClass,
     structuralClass,
-    strokeDasharray: structuralClass === 'orphan' ? '6,4' : multiClassDash,
+    strokeDasharray: structuralClass === 'orphan' ? '6,4' : multiDataDash,
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
     description: datum?.description,

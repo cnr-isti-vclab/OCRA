@@ -1,11 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import type { AnnotationData } from 'shared/annotation-types';
+import type { AnnotationData, AnnotationGeometry } from 'shared/annotation-types';
 import type { ViewerAnnotation } from 'shared/scene-types';
-import { withWorkbenchDisplayNumbers } from '../adapters/annotation-store/geometryToViewerAnnotation';
+import { geometryToViewerAnnotation, withWorkbenchDisplayNumbers } from '../adapters/annotation-store/geometryToViewerAnnotation';
 import { createEmptyActiveSelection } from '../stores/annotation-selection';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from './annotationDisplayNumbers';
 
 describe('annotation display numbers', () => {
+  it('uses a dashed outline for a geometry linked to multiple data records of the same class', () => {
+    const geometry: AnnotationGeometry = {
+      id: 'g-1', projectId: 'project', referenceType: 'scene', referenceId: 'scene',
+      shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+      createdAt: '2026-01-01T00:00:00.000Z', createdBy: 'user',
+      updatedAt: '2026-01-01T00:00:00.000Z', updatedBy: 'user',
+      version: 0, erasableAt: null, erasableBy: null,
+    };
+    const datum = (id: string): AnnotationData => ({
+      id, label: id, projectId: 'project', description: '', class: 'ocra-voc:hole', content: {},
+      visibilityType: 'scene', visibilityId: 'scene',
+      createdAt: '2026-01-01T00:00:00.000Z', createdBy: 'user',
+      updatedAt: '2026-01-01T00:00:00.000Z', updatedBy: 'user',
+      version: 0, erasableAt: null, erasableBy: null,
+    });
+    const selection = {
+      ...createEmptyActiveSelection(),
+      dataById: new Map([['d-1', datum('d-1')], ['d-2', datum('d-2')]]),
+      dataIdsByGeometryId: new Map([['g-1', ['d-1', 'd-2']]]),
+    };
+
+    expect(geometryToViewerAnnotation(geometry, selection).strokeDasharray).toBe('8,6');
+  });
+
   it('uses creation order with an id tie-breaker and excludes erased records', () => {
     const numbers = buildAnnotationDisplayNumbers([
       { id: 'g-c', createdAt: '2026-01-02T00:00:00.000Z', erasableAt: null },
