@@ -38,8 +38,6 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keepEndpointAvailable, setKeepEndpointAvailable] = useState<boolean | null>(null);
-  const [eraseOrphanIds, setEraseOrphanIds] = useState<ReadonlySet<string>>(new Set());
-  const [erasableOrphanChoices, setErasableOrphanChoices] = useState<ReadonlyMap<string, 'delete' | 'keep'>>(new Map());
   const endpointKind: DeletionEndpointKind = draft.targetKind ?? (draft.deleteGeometry ? 'geometry' : 'data');
   const endpointId = draft.targetId ?? undefined;
   const selectedLinkIds = draft.candidateLinkIds;
@@ -69,8 +67,6 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
   useEffect(() => {
     setReviewLinks(null);
     setKeepEndpointAvailable(null);
-    setEraseOrphanIds(new Set());
-    setErasableOrphanChoices(new Map());
   }, [endpointId, selectedKey]);
 
   const incidentLinks = useMemo(() => (projectLinks ?? []).filter((link) => link.erasableAt === null && (endpointKind === 'geometry' ? link.geometryId === endpointId : link.dataId === endpointId)), [projectLinks, endpointKind, endpointId]);
@@ -78,13 +74,9 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
     ? allGeometries.find((geometry) => geometry.id === endpointId)?.id ?? endpointId
     : allData.find((datum) => datum.id === endpointId)?.label?.trim() || endpointId;
   const consequences = reviewLinks && endpointId ? calculateDeletionConsequences({ endpointKind, endpointId, selectedLinkIds, projectLinks: reviewLinks, geometries: allGeometries, data: allData }) : null;
-  const deletesRootEndpoint = consequences?.remainingLinkCount === 0 && keepEndpointAvailable === false;
-  const deletesCounterpart = eraseOrphanIds.size > 0
-    || Boolean(consequences?.newlyUnlinkedCounterparts.some(
-      (item) => item.wasErasable && erasableOrphanChoices.get(item.id) === 'delete',
-    ));
-  const deletesAnyEndpoint = deletesRootEndpoint || deletesCounterpart;
-  const confirmLabel = deletesAnyEndpoint
+  const deletesRootEndpoint = consequences?.remainingLinkCount === 0
+    && (consequences.initialLinkCount === 0 || keepEndpointAvailable === false);
+  const confirmLabel = deletesRootEndpoint
     ? selectedLinkIds.length > 0 ? 'Unlink and delete' : 'Confirm delete'
     : 'Confirm unlink';
 
@@ -134,20 +126,19 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
       }
       // An endpoint can disappear only after every active relationship has been
       // removed. With any remaining relationship it stays available for use.
-      const eraseRoot = consequences.remainingLinkCount === 0 && keepEndpointAvailable === false;
+      const eraseRoot = consequences.remainingLinkCount === 0
+        && (consequences.initialLinkCount === 0 || keepEndpointAvailable === false);
       const candidateGeometryIds = [
         ...(endpointKind === 'geometry' && eraseRoot ? [endpointId] : []),
-        ...consequences.newlyUnlinkedCounterparts.filter((item) => item.kind === 'geometry' && eraseOrphanIds.has(item.id)).map((item) => item.id),
       ];
       const candidateDataIds = [
         ...(endpointKind === 'data' && eraseRoot ? [endpointId] : []),
-        ...consequences.newlyUnlinkedCounterparts.filter((item) => item.kind === 'data' && eraseOrphanIds.has(item.id)).map((item) => item.id),
       ];
       const restoreGeometryIds = consequences.newlyUnlinkedCounterparts
-        .filter((item) => item.kind === 'geometry' && item.wasErasable && erasableOrphanChoices.get(item.id) === 'keep')
+        .filter((item) => item.kind === 'geometry' && item.wasErasable)
         .map((item) => item.id);
       const restoreDataIds = consequences.newlyUnlinkedCounterparts
-        .filter((item) => item.kind === 'data' && item.wasErasable && erasableOrphanChoices.get(item.id) === 'keep')
+        .filter((item) => item.kind === 'data' && item.wasErasable)
         .map((item) => item.id);
       if (selectedLinkIds.length === 0 && candidateGeometryIds.length === 0 && candidateDataIds.length === 0) {
         setError('No changes to save. Choose an outcome or go Back.');
@@ -188,43 +179,21 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
           <p className="mb-2">{selectedLinkIds.length} relationship{selectedLinkIds.length === 1 ? '' : 's'} will be unlinked.</p>
           {consequences.remainingLinkCount > 0 ? (
             <p className="alert alert-info py-2 mb-2">{consequences.remainingLinkCount} relationship{consequences.remainingLinkCount === 1 ? '' : 's'} will remain. This {endpointKind} stays available and cannot be deleted while it is still linked.</p>
+          ) : consequences.initialLinkCount === 0 ? (
+            <p className="alert alert-warning py-2 mb-2">This {endpointKind} has no relationships and will be deleted.</p>
           ) : (
             <fieldset className="border rounded p-2 mb-2">
-              <legend className="float-none w-auto fs-6 px-1 mb-1">This {endpointKind} {consequences.initialLinkCount === 0 ? 'has' : 'will have'} no relationships</legend>
-              <label className="d-block mb-1"><input type="radio" name="deletion-root-outcome" checked={keepEndpointAvailable === true} onChange={() => setKeepEndpointAvailable(true)} />{' '}Keep it available for future links</label>
-              <label className="d-block"><input type="radio" name="deletion-root-outcome" checked={keepEndpointAvailable === false} onChange={() => setKeepEndpointAvailable(false)} />{' '}Delete it (mark erasable and hide it)</label>
+              <legend className="float-none w-auto fs-6 px-1 mb-1">This {endpointKind} will have no relationships</legend>
+              <label className="d-block mb-1"><input type="radio" name="deletion-root-outcome" checked={keepEndpointAvailable === true} onChange={() => setKeepEndpointAvailable(true)} />{' '}Just unlink it</label>
+              <label className="d-block"><input type="radio" name="deletion-root-outcome" checked={keepEndpointAvailable === false} onChange={() => setKeepEndpointAvailable(false)} />{' '}Unlink and delete the {endpointKind}</label>
             </fieldset>
           )}
-          {consequences.newlyUnlinkedCounterparts.length > 0 ? (
-            <div className="border rounded p-2 mb-2">
-              <div className="fw-semibold mb-1">These items will become unlinked</div>
-              <p className="text-muted mb-2">When an item loses its final relationship, choose whether it should remain available or be deleted.</p>
-              {consequences.newlyUnlinkedCounterparts.map((item) => {
-                const label = item.kind === 'data' ? allData.find((datum) => datum.id === item.id)?.label || item.id : item.id;
-                return item.wasErasable ? (
-                  <fieldset key={`${item.kind}:${item.id}`} className="border-top pt-2 mb-2">
-                    <legend className="float-none w-auto fs-6 mb-1">{label} is already erasable and will disappear</legend>
-                    <label className="d-block"><input type="radio" name={`orphan-${item.kind}-${item.id}`} checked={erasableOrphanChoices.get(item.id) === 'delete'} onChange={() => setErasableOrphanChoices(new Map(erasableOrphanChoices).set(item.id, 'delete'))} />{' '}Confirm deletion</label>
-                    <label className="d-block"><input type="radio" name={`orphan-${item.kind}-${item.id}`} checked={erasableOrphanChoices.get(item.id) === 'keep'} onChange={() => setErasableOrphanChoices(new Map(erasableOrphanChoices).set(item.id, 'keep'))} />{' '}Restore and leave available</label>
-                  </fieldset>
-                ) : (
-                  <label key={`${item.kind}:${item.id}`} className="d-block mb-1">
-                    <input type="checkbox" checked={eraseOrphanIds.has(item.id)} onChange={() => {
-                      const next = new Set(eraseOrphanIds);
-                      if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                      setEraseOrphanIds(next);
-                    }} />{' '}Delete {item.kind} {label} when it becomes unlinked
-                  </label>
-                );
-              })}
-            </div>
-          ) : null}
           <div className="d-flex justify-content-between gap-2 mt-3">
             <div className="d-flex gap-2">
               <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setReviewLinks(null)}>Back</button>
               <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>Cancel</button>
             </div>
-            <button type="button" className={`btn btn-sm ${deletesAnyEndpoint ? 'btn-danger' : 'btn-warning'}`} disabled={loadingLinks || confirming || (consequences.remainingLinkCount === 0 && keepEndpointAvailable === null) || consequences.newlyUnlinkedCounterparts.some((item) => item.wasErasable && !erasableOrphanChoices.has(item.id))} onClick={() => void confirm()}>{confirming ? 'Saving…' : confirmLabel}</button>
+            <button type="button" className={`btn btn-sm ${deletesRootEndpoint ? 'btn-danger' : 'btn-warning'}`} disabled={loadingLinks || confirming || (consequences.remainingLinkCount === 0 && consequences.initialLinkCount > 0 && keepEndpointAvailable === null)} onClick={() => void confirm()}>{confirming ? 'Saving…' : confirmLabel}</button>
           </div>
         </>
       ) : (
