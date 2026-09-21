@@ -111,6 +111,7 @@ export interface AnnotationCreationActionBarProps {
   onCreate: () => void;
   onBack: () => void;
   onNext: () => void;
+  onCancel?: () => void;
   middleAction?: ReactNode;
   /** Optional presentation hook for the forward primary action. */
   nextButtonClassName?: string;
@@ -123,6 +124,7 @@ export function AnnotationCreationActionBar({
   onCreate,
   onBack,
   onNext,
+  onCancel,
   middleAction,
   nextButtonClassName,
 }: AnnotationCreationActionBarProps) {
@@ -139,6 +141,11 @@ export function AnnotationCreationActionBar({
   return (
     <div className="d-grid align-items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
       <div className="d-flex justify-content-start">
+        {onCancel ? (
+          <button type="button" className="btn btn-outline-secondary me-2" disabled={isCommitting} onClick={onCancel}>
+            Cancel
+          </button>
+        ) : null}
         <button type="button" className="btn btn-outline-secondary" disabled={!wizardActive || isCommitting} onClick={onBack}>
           Back
         </button>

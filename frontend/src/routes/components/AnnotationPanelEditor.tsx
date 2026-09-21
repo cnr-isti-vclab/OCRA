@@ -72,8 +72,8 @@ function discardCreationModalDescriptor(): MessageModalDescriptor {
 function discardDeletionModalDescriptor(): MessageModalDescriptor {
   return new MessageModalDescriptor({
     tone: 'warning',
-    title: 'Discard annotation deletion?',
-    message: 'This will cancel the current deletion draft and clear the selection basket.',
+    title: 'Cancel unlink/delete operation?',
+    message: 'This will discard the current choices and clear the selection.',
     actions: [
       { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
       { key: 'discard', label: 'Discard', tone: 'danger' },
@@ -763,7 +763,7 @@ export default function AnnotationPanelEditor({
                 isCreationWizardActive
                   ? 'Use Back to cancel the creation session before closing'
                   : isDeletionWizardActive
-                    ? 'Finish or cancel deletion before creating'
+                    ? 'Finish or cancel unlink/delete before creating'
                     : undefined
               }
             >
@@ -778,14 +778,14 @@ export default function AnnotationPanelEditor({
               disabled={isCreationWizardActive || isDeletionWizardActive}
               title={
                 isDeletionWizardActive
-                  ? 'Use Back to cancel the deletion session before closing'
+                  ? 'Use Back to cancel the unlink/delete session before closing'
                   : isCreationWizardActive
-                    ? 'Finish or cancel creation before deleting'
+                    ? 'Finish or cancel creation before unlinking or deleting'
                     : undefined
               }
             >
               <i className={`bi ${deleteSectionExpanded ? 'bi-chevron-up' : 'bi-trash'} me-1`} aria-hidden />
-              Delete
+              Unlink/Delete
             </button>
           </div>
           {createSectionExpanded && creationDraft ? (
@@ -820,7 +820,7 @@ export default function AnnotationPanelEditor({
                   if (result.message) {
                     setMessageModal(new MessageModalDescriptor({
                       tone: 'success',
-                      title: 'Delete completed',
+                      title: 'Changes saved',
                       message: result.message,
                     }));
                   }

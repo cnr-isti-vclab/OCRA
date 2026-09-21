@@ -431,6 +431,7 @@ export default function AnnotationWorkbench({
             onCreate={begin}
             onBack={back}
             onNext={() => void next()}
+            onCancel={requestClose}
             nextButtonClassName="annotation-workbench__primary-action"
             middleAction={isCreationGeometryStep
               && creationDraft.geometryChoice === 'new'
