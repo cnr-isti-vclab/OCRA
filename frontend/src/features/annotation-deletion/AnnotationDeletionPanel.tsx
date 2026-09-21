@@ -123,7 +123,9 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
         setError('Relationships changed while you were reviewing. Check the updated list.');
         return;
       }
-      const eraseRoot = consequences.remainingLinkCount > 0 || keepEndpointAvailable === false;
+      // An endpoint can disappear only after every active relationship has been
+      // removed. With any remaining relationship it stays available for use.
+      const eraseRoot = consequences.remainingLinkCount === 0 && keepEndpointAvailable === false;
       const candidateGeometryIds = [
         ...(endpointKind === 'geometry' && eraseRoot ? [endpointId] : []),
         ...consequences.newlyUnlinkedCounterparts.filter((item) => item.kind === 'geometry' && eraseOrphanIds.has(item.id)).map((item) => item.id),
@@ -176,7 +178,7 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
           <div className="fw-semibold mb-2">Review deletion of {endpointLabel}</div>
           <p className="mb-2">{selectedLinkIds.length} relationship{selectedLinkIds.length === 1 ? '' : 's'} will be removed.</p>
           {consequences.remainingLinkCount > 0 ? (
-            <p className="alert alert-info py-2 mb-2">This {endpointKind} will be marked erasable but remain visible through {consequences.remainingLinkCount} other relationship{consequences.remainingLinkCount === 1 ? '' : 's'}.</p>
+            <p className="alert alert-info py-2 mb-2">{consequences.remainingLinkCount} relationship{consequences.remainingLinkCount === 1 ? '' : 's'} will remain. This {endpointKind} stays available and cannot be marked erasable until all of its relationships are removed.</p>
           ) : (
             <fieldset className="border rounded p-2 mb-2">
               <legend className="float-none w-auto fs-6 px-1 mb-1">This {endpointKind} will have no relationships</legend>

@@ -244,7 +244,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const handlePencilActiveChange = useCallback((active: boolean) => {
       setPencilActive(active);
-    }, []);
+      if (!active) {
+        clearFocus();
+      }
+    }, [clearFocus]);
 
     useEffect(() => {
       if (!isDeletionSelectingStep || !viewerReady) {

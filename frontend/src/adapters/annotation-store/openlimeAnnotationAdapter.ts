@@ -205,6 +205,12 @@ export function syncOpenLimeAnnotations(
 
   const targetIds = new Set(viewerAnnotations.map((a) => a.id));
   const preserved = preserveIds ?? new Set<string>();
+  // A geometry replacement removes the OpenLIME annotation (and its ID from the
+  // layer selection) before it is imported again. Capture selection before any
+  // destructive sync work so an active vertex-edit session survives that replace.
+  const selectedIdsBeforeSync = manager.layer?.selected
+    ? [...manager.layer.selected].filter((id) => targetIds.has(id))
+    : [];
   const existingIds = manager.getAnnotations().map((a) => a.id);
   let labelsUpdated = false;
   let stylesUpdated = false;
@@ -287,9 +293,6 @@ export function syncOpenLimeAnnotations(
   }
 
   if (toImport.length > 0) {
-    // Preserve current selection so we can re-apply it after import.
-    const selectedIds = manager.layer?.selected ? [...manager.layer.selected] : [];
-
     manager.importAnnotations(toImport);
     for (const entry of toImport) {
       const anno = manager.getAnnotationById(entry.id);
@@ -307,8 +310,8 @@ export function syncOpenLimeAnnotations(
     // (re)apply class styles to elements via its selection update pipeline.
     // This avoids relying on hardcoded inline SVG style attributes.
     manager.deselectAll();
-    if (selectedIds.length > 0 && typeof manager.setSelectedIds === 'function') {
-      manager.setSelectedIds(selectedIds);
+    if (selectedIdsBeforeSync.length > 0 && typeof manager.setSelectedIds === 'function') {
+      manager.setSelectedIds(selectedIdsBeforeSync);
     }
 
     labelsUpdated = true;

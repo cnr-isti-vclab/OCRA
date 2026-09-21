@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ViewerAnnotation } from 'shared/scene-types';
 import {
   syncOpenLimeAnnotations,
@@ -7,6 +7,50 @@ import {
 } from './openlimeAnnotationAdapter';
 
 describe('OpenLIME label parts sync', () => {
+  it('keeps a selected geometry selected when stale SVG geometry is replaced', () => {
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    });
+    const annotations = new Map<string, OpenLimeSyncedAnnotation>([
+      ['geometry-1', { id: 'geometry-1', type: 'point', data: { _x: 10, _y: 20 } }],
+    ]);
+    const selected = new Set(['geometry-1']);
+    const manager: OpenLimeAnnotationManager = {
+      mode: 'edit',
+      layer: { selected },
+      getAnnotations: () => [...annotations.values()],
+      getAnnotationById: (id) => annotations.get(id) ?? null,
+      deleteAnnotation: (id) => {
+        annotations.delete(id);
+        selected.delete(id);
+      },
+      importAnnotations: (entries) => {
+        for (const entry of entries) {
+          annotations.set(entry.id, { id: entry.id, svg: entry.target.selector.value });
+        }
+      },
+      setMode: (mode) => mode,
+      deselectAll: () => selected.clear(),
+      setSelected: () => {},
+      setSelectedIds: (ids) => {
+        selected.clear();
+        ids.forEach((id) => selected.add(id));
+      },
+    };
+    const annotation: ViewerAnnotation = {
+      id: 'geometry-1',
+      type: 'point',
+      geometry: [12, 24, 0],
+      label: 'Moved point',
+    };
+
+    syncOpenLimeAnnotations(manager, [annotation]);
+
+    expect(selected).toEqual(new Set(['geometry-1']));
+    vi.unstubAllGlobals();
+  });
+
   it('adds and removes presentation badges without changing geometry or the plain label', () => {
     const existing: OpenLimeSyncedAnnotation = {
       id: 'geometry-1',
