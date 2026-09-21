@@ -347,7 +347,9 @@ const OpenLIMEViewer = forwardRef<
         try {
           console.log('🎬 Initializing OpenLIME Viewer with scene:', sceneDesc);
 
-          const viewer = new OpenLIME.Viewer(mountRef.current);
+          // The annotations sidebar changes this container's width. Preserve the
+          // annotator's pan/zoom rather than treating that layout resize as Home.
+          const viewer = new OpenLIME.Viewer(mountRef.current, { fitCameraOnResize: false });
 
           if (viewer === null) {
             throw new Error('Failed to initialize OpenLIME Viewer');

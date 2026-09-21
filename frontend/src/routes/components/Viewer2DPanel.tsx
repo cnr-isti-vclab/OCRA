@@ -1213,7 +1213,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         {geometryEditingSession && focusedGeometryIds.size > 0 ? (
           <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3 d-flex align-items-center gap-2 bg-white border rounded shadow p-2" style={{ zIndex: 100 }} role="toolbar" aria-label="Selected geometry actions">
             <span className="small text-muted">{focusedGeometryIds.size} geometry selected</span>
-            <button type="button" className="btn btn-sm btn-outline-primary" onClick={linkExistingDataForFocusedGeometries}>Link existing data</button>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={linkExistingDataForFocusedGeometries}>Update link(s)</button>
           </div>
         ) : null}
         {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
