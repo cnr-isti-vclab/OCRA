@@ -30,6 +30,10 @@ function linkSignature(
     .map((link) => `${link.id}:${link.version}:${link.erasableAt ?? ''}`).sort().join('|');
 }
 
+function orphanKey(kind: DeletionEndpointKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
 /** Guided deletion of one endpoint and explicitly chosen relationships. */
 export default function AnnotationDeletionPanel({ draft, setupError, onStartDelete, onBack, onConfirmDelete, confirming = false }: AnnotationDeletionPanelProps) {
   const { allLinks, allData, allGeometries, initDeletionDraft, clearDeletionBasket, updateDeletionDraft, loadProjectLinksForDeletion } = useAnnotationStore();
@@ -38,12 +42,18 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keepEndpointAvailable, setKeepEndpointAvailable] = useState<boolean | null>(null);
+  const [reviewingUnlinkedItems, setReviewingUnlinkedItems] = useState(false);
+  const [erasableOrphanKeys, setErasableOrphanKeys] = useState<ReadonlySet<string>>(new Set());
   const endpointKind: DeletionEndpointKind = draft.targetKind ?? (draft.deleteGeometry ? 'geometry' : 'data');
   const endpointId = draft.targetId ?? undefined;
   const selectedLinkIds = draft.candidateLinkIds;
   const selectedKey = selectedLinkIds.join('|');
   const localLinkIds = useMemo(() => new Set(allLinks.map((link) => link.id)), [allLinks]);
   const localLinkKey = [...localLinkIds].sort().join('|');
+  // Project-wide links are required before committing. While they are loading
+  // or unavailable, local scene links remain useful context but are not treated
+  // as a complete relationship set.
+  const linksForDisplay = projectLinks ?? allLinks;
 
   useEffect(() => {
     if (!endpointId || draft.step !== 'selecting') { setProjectLinks(null); return; }
@@ -67,18 +77,33 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
   useEffect(() => {
     setReviewLinks(null);
     setKeepEndpointAvailable(null);
+    setReviewingUnlinkedItems(false);
+    setErasableOrphanKeys(new Set());
   }, [endpointId, selectedKey]);
 
-  const incidentLinks = useMemo(() => (projectLinks ?? []).filter((link) => link.erasableAt === null && (endpointKind === 'geometry' ? link.geometryId === endpointId : link.dataId === endpointId)), [projectLinks, endpointKind, endpointId]);
+  const incidentLinks = useMemo(() => linksForDisplay.filter((link) => link.erasableAt === null && (endpointKind === 'geometry' ? link.geometryId === endpointId : link.dataId === endpointId)), [linksForDisplay, endpointKind, endpointId]);
   const endpointLabel = endpointKind === 'geometry'
     ? allGeometries.find((geometry) => geometry.id === endpointId)?.id ?? endpointId
     : allData.find((datum) => datum.id === endpointId)?.label?.trim() || endpointId;
   const consequences = reviewLinks && endpointId ? calculateDeletionConsequences({ endpointKind, endpointId, selectedLinkIds, projectLinks: reviewLinks, geometries: allGeometries, data: allData }) : null;
   const deletesRootEndpoint = consequences?.remainingLinkCount === 0
     && (consequences.initialLinkCount === 0 || keepEndpointAvailable === false);
-  const confirmLabel = deletesRootEndpoint
-    ? selectedLinkIds.length > 0 ? 'Unlink and delete' : 'Confirm delete'
-    : 'Confirm unlink';
+  const deletesOrphanEndpoint = Boolean(consequences?.newlyUnlinkedCounterparts.some((item) => (
+    erasableOrphanKeys.has(orphanKey(item.kind, item.id))
+  )));
+  const deletesAnyEndpoint = deletesRootEndpoint || deletesOrphanEndpoint;
+  const confirmLabel = reviewingUnlinkedItems
+    ? 'Confirm'
+    : deletesAnyEndpoint
+      ? selectedLinkIds.length > 0 ? 'Unlink and delete' : 'Confirm delete'
+      : 'Confirm unlink';
+
+  const orphanLabel = (kind: DeletionEndpointKind, id: string): string => {
+    if (kind === 'geometry') {
+      return id;
+    }
+    return allData.find((datum) => datum.id === id)?.label?.trim() || id;
+  };
 
   const toggleLink = (linkId: string) => {
     const next = new Set(selectedLinkIds);
@@ -130,15 +155,21 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
         && (consequences.initialLinkCount === 0 || keepEndpointAvailable === false);
       const candidateGeometryIds = [
         ...(endpointKind === 'geometry' && eraseRoot ? [endpointId] : []),
+        ...consequences.newlyUnlinkedCounterparts
+          .filter((item) => item.kind === 'geometry' && erasableOrphanKeys.has(orphanKey(item.kind, item.id)) && !item.wasErasable)
+          .map((item) => item.id),
       ];
       const candidateDataIds = [
         ...(endpointKind === 'data' && eraseRoot ? [endpointId] : []),
+        ...consequences.newlyUnlinkedCounterparts
+          .filter((item) => item.kind === 'data' && erasableOrphanKeys.has(orphanKey(item.kind, item.id)) && !item.wasErasable)
+          .map((item) => item.id),
       ];
       const restoreGeometryIds = consequences.newlyUnlinkedCounterparts
-        .filter((item) => item.kind === 'geometry' && item.wasErasable)
+        .filter((item) => item.kind === 'geometry' && item.wasErasable && !erasableOrphanKeys.has(orphanKey(item.kind, item.id)))
         .map((item) => item.id);
       const restoreDataIds = consequences.newlyUnlinkedCounterparts
-        .filter((item) => item.kind === 'data' && item.wasErasable)
+        .filter((item) => item.kind === 'data' && item.wasErasable && !erasableOrphanKeys.has(orphanKey(item.kind, item.id)))
         .map((item) => item.id);
       if (selectedLinkIds.length === 0 && candidateGeometryIds.length === 0 && candidateDataIds.length === 0) {
         setError('No changes to save. Choose an outcome or go Back.');
@@ -173,6 +204,39 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
             <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>Cancel</button>
           </div>
         </>
+      ) : reviewLinks && consequences && reviewingUnlinkedItems ? (
+        <>
+          <div className="fw-semibold mb-2">Review unlinked items</div>
+          <p className="text-muted mb-2">These items will have no relationships after the unlink. Leave an item unchecked to keep it available.</p>
+          <div className="list-group mb-2">
+            {consequences.newlyUnlinkedCounterparts.map((item) => {
+              const key = orphanKey(item.kind, item.id);
+              const markedForDeletion = erasableOrphanKeys.has(key);
+              return (
+                <label key={key} className="list-group-item d-flex align-items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="form-check-input m-0"
+                    checked={markedForDeletion}
+                    onChange={() => setErasableOrphanKeys((current) => {
+                      const next = new Set(current);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                  />
+                  <span className="flex-grow-1 text-truncate">Delete {orphanLabel(item.kind, item.id)}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="d-flex justify-content-between gap-2 mt-3">
+            <div className="d-flex gap-2">
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setReviewingUnlinkedItems(false)}>Back</button>
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>Cancel</button>
+            </div>
+            <button type="button" className={`btn btn-sm ${deletesAnyEndpoint ? 'btn-danger' : 'btn-warning'}`} disabled={loadingLinks || confirming} onClick={() => void confirm()}>{confirming ? 'Saving…' : confirmLabel}</button>
+          </div>
+        </>
       ) : reviewLinks && consequences ? (
         <>
           <div className="fw-semibold mb-2">Review changes to {endpointLabel}</div>
@@ -193,7 +257,20 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
               <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setReviewLinks(null)}>Back</button>
               <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>Cancel</button>
             </div>
-            <button type="button" className={`btn btn-sm ${deletesRootEndpoint ? 'btn-danger' : 'btn-warning'}`} disabled={loadingLinks || confirming || (consequences.remainingLinkCount === 0 && consequences.initialLinkCount > 0 && keepEndpointAvailable === null)} onClick={() => void confirm()}>{confirming ? 'Saving…' : confirmLabel}</button>
+            <button
+              type="button"
+              className={`btn btn-sm ${deletesRootEndpoint ? 'btn-danger' : 'btn-warning'}`}
+              disabled={loadingLinks || confirming || (consequences.remainingLinkCount === 0 && consequences.initialLinkCount > 0 && keepEndpointAvailable === null)}
+              onClick={() => {
+                if (consequences.newlyUnlinkedCounterparts.length > 0) {
+                  setReviewingUnlinkedItems(true);
+                  return;
+                }
+                void confirm();
+              }}
+            >
+              {consequences.newlyUnlinkedCounterparts.length > 0 ? 'Continue' : confirming ? 'Saving…' : confirmLabel}
+            </button>
           </div>
         </>
       ) : (
@@ -202,7 +279,11 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
           {loadingLinks ? <p className="text-muted">Loading relationships…</p> : (
             <>
               <p className="text-muted mb-2">Select the relationship{incidentLinks.length === 1 ? '' : 's'} to unlink.</p>
-              {incidentLinks.length === 0 ? <p className="mb-2">No relationships: in the next step, choose whether to delete this item or keep it available.</p> : (
+              {projectLinks === null ? (
+                <p className="alert alert-warning py-2 mb-2">Could not verify all project relationships. The relationships shown below are from this scene only; choose the item again to retry.</p>
+              ) : null}
+              {incidentLinks.length === 0 && projectLinks !== null ? <p className="mb-2">No relationships: in the next step, choose whether to delete this item or keep it available.</p> : null}
+              {incidentLinks.length > 0 ? (
                 <div className="list-group mb-2">
                   {incidentLinks.map((link) => {
                     const counterpartId = endpointKind === 'geometry' ? link.dataId : link.geometryId;
@@ -217,7 +298,7 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
                     );
                   })}
                 </div>
-              )}
+              ) : null}
               {incidentLinks.some((link) => !localLinkIds.has(link.id)) ? <p className="text-muted">Relationships from other scenes are shown for context. Open that scene to remove them.</p> : null}
             </>
           )}
