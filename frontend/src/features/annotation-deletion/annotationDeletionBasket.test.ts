@@ -185,7 +185,7 @@ describe('validateDeletionBasket', () => {
     expect(canConfirmDeletionBasket(draft, { links: sceneLinks })).toBe(true);
   });
 
-  it('rejects geometry basket missing its link when Link is in the intent', () => {
+  it('accepts marking a geometry erasable without unlinking its active link', () => {
     const draft = {
       ...createDefaultDeletionDraft(),
       step: 'selecting' as const,
@@ -196,7 +196,7 @@ describe('validateDeletionBasket', () => {
     };
     expect(validateDeletionBasket(draft, {
       links: [link('l1', 'g1', 'd1')],
-    }).ok).toBe(false);
+    }).ok).toBe(true);
   });
 
   it('accepts geometry-only basket while strong links remain', () => {

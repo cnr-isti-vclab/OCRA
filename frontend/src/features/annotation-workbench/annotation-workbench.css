@@ -4,7 +4,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: clamp(26rem, 36vw, 38rem);
+  width: clamp(24rem, 28vw, 35rem);
   min-width: 22rem;
   resize: horizontal;
   overflow: hidden;

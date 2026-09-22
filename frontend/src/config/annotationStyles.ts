@@ -29,10 +29,10 @@ const UNDER_EDITING_COLOR = {
 } as const;
 
 const GHOST_COLOR = {
-  fill: 'rgba(148, 163, 184, 0.22)',
-  stroke: 'rgba(100, 116, 139, 0.85)',
-  text: 'rgba(71, 85, 105, 1)',
-  background: 'rgba(241, 245, 249, 0.95)',
+  fill: 'rgba(148, 163, 184, 0.08)',
+  stroke: 'rgba(100, 116, 139, 0.48)',
+  text: 'rgba(100, 116, 139, 0.68)',
+  background: 'rgba(241, 245, 249, 0.62)',
 } as const;
 
 /** More faded / detached look for weak orphans with no strong link. */

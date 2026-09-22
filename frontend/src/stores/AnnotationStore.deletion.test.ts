@@ -201,6 +201,26 @@ describe('AnnotationStore deletion wizard commit', () => {
     expect(store.linksById.get('l1')?.erasableAt).not.toBeNull();
   });
 
+  it('marks a linked geometry erasable without unlinking its relationship', async () => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1')],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+
+    store.initDeletionDraft();
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ candidateLinkIds: [] });
+
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g1', 0);
+    expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
+    expect(store.geometriesById.get('g1')?.erasableAt).not.toBeNull();
+    expect(store.linksById.get('l1')?.erasableAt).toBeNull();
+  });
+
   it('commits geometry + link in link-then-geometry order', async () => {
     const store = createTestStore();
     await seedScene(store, {

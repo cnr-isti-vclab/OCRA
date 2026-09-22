@@ -870,7 +870,7 @@ export default function AnnotationPanelEditor({
             aria-pressed={showErased}
           >
             <i className={`bi ${showErased ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
-            Show deleted without links
+            Show geometry without links
           </button>
         </div>
       ) : null}

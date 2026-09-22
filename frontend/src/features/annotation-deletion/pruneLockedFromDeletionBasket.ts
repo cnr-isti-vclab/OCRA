@@ -13,10 +13,6 @@ import {
   isGeometryIdUnderRemoteEditorLock,
   isLinkIdUnderRemoteEditorLock,
 } from './isEntityBlockedForDeletion';
-import {
-  nonErasableLinksForData,
-  nonErasableLinksForGeometry,
-} from './annotationDeletionCardinality';
 
 export interface DeletionLockPruneContext {
   activeSocialLocks: readonly AnnotationSocialLockState[];
@@ -65,8 +61,8 @@ function formatSkipMessage(args: {
 }
 
 /**
- * Drop remotely editor-locked basket entities and cascade dependents so the
- * remaining basket still satisfies the endpoint–link confirm rule.
+ * Drop remotely editor-locked basket entities and their selected dependents.
+ * Endpoints remain valid candidates even when no relationship is selected.
  */
 export function pruneLockedFromDeletionBasket(
   draft: AnnotationDeletionDraft,
@@ -127,37 +123,6 @@ export function pruneLockedFromDeletionBasket(
       ...next,
       candidateLinkIds: next.candidateLinkIds.filter((id) => !removeLinks.has(id)),
     };
-  }
-
-  // A remotely locked link can remove the only chosen relationship for an
-  // endpoint. Keep only endpoints whose deletion still has a selected link,
-  // except endpoints that were already unlinked.
-  if (next.deleteLink) {
-    const linkIdSet = new Set(next.candidateLinkIds);
-    if (next.deleteGeometry) {
-      next = {
-        ...next,
-        candidateGeometryIds: next.candidateGeometryIds.filter((geometryId) => {
-          const incident = nonErasableLinksForGeometry(linkList, geometryId);
-          if (incident.length === 0) {
-            return true;
-          }
-          return incident.some((link) => linkIdSet.has(link.id));
-        }),
-      };
-    }
-    if (next.deleteData) {
-      next = {
-        ...next,
-        candidateDataIds: next.candidateDataIds.filter((dataId) => {
-          const incident = nonErasableLinksForData(linkList, dataId);
-          if (incident.length === 0) {
-            return true;
-          }
-          return incident.some((link) => linkIdSet.has(link.id));
-        }),
-      };
-    }
   }
 
   // Link-only: never keep endpoints.

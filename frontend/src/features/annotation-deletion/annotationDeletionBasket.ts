@@ -1,9 +1,5 @@
 import type { AnnotationLink } from 'shared/annotation-types';
 import type { AnnotationDeletionDraft } from './types';
-import {
-  nonErasableLinksForData,
-  nonErasableLinksForGeometry,
-} from './annotationDeletionCardinality';
 import { validateDeletionSetup, type AnnotationDeletionValidationResult } from './annotationDeletionValidation';
 
 export interface DeletionBasketContext {
@@ -12,13 +8,13 @@ export interface DeletionBasketContext {
 
 /**
  * Confirm gating: non-empty basket, setup still valid.
- * When Link is part of the intent, every endpoint in the basket must be an orphan
- * or include all of its non-erasable links. Endpoint-only intents (Geo / Data without
- * Link) intentionally leave strong links so the endpoint becomes Ghost.
+ * Link selection is optional when an endpoint is being marked erasable. Any
+ * remaining strong links retain that endpoint as a Ghost. Link-only operations
+ * still require at least one selected relationship.
  */
 export function validateDeletionBasket(
   draft: AnnotationDeletionDraft,
-  context: DeletionBasketContext,
+  _context: DeletionBasketContext,
 ): AnnotationDeletionValidationResult {
   const setup = validateDeletionSetup(draft);
   if (!setup.ok) {
@@ -40,37 +36,6 @@ export function validateDeletionBasket(
 
   if (!hasCandidates) {
     return { ok: false, message: 'Select at least one item to delete.' };
-  }
-
-  const linkIdSet = new Set(draft.candidateLinkIds);
-  const links = [...context.links];
-
-  // A linked initiating endpoint must remove at least one of its active links.
-  // Remaining links keep an erasable endpoint visible as a ghost.
-  if (draft.deleteLink) {
-    if (draft.deleteGeometry) {
-      for (const geometryId of draft.candidateGeometryIds) {
-        const incident = nonErasableLinksForGeometry(links, geometryId);
-        if (incident.length > 0 && incident.every((link) => !linkIdSet.has(link.id))) {
-          return {
-            ok: false,
-            message: 'Choose at least one link to remove from the selected geometry.',
-          };
-        }
-      }
-    }
-
-    if (draft.deleteData) {
-      for (const dataId of draft.candidateDataIds) {
-        const incident = nonErasableLinksForData(links, dataId);
-        if (incident.length > 0 && incident.every((link) => !linkIdSet.has(link.id))) {
-          return {
-            ok: false,
-            message: 'Choose at least one link to remove from the selected data record.',
-          };
-        }
-      }
-    }
   }
 
   if (draft.deleteLink && !draft.deleteGeometry && !draft.deleteData) {
