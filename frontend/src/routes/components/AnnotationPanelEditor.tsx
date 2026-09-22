@@ -411,7 +411,6 @@ export default function AnnotationPanelEditor({
             ? 'Network error'
             : 'Disconnected';
 
-  const focusedDataIdList = [...focusedDataIds];
 
   const collaborativeEditInfo = useMemo(() => {
     if (!currentStreamId) {
@@ -736,13 +735,6 @@ export default function AnnotationPanelEditor({
   return (
     <AnnotationPanelBase
       title="Annotations"
-      headerRight={focusedDataIdList.length > 0 ? (
-        <div className="btn-group btn-group-sm" role="group">
-          <button type="button" className="btn btn-outline-secondary" onClick={clearFocus}>
-            <i className="bi bi-x-lg" aria-hidden />
-          </button>
-        </div>
-      ) : null}
       status={
         <div
           className={`mb-3 p-2 border rounded small annotation-panel-status ${
