@@ -256,6 +256,51 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }, [clearFocus]);
 
     useEffect(() => {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (
+          event.key !== 'Escape'
+          || isCreationWizardActive
+          || isDeletionWizardActive
+          || geometryEditingSession
+          || messageModal !== null
+          || settingsOpen
+        ) {
+          return;
+        }
+
+        const target = event.target;
+        if (
+          target instanceof HTMLElement
+          && (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
+        ) {
+          return;
+        }
+
+        if (focusedGeometryIds.size === 0 && focusedDataIds.size === 0) {
+          return;
+        }
+
+        event.preventDefault();
+        const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+        viewer?.getAnnotationManager()?.deselectAll?.();
+        clearFocus();
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+      clearFocus,
+      focusedDataIds,
+      focusedGeometryIds,
+      geometryEditingSession,
+      isCreationWizardActive,
+      isDeletionWizardActive,
+      messageModal,
+      ref,
+      settingsOpen,
+    ]);
+
+    useEffect(() => {
       if (!isDeletionSelectingStep || !viewerReady) {
         return;
       }
