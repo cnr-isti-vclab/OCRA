@@ -194,6 +194,9 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
             <button type="button" className="btn btn-outline-danger btn-sm flex-fill" onClick={() => onStartDelete({ deleteGeometry: true, deleteData: false, deleteLink: true })}>Geometry</button>
             <button type="button" className="btn btn-outline-danger btn-sm flex-fill" onClick={() => onStartDelete({ deleteGeometry: false, deleteData: true, deleteLink: true })}>Data</button>
           </div>
+          <div className="d-flex justify-content-end mt-3">
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>Cancel</button>
+          </div>
         </>
       ) : !endpointId ? (
         <>
@@ -303,7 +306,10 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
             </>
           )}
           <div className="d-flex justify-content-between gap-2 mt-3">
-            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={clearDeletionBasket}>Choose another</button>
+            <div className="d-flex gap-2">
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={clearDeletionBasket}>Choose another</button>
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>Cancel</button>
+            </div>
             <button type="button" className="btn btn-primary btn-sm" disabled={loadingLinks || !projectLinks || (incidentLinks.length > 0 && selectedLinkIds.length === 0)} onClick={() => void review()}>Review</button>
           </div>
         </>

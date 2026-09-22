@@ -155,6 +155,29 @@ describe('AnnotationStore deletion wizard commit', () => {
     });
   });
 
+  it.each([
+    ['geometry' as const, 'g1', true, false],
+    ['data' as const, 'd1', false, true],
+  ])('starts deletion directly from a primary %s selection', async (kind, id, deleteGeometry, deleteData) => {
+    const store = createTestStore();
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1')],
+      links: [makeLink('l1', 'g1', 'd1')],
+    });
+
+    expect(store.beginDeletionForTarget({ kind, id })).toEqual({ ok: true });
+    expect(store.deletionDraftState).toMatchObject({
+      step: 'selecting',
+      deleteLink: true,
+      deleteGeometry,
+      deleteData,
+      targetKind: kind,
+      targetId: id,
+      candidateLinkIds: ['l1'],
+    });
+  });
+
   it('commits link-only basket without marking endpoints', async () => {
     const store = createTestStore();
     await seedScene(store, {
@@ -463,7 +486,6 @@ describe('AnnotationStore creation/delete wizard exclusivity', () => {
 
     store.initCreationDraft();
     store.beginCreationWizard();
-
     store.initDeletionDraft();
     expect(store.deletionDraftState).toBeNull();
 

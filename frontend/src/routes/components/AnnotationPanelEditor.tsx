@@ -152,6 +152,7 @@ export default function AnnotationPanelEditor({
     getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
+    primaryAnnotationSelection,
     focusData,
     setFocusSelection,
     clearFocus,
@@ -171,6 +172,7 @@ export default function AnnotationPanelEditor({
     initDeletionDraft,
     discardDeletionDraft,
     beginDeletionWizard,
+    beginDeletionForTarget,
     commitDeletionDraft,
     deleting,
     updateData,
@@ -260,30 +262,50 @@ export default function AnnotationPanelEditor({
     if (isCreationWizardActive || isDeletionWizardActive) {
       return;
     }
-    setDeleteSectionExpanded((expanded) => {
-      const next = !expanded;
-      if (next) {
-        if (creationDraft) {
-          discardCreationDraft();
-          setCreateSectionExpanded(false);
-          setSetupError(null);
-          setCreationDataModalOpen(false);
-        }
-        if (!deletionDraft) {
-          initDeletionDraft();
-        }
-      } else {
-        setDeletionSetupError(null);
+    if (deleteSectionExpanded) {
+      discardDeletionDraft();
+      setDeleteSectionExpanded(false);
+      setDeletionSetupError(null);
+      return;
+    }
+
+    if (creationDraft) {
+      discardCreationDraft();
+      setCreateSectionExpanded(false);
+      setSetupError(null);
+      setCreationDataModalOpen(false);
+    }
+
+    setDeleteSectionExpanded(true);
+    if (primaryAnnotationSelection) {
+      const renderingMode = primaryAnnotationSelection.kind === 'geometry'
+        ? activeAnnotationSelection.renderingModeByGeometryId.get(primaryAnnotationSelection.id)
+        : activeAnnotationSelection.renderingModeByDataId.get(primaryAnnotationSelection.id);
+      if (isRecoverableRenderingMode(renderingMode)) {
+        initDeletionDraft();
+        setDeletionSetupError('Erased annotations can only be restored, not deleted again.');
+        return;
       }
-      return next;
-    });
+      const result = beginDeletionForTarget(primaryAnnotationSelection);
+      setDeletionSetupError(result.ok ? null : result.message);
+      return;
+    }
+    if (!deletionDraft) {
+      initDeletionDraft();
+    }
   }, [
+    activeAnnotationSelection.renderingModeByDataId,
+    activeAnnotationSelection.renderingModeByGeometryId,
+    beginDeletionForTarget,
     creationDraft,
+    deleteSectionExpanded,
     deletionDraft,
     discardCreationDraft,
+    discardDeletionDraft,
     initDeletionDraft,
     isCreationWizardActive,
     isDeletionWizardActive,
+    primaryAnnotationSelection,
   ]);
 
   const handleBeginCreation = useCallback(() => {
@@ -758,13 +780,13 @@ export default function AnnotationPanelEditor({
               className={`btn btn-sm flex-fill ${createSectionExpanded ? 'btn-primary' : 'btn-outline-primary'}`}
               onClick={handleCreateSectionToggle}
               aria-expanded={createSectionExpanded}
-              disabled={isDeletionWizardActive || isCreationWizardActive}
+              disabled={deleteSectionExpanded || isDeletionWizardActive || isCreationWizardActive}
               title={
-                isCreationWizardActive
+                deleteSectionExpanded || isDeletionWizardActive
+                  ? 'Finish or cancel unlink/delete before creating'
+                  : isCreationWizardActive
                   ? 'Use Back to cancel the creation session before closing'
-                  : isDeletionWizardActive
-                    ? 'Finish or cancel unlink/delete before creating'
-                    : undefined
+                  : undefined
               }
             >
               <i className={`bi ${createSectionExpanded ? 'bi-chevron-up' : 'bi-plus-lg'} me-1`} aria-hidden />
@@ -839,7 +861,7 @@ export default function AnnotationPanelEditor({
       )}
     >
 
-      {!isCreationWizardActive && !isDeletionWizardActive ? (
+      {!isCreationWizardActive && !isDeletionWizardActive && linkViewMode === 'showAll' ? (
         <div className="mb-3">
           <button
             type="button"
@@ -1011,7 +1033,11 @@ export default function AnnotationPanelEditor({
                             onClick={(e) => {
                               e.stopPropagation();
                               setFocusSelection(
-                                { geometryIds: [], dataIds: [datum.id] },
+                                {
+                                  geometryIds: [],
+                                  dataIds: [datum.id],
+                                  primary: { kind: 'data', id: datum.id },
+                                },
                                 () => {
                                   void handleEditStart(datum);
                                 },

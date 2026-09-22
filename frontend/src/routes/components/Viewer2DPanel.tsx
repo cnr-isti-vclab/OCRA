@@ -806,6 +806,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setFocusSelection({
         geometryIds: ids,
         dataIds: dataIdsForFocusedGeometries(ids, activeAnnotationSelection),
+        primary: ids.length === 1 ? { kind: 'geometry', id: ids[0]! } : null,
       });
     };
 

@@ -26,6 +26,7 @@ import {
   type ActiveAnnotationSelection,
   type SelectionCriteria,
 } from './annotation-selection';
+import type { PrimaryAnnotationSelection } from '../types/annotationSelection';
 import type { AnnotationCreationDraft, AnnotationCreationSetupDraft } from '../features/annotation-creation/types';
 import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
 import { flushCreationDraftGeometry } from '../features/annotation-creation/creationDraftGeometryFlush';
@@ -269,11 +270,8 @@ export class AnnotationStore {
   }
 
   initCreationDraft(): void {
-    if (this.isDeletionWizardActive) {
-      return;
-    }
     if (this.deletionDraft) {
-      this.deletionDraft = null;
+      return;
     }
     let draft = createDefaultCreationDraft(this.sceneId);
     if (this.rememberedCreationSetup) {
@@ -351,7 +349,7 @@ export class AnnotationStore {
   }
 
   initDeletionDraft(): void {
-    if (this.isCreationWizardActive) {
+    if (this.isCreationWizardActive || this.isDeletionWizardActive) {
       return;
     }
     if (this.creationDraft) {
@@ -423,6 +421,31 @@ export class AnnotationStore {
     };
     this.bump();
     return { ok: true };
+  }
+
+  /** Start unlink/delete with a user-selected endpoint as the explicit target. */
+  beginDeletionForTarget(
+    target: PrimaryAnnotationSelection,
+  ): DeletionBasketAddResult {
+    if (this.isCreationWizardActive) {
+      return { ok: false, message: 'Finish or cancel creation before deleting.' };
+    }
+    if (this.isDeletionWizardActive) {
+      return { ok: false, message: 'Finish or cancel the current deletion first.' };
+    }
+
+    this.deletionDraft = createDefaultDeletionDraft();
+    const beginResult = this.beginDeletionWizard({
+      deleteLink: true,
+      deleteGeometry: target.kind === 'geometry',
+      deleteData: target.kind === 'data',
+    });
+    if (!beginResult.ok) {
+      return beginResult;
+    }
+    return target.kind === 'geometry'
+      ? this.addGeometryToDeletionBasket(target.id)
+      : this.addDataToDeletionBasket(target.id);
   }
 
   /**

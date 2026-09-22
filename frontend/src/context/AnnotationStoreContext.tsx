@@ -49,6 +49,7 @@ import {
 import AppMessageModal from '../shared/ui/AppMessageModal';
 import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
 import { getVocabularyNodeLabel } from '../utils/vocabulary';
+import type { PrimaryAnnotationSelection } from '../types/annotationSelection';
 
 export type AnnotationStoreLogTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -72,6 +73,7 @@ export type AnnotationClassFilterMode = 'none' | 'custom' | 'all';
 export interface AnnotationFocusState {
   focusedGeometryIds: ReadonlySet<string>;
   focusedDataIds: ReadonlySet<string>;
+  primaryAnnotationSelection: PrimaryAnnotationSelection | null;
   setFocusedGeometryIds: (geometryIds: Iterable<string>) => void;
   setFocusedDataIds: (dataIds: Iterable<string>) => void;
   focusGeometry: (geometryId: string, multiSelect: boolean) => void;
@@ -132,6 +134,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   beginDeletionWizard: (
     intent?: Pick<AnnotationDeletionDraft, 'deleteLink' | 'deleteGeometry' | 'deleteData'>,
   ) => { ok: true } | { ok: false; message: string };
+  beginDeletionForTarget: (target: PrimaryAnnotationSelection) => DeletionBasketAddResult;
   advanceDeletionStep: () => { ok: true } | { ok: false; message: string };
   addGeometryToDeletionBasket: (geometryId: string) => DeletionBasketAddResult;
   addDataToDeletionBasket: (dataId: string) => DeletionBasketAddResult;
@@ -220,6 +223,7 @@ function appendLog(
 interface FocusSelectionInput {
   geometryIds?: Iterable<string>;
   dataIds?: Iterable<string>;
+  primary?: PrimaryAnnotationSelection | null;
 }
 
 interface AnnotationStoreProviderProps {
@@ -266,16 +270,19 @@ export function AnnotationStoreProvider({
     () => new Set(),
   );
   const [focusedDataIds, setFocusedDataIdsState] = useState<ReadonlySet<string>>(() => new Set());
-  const [linkViewMode, setLinkViewMode] = useState<AnnotationLinkViewMode>('showAll');
+  const [primaryAnnotationSelection, setPrimaryAnnotationSelection] = useState<PrimaryAnnotationSelection | null>(null);
+  const [linkViewMode, setLinkViewModeState] = useState<AnnotationLinkViewMode>('showAll');
   const focusedGeometryIdsRef = useRef<ReadonlySet<string>>(new Set());
   const focusedDataIdsRef = useRef<ReadonlySet<string>>(new Set());
 
   const setFocusedGeometryIds = useCallback((geometryIds: Iterable<string>) => {
     setFocusedGeometryIdsState(new Set(geometryIds));
+    setPrimaryAnnotationSelection(null);
   }, []);
 
   const setFocusedDataIds = useCallback((dataIds: Iterable<string>) => {
     setFocusedDataIdsState(new Set(dataIds));
+    setPrimaryAnnotationSelection(null);
   }, []);
 
   useEffect(() => {
@@ -350,6 +357,7 @@ export function AnnotationStoreProvider({
       runSelectionWithLockGuard(input, () => {
         setFocusedGeometryIdsState(new Set(input.geometryIds ?? []));
         setFocusedDataIdsState(new Set(input.dataIds ?? []));
+        setPrimaryAnnotationSelection(input.primary ?? null);
         onApplied?.();
       });
     },
@@ -372,6 +380,7 @@ export function AnnotationStoreProvider({
     runSelectionWithLockGuard({ geometryIds: nextGeometryIds, dataIds: [] }, () => {
       setFocusedGeometryIdsState(nextGeometryIds);
       setFocusedDataIdsState(new Set());
+      setPrimaryAnnotationSelection(nextGeometryIds.size === 1 ? { kind: 'geometry', id: geometryId } : null);
     });
   }, [runSelectionWithLockGuard]);
 
@@ -391,12 +400,14 @@ export function AnnotationStoreProvider({
     runSelectionWithLockGuard({ geometryIds: [], dataIds: nextDataIds }, () => {
       setFocusedGeometryIdsState(new Set());
       setFocusedDataIdsState(nextDataIds);
+      setPrimaryAnnotationSelection(nextDataIds.size === 1 ? { kind: 'data', id: dataId } : null);
     });
   }, [runSelectionWithLockGuard]);
 
   const clearFocus = useCallback(() => {
     setFocusedGeometryIdsState(new Set());
     setFocusedDataIdsState(new Set());
+    setPrimaryAnnotationSelection(null);
   }, []);
 
   const isDataFocused = useCallback(
@@ -411,7 +422,7 @@ export function AnnotationStoreProvider({
 
   useEffect(() => {
     clearFocus();
-    setLinkViewMode('showAll');
+    setLinkViewModeState('showAll');
   }, [sceneId, clearFocus]);
 
   useEffect(() => {
@@ -572,6 +583,9 @@ export function AnnotationStoreProvider({
   );
 
   const setShowErased = useCallback((nextShowErased: boolean) => {
+    if (nextShowErased && linkViewMode !== 'showAll') {
+      return;
+    }
     const current = storeRef.current;
     if (!current) {
       return;
@@ -580,6 +594,19 @@ export function AnnotationStoreProvider({
       ...current.currentSelectionCriteria,
       showErased: nextShowErased,
     });
+  }, [linkViewMode]);
+
+  const setLinkViewMode = useCallback((mode: AnnotationLinkViewMode) => {
+    setLinkViewModeState(mode);
+    if (mode !== 'showAll') {
+      const current = storeRef.current;
+      if (current && resolveShowErased(current.currentSelectionCriteria)) {
+        current.selectActiveAnnotations({
+          ...current.currentSelectionCriteria,
+          showErased: false,
+        });
+      }
+    }
   }, []);
 
   const activeGeometries = useMemo(
@@ -864,6 +891,11 @@ export function AnnotationStoreProvider({
       ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
 
+  const beginDeletionForTarget = useCallback((target: PrimaryAnnotationSelection) => {
+    return storeRef.current?.beginDeletionForTarget(target)
+      ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
   const advanceDeletionStep = useCallback(() => {
     return storeRef.current?.advanceDeletionStep() ?? { ok: false as const, message: 'Store not ready.' };
   }, []);
@@ -1006,6 +1038,7 @@ export function AnnotationStoreProvider({
   const value: AnnotationStoreContextValue = {
     focusedGeometryIds,
     focusedDataIds,
+    primaryAnnotationSelection,
     setFocusedGeometryIds,
     setFocusedDataIds,
     focusGeometry,
@@ -1060,6 +1093,7 @@ export function AnnotationStoreProvider({
     updateDeletionDraft,
     discardDeletionDraft,
     beginDeletionWizard,
+    beginDeletionForTarget,
     advanceDeletionStep,
     addGeometryToDeletionBasket,
     addDataToDeletionBasket,

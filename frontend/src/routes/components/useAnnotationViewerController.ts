@@ -118,6 +118,7 @@ export function useAnnotationViewerController() {
       setFocusSelection({
         geometryIds: nextGeometryIds,
         dataIds: [],
+        primary: nextGeometryIds.size === 1 ? { kind: 'geometry', id: [...nextGeometryIds][0]! } : null,
       });
     },
     [focusedGeometryIds, setFocusSelection],
@@ -135,6 +136,7 @@ export function useAnnotationViewerController() {
       setFocusSelection({
         geometryIds: geometryId ? [geometryId] : [],
         dataIds: nextDataIds,
+        primary: nextDataIds.size === 1 ? { kind: 'data', id: [...nextDataIds][0]! } : null,
       });
     },
     [focusedDataIds, setFocusSelection],

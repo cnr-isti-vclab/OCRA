@@ -590,6 +590,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setFocusSelection({
         geometryIds: ids,
         dataIds: dataIdsForFocusedGeometries(ids, activeAnnotationSelection),
+        primary: ids.length === 1 ? { kind: 'geometry', id: ids[0]! } : null,
       });
     };
 
