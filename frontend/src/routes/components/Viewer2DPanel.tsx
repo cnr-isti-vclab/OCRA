@@ -179,12 +179,16 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const lastDraftGeometryViewerIdRef = useRef<string | null>(null);
     const lastCreationGeometryFocusKeyRef = useRef<string | null>(null);
     const wasCreationGeometryStepRef = useRef(false);
+    // Creation data/committing must stay in preserve: draft geometry is still
+    // highlighted, but enabling edit here fights the post-geometry pencil-off path.
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
       annotationMode === 'viewer' || isDeletionSelectingStep
         ? 'preserve'
         : isCreationGeometryStep
-          ? isCreationGeometryNew && isCreationPendingNewGeometry ? 'edit' : 'preserve'
-          : 'edit';
+          ? (isCreationGeometryNew && isCreationPendingNewGeometry ? 'edit' : 'preserve')
+          : isCreationWizardActive
+            ? 'preserve'
+            : 'edit';
 
     useEffect(() => {
       if (!isDeletionSelectingStep) {
@@ -303,6 +307,10 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (annotationMode !== 'edit' || isDeletionSelectingStep || isCreationGeometrySearch) {
         return null;
       }
+      // Data/committing steps still highlight the draft; do not re-arm the pencil.
+      if (isCreationWizardActive && !isCreationGeometryNew) {
+        return null;
+      }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
       const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
       if (!viewer || !manager) {
@@ -312,7 +320,15 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setToolbarMode(mode);
       applyOpenLimeToolbarMode(manager, viewer, mode);
       return manager;
-    }, [annotationMode, isDeletionSelectingStep, isCreationGeometrySearch, ref, resolveToolbarMode]);
+    }, [
+      annotationMode,
+      isCreationGeometryNew,
+      isCreationGeometrySearch,
+      isCreationWizardActive,
+      isDeletionSelectingStep,
+      ref,
+      resolveToolbarMode,
+    ]);
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
@@ -1135,9 +1151,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         if (viewer.getAnnotationManager()?.active) {
           viewer.enableEditing(false);
         }
-        if (toolbarMode !== 'edit') {
-          setToolbarMode('edit');
-        }
+        setToolbarMode('edit');
         return;
       }
 
@@ -1146,17 +1160,22 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const effectiveMode = isCreationPendingNewGeometry
           ? resolveToolbarMode()
           : creationDraft?.drawingMode ?? 'area';
-        if (effectiveMode !== toolbarMode) {
-          setToolbarMode(effectiveMode);
-        }
         applyToolbarMode(effectiveMode);
         return;
       }
 
-      if (geometryEditingActive) {
-        if (toolbarMode !== 'edit') {
-          setToolbarMode('edit');
+      // Data/committing (or any non-draw creation step): pencil must stay off.
+      // Do not call applyToolbarMode('edit') — that re-enables editing and loops
+      // with selection sync while the draft geometry remains highlighted.
+      if (isCreationWizardActive) {
+        if (viewer.getAnnotationManager()?.active) {
+          viewer.enableEditing(false);
         }
+        setToolbarMode('edit');
+        return;
+      }
+
+      if (geometryEditingActive) {
         applyToolbarMode('edit');
       }
     }, [
@@ -1164,12 +1183,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       viewerReady,
       isDeletionSelectingStep,
       geometryEditingActive,
-      isCreationGeometryStep,
+      isCreationWizardActive,
       isCreationGeometryNew,
       isCreationGeometrySearch,
       isCreationPendingNewGeometry,
       creationDraft?.drawingMode,
-      toolbarMode,
       applyToolbarMode,
       resolveToolbarMode,
       ref,
@@ -1185,7 +1203,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (viewer?.getAnnotationManager()?.active) {
         viewer.enableEditing(false);
       }
-    }, [isCreationGeometryStep, isCreationWizardActive, geometryEditingActive, ref, viewerReady]);
+    }, [isCreationGeometryStep, isCreationWizardActive, ref, viewerReady]);
 
     // Publish editor locks for active vertex edits and existing geometries reserved for linking.
     useEffect(() => {

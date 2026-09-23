@@ -301,32 +301,24 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
       if (!isCreationGeometryStep) {
         viewer.setPickingMode(false);
-        if (toolbarMode !== 'edit') {
-          setToolbarMode('edit');
-        }
+        setToolbarMode('edit');
         return;
       }
 
       if (isCreationGeometryNew) {
         const effectiveMode = resolveToolbarMode();
-        if (effectiveMode !== toolbarMode) {
-          setToolbarMode(effectiveMode);
-        }
         applyToolbarMode(effectiveMode);
         return;
       }
 
       if (isCreationGeometrySearch) {
-        if (toolbarMode !== 'edit') {
-          setToolbarMode('edit');
-        }
+        setToolbarMode('edit');
         applyToolbarMode('edit');
       }
     }, [
       isCreationGeometryStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
-      toolbarMode,
       applyToolbarMode,
       resolveToolbarMode,
       ref,
