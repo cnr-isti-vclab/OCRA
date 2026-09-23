@@ -3,6 +3,7 @@ import type { AnnotationCreationDraft } from './types';
 export function createDefaultCreationDraft(sceneId: string): AnnotationCreationDraft {
   return {
     step: 'setup',
+    drawingMode: 'area',
     geometryChoice: 'new',
     dataChoice: 'new',
     geometryScope: {

@@ -142,6 +142,7 @@ export default function ProjectPage() {
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
   const [annotationsSidebarOpen, setAnnotationsSidebarOpen] = useState(true);
   const [annotationWorkbenchOpen, setAnnotationWorkbenchOpen] = useState(false);
+  const [annotationWorkbenchDetached, setAnnotationWorkbenchDetached] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [editedPosition, setEditedPosition] = useState<string>('');
@@ -750,6 +751,17 @@ export default function ProjectPage() {
     return <div className="container py-5">Project not found</div>;
   }
 
+  const annotationWorkbenchDocked = mode === '2d'
+    && annotationMode === 'edit'
+    && annotationWorkbenchOpen
+    && !annotationWorkbenchDetached
+    && Boolean(selectedSceneId);
+
+  const closeAnnotationWorkbench = () => {
+    setAnnotationWorkbenchOpen(false);
+    setAnnotationWorkbenchDetached(false);
+  };
+
   const projectPageBody = (
       <div ref={containerRef} className="d-flex flex-column overflow-hidden" style={{ height: '100%' }}>
         {/* Project Header */}
@@ -812,7 +824,7 @@ export default function ProjectPage() {
                     scenes={availableScenes}
                     selectedSceneId={selectedSceneId}
                     onSceneChange={(sceneId) => {
-                      setAnnotationWorkbenchOpen(false);
+                      closeAnnotationWorkbench();
                       setSelectedSceneId(sceneId);
                     }}
                   />
@@ -823,7 +835,7 @@ export default function ProjectPage() {
         </div>
 
         {/* Main content */}
-        <div className="flex-grow-1 d-flex overflow-hidden">
+        <div className="flex-grow-1 d-flex overflow-hidden position-relative">
           {/* 3D/2D Viewer */}
           <div
             className="bg-light border-end h-100 overflow-hidden"
@@ -889,7 +901,7 @@ export default function ProjectPage() {
                   twoDimensionalAssetAvailable={twoDimensionalAssetAvailable}
                   annotationMode={annotationMode}
                   workbenchOpen={annotationWorkbenchOpen && annotationMode === 'edit'}
-                  onOpenAnnotationWorkbench={() => setAnnotationWorkbenchOpen(true)}
+                  annotationOverlayRightInset={annotationsSidebarOpen ? 400 : 0}
                   onReady={() => {
                     console.log('📸 2D RTI viewer ready');
                   }}
@@ -900,29 +912,22 @@ export default function ProjectPage() {
                 />
               </Suspense>
             )}
-            {!annotationTestMode && mode === '2d' && annotationMode === 'edit' && selectedSceneId ? (
-              <AnnotationWorkbench
-                isOpen={annotationWorkbenchOpen}
-                sceneId={selectedSceneId}
-                sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
-                sceneAssets={digitalAssets.map((asset) => ({
-                  id: asset.id,
-                  label: asset.label || asset.title || asset.id,
-                }))}
-                onClose={() => setAnnotationWorkbenchOpen(false)}
-              />
-            ) : null}
           </div>
 
           {/* Sidebar with Tabs */}
           <div
             className="bg-white border-start"
             style={{
-              width: mode === '2d' && !annotationsSidebarOpen ? 0 : '350px',
+              width: mode === '2d' ? '400px' : '350px',
               minWidth: mode === '2d' ? 0 : '300px',
-              flexShrink: 0,
-              position: 'relative',
-              transition: mode === '2d' ? 'width 180ms ease-in-out' : undefined,
+              flexShrink: mode === '2d' ? undefined : 0,
+              position: mode === '2d' ? 'absolute' : 'relative',
+              top: mode === '2d' ? 0 : undefined,
+              right: mode === '2d' ? (annotationsSidebarOpen ? 0 : '-400px') : undefined,
+              bottom: mode === '2d' ? 0 : undefined,
+              zIndex: mode === '2d' ? 20 : undefined,
+              boxShadow: mode === '2d' ? '0 0 1rem rgb(0 0 0 / 15%)' : undefined,
+              transition: mode === '2d' ? 'right 180ms ease-in-out' : undefined,
             }}
           >
             <div
@@ -1592,15 +1597,36 @@ export default function ProjectPage() {
                     {annotationMode === 'viewer' ? (
                       <AnnotationPanelViewer />
                     ) : (
-                      <AnnotationPanelEditor
-                        sceneId={selectedSceneId ?? ''}
-                        sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
-                        sceneAssets={digitalAssets.map((asset) => ({
-                          id: asset.id,
-                          label: asset.label || asset.title || asset.id,
-                        }))}
-                        onOpenCreationWorkbench={mode === '2d' ? () => setAnnotationWorkbenchOpen(true) : undefined}
-                      />
+                      <>
+                        {mode === '2d' && annotationMode === 'edit' && selectedSceneId ? (
+                          <AnnotationWorkbench
+                            isOpen={annotationWorkbenchOpen}
+                            isDetached={annotationWorkbenchDetached}
+                            onDetachedChange={setAnnotationWorkbenchDetached}
+                            sceneId={selectedSceneId}
+                            sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
+                            sceneAssets={digitalAssets.map((asset) => ({
+                              id: asset.id,
+                              label: asset.label || asset.title || asset.id,
+                            }))}
+                            onClose={closeAnnotationWorkbench}
+                          />
+                        ) : null}
+                        {!annotationWorkbenchDocked ? (
+                          <AnnotationPanelEditor
+                            sceneId={selectedSceneId ?? ''}
+                            sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
+                            sceneAssets={digitalAssets.map((asset) => ({
+                              id: asset.id,
+                              label: asset.label || asset.title || asset.id,
+                            }))}
+                            onOpenCreationWorkbench={mode === '2d' ? () => {
+                              setAnnotationWorkbenchDetached(false);
+                              setAnnotationWorkbenchOpen(true);
+                            } : undefined}
+                          />
+                        ) : null}
+                      </>
                     )}
                   </div>
                 )}

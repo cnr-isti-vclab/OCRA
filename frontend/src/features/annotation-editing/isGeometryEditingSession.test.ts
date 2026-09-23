@@ -4,7 +4,7 @@ import { isGeometryEditingSession } from './isGeometryEditingSession';
 describe('isGeometryEditingSession', () => {
   const base = {
     annotationMode: 'edit' as const,
-    pencilActive: false,
+    geometryEditingActive: false,
     creationActive: false,
     deletionActive: false,
   };
@@ -13,13 +13,13 @@ describe('isGeometryEditingSession', () => {
     expect(isGeometryEditingSession(base)).toBe(false);
   });
 
-  it('treats pencil selection outside workflows as editing', () => {
-    expect(isGeometryEditingSession({ ...base, pencilActive: true })).toBe(true);
+  it('treats vertex editing outside workflows as editing', () => {
+    expect(isGeometryEditingSession({ ...base, geometryEditingActive: true })).toBe(true);
   });
 
   it('does not publish editor locks during creation, deletion, or read-only viewing', () => {
-    expect(isGeometryEditingSession({ ...base, pencilActive: true, creationActive: true })).toBe(false);
-    expect(isGeometryEditingSession({ ...base, pencilActive: true, deletionActive: true })).toBe(false);
-    expect(isGeometryEditingSession({ ...base, pencilActive: true, annotationMode: 'viewer' })).toBe(false);
+    expect(isGeometryEditingSession({ ...base, geometryEditingActive: true, creationActive: true })).toBe(false);
+    expect(isGeometryEditingSession({ ...base, geometryEditingActive: true, deletionActive: true })).toBe(false);
+    expect(isGeometryEditingSession({ ...base, geometryEditingActive: true, annotationMode: 'viewer' })).toBe(false);
   });
 });

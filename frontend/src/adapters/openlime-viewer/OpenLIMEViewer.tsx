@@ -656,13 +656,15 @@ const OpenLIMEViewer = forwardRef<
             uiRef.current.actions.zoomout.display = false;
             uiRef.current.actions.light.display = hasRelightableLayers;
             uiRef.current.toggleLightController(hasRelightableLayers);
-            uiRef.current.actions.pencil.display = !viewerOnlyMode;
+            // Geometry editing starts from selecting a geometry in OCRA. The OpenLIME
+            // pencil would be a competing, stateful entry point, so keep it unavailable.
+            uiRef.current.actions.pencil.display = false;
             uiRef.current.actions.info.display = viewerOnlyMode;
             uiRef.current.actions.settings.display = true;
-            console.log('🎬 Toolbar setup: pencil displayed');
+            console.log('🎬 Toolbar setup: pencil hidden');
 
-            // Inspection keeps annotations selectable in idle mode without activating
-            // the pencil or vertex handles. The pencil remains an explicit edit action.
+            // Inspection keeps annotations selectable in idle mode. OCRA promotes an
+            // editor's accepted selection to vertex editing through enableEditing().
 
 
             // ── Marker selector panel ────────────────────────────────────────

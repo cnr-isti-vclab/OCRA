@@ -167,6 +167,15 @@ export type OpenLimeAnnotationManager = {
   setLabelVisibility?: (mode: OpenLimeLabelVisibility, repaint?: boolean) => OpenLimeLabelVisibility;
   getLabelVisibility?: () => OpenLimeLabelVisibility;
   setActiveMarker?: (type: string, opts?: Record<string, unknown>) => void;
+  focusAnnotations?: (
+    ids: string[],
+    options?: {
+      duration?: number;
+      padding?: number;
+      insets?: { top?: number; right?: number; bottom?: number; left?: number };
+      onlyIfNeeded?: boolean;
+    },
+  ) => { moved: boolean; fullyVisible: boolean; bounds: { xLow: number; yLow: number; xHigh: number; yHigh: number } | null };
 };
 
 /**

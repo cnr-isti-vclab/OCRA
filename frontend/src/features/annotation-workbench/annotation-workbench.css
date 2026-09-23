@@ -1,13 +1,16 @@
 .annotation-workbench {
-  position: absolute;
-  z-index: 20;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: clamp(24rem, 28vw, 35rem);
-  min-width: 22rem;
-  resize: horizontal;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  resize: none;
   overflow: hidden;
+}
+
+.annotation-workbench:not(.is-detached) {
+  border-left: 0 !important;
+  box-shadow: none !important;
 }
 
 .annotation-workbench.is-detached {
@@ -20,6 +23,8 @@
   height: min(48rem, calc(100dvh - var(--annotation-workbench-top) - 1rem));
   max-height: calc(100dvh - var(--annotation-workbench-top) - 1rem);
   width: clamp(22rem, 25vw, 32rem);
+  min-width: 22rem;
+  resize: horizontal;
   border: 1px solid var(--bs-border-color) !important;
   border-radius: var(--bs-border-radius-lg);
 }
@@ -93,6 +98,9 @@
     right: 0;
     height: 100dvh;
     max-height: 100dvh;
+    width: 100%;
+    min-width: 0;
+    resize: none;
     border-radius: 0;
   }
 }

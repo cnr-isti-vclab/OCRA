@@ -12,9 +12,12 @@ import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
 import { normalizeMultiSideForChoices } from '../annotation-creation/annotationCreationValidation';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
+import AnnotationToolbar from '../../components/AnnotationToolbar';
 
 interface AnnotationWorkbenchProps {
   isOpen: boolean;
+  isDetached: boolean;
+  onDetachedChange: (isDetached: boolean) => void;
   sceneId: string;
   sceneLabel?: string;
   sceneAssets?: Array<{ id: string; label: string }>;
@@ -38,6 +41,8 @@ interface WorkbenchEditorLock {
  */
 export default function AnnotationWorkbench({
   isOpen,
+  isDetached,
+  onDetachedChange,
   onClose,
 }: AnnotationWorkbenchProps) {
   const {
@@ -63,7 +68,6 @@ export default function AnnotationWorkbench({
   const [geometrySearchQuery, setGeometrySearchQuery] = useState('');
   const [dataEditorOpen, setDataEditorOpen] = useState(false);
   const [discardModal, setDiscardModal] = useState<MessageModalDescriptor | null>(null);
-  const [isDetached, setIsDetached] = useState(true);
   const [floatingPosition, setFloatingPosition] = useState<FloatingWorkbenchPosition | null>(null);
   const hadCreationDraftRef = useRef(false);
   const wasOpenRef = useRef(false);
@@ -319,7 +323,7 @@ export default function AnnotationWorkbench({
             aria-label={isDetached ? 'Dock annotation workbench' : 'Detach annotation workbench'}
             title={isDetached ? 'Dock to viewer edge' : 'Detach as a floating panel'}
             onClick={() => {
-              setIsDetached((detached) => !detached);
+              onDetachedChange(!isDetached);
               setFloatingPosition(null);
             }}
           >
@@ -393,9 +397,17 @@ export default function AnnotationWorkbench({
               </button>
             </div>
             {creationDraft.geometryChoice === 'new' ? (
-              <div className="alert alert-primary small" aria-live="polite">
-                <i className="bi bi-mouse me-2" aria-hidden />
-                Drawing is active in the viewer.
+              <div className="border rounded p-2 bg-light-subtle" aria-label="Geometry drawing tool">
+                <div className="small fw-semibold mb-2">Shape</div>
+                <AnnotationToolbar
+                  mode={creationDraft.drawingMode}
+                  onModeChange={(drawingMode) => {
+                    if (drawingMode !== 'edit') {
+                      updateCreationDraft({ drawingMode });
+                    }
+                  }}
+                  hiddenModes={['edit']}
+                />
               </div>
             ) : null}
           </section>

@@ -7,6 +7,9 @@ import type { AnnotationScopeType, AnnotationShape } from 'shared/annotation-typ
 
 export type AnnotationEntityChoice = 'new' | 'search' | 'void';
 
+/** Viewer drawing primitive selected for a new geometry draft. */
+export type AnnotationDrawingMode = 'point' | 'line' | 'area';
+
 export type AnnotationCreationStep = 'setup' | 'geometry' | 'data' | 'committing';
 
 /** Which search side may accumulate multiple selections when both sides search. */
@@ -38,6 +41,7 @@ export interface AnnotationScopeOption {
 
 export interface AnnotationCreationDraft extends AnnotationCreationSetupDraft {
   step: AnnotationCreationStep;
+  drawingMode: AnnotationDrawingMode;
   draftShapes: AnnotationShape[];
   /** OpenLIME annotation id for in-progress new geometry (not persisted until confirm). */
   draftGeometryViewerId: string | null;

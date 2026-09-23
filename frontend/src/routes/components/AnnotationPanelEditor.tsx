@@ -867,14 +867,8 @@ export default function AnnotationPanelEditor({
         </div>
       ) : null}
 
-      {isCreationWizardActive ? (
-        onOpenCreationWorkbench ? (
-          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-            <p className="text-muted fst-italic text-center px-3">
-              Continue the annotation workflow in the workbench beside the viewer.
-            </p>
-          </div>
-        ) : isCreationDataStep && creationDraft ? (
+      {isCreationWizardActive && !onOpenCreationWorkbench ? (
+        isCreationDataStep && creationDraft ? (
           <div className="flex-grow-1 overflow-auto d-flex flex-column">
             <AnnotationCreationDataStep
               draft={creationDraft}
