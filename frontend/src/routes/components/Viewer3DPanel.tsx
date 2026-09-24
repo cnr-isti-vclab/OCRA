@@ -15,6 +15,7 @@ import { useAnnotationCreationWizard } from '../../features/annotation-creation/
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionCounterpartGeometryPicks } from '../../features/annotation-deletion/applyDeletionCounterpartGeometryPicks';
 import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
+import { isGeometryIdUnderRemoteEditorLock } from '../../features/annotation-deletion/isEntityBlockedForDeletion';
 import DeletionGeometryPickBar from '../../features/annotation-deletion/DeletionGeometryPickBar';
 import {
   creationToolbarDisabledModes,
@@ -86,6 +87,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setFocusSelection,
       clearFocus,
       updateGeometry,
+      startEditorLock,
+      stopEditorLock,
     } = useAnnotationStore();
     const { visibleGeometries } = useAnnotationLinkView();
     const {
@@ -129,6 +132,45 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const isCreationGeometryNewRef = useRef(isCreationGeometryNew);
     isCreationGeometryNewRef.current = isCreationGeometryNew;
     const wasCreationGeometryNewRef = useRef(false);
+    const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
+    const linkingGeometryIds = creationDraft?.geometryMode === 'choose'
+      ? creationDraft.selectedGeometryIds
+      : [];
+
+    const syncGeometryEditorLocks = useCallback(
+      async (geometryIds: string[]) => {
+        const prev = geometryEditorLockIdsRef.current;
+        const next = new Set(geometryIds);
+        const toStart = [...next].filter((id) => !prev.has(id));
+        const toStop = [...prev].filter((id) => !next.has(id));
+        await Promise.all([
+          ...toStart.map((id) =>
+            startEditorLock('geometry', id, 'linking existing annotation geometry').catch((err) => {
+              console.warn('Failed to publish geometry linking lock:', err);
+            }),
+          ),
+          ...toStop.map((id) =>
+            stopEditorLock('geometry', id, 'linking existing annotation geometry').catch((err) => {
+              console.warn('Failed to release geometry linking lock:', err);
+            }),
+          ),
+        ]);
+        geometryEditorLockIdsRef.current = next;
+      },
+      [startEditorLock, stopEditorLock],
+    );
+
+    useEffect(() => {
+      void syncGeometryEditorLocks(linkingGeometryIds);
+    }, [linkingGeometryIds, syncGeometryEditorLocks]);
+
+    useEffect(() => () => {
+      const ids = [...geometryEditorLockIdsRef.current];
+      geometryEditorLockIdsRef.current.clear();
+      void Promise.all(ids.map((id) =>
+        stopEditorLock('geometry', id, 'linking existing annotation geometry').catch(() => undefined),
+      ));
+    }, [stopEditorLock]);
 
     const handleViewerReady = useCallback(() => {
       setViewerReady(true);
@@ -490,7 +532,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       if (isCreationGeometrySearch) {
         const searchableIds = new Set(searchableGeometries.map((geometry) => geometry.id));
         const filtered = ids.filter(
-          (id) => id !== CREATION_DRAFT_GEOMETRY_ID && searchableIds.has(id),
+          (id) => id !== CREATION_DRAFT_GEOMETRY_ID
+            && searchableIds.has(id)
+            && !isGeometryIdUnderRemoteEditorLock(id, activeSocialLocks, currentStreamId, allLinks),
         );
         setCreationGeometrySelection(filtered);
         return;

@@ -28,8 +28,10 @@ import AnnotationCreationDataStep from '../../features/annotation-creation/Annot
 import AnnotationCreationGeometryStep from '../../features/annotation-creation/AnnotationCreationGeometryStep';
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
+import { useCreationChosenEntityLocks } from '../../features/annotation-creation/useCreationChosenEntityLocks';
 import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
 import { emptyPendingData } from '../../features/annotation-creation/annotationCreationValidation';
+import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-locks';
 import AnnotationDeletionPanel from '../../features/annotation-deletion/AnnotationDeletionPanel';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionDataPick } from '../../features/annotation-deletion/applyDeletionDataPick';
@@ -199,6 +201,13 @@ export default function AnnotationPanelEditor({
     isCreationGeometryStep,
     searchableData,
   } = useAnnotationCreationWizard();
+
+  useCreationChosenEntityLocks(
+    creationDraft,
+    isCreationWizardActive && !onOpenCreationWorkbench,
+    startEditorLock,
+    stopEditorLock,
+  );
 
   const {
     isDeletionSelectingStep,
@@ -886,6 +895,16 @@ export default function AnnotationPanelEditor({
               draft={creationDraft}
               candidates={searchableData}
               onToggleDataSelection={toggleCreationDataSelection}
+              isCandidateBlocked={(dataId) => isDataIdUnderRemoteEditorLock(
+                dataId,
+                activeSocialLocks,
+                currentStreamId,
+                activeAnnotationSelection.geometryIdsByDataId,
+                allLinks,
+              )}
+              onBlockedSelect={() => {
+                setSetupError('Another user is editing this annotation data.');
+              }}
               onOpenCreateModal={handleOpenCreationDataModal}
               onDataModeChange={(dataMode) => updateCreationDraft({
                 dataMode,

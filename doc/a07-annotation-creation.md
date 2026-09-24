@@ -20,12 +20,12 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 
 ### Behaviour summary (as implemented)
 
-- **Draft until Done**: geometry/data drafts stay client-side until the data-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
+- **Draft until Done**: geometry/data drafts stay client-side until the second-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
 - **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). Scope/visibility pickers remain; there is no New/Search/Void setup matrix.
 - **Per step — New | Choose | Done**:
   - **New**: sticky create (append geometries / confirm data into arrays). **Undo** drops the last created item. **Choose** is disabled once any creations exist on that side.
-  - **Choose**: select existing entities (multi-select when the other side has at most one result).
-  - **Done**: always advances the first step (including skip with count 0). On the second step, commits when guards pass.
+  - **Choose**: select existing entities (multi-select when the other side has at most one result). Remotely editor-locked entities are not selectable; chosen entities take a local editor lock while selected.
+  - **Done**: always advances the first step (including skip with count 0; skip clears a primed empty New/Choose). On the second step, commits when guards pass.
 - **Cardinality**: star topology only — `N===0 || K===0 || N===1 || K===1`. Only-one-side requires the other mode unset; entering New/Choose on the second side requires at least one result.
 - **Geometry step**:
   - **New (2D)**: native OpenLIME annotations; sticky draw appends to `createdGeometries`.
@@ -34,7 +34,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 - **Data step**:
   - **New**: modal → confirm appends to `createdData[]`.
   - **Choose**: searchable list of project data.
-- **Remembered scopes**: geometry/data scope + drawing tool remembered for the browser session (`sessionStorage` per project/scene when enabled).
+- **Remembered scopes**: geometry/data scope + drawing tool + step order remembered for the browser session (`sessionStorage` per project/scene when enabled).
 - **Link view during wizard**: filtering is bypassed so draft/chosen geometries stay visible.
 - **Commit failure**: partial artifacts are marked erasable (rollback); draft is restored for retry.
 - **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
@@ -48,6 +48,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | Scopes / action bar | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
 | Geometry step UI | `frontend/src/features/annotation-creation/AnnotationCreationGeometryStep.tsx` |
 | Data step UI | `frontend/src/features/annotation-creation/AnnotationCreationDataStep.tsx` |
+| Chosen-entity locks | `frontend/src/features/annotation-creation/useCreationChosenEntityLocks.ts` |
 | Validation | `frontend/src/features/annotation-creation/annotationCreationValidation.ts` |
 | 2D workbench | `frontend/src/features/annotation-workbench/AnnotationWorkbench.tsx` |
 | Link view | `frontend/src/features/annotation-link-view/` |
@@ -73,21 +74,31 @@ Key test files:
 
 **Manual checklist** (2D unless noted)
 
-- [ ] Data-first: multiple New data → one geometry → star links
-- [ ] Order toggle locked after drafts exist; remembered across Annotate opens
-- [ ] One geometry + multiple New data → star links
-- [ ] Geometry-only: created geos, data mode unset, Done
-- [ ] Data-only: geometry Done with N=0, New data, Done
-- [ ] Choose geometries + Choose/New data (K≥1 required)
-- [ ] Choose disabled after creations; re-enabled after Undo clears them
-- [ ] 2D: point / line / area sticky New → Undo last → Done → data
-- [ ] 3D: point create → data step → Done
-- [ ] Data modal Cancel with empty list clears New mode (geometry-only Done stays available)
-- [ ] Back / discard at each wizard step
-- [ ] Scopes remembered across repeated Annotate/Create opens
+Batch geometry ↔ data
+
+- [ ] Geometry-first: multi-geo New + one data → star links
+- [ ] Geometry-first: one geo + multi data → star links
+- [ ] Data-first: multi data New + one geometry → star links
+- [ ] Data-first: skip data (Done empty) → create geos → geometry-only commit
+- [ ] Geometry-first: skip geo → New data → data-only commit
+- [ ] Geometry-only / data-only with mode unset on the empty side
+- [ ] Order toggle Geometry first / Data first; locked after drafts; remembered next open
+
+Choose / Undo / Cancel
+
+- [ ] Choose geometries + Choose/New data (K≥1); Choose disabled after creations; Undo re-enables
+- [ ] Remotely locked geo/data cannot be chosen (badge / disabled)
+- [ ] Data modal Cancel with empty list clears New mode
+- [ ] Back from second step keeps first-side drafts; Back from first discards (confirm)
+- [ ] 2D sticky New (point/line/area) → Undo last → Done
+- [ ] 3D point New → Done → second step → Done
+
+Regression / resilience
+
 - [ ] Commit failure shows error; partial artifacts not left active
 - [ ] Link view modes during wizard do not hide draft/chosen geometry
-- [ ] Regression: normal (non-wizard) annotation edit in 2D/3D when wizard inactive
+- [ ] Scopes remembered across repeated Annotate/Create opens
+- [ ] Normal (non-wizard) annotation edit in 2D/3D when wizard inactive
 
 ---
 

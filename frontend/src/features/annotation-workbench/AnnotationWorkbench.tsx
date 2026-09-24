@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import type { AnnotationEventResourceType } from 'shared/annotation-events';
 import './annotation-workbench.css';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import AnnotationCreationDataStep from '../annotation-creation/AnnotationCreationDataStep';
@@ -8,6 +7,7 @@ import AnnotationCreationGeometryStep from '../annotation-creation/AnnotationCre
 import AnnotationDataFormModal from '../annotation-creation/AnnotationDataFormModal';
 import { AnnotationCreationActionBar } from '../annotation-creation/AnnotationCreationPanel';
 import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotationCreationWizard';
+import { useCreationChosenEntityLocks } from '../annotation-creation/useCreationChosenEntityLocks';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
@@ -20,6 +20,8 @@ import {
 } from '../annotation-creation/annotationCreationValidation';
 import type { AnnotationCreationStepOrder } from '../annotation-creation/types';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
+import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-locks';
+import { isGeometryIdUnderRemoteEditorLock } from '../annotation-deletion/isEntityBlockedForDeletion';
 
 interface AnnotationWorkbenchProps {
   isOpen: boolean;
@@ -34,12 +36,6 @@ interface AnnotationWorkbenchProps {
 interface FloatingWorkbenchPosition {
   left: number;
   top: number;
-}
-
-interface WorkbenchEditorLock {
-  resourceType: AnnotationEventResourceType;
-  resourceId: string;
-  activity: string;
 }
 
 /**
@@ -58,6 +54,9 @@ export default function AnnotationWorkbench({
     allGeometries,
     allData,
     allLinks,
+    activeSocialLocks,
+    currentStreamId,
+    activeAnnotationSelection,
     initCreationDraft,
     updateCreationDraft,
     beginCreationWizard,
@@ -81,52 +80,32 @@ export default function AnnotationWorkbench({
   const [floatingPosition, setFloatingPosition] = useState<FloatingWorkbenchPosition | null>(null);
   const hadCreationDraftRef = useRef(false);
   const wasOpenRef = useRef(false);
-  const selectedExistingLocksRef = useRef(new Map<string, WorkbenchEditorLock>());
   const geometryNumbers = useMemo(() => buildAnnotationDisplayNumbers(allGeometries), [allGeometries]);
   const dataNumbers = useMemo(() => buildAnnotationDisplayNumbers(allData), [allData]);
   const linkedGeometryIds = useMemo(() => new Set(
     allLinks.filter((link) => link.erasableAt === null).map((link) => link.geometryId),
   ), [allLinks]);
-  const selectedExistingDataLocks = useMemo<WorkbenchEditorLock[]>(() => {
-    if (!isOpen || !creationDraft) {
-      return [];
-    }
-    return [
-      ...(creationDraft.dataMode === 'choose'
-        ? creationDraft.selectedDataIds.map((resourceId) => ({
-          resourceType: 'data' as const,
-          resourceId,
-          activity: 'linking existing annotation data',
-        }))
-        : []),
-    ];
-  }, [creationDraft, isOpen]);
 
-  useEffect(() => {
-    const next = new Map(
-      selectedExistingDataLocks.map((lock) => [`${lock.resourceType}:${lock.resourceId}`, lock]),
-    );
-    const previous = selectedExistingLocksRef.current;
-    const toStart = [...next].filter(([key]) => !previous.has(key)).map(([, lock]) => lock);
-    const toStop = [...previous].filter(([key]) => !next.has(key)).map(([, lock]) => lock);
-    selectedExistingLocksRef.current = next;
+  useCreationChosenEntityLocks(creationDraft, isOpen, startEditorLock, stopEditorLock);
 
-    void Promise.all([
-      ...toStart.map((lock) => startEditorLock(lock.resourceType, lock.resourceId, lock.activity)),
-      ...toStop.map((lock) => stopEditorLock(lock.resourceType, lock.resourceId, lock.activity)),
-    ]).catch((error: unknown) => {
-      console.warn('Failed to synchronize annotation workbench locks:', error);
-    });
-  }, [selectedExistingDataLocks, startEditorLock, stopEditorLock]);
+  const isDataBlockedForLinking = useCallback((dataId: string) => (
+    isDataIdUnderRemoteEditorLock(
+      dataId,
+      activeSocialLocks,
+      currentStreamId,
+      activeAnnotationSelection.geometryIdsByDataId,
+      allLinks,
+    )
+  ), [activeAnnotationSelection.geometryIdsByDataId, activeSocialLocks, allLinks, currentStreamId]);
 
-  useEffect(() => () => {
-    const locks = [...selectedExistingLocksRef.current.values()];
-    selectedExistingLocksRef.current.clear();
-    void Promise.all(locks.map((lock) => stopEditorLock(lock.resourceType, lock.resourceId, lock.activity)))
-      .catch((error: unknown) => {
-        console.warn('Failed to release annotation workbench locks:', error);
-      });
-  }, [stopEditorLock]);
+  const isGeometryBlockedForLinking = useCallback((geometryId: string) => (
+    isGeometryIdUnderRemoteEditorLock(
+      geometryId,
+      activeSocialLocks,
+      currentStreamId,
+      allLinks,
+    )
+  ), [activeSocialLocks, allLinks, currentStreamId]);
 
   const geometryLabelsById = useMemo(() => {
     const dataById = new Map(allData.map((datum) => [datum.id, datum]));
@@ -421,6 +400,7 @@ export default function AnnotationWorkbench({
               ) : null}
               {filteredSearchableGeometries.map((geometry) => {
                 const selected = creationDraft.selectedGeometryIds.includes(geometry.id);
+                const blocked = !selected && isGeometryBlockedForLinking(geometry.id);
                 const displayNumber = geometryNumbers.get(geometry.id);
                 const labels = geometryLabelsById.get(geometry.id) ?? [];
                 const displayLabel = labels.length === 0
@@ -432,12 +412,20 @@ export default function AnnotationWorkbench({
                   <button
                     key={geometry.id}
                     type="button"
-                    className={`list-group-item list-group-item-action d-flex align-items-center justify-content-between ${selected ? 'active' : ''}`}
-                    onClick={() => setCreationGeometrySelection(
-                      selected
-                        ? creationDraft.selectedGeometryIds.filter((id) => id !== geometry.id)
-                        : [...creationDraft.selectedGeometryIds, geometry.id],
-                    )}
+                    className={`list-group-item list-group-item-action d-flex align-items-center justify-content-between ${selected ? 'active' : ''}${blocked ? ' disabled' : ''}`}
+                    disabled={blocked}
+                    title={blocked ? 'Another user is editing this geometry' : undefined}
+                    onClick={() => {
+                      if (blocked) {
+                        setSetupError('Another user is editing this geometry.');
+                        return;
+                      }
+                      setCreationGeometrySelection(
+                        selected
+                          ? creationDraft.selectedGeometryIds.filter((id) => id !== geometry.id)
+                          : [...creationDraft.selectedGeometryIds, geometry.id],
+                      );
+                    }}
                   >
                     <span className="annotation-index-column me-2">
                       {displayNumber !== undefined ? (
@@ -445,6 +433,7 @@ export default function AnnotationWorkbench({
                       ) : null}
                     </span>
                     <span className="text-truncate" title={labels.join(', ') || 'Unlabelled geometry'}>{displayLabel}</span>
+                    {blocked ? <span className="badge text-bg-warning border ms-2 flex-shrink-0">In use</span> : null}
                     {!linkedGeometryIds.has(geometry.id) ? <span className="badge text-bg-light border ms-2 flex-shrink-0">Available · no links</span> : null}
                     <span className="small ms-2 flex-shrink-0">{geometry.shapes.length} shape{geometry.shapes.length === 1 ? '' : 's'}</span>
                   </button>
@@ -463,6 +452,10 @@ export default function AnnotationWorkbench({
               candidates={searchableData}
               displayNumbersById={dataNumbers}
               creating={creating}
+              isCandidateBlocked={isDataBlockedForLinking}
+              onBlockedSelect={() => {
+                setSetupError('Another user is editing this annotation data.');
+              }}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={() => {
                 updateCreationDraft({ dataMode: 'new', ...emptyPendingData() });

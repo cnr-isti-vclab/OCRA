@@ -19,6 +19,9 @@ interface AnnotationCreationDataStepProps {
   /** Optional presentation-only numbers for a workbench candidate list. */
   displayNumbersById?: ReadonlyMap<string, number>;
   creating?: boolean;
+  /** Remote editor lock — candidate cannot be chosen for linking. */
+  isCandidateBlocked?: (dataId: string) => boolean;
+  onBlockedSelect?: () => void;
   onToggleDataSelection: (dataId: string) => void;
   onOpenCreateModal: () => void;
   onDataModeChange: (mode: 'new' | 'choose') => void;
@@ -31,6 +34,8 @@ export default function AnnotationCreationDataStep({
   candidates,
   displayNumbersById,
   creating = false,
+  isCandidateBlocked,
+  onBlockedSelect,
   onToggleDataSelection,
   onOpenCreateModal,
   onDataModeChange,
@@ -200,13 +205,22 @@ export default function AnnotationCreationDataStep({
             <div className="list-group flex-grow-1 overflow-auto">
               {filteredCandidates.map((datum) => {
                 const isSelected = selectedIds.has(datum.id);
+                const blocked = !isSelected && Boolean(isCandidateBlocked?.(datum.id));
                 const displayNumber = displayNumbersById?.get(datum.id);
                 return (
                   <button
                     key={datum.id}
                     type="button"
-                    className={`list-group-item list-group-item-action text-start ${isSelected ? 'active' : ''}`}
-                    onClick={() => onToggleDataSelection(datum.id)}
+                    className={`list-group-item list-group-item-action text-start ${isSelected ? 'active' : ''}${blocked ? ' disabled' : ''}`}
+                    disabled={blocked}
+                    title={blocked ? 'Another user is editing this annotation data' : undefined}
+                    onClick={() => {
+                      if (blocked) {
+                        onBlockedSelect?.();
+                        return;
+                      }
+                      onToggleDataSelection(datum.id);
+                    }}
                     aria-pressed={isSelected}
                   >
                     <div className="d-flex align-items-start gap-2">
@@ -216,7 +230,10 @@ export default function AnnotationCreationDataStep({
                         </span>
                       ) : null}
                       <div style={{ minWidth: 0 }}>
-                        <div className="fw-semibold">{datum.label}</div>
+                        <div className="fw-semibold d-flex align-items-center gap-2">
+                          <span>{datum.label}</span>
+                          {blocked ? <span className="badge text-bg-warning">In use</span> : null}
+                        </div>
                         {datum.description ? (
                           <div className={`small ${isSelected ? 'opacity-75' : 'text-muted'}`}>
                             {datum.description}

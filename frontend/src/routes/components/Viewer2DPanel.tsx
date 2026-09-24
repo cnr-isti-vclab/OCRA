@@ -21,6 +21,7 @@ import {
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionCounterpartGeometryPicks } from '../../features/annotation-deletion/applyDeletionCounterpartGeometryPicks';
 import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
+import { isGeometryIdUnderRemoteEditorLock } from '../../features/annotation-deletion/isEntityBlockedForDeletion';
 import DeletionGeometryPickBar from '../../features/annotation-deletion/DeletionGeometryPickBar';
 import { resolveCreationToolbarMode } from '../../features/annotation-creation/resolveCreationToolbarMode';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
@@ -748,7 +749,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (isCreationGeometrySearch) {
         const searchableIds = new Set(searchableGeometries.map((geometry) => geometry.id));
         const filtered = ids.filter(
-          (id) => id !== CREATION_DRAFT_GEOMETRY_ID && searchableIds.has(id),
+          (id) => id !== CREATION_DRAFT_GEOMETRY_ID
+            && searchableIds.has(id)
+            && !isGeometryIdUnderRemoteEditorLock(id, activeSocialLocks, currentStreamId, allLinks),
         );
         setCreationGeometrySelection(filtered);
         return;
