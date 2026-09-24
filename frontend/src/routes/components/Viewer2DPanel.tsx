@@ -14,6 +14,10 @@ import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/c
 import { registerCreationDraftGeometryFlush } from '../../features/annotation-creation/creationDraftGeometryFlush';
 import { purgeCreationGeometryDrafts } from '../../features/annotation-creation/purgeCreationGeometryDrafts';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
+import {
+  lastCreatedGeometry,
+  lastCreatedGeometryViewerId,
+} from '../../features/annotation-creation/rememberCreationSetup';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionCounterpartGeometryPicks } from '../../features/annotation-deletion/applyDeletionCounterpartGeometryPicks';
 import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/applyDeletionGeometryPicks';
@@ -168,7 +172,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     // The viewer owns every geometry editor lock, including geometries selected
     // for linking in the workbench. This keeps an existing pencil lock alive
     // while the workbench opens and avoids competing start/stop sequences.
-    const linkingGeometryIds = creationDraft?.geometryChoice === 'search'
+    const linkingGeometryIds = creationDraft?.geometryMode === 'choose'
       ? creationDraft.selectedGeometryIds
       : [];
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
@@ -338,11 +342,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     useEffect(() => {
       return registerCreationDraftGeometryFlush(() => {
-        if (!isCreationGeometryNew || !creationDraft?.draftGeometryViewerId) {
+        const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
+        if (!isCreationGeometryNew || !draftViewerId) {
           return;
         }
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
-        const simplified = viewer?.getAnnotationById(creationDraft.draftGeometryViewerId);
+        const simplified = viewer?.getAnnotationById(draftViewerId);
         if (!simplified) {
           return;
         }
@@ -350,7 +355,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         setCreationDraftShapes(viewerGeometryToShapes(viewerAnno.type, viewerAnno.geometry));
       });
     }, [
-      creationDraft?.draftGeometryViewerId,
+      creationDraft?.createdGeometries,
       isCreationGeometryNew,
       ref,
       setCreationDraftShapes,
@@ -504,7 +509,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const shapes = viewerGeometryToShapes(anno.type, anno.geometry);
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
       const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
-      const previousViewerId = creationDraft?.draftGeometryViewerId ?? null;
+      const previousViewerId = lastCreatedGeometryViewerId(creationDraft);
       if (previousViewerId && previousViewerId !== anno.id) {
         purgeCreationGeometryDrafts(manager, {
           removeViewerIds: [previousViewerId],
@@ -526,20 +531,20 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (editSnapshotsRef.current.has(geometryId)) {
         return;
       }
-      if (
-        creationDraft?.draftGeometryViewerId
-        && geometryId === creationDraft.draftGeometryViewerId
-      ) {
+      const lastDraft = lastCreatedGeometry(creationDraft);
+      const lastDraftViewerId = lastDraft?.viewerId ?? null;
+      const lastDraftShapes = lastDraft?.shapes ?? [];
+      if (lastDraftViewerId && geometryId === lastDraftViewerId) {
         editSnapshotsRef.current.set(geometryId, {
           version: 0,
-          shapes: cloneShapes(creationDraft.draftShapes),
+          shapes: cloneShapes(lastDraftShapes),
         });
         return;
       }
-      if (geometryId === CREATION_DRAFT_GEOMETRY_ID && creationDraft) {
+      if (geometryId === CREATION_DRAFT_GEOMETRY_ID && creationDraft && lastDraftShapes.length > 0) {
         editSnapshotsRef.current.set(geometryId, {
           version: 0,
-          shapes: cloneShapes(creationDraft.draftShapes),
+          shapes: cloneShapes(lastDraftShapes),
         });
         return;
       }
@@ -623,7 +628,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      const draftViewerId = creationDraft?.draftGeometryViewerId;
+      const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
       if (draftViewerId && anno.id === draftViewerId) {
         if (isCreationPendingNewGeometry) {
           setCreationDraftShapes(viewerGeometryToShapes(anno.type, anno.geometry));
@@ -881,7 +886,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           }
         }
         const preserveIds = new Set<string>();
-        const draftViewerId = creationDraft?.draftGeometryViewerId;
+        const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
         if (isCreationPendingNewGeometry && draftViewerId) {
           preserveIds.add(draftViewerId);
           excludeIds.add(draftViewerId);
@@ -957,10 +962,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     );
 
     useEffect(() => {
-      if (creationDraft?.draftGeometryViewerId) {
-        lastDraftGeometryViewerIdRef.current = creationDraft.draftGeometryViewerId;
+      const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
+      if (draftViewerId) {
+        lastDraftGeometryViewerIdRef.current = draftViewerId;
       }
-    }, [creationDraft?.draftGeometryViewerId]);
+    }, [creationDraft?.createdGeometries]);
 
     useEffect(() => {
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
@@ -971,7 +977,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
       if (isCreationPendingNewGeometry) {
         purgeCreationGeometryDrafts(manager, {
-          keepViewerId: creationDraft?.draftGeometryViewerId ?? null,
+          keepViewerId: lastCreatedGeometryViewerId(creationDraft),
         });
         return;
       }
@@ -986,7 +992,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         lastDraftGeometryViewerIdRef.current = null;
       }
       purgeCreationGeometryDrafts(manager, { removeViewerIds: orphanIds });
-    }, [creationDraft?.draftGeometryViewerId, isCreationPendingNewGeometry, ref, revision]);
+    }, [creationDraft?.createdGeometries, isCreationPendingNewGeometry, ref, revision]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {

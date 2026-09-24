@@ -12,27 +12,28 @@ describe('rememberCreationSetup', () => {
     const patched = {
       ...base,
       step: 'geometry' as const,
-      geometryChoice: 'search' as const,
-      dataChoice: 'void' as const,
+      geometryMode: 'choose' as const,
+      dataMode: null,
       selectedGeometryIds: ['g1'],
-      draftShapes: [{ type: 'ShapePoints' as const, vertices: [[0, 0, 0]] }],
+      createdGeometries: [{ viewerId: 'v1', shapes: [{ type: 'ShapePoints' as const, vertices: [[0, 0, 0]] }] }],
+      drawingMode: 'point' as const,
     };
 
     const remembered = extractCreationSetup(patched);
-    expect(remembered.geometryChoice).toBe('search');
-    expect(remembered.dataChoice).toBe('void');
+    expect(remembered.drawingMode).toBe('point');
     expect('selectedGeometryIds' in remembered).toBe(false);
+    expect('geometryMode' in remembered).toBe(false);
 
     const next = applyRememberedCreationSetup(createDefaultCreationDraft('scene-b'), remembered);
-    expect(next.geometryChoice).toBe('search');
-    expect(next.dataChoice).toBe('void');
-    expect(next.step).toBe('setup');
+    expect(next.drawingMode).toBe('point');
+    expect(next.step).toBe('geometry');
     expect(next.selectedGeometryIds).toEqual([]);
+    expect(next.geometryMode).toBeNull();
   });
 
   it('detects setup-touching patches', () => {
-    expect(patchTouchesCreationSetup({ newDataLabel: 'x' })).toBe(false);
-    expect(patchTouchesCreationSetup({ geometryChoice: 'void' })).toBe(true);
+    expect(patchTouchesCreationSetup({ pendingDataLabel: 'x' })).toBe(false);
+    expect(patchTouchesCreationSetup({ drawingMode: 'line' })).toBe(true);
     expect(patchTouchesCreationSetup({ geometryScope: { referenceType: 'asset', referenceId: 'a1' } })).toBe(true);
   });
 });

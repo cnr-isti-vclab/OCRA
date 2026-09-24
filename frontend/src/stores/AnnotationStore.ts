@@ -27,22 +27,25 @@ import {
   type SelectionCriteria,
 } from './annotation-selection';
 import type { PrimaryAnnotationSelection } from '../types/annotationSelection';
-import type { AnnotationCreationDraft, AnnotationCreationSetupDraft } from '../features/annotation-creation/types';
+import type { AnnotationCreationDraft, AnnotationCreationRememberedSetup } from '../features/annotation-creation/types';
 import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
 import { flushCreationDraftGeometry } from '../features/annotation-creation/creationDraftGeometryFlush';
 import { formatCreationCommitError } from '../features/annotation-creation/formatCreationCommitError';
 import {
   applyRememberedCreationSetup,
   extractCreationSetup,
+  lastCreatedGeometry,
   patchTouchesCreationSetup,
 } from '../features/annotation-creation/rememberCreationSetup';
 import {
   allowsMultipleDataSelection,
   allowsMultipleGeometrySelection,
   buildLinkPairs,
-  resolveInitialCreationStep,
+  emptyPendingData,
+  resolveCreatedDataForCommit,
+  resolveCreatedGeometriesForCommit,
+  canBeginCreationWizard,
   validateCreationDraftForCommit,
-  validateCreationSetup,
   validateCreationStep,
 } from '../features/annotation-creation/annotationCreationValidation';
 import { filterGeometriesForCreationSearch } from '../features/annotation-creation/filterCreationCandidates';
@@ -199,7 +202,7 @@ export class AnnotationStore {
   private selectionCriteria: SelectionCriteria = { showErased: false };
   private activeSelection: ActiveAnnotationSelection = createEmptyActiveSelection();
   private creationDraft: AnnotationCreationDraft | null = null;
-  private rememberedCreationSetup: AnnotationCreationSetupDraft | null = null;
+  private rememberedCreationSetup: AnnotationCreationRememberedSetup | null = null;
   private deletionDraft: AnnotationDeletionDraft | null = null;
 
   constructor(
@@ -305,28 +308,39 @@ export class AnnotationStore {
     if (this.isDeletionWizardActive) {
       return { ok: false, message: 'Finish or cancel deletion before creating.' };
     }
-    if (!this.creationDraft || this.creationDraft.step !== 'setup') {
-      return { ok: false, message: 'Creation setup is not active.' };
+    if (!this.creationDraft) {
+      return { ok: false, message: 'Creation draft is not active.' };
+    }
+    if (this.creationDraft.step === 'committing') {
+      return { ok: false, message: 'Creation is already committing.' };
     }
 
-    const validation = validateCreationSetup(this.creationDraft);
-    if (!validation.ok) {
-      return { ok: false, message: validation.message ?? 'Invalid creation setup.' };
+    if (!canBeginCreationWizard(this.creationDraft)) {
+      return { ok: false, message: 'Geometry and data scopes are required.' };
+    }
+
+    // Draft already opens on the geometry step; clear transient results if re-begun.
+    if (this.creationDraft.step === 'geometry') {
+      this.bump();
+      return { ok: true };
     }
 
     this.creationDraft = {
       ...this.creationDraft,
-      step: resolveInitialCreationStep(this.creationDraft),
-      draftShapes: [],
-      draftGeometryViewerId: null,
+      step: 'geometry',
+      geometryMode: null,
+      dataMode: null,
+      createdGeometries: [],
       selectedGeometryIds: [],
+      createdData: [],
       selectedDataIds: [],
+      ...emptyPendingData(),
     };
     this.bump();
     return { ok: true };
   }
 
-  /** Start at Data search to link existing records to selected viewer geometries. */
+  /** Start at Data choose to link existing records to selected viewer geometries. */
   beginLinkExistingDataForGeometries(geometryIds: readonly string[]): { ok: true } | { ok: false; message: string } {
     const selectedGeometryIds = [...new Set(geometryIds)];
     if (selectedGeometryIds.length === 0) return { ok: false, message: 'Select at least one geometry first.' };
@@ -337,11 +351,13 @@ export class AnnotationStore {
     this.creationDraft = {
       ...draft,
       step: 'data',
-      geometryChoice: 'search',
-      dataChoice: 'search',
-      multiSide: selectedGeometryIds.length > 1 ? 'geometry' : 'data',
+      geometryMode: 'choose',
+      dataMode: 'choose',
       selectedGeometryIds,
+      createdGeometries: [],
       selectedDataIds: [],
+      createdData: [],
+      ...emptyPendingData(),
     };
     this.rememberedCreationSetup = extractCreationSetup(this.creationDraft);
     this.bump();
@@ -1073,7 +1089,7 @@ export class AnnotationStore {
       return { ok: false, message: 'No creation session is active.' };
     }
 
-    if (this.creationDraft.step === 'geometry' && this.creationDraft.geometryChoice === 'new') {
+    if (this.creationDraft.step === 'geometry' && this.creationDraft.geometryMode === 'new') {
       flushCreationDraftGeometry();
     }
 
@@ -1098,32 +1114,57 @@ export class AnnotationStore {
   setCreationDraftShapes(shapes: AnnotationShape[]): void {
     if (
       !this.creationDraft
-      || this.creationDraft.geometryChoice !== 'new'
+      || this.creationDraft.geometryMode !== 'new'
       || (this.creationDraft.step !== 'geometry'
         && this.creationDraft.step !== 'data'
         && this.creationDraft.step !== 'committing')
     ) {
       return;
     }
-    this.creationDraft = { ...this.creationDraft, draftShapes: shapes };
-    // 2D keeps the live OpenLIME shape without a store-driven resync; 3D renders from the draft.
-    if (!this.creationDraft.draftGeometryViewerId) {
-      this.bump();
+    const last = lastCreatedGeometry(this.creationDraft);
+    if (!last) {
+      return;
     }
+    const createdGeometries = this.creationDraft.createdGeometries.map((entry, index, all) => (
+      index === all.length - 1 ? { ...entry, shapes } : entry
+    ));
+    this.creationDraft = { ...this.creationDraft, createdGeometries };
+    this.bump();
   }
 
   setCreationDraftGeometry(viewerId: string, shapes: AnnotationShape[]): void {
     if (
       !this.creationDraft
       || this.creationDraft.step !== 'geometry'
-      || this.creationDraft.geometryChoice !== 'new'
+      || this.creationDraft.geometryMode !== 'new'
     ) {
+      return;
+    }
+    const list = [...this.creationDraft.createdGeometries];
+    const last = list[list.length - 1];
+    if (last && last.viewerId === viewerId) {
+      list[list.length - 1] = { viewerId, shapes };
+    } else {
+      list.push({ viewerId, shapes });
+    }
+    this.creationDraft = {
+      ...this.creationDraft,
+      createdGeometries: list,
+      selectedGeometryIds: [],
+    };
+    this.bump();
+  }
+
+  undoLastCreatedGeometry(): void {
+    if (!this.creationDraft || this.creationDraft.geometryMode !== 'new') {
+      return;
+    }
+    if (this.creationDraft.createdGeometries.length === 0) {
       return;
     }
     this.creationDraft = {
       ...this.creationDraft,
-      draftGeometryViewerId: viewerId,
-      draftShapes: shapes,
+      createdGeometries: this.creationDraft.createdGeometries.slice(0, -1),
     };
     this.bump();
   }
@@ -1132,7 +1173,7 @@ export class AnnotationStore {
     if (
       !this.creationDraft
       || this.creationDraft.step !== 'geometry'
-      || this.creationDraft.geometryChoice !== 'search'
+      || this.creationDraft.geometryMode !== 'choose'
     ) {
       return;
     }
@@ -1159,7 +1200,11 @@ export class AnnotationStore {
       next = [geometryId];
     }
 
-    this.creationDraft = { ...this.creationDraft, selectedGeometryIds: next };
+    this.creationDraft = {
+      ...this.creationDraft,
+      selectedGeometryIds: next,
+      createdGeometries: [],
+    };
     this.bump();
   }
 
@@ -1167,7 +1212,7 @@ export class AnnotationStore {
     if (
       !this.creationDraft
       || this.creationDraft.step !== 'geometry'
-      || this.creationDraft.geometryChoice !== 'search'
+      || this.creationDraft.geometryMode !== 'choose'
     ) {
       return;
     }
@@ -1185,7 +1230,11 @@ export class AnnotationStore {
       ? filtered
       : (filtered.length > 0 ? [filtered[filtered.length - 1]] : []);
 
-    this.creationDraft = { ...this.creationDraft, selectedGeometryIds: next };
+    this.creationDraft = {
+      ...this.creationDraft,
+      selectedGeometryIds: next,
+      createdGeometries: [],
+    };
     this.bump();
   }
 
@@ -1193,7 +1242,7 @@ export class AnnotationStore {
     if (
       !this.creationDraft
       || this.creationDraft.step !== 'data'
-      || this.creationDraft.dataChoice !== 'search'
+      || this.creationDraft.dataMode !== 'choose'
     ) {
       return;
     }
@@ -1220,12 +1269,16 @@ export class AnnotationStore {
       next = [dataId];
     }
 
-    this.creationDraft = { ...this.creationDraft, selectedDataIds: next };
+    this.creationDraft = {
+      ...this.creationDraft,
+      selectedDataIds: next,
+      createdData: [],
+    };
     this.bump();
   }
 
   async commitCreationDraft(): Promise<AnnotationStoreActionResult> {
-    if (!this.creationDraft || this.creationDraft.step === 'setup') {
+    if (!this.creationDraft) {
       return { ok: false, message: 'Creation is not ready to commit.' };
     }
 
@@ -1252,10 +1305,11 @@ export class AnnotationStore {
 
     try {
       let geometryIds: string[] = [];
+      const geometriesToCreate = resolveCreatedGeometriesForCommit(draftSnapshot);
 
-      if (draftSnapshot.geometryChoice === 'new') {
+      for (const entry of geometriesToCreate) {
         const geometry = await this.client.createGeometry({
-          shapes: draftSnapshot.draftShapes,
+          shapes: entry.shapes,
           referenceType: draftSnapshot.geometryScope.referenceType,
           referenceId: draftSnapshot.geometryScope.referenceId,
         });
@@ -1267,21 +1321,24 @@ export class AnnotationStore {
         }
         this.geometryMap.set(geometry.id, geometry);
         geometryIds.push(geometry.id);
-      } else if (draftSnapshot.geometryChoice === 'search') {
+      }
+
+      if (draftSnapshot.geometryMode === 'choose') {
         geometryIds = [...draftSnapshot.selectedGeometryIds];
       }
 
       let dataIds: string[] = [];
+      const dataToCreate = resolveCreatedDataForCommit(draftSnapshot);
 
-      if (draftSnapshot.dataChoice === 'new') {
+      for (const entry of dataToCreate) {
         const counter = await this.client.consumeProjectCounter();
         const defaultLabel = formatDefaultDataLabel(counter);
-        const requestedLabel = draftSnapshot.newDataLabel.trim();
+        const requestedLabel = entry.label.trim();
         const datum = await this.client.createData({
           label: requestedLabel.length > 0 ? requestedLabel : defaultLabel,
-          description: draftSnapshot.newDataDescription,
-          class: draftSnapshot.newDataClass,
-          content: draftSnapshot.newDataContent,
+          description: entry.description,
+          class: entry.class,
+          content: entry.content,
           visibilityType: draftSnapshot.dataVisibility.visibilityType,
           visibilityId: draftSnapshot.dataVisibility.visibilityId,
         });
@@ -1293,11 +1350,13 @@ export class AnnotationStore {
         }
         this.dataMap.set(datum.id, datum);
         dataIds.push(datum.id);
-      } else if (draftSnapshot.dataChoice === 'search') {
+      }
+
+      if (draftSnapshot.dataMode === 'choose') {
         dataIds = [...draftSnapshot.selectedDataIds];
       }
 
-      if (draftSnapshot.geometryChoice !== 'void' && draftSnapshot.dataChoice !== 'void') {
+      if (geometryIds.length > 0 && dataIds.length > 0) {
         for (const pair of buildLinkPairs(geometryIds, dataIds)) {
           const link = await this.client.createLink(pair);
           created.links.push(link);

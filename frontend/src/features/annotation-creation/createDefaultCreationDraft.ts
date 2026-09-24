@@ -1,11 +1,12 @@
 import type { AnnotationCreationDraft } from './types';
+import { emptyPendingData } from './annotationCreationValidation';
 
 export function createDefaultCreationDraft(sceneId: string): AnnotationCreationDraft {
   return {
-    step: 'setup',
+    step: 'geometry',
     drawingMode: 'area',
-    geometryChoice: 'new',
-    dataChoice: 'new',
+    geometryMode: null,
+    dataMode: null,
     geometryScope: {
       referenceType: 'scene',
       referenceId: sceneId,
@@ -14,14 +15,10 @@ export function createDefaultCreationDraft(sceneId: string): AnnotationCreationD
       visibilityType: 'scene',
       visibilityId: sceneId,
     },
-    multiSide: null,
-    draftShapes: [],
-    draftGeometryViewerId: null,
+    createdGeometries: [],
     selectedGeometryIds: [],
+    createdData: [],
     selectedDataIds: [],
-    newDataLabel: '',
-    newDataDescription: '',
-    newDataClass: null,
-    newDataContent: {},
+    ...emptyPendingData(),
   };
 }

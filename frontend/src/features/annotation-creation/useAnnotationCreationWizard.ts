@@ -3,6 +3,7 @@ import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { allowsMultipleGeometrySelection } from './annotationCreationValidation';
 import { hasPendingCreationDraftGeometry } from './creationDraftGeometry';
 import { filterDataForCreationSearch, filterGeometriesForCreationSearch } from './filterCreationCandidates';
+import { lastCreatedGeometryViewerId } from './rememberCreationSetup';
 import type { AnnotationCreationDraft } from './types';
 
 export interface AnnotationCreationWizardState {
@@ -42,13 +43,13 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
   const isCreationGeometryStep = creationDraft?.step === 'geometry';
   const isCreationDataStep = creationDraft?.step === 'data';
   const isCreationGeometryNew = Boolean(
-    isCreationGeometryStep && creationDraft?.geometryChoice === 'new',
+    isCreationGeometryStep && creationDraft?.geometryMode === 'new',
   );
   const isCreationGeometrySearch = Boolean(
-    isCreationGeometryStep && creationDraft?.geometryChoice === 'search',
+    isCreationGeometryStep && creationDraft?.geometryMode === 'choose',
   );
-  const isCreationDataNew = Boolean(isCreationDataStep && creationDraft?.dataChoice === 'new');
-  const isCreationDataSearch = Boolean(isCreationDataStep && creationDraft?.dataChoice === 'search');
+  const isCreationDataNew = Boolean(isCreationDataStep && creationDraft?.dataMode === 'new');
+  const isCreationDataSearch = Boolean(isCreationDataStep && creationDraft?.dataMode === 'choose');
   const isCreationPendingNewGeometry = hasPendingCreationDraftGeometry(creationDraft);
 
   const allowsMultipleGeometry = creationDraft
@@ -79,8 +80,13 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
     if (isCreationGeometrySearch && creationDraft) {
       return [...creationDraft.selectedGeometryIds];
     }
-    if (isCreationPendingNewGeometry && creationDraft?.draftGeometryViewerId) {
-      return [creationDraft.draftGeometryViewerId];
+    if (creationDraft?.geometryMode === 'new' && creationDraft.createdGeometries.length > 0) {
+      // Highlight all drafts; editable focus stays on the last via viewer selection.
+      return creationDraft.createdGeometries.map((entry) => entry.viewerId);
+    }
+    const lastId = lastCreatedGeometryViewerId(creationDraft);
+    if (isCreationPendingNewGeometry && lastId) {
+      return [lastId];
     }
     return null;
   }, [creationDraft, isCreationGeometrySearch, isCreationPendingNewGeometry]);

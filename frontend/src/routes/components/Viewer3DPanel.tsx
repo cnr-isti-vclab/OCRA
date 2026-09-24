@@ -8,6 +8,10 @@ import { useAnnotationLinkView } from '../../features/annotation-link-view/useAn
 import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/constants';
 import { draftShapesToViewerAnnotation } from '../../features/annotation-creation/draftGeometryToViewerAnnotation';
 import { hasPendingCreationDraftShapes } from '../../features/annotation-creation/creationDraftGeometry';
+import {
+  lastCreatedGeometry,
+  lastCreatedGeometryViewerId,
+} from '../../features/annotation-creation/rememberCreationSetup';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionCounterpartGeometryPicks } from '../../features/annotation-deletion/applyDeletionCounterpartGeometryPicks';
@@ -163,10 +167,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           focusedDataIds,
         );
         if (creationDraft && hasPendingCreationDraftShapes(creationDraft)) {
-          const viewerId = creationDraft.draftGeometryViewerId;
+          const viewerId = lastCreatedGeometryViewerId(creationDraft);
+          const draftShapes = lastCreatedGeometry(creationDraft)?.shapes ?? [];
           // 2D native OpenLIME drafts are rendered in-canvas; 3D drafts use the store overlay id.
           if (!viewerId || viewerId === CREATION_DRAFT_GEOMETRY_ID) {
-            const draftAnnotation = draftShapesToViewerAnnotation(creationDraft.draftShapes);
+            const draftAnnotation = draftShapesToViewerAnnotation(draftShapes);
             if (draftAnnotation) {
               const withoutDraft = base.filter((item) => item.id !== CREATION_DRAFT_GEOMETRY_ID);
               return [...withoutDraft, { ...draftAnnotation, strokeDasharray: null }];
@@ -606,20 +611,20 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       if (editSnapshotsRef.current.has(annotation.id)) {
         return;
       }
-      if (
-        creationDraft?.draftGeometryViewerId
-        && annotation.id === creationDraft.draftGeometryViewerId
-      ) {
+      const lastDraft = lastCreatedGeometry(creationDraft);
+      const lastDraftViewerId = lastDraft?.viewerId ?? null;
+      const lastDraftShapes = lastDraft?.shapes ?? [];
+      if (lastDraftViewerId && annotation.id === lastDraftViewerId) {
         editSnapshotsRef.current.set(annotation.id, {
           version: 0,
-          shapes: cloneShapes(creationDraft.draftShapes),
+          shapes: cloneShapes(lastDraftShapes),
         });
         return;
       }
-      if (annotation.id === CREATION_DRAFT_GEOMETRY_ID && creationDraft) {
+      if (annotation.id === CREATION_DRAFT_GEOMETRY_ID && creationDraft && lastDraftShapes.length > 0) {
         editSnapshotsRef.current.set(annotation.id, {
           version: 0,
-          shapes: cloneShapes(creationDraft.draftShapes),
+          shapes: cloneShapes(lastDraftShapes),
         });
         return;
       }
@@ -636,7 +641,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const handleAnnotationUpdated = (annotation: ViewerAnnotation) => {
       const nextShapes = viewerGeometryToShapes(annotation.type, annotation.geometry);
 
-      const draftViewerId = creationDraft?.draftGeometryViewerId;
+      const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
       if (draftViewerId && annotation.id === draftViewerId) {
         if (isCreationPendingNewGeometry) {
           setCreationDraftShapes(nextShapes);

@@ -370,14 +370,14 @@ export default function AnnotationPanelEditor({
   }, []);
 
   const handleSaveCreationDataModal = useCallback(() => {
-    if (!creationDraft || creationDraft.newDataLabel.trim().length === 0) {
+    if (!creationDraft || creationDraft.pendingDataLabel.trim().length === 0) {
       return;
     }
     setCreationDataModalOpen(false);
   }, [creationDraft]);
 
   useEffect(() => {
-    if (!onOpenCreationWorkbench && isCreationDataNew && creationDraft && creationDraft.newDataLabel.trim().length === 0) {
+    if (!onOpenCreationWorkbench && isCreationDataNew && creationDraft && creationDraft.pendingDataLabel.trim().length === 0) {
       setCreationDataModalOpen(true);
     }
     if (!isCreationDataStep) {
@@ -875,7 +875,7 @@ export default function AnnotationPanelEditor({
               candidates={searchableData}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={handleOpenCreationDataModal}
-              onDataChoiceChange={(dataChoice) => updateCreationDraft({ dataChoice })}
+              onDataChoiceChange={(dataMode) => updateCreationDraft({ dataMode })}
             />
           </div>
         ) : (
@@ -1081,16 +1081,16 @@ export default function AnnotationPanelEditor({
           title="Create annotation data"
           saveLabel="Save"
           values={{
-            label: creationDraft.newDataLabel,
-            description: creationDraft.newDataDescription,
-            annotationClass: creationDraft.newDataClass,
+            label: creationDraft.pendingDataLabel,
+            description: creationDraft.pendingDataDescription,
+            annotationClass: creationDraft.pendingDataClass,
           }}
-          saveDisabled={creationDraft.newDataLabel.trim().length === 0}
+          saveDisabled={creationDraft.pendingDataLabel.trim().length === 0}
           onChange={(patch) => {
             updateCreationDraft({
-              ...(patch.label !== undefined ? { newDataLabel: patch.label } : {}),
-              ...(patch.description !== undefined ? { newDataDescription: patch.description } : {}),
-              ...(patch.annotationClass !== undefined ? { newDataClass: patch.annotationClass } : {}),
+              ...(patch.label !== undefined ? { pendingDataLabel: patch.label } : {}),
+              ...(patch.description !== undefined ? { pendingDataDescription: patch.description } : {}),
+              ...(patch.annotationClass !== undefined ? { pendingDataClass: patch.annotationClass } : {}),
             });
           }}
           onSave={handleSaveCreationDataModal}

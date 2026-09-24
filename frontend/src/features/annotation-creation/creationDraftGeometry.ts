@@ -1,4 +1,5 @@
 import type { AnnotationCreationDraft } from './types';
+import { lastCreatedGeometry } from './rememberCreationSetup';
 
 const PENDING_GEOMETRY_STEPS = new Set<AnnotationCreationDraft['step']>([
   'geometry',
@@ -9,21 +10,23 @@ const PENDING_GEOMETRY_STEPS = new Set<AnnotationCreationDraft['step']>([
 export function hasPendingCreationDraftGeometry(
   draft: Pick<
     AnnotationCreationDraft,
-    'geometryChoice' | 'draftShapes' | 'draftGeometryViewerId' | 'step'
+    'geometryMode' | 'createdGeometries' | 'step'
   > | null
   | undefined,
 ): boolean {
-  if (!draft || draft.geometryChoice !== 'new' || !PENDING_GEOMETRY_STEPS.has(draft.step)) {
+  if (!draft || draft.geometryMode !== 'new' || !PENDING_GEOMETRY_STEPS.has(draft.step)) {
     return false;
   }
-  return draft.draftShapes.length > 0 && Boolean(draft.draftGeometryViewerId);
+  const last = lastCreatedGeometry(draft);
+  return Boolean(last && last.shapes.length > 0 && last.viewerId);
 }
 
 export function hasPendingCreationDraftShapes(
-  draft: Pick<AnnotationCreationDraft, 'geometryChoice' | 'draftShapes' | 'step'> | null | undefined,
+  draft: Pick<AnnotationCreationDraft, 'geometryMode' | 'createdGeometries' | 'step'> | null | undefined,
 ): boolean {
-  if (!draft || draft.geometryChoice !== 'new' || !PENDING_GEOMETRY_STEPS.has(draft.step)) {
+  if (!draft || draft.geometryMode !== 'new' || !PENDING_GEOMETRY_STEPS.has(draft.step)) {
     return false;
   }
-  return draft.draftShapes.length > 0;
+  const last = lastCreatedGeometry(draft);
+  return Boolean(last && last.shapes.length > 0);
 }

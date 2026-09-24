@@ -16,21 +16,19 @@ describe('creationDraftGeometry', () => {
     const draft = {
       ...createDefaultCreationDraft('scene-1'),
       step: 'geometry' as const,
-      geometryChoice: 'new' as const,
-      draftShapes: [pointShape(0, 0)],
-      draftGeometryViewerId: 'openlime-1',
+      geometryMode: 'new' as const,
+      createdGeometries: [{ viewerId: 'openlime-1', shapes: [pointShape(0, 0)] }],
     };
     expect(hasPendingCreationDraftGeometry(draft)).toBe(true);
     expect(hasPendingCreationDraftShapes(draft)).toBe(true);
   });
 
-  it('returns false outside new-geometry wizard steps', () => {
+  it('returns false when geometry mode is unset', () => {
     const draft = {
       ...createDefaultCreationDraft('scene-1'),
-      step: 'setup' as const,
-      geometryChoice: 'new' as const,
-      draftShapes: [pointShape(0, 0)],
-      draftGeometryViewerId: 'openlime-1',
+      step: 'geometry' as const,
+      geometryMode: null,
+      createdGeometries: [{ viewerId: 'openlime-1', shapes: [pointShape(0, 0)] }],
     };
     expect(hasPendingCreationDraftGeometry(draft)).toBe(false);
   });
@@ -39,9 +37,8 @@ describe('creationDraftGeometry', () => {
     const draft = {
       ...createDefaultCreationDraft('scene-1'),
       step: 'data' as const,
-      geometryChoice: 'new' as const,
-      draftShapes: [pointShape(1, 2)],
-      draftGeometryViewerId: null,
+      geometryMode: 'new' as const,
+      createdGeometries: [{ viewerId: '', shapes: [pointShape(1, 2)] }],
     };
     expect(hasPendingCreationDraftGeometry(draft)).toBe(false);
     expect(hasPendingCreationDraftShapes(draft)).toBe(true);

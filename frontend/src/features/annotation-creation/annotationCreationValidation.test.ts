@@ -1,156 +1,194 @@
 import { describe, expect, it } from 'vitest';
-import type { AnnotationCreationDraft } from './types';
+import type { AnnotationCreationDraft, CreatedGeometryDraft } from './types';
 import { createDefaultCreationDraft } from './createDefaultCreationDraft';
 import {
   allowsMultipleDataSelection,
   allowsMultipleGeometrySelection,
   buildLinkPairs,
-  bothSidesSearch,
-  bothSidesVoid,
+  canAddMoreData,
   canBeginCreationWizard,
-  normalizeMultiSideForChoices,
-  resolveInitialCreationStep,
+  canCompleteDataStep,
+  canCompleteGeometryStep,
+  canSwitchToGeometryChoose,
+  canUseDataChooseMode,
+  geometryResultCount,
+  isValidLinkCardinality,
   validateCreationDraftForCommit,
-  validateCreationSetup,
-  validateCreationStep,
 } from './annotationCreationValidation';
+
+function pointGeo(viewerId: string): CreatedGeometryDraft {
+  return {
+    viewerId,
+    shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+  };
+}
 
 function draft(overrides: Partial<AnnotationCreationDraft> = {}): AnnotationCreationDraft {
   return { ...createDefaultCreationDraft('scene-1'), ...overrides };
 }
 
-describe('annotationCreationValidation', () => {
-  it('rejects when both sides are void', () => {
-    const setup = draft({ geometryChoice: 'void', dataChoice: 'void' });
-    expect(bothSidesVoid(setup)).toBe(true);
-    expect(validateCreationSetup(setup).ok).toBe(false);
-    expect(canBeginCreationWizard(setup)).toBe(false);
+describe('annotationCreationValidation (batch)', () => {
+  it('allows beginning when scopes are set', () => {
+    expect(canBeginCreationWizard(draft())).toBe(true);
+    expect(canBeginCreationWizard(draft({
+      geometryScope: { referenceType: 'scene', referenceId: '' },
+    }))).toBe(false);
   });
 
-  it('rejects existing-only choices that create neither an entity nor a link', () => {
-    const existingDataWithoutGeometry = draft({
+  it('always allows completing the geometry step', () => {
+    expect(canCompleteGeometryStep(draft({ step: 'geometry' })).ok).toBe(true);
+    expect(canCompleteGeometryStep(draft({
+      step: 'geometry',
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+    })).ok).toBe(true);
+  });
+
+  it('requires created data when geometry was skipped', () => {
+    expect(canCompleteDataStep(draft({
       step: 'data',
-      geometryChoice: 'void',
-      dataChoice: 'search',
-      selectedDataIds: ['data-1'],
-    });
-    const existingGeometryWithoutData = draft({
+      geometryMode: null,
+      dataMode: 'new',
+      createdData: [],
+    })).ok).toBe(false);
+
+    expect(canCompleteDataStep(draft({
       step: 'data',
-      geometryChoice: 'search',
-      dataChoice: 'void',
-      selectedGeometryIds: ['geometry-1'],
+      geometryMode: null,
+      dataMode: 'choose',
+      selectedDataIds: ['d1'],
+    })).ok).toBe(false);
+
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: null,
+      dataMode: 'new',
+      createdData: [{ label: 'Note', description: '', class: null, content: {} }],
+    })).ok).toBe(true);
+  });
+
+  it('allows geometry-only when geometries were created', () => {
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1'), pointGeo('v2')],
+      dataMode: null,
+    })).ok).toBe(true);
+  });
+
+  it('requires data when geometries were only chosen', () => {
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: 'choose',
+      selectedGeometryIds: ['g1'],
+      dataMode: null,
+    })).ok).toBe(false);
+
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: 'choose',
+      selectedGeometryIds: ['g1', 'g2'],
+      dataMode: 'new',
+      createdData: [{ label: 'Shared', description: '', class: null, content: {} }],
+    })).ok).toBe(true);
+  });
+
+  it('rejects N>1 and K>1', () => {
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1'), pointGeo('v2')],
+      dataMode: 'new',
+      createdData: [
+        { label: 'A', description: '', class: null, content: {} },
+        { label: 'B', description: '', class: null, content: {} },
+      ],
+    })).ok).toBe(false);
+  });
+
+  it('disables geometry choose after creations exist', () => {
+    expect(canSwitchToGeometryChoose(draft())).toBe(true);
+    expect(canSwitchToGeometryChoose(draft({
+      createdGeometries: [pointGeo('v1')],
+    }))).toBe(false);
+  });
+
+  it('disables data choose when no geometries', () => {
+    expect(canUseDataChooseMode(draft())).toBe(false);
+    expect(canUseDataChooseMode(draft({
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+    }))).toBe(true);
+  });
+
+  it('limits further data when multiple geometries exist', () => {
+    const multiGeo = draft({
+      geometryMode: 'choose',
+      selectedGeometryIds: ['g1', 'g2'],
+      dataMode: 'new',
+      createdData: [{ label: 'One', description: '', class: null, content: {} }],
     });
-
-    expect(validateCreationSetup(existingDataWithoutGeometry).ok).toBe(false);
-    expect(validateCreationDraftForCommit(existingDataWithoutGeometry).ok).toBe(false);
-    expect(validateCreationSetup(existingGeometryWithoutData).ok).toBe(false);
-    expect(validateCreationDraftForCommit(existingGeometryWithoutData).ok).toBe(false);
+    expect(canAddMoreData(multiGeo)).toBe(false);
+    expect(allowsMultipleDataSelection({ ...multiGeo, dataMode: 'choose' })).toBe(false);
   });
 
-  it('requires multi-side when both sides search', () => {
-    const setup = draft({
-      geometryChoice: 'search',
-      dataChoice: 'search',
-      multiSide: null,
-    });
-    expect(bothSidesSearch(setup)).toBe(true);
-    expect(validateCreationSetup(setup).ok).toBe(false);
+  it('allows multi geometry choose', () => {
+    expect(allowsMultipleGeometrySelection(draft({ geometryMode: 'choose' }))).toBe(true);
+    expect(allowsMultipleGeometrySelection(draft({ geometryMode: 'new' }))).toBe(false);
   });
 
-  it('resolves initial step from geometry void', () => {
-    expect(resolveInitialCreationStep({ geometryChoice: 'void', dataChoice: 'new' })).toBe('data');
-    expect(resolveInitialCreationStep({ geometryChoice: 'new', dataChoice: 'void' })).toBe('geometry');
+  it('counts geometry results from the active mode', () => {
+    expect(geometryResultCount(draft({
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('a'), pointGeo('b')],
+      selectedGeometryIds: ['ignored'],
+    }))).toBe(2);
+    expect(geometryResultCount(draft({
+      geometryMode: 'choose',
+      selectedGeometryIds: ['g1'],
+      createdGeometries: [pointGeo('ignored')],
+    }))).toBe(1);
   });
 
-  it('normalizes multi-side only when both search', () => {
-    expect(normalizeMultiSideForChoices('search', 'search', 'data')).toBe('data');
-    expect(normalizeMultiSideForChoices('new', 'search', 'geometry')).toBeNull();
-  });
-
-  it('enforces single vs multi geometry selection', () => {
-    const bothSearchGeometryMulti = draft({
-      geometryChoice: 'search',
-      dataChoice: 'search',
-      multiSide: 'geometry',
-    });
-    expect(allowsMultipleGeometrySelection(bothSearchGeometryMulti)).toBe(true);
-    expect(allowsMultipleDataSelection(bothSearchGeometryMulti)).toBe(false);
-
-    const geometryOnlySearch = draft({ geometryChoice: 'search', dataChoice: 'new', multiSide: null });
-    expect(allowsMultipleGeometrySelection(geometryOnlySearch)).toBe(true);
-  });
-
-  it('validates geometry step requirements', () => {
-    expect(
-      validateCreationStep(
-        draft({ step: 'geometry', geometryChoice: 'new', draftShapes: [] }),
-      ).ok,
-    ).toBe(false);
-    expect(
-      validateCreationStep(
-        draft({
-          step: 'geometry',
-          geometryChoice: 'new',
-          draftShapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
-        }),
-      ).ok,
-    ).toBe(true);
-    expect(
-      validateCreationStep(
-        draft({ step: 'geometry', geometryChoice: 'search', selectedGeometryIds: [] }),
-      ).ok,
-    ).toBe(false);
-  });
-
-  it('validates data step requirements', () => {
-    expect(
-      validateCreationStep(
-        draft({ step: 'data', dataChoice: 'new', newDataLabel: '  ' }),
-      ).ok,
-    ).toBe(false);
-    expect(
-      validateCreationStep(
-        draft({ step: 'data', dataChoice: 'new', newDataLabel: 'Label' }),
-      ).ok,
-    ).toBe(true);
-  });
-
-  it('builds cartesian link pairs', () => {
+  it('builds cartesian link pairs and checks cardinality', () => {
     expect(buildLinkPairs(['g1', 'g2'], ['d1'])).toEqual([
       { geometryId: 'g1', dataId: 'd1' },
       { geometryId: 'g2', dataId: 'd1' },
     ]);
+    expect(isValidLinkCardinality(2, 2)).toBe(false);
+    expect(isValidLinkCardinality(2, 1)).toBe(true);
+    expect(isValidLinkCardinality(0, 3)).toBe(true);
   });
 
-  it('validates commit for geometry-only void data', () => {
-    const geometryOnly = draft({
+  it('validates commit end-states a/b/c', () => {
+    // (a) 0 geo, K≥1 data
+    expect(validateCreationDraftForCommit(draft({
       step: 'data',
-      geometryChoice: 'new',
-      dataChoice: 'void',
-      draftShapes: [{ type: 'ShapePoints', vertices: [[1, 2, 0]] }],
-    });
-    expect(validateCreationDraftForCommit(geometryOnly).ok).toBe(true);
-  });
+      dataMode: 'new',
+      createdData: [{ label: 'Only data', description: '', class: null, content: {} }],
+    })).ok).toBe(true);
 
-  it('validates commit for data-only void geometry', () => {
-    const dataOnly = draft({
+    // (b) N≥1 created geo, K=0
+    expect(validateCreationDraftForCommit(draft({
       step: 'data',
-      geometryChoice: 'void',
-      dataChoice: 'new',
-      newDataLabel: 'Fragment',
-    });
-    expect(validateCreationDraftForCommit(dataOnly).ok).toBe(true);
-  });
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+    })).ok).toBe(true);
 
-  it('validates link-only search commit', () => {
-    const linkOnly = draft({
+    // chosen geos without data — invalid
+    expect(validateCreationDraftForCommit(draft({
       step: 'data',
-      geometryChoice: 'search',
-      dataChoice: 'search',
-      multiSide: 'geometry',
+      geometryMode: 'choose',
       selectedGeometryIds: ['g1'],
+    })).ok).toBe(false);
+
+    // (c) N×K with N=1 or K=1
+    expect(validateCreationDraftForCommit(draft({
+      step: 'data',
+      geometryMode: 'choose',
+      selectedGeometryIds: ['g1', 'g2'],
+      dataMode: 'choose',
       selectedDataIds: ['d1'],
-    });
-    expect(validateCreationDraftForCommit(linkOnly).ok).toBe(true);
+    })).ok).toBe(true);
   });
 });

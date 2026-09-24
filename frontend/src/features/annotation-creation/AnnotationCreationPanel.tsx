@@ -2,95 +2,15 @@ import type { AnnotationScopeType } from 'shared/annotation-types';
 import type { ReactNode } from 'react';
 import type {
   AnnotationCreationDraft,
-  AnnotationCreationMultiSide,
-  AnnotationEntityChoice,
   AnnotationScopeOption,
 } from './types';
 import {
-  bothSidesSearch,
   canBeginCreationWizard,
-  normalizeMultiSideForChoices,
+  dataResultCount,
+  geometryResultCount,
 } from './annotationCreationValidation';
 
 export type { AnnotationScopeOption } from './types';
-
-interface EntityChoiceGroupProps {
-  idPrefix: string;
-  title: string;
-  choice: AnnotationEntityChoice;
-  scopeType: AnnotationScopeType;
-  scopeId: string;
-  scopeOptions: AnnotationScopeOption[];
-  onChoiceChange: (choice: AnnotationEntityChoice) => void;
-  onScopeTypeChange: (scopeType: AnnotationScopeType) => void;
-  onScopeIdChange: (scopeId: string) => void;
-}
-
-function EntityChoiceGroup({
-  idPrefix,
-  title,
-  choice,
-  scopeType,
-  scopeId,
-  scopeOptions,
-  onChoiceChange,
-  onScopeTypeChange,
-  onScopeIdChange,
-}: EntityChoiceGroupProps) {
-  const filteredOptions = scopeOptions.filter((option) => option.type === scopeType);
-
-  return (
-    <div className="border rounded p-2 bg-white">
-      <div className="fw-semibold small mb-2">{title}</div>
-      <div className="d-flex flex-column gap-1 mb-2">
-        {(['new', 'search', 'void'] as const).map((option) => (
-          <div className="form-check" key={option}>
-            <input
-              className="form-check-input"
-              type="radio"
-              name={`${idPrefix}-choice`}
-              id={`${idPrefix}-choice-${option}`}
-              checked={choice === option}
-              onChange={() => onChoiceChange(option)}
-            />
-            <label className="form-check-label small" htmlFor={`${idPrefix}-choice-${option}`}>
-              {option === 'new' ? 'New' : option === 'search' ? 'Search' : 'Void'}
-            </label>
-          </div>
-        ))}
-      </div>
-
-      {choice !== 'void' ? (
-        <>
-          <div className="small text-muted mb-1">Scope</div>
-          <div className="d-flex gap-2 mb-2">
-            <select
-              className="form-select form-select-sm"
-              value={scopeType}
-              onChange={(e) => onScopeTypeChange(e.target.value as AnnotationScopeType)}
-              aria-label={`${title} scope type`}
-            >
-              <option value="scene">Scene</option>
-              <option value="asset">Asset</option>
-            </select>
-            <select
-              className="form-select form-select-sm"
-              value={scopeId}
-              onChange={(e) => onScopeIdChange(e.target.value)}
-              aria-label={`${title} scope`}
-            >
-              {filteredOptions.map((option) => (
-                <option key={`${option.type}:${option.id}`} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
 
 interface AnnotationCreationPanelProps {
   draft: AnnotationCreationDraft;
@@ -121,22 +41,19 @@ export interface AnnotationCreationActionBarProps {
 export function AnnotationCreationActionBar({
   draft,
   creating,
-  onCreate,
   onBack,
   onNext,
   onCancel,
   middleAction,
   nextButtonClassName,
 }: AnnotationCreationActionBarProps) {
-  const isSetup = draft.step === 'setup';
   const isCommitting = draft.step === 'committing' || creating;
   const wizardActive = draft.step === 'geometry' || draft.step === 'data' || draft.step === 'committing';
-  const createEnabled = isSetup && canBeginCreationWizard(draft) && !isCommitting;
   const nextButtonLabel = isCommitting
     ? 'Saving…'
     : draft.step === 'data'
         ? 'Confirm'
-        : 'Next';
+        : 'Done';
 
   return (
     <div className="d-grid align-items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
@@ -152,15 +69,97 @@ export function AnnotationCreationActionBar({
       </div>
       <div>{middleAction}</div>
       <div className="d-flex justify-content-end">
-        {isSetup ? (
-          <button type="button" className="btn btn-primary" disabled={!createEnabled} onClick={onCreate}>
-            Create
-          </button>
-        ) : (
-          <button type="button" className={`btn btn-primary ${nextButtonClassName ?? ''}`} disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
-            {nextButtonLabel}
-          </button>
-        )}
+        <button type="button" className={`btn btn-primary ${nextButtonClassName ?? ''}`} disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
+          {nextButtonLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScopeSelectors({
+  draft,
+  scopeOptions,
+  onDraftChange,
+}: {
+  draft: AnnotationCreationDraft;
+  scopeOptions: AnnotationScopeOption[];
+  onDraftChange: (patch: Partial<AnnotationCreationDraft>) => void;
+}) {
+  const handleGeometryScopeType = (referenceType: AnnotationScopeType) => {
+    const nextId = scopeOptions.find((option) => option.type === referenceType)?.id ?? '';
+    onDraftChange({
+      geometryScope: { referenceType, referenceId: nextId },
+    });
+  };
+
+  const handleDataScopeType = (visibilityType: AnnotationScopeType) => {
+    const nextId = scopeOptions.find((option) => option.type === visibilityType)?.id ?? '';
+    onDraftChange({
+      dataVisibility: { visibilityType, visibilityId: nextId },
+    });
+  };
+
+  const geometryOptions = scopeOptions.filter((o) => o.type === draft.geometryScope.referenceType);
+  const dataOptions = scopeOptions.filter((o) => o.type === draft.dataVisibility.visibilityType);
+
+  return (
+    <div className="d-flex flex-column gap-2 mb-3">
+      <div>
+        <div className="small fw-semibold mb-1">Geometry scope</div>
+        <div className="d-flex gap-2">
+          <select
+            className="form-select form-select-sm"
+            value={draft.geometryScope.referenceType}
+            onChange={(e) => handleGeometryScopeType(e.target.value as AnnotationScopeType)}
+            aria-label="Geometry scope type"
+          >
+            <option value="scene">Scene</option>
+            <option value="asset">Asset</option>
+          </select>
+          <select
+            className="form-select form-select-sm"
+            value={draft.geometryScope.referenceId}
+            onChange={(e) => onDraftChange({
+              geometryScope: { ...draft.geometryScope, referenceId: e.target.value },
+            })}
+            aria-label="Geometry scope"
+          >
+            {geometryOptions.map((option) => (
+              <option key={`${option.type}:${option.id}`} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <div className="small fw-semibold mb-1">Data visibility</div>
+        <div className="d-flex gap-2">
+          <select
+            className="form-select form-select-sm"
+            value={draft.dataVisibility.visibilityType}
+            onChange={(e) => handleDataScopeType(e.target.value as AnnotationScopeType)}
+            aria-label="Data visibility type"
+          >
+            <option value="scene">Scene</option>
+            <option value="asset">Asset</option>
+          </select>
+          <select
+            className="form-select form-select-sm"
+            value={draft.dataVisibility.visibilityId}
+            onChange={(e) => onDraftChange({
+              dataVisibility: { ...draft.dataVisibility, visibilityId: e.target.value },
+            })}
+            aria-label="Data visibility scope"
+          >
+            {dataOptions.map((option) => (
+              <option key={`${option.type}:${option.id}`} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );
@@ -177,40 +176,15 @@ export default function AnnotationCreationPanel({
   onNext,
   showActions = true,
 }: AnnotationCreationPanelProps) {
-  const isSetup = draft.step === 'setup';
   const isCommitting = draft.step === 'committing' || creating;
-  const showMultiSide = bothSidesSearch(draft);
-  const handleGeometryChoice = (choice: AnnotationEntityChoice) => {
-    onDraftChange({
-      geometryChoice: choice,
-      multiSide: normalizeMultiSideForChoices(choice, draft.dataChoice, draft.multiSide),
-    });
-  };
+  const awaitingStart = draft.step === 'geometry' && draft.geometryMode === null;
+  const startEnabled = awaitingStart && canBeginCreationWizard(draft) && !isCommitting;
+  const nGeometries = geometryResultCount(draft);
+  const nData = dataResultCount(draft);
 
-  const startWithGeometryChoice = (choice: AnnotationEntityChoice) => {
-    onDraftChange({ geometryChoice: choice, dataChoice: choice === 'new' ? 'void' : 'new', multiSide: null });
+  const handleStart = () => {
+    onDraftChange({ geometryMode: 'new', dataMode: null });
     onCreate();
-  };
-
-  const handleDataChoice = (choice: AnnotationEntityChoice) => {
-    onDraftChange({
-      dataChoice: choice,
-      multiSide: normalizeMultiSideForChoices(draft.geometryChoice, choice, draft.multiSide),
-    });
-  };
-
-  const handleGeometryScopeType = (referenceType: AnnotationScopeType) => {
-    const nextId = scopeOptions.find((option) => option.type === referenceType)?.id ?? '';
-    onDraftChange({
-      geometryScope: { referenceType, referenceId: nextId },
-    });
-  };
-
-  const handleDataScopeType = (visibilityType: AnnotationScopeType) => {
-    const nextId = scopeOptions.find((option) => option.type === visibilityType)?.id ?? '';
-    onDraftChange({
-      dataVisibility: { visibilityType, visibilityId: nextId },
-    });
   };
 
   return (
@@ -224,45 +198,15 @@ export default function AnnotationCreationPanel({
               ? 'Data step'
               : 'Creation setup'}
       </div>
-      {isSetup ? (
+
+      <ScopeSelectors draft={draft} scopeOptions={scopeOptions} onDraftChange={onDraftChange} />
+
+      {awaitingStart ? (
         <>
-          <div className="fw-semibold mb-1">Start with geometry</div>
-          <p className="small text-muted">Draw in the viewer, select an existing geometry, or continue without one.</p>
-          <div className="d-grid gap-2">
-            <button type="button" className="btn btn-primary text-start" onClick={() => startWithGeometryChoice('new')}>
-              <i className="bi bi-pencil me-2" aria-hidden />Draw geometry in viewer
-            </button>
-            <button type="button" className="btn btn-outline-primary text-start" onClick={() => startWithGeometryChoice('search')}>
-              <i className="bi bi-list-check me-2" aria-hidden />Choose existing geometry
-            </button>
-            <button type="button" className="btn btn-outline-secondary text-start" onClick={() => startWithGeometryChoice('void')}>
-              Skip geometry
-            </button>
-          </div>
-
-          {showMultiSide ? (
-            <div className="mt-2">
-              <div className="small text-muted mb-1">Multiple selection allowed on</div>
-              <div className="btn-group btn-group-sm" role="group" aria-label="Multiple selection side">
-                {(['geometry', 'data'] as const).map((side) => (
-                  <span key={side}>
-                    <input
-                      type="radio"
-                      className="btn-check"
-                      name="creation-multi-side"
-                      id={`creation-multi-${side}`}
-                      checked={draft.multiSide === side}
-                      onChange={() => onDraftChange({ multiSide: side as AnnotationCreationMultiSide })}
-                    />
-                    <label className="btn btn-outline-secondary" htmlFor={`creation-multi-${side}`}>
-                      {side === 'geometry' ? 'Geometry' : 'Data'}
-                    </label>
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
+          <p className="small text-muted mb-2">Draw in the viewer or choose existing geometry after starting.</p>
+          <button type="button" className="btn btn-primary w-100" disabled={!startEnabled} onClick={handleStart}>
+            Start
+          </button>
           {setupError ? (
             <div className="alert alert-warning py-2 px-3 small mt-2 mb-0">{setupError}</div>
           ) : null}
@@ -283,24 +227,26 @@ export default function AnnotationCreationPanel({
           ) : (
             <p className="text-muted mb-2">
               {draft.step === 'geometry'
-                ? draft.geometryChoice === 'new'
+                ? draft.geometryMode === 'new'
                   ? 'Draw a geometry in the viewer. You can adjust it before continuing.'
                   : 'Select one or more geometries in the viewer that match the chosen scope.'
-                : draft.dataChoice === 'new'
+                : draft.dataMode === 'new'
                   ? 'Create annotation data using the form below, then confirm.'
-                  : 'Search and select annotation data records below.'}
+                  : draft.dataMode === 'choose'
+                    ? 'Search and select annotation data records below.'
+                    : 'Confirm to save geometry only, or add data before finishing.'}
             </p>
           )}
           <div className="text-muted">
-            {draft.step === 'geometry' && draft.geometryChoice === 'new' ? (
+            {draft.step === 'geometry' && draft.geometryMode === 'new' ? (
               <>
-                Draft shapes:
+                Created geometries:
                 {' '}
-                {draft.draftShapes.length > 0 ? draft.draftShapes.length : 'none yet'}
+                {draft.createdGeometries.length}
                 <br />
               </>
             ) : null}
-            {draft.step === 'geometry' && draft.geometryChoice === 'search' ? (
+            {draft.step === 'geometry' && draft.geometryMode === 'choose' ? (
               <>
                 Selected geometries:
                 {' '}
@@ -308,15 +254,15 @@ export default function AnnotationCreationPanel({
                 <br />
               </>
             ) : null}
-            {draft.step === 'data' && draft.dataChoice === 'new' ? (
+            {draft.step === 'data' && draft.dataMode === 'new' ? (
               <>
                 Draft label:
                 {' '}
-                {draft.newDataLabel.trim().length > 0 ? draft.newDataLabel : 'not set'}
+                {draft.pendingDataLabel.trim().length > 0 ? draft.pendingDataLabel : 'not set'}
                 <br />
               </>
             ) : null}
-            {draft.step === 'data' && draft.dataChoice === 'search' ? (
+            {draft.step === 'data' && draft.dataMode === 'choose' ? (
               <>
                 Selected data:
                 {' '}
@@ -324,24 +270,18 @@ export default function AnnotationCreationPanel({
                 <br />
               </>
             ) : null}
-            Geometry:
+            Geometries:
             {' '}
-            {draft.geometryChoice}
-            {draft.geometryChoice !== 'void'
-              ? ` (${draft.geometryScope.referenceType}: ${draft.geometryScope.referenceId})`
-              : ''}
+            {nGeometries}
             <br />
             Data:
             {' '}
-            {draft.dataChoice}
-            {draft.dataChoice !== 'void'
-              ? ` (${draft.dataVisibility.visibilityType}: ${draft.dataVisibility.visibilityId})`
-              : ''}
+            {nData}
           </div>
         </div>
       )}
 
-      {showActions ? (
+      {showActions && !awaitingStart ? (
         <div className="mt-3">
           <AnnotationCreationActionBar
             draft={draft}

@@ -10,7 +10,7 @@ import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotatio
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
-import { normalizeMultiSideForChoices } from '../annotation-creation/annotationCreationValidation';
+import { canSwitchToGeometryChoose, emptyPendingData } from '../annotation-creation/annotationCreationValidation';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 import AnnotationToolbar from '../../components/AnnotationToolbar';
 
@@ -82,7 +82,7 @@ export default function AnnotationWorkbench({
       return [];
     }
     return [
-      ...(creationDraft.dataChoice === 'search'
+      ...(creationDraft.dataMode === 'choose'
         ? creationDraft.selectedDataIds.map((resourceId) => ({
           resourceType: 'data' as const,
           resourceId,
@@ -157,7 +157,7 @@ export default function AnnotationWorkbench({
   useEffect(() => {
     if (isOpen && !wasOpenRef.current && !creationDraft) {
       initCreationDraft();
-      updateCreationDraft({ geometryChoice: 'new', dataChoice: 'void', multiSide: null });
+      updateCreationDraft({ geometryMode: 'new', dataMode: null });
       const result = beginCreationWizard();
       if (!result.ok) {
         setSetupError(result.message);
@@ -214,11 +214,6 @@ export default function AnnotationWorkbench({
     onClose();
   }, [discardCreationDraft, onClose]);
 
-  const begin = useCallback(() => {
-    const result = beginCreationWizard();
-    setSetupError(result.ok ? null : result.message);
-  }, [beginCreationWizard]);
-
   const next = useCallback(async () => {
     const result = await advanceCreationStep();
     if (!result.ok) {
@@ -226,29 +221,9 @@ export default function AnnotationWorkbench({
     }
   }, [advanceCreationStep]);
 
-  const finishGeometryOnly = useCallback(async () => {
-    updateCreationDraft({
-      dataChoice: 'void',
-      selectedDataIds: [],
-      multiSide: null,
-    });
-    const dataStepResult = await advanceCreationStep();
-    if (!dataStepResult.ok) {
-      setSetupError(dataStepResult.message);
-      return;
-    }
-    const commitResult = await advanceCreationStep();
-    if (!commitResult.ok) {
-      setSetupError(commitResult.message);
-    }
-  }, [advanceCreationStep, updateCreationDraft]);
-
   const back = useCallback(() => {
     if (creationDraft?.step === 'data') {
-      updateCreationDraft({
-        step: 'geometry',
-        geometryChoice: creationDraft.geometryChoice === 'void' ? 'new' : creationDraft.geometryChoice,
-      });
+      updateCreationDraft({ step: 'geometry' });
       setSetupError(null);
       return;
     }
@@ -356,47 +331,37 @@ export default function AnnotationWorkbench({
             <div className="btn-group w-100 mb-3" role="group" aria-label="Geometry source">
               <button
                 type="button"
-                className={`btn ${creationDraft.geometryChoice === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
-                aria-pressed={creationDraft.geometryChoice === 'new'}
-                onClick={() => updateCreationDraft({ geometryChoice: 'new', selectedGeometryIds: [] })}
-              >
-                <i className="bi bi-pencil me-2" aria-hidden />Draw new
-              </button>
-              <button
-                type="button"
-                className={`btn ${creationDraft.geometryChoice === 'search' ? 'btn-primary' : 'btn-outline-primary'}`}
-                aria-pressed={creationDraft.geometryChoice === 'search'}
-                onClick={() => {
-                  const dataChoice = creationDraft.dataChoice === 'void' ? 'new' : creationDraft.dataChoice;
-                  updateCreationDraft({
-                    geometryChoice: 'search',
-                    dataChoice,
-                    multiSide: normalizeMultiSideForChoices('search', dataChoice, creationDraft.multiSide),
-                    draftShapes: [],
-                    draftGeometryViewerId: null,
-                  });
-                }}
-              >
-                <i className="bi bi-list-check me-2" aria-hidden />Choose existing
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
+                className={`btn ${creationDraft.geometryMode === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
+                aria-pressed={creationDraft.geometryMode === 'new'}
                 onClick={() => updateCreationDraft({
-                  step: 'data',
-                  geometryChoice: 'void',
-                  dataChoice: 'new',
-                  multiSide: null,
-                  draftShapes: [],
-                  draftGeometryViewerId: null,
+                  geometryMode: 'new',
                   selectedGeometryIds: [],
-                  selectedDataIds: [],
                 })}
               >
-                <i className="bi bi-skip-forward me-2" aria-hidden />Skip
+                <i className="bi bi-pencil me-2" aria-hidden />New
+              </button>
+              <button
+                type="button"
+                className={`btn ${creationDraft.geometryMode === 'choose' ? 'btn-primary' : 'btn-outline-primary'}`}
+                aria-pressed={creationDraft.geometryMode === 'choose'}
+                disabled={!canSwitchToGeometryChoose(creationDraft)}
+                onClick={() => updateCreationDraft({
+                  geometryMode: 'choose',
+                  createdGeometries: [],
+                })}
+              >
+                <i className="bi bi-list-check me-2" aria-hidden />Choose
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-primary"
+                disabled={creating}
+                onClick={() => void next()}
+              >
+                <i className="bi bi-check-lg me-2" aria-hidden />Done
               </button>
             </div>
-            {creationDraft.geometryChoice === 'new' ? (
+            {creationDraft.geometryMode === 'new' ? (
               <div className="border rounded p-2 bg-light-subtle" aria-label="Geometry drawing tool">
                 <div className="small fw-semibold mb-2">Shape</div>
                 <AnnotationToolbar
@@ -473,12 +438,10 @@ export default function AnnotationWorkbench({
               displayNumbersById={dataNumbers}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={() => setDataEditorOpen(true)}
-              onDataChoiceChange={(dataChoice) => updateCreationDraft({
-                dataChoice,
-                selectedDataIds: dataChoice === 'search' ? creationDraft.selectedDataIds : [],
-                multiSide: dataChoice === 'search' && creationDraft.geometryChoice === 'search'
-                  ? creationDraft.selectedGeometryIds.length > 1 ? 'geometry' : 'data'
-                  : null,
+              onDataChoiceChange={(dataMode) => updateCreationDraft({
+                dataMode,
+                selectedDataIds: dataMode === 'choose' ? creationDraft.selectedDataIds : [],
+                ...(dataMode === 'new' ? {} : emptyPendingData()),
               })}
             />
           </section>
@@ -490,23 +453,11 @@ export default function AnnotationWorkbench({
           <AnnotationCreationActionBar
             draft={creationDraft}
             creating={creating}
-            onCreate={begin}
+            onCreate={() => {}}
             onBack={back}
             onNext={() => void next()}
             onCancel={requestClose}
             nextButtonClassName="annotation-workbench__primary-action"
-            middleAction={isCreationGeometryStep
-              && creationDraft.geometryChoice === 'new'
-              && creationDraft.draftShapes.length > 0 ? (
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  disabled={creating}
-                  onClick={() => void finishGeometryOnly()}
-                >
-                  <i className="bi bi-check-lg me-2" aria-hidden />Save geometry only
-                </button>
-              ) : null}
           />
         ) : null}
       </footer>
@@ -516,15 +467,15 @@ export default function AnnotationWorkbench({
           title="Create annotation data"
           saveLabel="Use data"
           values={{
-            label: creationDraft.newDataLabel,
-            description: creationDraft.newDataDescription,
-            annotationClass: creationDraft.newDataClass,
+            label: creationDraft.pendingDataLabel,
+            description: creationDraft.pendingDataDescription,
+            annotationClass: creationDraft.pendingDataClass,
           }}
-          saveDisabled={creationDraft.newDataLabel.trim().length === 0}
+          saveDisabled={creationDraft.pendingDataLabel.trim().length === 0}
           onChange={(patch) => updateCreationDraft({
-            ...(patch.label !== undefined ? { newDataLabel: patch.label } : {}),
-            ...(patch.description !== undefined ? { newDataDescription: patch.description } : {}),
-            ...(patch.annotationClass !== undefined ? { newDataClass: patch.annotationClass } : {}),
+            ...(patch.label !== undefined ? { pendingDataLabel: patch.label } : {}),
+            ...(patch.description !== undefined ? { pendingDataDescription: patch.description } : {}),
+            ...(patch.annotationClass !== undefined ? { pendingDataClass: patch.annotationClass } : {}),
           })}
           onSave={() => setDataEditorOpen(false)}
           onCancel={() => setDataEditorOpen(false)}

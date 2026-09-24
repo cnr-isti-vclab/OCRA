@@ -125,9 +125,10 @@ describe('AnnotationStore creation wizard commit', () => {
 
     store.initCreationDraft();
     store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
-    store.updateCreationDraft({ newDataLabel: 'Fragment A' });
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Fragment A' });
 
     const result = await store.commitCreationDraft();
 
@@ -141,13 +142,13 @@ describe('AnnotationStore creation wizard commit', () => {
     expect([...store.linksById.keys()]).toEqual(['l-new']);
   });
 
-  it('commits geometry-only when data choice is void', async () => {
+  it('commits geometry-only when data mode is unset', async () => {
     const store = createTestStore();
     mockClient.createGeometry.mockResolvedValue(makeGeometry('g-only'));
 
     store.initCreationDraft();
-    store.updateCreationDraft({ dataChoice: 'void' });
     store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new', dataMode: null });
     store.setCreationDraftGeometry('viewer-1', testShapes);
 
     const geometryResult = await store.advanceCreationStep();
@@ -160,14 +161,17 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(mockClient.createLink).not.toHaveBeenCalled();
   });
 
-  it('commits data-only when geometry choice is void', async () => {
+  it('commits data-only when geometry mode is unset', async () => {
     const store = createTestStore();
     mockClient.createData.mockResolvedValue(makeDatum('d-only'));
 
     store.initCreationDraft();
-    store.updateCreationDraft({ geometryChoice: 'void' });
     store.beginCreationWizard();
-    store.updateCreationDraft({ newDataLabel: 'Data only' });
+    store.updateCreationDraft({
+      geometryMode: null,
+      dataMode: 'new',
+      pendingDataLabel: 'Data only',
+    });
 
     const result = await store.commitCreationDraft();
 
@@ -182,16 +186,16 @@ describe('AnnotationStore creation wizard commit', () => {
     store.initCreationDraft();
     store.updateCreationDraft({
       step: 'data',
-      geometryChoice: 'void',
-      dataChoice: 'search',
+      geometryMode: null,
+      dataMode: 'choose',
       selectedDataIds: ['d-existing'],
     });
 
     expect((await store.commitCreationDraft()).ok).toBe(false);
 
     store.updateCreationDraft({
-      geometryChoice: 'search',
-      dataChoice: 'void',
+      geometryMode: 'choose',
+      dataMode: null,
       selectedGeometryIds: ['g-existing'],
       selectedDataIds: [],
     });
@@ -202,7 +206,7 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(mockClient.createLink).not.toHaveBeenCalled();
   });
 
-  it('creates links for existing search selections only', async () => {
+  it('creates links for existing choose selections only', async () => {
     const store = createTestStore();
     mockClient.createLink
       .mockResolvedValueOnce(makeLink('l-1', 'g-1', 'd-1'))
@@ -210,9 +214,8 @@ describe('AnnotationStore creation wizard commit', () => {
 
     store.initCreationDraft();
     store.updateCreationDraft({
-      geometryChoice: 'search',
-      dataChoice: 'search',
-      multiSide: 'geometry',
+      geometryMode: 'choose',
+      dataMode: 'choose',
       step: 'data',
       selectedGeometryIds: ['g-1', 'g-2'],
       selectedDataIds: ['d-1'],
@@ -233,9 +236,10 @@ describe('AnnotationStore creation wizard commit', () => {
 
     store.initCreationDraft();
     store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
-    store.updateCreationDraft({ newDataLabel: 'Broken save' });
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Broken save' });
 
     const result = await store.commitCreationDraft();
 
@@ -245,7 +249,7 @@ describe('AnnotationStore creation wizard commit', () => {
     }
     expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g-partial', 0);
     expect(store.creationDraftState?.step).toBe('data');
-    expect(store.creationDraftState?.newDataLabel).toBe('Broken save');
+    expect(store.creationDraftState?.pendingDataLabel).toBe('Broken save');
     expect(store.geometriesById.has('g-partial')).toBe(false);
   });
 
@@ -261,9 +265,10 @@ describe('AnnotationStore creation wizard commit', () => {
 
     store.initCreationDraft();
     store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
-    store.updateCreationDraft({ newDataLabel: 'Interrupted' });
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Interrupted' });
 
     const commitPromise = store.commitCreationDraft();
     await store.loadScene('scene-2');
@@ -278,22 +283,26 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g-interrupted', 0);
   });
 
-  it('remembers setup choices across discard and init', () => {
+  it('remembers scopes and drawing mode across discard and init', () => {
     const store = createTestStore();
 
     store.initCreationDraft();
     store.updateCreationDraft({
-      geometryChoice: 'search',
-      dataChoice: 'void',
+      drawingMode: 'point',
+      geometryScope: { referenceType: 'asset', referenceId: 'asset-1' },
     });
     store.discardCreationDraft();
     store.initCreationDraft();
 
-    expect(store.creationDraftState?.geometryChoice).toBe('search');
-    expect(store.creationDraftState?.dataChoice).toBe('void');
+    expect(store.creationDraftState?.drawingMode).toBe('point');
+    expect(store.creationDraftState?.geometryScope).toEqual({
+      referenceType: 'asset',
+      referenceId: 'asset-1',
+    });
+    expect(store.creationDraftState?.geometryMode).toBeNull();
   });
 
-  it('remembers setup choices after a successful commit', async () => {
+  it('remembers scopes after a successful commit', async () => {
     const store = createTestStore();
     mockClient.createGeometry.mockResolvedValue(makeGeometry('g-remember'));
     mockClient.createData.mockResolvedValue(makeDatum('d-remember'));
@@ -301,23 +310,25 @@ describe('AnnotationStore creation wizard commit', () => {
 
     store.initCreationDraft();
     store.updateCreationDraft({
-      geometryChoice: 'new',
-      dataChoice: 'search',
-      multiSide: null,
+      dataVisibility: { visibilityType: 'asset', visibilityId: 'asset-2' },
     });
     store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
     store.updateCreationDraft({
-      dataChoice: 'new',
-      newDataLabel: 'Remember me',
+      dataMode: 'new',
+      pendingDataLabel: 'Remember me',
     });
     await store.commitCreationDraft();
 
     store.initCreationDraft();
 
-    expect(store.creationDraftState?.geometryChoice).toBe('new');
-    expect(store.creationDraftState?.dataChoice).toBe('new');
+    expect(store.creationDraftState?.dataVisibility).toEqual({
+      visibilityType: 'asset',
+      visibilityId: 'asset-2',
+    });
+    expect(store.creationDraftState?.geometryMode).toBeNull();
   });
 
   it('starts Link existing data at Data with the selected geometries', () => {
@@ -328,9 +339,8 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(result).toEqual({ ok: true });
     expect(store.creationDraftState).toMatchObject({
       step: 'data',
-      geometryChoice: 'search',
-      dataChoice: 'search',
-      multiSide: 'geometry',
+      geometryMode: 'choose',
+      dataMode: 'choose',
       selectedGeometryIds: ['g-1', 'g-2'],
       selectedDataIds: [],
     });

@@ -1,41 +1,54 @@
-import type { AnnotationCreationDraft, AnnotationCreationSetupDraft } from './types';
+import type {
+  AnnotationCreationDraft,
+  AnnotationCreationRememberedSetup,
+  CreatedGeometryDraft,
+} from './types';
 
 export function extractCreationSetup(
-  draft: AnnotationCreationSetupDraft,
-): AnnotationCreationSetupDraft {
+  draft: Pick<AnnotationCreationDraft, 'geometryScope' | 'dataVisibility' | 'drawingMode'>,
+): AnnotationCreationRememberedSetup {
   return {
-    geometryChoice: draft.geometryChoice,
-    dataChoice: draft.dataChoice,
     geometryScope: { ...draft.geometryScope },
     dataVisibility: { ...draft.dataVisibility },
-    multiSide: draft.multiSide,
+    drawingMode: draft.drawingMode,
   };
 }
 
 export function applyRememberedCreationSetup(
   base: AnnotationCreationDraft,
-  remembered: AnnotationCreationSetupDraft,
+  remembered: AnnotationCreationRememberedSetup,
 ): AnnotationCreationDraft {
   return {
     ...base,
-    geometryChoice: remembered.geometryChoice,
-    dataChoice: remembered.dataChoice,
     geometryScope: { ...remembered.geometryScope },
     dataVisibility: { ...remembered.dataVisibility },
-    multiSide: remembered.multiSide,
+    drawingMode: remembered.drawingMode,
   };
 }
 
-const SETUP_PATCH_KEYS: Array<keyof AnnotationCreationSetupDraft> = [
-  'geometryChoice',
-  'dataChoice',
+const SETUP_PATCH_KEYS: Array<keyof AnnotationCreationRememberedSetup> = [
   'geometryScope',
   'dataVisibility',
-  'multiSide',
+  'drawingMode',
 ];
 
 export function patchTouchesCreationSetup(
   patch: Partial<AnnotationCreationDraft>,
 ): boolean {
   return SETUP_PATCH_KEYS.some((key) => key in patch);
+}
+
+export function lastCreatedGeometry(
+  draft: Pick<AnnotationCreationDraft, 'createdGeometries'> | null | undefined,
+): CreatedGeometryDraft | null {
+  if (!draft || draft.createdGeometries.length === 0) {
+    return null;
+  }
+  return draft.createdGeometries[draft.createdGeometries.length - 1] ?? null;
+}
+
+export function lastCreatedGeometryViewerId(
+  draft: Pick<AnnotationCreationDraft, 'createdGeometries'> | null | undefined,
+): string | null {
+  return lastCreatedGeometry(draft)?.viewerId ?? null;
 }

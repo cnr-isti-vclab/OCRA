@@ -1,19 +1,21 @@
 import type { AnnotationScopeType, AnnotationShape } from 'shared/annotation-types';
 
 /**
- * Draft types for the annotation creation wizard (M2+).
- * @see doc/annotation-creation.md
+ * Draft types for the annotation creation wizard (batch geo/data).
+ * @see doc/a07-annotation-creation.md
  */
 
-export type AnnotationEntityChoice = 'new' | 'search' | 'void';
+/** Per-step mode: create, choose existing, or unset. */
+export type AnnotationCreationSideMode = 'new' | 'choose' | null;
 
-/** Viewer drawing primitive selected for a new geometry draft. */
+/** Viewer drawing primitive selected for new geometry. */
 export type AnnotationDrawingMode = 'point' | 'line' | 'area';
 
-export type AnnotationCreationStep = 'setup' | 'geometry' | 'data' | 'committing';
-
-/** Which search side may accumulate multiple selections when both sides search. */
-export type AnnotationCreationMultiSide = 'geometry' | 'data' | null;
+/**
+ * Wizard steps. Creation opens on `geometry` (no separate setup form).
+ * Optional later: `data` first when step order is swapped.
+ */
+export type AnnotationCreationStep = 'geometry' | 'data' | 'committing';
 
 export interface AnnotationScopeDraft {
   referenceType: AnnotationScopeType;
@@ -25,12 +27,25 @@ export interface AnnotationVisibilityDraft {
   visibilityId: string;
 }
 
-export interface AnnotationCreationSetupDraft {
-  geometryChoice: AnnotationEntityChoice;
-  dataChoice: AnnotationEntityChoice;
+/** One unsaved geometry produced in sticky New mode. */
+export interface CreatedGeometryDraft {
+  viewerId: string;
+  shapes: AnnotationShape[];
+}
+
+/** One unsaved data record queued from the data form. */
+export interface CreatedDataDraft {
+  label: string;
+  description: string;
+  class: string | null;
+  content: Record<string, unknown>;
+}
+
+/** Remembered session defaults (scopes + drawing tool only). */
+export interface AnnotationCreationRememberedSetup {
   geometryScope: AnnotationScopeDraft;
   dataVisibility: AnnotationVisibilityDraft;
-  multiSide: AnnotationCreationMultiSide;
+  drawingMode: AnnotationDrawingMode;
 }
 
 export interface AnnotationScopeOption {
@@ -39,16 +54,24 @@ export interface AnnotationScopeOption {
   label: string;
 }
 
-export interface AnnotationCreationDraft extends AnnotationCreationSetupDraft {
+export interface AnnotationCreationDraft {
   step: AnnotationCreationStep;
   drawingMode: AnnotationDrawingMode;
-  draftShapes: AnnotationShape[];
-  /** OpenLIME annotation id for in-progress new geometry (not persisted until confirm). */
-  draftGeometryViewerId: string | null;
+  geometryMode: AnnotationCreationSideMode;
+  dataMode: AnnotationCreationSideMode;
+  geometryScope: AnnotationScopeDraft;
+  dataVisibility: AnnotationVisibilityDraft;
+  /** Geometries drawn in New mode (exclusive with selectedGeometryIds). */
+  createdGeometries: CreatedGeometryDraft[];
+  /** Existing geometries picked in Choose mode. */
   selectedGeometryIds: string[];
+  /** Data records confirmed from the create modal in New mode. */
+  createdData: CreatedDataDraft[];
+  /** Existing data picked in Choose mode. */
   selectedDataIds: string[];
-  newDataLabel: string;
-  newDataDescription: string;
-  newDataClass: string | null;
-  newDataContent: Record<string, unknown>;
+  /** In-progress data form values (before append to createdData). */
+  pendingDataLabel: string;
+  pendingDataDescription: string;
+  pendingDataClass: string | null;
+  pendingDataContent: Record<string, unknown>;
 }
