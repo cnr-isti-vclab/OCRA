@@ -193,6 +193,61 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(store.confirmPendingCreatedData().ok).toBe(false);
   });
 
+  it('clears skipped data mode so geometry-only Done works in data-first', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry.mockResolvedValue(makeGeometry('g-only'));
+
+    store.initCreationDraft();
+    store.updateCreationDraft({ stepOrder: 'data-first', step: 'data' });
+    store.beginCreationWizard();
+    expect(store.creationDraftState?.dataMode).toBe('new');
+
+    expect(await store.advanceCreationStep()).toEqual({ ok: true });
+    expect(store.creationDraftState?.step).toBe('geometry');
+    expect(store.creationDraftState?.dataMode).toBeNull();
+
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    const result = await store.advanceCreationStep();
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClient.createGeometry).toHaveBeenCalledTimes(1);
+    expect(mockClient.createData).not.toHaveBeenCalled();
+  });
+
+  it('commits data-first: multiple data then one geometry', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry.mockResolvedValue(makeGeometry('g-1'));
+    mockClient.createData
+      .mockResolvedValueOnce(makeDatum('d-a'))
+      .mockResolvedValueOnce(makeDatum('d-b'));
+    mockClient.createLink
+      .mockResolvedValueOnce(makeLink('l-a', 'g-1', 'd-a'))
+      .mockResolvedValueOnce(makeLink('l-b', 'g-1', 'd-b'));
+
+    store.initCreationDraft();
+    store.updateCreationDraft({ stepOrder: 'data-first', step: 'data' });
+    store.beginCreationWizard();
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'A' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+    store.updateCreationDraft({ pendingDataLabel: 'B' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+    expect(await store.advanceCreationStep()).toEqual({ ok: true });
+    expect(store.creationDraftState?.step).toBe('geometry');
+
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    // Second geometry blocked when K>1
+    store.setCreationDraftGeometry('viewer-2', testShapes);
+    expect(store.creationDraftState?.createdGeometries).toHaveLength(1);
+
+    const result = await store.advanceCreationStep();
+    expect(result).toEqual({ ok: true });
+    expect(mockClient.createData).toHaveBeenCalledTimes(2);
+    expect(mockClient.createGeometry).toHaveBeenCalledTimes(1);
+    expect(mockClient.createLink).toHaveBeenCalledTimes(2);
+  });
+
   it('commits multiple created geometries with one data record', async () => {
     const store = createTestStore();
     mockClient.createGeometry

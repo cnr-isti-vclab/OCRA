@@ -4,6 +4,7 @@ import { emptyPendingData } from './annotationCreationValidation';
 export function createDefaultCreationDraft(sceneId: string): AnnotationCreationDraft {
   return {
     step: 'geometry',
+    stepOrder: 'geometry-first',
     drawingMode: 'area',
     geometryMode: null,
     dataMode: null,

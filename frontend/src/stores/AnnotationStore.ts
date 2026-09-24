@@ -42,10 +42,18 @@ import {
   allowsMultipleGeometrySelection,
   buildLinkPairs,
   canAddMoreData,
+  canAddMoreGeometry,
+  dataResultCount,
   emptyPendingData,
+  firstCreationStep,
+  geometryResultCount,
+  isGeometryFirst,
+  isOnFirstCreationStep,
+  isOnSecondCreationStep,
   pendingDataAsCreated,
   resolveCreatedDataForCommit,
   resolveCreatedGeometriesForCommit,
+  secondCreationStep,
   canBeginCreationWizard,
   validateCreationDraftForCommit,
   validateCreationStep,
@@ -321,17 +329,24 @@ export class AnnotationStore {
       return { ok: false, message: 'Geometry and data scopes are required.' };
     }
 
-    // Draft already opens on the geometry step; clear transient results if re-begun.
-    if (this.creationDraft.step === 'geometry') {
+    // Draft opens on the first side of stepOrder; clear transient results if re-begun.
+    if (isOnFirstCreationStep(this.creationDraft)) {
+      // Prime sticky New on the first side when nothing has been chosen yet.
+      if (this.creationDraft.geometryMode === null && this.creationDraft.dataMode === null) {
+        this.creationDraft = isGeometryFirst(this.creationDraft)
+          ? { ...this.creationDraft, geometryMode: 'new' }
+          : { ...this.creationDraft, dataMode: 'new' };
+      }
       this.bump();
       return { ok: true };
     }
 
+    const step = firstCreationStep(this.creationDraft.stepOrder);
     this.creationDraft = {
       ...this.creationDraft,
-      step: 'geometry',
-      geometryMode: null,
-      dataMode: null,
+      step,
+      geometryMode: step === 'geometry' ? 'new' : null,
+      dataMode: step === 'data' ? 'new' : null,
       createdGeometries: [],
       selectedGeometryIds: [],
       createdData: [],
@@ -352,6 +367,7 @@ export class AnnotationStore {
     if (this.rememberedCreationSetup) draft = applyRememberedCreationSetup(draft, this.rememberedCreationSetup);
     this.creationDraft = {
       ...draft,
+      stepOrder: 'geometry-first',
       step: 'data',
       geometryMode: 'choose',
       dataMode: 'choose',
@@ -1100,13 +1116,35 @@ export class AnnotationStore {
       return { ok: false, message: stepValidation.message ?? 'Step is not complete.' };
     }
 
-    if (this.creationDraft.step === 'geometry') {
-      this.creationDraft = { ...this.creationDraft, step: 'data' };
+    if (isOnFirstCreationStep(this.creationDraft)) {
+      // Skipping the first side (Done with no results) must clear its primed New/Choose
+      // mode so the second step can finish as geometry-only / data-only.
+      let draft = this.creationDraft;
+      if (isGeometryFirst(draft) && geometryResultCount(draft) === 0) {
+        draft = {
+          ...draft,
+          geometryMode: null,
+          createdGeometries: [],
+          selectedGeometryIds: [],
+        };
+      } else if (!isGeometryFirst(draft) && dataResultCount(draft) === 0) {
+        draft = {
+          ...draft,
+          dataMode: null,
+          createdData: [],
+          selectedDataIds: [],
+          ...emptyPendingData(),
+        };
+      }
+      this.creationDraft = {
+        ...draft,
+        step: secondCreationStep(draft.stepOrder),
+      };
       this.bump();
       return { ok: true };
     }
 
-    if (this.creationDraft.step === 'data') {
+    if (isOnSecondCreationStep(this.creationDraft)) {
       return this.commitCreationDraft();
     }
 
@@ -1147,6 +1185,9 @@ export class AnnotationStore {
     if (last && last.viewerId === viewerId) {
       list[list.length - 1] = { viewerId, shapes };
     } else {
+      if (!canAddMoreGeometry(this.creationDraft)) {
+        return;
+      }
       list.push({ viewerId, shapes });
     }
     this.creationDraft = {

@@ -21,12 +21,12 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 ### Behaviour summary (as implemented)
 
 - **Draft until Done**: geometry/data drafts stay client-side until the data-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
-- **Entry**: opens on the **geometry** step (2D workbench or panel Create). Scope/visibility pickers remain; there is no New/Search/Void setup matrix.
+- **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). Scope/visibility pickers remain; there is no New/Search/Void setup matrix.
 - **Per step — New | Choose | Done**:
   - **New**: sticky create (append geometries / confirm data into arrays). **Undo** drops the last created item. **Choose** is disabled once any creations exist on that side.
   - **Choose**: select existing entities (multi-select when the other side has at most one result).
-  - **Done**: always advances geometry (including N=0 → data-only). On data, commits when guards pass.
-- **Cardinality**: star topology only — `N===0 || K===0 || N===1 || K===1`. Geometry-only requires data mode unset; entering New/Choose on data requires at least one data result.
+  - **Done**: always advances the first step (including skip with count 0). On the second step, commits when guards pass.
+- **Cardinality**: star topology only — `N===0 || K===0 || N===1 || K===1`. Only-one-side requires the other mode unset; entering New/Choose on the second side requires at least one result.
 - **Geometry step**:
   - **New (2D)**: native OpenLIME annotations; sticky draw appends to `createdGeometries`.
   - **New (3D)**: point picking; drafts synced from the store.
@@ -37,7 +37,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 - **Remembered scopes**: geometry/data scope + drawing tool remembered for the browser session (`sessionStorage` per project/scene when enabled).
 - **Link view during wizard**: filtering is bypassed so draft/chosen geometries stay visible.
 - **Commit failure**: partial artifacts are marked erasable (rollback); draft is restored for retry.
-- **Not implemented**: order switch (data-first); localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
+- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
 
 ### Key modules
 
@@ -73,7 +73,8 @@ Key test files:
 
 **Manual checklist** (2D unless noted)
 
-- [ ] Multi-geometry New + one shared data → star links
+- [ ] Data-first: multiple New data → one geometry → star links
+- [ ] Order toggle locked after drafts exist; remembered across Annotate opens
 - [ ] One geometry + multiple New data → star links
 - [ ] Geometry-only: created geos, data mode unset, Done
 - [ ] Data-only: geometry Done with N=0, New data, Done

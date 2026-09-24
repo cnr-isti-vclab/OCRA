@@ -1,5 +1,12 @@
 import type { AnnotationCreationDraft, AnnotationDrawingMode } from './types';
-import { canSwitchToGeometryChoose } from './annotationCreationValidation';
+import {
+  canAddMoreGeometry,
+  canCompleteGeometryStep,
+  canSwitchToGeometryChoose,
+  canUseGeometryChooseMode,
+  dataResultCount,
+  isGeometryFirst,
+} from './annotationCreationValidation';
 import AnnotationToolbar from '../../components/AnnotationToolbar';
 
 interface AnnotationCreationGeometryStepProps {
@@ -22,22 +29,36 @@ export default function AnnotationCreationGeometryStep({
   onUndoLastCreatedGeometry,
   onDone,
 }: AnnotationCreationGeometryStepProps) {
-  const canChoose = canSwitchToGeometryChoose(draft);
+  const dataCount = dataResultCount(draft);
+  const canChoose = canUseGeometryChooseMode(draft) && canSwitchToGeometryChoose(draft);
+  const canCreateMore = canAddMoreGeometry(draft);
+  const doneEnabled = canCompleteGeometryStep(draft).ok && !creating;
+  const isFirst = isGeometryFirst(draft);
 
   return (
     <div className="d-flex flex-column gap-3">
       <div>
         <h3 className="h6 mb-1">Geometry</h3>
         <p className="small text-muted mb-3">
-          Draw a new geometry or choose one already available in this scene.
-          Press Done with nothing selected to skip to data-only.
+          {isFirst
+            ? 'Draw a new geometry or choose one already available. Press Done with nothing selected to skip to data-only.'
+            : dataCount === 0
+              ? 'Create one or more geometries (data was skipped).'
+              : draft.dataMode === 'new'
+                ? 'Optionally create or choose geometry to link, or Done to keep data only.'
+                : 'Create or choose geometry to link to the selected data.'}
         </p>
         <div className="btn-group w-100" role="group" aria-label="Geometry source">
           <button
             type="button"
             className={`btn ${draft.geometryMode === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
             aria-pressed={draft.geometryMode === 'new'}
-            disabled={creating}
+            disabled={creating || !canCreateMore}
+            title={
+              !canCreateMore
+                ? 'Only one geometry is allowed with multiple data records'
+                : undefined
+            }
             onClick={() => onGeometryModeChange('new')}
           >
             <i className="bi bi-pencil me-2" aria-hidden />New
@@ -48,9 +69,11 @@ export default function AnnotationCreationGeometryStep({
             aria-pressed={draft.geometryMode === 'choose'}
             disabled={!canChoose || creating}
             title={
-              !canChoose
-                ? 'Clear created geometries before choosing existing'
-                : undefined
+              !canUseGeometryChooseMode(draft)
+                ? 'Existing geometry needs data to link to'
+                : !canSwitchToGeometryChoose(draft)
+                  ? 'Clear created geometries before choosing existing'
+                  : undefined
             }
             onClick={() => onGeometryModeChange('choose')}
           >
@@ -59,7 +82,7 @@ export default function AnnotationCreationGeometryStep({
           <button
             type="button"
             className="btn btn-outline-primary"
-            disabled={creating}
+            disabled={!doneEnabled}
             onClick={onDone}
           >
             <i className="bi bi-check-lg me-2" aria-hidden />Done
@@ -106,12 +129,21 @@ export default function AnnotationCreationGeometryStep({
               Draw in the viewer. Each completed shape is kept; stay in draw mode for the next one.
             </p>
           )}
+          {!canCreateMore && dataCount > 1 ? (
+            <p className="small text-muted mb-0 mt-2">
+              Multiple data records allow at most one geometry.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
       {draft.geometryMode === 'choose' ? (
         <p className="small text-muted mb-0">
-          Select one or more geometries in the viewer
+          Select
+          {' '}
+          {dataCount > 1 ? 'one geometry' : 'one or more geometries'}
+          {' '}
+          in the viewer
           {draft.selectedGeometryIds.length > 0
             ? ` (${draft.selectedGeometryIds.length} selected)`
             : ''}
@@ -121,7 +153,11 @@ export default function AnnotationCreationGeometryStep({
 
       {draft.geometryMode === null ? (
         <p className="small text-muted mb-0">
-          Press New or Choose, or Done to continue without geometry.
+          {dataCount === 0 && !isFirst
+            ? 'Press New to create geometry, then Done.'
+            : isFirst
+              ? 'Press New or Choose, or Done to continue without geometry.'
+              : 'Press Done to save data only, or New/Choose to add geometry.'}
         </p>
       ) : null}
     </div>

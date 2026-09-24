@@ -11,7 +11,14 @@ import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotatio
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
-import { emptyPendingData } from '../annotation-creation/annotationCreationValidation';
+import {
+  canChangeCreationStepOrder,
+  emptyPendingData,
+  firstCreationStep,
+  isGeometryFirst,
+  isOnSecondCreationStep,
+} from '../annotation-creation/annotationCreationValidation';
+import type { AnnotationCreationStepOrder } from '../annotation-creation/types';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 
 interface AnnotationWorkbenchProps {
@@ -160,14 +167,13 @@ export default function AnnotationWorkbench({
   useEffect(() => {
     if (isOpen && !wasOpenRef.current && !creationDraft) {
       initCreationDraft();
-      updateCreationDraft({ geometryMode: 'new', dataMode: null });
       const result = beginCreationWizard();
       if (!result.ok) {
         setSetupError(result.message);
       }
     }
     wasOpenRef.current = isOpen;
-  }, [beginCreationWizard, creationDraft, initCreationDraft, isOpen, updateCreationDraft]);
+  }, [beginCreationWizard, creationDraft, initCreationDraft, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -225,13 +231,26 @@ export default function AnnotationWorkbench({
   }, [advanceCreationStep]);
 
   const back = useCallback(() => {
-    if (creationDraft?.step === 'data') {
-      updateCreationDraft({ step: 'geometry' });
+    if (creationDraft && isOnSecondCreationStep(creationDraft)) {
+      updateCreationDraft({ step: firstCreationStep(creationDraft.stepOrder) });
       setSetupError(null);
       return;
     }
     requestClose();
   }, [creationDraft, requestClose, updateCreationDraft]);
+
+  const handleStepOrderChange = useCallback((stepOrder: AnnotationCreationStepOrder) => {
+    if (!creationDraft || !canChangeCreationStepOrder(creationDraft)) {
+      return;
+    }
+    updateCreationDraft({
+      stepOrder,
+      step: firstCreationStep(stepOrder),
+      geometryMode: stepOrder === 'geometry-first' ? 'new' : null,
+      dataMode: stepOrder === 'data-first' ? 'new' : null,
+    });
+    setSetupError(null);
+  }, [creationDraft, updateCreationDraft]);
 
   const startDetachedDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (!isDetached || (event.target instanceof Element && event.target.closest('button'))) {
@@ -311,13 +330,52 @@ export default function AnnotationWorkbench({
         </div>
       </header>
 
-      <ol className="annotation-workbench__steps list-unstyled d-flex mb-0 px-3 pt-3 gap-1" aria-label="Creation progress">
-        {[
-          ['geometry', 'Geometry'],
-          ['data', 'Data'],
-        ].map(([key, label], index) => {
-          const active = step === key || (step === 'committing' && key === 'data');
-          const complete = key === 'geometry' && (step === 'data' || step === 'committing');
+      <div className="px-3 pt-3">
+        {creationDraft ? (
+          <div className="btn-group w-100 mb-2" role="group" aria-label="Creation step order">
+            <button
+              type="button"
+              className={`btn btn-sm ${creationDraft.stepOrder === 'geometry-first' ? 'btn-primary' : 'btn-outline-primary'}`}
+              aria-pressed={creationDraft.stepOrder === 'geometry-first'}
+              disabled={!canChangeCreationStepOrder(creationDraft) || creating}
+              title={
+                !canChangeCreationStepOrder(creationDraft)
+                  ? 'Clear drafts before changing order'
+                  : undefined
+              }
+              onClick={() => handleStepOrderChange('geometry-first')}
+            >
+              Geometry first
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${creationDraft.stepOrder === 'data-first' ? 'btn-primary' : 'btn-outline-primary'}`}
+              aria-pressed={creationDraft.stepOrder === 'data-first'}
+              disabled={!canChangeCreationStepOrder(creationDraft) || creating}
+              title={
+                !canChangeCreationStepOrder(creationDraft)
+                  ? 'Clear drafts before changing order'
+                  : undefined
+              }
+              onClick={() => handleStepOrderChange('data-first')}
+            >
+              Data first
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <ol className="annotation-workbench__steps list-unstyled d-flex mb-0 px-3 pt-2 gap-1" aria-label="Creation progress">
+        {(creationDraft && !isGeometryFirst(creationDraft)
+          ? [['data', 'Data'], ['geometry', 'Geometry']] as const
+          : [['geometry', 'Geometry'], ['data', 'Data']] as const
+        ).map(([key, label], index) => {
+          const ordered = creationDraft && !isGeometryFirst(creationDraft)
+            ? (['data', 'geometry'] as const)
+            : (['geometry', 'data'] as const);
+          const secondKey = ordered[1];
+          const active = step === key || (step === 'committing' && key === secondKey);
+          const complete = key === ordered[0] && (step === secondKey || step === 'committing');
           return (
             <li key={key} className={`annotation-workbench__step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''}`}>
               <span>{complete ? '✓' : index + 1}</span>{label}

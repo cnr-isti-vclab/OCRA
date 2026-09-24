@@ -6,6 +6,7 @@ import {
   allowsMultipleGeometrySelection,
   buildLinkPairs,
   canAddMoreData,
+  canAddMoreGeometry,
   canBeginCreationWizard,
   canCompleteDataStep,
   canCompleteGeometryStep,
@@ -132,12 +133,70 @@ describe('annotationCreationValidation (batch)', () => {
     }))).toBe(false);
   });
 
-  it('disables data choose when no geometries', () => {
+  it('disables data choose when no geometries (geometry-first)', () => {
     expect(canUseDataChooseMode(draft())).toBe(false);
     expect(canUseDataChooseMode(draft({
       geometryMode: 'new',
       createdGeometries: [pointGeo('v1')],
     }))).toBe(true);
+  });
+
+  it('allows data choose on the first step when data-first', () => {
+    expect(canUseDataChooseMode(draft({
+      stepOrder: 'data-first',
+      step: 'data',
+    }))).toBe(true);
+  });
+
+  it('mirrors Done rules for data-first order', () => {
+    // First step (data) always advances.
+    expect(canCompleteDataStep(draft({
+      stepOrder: 'data-first',
+      step: 'data',
+      dataMode: null,
+    })).ok).toBe(true);
+
+    // Second step (geometry): data-only when geometry mode unset.
+    expect(canCompleteGeometryStep(draft({
+      stepOrder: 'data-first',
+      step: 'geometry',
+      dataMode: 'new',
+      createdData: [{ label: 'Note', description: '', class: null, content: {} }],
+      geometryMode: null,
+    })).ok).toBe(true);
+
+    // Chosen data requires geometry.
+    expect(canCompleteGeometryStep(draft({
+      stepOrder: 'data-first',
+      step: 'geometry',
+      dataMode: 'choose',
+      selectedDataIds: ['d1'],
+      geometryMode: null,
+    })).ok).toBe(false);
+
+    expect(canCompleteGeometryStep(draft({
+      stepOrder: 'data-first',
+      step: 'geometry',
+      dataMode: 'choose',
+      selectedDataIds: ['d1'],
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+    })).ok).toBe(true);
+  });
+
+  it('limits further geometry when multiple data exist', () => {
+    const multiData = draft({
+      stepOrder: 'data-first',
+      dataMode: 'new',
+      createdData: [
+        { label: 'A', description: '', class: null, content: {} },
+        { label: 'B', description: '', class: null, content: {} },
+      ],
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+    });
+    expect(canAddMoreGeometry(multiData)).toBe(false);
+    expect(allowsMultipleGeometrySelection({ ...multiData, geometryMode: 'choose' })).toBe(false);
   });
 
   it('limits further data when multiple geometries exist', () => {

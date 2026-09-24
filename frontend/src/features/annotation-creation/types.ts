@@ -12,10 +12,12 @@ export type AnnotationCreationSideMode = 'new' | 'choose' | null;
 export type AnnotationDrawingMode = 'point' | 'line' | 'area';
 
 /**
- * Wizard steps. Creation opens on `geometry` (no separate setup form).
- * Optional later: `data` first when step order is swapped.
+ * Wizard steps. Creation opens on the first side of `stepOrder`.
  */
 export type AnnotationCreationStep = 'geometry' | 'data' | 'committing';
+
+/** Which side is authored first in the wizard. */
+export type AnnotationCreationStepOrder = 'geometry-first' | 'data-first';
 
 export interface AnnotationScopeDraft {
   referenceType: AnnotationScopeType;
@@ -41,11 +43,12 @@ export interface CreatedDataDraft {
   content: Record<string, unknown>;
 }
 
-/** Remembered session defaults (scopes + drawing tool only). */
+/** Remembered session defaults (scopes + drawing tool + step order). */
 export interface AnnotationCreationRememberedSetup {
   geometryScope: AnnotationScopeDraft;
   dataVisibility: AnnotationVisibilityDraft;
   drawingMode: AnnotationDrawingMode;
+  stepOrder: AnnotationCreationStepOrder;
 }
 
 export interface AnnotationScopeOption {
@@ -56,6 +59,7 @@ export interface AnnotationScopeOption {
 
 export interface AnnotationCreationDraft {
   step: AnnotationCreationStep;
+  stepOrder: AnnotationCreationStepOrder;
   drawingMode: AnnotationDrawingMode;
   geometryMode: AnnotationCreationSideMode;
   dataMode: AnnotationCreationSideMode;

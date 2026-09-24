@@ -6,9 +6,12 @@ import type {
 } from './types';
 import {
   canBeginCreationWizard,
+  canChangeCreationStepOrder,
   dataResultCount,
+  firstCreationStep,
   geometryResultCount,
 } from './annotationCreationValidation';
+import type { AnnotationCreationStepOrder } from './types';
 
 export type { AnnotationScopeOption } from './types';
 
@@ -184,6 +187,19 @@ export default function AnnotationCreationPanel({
   const scopesReady = canBeginCreationWizard(draft);
   const nGeometries = geometryResultCount(draft);
   const nData = dataResultCount(draft);
+  const canChangeOrder = canChangeCreationStepOrder(draft) && !isCommitting;
+
+  const handleStepOrderChange = (stepOrder: AnnotationCreationStepOrder) => {
+    if (!canChangeOrder || stepOrder === draft.stepOrder) {
+      return;
+    }
+    onDraftChange({
+      stepOrder,
+      step: firstCreationStep(stepOrder),
+      geometryMode: null,
+      dataMode: null,
+    });
+  };
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
@@ -198,6 +214,32 @@ export default function AnnotationCreationPanel({
       </div>
 
       <ScopeSelectors draft={draft} scopeOptions={scopeOptions} onDraftChange={onDraftChange} />
+
+      <div className="mb-3">
+        <div className="small fw-semibold mb-1">Order</div>
+        <div className="btn-group w-100" role="group" aria-label="Creation step order">
+          <button
+            type="button"
+            className={`btn btn-sm ${draft.stepOrder === 'geometry-first' ? 'btn-primary' : 'btn-outline-primary'}`}
+            aria-pressed={draft.stepOrder === 'geometry-first'}
+            disabled={!canChangeOrder}
+            title={!canChangeOrder ? 'Clear drafts before changing order' : undefined}
+            onClick={() => handleStepOrderChange('geometry-first')}
+          >
+            Geometry first
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${draft.stepOrder === 'data-first' ? 'btn-primary' : 'btn-outline-primary'}`}
+            aria-pressed={draft.stepOrder === 'data-first'}
+            disabled={!canChangeOrder}
+            title={!canChangeOrder ? 'Clear drafts before changing order' : undefined}
+            onClick={() => handleStepOrderChange('data-first')}
+          >
+            Data first
+          </button>
+        </div>
+      </div>
 
       {!scopesReady ? (
         <p className="small text-muted mb-2">Select geometry scope and data visibility to continue.</p>

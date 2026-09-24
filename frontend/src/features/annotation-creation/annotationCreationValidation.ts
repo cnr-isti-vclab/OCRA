@@ -1,5 +1,7 @@
 import type {
   AnnotationCreationDraft,
+  AnnotationCreationStep,
+  AnnotationCreationStepOrder,
   CreatedDataDraft,
   CreatedGeometryDraft,
 } from './types';
@@ -11,6 +13,36 @@ export interface AnnotationCreationValidationResult {
 
 function isNonEmpty(value: string): boolean {
   return value.trim().length > 0;
+}
+
+export function isGeometryFirst(
+  draft: Pick<AnnotationCreationDraft, 'stepOrder'>,
+): boolean {
+  return draft.stepOrder !== 'data-first';
+}
+
+export function firstCreationStep(
+  stepOrder: AnnotationCreationStepOrder,
+): AnnotationCreationStep {
+  return stepOrder === 'data-first' ? 'data' : 'geometry';
+}
+
+export function secondCreationStep(
+  stepOrder: AnnotationCreationStepOrder,
+): AnnotationCreationStep {
+  return stepOrder === 'data-first' ? 'geometry' : 'data';
+}
+
+export function isOnFirstCreationStep(
+  draft: Pick<AnnotationCreationDraft, 'step' | 'stepOrder'>,
+): boolean {
+  return draft.step === firstCreationStep(draft.stepOrder);
+}
+
+export function isOnSecondCreationStep(
+  draft: Pick<AnnotationCreationDraft, 'step' | 'stepOrder'>,
+): boolean {
+  return draft.step === secondCreationStep(draft.stepOrder);
 }
 
 /** Count of geometries from the active geometry mode (created XOR selected). */
@@ -57,22 +89,14 @@ export function hasChosenGeometries(
 }
 
 /**
- * Geometry step Done is always allowed (including N=0 → old skip).
- */
-export function canCompleteGeometryStep(
-  _draft: AnnotationCreationDraft,
-): AnnotationCreationValidationResult {
-  return { ok: true };
-}
-
-/**
- * Data-step Done rules:
+ * Final commit / second-step rules (order-agnostic).
  * - N=0 → only New data; need K≥1 created
- * - N≥1 created geos → K=0 OK (geometry-only); if data mode set, results must be valid
- * - N≥1 chosen geos → K≥1 required
+ * - K=0 → only New geometry; need N≥1 created
+ * - chosen on either side requires the other side ≥1
  * - when both N>0 and K>0 → N===1 || K===1
+ * - geometry-only / data-only: other mode must be unset (not empty New/Choose)
  */
-export function canCompleteDataStep(
+export function canCommitCreationDraft(
   draft: AnnotationCreationDraft,
 ): AnnotationCreationValidationResult {
   const nCreated = draft.geometryMode === 'new' ? draft.createdGeometries.length : 0;
@@ -89,55 +113,77 @@ export function canCompleteDataStep(
     return { ok: false, message: 'Cannot mix created and chosen data.' };
   }
 
+  if (n === 0 && k === 0) {
+    return { ok: false, message: 'Nothing to create or link.' };
+  }
+
   if (n === 0) {
-    if (draft.dataMode !== 'new') {
+    if (draft.dataMode !== 'new' || kCreated < 1) {
       return { ok: false, message: 'Create at least one data record when no geometry was added.' };
     }
-    if (kCreated < 1) {
-      return { ok: false, message: 'Create at least one data record before finishing.' };
-    }
-    return { ok: true };
-  }
-
-  if (nChosen > 0) {
-    if (k < 1) {
+    if (draft.geometryMode === 'new' || draft.geometryMode === 'choose') {
       return {
         ok: false,
-        message: 'Create or choose data to link to the selected geometries.',
-      };
-    }
-    if (n > 1 && k > 1) {
-      return {
-        ok: false,
-        message: 'When multiple geometries are selected, only one data record is allowed.',
+        message: 'Add a geometry, or leave geometry New/Choose unselected for data-only.',
       };
     }
     return { ok: true };
   }
 
-  // nCreated > 0: geometry-only (K=0) only when data mode is unset.
   if (k === 0) {
-    if (draft.dataMode === 'new') {
-      return {
-        ok: false,
-        message: 'Add at least one data record, or leave New unselected to save geometries only.',
-      };
+    if (draft.geometryMode !== 'new' || nCreated < 1) {
+      return { ok: false, message: 'Create at least one geometry when no data was added.' };
     }
-    if (draft.dataMode === 'choose') {
+    if (draft.dataMode === 'new' || draft.dataMode === 'choose') {
       return {
         ok: false,
-        message: 'Select data to link, or leave Choose unselected to save geometries only.',
+        message: 'Add data, or leave data New/Choose unselected for geometry-only.',
       };
     }
     return { ok: true };
+  }
+
+  if (nChosen > 0 && k < 1) {
+    return { ok: false, message: 'Create or choose data to link to the selected geometries.' };
+  }
+  if (kChosen > 0 && n < 1) {
+    return { ok: false, message: 'Create or choose geometry to link to the selected data.' };
   }
   if (n > 1 && k > 1) {
     return {
       ok: false,
-      message: 'When multiple geometries are created, only one data record is allowed.',
+      message: 'When multiple items exist on both sides, only a star layout (1×N or N×1) is allowed.',
     };
   }
   return { ok: true };
+}
+
+/**
+ * Geometry-step Done:
+ * - first step (geometry-first) → always allowed (including N=0)
+ * - second step (data-first) → commit rules
+ */
+export function canCompleteGeometryStep(
+  draft: AnnotationCreationDraft,
+): AnnotationCreationValidationResult {
+  if (isGeometryFirst(draft)) {
+    return { ok: true };
+  }
+  return canCommitCreationDraft(draft);
+}
+
+/**
+ * Data-step Done:
+ * - first step (data-first) → always allowed (including K=0)
+ * - second step (geometry-first) → commit rules
+ */
+export function canCompleteDataStep(
+  draft: AnnotationCreationDraft,
+): AnnotationCreationValidationResult {
+  if (!isGeometryFirst(draft)) {
+    return { ok: true };
+  }
+  return canCommitCreationDraft(draft);
 }
 
 export function validateCreationDraftForCommit(
@@ -149,14 +195,7 @@ export function validateCreationDraftForCommit(
   if (!isNonEmpty(draft.dataVisibility.visibilityId)) {
     return { ok: false, message: 'Data visibility scope is required.' };
   }
-
-  const n = geometryResultCount(draft);
-  const k = dataResultCount(draft);
-  if (n === 0 && k === 0) {
-    return { ok: false, message: 'Nothing to create or link.' };
-  }
-
-  return canCompleteDataStep(draft);
+  return canCommitCreationDraft(draft);
 }
 
 /** @deprecated Use canCompleteGeometryStep / canCompleteDataStep. */
@@ -193,10 +232,19 @@ export function isValidLinkCardinality(geometryCount: number, dataCount: number)
   return geometryCount === 1 || dataCount === 1;
 }
 
+/**
+ * Multiple geometry selection only when at most one data result exists.
+ */
 export function allowsMultipleGeometrySelection(
-  draft: Pick<AnnotationCreationDraft, 'geometryMode'>,
+  draft: Pick<
+    AnnotationCreationDraft,
+    'geometryMode' | 'dataMode' | 'createdData' | 'selectedDataIds'
+  >,
 ): boolean {
-  return draft.geometryMode === 'choose';
+  if (draft.geometryMode !== 'choose') {
+    return false;
+  }
+  return dataResultCount(draft) <= 1;
 }
 
 /**
@@ -229,9 +277,8 @@ export function canSwitchToDataChoose(
 }
 
 /**
- * Whether another data item may be added (New or Choose).
+ * Whether another data item may be added.
  * When N>1 geometries, at most one confirmed data result is allowed.
- * Pending form values do not count — they are committed via confirmPendingCreatedData.
  */
 export function canAddMoreData(
   draft: Pick<
@@ -256,11 +303,88 @@ export function canAddMoreData(
   return true;
 }
 
-/** Choose is unavailable when geometry was skipped (N=0). */
-export function canUseDataChooseMode(
-  draft: Pick<AnnotationCreationDraft, 'geometryMode' | 'createdGeometries' | 'selectedGeometryIds'>,
+/**
+ * Whether another geometry item may be added.
+ * When K>1 data, at most one confirmed geometry result is allowed.
+ */
+export function canAddMoreGeometry(
+  draft: Pick<
+    AnnotationCreationDraft,
+    | 'geometryMode'
+    | 'createdGeometries'
+    | 'selectedGeometryIds'
+    | 'dataMode'
+    | 'createdData'
+    | 'selectedDataIds'
+  >,
 ): boolean {
+  const k = dataResultCount(draft);
+  const n = draft.geometryMode === 'new'
+    ? draft.createdGeometries.length
+    : draft.geometryMode === 'choose'
+      ? draft.selectedGeometryIds.length
+      : 0;
+  if (k > 1) {
+    return n < 1;
+  }
+  return true;
+}
+
+/**
+ * Data Choose availability.
+ * - Geometry-first (data is second): needs N>0.
+ * - Data-first (data is first): always available.
+ */
+export function canUseDataChooseMode(
+  draft: Pick<
+    AnnotationCreationDraft,
+    'stepOrder' | 'step' | 'geometryMode' | 'createdGeometries' | 'selectedGeometryIds'
+  >,
+): boolean {
+  if (!isGeometryFirst(draft)) {
+    return true;
+  }
   return geometryResultCount(draft) > 0;
+}
+
+/**
+ * Geometry Choose availability.
+ * - Data-first (geometry is second): needs K>0.
+ * - Geometry-first (geometry is first): always available.
+ */
+export function canUseGeometryChooseMode(
+  draft: Pick<
+    AnnotationCreationDraft,
+    'stepOrder' | 'step' | 'dataMode' | 'createdData' | 'selectedDataIds'
+  >,
+): boolean {
+  if (isGeometryFirst(draft)) {
+    return true;
+  }
+  return dataResultCount(draft) > 0;
+}
+
+/** True when step order can still be flipped (no authored results yet). */
+export function canChangeCreationStepOrder(
+  draft: Pick<
+    AnnotationCreationDraft,
+    | 'step'
+    | 'stepOrder'
+    | 'createdGeometries'
+    | 'selectedGeometryIds'
+    | 'createdData'
+    | 'selectedDataIds'
+  >,
+): boolean {
+  if (!isOnFirstCreationStep(draft)) {
+    return false;
+  }
+  return (
+    draft.createdGeometries.length === 0
+    && draft.selectedGeometryIds.length === 0
+    && draft.createdData.length === 0
+    && draft.selectedDataIds.length === 0
+  );
 }
 
 export function emptyPendingData(): Pick<

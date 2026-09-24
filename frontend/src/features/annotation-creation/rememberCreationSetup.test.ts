@@ -26,14 +26,26 @@ describe('rememberCreationSetup', () => {
 
     const next = applyRememberedCreationSetup(createDefaultCreationDraft('scene-b'), remembered);
     expect(next.drawingMode).toBe('point');
+    expect(next.stepOrder).toBe('geometry-first');
     expect(next.step).toBe('geometry');
     expect(next.selectedGeometryIds).toEqual([]);
     expect(next.geometryMode).toBeNull();
   });
 
+  it('reapplies data-first step order', () => {
+    const remembered = extractCreationSetup({
+      ...createDefaultCreationDraft('scene-a'),
+      stepOrder: 'data-first',
+    });
+    const next = applyRememberedCreationSetup(createDefaultCreationDraft('scene-b'), remembered);
+    expect(next.stepOrder).toBe('data-first');
+    expect(next.step).toBe('data');
+  });
+
   it('detects setup-touching patches', () => {
     expect(patchTouchesCreationSetup({ pendingDataLabel: 'x' })).toBe(false);
     expect(patchTouchesCreationSetup({ drawingMode: 'line' })).toBe(true);
+    expect(patchTouchesCreationSetup({ stepOrder: 'data-first' })).toBe(true);
     expect(patchTouchesCreationSetup({ geometryScope: { referenceType: 'asset', referenceId: 'a1' } })).toBe(true);
   });
 });

@@ -5,12 +5,13 @@ import type {
 } from './types';
 
 export function extractCreationSetup(
-  draft: Pick<AnnotationCreationDraft, 'geometryScope' | 'dataVisibility' | 'drawingMode'>,
+  draft: Pick<AnnotationCreationDraft, 'geometryScope' | 'dataVisibility' | 'drawingMode' | 'stepOrder'>,
 ): AnnotationCreationRememberedSetup {
   return {
     geometryScope: { ...draft.geometryScope },
     dataVisibility: { ...draft.dataVisibility },
     drawingMode: draft.drawingMode,
+    stepOrder: draft.stepOrder,
   };
 }
 
@@ -18,11 +19,14 @@ export function applyRememberedCreationSetup(
   base: AnnotationCreationDraft,
   remembered: AnnotationCreationRememberedSetup,
 ): AnnotationCreationDraft {
+  const stepOrder = remembered.stepOrder ?? 'geometry-first';
   return {
     ...base,
     geometryScope: { ...remembered.geometryScope },
     dataVisibility: { ...remembered.dataVisibility },
     drawingMode: remembered.drawingMode,
+    stepOrder,
+    step: stepOrder === 'data-first' ? 'data' : 'geometry',
   };
 }
 
@@ -30,6 +34,7 @@ const SETUP_PATCH_KEYS: Array<keyof AnnotationCreationRememberedSetup> = [
   'geometryScope',
   'dataVisibility',
   'drawingMode',
+  'stepOrder',
 ];
 
 export function patchTouchesCreationSetup(

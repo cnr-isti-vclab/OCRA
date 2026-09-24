@@ -8,6 +8,7 @@ import {
   canSwitchToDataChoose,
   canUseDataChooseMode,
   geometryResultCount,
+  isGeometryFirst,
 } from './annotationCreationValidation';
 import { orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
@@ -43,6 +44,7 @@ export default function AnnotationCreationDataStep({
   const canChooseData = canUseDataChooseMode(draft) && canSwitchToDataChoose(draft);
   const canCreateMore = canAddMoreData(draft);
   const doneEnabled = canCompleteDataStep(draft).ok && !creating;
+  const isFirst = !isGeometryFirst(draft);
 
   const filteredCandidates = useMemo(() => {
     const ordered = displayNumbersById
@@ -113,11 +115,13 @@ export default function AnnotationCreationDataStep({
       <div>
         <h3 className="h6 mb-1">Data</h3>
         <p className="small text-muted mb-3">
-          {geometryCount === 0
-            ? 'Create one or more data records (geometry was skipped).'
-            : draft.geometryMode === 'new'
-              ? 'Optionally create or choose data to link, or Done to keep geometries only.'
-              : 'Create or choose data to link to the selected geometries.'}
+          {isFirst
+            ? 'Create or choose data first. Press Done with nothing selected to skip to geometry-only.'
+            : geometryCount === 0
+              ? 'Create one or more data records (geometry was skipped).'
+              : draft.geometryMode === 'new'
+                ? 'Optionally create or choose data to link, or Done to keep geometries only.'
+                : 'Create or choose data to link to the selected geometries.'}
         </p>
         {modeControls}
       </div>
@@ -230,11 +234,13 @@ export default function AnnotationCreationDataStep({
 
       {draft.dataMode === null ? (
         <p className="text-muted small mb-0">
-          {geometryCount === 0
-            ? 'Press New to create data, then Done.'
-            : draft.geometryMode === 'new'
-              ? 'Press Done to save geometries only, or New/Choose to add data.'
-              : 'Press New or Choose, then Done when ready.'}
+          {isFirst
+            ? 'Press New or Choose, or Done to continue without data.'
+            : geometryCount === 0
+              ? 'Press New to create data, then Done.'
+              : draft.geometryMode === 'new'
+                ? 'Press Done to save geometries only, or New/Choose to add data.'
+                : 'Press New or Choose, then Done when ready.'}
         </p>
       ) : null}
     </div>
