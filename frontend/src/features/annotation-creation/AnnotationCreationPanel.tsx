@@ -92,20 +92,16 @@ function ScopeSelectors({
 }) {
   const handleGeometryScopeType = (referenceType: AnnotationScopeType) => {
     const nextId = scopeOptions.find((option) => option.type === referenceType)?.id ?? '';
-    onDraftChange({
-      geometryScope: { referenceType, referenceId: nextId },
-    });
+    onDraftChange({ geometryScope: { referenceType, referenceId: nextId } });
   };
 
   const handleDataScopeType = (visibilityType: AnnotationScopeType) => {
     const nextId = scopeOptions.find((option) => option.type === visibilityType)?.id ?? '';
-    onDraftChange({
-      dataVisibility: { visibilityType, visibilityId: nextId },
-    });
+    onDraftChange({ dataVisibility: { visibilityType, visibilityId: nextId } });
   };
 
-  const geometryOptions = scopeOptions.filter((o) => o.type === draft.geometryScope.referenceType);
-  const dataOptions = scopeOptions.filter((o) => o.type === draft.dataVisibility.visibilityType);
+  const geometryOptions = scopeOptions.filter((option) => option.type === draft.geometryScope.referenceType);
+  const dataOptions = scopeOptions.filter((option) => option.type === draft.dataVisibility.visibilityType);
 
   return (
     <div className="d-flex flex-column gap-2 mb-3">
@@ -169,27 +165,25 @@ function ScopeSelectors({
   );
 }
 
+/**
+ * Compact scope + status strip for creation (no New/Search/Void matrix).
+ * Geometry/data New|Choose|Done live in their step components.
+ */
 export default function AnnotationCreationPanel({
   draft,
   scopeOptions,
   creating,
   setupError,
   onDraftChange,
-  onCreate,
+  onCreate: _onCreate,
   onBack,
   onNext,
   showActions = true,
 }: AnnotationCreationPanelProps) {
   const isCommitting = draft.step === 'committing' || creating;
-  const awaitingStart = draft.step === 'geometry' && draft.geometryMode === null;
-  const startEnabled = awaitingStart && canBeginCreationWizard(draft) && !isCommitting;
+  const scopesReady = canBeginCreationWizard(draft);
   const nGeometries = geometryResultCount(draft);
   const nData = dataResultCount(draft);
-
-  const handleStart = () => {
-    onDraftChange({ geometryMode: 'new', dataMode: null });
-    onCreate();
-  };
 
   return (
     <div className="border rounded p-3 mb-3 bg-light-subtle">
@@ -205,16 +199,8 @@ export default function AnnotationCreationPanel({
 
       <ScopeSelectors draft={draft} scopeOptions={scopeOptions} onDraftChange={onDraftChange} />
 
-      {awaitingStart ? (
-        <>
-          <p className="small text-muted mb-2">Draw in the viewer or choose existing geometry after starting.</p>
-          <button type="button" className="btn btn-primary w-100" disabled={!startEnabled} onClick={handleStart}>
-            Start
-          </button>
-          {setupError ? (
-            <div className="alert alert-warning py-2 px-3 small mt-2 mb-0">{setupError}</div>
-          ) : null}
-        </>
+      {!scopesReady ? (
+        <p className="small text-muted mb-2">Select geometry scope and data visibility to continue.</p>
       ) : (
         <div className="small">
           <div className="fw-semibold mb-1">
@@ -230,50 +216,10 @@ export default function AnnotationCreationPanel({
             </p>
           ) : (
             <p className="text-muted mb-2">
-              {draft.step === 'geometry'
-                ? draft.geometryMode === 'new'
-                  ? 'Draw a geometry in the viewer. You can adjust it before continuing.'
-                  : 'Select one or more geometries in the viewer that match the chosen scope.'
-                : draft.dataMode === 'new'
-                  ? 'Create one or more data records, then press Done.'
-                  : draft.dataMode === 'choose'
-                    ? 'Search and select annotation data records below.'
-                    : 'Press Done to save geometry only, or New/Choose to add data.'}
+              Use New | Choose | Done in the step below.
             </p>
           )}
           <div className="text-muted">
-            {draft.step === 'geometry' && draft.geometryMode === 'new' ? (
-              <>
-                Created geometries:
-                {' '}
-                {draft.createdGeometries.length}
-                <br />
-              </>
-            ) : null}
-            {draft.step === 'geometry' && draft.geometryMode === 'choose' ? (
-              <>
-                Selected geometries:
-                {' '}
-                {draft.selectedGeometryIds.length}
-                <br />
-              </>
-            ) : null}
-            {draft.step === 'data' && draft.dataMode === 'new' ? (
-              <>
-                Created data:
-                {' '}
-                {draft.createdData.length}
-                <br />
-              </>
-            ) : null}
-            {draft.step === 'data' && draft.dataMode === 'choose' ? (
-              <>
-                Selected data:
-                {' '}
-                {draft.selectedDataIds.length}
-                <br />
-              </>
-            ) : null}
             Geometries:
             {' '}
             {nGeometries}
@@ -285,12 +231,16 @@ export default function AnnotationCreationPanel({
         </div>
       )}
 
-      {showActions && !awaitingStart ? (
+      {setupError ? (
+        <div className="alert alert-warning py-2 px-3 small mt-2 mb-0">{setupError}</div>
+      ) : null}
+
+      {showActions && scopesReady ? (
         <div className="mt-3">
           <AnnotationCreationActionBar
             draft={draft}
             creating={creating}
-            onCreate={onCreate}
+            onCreate={_onCreate}
             onBack={onBack}
             onNext={onNext}
           />

@@ -4,15 +4,15 @@ import type { AnnotationEventResourceType } from 'shared/annotation-events';
 import './annotation-workbench.css';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import AnnotationCreationDataStep from '../annotation-creation/AnnotationCreationDataStep';
+import AnnotationCreationGeometryStep from '../annotation-creation/AnnotationCreationGeometryStep';
 import AnnotationDataFormModal from '../annotation-creation/AnnotationDataFormModal';
 import { AnnotationCreationActionBar } from '../annotation-creation/AnnotationCreationPanel';
 import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotationCreationWizard';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
-import { canSwitchToGeometryChoose, emptyPendingData } from '../annotation-creation/annotationCreationValidation';
+import { emptyPendingData } from '../annotation-creation/annotationCreationValidation';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
-import AnnotationToolbar from '../../components/AnnotationToolbar';
 
 interface AnnotationWorkbenchProps {
   isOpen: boolean;
@@ -329,82 +329,20 @@ export default function AnnotationWorkbench({
       <div className="annotation-workbench__body flex-grow-1 overflow-auto p-3">
         {isCreationGeometryStep && creationDraft ? (
           <section aria-labelledby="annotation-geometry-step-title">
-            <h3 id="annotation-geometry-step-title" className="h6 mb-1">Geometry</h3>
-            <p className="small text-muted mb-3">Draw a new geometry or choose one already available in this scene.</p>
-            <div className="btn-group w-100 mb-3" role="group" aria-label="Geometry source">
-              <button
-                type="button"
-                className={`btn ${creationDraft.geometryMode === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}
-                aria-pressed={creationDraft.geometryMode === 'new'}
-                onClick={() => updateCreationDraft({
-                  geometryMode: 'new',
-                  selectedGeometryIds: [],
-                })}
-              >
-                <i className="bi bi-pencil me-2" aria-hidden />New
-              </button>
-              <button
-                type="button"
-                className={`btn ${creationDraft.geometryMode === 'choose' ? 'btn-primary' : 'btn-outline-primary'}`}
-                aria-pressed={creationDraft.geometryMode === 'choose'}
-                disabled={!canSwitchToGeometryChoose(creationDraft)}
-                onClick={() => updateCreationDraft({
-                  geometryMode: 'choose',
-                  createdGeometries: [],
-                })}
-              >
-                <i className="bi bi-list-check me-2" aria-hidden />Choose
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-primary"
-                disabled={creating}
-                onClick={() => void next()}
-              >
-                <i className="bi bi-check-lg me-2" aria-hidden />Done
-              </button>
-            </div>
-            {creationDraft.geometryMode === 'new' ? (
-              <div className="border rounded p-2 bg-light-subtle" aria-label="Geometry drawing tool">
-                <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-                  <div className="small fw-semibold mb-0">Shape</div>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={creating || creationDraft.createdGeometries.length === 0}
-                    title="Discard the last created geometry"
-                    onClick={() => {
-                      undoLastCreatedGeometry();
-                    }}
-                  >
-                    <i className="bi bi-arrow-counterclockwise me-1" aria-hidden />Undo
-                  </button>
-                </div>
-                <AnnotationToolbar
-                  mode={creationDraft.drawingMode}
-                  onModeChange={(drawingMode) => {
-                    if (drawingMode !== 'edit') {
-                      updateCreationDraft({ drawingMode });
-                    }
-                  }}
-                  hiddenModes={['edit']}
-                />
-                {creationDraft.createdGeometries.length > 0 ? (
-                  <p className="small text-muted mb-0 mt-2" aria-live="polite">
-                    {creationDraft.createdGeometries.length}
-                    {' '}
-                    geometr
-                    {creationDraft.createdGeometries.length === 1 ? 'y' : 'ies'}
-                    {' '}
-                    drafted — keep drawing or press Done.
-                  </p>
-                ) : (
-                  <p className="small text-muted mb-0 mt-2">
-                    Draw in the viewer. Each completed shape is kept; stay in draw mode for the next one.
-                  </p>
-                )}
-              </div>
-            ) : null}
+            <AnnotationCreationGeometryStep
+              draft={creationDraft}
+              creating={creating}
+              onGeometryModeChange={(geometryMode) => updateCreationDraft({
+                geometryMode,
+                selectedGeometryIds: geometryMode === 'choose' ? creationDraft.selectedGeometryIds : [],
+                createdGeometries: geometryMode === 'choose' ? [] : creationDraft.createdGeometries,
+              })}
+              onDrawingModeChange={(drawingMode) => updateCreationDraft({ drawingMode })}
+              onUndoLastCreatedGeometry={() => {
+                undoLastCreatedGeometry();
+              }}
+              onDone={() => void next()}
+            />
           </section>
         ) : null}
 
@@ -527,7 +465,10 @@ export default function AnnotationWorkbench({
             setDataEditorOpen(false);
           }}
           onCancel={() => {
-            updateCreationDraft(emptyPendingData());
+            updateCreationDraft({
+              ...emptyPendingData(),
+              ...(creationDraft.createdData.length === 0 ? { dataMode: null } : {}),
+            });
             setDataEditorOpen(false);
           }}
           vocabularySchemes={vocabularySchemes}

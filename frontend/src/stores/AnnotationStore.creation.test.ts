@@ -390,6 +390,27 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(store.geometriesById.has('g-partial')).toBe(false);
   });
 
+  it('rolls back earlier geometries when a later create fails mid-batch', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry
+      .mockResolvedValueOnce(makeGeometry('g-ok'))
+      .mockRejectedValueOnce(new AnnotationApiError('Second geometry failed', 500));
+
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    store.setCreationDraftGeometry('viewer-2', testShapes);
+    await store.advanceCreationStep();
+
+    const result = await store.commitCreationDraft();
+
+    expect(result.ok).toBe(false);
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g-ok', 0);
+    expect(store.geometriesById.has('g-ok')).toBe(false);
+    expect(store.creationDraftState?.createdGeometries).toHaveLength(2);
+  });
+
   it('aborts commit when the scene reload interrupts the wizard', async () => {
     const store = createTestStore();
     let resolveGeometry!: (value: AnnotationGeometry) => void;

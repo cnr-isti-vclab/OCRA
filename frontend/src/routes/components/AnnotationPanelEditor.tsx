@@ -25,6 +25,7 @@ import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewMod
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import AnnotationCreationPanel from '../../features/annotation-creation/AnnotationCreationPanel';
 import AnnotationCreationDataStep from '../../features/annotation-creation/AnnotationCreationDataStep';
+import AnnotationCreationGeometryStep from '../../features/annotation-creation/AnnotationCreationGeometryStep';
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
@@ -170,6 +171,7 @@ export default function AnnotationPanelEditor({
     toggleCreationDataSelection,
     confirmPendingCreatedData,
     undoLastCreatedData,
+    undoLastCreatedGeometry,
     deletionDraft,
     isDeletionWizardActive,
     initDeletionDraft,
@@ -245,12 +247,15 @@ export default function AnnotationPanelEditor({
         if (!creationDraft) {
           initCreationDraft();
         }
+        const result = beginCreationWizard();
+        setSetupError(result.ok ? null : result.message);
       } else {
         setSetupError(null);
       }
       return next;
     });
   }, [
+    beginCreationWizard,
     creationDraft,
     deletionDraft,
     discardDeletionDraft,
@@ -369,9 +374,12 @@ export default function AnnotationPanelEditor({
   }, [updateCreationDraft]);
 
   const handleCancelCreationDataModal = useCallback(() => {
-    updateCreationDraft(emptyPendingData());
+    updateCreationDraft({
+      ...emptyPendingData(),
+      ...(creationDraft && creationDraft.createdData.length === 0 ? { dataMode: null } : {}),
+    });
     setCreationDataModalOpen(false);
-  }, [updateCreationDraft]);
+  }, [creationDraft, updateCreationDraft]);
 
   const handleSaveCreationDataModal = useCallback(() => {
     const result = confirmPendingCreatedData();
@@ -893,12 +901,29 @@ export default function AnnotationPanelEditor({
               }}
             />
           </div>
+        ) : isCreationGeometryStep && creationDraft ? (
+          <div className="flex-grow-1 overflow-auto d-flex flex-column">
+            <AnnotationCreationGeometryStep
+              draft={creationDraft}
+              creating={creating}
+              onGeometryModeChange={(geometryMode) => updateCreationDraft({
+                geometryMode,
+                selectedGeometryIds: geometryMode === 'choose' ? creationDraft.selectedGeometryIds : [],
+                createdGeometries: geometryMode === 'choose' ? [] : creationDraft.createdGeometries,
+              })}
+              onDrawingModeChange={(drawingMode) => updateCreationDraft({ drawingMode })}
+              onUndoLastCreatedGeometry={() => {
+                undoLastCreatedGeometry();
+              }}
+              onDone={() => {
+                void handleCreationNext();
+              }}
+            />
+          </div>
         ) : (
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
             <p className="text-muted fst-italic text-center px-3">
-              {isCreationGeometryStep
-                ? 'Use the viewer to draw or select geometries for this annotation.'
-                : 'Annotation list is hidden while creation is in progress.'}
+              Annotation list is hidden while creation is in progress.
             </p>
           </div>
         )

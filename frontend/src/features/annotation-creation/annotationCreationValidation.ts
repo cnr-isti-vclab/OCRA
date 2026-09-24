@@ -115,8 +115,20 @@ export function canCompleteDataStep(
     return { ok: true };
   }
 
-  // nCreated > 0: geometry-only (K=0) is allowed when data mode is unset or empty new/choose.
+  // nCreated > 0: geometry-only (K=0) only when data mode is unset.
   if (k === 0) {
+    if (draft.dataMode === 'new') {
+      return {
+        ok: false,
+        message: 'Add at least one data record, or leave New unselected to save geometries only.',
+      };
+    }
+    if (draft.dataMode === 'choose') {
+      return {
+        ok: false,
+        message: 'Select data to link, or leave Choose unselected to save geometries only.',
+      };
+    }
     return { ok: true };
   }
   if (n > 1 && k > 1) {

@@ -20,21 +20,24 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 
 ### Behaviour summary (as implemented)
 
-- **Draft until confirm**: geometry/data selections and new shapes stay client-side until the final confirm (`Next` / `Confirm`). Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
-- **Setup form**: per-side choice New / Search / Void, scope pickers, multi-side rule when both sides search. Choices are **remembered in-memory** for the current browser session only (not persisted to the server or `localStorage`/`sessionStorage`).
-- **Geometry step** (viewer):
-  - **New (2D)**: native OpenLIME annotation kept via `draftGeometryViewerId`; shapes flushed into the draft before advance.
-  - **New (3D)**: point picking only; draft rendered from store (`creation-draft` id).
-  - **Search**: viewer selection → `selectedGeometryIds` (scoped, respects multi-side rule).
-  - Annotations are created only through the wizard; viewer draw/pick outside the wizard does not persist.
-  - `AnnotationToolbar` is shown only on the wizard geometry step (not when the OpenLIME pencil is toggled).
-- **Data step** (panel):
-  - **New**: `AnnotationDataFormModal`.
-  - **Search**: toggle list with project data load.
-- **Void paths**: geometry void → data-only; data void → geometry-only after geometry step; both search → link-only.
-- **Link view during wizard**: filtering is bypassed so draft/search geometries are not hidden.
-- **Commit failure**: partial artifacts are marked erasable (rollback); user sees an error message in the creation panel.
-- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
+- **Draft until Done**: geometry/data drafts stay client-side until the data-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
+- **Entry**: opens on the **geometry** step (2D workbench or panel Create). Scope/visibility pickers remain; there is no New/Search/Void setup matrix.
+- **Per step — New | Choose | Done**:
+  - **New**: sticky create (append geometries / confirm data into arrays). **Undo** drops the last created item. **Choose** is disabled once any creations exist on that side.
+  - **Choose**: select existing entities (multi-select when the other side has at most one result).
+  - **Done**: always advances geometry (including N=0 → data-only). On data, commits when guards pass.
+- **Cardinality**: star topology only — `N===0 || K===0 || N===1 || K===1`. Geometry-only requires data mode unset; entering New/Choose on data requires at least one data result.
+- **Geometry step**:
+  - **New (2D)**: native OpenLIME annotations; sticky draw appends to `createdGeometries`.
+  - **New (3D)**: point picking; drafts synced from the store.
+  - **Choose**: viewer/workbench selection → `selectedGeometryIds`.
+- **Data step**:
+  - **New**: modal → confirm appends to `createdData[]`.
+  - **Choose**: searchable list of project data.
+- **Remembered scopes**: geometry/data scope + drawing tool remembered for the browser session (`sessionStorage` per project/scene when enabled).
+- **Link view during wizard**: filtering is bypassed so draft/chosen geometries stay visible.
+- **Commit failure**: partial artifacts are marked erasable (rollback); draft is restored for retry.
+- **Not implemented**: order switch (data-first); localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
 
 ### Key modules
 
@@ -42,8 +45,11 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | ---- | ---- |
 | Proposal / this doc | `doc/a07-annotation-creation.md` |
 | Store | `frontend/src/stores/AnnotationStore.ts` |
-| Setup UI | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
+| Scopes / action bar | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
+| Geometry step UI | `frontend/src/features/annotation-creation/AnnotationCreationGeometryStep.tsx` |
+| Data step UI | `frontend/src/features/annotation-creation/AnnotationCreationDataStep.tsx` |
 | Validation | `frontend/src/features/annotation-creation/annotationCreationValidation.ts` |
+| 2D workbench | `frontend/src/features/annotation-workbench/AnnotationWorkbench.tsx` |
 | Link view | `frontend/src/features/annotation-link-view/` |
 | 2D viewer wiring | `frontend/src/routes/components/Viewer2DPanel.tsx` |
 | 3D viewer wiring | `frontend/src/routes/components/Viewer3DPanel.tsx` |
@@ -67,18 +73,20 @@ Key test files:
 
 **Manual checklist** (2D unless noted)
 
-- [ ] All 9 geometry×data choice mixes (new/search/void combinations that are valid)
-- [ ] 2D: point / line / area create → edit vertices → Next → data → Confirm
-- [ ] 2D: redraw geometry replaces draft; Confirm persists final shape only
-- [ ] 3D: point create → edit/drag → data step → Confirm
-- [ ] 3D: second point pick replaces draft
-- [ ] Search: multi-select on configured side only (both-side search + multi-side radio)
-- [ ] Data modal Cancel → discard confirm; Keep editing stays in modal
-- [ ] Back / data-modal discard at each wizard step
-- [ ] Setup choices remembered in-memory across repeated Create opens (same page session)
-- [ ] Commit failure shows error; partial artifacts not left active in panel
-- [ ] Link view modes during wizard do not hide draft/search geometry
-- [ ] Regression: normal (non-wizard) annotation create/edit in 2D/3D when wizard inactive
+- [ ] Multi-geometry New + one shared data → star links
+- [ ] One geometry + multiple New data → star links
+- [ ] Geometry-only: created geos, data mode unset, Done
+- [ ] Data-only: geometry Done with N=0, New data, Done
+- [ ] Choose geometries + Choose/New data (K≥1 required)
+- [ ] Choose disabled after creations; re-enabled after Undo clears them
+- [ ] 2D: point / line / area sticky New → Undo last → Done → data
+- [ ] 3D: point create → data step → Done
+- [ ] Data modal Cancel with empty list clears New mode (geometry-only Done stays available)
+- [ ] Back / discard at each wizard step
+- [ ] Scopes remembered across repeated Annotate/Create opens
+- [ ] Commit failure shows error; partial artifacts not left active
+- [ ] Link view modes during wizard do not hide draft/chosen geometry
+- [ ] Regression: normal (non-wizard) annotation edit in 2D/3D when wizard inactive
 
 ---
 
@@ -100,60 +108,49 @@ On multiple selection, labels on geometries help user to identify the connection
 
 ### Interface
 
-The proposed interface should be flexible to let users create an annotation and connect geometry and data.
-Both geometry and data must reference a scene or a selected asset.
-Geometry and data can be created, searched in the database, or one can be left void (only the other is created).
+Batch creation uses progressive **New | Choose | Done** on each side (never a pre-wizard New/Search/Void matrix).
 
+| GEO | DATA |
+| --- | ---- |
+| Scope (type + id) | Visibility (type + id) |
+| New (sticky draw) / Choose / Done | New (modal → list) / Choose / Done |
+| Undo last created | Undo last created |
+| Back / Cancel | Back / Cancel |
 
-| GEO              | DATA             |
-| ---------------- | ---------------- |
-| Ref. Type , id   | Ref. Type , Id   |
-| - New            | - New            |
-| - Search - Multi | - Search - Multi |
-| - Void           | - Void           |
-| `CREATE`         |                  |
-| `BACK`           | `NEXT`           |
+**Rules**
 
-
-The interface lets the user choose for both geometry and data whether it is new, searched, or void (one radio group for gemetry and one for data) .If the search option is used, one or more entries can be selected. 
-
-If both geometry and data are searched, only one side may support multiple selection.  
-Use the Multi Radio selection among the two search (enabled when both search are selected)) to identify the ones that support multiple selection.  
-Once options are selected, the creation procedure begins.
+- Modes are exclusive per side: created XOR chosen (no mix).
+- Choose is disabled once any item was created on that side (Undo to re-enable).
+- Star links only: at most one side may have count &gt; 1.
+- Geometry Done with N=0 → data-only (New required).
+- Geometry-only → leave data mode unset and press Done.
+- Chosen geometries require K≥1 data before Done.
 
 ### Procedure
 
-
-
 #### Geometry
 
-- Before pressing `CREATE`, the `BACK` and `NEXT` buttons are disabled.
-- Press `CREATE` to start the creation procedure.
-- `BACK` and `NEXT` become enabled.
-- The annotation creation procedure starts from the Geometry step.
-- Geometry creation and search are performed in the viewer.
-- If geometry is new, it is created and may be modified to obtain the desired shape.
-- If geometry is searched, one or more geometries are selected (if multiple selection is enabled).
-- Once the geometry step is finished, the user presses `NEXT` to move to the Data step. If the user presses `BACK`, the operation is aborted and a modal warns the user to confirm discarding work.
-- If Data is selected as void, the annotation creation ends after pressing `NEXT`. Only geometry is created; no data or link are created.
-
-
+- Wizard opens on the geometry step (workbench Annotate, or panel Create).
+- **New**: draw in the viewer; each completed shape appends; stay in draw mode; **Undo** removes the last.
+- **Choose**: select existing geometries (viewer and/or workbench list).
+- **Done** always advances to data (including skip with N=0).
+- **Back** discards the session (confirm modal).
 
 #### Data
 
-- If geometry was selected as void, creation starts at the Data step. Only data is created; no geometry or link is created.
-- If 'new data' is selected, a modal opens to create annotation data. The modal window used for updating annotation data could be reused.
-- If 'search' is selected for data, the user can search among existing annotations.
-- Search results are shown in the annotation list.
-- Annotation data cards, instead of showing erase/edit buttons, show a toggle button indicating selection. Toggles are initially off. This allows users to perform multiple searches while accumulating selections; simple click selection is not sufficient because the user may refine searches before finalizing selection.
-- Once the user finishes selection they can press `NEXT` to complete creation, or `BACK` to return to the previous step.
+- **New**: open the data modal; **Add data** appends to the created list; repeat while allowed.
+- **Choose**: search/select existing data (multi only when ≤1 geometry).
+- **Done** commits when validation passes (create geometries → data → link pairs).
+- Cancel on an empty New modal clears data mode so geometry-only Done remains available.
 
 
 
 ### Interface Integration
 
-Here the description of how the previous GUI should be inserted.  In the annotation panel, after the heading, there will be a toggle button corresponding to an expandable `Create` section.
-On create pressed, the section  containing the creation user interface will be expanded. When starting the creation, there are no annotation displayed in the annotation list. The list will be used onlòy to show annotation data as the result of a user search, or the created annotation data. 
+**2D**: Annotate opens the creation workbench beside the viewer (geometry + data steps).  
+**3D / panel**: Create expands scopes in the annotation panel; geometry and data step UIs render in the panel body while the list is hidden.
+
+On Done, sequential REST calls persist new geometries/data and create link pairs. Drafts are not written until then.
 
 ### Database Update
 

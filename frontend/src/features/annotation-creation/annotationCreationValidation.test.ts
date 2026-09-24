@@ -77,6 +77,24 @@ describe('annotationCreationValidation (batch)', () => {
     })).ok).toBe(true);
   });
 
+  it('requires data once New or Choose was entered on the data step', () => {
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+      dataMode: 'new',
+      createdData: [],
+    })).ok).toBe(false);
+
+    expect(canCompleteDataStep(draft({
+      step: 'data',
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+      dataMode: 'choose',
+      selectedDataIds: [],
+    })).ok).toBe(false);
+  });
+
   it('requires data when geometries were only chosen', () => {
     expect(canCompleteDataStep(draft({
       step: 'data',
