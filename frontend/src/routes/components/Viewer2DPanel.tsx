@@ -184,15 +184,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const lastCreationGeometryFocusKeyRef = useRef<string | null>(null);
     const wasCreationGeometryStepRef = useRef(false);
     // Creation data/committing must stay in preserve: draft geometry is still
-    // highlighted, but enabling edit here fights the post-geometry pencil-off path.
+    // highlighted, but enabling edit here fights sticky draw and the post-geometry
+    // pencil-off path. Sticky New also uses preserve so OpenLIME stays in create mode.
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
       annotationMode === 'viewer' || isDeletionSelectingStep
         ? 'preserve'
-        : isCreationGeometryStep
-          ? (isCreationGeometryNew && isCreationPendingNewGeometry ? 'edit' : 'preserve')
-          : isCreationWizardActive
-            ? 'preserve'
-            : 'edit';
+        : isCreationWizardActive
+          ? 'preserve'
+          : 'edit';
 
     useEffect(() => {
       if (!isDeletionSelectingStep) {
@@ -233,7 +232,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         if (mode !== 'edit' && !isCreationGeometryNew) {
           return;
         }
-        setToolbarMode(mode);
+        setToolbarMode((previous) => (previous === mode ? previous : mode));
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
         const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
         if (!viewer || !manager) {
@@ -306,13 +305,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     }, [isDeletionSelectingStep, viewerReady, geometryEditingActive, ref]);
 
-    /** Enables editable selection for editor focus and new-geometry creation. */
+    /** Enables editable selection for editor focus (not during creation wizard). */
     const enableAnnotationEditInteraction = useCallback(() => {
-      if (annotationMode !== 'edit' || isDeletionSelectingStep || isCreationGeometrySearch) {
-        return null;
-      }
-      // Data/committing steps still highlight the draft; do not re-arm the pencil.
-      if (isCreationWizardActive && !isCreationGeometryNew) {
+      if (
+        annotationMode !== 'edit'
+        || isDeletionSelectingStep
+        || isCreationWizardActive
+      ) {
         return null;
       }
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
@@ -326,8 +325,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       return manager;
     }, [
       annotationMode,
-      isCreationGeometryNew,
-      isCreationGeometrySearch,
       isCreationWizardActive,
       isDeletionSelectingStep,
       ref,
@@ -509,18 +506,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       const shapes = viewerGeometryToShapes(anno.type, anno.geometry);
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
       const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
-      const previousViewerId = lastCreatedGeometryViewerId(creationDraft);
-      if (previousViewerId && previousViewerId !== anno.id) {
-        purgeCreationGeometryDrafts(manager, {
-          removeViewerIds: [previousViewerId],
-          keepViewerId: anno.id,
-        });
-      } else {
-        purgeCreationGeometryDrafts(manager, { keepViewerId: anno.id });
-      }
+      // Sticky New: keep prior completed drafts on the canvas; only drop the legacy overlay id.
+      purgeCreationGeometryDrafts(manager, { keepViewerId: anno.id });
       setCreationDraftGeometry(anno.id, shapes);
+      const drawMode = creationDraft?.drawingMode ?? 'area';
       requestAnimationFrame(() => {
-        applyToolbarMode('edit');
+        applyToolbarMode(drawMode);
       });
     };
 
@@ -886,10 +877,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           }
         }
         const preserveIds = new Set<string>();
-        const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
-        if (isCreationPendingNewGeometry && draftViewerId) {
-          preserveIds.add(draftViewerId);
-          excludeIds.add(draftViewerId);
+        if (creationDraft?.geometryMode === 'new') {
+          for (const entry of creationDraft.createdGeometries) {
+            if (entry.viewerId) {
+              preserveIds.add(entry.viewerId);
+              excludeIds.add(entry.viewerId);
+            }
+          }
         }
         syncOpenLimeAnnotations(
           annotationManager,
@@ -961,6 +955,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       [recoverableGeometryIdSet, startEditorLock, stopEditorLock],
     );
 
+    const knownCreationDraftViewerIdsRef = useRef<Set<string>>(new Set());
+
     useEffect(() => {
       const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
       if (draftViewerId) {
@@ -968,6 +964,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     }, [creationDraft?.createdGeometries]);
 
+    // Keep OpenLIME in sync with the createdGeometries array (sticky multi-draft + undo).
     useEffect(() => {
       const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
       const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
@@ -975,14 +972,29 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         return;
       }
 
-      if (isCreationPendingNewGeometry) {
-        purgeCreationGeometryDrafts(manager, {
-          keepViewerId: lastCreatedGeometryViewerId(creationDraft),
-        });
+      const nextIds = new Set(
+        (creationDraft?.geometryMode === 'new'
+          ? creationDraft.createdGeometries.map((entry) => entry.viewerId)
+          : []
+        ).filter(Boolean),
+      );
+
+      const removedIds: string[] = [];
+      for (const viewerId of knownCreationDraftViewerIdsRef.current) {
+        if (!nextIds.has(viewerId)) {
+          removedIds.push(viewerId);
+        }
+      }
+      knownCreationDraftViewerIdsRef.current = nextIds;
+
+      if (nextIds.size > 0) {
+        // Keep all active draft annotations; only remove undos + legacy overlay id.
+        purgeCreationGeometryDrafts(manager, { removeViewerIds: removedIds });
+        manager.viewer?.redraw?.();
         return;
       }
 
-      const orphanIds: string[] = [CREATION_DRAFT_GEOMETRY_ID];
+      const orphanIds: string[] = [CREATION_DRAFT_GEOMETRY_ID, ...removedIds];
       const staleViewerId = lastDraftGeometryViewerIdRef.current;
       if (staleViewerId) {
         const inStore = activeGeometriesRef.current.some((geometry) => geometry.id === staleViewerId);
@@ -992,7 +1004,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         lastDraftGeometryViewerIdRef.current = null;
       }
       purgeCreationGeometryDrafts(manager, { removeViewerIds: orphanIds });
-    }, [creationDraft?.createdGeometries, isCreationPendingNewGeometry, ref, revision]);
+    }, [creationDraft?.geometryMode, creationDraft?.createdGeometries, ref, revision]);
 
     useEffect(() => {
       if (!ref || !('current' in ref) || !ref.current) {
@@ -1163,10 +1175,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
       if (isCreationGeometryNew) {
         viewer.enableEditing(true);
-        const effectiveMode = isCreationPendingNewGeometry
-          ? resolveToolbarMode()
-          : creationDraft?.drawingMode ?? 'area';
-        applyToolbarMode(effectiveMode);
+        // Sticky New: always re-arm the configured drawing tool (do not depend on
+        // toolbarMode — that caused create→edit fights and update-depth loops).
+        applyToolbarMode(creationDraft?.drawingMode ?? 'area');
         return;
       }
 
@@ -1177,7 +1188,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         if (viewer.getAnnotationManager()?.active) {
           viewer.enableEditing(false);
         }
-        setToolbarMode('edit');
+        setToolbarMode((previous) => (previous === 'edit' ? previous : 'edit'));
         return;
       }
 
@@ -1192,10 +1203,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       isCreationWizardActive,
       isCreationGeometryNew,
       isCreationGeometrySearch,
-      isCreationPendingNewGeometry,
       creationDraft?.drawingMode,
       applyToolbarMode,
-      resolveToolbarMode,
       ref,
     ]);
 

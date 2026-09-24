@@ -117,6 +117,61 @@ describe('AnnotationStore creation wizard commit', () => {
     mockClient.markLinkErasable.mockResolvedValue({ success: true, version: 1, updatedAt: null });
   });
 
+  it('appends sticky new geometries and undoes the last one', () => {
+    const store = createTestStore();
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    store.setCreationDraftGeometry('viewer-2', [
+      { type: 'ShapePoints', vertices: [[1, 1, 0]] },
+    ]);
+
+    expect(store.creationDraftState?.createdGeometries).toHaveLength(2);
+    expect(store.creationDraftState?.createdGeometries.map((entry) => entry.viewerId)).toEqual([
+      'viewer-1',
+      'viewer-2',
+    ]);
+
+    const removedId = store.undoLastCreatedGeometry();
+    expect(removedId).toBe('viewer-2');
+    expect(store.creationDraftState?.createdGeometries).toEqual([
+      { viewerId: 'viewer-1', shapes: testShapes },
+    ]);
+
+    store.setCreationDraftShapes([{ type: 'ShapePoints', vertices: [[9, 9, 0]] }]);
+    expect(store.creationDraftState?.createdGeometries[0]?.shapes).toEqual([
+      { type: 'ShapePoints', vertices: [[9, 9, 0]] },
+    ]);
+  });
+
+  it('commits multiple created geometries with one data record', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry
+      .mockResolvedValueOnce(makeGeometry('g-a'))
+      .mockResolvedValueOnce(makeGeometry('g-b'));
+    mockClient.createData.mockResolvedValue(makeDatum('d-shared'));
+    mockClient.createLink
+      .mockResolvedValueOnce(makeLink('l-a', 'g-a', 'd-shared'))
+      .mockResolvedValueOnce(makeLink('l-b', 'g-b', 'd-shared'));
+
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    store.setCreationDraftGeometry('viewer-2', testShapes);
+    await store.advanceCreationStep();
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Shared note' });
+
+    const result = await store.commitCreationDraft();
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClient.createGeometry).toHaveBeenCalledTimes(2);
+    expect(mockClient.createData).toHaveBeenCalledTimes(1);
+    expect(mockClient.createLink).toHaveBeenCalledTimes(2);
+  });
+
   it('commits new geometry, data, and link sequentially', async () => {
     const store = createTestStore();
     mockClient.createGeometry.mockResolvedValue(makeGeometry('g-new'));

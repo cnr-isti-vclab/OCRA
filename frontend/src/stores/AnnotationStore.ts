@@ -1155,18 +1155,20 @@ export class AnnotationStore {
     this.bump();
   }
 
-  undoLastCreatedGeometry(): void {
+  undoLastCreatedGeometry(): string | null {
     if (!this.creationDraft || this.creationDraft.geometryMode !== 'new') {
-      return;
+      return null;
     }
     if (this.creationDraft.createdGeometries.length === 0) {
-      return;
+      return null;
     }
+    const removed = this.creationDraft.createdGeometries[this.creationDraft.createdGeometries.length - 1]!;
     this.creationDraft = {
       ...this.creationDraft,
       createdGeometries: this.creationDraft.createdGeometries.slice(0, -1),
     };
     this.bump();
+    return removed.viewerId;
   }
 
   toggleCreationGeometrySelection(geometryId: string): void {

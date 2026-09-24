@@ -24,6 +24,7 @@ function shapeToViewerGeometry(shape: AnnotationShape): ViewerAnnotation['geomet
 export function draftShapesToViewerAnnotation(
   shapes: readonly AnnotationShape[],
   label = 'Draft geometry',
+  id: string = CREATION_DRAFT_GEOMETRY_ID,
 ): ViewerAnnotation | null {
   const shape = shapes[0];
   if (!shape) {
@@ -31,7 +32,7 @@ export function draftShapesToViewerAnnotation(
   }
 
   return {
-    id: CREATION_DRAFT_GEOMETRY_ID,
+    id,
     label,
     semanticClass: null,
     strokeDasharray: '4,4',

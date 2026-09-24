@@ -7,7 +7,6 @@ import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/constants';
 import { draftShapesToViewerAnnotation } from '../../features/annotation-creation/draftGeometryToViewerAnnotation';
-import { hasPendingCreationDraftShapes } from '../../features/annotation-creation/creationDraftGeometry';
 import {
   lastCreatedGeometry,
   lastCreatedGeometryViewerId,
@@ -166,19 +165,24 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           activeAnnotationSelection,
           focusedDataIds,
         );
-        if (creationDraft && hasPendingCreationDraftShapes(creationDraft)) {
-          const viewerId = lastCreatedGeometryViewerId(creationDraft);
-          const draftShapes = lastCreatedGeometry(creationDraft)?.shapes ?? [];
-          // 2D native OpenLIME drafts are rendered in-canvas; 3D drafts use the store overlay id.
-          if (!viewerId || viewerId === CREATION_DRAFT_GEOMETRY_ID) {
-            const draftAnnotation = draftShapesToViewerAnnotation(draftShapes);
-            if (draftAnnotation) {
-              const withoutDraft = base.filter((item) => item.id !== CREATION_DRAFT_GEOMETRY_ID);
-              return [...withoutDraft, { ...draftAnnotation, strokeDasharray: null }];
-            }
-          }
+        if (creationDraft?.geometryMode === 'new' && creationDraft.createdGeometries.length > 0) {
+          const draftAnnotations = creationDraft.createdGeometries.flatMap((entry, index) => {
+            const annotation = draftShapesToViewerAnnotation(
+              entry.shapes,
+              creationDraft.createdGeometries.length === 1
+                ? 'Draft geometry'
+                : `Draft geometry ${index + 1}`,
+              entry.viewerId,
+            );
+            return annotation ? [{ ...annotation, strokeDasharray: null as string | null }] : [];
+          });
+          const draftIds = new Set(draftAnnotations.map((item) => item.id));
+          return [
+            ...base.filter((item) => !draftIds.has(item.id) && item.id !== CREATION_DRAFT_GEOMETRY_ID),
+            ...draftAnnotations,
+          ];
         }
-        return base;
+        return base.filter((item) => item.id !== CREATION_DRAFT_GEOMETRY_ID);
       },
       [visibleGeometries, activeAnnotationSelection, focusedDataIds, creationDraft],
     );
@@ -262,11 +266,12 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           return;
         }
 
-        setCreationDraftGeometry(CREATION_DRAFT_GEOMETRY_ID, [
+        const viewerId = `${CREATION_DRAFT_GEOMETRY_ID}-${crypto.randomUUID()}`;
+        setCreationDraftGeometry(viewerId, [
           { type: 'ShapePoints', vertices: [point] },
         ]);
-        viewer.setPickingMode(false);
-        setToolbarMode('edit');
+        // Sticky New: stay in point-picking mode for the next geometry.
+        keepCreationPointPickingActive();
       };
 
       viewer.setOnPointPicked(handler);
@@ -283,6 +288,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       viewerReady,
       isCreationGeometryNew,
       setCreationDraftGeometry,
+      keepCreationPointPickingActive,
     ]);
 
     const viewer3dDisabledModes = useMemo((): AnnotationToolbarMode[] => {
@@ -290,6 +296,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return ['point', 'line', 'area'];
       }
       if (isCreationGeometryNew) {
+        // Sticky New: edit is available once at least one draft exists (edit last).
         return isCreationPendingNewGeometry ? ['line', 'area'] : ['edit', 'line', 'area'];
       }
       return ['line', 'area'];
@@ -597,11 +604,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           setToolbarMode('point');
           return;
         }
-        if (!isCreationPendingNewGeometry) {
-          keepCreationPointPickingActive();
-        } else {
-          setToolbarMode('edit');
-        }
+        // Sticky New: re-arm point picking after each completed draft.
+        keepCreationPointPickingActive();
         return;
       }
       setToolbarMode(enabled ? 'point' : 'edit');

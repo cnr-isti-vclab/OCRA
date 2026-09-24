@@ -56,6 +56,7 @@ export default function AnnotationWorkbench({
     beginCreationWizard,
     advanceCreationStep,
     discardCreationDraft,
+    undoLastCreatedGeometry,
     vocabularySchemes,
     vocabularyConcepts,
     vocabularyProperties,
@@ -363,7 +364,20 @@ export default function AnnotationWorkbench({
             </div>
             {creationDraft.geometryMode === 'new' ? (
               <div className="border rounded p-2 bg-light-subtle" aria-label="Geometry drawing tool">
-                <div className="small fw-semibold mb-2">Shape</div>
+                <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                  <div className="small fw-semibold mb-0">Shape</div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={creating || creationDraft.createdGeometries.length === 0}
+                    title="Discard the last created geometry"
+                    onClick={() => {
+                      undoLastCreatedGeometry();
+                    }}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1" aria-hidden />Undo
+                  </button>
+                </div>
                 <AnnotationToolbar
                   mode={creationDraft.drawingMode}
                   onModeChange={(drawingMode) => {
@@ -373,6 +387,20 @@ export default function AnnotationWorkbench({
                   }}
                   hiddenModes={['edit']}
                 />
+                {creationDraft.createdGeometries.length > 0 ? (
+                  <p className="small text-muted mb-0 mt-2" aria-live="polite">
+                    {creationDraft.createdGeometries.length}
+                    {' '}
+                    geometr
+                    {creationDraft.createdGeometries.length === 1 ? 'y' : 'ies'}
+                    {' '}
+                    drafted — keep drawing or press Done.
+                  </p>
+                ) : (
+                  <p className="small text-muted mb-0 mt-2">
+                    Draw in the viewer. Each completed shape is kept; stay in draw mode for the next one.
+                  </p>
+                )}
               </div>
             ) : null}
           </section>

@@ -1,24 +1,29 @@
 import type { AnnotationToolbarMode } from '../../components/AnnotationToolbar';
 
-/** Resolve the 2D/3D toolbar mode; drawing is allowed only for a new geometry draft. */
+/**
+ * Resolve the 2D/3D toolbar mode during geometry creation.
+ * Sticky New keeps the drawing tool after each completed shape; Edit is allowed
+ * only when drafts already exist and the user explicitly selected edit.
+ */
 export function resolveCreationToolbarMode(
   currentMode: AnnotationToolbarMode,
   options: {
     isCreationGeometryNew: boolean;
     isCreationGeometrySearch: boolean;
-    /** When true, a draft shape exists and edit/replace is allowed. */
+    /** When true, at least one draft shape exists (edit-last is allowed). */
     hasDraftGeometry?: boolean;
     defaultCreateMode?: AnnotationToolbarMode;
   },
 ): AnnotationToolbarMode {
   if (options.isCreationGeometryNew) {
-    if (options.hasDraftGeometry) {
+    if (currentMode === 'point' || currentMode === 'line' || currentMode === 'area') {
       return currentMode;
     }
-    if (currentMode === 'edit') {
-      return options.defaultCreateMode ?? 'area';
+    // edit (or unknown): stay in edit only when a draft exists to tweak; otherwise draw.
+    if (options.hasDraftGeometry && currentMode === 'edit') {
+      return 'edit';
     }
-    return currentMode;
+    return options.defaultCreateMode ?? 'area';
   }
   if (options.isCreationGeometrySearch) {
     return 'edit';

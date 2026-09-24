@@ -5,7 +5,7 @@ import {
 } from './resolveCreationToolbarMode';
 
 describe('resolveCreationToolbarMode', () => {
-  it('forces draw mode during new geometry creation before a draft exists', () => {
+  it('keeps the drawing tool during sticky new geometry creation', () => {
     expect(
       resolveCreationToolbarMode('edit', {
         isCreationGeometryNew: true,
@@ -19,9 +19,16 @@ describe('resolveCreationToolbarMode', () => {
         isCreationGeometrySearch: false,
       }),
     ).toBe('point');
+    expect(
+      resolveCreationToolbarMode('line', {
+        isCreationGeometryNew: true,
+        isCreationGeometrySearch: false,
+        hasDraftGeometry: true,
+      }),
+    ).toBe('line');
   });
 
-  it('allows edit mode once a draft geometry exists', () => {
+  it('allows edit mode once a draft geometry exists and edit is selected', () => {
     expect(
       resolveCreationToolbarMode('edit', {
         isCreationGeometryNew: true,

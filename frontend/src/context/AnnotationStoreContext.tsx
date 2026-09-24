@@ -124,6 +124,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   advanceCreationStep: () => Promise<{ ok: true } | { ok: false; message: string }>;
   setCreationDraftShapes: (shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   setCreationDraftGeometry: (viewerId: string, shapes: import('shared/annotation-types').AnnotationShape[]) => void;
+  undoLastCreatedGeometry: () => string | null;
   setCreationGeometrySelection: (geometryIds: string[]) => void;
   toggleCreationDataSelection: (dataId: string) => void;
   deletionDraft: Readonly<AnnotationDeletionDraft> | null;
@@ -864,6 +865,10 @@ export function AnnotationStoreProvider({
     storeRef.current?.setCreationDraftGeometry(viewerId, shapes);
   }, []);
 
+  const undoLastCreatedGeometry = useCallback(() => {
+    return storeRef.current?.undoLastCreatedGeometry() ?? null;
+  }, []);
+
   const setCreationGeometrySelection = useCallback((geometryIds: string[]) => {
     storeRef.current?.setCreationGeometrySelection(geometryIds);
   }, []);
@@ -1085,6 +1090,7 @@ export function AnnotationStoreProvider({
     advanceCreationStep,
     setCreationDraftShapes,
     setCreationDraftGeometry,
+    undoLastCreatedGeometry,
     setCreationGeometrySelection,
     toggleCreationDataSelection,
     deletionDraft: store?.deletionDraftState ?? null,
