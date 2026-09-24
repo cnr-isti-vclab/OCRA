@@ -9,6 +9,7 @@ import {
   canBeginCreationWizard,
   canCompleteDataStep,
   canCompleteGeometryStep,
+  canSwitchToDataChoose,
   canSwitchToGeometryChoose,
   canUseDataChooseMode,
   geometryResultCount,
@@ -130,6 +131,31 @@ describe('annotationCreationValidation (batch)', () => {
     });
     expect(canAddMoreData(multiGeo)).toBe(false);
     expect(allowsMultipleDataSelection({ ...multiGeo, dataMode: 'choose' })).toBe(false);
+  });
+
+  it('ignores pending form values when deciding if more data can be added', () => {
+    expect(canAddMoreData(draft({
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1'), pointGeo('v2')],
+      dataMode: 'new',
+      createdData: [],
+      pendingDataLabel: 'Still typing',
+    }))).toBe(true);
+
+    expect(canAddMoreData(draft({
+      geometryMode: 'new',
+      createdGeometries: [pointGeo('v1')],
+      dataMode: 'new',
+      createdData: [],
+      pendingDataLabel: 'Anything',
+    }))).toBe(true);
+  });
+
+  it('disables data choose after created data exists', () => {
+    expect(canSwitchToDataChoose(draft())).toBe(true);
+    expect(canSwitchToDataChoose(draft({
+      createdData: [{ label: 'One', description: '', class: null, content: {} }],
+    }))).toBe(false);
   });
 
   it('allows multi geometry choose', () => {

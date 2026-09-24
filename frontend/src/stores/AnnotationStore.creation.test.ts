@@ -146,6 +146,53 @@ describe('AnnotationStore creation wizard commit', () => {
     ]);
   });
 
+  it('appends created data from the pending form and undoes the last one', async () => {
+    const store = createTestStore();
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    await store.advanceCreationStep();
+
+    store.updateCreationDraft({
+      dataMode: 'new',
+      pendingDataLabel: 'Note A',
+      pendingDataDescription: 'first',
+    });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+    expect(store.creationDraftState?.createdData).toEqual([
+      { label: 'Note A', description: 'first', class: null, content: {} },
+    ]);
+    expect(store.creationDraftState?.pendingDataLabel).toBe('');
+
+    store.updateCreationDraft({
+      pendingDataLabel: 'Note B',
+      pendingDataDescription: '',
+    });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+    expect(store.creationDraftState?.createdData).toHaveLength(2);
+
+    expect(store.undoLastCreatedData()).toBe(true);
+    expect(store.creationDraftState?.createdData).toEqual([
+      { label: 'Note A', description: 'first', class: null, content: {} },
+    ]);
+  });
+
+  it('rejects a second data record when multiple geometries exist', async () => {
+    const store = createTestStore();
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    store.setCreationDraftGeometry('viewer-2', testShapes);
+    await store.advanceCreationStep();
+
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Only one' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+    store.updateCreationDraft({ pendingDataLabel: 'Second' });
+    expect(store.confirmPendingCreatedData().ok).toBe(false);
+  });
+
   it('commits multiple created geometries with one data record', async () => {
     const store = createTestStore();
     mockClient.createGeometry
@@ -163,12 +210,41 @@ describe('AnnotationStore creation wizard commit', () => {
     store.setCreationDraftGeometry('viewer-2', testShapes);
     await store.advanceCreationStep();
     store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Shared note' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
 
     const result = await store.commitCreationDraft();
 
     expect(result).toEqual({ ok: true });
     expect(mockClient.createGeometry).toHaveBeenCalledTimes(2);
     expect(mockClient.createData).toHaveBeenCalledTimes(1);
+    expect(mockClient.createLink).toHaveBeenCalledTimes(2);
+  });
+
+  it('commits one geometry with multiple created data records', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry.mockResolvedValue(makeGeometry('g-1'));
+    mockClient.createData
+      .mockResolvedValueOnce(makeDatum('d-a'))
+      .mockResolvedValueOnce(makeDatum('d-b'));
+    mockClient.createLink
+      .mockResolvedValueOnce(makeLink('l-a', 'g-1', 'd-a'))
+      .mockResolvedValueOnce(makeLink('l-b', 'g-1', 'd-b'));
+
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-1', testShapes);
+    await store.advanceCreationStep();
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Note A' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+    store.updateCreationDraft({ pendingDataLabel: 'Note B' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+
+    const result = await store.commitCreationDraft();
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClient.createGeometry).toHaveBeenCalledTimes(1);
+    expect(mockClient.createData).toHaveBeenCalledTimes(2);
     expect(mockClient.createLink).toHaveBeenCalledTimes(2);
   });
 
@@ -184,6 +260,7 @@ describe('AnnotationStore creation wizard commit', () => {
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
     store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Fragment A' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
 
     const result = await store.commitCreationDraft();
 
@@ -222,11 +299,13 @@ describe('AnnotationStore creation wizard commit', () => {
 
     store.initCreationDraft();
     store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: null });
+    expect(await store.advanceCreationStep()).toEqual({ ok: true });
     store.updateCreationDraft({
-      geometryMode: null,
       dataMode: 'new',
       pendingDataLabel: 'Data only',
     });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
 
     const result = await store.commitCreationDraft();
 
@@ -295,6 +374,7 @@ describe('AnnotationStore creation wizard commit', () => {
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
     store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Broken save' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
 
     const result = await store.commitCreationDraft();
 
@@ -304,7 +384,9 @@ describe('AnnotationStore creation wizard commit', () => {
     }
     expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g-partial', 0);
     expect(store.creationDraftState?.step).toBe('data');
-    expect(store.creationDraftState?.pendingDataLabel).toBe('Broken save');
+    expect(store.creationDraftState?.createdData).toEqual([
+      { label: 'Broken save', description: '', class: null, content: {} },
+    ]);
     expect(store.geometriesById.has('g-partial')).toBe(false);
   });
 
@@ -324,6 +406,7 @@ describe('AnnotationStore creation wizard commit', () => {
     store.setCreationDraftGeometry('viewer-1', testShapes);
     await store.advanceCreationStep();
     store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Interrupted' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
 
     const commitPromise = store.commitCreationDraft();
     await store.loadScene('scene-2');
@@ -375,6 +458,7 @@ describe('AnnotationStore creation wizard commit', () => {
       dataMode: 'new',
       pendingDataLabel: 'Remember me',
     });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
     await store.commitCreationDraft();
 
     store.initCreationDraft();

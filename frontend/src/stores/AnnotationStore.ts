@@ -41,7 +41,9 @@ import {
   allowsMultipleDataSelection,
   allowsMultipleGeometrySelection,
   buildLinkPairs,
+  canAddMoreData,
   emptyPendingData,
+  pendingDataAsCreated,
   resolveCreatedDataForCommit,
   resolveCreatedGeometriesForCommit,
   canBeginCreationWizard,
@@ -1169,6 +1171,53 @@ export class AnnotationStore {
     };
     this.bump();
     return removed.viewerId;
+  }
+
+  /**
+   * Push the pending data form into createdData (batch New).
+   * Clears pending fields on success.
+   */
+  confirmPendingCreatedData(): { ok: true } | { ok: false; message: string } {
+    if (!this.creationDraft || this.creationDraft.step !== 'data') {
+      return { ok: false, message: 'Data step is not active.' };
+    }
+    if (this.creationDraft.dataMode !== 'new') {
+      return { ok: false, message: 'Data create mode is not active.' };
+    }
+    if (!canAddMoreData(this.creationDraft)) {
+      return {
+        ok: false,
+        message: 'Only one data record is allowed when multiple geometries are present.',
+      };
+    }
+    const pending = pendingDataAsCreated(this.creationDraft);
+    if (!pending) {
+      return { ok: false, message: 'Enter a label before saving data.' };
+    }
+
+    this.creationDraft = {
+      ...this.creationDraft,
+      createdData: [...this.creationDraft.createdData, pending],
+      selectedDataIds: [],
+      ...emptyPendingData(),
+    };
+    this.bump();
+    return { ok: true };
+  }
+
+  undoLastCreatedData(): boolean {
+    if (!this.creationDraft || this.creationDraft.dataMode !== 'new') {
+      return false;
+    }
+    if (this.creationDraft.createdData.length === 0) {
+      return false;
+    }
+    this.creationDraft = {
+      ...this.creationDraft,
+      createdData: this.creationDraft.createdData.slice(0, -1),
+    };
+    this.bump();
+    return true;
   }
 
   toggleCreationGeometrySelection(geometryId: string): void {

@@ -28,6 +28,7 @@ import AnnotationCreationDataStep from '../../features/annotation-creation/Annot
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
 import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
 import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
+import { emptyPendingData } from '../../features/annotation-creation/annotationCreationValidation';
 import AnnotationDeletionPanel from '../../features/annotation-deletion/AnnotationDeletionPanel';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionDataPick } from '../../features/annotation-deletion/applyDeletionDataPick';
@@ -167,6 +168,8 @@ export default function AnnotationPanelEditor({
     beginCreationWizard,
     advanceCreationStep,
     toggleCreationDataSelection,
+    confirmPendingCreatedData,
+    undoLastCreatedData,
     deletionDraft,
     isDeletionWizardActive,
     initDeletionDraft,
@@ -191,7 +194,6 @@ export default function AnnotationPanelEditor({
 
   const {
     isCreationDataStep,
-    isCreationDataNew,
     isCreationGeometryStep,
     searchableData,
   } = useAnnotationCreationWizard();
@@ -362,28 +364,30 @@ export default function AnnotationPanelEditor({
   }, [advanceCreationStep]);
 
   const handleOpenCreationDataModal = useCallback(() => {
+    updateCreationDraft({ dataMode: 'new', ...emptyPendingData() });
     setCreationDataModalOpen(true);
-  }, []);
+  }, [updateCreationDraft]);
 
   const handleCancelCreationDataModal = useCallback(() => {
-    setDiscardCreationModal(discardCreationModalDescriptor());
-  }, []);
+    updateCreationDraft(emptyPendingData());
+    setCreationDataModalOpen(false);
+  }, [updateCreationDraft]);
 
   const handleSaveCreationDataModal = useCallback(() => {
-    if (!creationDraft || creationDraft.pendingDataLabel.trim().length === 0) {
+    const result = confirmPendingCreatedData();
+    if (!result.ok) {
+      setSetupError(result.message);
       return;
     }
+    setSetupError(null);
     setCreationDataModalOpen(false);
-  }, [creationDraft]);
+  }, [confirmPendingCreatedData]);
 
   useEffect(() => {
-    if (!onOpenCreationWorkbench && isCreationDataNew && creationDraft && creationDraft.pendingDataLabel.trim().length === 0) {
-      setCreationDataModalOpen(true);
-    }
     if (!isCreationDataStep) {
       setCreationDataModalOpen(false);
     }
-  }, [creationDraft, isCreationDataNew, isCreationDataStep, onOpenCreationWorkbench]);
+  }, [isCreationDataStep]);
 
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
@@ -875,7 +879,18 @@ export default function AnnotationPanelEditor({
               candidates={searchableData}
               onToggleDataSelection={toggleCreationDataSelection}
               onOpenCreateModal={handleOpenCreationDataModal}
-              onDataChoiceChange={(dataMode) => updateCreationDraft({ dataMode })}
+              onDataModeChange={(dataMode) => updateCreationDraft({
+                dataMode,
+                selectedDataIds: dataMode === 'choose' ? creationDraft.selectedDataIds : [],
+                createdData: dataMode === 'choose' ? [] : creationDraft.createdData,
+                ...(dataMode === 'new' ? {} : emptyPendingData()),
+              })}
+              onUndoLastCreatedData={() => {
+                undoLastCreatedData();
+              }}
+              onDone={() => {
+                void handleCreationNext();
+              }}
             />
           </div>
         ) : (
@@ -1079,7 +1094,7 @@ export default function AnnotationPanelEditor({
       {creationDataModalOpen && creationDraft ? (
         <AnnotationDataFormModal
           title="Create annotation data"
-          saveLabel="Save"
+          saveLabel="Add data"
           values={{
             label: creationDraft.pendingDataLabel,
             description: creationDraft.pendingDataDescription,

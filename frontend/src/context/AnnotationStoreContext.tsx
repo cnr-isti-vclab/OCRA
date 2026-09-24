@@ -125,6 +125,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   setCreationDraftShapes: (shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   setCreationDraftGeometry: (viewerId: string, shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   undoLastCreatedGeometry: () => string | null;
+  confirmPendingCreatedData: () => { ok: true } | { ok: false; message: string };
+  undoLastCreatedData: () => boolean;
   setCreationGeometrySelection: (geometryIds: string[]) => void;
   toggleCreationDataSelection: (dataId: string) => void;
   deletionDraft: Readonly<AnnotationDeletionDraft> | null;
@@ -869,6 +871,15 @@ export function AnnotationStoreProvider({
     return storeRef.current?.undoLastCreatedGeometry() ?? null;
   }, []);
 
+  const confirmPendingCreatedData = useCallback(() => {
+    return storeRef.current?.confirmPendingCreatedData()
+      ?? { ok: false as const, message: 'Store not ready.' };
+  }, []);
+
+  const undoLastCreatedData = useCallback(() => {
+    return storeRef.current?.undoLastCreatedData() ?? false;
+  }, []);
+
   const setCreationGeometrySelection = useCallback((geometryIds: string[]) => {
     storeRef.current?.setCreationGeometrySelection(geometryIds);
   }, []);
@@ -1091,6 +1102,8 @@ export function AnnotationStoreProvider({
     setCreationDraftShapes,
     setCreationDraftGeometry,
     undoLastCreatedGeometry,
+    confirmPendingCreatedData,
+    undoLastCreatedData,
     setCreationGeometrySelection,
     toggleCreationDataSelection,
     deletionDraft: store?.deletionDraftState ?? null,

@@ -57,6 +57,8 @@ export default function AnnotationWorkbench({
     advanceCreationStep,
     discardCreationDraft,
     undoLastCreatedGeometry,
+    confirmPendingCreatedData,
+    undoLastCreatedData,
     vocabularySchemes,
     vocabularyConcepts,
     vocabularyProperties,
@@ -464,13 +466,23 @@ export default function AnnotationWorkbench({
               draft={creationDraft}
               candidates={searchableData}
               displayNumbersById={dataNumbers}
+              creating={creating}
               onToggleDataSelection={toggleCreationDataSelection}
-              onOpenCreateModal={() => setDataEditorOpen(true)}
-              onDataChoiceChange={(dataMode) => updateCreationDraft({
+              onOpenCreateModal={() => {
+                updateCreationDraft({ dataMode: 'new', ...emptyPendingData() });
+                setDataEditorOpen(true);
+                setSetupError(null);
+              }}
+              onDataModeChange={(dataMode) => updateCreationDraft({
                 dataMode,
                 selectedDataIds: dataMode === 'choose' ? creationDraft.selectedDataIds : [],
+                createdData: dataMode === 'choose' ? [] : creationDraft.createdData,
                 ...(dataMode === 'new' ? {} : emptyPendingData()),
               })}
+              onUndoLastCreatedData={() => {
+                undoLastCreatedData();
+              }}
+              onDone={() => void next()}
             />
           </section>
         ) : null}
@@ -493,7 +505,7 @@ export default function AnnotationWorkbench({
       {dataEditorOpen && creationDraft ? (
         <AnnotationDataFormModal
           title="Create annotation data"
-          saveLabel="Use data"
+          saveLabel="Add data"
           values={{
             label: creationDraft.pendingDataLabel,
             description: creationDraft.pendingDataDescription,
@@ -505,8 +517,19 @@ export default function AnnotationWorkbench({
             ...(patch.description !== undefined ? { pendingDataDescription: patch.description } : {}),
             ...(patch.annotationClass !== undefined ? { pendingDataClass: patch.annotationClass } : {}),
           })}
-          onSave={() => setDataEditorOpen(false)}
-          onCancel={() => setDataEditorOpen(false)}
+          onSave={() => {
+            const result = confirmPendingCreatedData();
+            if (!result.ok) {
+              setSetupError(result.message);
+              return;
+            }
+            setSetupError(null);
+            setDataEditorOpen(false);
+          }}
+          onCancel={() => {
+            updateCreationDraft(emptyPendingData());
+            setDataEditorOpen(false);
+          }}
           vocabularySchemes={vocabularySchemes}
           vocabularyConcepts={vocabularyConcepts}
           vocabularyProperties={vocabularyProperties}

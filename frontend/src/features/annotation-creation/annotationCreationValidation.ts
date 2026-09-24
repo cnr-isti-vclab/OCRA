@@ -26,21 +26,17 @@ export function geometryResultCount(
   return 0;
 }
 
-/** Count of data from the active data mode (created XOR selected). */
+/** Count of data from the active data mode (created XOR selected). Pending form does not count. */
 export function dataResultCount(
   draft: Pick<
     AnnotationCreationDraft,
     | 'dataMode'
     | 'createdData'
     | 'selectedDataIds'
-    | 'pendingDataLabel'
   >,
 ): number {
   if (draft.dataMode === 'new') {
-    if (draft.createdData.length > 0) {
-      return draft.createdData.length;
-    }
-    return isNonEmpty(draft.pendingDataLabel) ? 1 : 0;
+    return draft.createdData.length;
   }
   if (draft.dataMode === 'choose') {
     return draft.selectedDataIds.length;
@@ -83,7 +79,7 @@ export function canCompleteDataStep(
   const nChosen = draft.geometryMode === 'choose' ? draft.selectedGeometryIds.length : 0;
   const n = nCreated + nChosen;
   const k = dataResultCount(draft);
-  const kCreated = draft.dataMode === 'new' ? Math.max(draft.createdData.length, isNonEmpty(draft.pendingDataLabel) ? 1 : 0) : 0;
+  const kCreated = draft.dataMode === 'new' ? draft.createdData.length : 0;
   const kChosen = draft.dataMode === 'choose' ? draft.selectedDataIds.length : 0;
 
   if (nCreated > 0 && nChosen > 0) {
@@ -222,7 +218,8 @@ export function canSwitchToDataChoose(
 
 /**
  * Whether another data item may be added (New or Choose).
- * When N>1 geometries, at most one data result is allowed.
+ * When N>1 geometries, at most one confirmed data result is allowed.
+ * Pending form values do not count — they are committed via confirmPendingCreatedData.
  */
 export function canAddMoreData(
   draft: Pick<
@@ -233,11 +230,14 @@ export function canAddMoreData(
     | 'dataMode'
     | 'createdData'
     | 'selectedDataIds'
-    | 'pendingDataLabel'
   >,
 ): boolean {
   const n = geometryResultCount(draft);
-  const k = dataResultCount(draft);
+  const k = draft.dataMode === 'new'
+    ? draft.createdData.length
+    : draft.dataMode === 'choose'
+      ? draft.selectedDataIds.length
+      : 0;
   if (n > 1) {
     return k < 1;
   }
@@ -281,27 +281,19 @@ export function pendingDataAsCreated(
 }
 
 /**
- * Data items to persist: confirmed createdData, or a single pending form if still open/unpushed.
+ * Data items to persist from confirmed createdData entries.
  */
 export function resolveCreatedDataForCommit(
   draft: Pick<
     AnnotationCreationDraft,
     | 'dataMode'
     | 'createdData'
-    | 'pendingDataLabel'
-    | 'pendingDataDescription'
-    | 'pendingDataClass'
-    | 'pendingDataContent'
   >,
 ): CreatedDataDraft[] {
   if (draft.dataMode !== 'new') {
     return [];
   }
-  if (draft.createdData.length > 0) {
-    return [...draft.createdData];
-  }
-  const pending = pendingDataAsCreated(draft);
-  return pending ? [pending] : [];
+  return [...draft.createdData];
 }
 
 export function resolveCreatedGeometriesForCommit(

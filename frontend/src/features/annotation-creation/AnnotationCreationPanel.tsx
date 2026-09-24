@@ -42,18 +42,15 @@ export function AnnotationCreationActionBar({
   draft,
   creating,
   onBack,
-  onNext,
+  onNext: _onNext,
   onCancel,
   middleAction,
   nextButtonClassName,
 }: AnnotationCreationActionBarProps) {
   const isCommitting = draft.step === 'committing' || creating;
   const wizardActive = draft.step === 'geometry' || draft.step === 'data' || draft.step === 'committing';
-  const nextButtonLabel = isCommitting
-    ? 'Saving…'
-    : draft.step === 'data'
-        ? 'Confirm'
-        : 'Done';
+  // Geometry and data steps own Done in their New|Choose|Done groups.
+  const showCommitStatus = isCommitting;
 
   return (
     <div className="d-grid align-items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
@@ -69,9 +66,16 @@ export function AnnotationCreationActionBar({
       </div>
       <div>{middleAction}</div>
       <div className="d-flex justify-content-end">
-        <button type="button" className={`btn btn-primary ${nextButtonClassName ?? ''}`} disabled={isCommitting} onClick={onNext} aria-busy={isCommitting}>
-          {nextButtonLabel}
-        </button>
+        {showCommitStatus ? (
+          <button
+            type="button"
+            className={`btn btn-primary ${nextButtonClassName ?? ''}`}
+            disabled
+            aria-busy
+          >
+            Saving…
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -231,10 +235,10 @@ export default function AnnotationCreationPanel({
                   ? 'Draw a geometry in the viewer. You can adjust it before continuing.'
                   : 'Select one or more geometries in the viewer that match the chosen scope.'
                 : draft.dataMode === 'new'
-                  ? 'Create annotation data using the form below, then confirm.'
+                  ? 'Create one or more data records, then press Done.'
                   : draft.dataMode === 'choose'
                     ? 'Search and select annotation data records below.'
-                    : 'Confirm to save geometry only, or add data before finishing.'}
+                    : 'Press Done to save geometry only, or New/Choose to add data.'}
             </p>
           )}
           <div className="text-muted">
@@ -256,9 +260,9 @@ export default function AnnotationCreationPanel({
             ) : null}
             {draft.step === 'data' && draft.dataMode === 'new' ? (
               <>
-                Draft label:
+                Created data:
                 {' '}
-                {draft.pendingDataLabel.trim().length > 0 ? draft.pendingDataLabel : 'not set'}
+                {draft.createdData.length}
                 <br />
               </>
             ) : null}
