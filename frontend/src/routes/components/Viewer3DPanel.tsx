@@ -18,12 +18,9 @@ import { applyDeletionGeometryPicks } from '../../features/annotation-deletion/a
 import { isGeometryIdUnderRemoteEditorLock } from '../../features/annotation-deletion/isEntityBlockedForDeletion';
 import DeletionGeometryPickBar from '../../features/annotation-deletion/DeletionGeometryPickBar';
 import {
-  creationToolbarDisabledModes,
   resolveCreationToolbarMode,
 } from '../../features/annotation-creation/resolveCreationToolbarMode';
-import AnnotationToolbar, {
-  type AnnotationToolbarMode,
-} from '../../components/AnnotationToolbar';
+import type { AnnotationToolbarMode } from '../../components/AnnotationToolbar';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import {
   activeGeometriesToViewerAnnotations,
@@ -332,17 +329,6 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setCreationDraftGeometry,
       keepCreationPointPickingActive,
     ]);
-
-    const viewer3dDisabledModes = useMemo((): AnnotationToolbarMode[] => {
-      if (isCreationGeometrySearch) {
-        return ['point', 'line', 'area'];
-      }
-      if (isCreationGeometryNew) {
-        // Sticky New: edit is available once at least one draft exists (edit last).
-        return isCreationPendingNewGeometry ? ['line', 'area'] : ['edit', 'line', 'area'];
-      }
-      return ['line', 'area'];
-    }, [isCreationGeometryNew, isCreationGeometrySearch, isCreationPendingNewGeometry]);
 
     useEffect(() => {
       if (!viewerReady) {
@@ -771,24 +757,6 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
         />
-        {isCreationGeometryStep && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 100,
-              pointerEvents: 'auto',
-            }}
-          >
-            <AnnotationToolbar
-              mode={toolbarMode}
-              onModeChange={applyToolbarMode}
-              disabledModes={viewer3dDisabledModes}
-            />
-          </div>
-        )}
         {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
           <div
             style={{

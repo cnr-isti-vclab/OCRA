@@ -21,23 +21,24 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 ### Behaviour summary (as implemented)
 
 - **Draft until Done**: geometry/data drafts stay client-side until the second-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
-- **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). Scope/visibility pickers remain; there is no New/Search/Void setup matrix.
+- **Authoring surface**: **`AnnotationWorkbench`** is the sole create UI for **2D and 3D**. Panel **Annotate** opens the workbench (docked by default; detachable). The panel itself is browse / edit / list only.
+- **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). **Scopes are hidden**; scene defaults from `createDefaultCreationDraft` (+ remembered drawing tool / step order) apply until an asset/project scope UI is needed again.
 - **Per step — New | Choose | Done**:
   - **New**: sticky create (append geometries / confirm data into arrays). **Undo** drops the last created item. **Choose** is disabled once any creations exist on that side.
   - **Choose**: select existing entities (multi-select when the other side has at most one result). Remotely editor-locked entities are not selectable; chosen entities take a local editor lock while selected.
   - **Done**: always advances the first step (including skip with count 0; skip clears a primed empty New/Choose). On the second step, commits when guards pass.
 - **Cardinality**: star topology only — `N===0 || K===0 || N===1 || K===1`. Only-one-side requires the other mode unset; entering New/Choose on the second side requires at least one result.
 - **Geometry step**:
-  - **New (2D)**: native OpenLIME annotations; sticky draw appends to `createdGeometries`.
-  - **New (3D)**: point picking; drafts synced from the store.
+  - **New (2D)**: native OpenLIME annotations; sticky draw appends to `createdGeometries`; shape toolbar lives in the workbench (edit hidden).
+  - **New (3D)**: point picking only; same workbench shape toolbar with **line/area disabled** (wired later); drafts synced from the store.
   - **Choose**: viewer/workbench selection → `selectedGeometryIds`.
 - **Data step**:
   - **New**: modal → confirm appends to `createdData[]`.
   - **Choose**: searchable list of project data.
-- **Remembered scopes**: geometry/data scope + drawing tool + step order remembered for the browser session (`sessionStorage` per project/scene when enabled).
+- **Remembered setup**: drawing tool + step order (+ hidden scopes) remembered for the browser session (`sessionStorage` per project/scene when enabled).
 - **Link view during wizard**: filtering is bypassed so draft/chosen geometries stay visible.
 - **Commit failure**: partial artifacts are marked erasable (rollback); draft is restored for retry.
-- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view.
+- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view; scope picker UI (defaults only).
 
 ### Key modules
 
@@ -45,16 +46,17 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | ---- | ---- |
 | Proposal / this doc | `doc/a07-annotation-creation.md` |
 | Store | `frontend/src/stores/AnnotationStore.ts` |
-| Scopes / action bar | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
+| Workbench (create + delete chrome) | `frontend/src/features/annotation-workbench/AnnotationWorkbench.tsx` |
+| Creation action bar | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
 | Geometry step UI | `frontend/src/features/annotation-creation/AnnotationCreationGeometryStep.tsx` |
 | Data step UI | `frontend/src/features/annotation-creation/AnnotationCreationDataStep.tsx` |
 | Chosen-entity locks | `frontend/src/features/annotation-creation/useCreationChosenEntityLocks.ts` |
 | Validation | `frontend/src/features/annotation-creation/annotationCreationValidation.ts` |
-| 2D workbench | `frontend/src/features/annotation-workbench/AnnotationWorkbench.tsx` |
 | Link view | `frontend/src/features/annotation-link-view/` |
 | 2D viewer wiring | `frontend/src/routes/components/Viewer2DPanel.tsx` |
 | 3D viewer wiring | `frontend/src/routes/components/Viewer3DPanel.tsx` |
-| Panel | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
+| Panel (browse / edit / list) | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
+| Host (dock / detach / mode) | `frontend/src/routes/ProjectPage.tsx` |
 
 ### Testing
 
@@ -74,6 +76,14 @@ Key test files:
 
 **Manual checklist** (2D unless noted)
 
+Workbench shell (2D **and** 3D)
+
+- [ ] **Annotate** opens the dockable workbench; panel list is hidden while create is docked
+- [ ] Detach / dock / close; Scenes/Models tabs locked while workbench is open (3D)
+- [ ] Order toggle, New \| Choose \| Done, Undo, Back/Cancel, chosen-entity locks
+- [ ] 2D sticky New (point/line/area) → Undo last → Done
+- [ ] 3D point New only (no line/area) → Done → second step → Done
+
 Batch geometry ↔ data
 
 - [ ] Geometry-first: multi-geo New + one data → star links
@@ -90,15 +100,14 @@ Choose / Undo / Cancel
 - [ ] Remotely locked geo/data cannot be chosen (badge / disabled)
 - [ ] Data modal Cancel with empty list clears New mode
 - [ ] Back from second step keeps first-side drafts; Back from first discards (confirm)
-- [ ] 2D sticky New (point/line/area) → Undo last → Done
-- [ ] 3D point New → Done → second step → Done
 
 Regression / resilience
 
 - [ ] Commit failure shows error; partial artifacts not left active
 - [ ] Link view modes during wizard do not hide draft/chosen geometry
-- [ ] Scopes remembered across repeated Annotate/Create opens
+- [ ] Drawing tool + step order remembered across repeated Annotate opens
 - [ ] Normal (non-wizard) annotation edit in 2D/3D when wizard inactive
+- [ ] Panel browse/edit still works while workbench is **detached**
 
 ---
 
@@ -120,11 +129,10 @@ On multiple selection, labels on geometries help user to identify the connection
 
 ### Interface
 
-Batch creation uses progressive **New | Choose | Done** on each side (never a pre-wizard New/Search/Void matrix).
+Batch creation uses progressive **New | Choose | Done** on each side (never a pre-wizard New/Search/Void matrix). Scope/visibility pickers are **not shown** in the UI; scene defaults apply.
 
 | GEO | DATA |
 | --- | ---- |
-| Scope (type + id) | Visibility (type + id) |
 | New (sticky draw) / Choose / Done | New (modal → list) / Choose / Done |
 | Undo last created | Undo last created |
 | Back / Cancel | Back / Cancel |
@@ -142,7 +150,7 @@ Batch creation uses progressive **New | Choose | Done** on each side (never a pr
 
 #### Geometry
 
-- Wizard opens on the geometry step (workbench Annotate, or panel Create).
+- Wizard opens on the geometry step via workbench **Annotate** (2D and 3D).
 - **New**: draw in the viewer; each completed shape appends; stay in draw mode; **Undo** removes the last.
 - **Choose**: select existing geometries (viewer and/or workbench list).
 - **Done** always advances to data (including skip with N=0).
@@ -159,8 +167,14 @@ Batch creation uses progressive **New | Choose | Done** on each side (never a pr
 
 ### Interface Integration
 
-**2D**: Annotate opens the creation workbench beside the viewer (geometry + data steps).  
-**3D / panel**: Create expands scopes in the annotation panel; geometry and data step UIs render in the panel body while the list is hidden.
+**Shared workbench** (`AnnotationWorkbench`): panel **Annotate** opens create mode for **2D and 3D** with the same dock / detach / close semantics.
+
+| | Docked | Detached |
+| --- | --- | --- |
+| **Create** | Workbench replaces the panel in the annotations sidebar | Workbench floats; panel list stays for browse/edit |
+| **3D host** | Opens on the Annotations tab; Scenes/Models locked while open | Same floating chrome as 2D |
+
+**3D** create remains point-only for now (workbench toolbar shows line/area disabled). **2D** enables point/line/area in the same workbench toolbar.
 
 On Done, sequential REST calls persist new geometries/data and create link pairs. Drafts are not written until then.
 

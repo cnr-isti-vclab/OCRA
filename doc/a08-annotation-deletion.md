@@ -14,12 +14,12 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 
 **Dependency order:** M1 → M2 → M3 → M4 → M5 (each milestone should be mergeable and manually testable before the next).
 
-**Wizard exclusivity:** While the delete wizard is active, the create wizard must be disabled (and vice versa). Normal view/edit continues when neither wizard is active.
+**Wizard exclusivity:** While the delete wizard is active, the create wizard must be disabled (and vice versa). Normal view/edit continues when neither wizard is active. Both wizards are hosted in **`AnnotationWorkbench`** (`mode: 'create' | 'delete'`); the panel only launches them.
 
-- **Replaces**: per-card delete and bulk delete on annotation data rows (`markAnnotationTripletErasable` in `AnnotationPanelEditor.tsx`).
+- **Replaces**: per-card delete and bulk delete on annotation data rows (`markAnnotationTripletErasable` in `AnnotationPanelEditor.tsx`); inline expandable Delete section in the panel (moved to the workbench).
 - **Related docs**:
   - `doc/a00-annotation-model.md` — weak/strong lifecycle, no primitive cascades
-  - `doc/a07-annotation-creation.md` — wizard pattern, link view modes, commit rollback
+  - `doc/a07-annotation-creation.md` — wizard pattern, link view modes, commit rollback, shared workbench
   - `doc/a01-collaborative-annotation-editing.md` — OCC, social locks
   - `doc/a06-active-annotations.md` — active vs focus mental model
 
@@ -36,7 +36,7 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 - Physical purge of weak entities
 - Restore / undelete wizard
 - New composite / transactional delete API (commit stays sequential per-entity calls; endpoint erasable gains a **still-linked** guard only)
-- Deletion from OpenLIME viewer context menus (panel-driven wizard only)
+- Deletion from OpenLIME viewer context menus (workbench-driven wizard only)
 
 ---
 
@@ -44,19 +44,18 @@ Guided soft-delete (mark erasable) for OCRA’s decomposed annotation model (geo
 
 ### Entry point
 
-Add a **Delete** button next to **Create** in the annotation panel (labels may be shortened to `Create` / `Delete` in annotation context).
+Panel buttons **Annotate** and **Unlink/Delete** open the shared **`AnnotationWorkbench`** in `create` or `delete` mode (same dock / detach behaviour as creation — see `a07`).
 
-The Delete button expands a setup section, mirroring the creation panel:
+The delete workbench hosts `AnnotationDeletionPanel`. While delete is **docked**, the annotation list stays visible below so data picks remain available; while **detached**, the floating workbench leaves the full panel for browse/edit.
 
 | Control | Purpose |
 | ------- | ------- |
-| Intent grid (2×2): **Link** \| **Link+Geo+Data** / **Link+Geo** \| **Link+Data** | Choose what to mark erasable and **immediately** enter selection |
-| **Back** | Abort selection (discard confirm) |
-| **Confirm delete** | Commit the delete basket (enabled when valid) |
+| Intent (Geometry / Data) | Choose endpoint kind and enter selection |
+| Viewer / panel selection | Build the unlink/delete basket |
+| **Back** / **Cancel** | Abort (discard confirm) |
+| **Confirm** | Commit the delete basket (enabled when valid) |
 
-There is **no separate Start delete** step: pressing an intent button sets the flags and starts selection in one action, so the user cannot select in the viewer/panel thinking deletion is already active.
-
-After an intent is chosen, the user selects candidates in the viewer and/or panel. **Confirm delete** runs the commit algorithm below.
+After an intent is chosen, the user selects candidates in the viewer and/or panel. **Confirm** runs the commit algorithm below.
 
 ### Delete intent matrix
 
@@ -303,22 +302,24 @@ If another user marks an entity erasable while the wizard is open, refresh or dr
 
 ---
 
-## Key modules (planned)
+## Key modules
 
-| Area | Path (expected) |
-| ---- | ---------------- |
+| Area | Path |
+| ---- | ---- |
 | Proposal / this doc | `doc/a08-annotation-deletion.md` |
 | Types + default draft | `frontend/src/features/annotation-deletion/types.ts`, `createDefaultDeletionDraft.ts` |
 | Validation + commit plan | `frontend/src/features/annotation-deletion/annotationDeletionValidation.ts`, `buildDeletionCommitPlan.ts` |
 | Cardinality + errors | `frontend/src/features/annotation-deletion/annotationDeletionCardinality.ts`, `formatDeletionCommitError.ts` |
 | Setup + basket UI | `frontend/src/features/annotation-deletion/AnnotationDeletionPanel.tsx` |
+| Workbench host | `frontend/src/features/annotation-workbench/AnnotationWorkbench.tsx` (`mode: 'delete'`) |
 | Modals (M3) | `DeletionFanOutConfirmModal.tsx`, `DeletionLinkResolutionModal.tsx`, `DeletionCounterpartPickModal.tsx` (geometry-led checklist) |
 | Viewer pick chrome (M3) | `DeletionGeometryPickBar.tsx` (data-led Let-me-select; non-modal) |
 | Wizard hook | `frontend/src/features/annotation-deletion/useAnnotationDeletionWizard.ts` |
 | Store draft + commit | `frontend/src/stores/AnnotationStore.ts` |
 | Backend still-linked guard | `backend/src/services/annotation.service.ts`, annotation controllers/routes |
 | Link view (intent-driven) | `frontend/src/features/annotation-link-view/useAnnotationLinkView.ts` |
-| Panel shell | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
+| Panel (launcher + list / data picks) | `frontend/src/routes/components/AnnotationPanelEditor.tsx` |
+| Host (dock / detach / mode) | `frontend/src/routes/ProjectPage.tsx` |
 | Viewer wiring (M2/M3) | `Viewer2DPanel.tsx`, `Viewer3DPanel.tsx` |
 | Social lock checks | `frontend/src/stores/annotation-social-locks.ts` (reuse) |
 | Store tests | `frontend/src/stores/AnnotationStore.deletion.test.ts` |
@@ -342,6 +343,15 @@ Key test files (planned):
 
 ### Manual checklist
 
+Workbench shell (2D **and** 3D)
+
+- [ ] **Unlink/Delete** opens the workbench in delete mode; create and delete remain mutually exclusive
+- [ ] Docked delete keeps the annotation list for data picks; detach floats the workbench
+- [ ] Viewer `DeletionGeometryPickBar` still appears for data-led geometry subset picks (2D and 3D)
+- [ ] Back/Cancel discard confirm; successful commit shows success then closes the workbench
+
+Deletion flows
+
 - [ ] Link-only: select geometry/data with 1 incident link → confirm → only that link erasable; endpoints remain active
 - [ ] Link-only: select geometry/data with 0 links → message; nothing added
 - [ ] Link-only: select geometry/data with N links → link resolution → chosen links only in basket
@@ -358,12 +368,14 @@ Key test files (planned):
 - [ ] 409 on commit → basket preserved, partial rollback message
 - [ ] Cross-scene: asset data linked from two scenes → delete data in scene A after local links only → `still_linked`; after marking the other scene’s link erasable (or including it) → endpoint erasable succeeds
 - [ ] Scene reload mid-commit → interrupt handling
-- [ ] Regression: create wizard and normal edit unaffected while delete wizard inactive
+- [ ] Regression: create workbench and normal edit unaffected while delete wizard inactive
 
 ---
 
 
 ## Implementation milestones
+
+> **Note (workbench unify):** Create and delete authoring later moved from the panel accordion into `AnnotationWorkbench` (see Entry point above and `a07`). Milestone task lists below remain as historical implementation notes.
 
 ### Overview
 

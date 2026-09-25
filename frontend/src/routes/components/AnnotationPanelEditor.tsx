@@ -1,5 +1,6 @@
 /**
- * AnnotationPanelEditor — lists active {@link AnnotationData} from the store and drives UI focus.
+ * AnnotationPanelEditor — browse / edit / list for active {@link AnnotationData}.
+ * Creation and (soon) unlink/delete authoring live in AnnotationWorkbench.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,16 +24,7 @@ import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
 import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
-import AnnotationCreationPanel from '../../features/annotation-creation/AnnotationCreationPanel';
-import AnnotationCreationDataStep from '../../features/annotation-creation/AnnotationCreationDataStep';
-import AnnotationCreationGeometryStep from '../../features/annotation-creation/AnnotationCreationGeometryStep';
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
-import { useAnnotationCreationWizard } from '../../features/annotation-creation/useAnnotationCreationWizard';
-import { useCreationChosenEntityLocks } from '../../features/annotation-creation/useCreationChosenEntityLocks';
-import { buildAnnotationScopeOptions } from '../../features/annotation-creation/buildAnnotationScopeOptions';
-import { emptyPendingData } from '../../features/annotation-creation/annotationCreationValidation';
-import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-locks';
-import AnnotationDeletionPanel from '../../features/annotation-deletion/AnnotationDeletionPanel';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionDataPick } from '../../features/annotation-deletion/applyDeletionDataPick';
 import type {
@@ -47,8 +39,10 @@ interface AnnotationPanelEditorProps {
   sceneId: string;
   sceneLabel?: string;
   sceneAssets?: Array<{ id: string; label: string }>;
-  /** Opens the viewer-adjacent authoring surface when one is available. */
-  onOpenCreationWorkbench?: () => void;
+  /** Opens the dockable annotation workbench for creation. */
+  onOpenCreationWorkbench: () => void;
+  /** Opens the dockable annotation workbench for unlink/delete. */
+  onOpenDeletionWorkbench: () => void;
 }
 
 interface AnnotationDataDraft {
@@ -58,32 +52,6 @@ interface AnnotationDataDraft {
   description: string;
   annotationClass: string | null;
   content: Record<string, unknown>;
-}
-
-function discardCreationModalDescriptor(): MessageModalDescriptor {
-  return new MessageModalDescriptor({
-    tone: 'warning',
-    title: 'Discard annotation creation?',
-    message: 'This will cancel the current creation draft.',
-    actions: [
-      { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
-      { key: 'discard', label: 'Discard', tone: 'danger' },
-    ],
-    dismissOnBackdrop: false,
-  });
-}
-
-function discardDeletionModalDescriptor(): MessageModalDescriptor {
-  return new MessageModalDescriptor({
-    tone: 'warning',
-    title: 'Cancel unlink/delete operation?',
-    message: 'This will discard the current choices and clear the selection.',
-    actions: [
-      { key: 'cancel', label: 'Keep editing', tone: 'secondary' },
-      { key: 'discard', label: 'Discard', tone: 'danger' },
-    ],
-    dismissOnBackdrop: false,
-  });
 }
 
 function EditDataModal({
@@ -128,10 +96,8 @@ function EditDataModal({
 
 export default function AnnotationPanelEditor({
   onSelectionChanged,
-  sceneId,
-  sceneLabel,
-  sceneAssets = [],
   onOpenCreationWorkbench,
+  onOpenDeletionWorkbench,
 }: AnnotationPanelEditorProps) {
   const {
     activeData,
@@ -156,32 +122,15 @@ export default function AnnotationPanelEditor({
     getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
-    primaryAnnotationSelection,
     focusData,
     setFocusSelection,
-    clearFocus,
     isDataFocused,
     realtimeState,
     creating,
     creationDraft,
     isCreationWizardActive,
-    initCreationDraft,
-    updateCreationDraft,
-    discardCreationDraft,
-    beginCreationWizard,
-    advanceCreationStep,
-    toggleCreationDataSelection,
-    confirmPendingCreatedData,
-    undoLastCreatedData,
-    undoLastCreatedGeometry,
     deletionDraft,
     isDeletionWizardActive,
-    initDeletionDraft,
-    discardDeletionDraft,
-    beginDeletionWizard,
-    beginDeletionForTarget,
-    commitDeletionDraft,
-    deleting,
     updateData,
     markDataNonErasable,
     markGeometryNonErasable,
@@ -195,19 +144,6 @@ export default function AnnotationPanelEditor({
     setLinkViewMode,
     panelShowsFilteredData,
   } = useAnnotationLinkView();
-
-  const {
-    isCreationDataStep,
-    isCreationGeometryStep,
-    searchableData,
-  } = useAnnotationCreationWizard();
-
-  useCreationChosenEntityLocks(
-    creationDraft,
-    isCreationWizardActive && !onOpenCreationWorkbench,
-    startEditorLock,
-    stopEditorLock,
-  );
 
   const {
     isDeletionSelectingStep,
@@ -224,191 +160,23 @@ export default function AnnotationPanelEditor({
     [deletionHighlightDataIds],
   );
 
-  const [createSectionExpanded, setCreateSectionExpanded] = useState(false);
-  const [deleteSectionExpanded, setDeleteSectionExpanded] = useState(false);
-  const [setupError, setSetupError] = useState<string | null>(null);
-  const [deletionSetupError, setDeletionSetupError] = useState<string | null>(null);
-  const [discardCreationModal, setDiscardCreationModal] = useState<MessageModalDescriptor | null>(null);
-  const [discardDeletionModal, setDiscardDeletionModal] = useState<MessageModalDescriptor | null>(null);
-  const [creationDataModalOpen, setCreationDataModalOpen] = useState(false);
-
-  const scopeOptions = useMemo(
-    () => buildAnnotationScopeOptions({ sceneId, sceneLabel, assets: sceneAssets }),
-    [sceneAssets, sceneId, sceneLabel],
-  );
-
-  const handleCreateSectionToggle = useCallback(() => {
-    if (isDeletionWizardActive || isCreationWizardActive) {
-      return;
-    }
-    if (onOpenCreationWorkbench) {
-      onOpenCreationWorkbench();
-      return;
-    }
-    setCreateSectionExpanded((expanded) => {
-      const next = !expanded;
-      if (next) {
-        if (deletionDraft) {
-          discardDeletionDraft();
-          setDeleteSectionExpanded(false);
-          setDeletionSetupError(null);
-        }
-        if (!creationDraft) {
-          initCreationDraft();
-        }
-        const result = beginCreationWizard();
-        setSetupError(result.ok ? null : result.message);
-      } else {
-        setSetupError(null);
-      }
-      return next;
-    });
-  }, [
-    beginCreationWizard,
-    creationDraft,
-    deletionDraft,
-    discardDeletionDraft,
-    initCreationDraft,
-    isCreationWizardActive,
-    isDeletionWizardActive,
-    onOpenCreationWorkbench,
-  ]);
-
-  const handleDeleteSectionToggle = useCallback(() => {
-    if (isCreationWizardActive || isDeletionWizardActive) {
-      return;
-    }
-    if (deleteSectionExpanded) {
-      discardDeletionDraft();
-      setDeleteSectionExpanded(false);
-      setDeletionSetupError(null);
-      return;
-    }
-
-    if (creationDraft) {
-      discardCreationDraft();
-      setCreateSectionExpanded(false);
-      setSetupError(null);
-      setCreationDataModalOpen(false);
-    }
-
-    setDeleteSectionExpanded(true);
-    if (primaryAnnotationSelection) {
-      const renderingMode = primaryAnnotationSelection.kind === 'geometry'
-        ? activeAnnotationSelection.renderingModeByGeometryId.get(primaryAnnotationSelection.id)
-        : activeAnnotationSelection.renderingModeByDataId.get(primaryAnnotationSelection.id);
-      if (isRecoverableRenderingMode(renderingMode)) {
-        initDeletionDraft();
-        setDeletionSetupError('Erased annotations can only be restored, not deleted again.');
-        return;
-      }
-      const result = beginDeletionForTarget(primaryAnnotationSelection);
-      setDeletionSetupError(result.ok ? null : result.message);
-      return;
-    }
-    if (!deletionDraft) {
-      initDeletionDraft();
-    }
-  }, [
-    activeAnnotationSelection.renderingModeByDataId,
-    activeAnnotationSelection.renderingModeByGeometryId,
-    beginDeletionForTarget,
-    creationDraft,
-    deleteSectionExpanded,
-    deletionDraft,
-    discardCreationDraft,
-    discardDeletionDraft,
-    initDeletionDraft,
-    isCreationWizardActive,
-    isDeletionWizardActive,
-    primaryAnnotationSelection,
-  ]);
-
-  const handleBeginCreation = useCallback(() => {
-    const result = beginCreationWizard();
-    if (!result.ok) {
-      setSetupError(result.message);
-      return;
-    }
-    setSetupError(null);
-  }, [beginCreationWizard]);
-
-  const handleBeginDeletion = useCallback((intent: {
-    deleteLink: boolean;
-    deleteGeometry: boolean;
-    deleteData: boolean;
-  }) => {
-    const result = beginDeletionWizard(intent);
-    if (!result.ok) {
-      setDeletionSetupError(result.message);
-      return;
-    }
-    setDeletionSetupError(null);
-  }, [beginDeletionWizard]);
-
-  const handleDiscardCreation = useCallback(() => {
-    discardCreationDraft();
-    setSetupError(null);
-    setDiscardCreationModal(null);
-    setCreationDataModalOpen(false);
-    setCreateSectionExpanded(false);
-  }, [discardCreationDraft]);
-
-  const handleDiscardDeletion = useCallback(() => {
-    discardDeletionDraft();
-    setDeletionSetupError(null);
-    setDiscardDeletionModal(null);
-    setDeleteSectionExpanded(false);
-  }, [discardDeletionDraft]);
-
-  const handleCreationBack = useCallback(() => {
-    setDiscardCreationModal(discardCreationModalDescriptor());
-  }, []);
-
-  const handleDeletionBack = useCallback(() => {
-    setDiscardDeletionModal(discardDeletionModalDescriptor());
-  }, []);
-
-  const handleCreationNext = useCallback(async () => {
-    setSetupError(null);
-    const result = await advanceCreationStep();
-    if (!result.ok) {
-      setSetupError(result.message);
-    }
-  }, [advanceCreationStep]);
-
-  const handleOpenCreationDataModal = useCallback(() => {
-    updateCreationDraft({ dataMode: 'new', ...emptyPendingData() });
-    setCreationDataModalOpen(true);
-  }, [updateCreationDraft]);
-
-  const handleCancelCreationDataModal = useCallback(() => {
-    updateCreationDraft({
-      ...emptyPendingData(),
-      ...(creationDraft && creationDraft.createdData.length === 0 ? { dataMode: null } : {}),
-    });
-    setCreationDataModalOpen(false);
-  }, [creationDraft, updateCreationDraft]);
-
-  const handleSaveCreationDataModal = useCallback(() => {
-    const result = confirmPendingCreatedData();
-    if (!result.ok) {
-      setSetupError(result.message);
-      return;
-    }
-    setSetupError(null);
-    setCreationDataModalOpen(false);
-  }, [confirmPendingCreatedData]);
-
-  useEffect(() => {
-    if (!isCreationDataStep) {
-      setCreationDataModalOpen(false);
-    }
-  }, [isCreationDataStep]);
-
   const [editingDraft, setEditingDraft] = useState<AnnotationDataDraft | null>(null);
   const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const editingDataIdRef = useRef<string | null>(null);
+
+  const handleOpenCreationWorkbench = useCallback(() => {
+    if (isDeletionWizardActive || deletionDraft) {
+      return;
+    }
+    onOpenCreationWorkbench();
+  }, [deletionDraft, isDeletionWizardActive, onOpenCreationWorkbench]);
+
+  const handleOpenDeletionWorkbench = useCallback(() => {
+    if (isCreationWizardActive || isDeletionWizardActive || creationDraft || deletionDraft) {
+      return;
+    }
+    onOpenDeletionWorkbench();
+  }, [creationDraft, deletionDraft, isCreationWizardActive, isDeletionWizardActive, onOpenDeletionWorkbench]);
 
   // Class filter UI is handled by the shared `AnnotationClassFilter` component.
 
@@ -719,32 +487,6 @@ export default function AnnotationPanelEditor({
     editingDataIdRef.current = editingDraft?.dataId ?? null;
   }, [editingDraft?.dataId]);
 
-  const hadCreationDraftRef = useRef(false);
-  useEffect(() => {
-    if (creationDraft) {
-      hadCreationDraftRef.current = true;
-      return;
-    }
-    if (hadCreationDraftRef.current) {
-      hadCreationDraftRef.current = false;
-      setCreateSectionExpanded(false);
-      setSetupError(null);
-    }
-  }, [creationDraft]);
-
-  const hadDeletionDraftRef = useRef(false);
-  useEffect(() => {
-    if (deletionDraft) {
-      hadDeletionDraftRef.current = true;
-      return;
-    }
-    if (hadDeletionDraftRef.current) {
-      hadDeletionDraftRef.current = false;
-      setDeleteSectionExpanded(false);
-      setDeletionSetupError(null);
-    }
-  }, [deletionDraft]);
-
   useEffect(() => {
     return () => {
       if (editingDataIdRef.current) {
@@ -790,79 +532,37 @@ export default function AnnotationPanelEditor({
           <div className="mb-2 d-flex gap-2">
             <button
               type="button"
-              className={`btn btn-sm flex-fill ${createSectionExpanded ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={handleCreateSectionToggle}
-              aria-expanded={createSectionExpanded}
-              disabled={deleteSectionExpanded || isDeletionWizardActive || isCreationWizardActive}
+              className="btn btn-sm flex-fill btn-outline-primary"
+              onClick={handleOpenCreationWorkbench}
+              disabled={Boolean(deletionDraft) || isDeletionWizardActive || isCreationWizardActive}
               title={
-                deleteSectionExpanded || isDeletionWizardActive
+                deletionDraft || isDeletionWizardActive
                   ? 'Finish or cancel unlink/delete before creating'
                   : isCreationWizardActive
-                  ? 'Use Back to cancel the creation session before closing'
+                  ? 'Close the annotation workbench before starting a new session'
                   : undefined
               }
             >
-              <i className={`bi ${createSectionExpanded ? 'bi-chevron-up' : 'bi-plus-lg'} me-1`} aria-hidden />
-              {onOpenCreationWorkbench ? 'Annotate' : 'Create'}
+              <i className="bi bi-plus-lg me-1" aria-hidden />
+              Annotate
             </button>
             <button
               type="button"
-              className={`btn btn-sm flex-fill ${deleteSectionExpanded ? 'btn-danger' : 'btn-outline-danger'}`}
-              onClick={handleDeleteSectionToggle}
-              aria-expanded={deleteSectionExpanded}
-              disabled={isCreationWizardActive || isDeletionWizardActive}
+              className="btn btn-sm flex-fill btn-outline-danger"
+              onClick={handleOpenDeletionWorkbench}
+              disabled={Boolean(creationDraft) || isCreationWizardActive || Boolean(deletionDraft) || isDeletionWizardActive}
               title={
-                isDeletionWizardActive
-                  ? 'Use Back to cancel the unlink/delete session before closing'
-                  : isCreationWizardActive
+                deletionDraft || isDeletionWizardActive
+                  ? 'Close the workbench before starting a new unlink/delete session'
+                  : creationDraft || isCreationWizardActive
                     ? 'Finish or cancel creation before unlinking or deleting'
                     : undefined
               }
             >
-              <i className={`bi ${deleteSectionExpanded ? 'bi-chevron-up' : 'bi-trash'} me-1`} aria-hidden />
+              <i className="bi bi-trash me-1" aria-hidden />
               Unlink/Delete
             </button>
           </div>
-          {createSectionExpanded && creationDraft ? (
-            <AnnotationCreationPanel
-              draft={creationDraft}
-              scopeOptions={scopeOptions}
-              creating={creating}
-              setupError={setupError}
-              onDraftChange={updateCreationDraft}
-              onCreate={handleBeginCreation}
-              onBack={handleCreationBack}
-              onNext={() => void handleCreationNext()}
-            />
-          ) : null}
-          {deleteSectionExpanded && deletionDraft ? (
-            <AnnotationDeletionPanel
-              draft={deletionDraft}
-              setupError={deletionSetupError}
-              confirming={deleting}
-              onStartDelete={handleBeginDeletion}
-              onBack={handleDeletionBack}
-              onConfirmDelete={() => {
-                void (async () => {
-                  setDeletionSetupError(null);
-                  const result = await commitDeletionDraft();
-                  if (!result.ok) {
-                    setDeletionSetupError(result.message);
-                    return;
-                  }
-                  setDeleteSectionExpanded(false);
-                  clearFocus();
-                  if (result.message) {
-                    setMessageModal(new MessageModalDescriptor({
-                      tone: 'success',
-                      title: 'Changes saved',
-                      message: result.message,
-                    }));
-                  }
-                })();
-              }}
-            />
-          ) : null}
           {!isCreationWizardActive && !isDeletionWizardActive ? (
             <AnnotationLinkViewModeToggle
               idPrefix="annotation-editor"
@@ -888,65 +588,7 @@ export default function AnnotationPanelEditor({
         </div>
       ) : null}
 
-      {isCreationWizardActive && !onOpenCreationWorkbench ? (
-        isCreationDataStep && creationDraft ? (
-          <div className="flex-grow-1 overflow-auto d-flex flex-column">
-            <AnnotationCreationDataStep
-              draft={creationDraft}
-              candidates={searchableData}
-              onToggleDataSelection={toggleCreationDataSelection}
-              isCandidateBlocked={(dataId) => isDataIdUnderRemoteEditorLock(
-                dataId,
-                activeSocialLocks,
-                currentStreamId,
-                activeAnnotationSelection.geometryIdsByDataId,
-                allLinks,
-              )}
-              onBlockedSelect={() => {
-                setSetupError('Another user is editing this annotation data.');
-              }}
-              onOpenCreateModal={handleOpenCreationDataModal}
-              onDataModeChange={(dataMode) => updateCreationDraft({
-                dataMode,
-                selectedDataIds: dataMode === 'choose' ? creationDraft.selectedDataIds : [],
-                createdData: dataMode === 'choose' ? [] : creationDraft.createdData,
-                ...(dataMode === 'new' ? {} : emptyPendingData()),
-              })}
-              onUndoLastCreatedData={() => {
-                undoLastCreatedData();
-              }}
-              onDone={() => {
-                void handleCreationNext();
-              }}
-            />
-          </div>
-        ) : isCreationGeometryStep && creationDraft ? (
-          <div className="flex-grow-1 overflow-auto d-flex flex-column">
-            <AnnotationCreationGeometryStep
-              draft={creationDraft}
-              creating={creating}
-              onGeometryModeChange={(geometryMode) => updateCreationDraft({
-                geometryMode,
-                selectedGeometryIds: geometryMode === 'choose' ? creationDraft.selectedGeometryIds : [],
-                createdGeometries: geometryMode === 'choose' ? [] : creationDraft.createdGeometries,
-              })}
-              onDrawingModeChange={(drawingMode) => updateCreationDraft({ drawingMode })}
-              onUndoLastCreatedGeometry={() => {
-                undoLastCreatedGeometry();
-              }}
-              onDone={() => {
-                void handleCreationNext();
-              }}
-            />
-          </div>
-        ) : (
-          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-            <p className="text-muted fst-italic text-center px-3">
-              Annotation list is hidden while creation is in progress.
-            </p>
-          </div>
-        )
-      ) : visibleData.length === 0 ? (
+      {visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <p className="text-muted fst-italic text-center">
             {activeData.length === 0
@@ -1135,60 +777,10 @@ export default function AnnotationPanelEditor({
           void handleEditCancel();
         }}
       />
-      {creationDataModalOpen && creationDraft ? (
-        <AnnotationDataFormModal
-          title="Create annotation data"
-          saveLabel="Add data"
-          values={{
-            label: creationDraft.pendingDataLabel,
-            description: creationDraft.pendingDataDescription,
-            annotationClass: creationDraft.pendingDataClass,
-          }}
-          saveDisabled={creationDraft.pendingDataLabel.trim().length === 0}
-          onChange={(patch) => {
-            updateCreationDraft({
-              ...(patch.label !== undefined ? { pendingDataLabel: patch.label } : {}),
-              ...(patch.description !== undefined ? { pendingDataDescription: patch.description } : {}),
-              ...(patch.annotationClass !== undefined ? { pendingDataClass: patch.annotationClass } : {}),
-            });
-          }}
-          onSave={handleSaveCreationDataModal}
-          onCancel={handleCancelCreationDataModal}
-          vocabularySchemes={vocabularySchemes}
-          vocabularyConcepts={vocabularyConcepts}
-          vocabularyProperties={vocabularyProperties}
-        />
-      ) : null}
       <AppMessageModal
         descriptor={messageModal}
         onClose={() => {
           setMessageModal(null);
-        }}
-      />
-      <AppMessageModal
-        descriptor={discardCreationModal}
-        onClose={() => {
-          setDiscardCreationModal(null);
-        }}
-        onAction={(actionKey) => {
-          if (actionKey === 'discard') {
-            handleDiscardCreation();
-            return;
-          }
-          setDiscardCreationModal(null);
-        }}
-      />
-      <AppMessageModal
-        descriptor={discardDeletionModal}
-        onClose={() => {
-          setDiscardDeletionModal(null);
-        }}
-        onAction={(actionKey) => {
-          if (actionKey === 'discard') {
-            handleDiscardDeletion();
-            return;
-          }
-          setDiscardDeletionModal(null);
         }}
       />
     </AnnotationPanelBase>

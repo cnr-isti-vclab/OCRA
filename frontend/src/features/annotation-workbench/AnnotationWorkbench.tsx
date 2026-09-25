@@ -8,6 +8,7 @@ import AnnotationDataFormModal from '../annotation-creation/AnnotationDataFormMo
 import { AnnotationCreationActionBar } from '../annotation-creation/AnnotationCreationPanel';
 import { useAnnotationCreationWizard } from '../annotation-creation/useAnnotationCreationWizard';
 import { useCreationChosenEntityLocks } from '../annotation-creation/useCreationChosenEntityLocks';
+import AnnotationDeletionPanel from '../annotation-deletion/AnnotationDeletionPanel';
 import AppMessageModal from '../../shared/ui/AppMessageModal';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import { buildAnnotationDisplayNumbers, orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
@@ -21,15 +22,24 @@ import {
 import type { AnnotationCreationStepOrder } from '../annotation-creation/types';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-locks';
+import { isRecoverableRenderingMode } from '../../stores/annotation-rendering';
 import { isGeometryIdUnderRemoteEditorLock } from '../annotation-deletion/isEntityBlockedForDeletion';
+
+export type AnnotationWorkbenchMode = 'create' | 'delete';
 
 interface AnnotationWorkbenchProps {
   isOpen: boolean;
   isDetached: boolean;
   onDetachedChange: (isDetached: boolean) => void;
+  mode: AnnotationWorkbenchMode;
   sceneId: string;
   sceneLabel?: string;
   sceneAssets?: Array<{ id: string; label: string }>;
+  /**
+   * Shape tools that are visible but not wired yet (e.g. line/area on 3D).
+   * Edit stays hidden in the workbench toolbar for both viewers.
+   */
+  disabledGeometryToolbarModes?: ReadonlyArray<'point' | 'line' | 'area' | 'edit'>;
   onClose: () => void;
 }
 
@@ -39,13 +49,18 @@ interface FloatingWorkbenchPosition {
 }
 
 /**
- * Non-modal authoring surface for Geometry, Data, and Link creation.
+ * Non-modal authoring surface for create and unlink/delete.
  * It deliberately leaves the viewer interactive while a draft is in progress.
+ *
+ * Scopes stay on scene defaults (see createDefaultCreationDraft) until we need
+ * an asset/project scope picker again — do not reintroduce them casually.
  */
 export default function AnnotationWorkbench({
   isOpen,
   isDetached,
   onDetachedChange,
+  mode,
+  disabledGeometryToolbarModes = [],
   onClose,
 }: AnnotationWorkbenchProps) {
   const {
@@ -57,6 +72,7 @@ export default function AnnotationWorkbench({
     activeSocialLocks,
     currentStreamId,
     activeAnnotationSelection,
+    primaryAnnotationSelection,
     initCreationDraft,
     updateCreationDraft,
     beginCreationWizard,
@@ -65,6 +81,14 @@ export default function AnnotationWorkbench({
     undoLastCreatedGeometry,
     confirmPendingCreatedData,
     undoLastCreatedData,
+    deletionDraft,
+    deleting,
+    initDeletionDraft,
+    discardDeletionDraft,
+    beginDeletionWizard,
+    beginDeletionForTarget,
+    commitDeletionDraft,
+    clearFocus,
     vocabularySchemes,
     vocabularyConcepts,
     vocabularyProperties,
@@ -74,19 +98,24 @@ export default function AnnotationWorkbench({
   const { isCreationDataStep, isCreationGeometryStep, isCreationGeometrySearch, searchableData, searchableGeometries, setCreationGeometrySelection, toggleCreationDataSelection } =
     useAnnotationCreationWizard();
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [deletionSetupError, setDeletionSetupError] = useState<string | null>(null);
   const [geometrySearchQuery, setGeometrySearchQuery] = useState('');
   const [dataEditorOpen, setDataEditorOpen] = useState(false);
   const [discardModal, setDiscardModal] = useState<MessageModalDescriptor | null>(null);
+  const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
   const [floatingPosition, setFloatingPosition] = useState<FloatingWorkbenchPosition | null>(null);
   const hadCreationDraftRef = useRef(false);
   const wasOpenRef = useRef(false);
+  const lastModeRef = useRef(mode);
   const geometryNumbers = useMemo(() => buildAnnotationDisplayNumbers(allGeometries), [allGeometries]);
   const dataNumbers = useMemo(() => buildAnnotationDisplayNumbers(allData), [allData]);
   const linkedGeometryIds = useMemo(() => new Set(
     allLinks.filter((link) => link.erasableAt === null).map((link) => link.geometryId),
   ), [allLinks]);
+  const isCreateMode = mode === 'create';
+  const isDeleteMode = mode === 'delete';
 
-  useCreationChosenEntityLocks(creationDraft, isOpen, startEditorLock, stopEditorLock);
+  useCreationChosenEntityLocks(creationDraft, isOpen && isCreateMode, startEditorLock, stopEditorLock);
 
   const isDataBlockedForLinking = useCallback((dataId: string) => (
     isDataIdUnderRemoteEditorLock(
@@ -143,19 +172,86 @@ export default function AnnotationWorkbench({
     });
   }, [geometryLabelsById, geometryNumbers, geometrySearchQuery, searchableGeometries]);
 
-  useEffect(() => {
-    if (isOpen && !wasOpenRef.current && !creationDraft) {
-      initCreationDraft();
-      const result = beginCreationWizard();
-      if (!result.ok) {
-        setSetupError(result.message);
-      }
+  const seedDeletionDraft = useCallback(() => {
+    if (deletionDraft) {
+      return;
     }
-    wasOpenRef.current = isOpen;
-  }, [beginCreationWizard, creationDraft, initCreationDraft, isOpen]);
+    if (primaryAnnotationSelection) {
+      const renderingMode = primaryAnnotationSelection.kind === 'geometry'
+        ? activeAnnotationSelection.renderingModeByGeometryId.get(primaryAnnotationSelection.id)
+        : activeAnnotationSelection.renderingModeByDataId.get(primaryAnnotationSelection.id);
+      if (isRecoverableRenderingMode(renderingMode)) {
+        initDeletionDraft();
+        setDeletionSetupError('Erased annotations can only be restored, not deleted again.');
+        return;
+      }
+      const result = beginDeletionForTarget(primaryAnnotationSelection);
+      setDeletionSetupError(result.ok ? null : result.message);
+      return;
+    }
+    initDeletionDraft();
+    setDeletionSetupError(null);
+  }, [
+    activeAnnotationSelection.renderingModeByDataId,
+    activeAnnotationSelection.renderingModeByGeometryId,
+    beginDeletionForTarget,
+    deletionDraft,
+    initDeletionDraft,
+    primaryAnnotationSelection,
+  ]);
 
   useEffect(() => {
-    if (!isOpen) {
+    const justOpened = isOpen && !wasOpenRef.current;
+    const modeChangedWhileOpen = isOpen && wasOpenRef.current && lastModeRef.current !== mode;
+    wasOpenRef.current = isOpen;
+    lastModeRef.current = mode;
+
+    if (!isOpen || (!justOpened && !modeChangedWhileOpen)) {
+      return;
+    }
+
+    setSetupError(null);
+    setDeletionSetupError(null);
+
+    if (isCreateMode) {
+      if (deletionDraft) {
+        discardDeletionDraft();
+      }
+      if (!creationDraft) {
+        initCreationDraft();
+        const result = beginCreationWizard();
+        if (!result.ok) {
+          setSetupError(result.message);
+        }
+      }
+      // 3D is point-only for now; keep draft drawing mode on point when line/area are disabled.
+      if (disabledGeometryToolbarModes.includes('line') || disabledGeometryToolbarModes.includes('area')) {
+        updateCreationDraft({ drawingMode: 'point' });
+      }
+      return;
+    }
+
+    if (creationDraft) {
+      discardCreationDraft();
+    }
+    seedDeletionDraft();
+  }, [
+    beginCreationWizard,
+    creationDraft,
+    deletionDraft,
+    discardCreationDraft,
+    discardDeletionDraft,
+    disabledGeometryToolbarModes,
+    initCreationDraft,
+    isCreateMode,
+    isOpen,
+    mode,
+    seedDeletionDraft,
+    updateCreationDraft,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen || !isCreateMode) {
       hadCreationDraftRef.current = false;
       return;
     }
@@ -167,7 +263,7 @@ export default function AnnotationWorkbench({
       hadCreationDraftRef.current = false;
       onClose();
     }
-  }, [creationDraft, isOpen, onClose]);
+  }, [creationDraft, isCreateMode, isOpen, onClose]);
 
   useEffect(() => {
     if (!isCreationDataStep) {
@@ -176,10 +272,10 @@ export default function AnnotationWorkbench({
   }, [isCreationDataStep]);
 
   const requestClose = useCallback(() => {
-    if (creating) {
+    if (creating || deleting) {
       return;
     }
-    if (creationDraft) {
+    if (isCreateMode && creationDraft) {
       setDiscardModal(new MessageModalDescriptor({
         tone: 'warning',
         title: 'Discard annotation draft?',
@@ -192,15 +288,34 @@ export default function AnnotationWorkbench({
       }));
       return;
     }
+    if (isDeleteMode && deletionDraft) {
+      setDiscardModal(new MessageModalDescriptor({
+        tone: 'warning',
+        title: 'Cancel unlink/delete operation?',
+        message: 'This will discard the current choices and clear the selection.',
+        actions: [
+          { key: 'keep', label: 'Keep editing', tone: 'secondary' },
+          { key: 'discard', label: 'Discard', tone: 'danger' },
+        ],
+        dismissOnBackdrop: false,
+      }));
+      return;
+    }
     onClose();
-  }, [creating, creationDraft, onClose]);
+  }, [creating, creationDraft, deleting, deletionDraft, isCreateMode, isDeleteMode, onClose]);
 
   const discardAndClose = useCallback(() => {
-    discardCreationDraft();
+    if (isCreateMode) {
+      discardCreationDraft();
+    }
+    if (isDeleteMode) {
+      discardDeletionDraft();
+    }
     setSetupError(null);
+    setDeletionSetupError(null);
     setDiscardModal(null);
     onClose();
-  }, [discardCreationDraft, onClose]);
+  }, [discardCreationDraft, discardDeletionDraft, isCreateMode, isDeleteMode, onClose]);
 
   const next = useCallback(async () => {
     const result = await advanceCreationStep();
@@ -230,6 +345,40 @@ export default function AnnotationWorkbench({
     });
     setSetupError(null);
   }, [creationDraft, updateCreationDraft]);
+
+  const handleBeginDeletion = useCallback((intent: {
+    deleteLink: boolean;
+    deleteGeometry: boolean;
+    deleteData: boolean;
+  }) => {
+    const result = beginDeletionWizard(intent);
+    if (!result.ok) {
+      setDeletionSetupError(result.message);
+      return;
+    }
+    setDeletionSetupError(null);
+  }, [beginDeletionWizard]);
+
+  const handleConfirmDeletion = useCallback(() => {
+    void (async () => {
+      setDeletionSetupError(null);
+      const result = await commitDeletionDraft();
+      if (!result.ok) {
+        setDeletionSetupError(result.message);
+        return;
+      }
+      clearFocus();
+      if (result.message) {
+        setMessageModal(new MessageModalDescriptor({
+          tone: 'success',
+          title: 'Changes saved',
+          message: result.message,
+        }));
+        return;
+      }
+      onClose();
+    })();
+  }, [clearFocus, commitDeletionDraft, onClose]);
 
   const startDetachedDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (!isDetached || (event.target instanceof Element && event.target.closest('button'))) {
@@ -274,8 +423,12 @@ export default function AnnotationWorkbench({
 
   return (
     <aside
-      className={`annotation-workbench bg-white border-start shadow d-flex flex-column ${isDetached ? 'is-detached' : ''}`}
-      aria-label="Annotation workbench"
+      className={[
+        'annotation-workbench bg-white border-start shadow d-flex flex-column',
+        isDetached ? 'is-detached' : '',
+        isDeleteMode ? 'is-authoring-delete' : '',
+      ].filter(Boolean).join(' ')}
+      aria-label={isDeleteMode ? 'Unlink and delete workbench' : 'Annotation workbench'}
       style={isDetached && floatingPosition
         ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto' }
         : undefined}
@@ -286,10 +439,14 @@ export default function AnnotationWorkbench({
       >
         <div>
           <div className="d-flex align-items-center gap-2">
-            <i className="bi bi-vector-pen text-primary" aria-hidden />
-            <h2 className="h5 mb-0">Annotation workbench</h2>
+            <i className={`bi ${isDeleteMode ? 'bi-trash text-danger' : 'bi-vector-pen text-primary'}`} aria-hidden />
+            <h2 className="h5 mb-0">{isDeleteMode ? 'Unlink / Delete' : 'Annotation workbench'}</h2>
           </div>
-          <p className="small text-muted mb-0 mt-1">Compose geometry, data, and their relationship.</p>
+          <p className="small text-muted mb-0 mt-1">
+            {isDeleteMode
+              ? 'Choose what to unlink or mark as erasable.'
+              : 'Compose geometry, data, and their relationship.'}
+          </p>
         </div>
         <div className="d-flex gap-1 flex-shrink-0">
           <button
@@ -309,66 +466,82 @@ export default function AnnotationWorkbench({
         </div>
       </header>
 
-      <div className="px-3 pt-3">
-        {creationDraft ? (
-          <div className="btn-group w-100 mb-2" role="group" aria-label="Creation step order">
-            <button
-              type="button"
-              className={`btn btn-sm ${creationDraft.stepOrder === 'geometry-first' ? 'btn-primary' : 'btn-outline-primary'}`}
-              aria-pressed={creationDraft.stepOrder === 'geometry-first'}
-              disabled={!canChangeCreationStepOrder(creationDraft) || creating}
-              title={
-                !canChangeCreationStepOrder(creationDraft)
-                  ? 'Clear drafts before changing order'
-                  : undefined
-              }
-              onClick={() => handleStepOrderChange('geometry-first')}
-            >
-              Geometry first
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${creationDraft.stepOrder === 'data-first' ? 'btn-primary' : 'btn-outline-primary'}`}
-              aria-pressed={creationDraft.stepOrder === 'data-first'}
-              disabled={!canChangeCreationStepOrder(creationDraft) || creating}
-              title={
-                !canChangeCreationStepOrder(creationDraft)
-                  ? 'Clear drafts before changing order'
-                  : undefined
-              }
-              onClick={() => handleStepOrderChange('data-first')}
-            >
-              Data first
-            </button>
+      {isCreateMode ? (
+        <>
+          <div className="px-3 pt-3">
+            {creationDraft ? (
+              <div className="btn-group w-100 mb-2" role="group" aria-label="Creation step order">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${creationDraft.stepOrder === 'geometry-first' ? 'btn-primary' : 'btn-outline-primary'}`}
+                  aria-pressed={creationDraft.stepOrder === 'geometry-first'}
+                  disabled={!canChangeCreationStepOrder(creationDraft) || creating}
+                  title={
+                    !canChangeCreationStepOrder(creationDraft)
+                      ? 'Clear drafts before changing order'
+                      : undefined
+                  }
+                  onClick={() => handleStepOrderChange('geometry-first')}
+                >
+                  Geometry first
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${creationDraft.stepOrder === 'data-first' ? 'btn-primary' : 'btn-outline-primary'}`}
+                  aria-pressed={creationDraft.stepOrder === 'data-first'}
+                  disabled={!canChangeCreationStepOrder(creationDraft) || creating}
+                  title={
+                    !canChangeCreationStepOrder(creationDraft)
+                      ? 'Clear drafts before changing order'
+                      : undefined
+                  }
+                  onClick={() => handleStepOrderChange('data-first')}
+                >
+                  Data first
+                </button>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      <ol className="annotation-workbench__steps list-unstyled d-flex mb-0 px-3 pt-2 gap-1" aria-label="Creation progress">
-        {(creationDraft && !isGeometryFirst(creationDraft)
-          ? [['data', 'Data'], ['geometry', 'Geometry']] as const
-          : [['geometry', 'Geometry'], ['data', 'Data']] as const
-        ).map(([key, label], index) => {
-          const ordered = creationDraft && !isGeometryFirst(creationDraft)
-            ? (['data', 'geometry'] as const)
-            : (['geometry', 'data'] as const);
-          const secondKey = ordered[1];
-          const active = step === key || (step === 'committing' && key === secondKey);
-          const complete = key === ordered[0] && (step === secondKey || step === 'committing');
-          return (
-            <li key={key} className={`annotation-workbench__step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''}`}>
-              <span>{complete ? '✓' : index + 1}</span>{label}
-            </li>
-          );
-        })}
-      </ol>
+          <ol className="annotation-workbench__steps list-unstyled d-flex mb-0 px-3 pt-2 gap-1" aria-label="Creation progress">
+            {(creationDraft && !isGeometryFirst(creationDraft)
+              ? [['data', 'Data'], ['geometry', 'Geometry']] as const
+              : [['geometry', 'Geometry'], ['data', 'Data']] as const
+            ).map(([key, label], index) => {
+              const ordered = creationDraft && !isGeometryFirst(creationDraft)
+                ? (['data', 'geometry'] as const)
+                : (['geometry', 'data'] as const);
+              const secondKey = ordered[1];
+              const active = step === key || (step === 'committing' && key === secondKey);
+              const complete = key === ordered[0] && (step === secondKey || step === 'committing');
+              return (
+                <li key={key} className={`annotation-workbench__step ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''}`}>
+                  <span>{complete ? '✓' : index + 1}</span>{label}
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      ) : null}
 
       <div className="annotation-workbench__body flex-grow-1 overflow-auto p-3">
-        {isCreationGeometryStep && creationDraft ? (
+        {isDeleteMode && deletionDraft ? (
+          <AnnotationDeletionPanel
+            draft={deletionDraft}
+            setupError={deletionSetupError}
+            confirming={deleting}
+            onStartDelete={handleBeginDeletion}
+            onBack={requestClose}
+            onConfirmDelete={handleConfirmDeletion}
+          />
+        ) : null}
+
+        {isCreateMode && isCreationGeometryStep && creationDraft ? (
           <section aria-labelledby="annotation-geometry-step-title">
             <AnnotationCreationGeometryStep
               draft={creationDraft}
               creating={creating}
+              disabledToolbarModes={disabledGeometryToolbarModes}
               onGeometryModeChange={(geometryMode) => updateCreationDraft({
                 geometryMode,
                 selectedGeometryIds: geometryMode === 'choose' ? creationDraft.selectedGeometryIds : [],
@@ -383,7 +556,7 @@ export default function AnnotationWorkbench({
           </section>
         ) : null}
 
-        {isCreationGeometrySearch && creationDraft ? (
+        {isCreateMode && isCreationGeometrySearch && creationDraft ? (
           <section className="mt-3" aria-label="Existing geometries">
             <div className="fw-semibold small mb-2">Choose existing geometry</div>
             <input
@@ -443,9 +616,9 @@ export default function AnnotationWorkbench({
           </section>
         ) : null}
 
-        {setupError ? <div className="alert alert-warning small mt-3 mb-0">{setupError}</div> : null}
+        {isCreateMode && setupError ? <div className="alert alert-warning small mt-3 mb-0">{setupError}</div> : null}
 
-        {isCreationDataStep && creationDraft ? (
+        {isCreateMode && isCreationDataStep && creationDraft ? (
           <section className="mt-3" aria-label="Annotation data">
             <AnnotationCreationDataStep
               draft={creationDraft}
@@ -477,19 +650,21 @@ export default function AnnotationWorkbench({
         ) : null}
       </div>
 
-      <footer className="annotation-workbench__footer border-top p-3 bg-light-subtle small">
-        {creationDraft ? (
-          <AnnotationCreationActionBar
-            draft={creationDraft}
-            creating={creating}
-            onCreate={() => {}}
-            onBack={back}
-            onNext={() => void next()}
-            onCancel={requestClose}
-            nextButtonClassName="annotation-workbench__primary-action"
-          />
-        ) : null}
-      </footer>
+      {isCreateMode ? (
+        <footer className="annotation-workbench__footer border-top p-3 bg-light-subtle small">
+          {creationDraft ? (
+            <AnnotationCreationActionBar
+              draft={creationDraft}
+              creating={creating}
+              onCreate={() => {}}
+              onBack={back}
+              onNext={() => void next()}
+              onCancel={requestClose}
+              nextButtonClassName="annotation-workbench__primary-action"
+            />
+          ) : null}
+        </footer>
+      ) : null}
 
       {dataEditorOpen && creationDraft ? (
         <AnnotationDataFormModal
@@ -536,6 +711,13 @@ export default function AnnotationWorkbench({
             return;
           }
           setDiscardModal(null);
+        }}
+      />
+      <AppMessageModal
+        descriptor={messageModal}
+        onClose={() => {
+          setMessageModal(null);
+          onClose();
         }}
       />
     </aside>

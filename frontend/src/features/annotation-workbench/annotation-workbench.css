@@ -13,6 +13,14 @@
   box-shadow: none !important;
 }
 
+/* Docked delete shares the sidebar with the browse list (data picks). */
+.annotation-workbench.is-authoring-delete:not(.is-detached) {
+  height: auto;
+  max-height: min(55%, 28rem);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--bs-border-color) !important;
+}
+
 .annotation-workbench.is-detached {
   --annotation-workbench-top: max(5rem, calc(1rem + env(safe-area-inset-top)));
   position: fixed;
@@ -102,5 +110,9 @@
     min-width: 0;
     resize: none;
     border-radius: 0;
+  }
+
+  .annotation-workbench.is-authoring-delete:not(.is-detached) {
+    max-height: 45%;
   }
 }

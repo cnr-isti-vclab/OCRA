@@ -31,6 +31,7 @@ flowchart TB
     V3[Viewer3DPanel]
     V2[Viewer2DPanel]
     TB[AnnotationToolbar — 2D]
+    AWB[AnnotationWorkbench]
     APE[AnnotationPanelEditor]
     APV[AnnotationPanelViewer]
     LAB[AnnotationStoreTestPanel]
@@ -71,6 +72,7 @@ flowchart TB
   V3 --> ASC
   V2 --> ASC
   V2 --> TB
+  AWB --> ASC
   APE --> ASC
   APV --> ASC
   LAB --> ASC
@@ -216,10 +218,10 @@ OCC and social-lock behaviour: optimistic local-first writes, version guards, ad
 `ProjectPage` mounts `**AnnotationStoreProvider`** with `projectId` and `selectedSceneId`.
 
 
-| URL mode     | Viewer                           | Panel (`annotationMode`)                          |
-| ------------ | -------------------------------- | ------------------------------------------------- |
-| `?mode=3d`   | `Viewer3DPanel`                  | `AnnotationPanelEditor` or `AnnotationPanelViewer` |
-| `?mode=2d`   | `Viewer2DPanel` (RTI / OpenLIME) | `AnnotationPanelEditor` or `AnnotationPanelViewer` |
+| URL mode     | Viewer                           | Panel / workbench (`annotationMode`) |
+| ------------ | -------------------------------- | ------------------------------------ |
+| `?mode=3d`   | `Viewer3DPanel`                  | `AnnotationPanelEditor` or `AnnotationPanelViewer`; **Annotate** / **Unlink/Delete** open `AnnotationWorkbench` |
+| `?mode=2d`   | `Viewer2DPanel` (RTI / OpenLIME) | Same panel + shared workbench (dock / detach) |
 | `?mode=test` | `AnnotationStoreTestPanel` (lab) | —                 |
 
 
@@ -301,21 +303,23 @@ Reusable React control for choosing how the user interacts with the OpenLIME ann
 
 ---
 
-## 8. Annotation panels (`AnnotationPanelBase`)
+## 8. Annotation panels (`AnnotationPanelBase`) and workbench
 
 `ProjectPage` mounts **`AnnotationPanelEditor`** or **`AnnotationPanelViewer`** depending on `annotationMode`. Both share layout via **`AnnotationPanelBase`** and the **`AnnotationClassFilter`** component.
+
+**Authoring** (create and unlink/delete) lives in **`AnnotationWorkbench`**, opened from the editor panel. See `doc/a07-annotation-creation.md` and `doc/a08-annotation-deletion.md`.
 
 ### 8.1 Editor — `AnnotationPanelEditor`
 
 - Lists `**activeData`** (not a flat “resolved triple” list).
-- Per row: label, description, **linked geometry count**, edit modal (`updateData`), delete (`markDataErasable`).
-- **Focus:** row click (with Ctrl multi-select) → `focusData` → viewer highlights linked geometries via `getViewerHighlightGeometryIds`.
-- **Bulk:** delete focused data rows, clear focus (bulk delete disabled if any focused row is under **remote** editor lock).
+- Per row: label, description, **linked geometry count**, edit modal (`updateData`); restore for erasable/ghost rows.
+- **Launchers:** **Annotate** → workbench create; **Unlink/Delete** → workbench delete (no inline create/delete accordion).
+- **Focus:** row click (with Ctrl multi-select) → `focusData` → viewer highlights linked geometries via `getViewerHighlightGeometryIds`. During delete selection, row clicks feed the deletion basket.
 - **Realtime** badge from `realtimeState`.
-- **Collaboration:** banner when focused selection overlaps remote editor locks; list rows styled when under edit; delete guarded as in §5.4.
+- **Collaboration:** banner when focused selection overlaps remote editor locks; list rows styled when under edit.
 - **Edit modal:** publishes **data** editor lock for the row being edited; handles 409 / remote delete via `AnnotationMessageModalCatalog`.
 
-**Store supports but editor panel does not expose yet:** link/unlink UI (`createAnnotation({ existingDataId })`, `markLinkErasable`), geometry list tab, `loadProjectData` picker, presence-lock UI.
+**Store supports but editor panel does not expose yet:** dedicated geometry list tab, `loadProjectData` picker beyond creation Choose, presence-lock management UI.
 
 ### 8.2 Viewer — `AnnotationPanelViewer`
 
@@ -415,6 +419,7 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 | 3D UI           | `frontend/src/routes/components/Viewer3DPanel.tsx`, `adapters/three-presenter/ThreeJSViewer.tsx`   |
 | 2D UI           | `frontend/src/routes/components/Viewer2DPanel.tsx`, `adapters/openlime-viewer/OpenLIMEViewer.tsx`  |
 | Panel (editor)  | `frontend/src/routes/components/AnnotationPanelEditor.tsx`                                         |
+| Workbench       | `frontend/src/features/annotation-workbench/AnnotationWorkbench.tsx`                               |
 | Panel (viewer)  | `frontend/src/routes/components/AnnotationPanelViewer.tsx`                                         |
 | Panel (shared)  | `frontend/src/routes/components/AnnotationPanelBase.tsx`, `AnnotationClassFilter.tsx`              |
 | Lab             | `frontend/src/routes/components/AnnotationStoreTestPanel.tsx`                                      |
@@ -430,7 +435,7 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 | Mode         | What to check                                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `?mode=test` | Loaded vs active counts, SSE log                                                                                                                                                                     |
-| `?mode=2d`   | Toolbar: point / line / area / edit; pencil shows toolbar; create/edit shapes; panel select + social-lock modal; remote lock → underEditing style + disabled delete; two-browser editor lock overlap |
-| `?mode=3d`   | Point create; panel multi-select; viewer Ctrl multi-select; active geometries render; social-lock modal on conflicting focus                                                                         |
+| `?mode=2d`   | Annotate/Unlink-Delete open workbench; dock/detach; toolbar point/line/area; panel select + social-lock modal; remote lock styling; two-browser editor lock overlap |
+| `?mode=3d`   | Annotate/Unlink-Delete open workbench; point create only; panel multi-select; viewer Ctrl multi-select; DeletionGeometryPickBar; active geometries render |
 
 
