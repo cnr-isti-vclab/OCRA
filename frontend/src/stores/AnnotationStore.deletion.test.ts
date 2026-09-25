@@ -244,7 +244,7 @@ describe('AnnotationStore deletion wizard commit', () => {
     expect(mockClient.markDataErasable).not.toHaveBeenCalled();
   });
 
-  it('marks a geometry erasable after removing only one of its links', async () => {
+  it('keeps a geometry available after removing one of multiple links', async () => {
     const store = createTestStore();
     await seedScene(store, {
       geometries: [makeGeometry('g1')],
@@ -254,13 +254,14 @@ describe('AnnotationStore deletion wizard commit', () => {
     store.initDeletionDraft();
     store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
     store.addGeometryToDeletionBasket('g1');
-    store.updateDeletionDraft({ candidateLinkIds: ['l1'] });
+    store.updateDeletionDraft({ candidateLinkIds: ['l1'], candidateGeometryIds: [] });
 
     expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
-    expect(store.geometriesById.get('g1')?.erasableAt).not.toBeNull();
+    expect(mockClient.markGeometryErasable).not.toHaveBeenCalled();
+    expect(store.geometriesById.get('g1')?.erasableAt).toBeNull();
     expect(store.linksById.get('l1')?.erasableAt).not.toBeNull();
     expect(store.linksById.get('l2')?.erasableAt).toBeNull();
-    expect(store.activeAnnotationSelection.renderingModeByGeometryId.get('g1')).toBe('ghost');
+    expect(store.activeAnnotationSelection.renderingModeByGeometryId.get('g1')).toBe('plain');
   });
 
   it('restores an erasable counterpart before its final link is removed', async () => {

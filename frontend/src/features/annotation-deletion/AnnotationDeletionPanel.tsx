@@ -87,9 +87,8 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
     : allData.find((datum) => datum.id === endpointId)?.label?.trim() || endpointId;
   const consequences = reviewLinks && endpointId ? calculateDeletionConsequences({ endpointKind, endpointId, selectedLinkIds, projectLinks: reviewLinks, geometries: allGeometries, data: allData }) : null;
   const deletesRootEndpoint = Boolean(consequences && (
-    consequences.remainingLinkCount > 0
-    || consequences.initialLinkCount === 0
-    || keepEndpointAvailable === false
+    selectedLinkIds.length === 0
+    || (consequences.remainingLinkCount === 0 && keepEndpointAvailable === false)
   ));
   const deletesOrphanEndpoint = Boolean(consequences?.newlyUnlinkedCounterparts.some((item) => (
     erasableOrphanKeys.has(orphanKey(item.kind, item.id))
@@ -147,12 +146,11 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
         setError('Relationships changed while you were reviewing. Check the updated list.');
         return;
       }
-      // The selected endpoint may be marked erasable without unlinking it.
-      // Active relationships retain it as a faded ghost; without them it becomes
-      // an erased orphan and is hidden from the normal view.
-      const eraseRoot = consequences.remainingLinkCount > 0
-        || consequences.initialLinkCount === 0
-        || keepEndpointAvailable === false;
+      // Removing a relationship must not implicitly erase its endpoint. The
+      // endpoint is erased only as a standalone action, or when it loses its
+      // final relationship and the user explicitly chooses that outcome.
+      const eraseRoot = selectedLinkIds.length === 0
+        || (consequences.remainingLinkCount === 0 && keepEndpointAvailable === false);
       const candidateGeometryIds = [
         ...(endpointKind === 'geometry' && eraseRoot ? [endpointId] : []),
         ...consequences.newlyUnlinkedCounterparts
@@ -246,7 +244,7 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
           <p className="mb-2">{selectedLinkIds.length} relationship{selectedLinkIds.length === 1 ? '' : 's'} will be unlinked.</p>
           {consequences.remainingLinkCount > 0 ? (
             <p className="alert alert-info py-2 mb-2">
-              This {endpointKind} will be marked as erasable. It will remain visible with a faded appearance while its {consequences.remainingLinkCount} active relationship{consequences.remainingLinkCount === 1 ? '' : 's'} remain.
+              This {endpointKind} will remain available because it still has {consequences.remainingLinkCount} active relationship{consequences.remainingLinkCount === 1 ? '' : 's'}.
             </p>
           ) : consequences.initialLinkCount === 0 ? (
             <p className="alert alert-warning py-2 mb-2">This {endpointKind} has no active relationships. Marking it as erasable will hide it from the normal view.</p>
