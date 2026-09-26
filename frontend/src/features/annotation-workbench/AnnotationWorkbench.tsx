@@ -619,7 +619,7 @@ export default function AnnotationWorkbench({
         {isCreateMode && setupError ? <div className="alert alert-warning small mt-3 mb-0">{setupError}</div> : null}
 
         {isCreateMode && isCreationDataStep && creationDraft ? (
-          <section className="mt-3" aria-label="Annotation data">
+          <section aria-label="Annotation data">
             <AnnotationCreationDataStep
               draft={creationDraft}
               candidates={searchableData}
