@@ -427,6 +427,7 @@ export default function AnnotationWorkbench({
         'annotation-workbench bg-white border-start shadow d-flex flex-column',
         isDetached ? 'is-detached' : '',
         isDeleteMode ? 'is-authoring-delete' : '',
+        isCreateMode && isCreationDataStep ? 'is-authoring-data' : '',
       ].filter(Boolean).join(' ')}
       aria-label={isDeleteMode ? 'Unlink and delete workbench' : 'Annotation workbench'}
       style={isDetached && floatingPosition

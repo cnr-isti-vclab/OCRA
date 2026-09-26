@@ -1145,7 +1145,7 @@ export class AnnotationStore {
     }
 
     if (isOnSecondCreationStep(this.creationDraft)) {
-      return this.commitCreationDraft();
+      return this.commitCreationDraft(true);
     }
 
     return { ok: false, message: 'Creation cannot advance from the current step.' };
@@ -1369,7 +1369,7 @@ export class AnnotationStore {
     this.bump();
   }
 
-  async commitCreationDraft(): Promise<AnnotationStoreActionResult> {
+  async commitCreationDraft(continueSession = false): Promise<AnnotationStoreActionResult> {
     if (!this.creationDraft) {
       return { ok: false, message: 'Creation is not ready to commit.' };
     }
@@ -1462,7 +1462,21 @@ export class AnnotationStore {
       }
 
       this.rememberedCreationSetup = extractCreationSetup(draftSnapshot);
-      this.creationDraft = null;
+      if (continueSession) {
+        let nextDraft = createDefaultCreationDraft(this.sceneId);
+        if (this.rememberedCreationSetup) {
+          nextDraft = applyRememberedCreationSetup(nextDraft, this.rememberedCreationSetup);
+        }
+        const nextStep = firstCreationStep(nextDraft.stepOrder);
+        this.creationDraft = {
+          ...nextDraft,
+          step: nextStep,
+          geometryMode: nextStep === 'geometry' ? 'new' : null,
+          dataMode: nextStep === 'data' ? 'new' : null,
+        };
+      } else {
+        this.creationDraft = null;
+      }
       this.bump();
       return { ok: true };
     } catch (err) {

@@ -246,6 +246,13 @@ describe('AnnotationStore creation wizard commit', () => {
     expect(mockClient.createData).toHaveBeenCalledTimes(2);
     expect(mockClient.createGeometry).toHaveBeenCalledTimes(1);
     expect(mockClient.createLink).toHaveBeenCalledTimes(2);
+    expect(store.creationDraftState).toMatchObject({
+      step: 'data',
+      geometryMode: null,
+      dataMode: 'new',
+      createdGeometries: [],
+      createdData: [],
+    });
   });
 
   it('commits multiple created geometries with one data record', async () => {
@@ -327,6 +334,29 @@ describe('AnnotationStore creation wizard commit', () => {
     expect([...store.geometriesById.keys()]).toEqual(['g-new']);
     expect([...store.dataById.keys()]).toEqual(['d-new']);
     expect([...store.linksById.keys()]).toEqual(['l-new']);
+  });
+
+  it('starts a fresh geometry-first draft after completing a pair with Done', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry.mockResolvedValue(makeGeometry('g-loop'));
+    mockClient.createData.mockResolvedValue(makeDatum('d-loop'));
+    mockClient.createLink.mockResolvedValue(makeLink('l-loop', 'g-loop', 'd-loop'));
+
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.setCreationDraftGeometry('viewer-loop', testShapes);
+    await store.advanceCreationStep();
+    store.updateCreationDraft({ dataMode: 'new', pendingDataLabel: 'Loop note' });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+
+    expect(await store.advanceCreationStep()).toEqual({ ok: true });
+    expect(store.creationDraftState).toMatchObject({
+      step: 'geometry',
+      geometryMode: 'new',
+      dataMode: null,
+      createdGeometries: [],
+      createdData: [],
+    });
   });
 
   it('commits geometry-only when data mode is unset', async () => {

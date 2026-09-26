@@ -59,6 +59,56 @@
   font-weight: 600;
 }
 
+/* Geometry uses Bootstrap primary blue. Data uses a warm OCRA accent. */
+.annotation-workbench.is-authoring-data {
+  --annotation-data-accent: #a85d00;
+  --annotation-data-accent-hover: #874a00;
+  --annotation-data-accent-active: #713e00;
+  --annotation-data-accent-rgb: 168, 93, 0;
+}
+
+.annotation-workbench.is-authoring-data .btn-primary,
+.annotation-data-form-modal .btn-primary {
+  --bs-btn-bg: var(--annotation-data-accent, #a85d00);
+  --bs-btn-border-color: var(--annotation-data-accent, #a85d00);
+  --bs-btn-hover-bg: var(--annotation-data-accent-hover, #874a00);
+  --bs-btn-hover-border-color: var(--annotation-data-accent-hover, #874a00);
+  --bs-btn-focus-shadow-rgb: var(--annotation-data-accent-rgb, 168, 93, 0);
+  --bs-btn-active-bg: var(--annotation-data-accent-active, #713e00);
+  --bs-btn-active-border-color: var(--annotation-data-accent-active, #713e00);
+  --bs-btn-disabled-bg: var(--annotation-data-accent, #a85d00);
+  --bs-btn-disabled-border-color: var(--annotation-data-accent, #a85d00);
+}
+
+.annotation-workbench.is-authoring-data .btn-outline-primary {
+  --bs-btn-color: var(--annotation-data-accent);
+  --bs-btn-border-color: var(--annotation-data-accent);
+  --bs-btn-hover-bg: var(--annotation-data-accent);
+  --bs-btn-hover-border-color: var(--annotation-data-accent);
+  --bs-btn-focus-shadow-rgb: var(--annotation-data-accent-rgb);
+  --bs-btn-active-bg: var(--annotation-data-accent-active);
+  --bs-btn-active-border-color: var(--annotation-data-accent-active);
+  --bs-btn-disabled-color: var(--annotation-data-accent);
+  --bs-btn-disabled-border-color: var(--annotation-data-accent);
+}
+
+.annotation-workbench.is-authoring-data .list-group-item.active {
+  --bs-list-group-active-bg: var(--annotation-data-accent);
+  --bs-list-group-active-border-color: var(--annotation-data-accent);
+}
+
+.annotation-workbench.is-authoring-data .text-primary,
+.annotation-workbench.is-authoring-data .annotation-workbench__step.is-active,
+.annotation-workbench.is-authoring-data .annotation-workbench__step.is-complete {
+  color: var(--annotation-data-accent) !important;
+}
+
+.annotation-workbench.is-authoring-data .annotation-workbench__step.is-active span,
+.annotation-workbench.is-authoring-data .annotation-workbench__step.is-complete span {
+  border-color: var(--annotation-data-accent);
+  background: var(--annotation-data-accent);
+}
+
 .annotation-workbench__steps {
   counter-reset: workbench-step;
 }

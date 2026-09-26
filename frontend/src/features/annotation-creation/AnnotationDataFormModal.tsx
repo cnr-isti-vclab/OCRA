@@ -38,7 +38,7 @@ export default function AnnotationDataFormModal({
 }: AnnotationDataFormModalProps) {
   return (
     <div
-      className="modal d-block"
+      className="modal d-block annotation-data-form-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="annotation-data-form-title"
