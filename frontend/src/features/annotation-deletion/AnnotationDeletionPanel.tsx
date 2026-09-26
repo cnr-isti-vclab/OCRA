@@ -17,7 +17,7 @@ interface AnnotationDeletionPanelProps {
   confirming?: boolean;
 }
 
-/** Select endpoints, review unlink or erase, then return to Annotations. */
+/** Select endpoints, review unlink relationships when needed, then return to Annotations. */
 export default function AnnotationDeletionPanel({ draft, setupError, onStartDelete, onBack, onConfirmDelete, confirming = false }: AnnotationDeletionPanelProps) {
   const { allData, allGeometries, updateDeletionDraft, loadProjectLinksForDeletion, loadProjectData,
     addGeometryToDeletionBasket, addDataToDeletionBasket, deselectGeometryFromDeletionBasket,
@@ -48,7 +48,7 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
   const affected = projectLinks ? annotationOperationLinks(projectLinks, kind, ids,
     operation === 'unlink' ? counterparts : undefined) : [];
 
-  const review = async () => {
+  const reviewUnlink = async () => {
     const reviewingSelection = reviewSelection.current;
     setLoading(true);
     setError(null);
@@ -101,7 +101,7 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
               </button>
             ))}
           </div>
-          {reviewing && projectLinks ? operation === 'unlink' ? (
+          {reviewing && projectLinks ? (
             <div className={kind === 'geometry' ? 'annotation-counterparts-data' : 'annotation-counterparts-geometry'}>
               <h4 className="h6">Common relationships to {kind === 'geometry' ? 'Data' : 'Geometry'}</h4>
               {common.length === 0 ? <p className="text-muted">No active relationships are shared by all selected items.</p> : (
@@ -118,8 +118,6 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
               )}
               <p className="mt-2 mb-0">{affected.length} relationships will be unlinked. Geometry and data remain available.</p>
             </div>
-          ) : (
-            <p className="alert alert-warning mb-0">Erase {ids.length} selected items and unlink all {affected.length} active relationships. Only the selected items will be hidden; their counterparts remain available.</p>
           ) : null}
         </>
       )}
@@ -127,10 +125,10 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
       <div className="d-flex justify-content-between align-items-center gap-2">
         <button className="btn btn-outline-secondary" type="button" disabled={loading || confirming || draft.step === 'committing'} onClick={onBack}>Cancel</button>
         {draft.step === 'selecting' && !confirming ? (
-          <button className={reviewing ? 'btn btn-primary' : 'btn btn-outline-primary'} type="button"
+          <button className={reviewing || operation === 'erase' ? 'btn btn-primary' : 'btn btn-outline-primary'} type="button"
             disabled={loading || ids.length === 0 || (reviewing && operation === 'unlink' && counterparts.length === 0)}
-            onClick={reviewing ? onConfirmDelete : () => void review()}>
-            {loading ? 'Loading…' : 'Done'}
+            onClick={reviewing || operation === 'erase' ? onConfirmDelete : () => void reviewUnlink()}>
+            {loading ? 'Loading…' : operation === 'erase' ? 'Erase' : 'Unlink'}
           </button>
         ) : null}
       </div>
