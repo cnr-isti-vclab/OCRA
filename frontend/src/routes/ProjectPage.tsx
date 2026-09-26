@@ -141,9 +141,18 @@ export default function ProjectPage() {
   const [meshVisibility, setMeshVisibility] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'models' | 'annotations' | 'scene'>('scene');
   const [annotationsSidebarOpen, setAnnotationsSidebarOpen] = useState(true);
+  const [annotationsSidebarWidth, setAnnotationsSidebarWidth] = useState(400);
+  const observeAnnotationsSidebar = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const measure = () => setAnnotationsSidebarWidth(node.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const [annotationWorkbenchOpen, setAnnotationWorkbenchOpen] = useState(false);
   const [annotationWorkbenchDetached, setAnnotationWorkbenchDetached] = useState(false);
-  const [annotationWorkbenchMode, setAnnotationWorkbenchMode] = useState<'create' | 'delete'>('create');
+  const [annotationWorkbenchMode, setAnnotationWorkbenchMode] = useState<'create' | 'unlink' | 'erase'>('create');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [editedPosition, setEditedPosition] = useState<string>('');
@@ -763,8 +772,6 @@ export default function ProjectPage() {
     && annotationWorkbenchOpen
     && !annotationWorkbenchDetached
     && Boolean(selectedSceneId);
-  const hidePanelForDockedCreate = annotationWorkbenchDocked
-    && annotationWorkbenchMode === 'create';
 
   const openAnnotationWorkbench = () => {
     if (mode === '3d') {
@@ -775,11 +782,11 @@ export default function ProjectPage() {
     setAnnotationWorkbenchOpen(true);
   };
 
-  const openDeletionWorkbench = () => {
+  const openDeletionWorkbench = (operation: 'unlink' | 'erase') => {
     if (mode === '3d') {
       setActiveTab('annotations');
     }
-    setAnnotationWorkbenchMode('delete');
+    setAnnotationWorkbenchMode(operation);
     setAnnotationWorkbenchDetached(false);
     setAnnotationWorkbenchOpen(true);
   };
@@ -929,7 +936,7 @@ export default function ProjectPage() {
                   twoDimensionalAssetAvailable={twoDimensionalAssetAvailable}
                   annotationMode={annotationMode}
                   workbenchOpen={annotationWorkbenchOpen && annotationMode === 'edit'}
-                  annotationOverlayRightInset={annotationsSidebarOpen ? 400 : 0}
+                  annotationOverlayRightInset={annotationsSidebarOpen ? annotationsSidebarWidth : 0}
                   onReady={() => {
                     console.log('📸 2D RTI viewer ready');
                   }}
@@ -944,6 +951,7 @@ export default function ProjectPage() {
 
           {/* Sidebar with Tabs */}
           <div
+            ref={observeAnnotationsSidebar}
             className="bg-white border-start"
             style={{
               width: mode === '2d' ? '400px' : '350px',
@@ -1659,7 +1667,7 @@ export default function ProjectPage() {
                             onClose={closeAnnotationWorkbench}
                           />
                         ) : null}
-                        {!hidePanelForDockedCreate ? (
+                        {!annotationWorkbenchDocked ? (
                           <div className="flex-grow-1 overflow-auto min-h-0">
                             <AnnotationPanelEditor
                               sceneId={selectedSceneId ?? ''}

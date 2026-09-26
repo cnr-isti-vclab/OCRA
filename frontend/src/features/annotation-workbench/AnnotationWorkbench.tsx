@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import './annotation-workbench.css';
+import { annotationListSelection } from '../../utils/annotationListSelection';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import AnnotationCreationDataStep from '../annotation-creation/AnnotationCreationDataStep';
 import AnnotationCreationGeometryStep from '../annotation-creation/AnnotationCreationGeometryStep';
@@ -25,7 +26,7 @@ import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-lo
 import { isRecoverableRenderingMode } from '../../stores/annotation-rendering';
 import { isGeometryIdUnderRemoteEditorLock } from '../annotation-deletion/isEntityBlockedForDeletion';
 
-export type AnnotationWorkbenchMode = 'create' | 'delete';
+export type AnnotationWorkbenchMode = 'create' | 'unlink' | 'erase';
 
 interface AnnotationWorkbenchProps {
   isOpen: boolean;
@@ -49,7 +50,7 @@ interface FloatingWorkbenchPosition {
 }
 
 /**
- * Non-modal authoring surface for create and unlink/delete.
+ * Non-modal authoring surface for create and unlink/erase.
  * It deliberately leaves the viewer interactive while a draft is in progress.
  *
  * Scopes stay on scene defaults (see createDefaultCreationDraft) until we need
@@ -61,7 +62,7 @@ export default function AnnotationWorkbench({
   onDetachedChange,
   mode,
   disabledGeometryToolbarModes = [],
-  onClose,
+  onClose: closeWorkbench,
 }: AnnotationWorkbenchProps) {
   const {
     creationDraft,
@@ -73,6 +74,8 @@ export default function AnnotationWorkbench({
     currentStreamId,
     activeAnnotationSelection,
     primaryAnnotationSelection,
+    focusedGeometryIds,
+    focusedDataIds,
     initCreationDraft,
     updateCreationDraft,
     beginCreationWizard,
@@ -86,16 +89,21 @@ export default function AnnotationWorkbench({
     initDeletionDraft,
     discardDeletionDraft,
     beginDeletionWizard,
-    beginDeletionForTarget,
+    updateDeletionDraft,
+    addGeometryToDeletionBasket,
+    addDataToDeletionBasket,
     commitDeletionDraft,
     clearFocus,
+    clearDeletionBasket,
+    linkViewMode,
+    setLinkViewMode,
     vocabularySchemes,
     vocabularyConcepts,
     vocabularyProperties,
     startEditorLock,
     stopEditorLock,
   } = useAnnotationStore();
-  const { isCreationDataStep, isCreationGeometryStep, isCreationGeometrySearch, searchableData, searchableGeometries, setCreationGeometrySelection, toggleCreationDataSelection } =
+  const { isCreationDataStep, isCreationGeometryStep, isCreationGeometrySearch, allowsMultipleGeometry, searchableData, searchableGeometries, setCreationGeometrySelection, toggleCreationDataSelection } =
     useAnnotationCreationWizard();
   const [setupError, setSetupError] = useState<string | null>(null);
   const [deletionSetupError, setDeletionSetupError] = useState<string | null>(null);
@@ -112,8 +120,35 @@ export default function AnnotationWorkbench({
   const linkedGeometryIds = useMemo(() => new Set(
     allLinks.filter((link) => link.erasableAt === null).map((link) => link.geometryId),
   ), [allLinks]);
+  const initialLinkViewMode = useRef(linkViewMode);
+  const onClose = useCallback(() => {
+    setLinkViewMode(initialLinkViewMode.current);
+    closeWorkbench();
+  }, [setLinkViewMode, closeWorkbench]);
   const isCreateMode = mode === 'create';
-  const isDeleteMode = mode === 'delete';
+  const isDeleteMode = mode !== 'create';
+
+  const clearListSelection = useCallback(() => {
+    if (!isOpen || creating || deleting || dataEditorOpen || discardModal || messageModal) return;
+    if (isCreateMode && creationDraft?.step === 'geometry' && creationDraft.geometryMode === 'choose') {
+      setCreationGeometrySelection([]);
+    } else if (isCreateMode && creationDraft?.step === 'data' && creationDraft.dataMode === 'choose') {
+      updateCreationDraft({ selectedDataIds: [] });
+    } else if (isDeleteMode && deletionDraft?.step === 'selecting') {
+      clearDeletionBasket();
+    }
+  }, [isOpen, creating, deleting, dataEditorOpen, discardModal, messageModal, isCreateMode,
+    isDeleteMode, creationDraft, deletionDraft, setCreationGeometrySelection, updateCreationDraft, clearDeletionBasket]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('.modal.show, [role="dialog"]')) return;
+      clearListSelection();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, clearListSelection]);
 
   useCreationChosenEntityLocks(creationDraft, isOpen && isCreateMode, startEditorLock, stopEditorLock);
 
@@ -173,32 +208,34 @@ export default function AnnotationWorkbench({
   }, [geometryLabelsById, geometryNumbers, geometrySearchQuery, searchableGeometries]);
 
   const seedDeletionDraft = useCallback(() => {
-    if (deletionDraft) {
-      return;
-    }
-    if (primaryAnnotationSelection) {
-      const renderingMode = primaryAnnotationSelection.kind === 'geometry'
-        ? activeAnnotationSelection.renderingModeByGeometryId.get(primaryAnnotationSelection.id)
-        : activeAnnotationSelection.renderingModeByDataId.get(primaryAnnotationSelection.id);
-      if (isRecoverableRenderingMode(renderingMode)) {
-        initDeletionDraft();
-        setDeletionSetupError('Erased annotations can only be restored, not deleted again.');
-        return;
-      }
-      const result = beginDeletionForTarget(primaryAnnotationSelection);
-      setDeletionSetupError(result.ok ? null : result.message);
-      return;
-    }
+    if (deletionDraft) return;
     initDeletionDraft();
+    updateDeletionDraft({ operation: mode === 'erase' ? 'erase' : 'unlink', selectedEndpointIds: [], selectedCounterpartIds: [] });
+    // Viewer geometry picks also focus linked data: prefer their geometry source.
+    // An explicit primary Data selection takes precedence over contextual highlights.
+    const kind = primaryAnnotationSelection?.kind
+      ?? (focusedGeometryIds.size > 0 ? 'geometry' : focusedDataIds.size > 0 ? 'data' : null);
+    if (!kind) return;
+    const selectedIds = [...(kind === 'geometry' ? focusedGeometryIds : focusedDataIds)];
+    if (selectedIds.length === 0 && primaryAnnotationSelection) selectedIds.push(primaryAnnotationSelection.id);
+    const renderingModes = kind === 'geometry'
+      ? activeAnnotationSelection.renderingModeByGeometryId
+      : activeAnnotationSelection.renderingModeByDataId;
+    if (selectedIds.some((id) => isRecoverableRenderingMode(renderingModes.get(id)))) {
+      setDeletionSetupError('Erased annotations can only be restored.');
+      return;
+    }
+    const result = beginDeletionWizard({ deleteLink: true, deleteGeometry: kind === 'geometry', deleteData: kind === 'data' });
+    if (!result.ok) { setDeletionSetupError(result.message); return; }
+    updateDeletionDraft({ targetKind: kind });
+    for (const id of selectedIds) {
+      const picked = kind === 'geometry' ? addGeometryToDeletionBasket(id) : addDataToDeletionBasket(id);
+      if (!picked.ok) { setDeletionSetupError(picked.message); return; }
+    }
     setDeletionSetupError(null);
-  }, [
-    activeAnnotationSelection.renderingModeByDataId,
-    activeAnnotationSelection.renderingModeByGeometryId,
-    beginDeletionForTarget,
-    deletionDraft,
-    initDeletionDraft,
-    primaryAnnotationSelection,
-  ]);
+  }, [deletionDraft, initDeletionDraft, updateDeletionDraft, mode, primaryAnnotationSelection,
+    focusedGeometryIds, focusedDataIds, activeAnnotationSelection, beginDeletionWizard,
+    addGeometryToDeletionBasket, addDataToDeletionBasket]);
 
   useEffect(() => {
     const justOpened = isOpen && !wasOpenRef.current;
@@ -210,6 +247,7 @@ export default function AnnotationWorkbench({
       return;
     }
 
+    if (justOpened) initialLinkViewMode.current = linkViewMode;
     setSetupError(null);
     setDeletionSetupError(null);
 
@@ -291,7 +329,7 @@ export default function AnnotationWorkbench({
     if (isDeleteMode && deletionDraft) {
       setDiscardModal(new MessageModalDescriptor({
         tone: 'warning',
-        title: 'Cancel unlink/delete operation?',
+        title: 'Cancel unlink/erase operation?',
         message: 'This will discard the current choices and clear the selection.',
         actions: [
           { key: 'keep', label: 'Keep editing', tone: 'secondary' },
@@ -356,8 +394,9 @@ export default function AnnotationWorkbench({
       setDeletionSetupError(result.message);
       return;
     }
+    updateDeletionDraft({ targetKind: intent.deleteGeometry ? 'geometry' : 'data', selectedEndpointIds: [], selectedCounterpartIds: [] });
     setDeletionSetupError(null);
-  }, [beginDeletionWizard]);
+  }, [beginDeletionWizard, updateDeletionDraft]);
 
   const handleConfirmDeletion = useCallback(() => {
     void (async () => {
@@ -368,6 +407,7 @@ export default function AnnotationWorkbench({
         return;
       }
       clearFocus();
+      onClose();
       if (result.message) {
         setMessageModal(new MessageModalDescriptor({
           tone: 'success',
@@ -376,7 +416,6 @@ export default function AnnotationWorkbench({
         }));
         return;
       }
-      onClose();
     })();
   }, [clearFocus, commitDeletionDraft, onClose]);
 
@@ -427,9 +466,9 @@ export default function AnnotationWorkbench({
         'annotation-workbench bg-white border-start shadow d-flex flex-column',
         isDetached ? 'is-detached' : '',
         isDeleteMode ? 'is-authoring-delete' : '',
-        isCreateMode && isCreationDataStep ? 'is-authoring-data' : '',
+        (isCreateMode && isCreationDataStep) || (isDeleteMode && deletionDraft?.targetKind === 'data') ? 'is-authoring-data' : '',
       ].filter(Boolean).join(' ')}
-      aria-label={isDeleteMode ? 'Unlink and delete workbench' : 'Annotation workbench'}
+      aria-label={isDeleteMode ? `${mode === 'erase' ? 'Erase' : 'Unlink'} workbench` : 'Annotation workbench'}
       style={isDetached && floatingPosition
         ? { left: floatingPosition.left, top: floatingPosition.top, right: 'auto' }
         : undefined}
@@ -440,12 +479,12 @@ export default function AnnotationWorkbench({
       >
         <div>
           <div className="d-flex align-items-center gap-2">
-            <i className={`bi ${isDeleteMode ? 'bi-trash text-danger' : 'bi-vector-pen text-primary'}`} aria-hidden />
-            <h2 className="h5 mb-0">{isDeleteMode ? 'Unlink / Delete' : 'Annotation workbench'}</h2>
+            <i className={`bi ${isDeleteMode ? `${mode === 'erase' ? 'bi-eraser' : 'bi-link-45deg'} text-primary` : 'bi-vector-pen text-primary'}`} aria-hidden />
+            <h2 className="h5 mb-0">{isDeleteMode ? (mode === 'erase' ? 'Erase' : 'Unlink') : 'Annotation workbench'}</h2>
           </div>
           <p className="small text-muted mb-0 mt-1">
             {isDeleteMode
-              ? 'Choose what to unlink or mark as erasable.'
+              ? mode === 'erase' ? 'Erase selected items and all their relationships.' : 'Remove selected relationships; keep geometry and data available.'
               : 'Compose geometry, data, and their relationship.'}
           </p>
         </div>
@@ -525,7 +564,12 @@ export default function AnnotationWorkbench({
         </>
       ) : null}
 
-      <div className="annotation-workbench__body flex-grow-1 overflow-auto p-3">
+      <div className="annotation-workbench__body flex-grow-1 overflow-auto p-3"
+        onClick={(event) => {
+          if (event.target instanceof Element && ['DIV', 'SECTION'].includes(event.target.tagName) && !event.target.closest('button, input, textarea, select, a, label, [role="button"], [contenteditable="true"]')) {
+            clearListSelection();
+          }
+        }}>
         {isDeleteMode && deletionDraft ? (
           <AnnotationDeletionPanel
             draft={deletionDraft}
@@ -589,15 +633,14 @@ export default function AnnotationWorkbench({
                     className={`list-group-item list-group-item-action d-flex align-items-center justify-content-between ${selected ? 'active' : ''}${blocked ? ' disabled' : ''}`}
                     disabled={blocked}
                     title={blocked ? 'Another user is editing this geometry' : undefined}
-                    onClick={() => {
+                    onClick={(event) => {
                       if (blocked) {
                         setSetupError('Another user is editing this geometry.');
                         return;
                       }
                       setCreationGeometrySelection(
-                        selected
-                          ? creationDraft.selectedGeometryIds.filter((id) => id !== geometry.id)
-                          : [...creationDraft.selectedGeometryIds, geometry.id],
+                        annotationListSelection(creationDraft.selectedGeometryIds, geometry.id,
+                          allowsMultipleGeometry && (event.ctrlKey || event.metaKey)),
                       );
                     }}
                   >

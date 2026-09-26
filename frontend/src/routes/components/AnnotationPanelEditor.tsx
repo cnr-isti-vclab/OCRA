@@ -1,6 +1,6 @@
 /**
  * AnnotationPanelEditor — browse / edit / list for active {@link AnnotationData}.
- * Creation and (soon) unlink/delete authoring live in AnnotationWorkbench.
+ * Creation and (soon) unlink/erase authoring live in AnnotationWorkbench.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,8 +41,8 @@ interface AnnotationPanelEditorProps {
   sceneAssets?: Array<{ id: string; label: string }>;
   /** Opens the dockable annotation workbench for creation. */
   onOpenCreationWorkbench: () => void;
-  /** Opens the dockable annotation workbench for unlink/delete. */
-  onOpenDeletionWorkbench: () => void;
+  /** Opens the dockable annotation workbench for unlink/erase. */
+  onOpenDeletionWorkbench: (operation: 'unlink' | 'erase') => void;
 }
 
 interface AnnotationDataDraft {
@@ -171,11 +171,11 @@ export default function AnnotationPanelEditor({
     onOpenCreationWorkbench();
   }, [deletionDraft, isDeletionWizardActive, onOpenCreationWorkbench]);
 
-  const handleOpenDeletionWorkbench = useCallback(() => {
+  const handleOpenDeletionWorkbench = useCallback((operation: 'unlink' | 'erase') => {
     if (isCreationWizardActive || isDeletionWizardActive || creationDraft || deletionDraft) {
       return;
     }
-    onOpenDeletionWorkbench();
+    onOpenDeletionWorkbench(operation);
   }, [creationDraft, deletionDraft, isCreationWizardActive, isDeletionWizardActive, onOpenDeletionWorkbench]);
 
   // Class filter UI is handled by the shared `AnnotationClassFilter` component.
@@ -537,7 +537,7 @@ export default function AnnotationPanelEditor({
               disabled={Boolean(deletionDraft) || isDeletionWizardActive || isCreationWizardActive}
               title={
                 deletionDraft || isDeletionWizardActive
-                  ? 'Finish or cancel unlink/delete before creating'
+                  ? 'Finish or cancel unlink/erase before creating'
                   : isCreationWizardActive
                   ? 'Close the annotation workbench before starting a new session'
                   : undefined
@@ -546,22 +546,14 @@ export default function AnnotationPanelEditor({
               <i className="bi bi-plus-lg me-1" aria-hidden />
               Annotate
             </button>
-            <button
-              type="button"
-              className="btn btn-sm flex-fill btn-outline-danger"
-              onClick={handleOpenDeletionWorkbench}
-              disabled={Boolean(creationDraft) || isCreationWizardActive || Boolean(deletionDraft) || isDeletionWizardActive}
-              title={
-                deletionDraft || isDeletionWizardActive
-                  ? 'Close the workbench before starting a new unlink/delete session'
-                  : creationDraft || isCreationWizardActive
-                    ? 'Finish or cancel creation before unlinking or deleting'
-                    : undefined
-              }
-            >
-              <i className="bi bi-trash me-1" aria-hidden />
-              Unlink/Delete
-            </button>
+            {(['unlink', 'erase'] as const).map((operation) => (
+              <button key={operation} type="button" className="btn btn-sm flex-fill btn-outline-danger"
+                onClick={() => handleOpenDeletionWorkbench(operation)}
+                disabled={Boolean(creationDraft) || isCreationWizardActive || Boolean(deletionDraft) || isDeletionWizardActive}>
+                <i className={operation === 'unlink' ? 'bi bi-link-45deg me-1' : 'bi bi-eraser me-1'} aria-hidden />
+                {operation === 'unlink' ? 'Unlink' : 'Erase'}
+              </button>
+            ))}
           </div>
           {!isCreationWizardActive && !isDeletionWizardActive ? (
             <AnnotationLinkViewModeToggle

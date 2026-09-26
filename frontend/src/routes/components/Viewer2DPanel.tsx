@@ -182,7 +182,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const lastDraftGeometryViewerIdRef = useRef<string | null>(null);
-    const lastCreationGeometryFocusKeyRef = useRef<string | null>(null);
+    const lastWizardGeometryFocusKeyRef = useRef<string | null>(null);
     const wasCreationGeometryStepRef = useRef(false);
     // Creation data/committing must stay in preserve: draft geometry is still
     // highlighted, but enabling edit here fights sticky draw and the post-geometry
@@ -1044,18 +1044,22 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     // The latter is emitted before the SVG synchronization pass has completed, so a
     // just-selected annotation can still have no measurable geometry at that point.
     useEffect(() => {
-      const selectedIds = creationDraft?.selectedGeometryIds ?? [];
-      if (!isCreationGeometrySearch || !viewerReady || selectedIds.length === 0) {
-        lastCreationGeometryFocusKeyRef.current = null;
+      const isDeletionGeometrySelection = isDeletionSelectingStep
+        && deletionDraft?.targetKind === 'geometry'
+        && Boolean(deletionDraft.operation);
+      const selectedIds = isDeletionGeometrySelection
+        ? deletionDraft?.selectedEndpointIds ?? []
+        : creationDraft?.selectedGeometryIds ?? [];
+      if ((!isCreationGeometrySearch && !isDeletionGeometrySelection) || !viewerReady || selectedIds.length === 0) {
+        lastWizardGeometryFocusKeyRef.current = null;
         return;
       }
 
       const ids = normalizeIds(selectedIds);
-      const key = ids.join('\u0000');
-      if (lastCreationGeometryFocusKeyRef.current === key) {
+      const key = JSON.stringify([ids, annotationOverlayRightInset]);
+      if (lastWizardGeometryFocusKeyRef.current === key) {
         return;
       }
-      lastCreationGeometryFocusKeyRef.current = key;
 
       // The first frame lets React commit the selected list state; the second lets
       // OpenLIME finish importing and laying out its SVG annotation nodes.
@@ -1064,12 +1068,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         secondFrame = requestAnimationFrame(() => {
           const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
           const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
-          manager?.focusAnnotations?.(ids, {
+          const result = manager?.focusAnnotations?.(ids, {
             duration: 250,
             padding: 0.08,
             insets: { right: annotationOverlayRightInset },
             onlyIfNeeded: true,
           });
+          if (result?.fullyVisible) lastWizardGeometryFocusKeyRef.current = key;
         });
       });
 
@@ -1081,8 +1086,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       };
     }, [
       annotationOverlayRightInset,
+      annotationManagerRevision,
+      viewerAnnotationsForSync,
       creationDraft?.selectedGeometryIds,
       isCreationGeometrySearch,
+      deletionDraft?.operation,
+      deletionDraft?.targetKind,
+      deletionDraft?.selectedEndpointIds,
+      isDeletionSelectingStep,
       ref,
       viewerReady,
     ]);

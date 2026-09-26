@@ -128,7 +128,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   confirmPendingCreatedData: () => { ok: true } | { ok: false; message: string };
   undoLastCreatedData: () => boolean;
   setCreationGeometrySelection: (geometryIds: string[]) => void;
-  toggleCreationDataSelection: (dataId: string) => void;
+  toggleCreationDataSelection: (dataId: string, additive?: boolean) => void;
   deletionDraft: Readonly<AnnotationDeletionDraft> | null;
   isDeletionWizardActive: boolean;
   initDeletionDraft: () => void;
@@ -884,8 +884,8 @@ export function AnnotationStoreProvider({
     storeRef.current?.setCreationGeometrySelection(geometryIds);
   }, []);
 
-  const toggleCreationDataSelection = useCallback((dataId: string) => {
-    storeRef.current?.toggleCreationDataSelection(dataId);
+  const toggleCreationDataSelection = useCallback((dataId: string, additive?: boolean) => {
+    storeRef.current?.toggleCreationDataSelection(dataId, additive);
   }, []);
 
   const initDeletionDraft = useCallback(() => {

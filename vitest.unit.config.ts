@@ -17,6 +17,7 @@ export default defineConfig({
       'frontend/src/stores/annotation-selection.test.ts',
       'frontend/src/stores/annotation-social-locks.test.ts',
       'frontend/src/utils/annotationDisplayNumbers.test.ts',
+      'frontend/src/utils/annotationListSelection.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'build'],
     reporters: ['verbose'],

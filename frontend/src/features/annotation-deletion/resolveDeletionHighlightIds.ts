@@ -13,6 +13,8 @@ type DeletionHighlightDraft = Pick<
   pendingResolution?: AnnotationDeletionDraft['pendingResolution'];
   targetKind?: AnnotationDeletionDraft['targetKind'];
   targetId?: AnnotationDeletionDraft['targetId'];
+  operation?: AnnotationDeletionDraft['operation'];
+  selectedEndpointIds?: string[];
 };
 
 /**
@@ -26,6 +28,12 @@ export function resolveDeletionHighlightIds(
   draft: DeletionHighlightDraft,
   links: Iterable<AnnotationLink>,
 ): DeletionHighlightIds {
+  if (draft.operation) {
+    return {
+      geometryIds: draft.targetKind === 'geometry' ? [...(draft.selectedEndpointIds ?? [])] : [],
+      dataIds: draft.targetKind === 'data' ? [...(draft.selectedEndpointIds ?? [])] : [],
+    };
+  }
   const pending = draft.pendingResolution;
   if (pending?.modal === 'pickCounterparts' && pending.endpointKind === 'data') {
     return {

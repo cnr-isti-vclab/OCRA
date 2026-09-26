@@ -13,14 +13,6 @@
   box-shadow: none !important;
 }
 
-/* Docked delete shares the sidebar with the browse list (data picks). */
-.annotation-workbench.is-authoring-delete:not(.is-detached) {
-  height: auto;
-  max-height: min(55%, 28rem);
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--bs-border-color) !important;
-}
-
 .annotation-workbench.is-detached {
   --annotation-workbench-top: max(5rem, calc(1rem + env(safe-area-inset-top)));
   position: fixed;
@@ -161,8 +153,20 @@
     resize: none;
     border-radius: 0;
   }
-
-  .annotation-workbench.is-authoring-delete:not(.is-detached) {
-    max-height: 45%;
-  }
 }
+
+/* Keep entity identity visible in unlink/erase, including opposite-side links. */
+.annotation-operation-list { max-height: 18rem; overflow-y: auto; }
+.annotation-workbench .annotation-data-action {
+  --bs-btn-color: #a85d00; --bs-btn-border-color: #a85d00;
+  --bs-btn-hover-bg: #a85d00; --bs-btn-hover-border-color: #a85d00;
+  --bs-btn-active-bg: #713e00; --bs-btn-active-border-color: #713e00;
+}
+.annotation-counterparts-data { color: #a85d00; }
+.annotation-counterparts-data .form-check-input:checked { background-color: #a85d00; border-color: #a85d00; }
+.annotation-counterparts-geometry { color: var(--bs-primary); }
+.annotation-counterparts-geometry .form-check-input:checked { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+
+.annotation-counterparts-data .list-group-item { border-left: 3px solid #a85d00; }
+.annotation-counterparts-geometry .list-group-item { border-left: 3px solid var(--bs-primary); }
+.annotation-counterparts-data .form-check-input:focus { border-color: #a85d00; box-shadow: 0 0 0 .25rem rgba(168, 93, 0, .25); }

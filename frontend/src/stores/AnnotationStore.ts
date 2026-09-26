@@ -27,6 +27,7 @@ import {
   type SelectionCriteria,
 } from './annotation-selection';
 import type { PrimaryAnnotationSelection } from '../types/annotationSelection';
+import { annotationListSelection } from '../utils/annotationListSelection';
 import type { AnnotationCreationDraft, AnnotationCreationRememberedSetup } from '../features/annotation-creation/types';
 import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
 import { flushCreationDraftGeometry } from '../features/annotation-creation/creationDraftGeometryFlush';
@@ -58,6 +59,7 @@ import {
   validateCreationDraftForCommit,
   validateCreationStep,
 } from '../features/annotation-creation/annotationCreationValidation';
+import { annotationOperationLinks, commonAnnotationCounterparts } from '../utils/annotationUnlinkSelection';
 import { filterGeometriesForCreationSearch } from '../features/annotation-creation/filterCreationCandidates';
 import type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
 import { createDefaultDeletionDraft } from '../features/annotation-deletion/createDefaultDeletionDraft';
@@ -516,7 +518,7 @@ export class AnnotationStore {
     next: Pick<
       AnnotationDeletionDraft,
       'candidateLinkIds' | 'candidateGeometryIds' | 'candidateDataIds'
-    > & Partial<Pick<AnnotationDeletionDraft, 'targetKind' | 'targetId'>>,
+    > & Partial<Pick<AnnotationDeletionDraft, 'targetKind' | 'targetId' | 'selectedEndpointIds' | 'selectedCounterpartIds'>>,
   ): DeletionBasketAddResult {
     this.deletionDraft = {
       ...draft,
@@ -573,6 +575,16 @@ export class AnnotationStore {
     }
     if (!this.geometryMap.has(geometryId)) {
       return this.failDeletionBasketAdd(draft, 'Geometry not found in this scene.');
+    }
+
+    if (draft.operation) {
+      const entity = this.geometryMap.get(geometryId);
+      if (!entity || entity.erasableAt !== null) return this.failDeletionBasketAdd(draft, 'Only available items can be selected.');
+      return this.finishDeletionBasketAdd(draft, {
+        targetKind: 'geometry', targetId: null,
+        selectedEndpointIds: this.mergeUniqueIds(draft.selectedEndpointIds ?? [], [geometryId]),
+        selectedCounterpartIds: [], candidateLinkIds: [], candidateGeometryIds: [], candidateDataIds: [],
+      });
     }
 
     if (draft.deleteLink && draft.deleteGeometry && !draft.deleteData) {
@@ -645,6 +657,16 @@ export class AnnotationStore {
     }
     if (!this.dataMap.has(dataId)) {
       return this.failDeletionBasketAdd(draft, 'Annotation data not found.');
+    }
+
+    if (draft.operation) {
+      const entity = this.dataMap.get(dataId);
+      if (!entity || entity.erasableAt !== null) return this.failDeletionBasketAdd(draft, 'Only available items can be selected.');
+      return this.finishDeletionBasketAdd(draft, {
+        targetKind: 'data', targetId: null,
+        selectedEndpointIds: this.mergeUniqueIds(draft.selectedEndpointIds ?? [], [dataId]),
+        selectedCounterpartIds: [], candidateLinkIds: [], candidateGeometryIds: [], candidateDataIds: [],
+      });
     }
 
     if (draft.deleteLink && draft.deleteData && !draft.deleteGeometry) {
@@ -894,6 +916,10 @@ export class AnnotationStore {
     if (!draft) {
       return;
     }
+    if (draft.operation) {
+      this.updateDeletionDraft({ selectedEndpointIds: (draft.selectedEndpointIds ?? []).filter((id) => id !== geometryId), selectedCounterpartIds: [], candidateLinkIds: [] });
+      return;
+    }
     this.deletionDraft = {
       ...draft,
       ...computeGeometryDeselection(draft, geometryId, this.linkMap.values()),
@@ -906,6 +932,10 @@ export class AnnotationStore {
   deselectDataFromDeletionBasket(dataId: string): void {
     const draft = this.ensureDeletionSelecting();
     if (!draft) {
+      return;
+    }
+    if (draft.operation) {
+      this.updateDeletionDraft({ selectedEndpointIds: (draft.selectedEndpointIds ?? []).filter((id) => id !== dataId), selectedCounterpartIds: [], candidateLinkIds: [] });
       return;
     }
     this.deletionDraft = {
@@ -921,6 +951,10 @@ export class AnnotationStore {
   clearDeletionBasket(): void {
     const draft = this.ensureDeletionSelecting();
     if (!draft) {
+      return;
+    }
+    if (draft.operation) {
+      this.updateDeletionDraft({ selectedEndpointIds: [], selectedCounterpartIds: [], candidateLinkIds: [], candidateGeometryIds: [], candidateDataIds: [] });
       return;
     }
     if (
@@ -962,6 +996,43 @@ export class AnnotationStore {
     }
     if (this.isCreating || this.isCreationWizardActive) {
       return { ok: false, message: 'Finish or cancel creation before deleting.' };
+    }
+
+    if (this.deletionDraft.operation) {
+      const snapshot = this.deletionDraft;
+      const myGeneration = this.generation;
+      let projectLinks: AnnotationLink[];
+      try {
+        projectLinks = await this.loadProjectLinksForDeletion();
+      } catch {
+        return { ok: false, message: 'Could not verify all project relationships. Please try again.' };
+      }
+      if (this.generation !== myGeneration || this.deletionDraft !== snapshot || this.isDeleting) {
+        return { ok: false, message: 'The selection changed. Review it before retrying.' };
+      }
+      const kind = snapshot.deleteGeometry ? 'geometry' : 'data';
+      const ids = snapshot.selectedEndpointIds ?? [];
+      if (ids.length === 0) return { ok: false, message: 'Select at least one item.' };
+      if (snapshot.operation === 'unlink') {
+        const common = new Set(commonAnnotationCounterparts(projectLinks, kind, ids));
+        const counterparts = snapshot.selectedCounterpartIds ?? [];
+        if (counterparts.length === 0 || counterparts.some((id) => !common.has(id))) {
+          return { ok: false, message: 'Relationships changed or none were selected. Review the common relationships.' };
+        }
+      }
+      const links = annotationOperationLinks(projectLinks, kind, ids,
+        snapshot.operation === 'unlink' ? snapshot.selectedCounterpartIds ?? [] : undefined);
+      const affectedIds = new Set(links.map((link) => link.id));
+      for (const link of projectLinks) {
+        if (this.linkMap.has(link.id) || affectedIds.has(link.id)) this.linkMap.set(link.id, link);
+      }
+      this.deletionDraft = {
+        ...snapshot,
+        candidateLinkIds: links.map((link) => link.id),
+        candidateGeometryIds: snapshot.operation === 'erase' && kind === 'geometry' ? [...ids] : [],
+        candidateDataIds: snapshot.operation === 'erase' && kind === 'data' ? [...ids] : [],
+        restoreGeometryIds: [], restoreDataIds: [],
+      };
     }
 
     const geometryIdsByDataId = this.buildGeometryIdsByDataId();
@@ -1330,7 +1401,7 @@ export class AnnotationStore {
     this.bump();
   }
 
-  toggleCreationDataSelection(dataId: string): void {
+  toggleCreationDataSelection(dataId: string, additive = true): void {
     if (
       !this.creationDraft
       || this.creationDraft.step !== 'data'
@@ -1351,15 +1422,7 @@ export class AnnotationStore {
 
     const current = this.creationDraft.selectedDataIds;
     const allowsMultiple = allowsMultipleDataSelection(this.creationDraft);
-    let next: string[];
-
-    if (current.includes(dataId)) {
-      next = current.filter((id) => id !== dataId);
-    } else if (allowsMultiple) {
-      next = [...current, dataId];
-    } else {
-      next = [dataId];
-    }
+    const next = annotationListSelection(current, dataId, allowsMultiple && additive);
 
     this.creationDraft = {
       ...this.creationDraft,

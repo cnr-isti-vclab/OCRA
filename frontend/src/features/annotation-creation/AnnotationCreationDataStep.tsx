@@ -22,7 +22,7 @@ interface AnnotationCreationDataStepProps {
   /** Remote editor lock — candidate cannot be chosen for linking. */
   isCandidateBlocked?: (dataId: string) => boolean;
   onBlockedSelect?: () => void;
-  onToggleDataSelection: (dataId: string) => void;
+  onToggleDataSelection: (dataId: string, additive?: boolean) => void;
   onOpenCreateModal: () => void;
   onDataModeChange: (mode: 'new' | 'choose') => void;
   onUndoLastCreatedData: () => void;
@@ -214,12 +214,12 @@ export default function AnnotationCreationDataStep({
                     className={`list-group-item list-group-item-action text-start ${isSelected ? 'active' : ''}${blocked ? ' disabled' : ''}`}
                     disabled={blocked}
                     title={blocked ? 'Another user is editing this annotation data' : undefined}
-                    onClick={() => {
+                    onClick={(event) => {
                       if (blocked) {
                         onBlockedSelect?.();
                         return;
                       }
-                      onToggleDataSelection(datum.id);
+                      onToggleDataSelection(datum.id, allowsMultiple && (event.ctrlKey || event.metaKey));
                     }}
                     aria-pressed={isSelected}
                   >

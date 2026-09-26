@@ -26,7 +26,7 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
   setCreationDraftShapes: (shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   setCreationDraftGeometry: (viewerId: string, shapes: import('shared/annotation-types').AnnotationShape[]) => void;
   setCreationGeometrySelection: (geometryIds: string[]) => void;
-  toggleCreationDataSelection: (dataId: string) => void;
+  toggleCreationDataSelection: (dataId: string, additive?: boolean) => void;
 } {
   const {
     creationDraft,

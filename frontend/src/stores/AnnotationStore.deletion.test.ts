@@ -10,6 +10,7 @@ const testShapes: AnnotationShape[] = [{ type: 'ShapePoints', vertices: [[0, 0, 
 
 const mockClient = vi.hoisted(() => ({
   loadSceneBundle: vi.fn(),
+  loadProjectLinks: vi.fn(),
   connectRealtime: vi.fn(),
   disconnectRealtime: vi.fn(),
   markGeometryErasable: vi.fn(),
@@ -153,6 +154,85 @@ describe('AnnotationStore deletion wizard commit', () => {
       version: 2,
       updatedAt: null,
     });
+  });
+
+  it.each(['geometry', 'data'] as const)('unlinks common relationships from multiple %s endpoints without erasing items', async (kind) => {
+    const store = createTestStore();
+    const links = kind === 'geometry'
+      ? [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g2', 'd1'), makeLink('l3', 'g1', 'd2')]
+      : [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g1', 'd2'), makeLink('l3', 'g2', 'd1')];
+    await seedScene(store, { geometries: [makeGeometry('g1'), makeGeometry('g2')], data: [makeDatum('d1'), makeDatum('d2')], links });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft();
+    store.updateDeletionDraft({ operation: 'unlink' });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: kind === 'geometry', deleteData: kind === 'data' });
+    if (kind === 'geometry') { store.addGeometryToDeletionBasket('g1'); store.addGeometryToDeletionBasket('g2'); }
+    else { store.addDataToDeletionBasket('d1'); store.addDataToDeletionBasket('d2'); }
+    expect(store.deletionDraftState?.selectedEndpointIds).toHaveLength(2);
+    store.updateDeletionDraft({ selectedCounterpartIds: [kind === 'geometry' ? 'd1' : 'g1'] });
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markLinkErasable.mock.calls.map(([id]) => id)).toEqual(['l1', 'l2']);
+    expect(mockClient.markGeometryErasable).not.toHaveBeenCalled();
+    expect(mockClient.markDataErasable).not.toHaveBeenCalled();
+    expect(store.linksById.get('l3')?.erasableAt).toBeNull();
+    expect(store.deletionDraftState).toBeNull();
+  });
+
+  it('rejects relationships that are not common to every selected endpoint', async () => {
+    const store = createTestStore();
+    const links = [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g2', 'd2')];
+    await seedScene(store, { geometries: [makeGeometry('g1'), makeGeometry('g2')], data: [makeDatum('d1'), makeDatum('d2')], links });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft(); store.updateDeletionDraft({ operation: 'unlink' });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1'); store.addGeometryToDeletionBasket('g2');
+    store.updateDeletionDraft({ selectedCounterpartIds: ['d1'] });
+    expect((await store.commitDeletionDraft(emptyLocks)).ok).toBe(false);
+    expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
+  });
+
+  it.each(['geometry', 'data'] as const)('erases multiple %s endpoints including relationships outside the loaded scene', async (kind) => {
+    const store = createTestStore();
+    const links = [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g2', 'd2'),
+      kind === 'geometry' ? makeLink('remote', 'g1', 'remote-data') : makeLink('remote', 'remote-geometry', 'd1')];
+    await seedScene(store, { geometries: [makeGeometry('g1'), makeGeometry('g2')], data: [makeDatum('d1'), makeDatum('d2')], links: links.slice(0, 2) });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft(); store.updateDeletionDraft({ operation: 'erase' });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: kind === 'geometry', deleteData: kind === 'data' });
+    if (kind === 'geometry') { store.addGeometryToDeletionBasket('g1'); store.addGeometryToDeletionBasket('g2'); }
+    else { store.addDataToDeletionBasket('d1'); store.addDataToDeletionBasket('d2'); }
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markLinkErasable).toHaveBeenCalledTimes(3);
+    expect(kind === 'geometry' ? mockClient.markGeometryErasable : mockClient.markDataErasable).toHaveBeenCalledTimes(2);
+    expect(kind === 'geometry' ? mockClient.markDataErasable : mockClient.markGeometryErasable).not.toHaveBeenCalled();
+    expect(store.deletionDraftState).toBeNull();
+  });
+
+  it('erases a geometry without relationships', async () => {
+    const store = createTestStore();
+    await seedScene(store, { geometries: [makeGeometry('g1')] });
+    mockClient.loadProjectLinks.mockResolvedValue([]);
+    store.initDeletionDraft(); store.updateDeletionDraft({ operation: 'erase' });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g1', 0);
+    expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
+  });
+
+  it('retains the multi-selection and rolls back when erase fails', async () => {
+    const store = createTestStore();
+    const links = [makeLink('l1', 'g1', 'd1')];
+    await seedScene(store, { geometries: [makeGeometry('g1')], data: [makeDatum('d1')], links });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    mockClient.markGeometryErasable.mockRejectedValueOnce(new Error('Save failed'));
+    store.initDeletionDraft(); store.updateDeletionDraft({ operation: 'erase' });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    expect((await store.commitDeletionDraft(emptyLocks)).ok).toBe(false);
+    expect(mockClient.markLinkNonErasable).toHaveBeenCalledWith('l1', 1);
+    expect(store.deletionDraftState?.selectedEndpointIds).toEqual(['g1']);
+    expect(store.deletionDraftState?.step).toBe('selecting');
   });
 
   it.each([

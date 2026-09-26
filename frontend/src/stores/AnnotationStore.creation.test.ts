@@ -117,6 +117,36 @@ describe('AnnotationStore creation wizard commit', () => {
     mockClient.markLinkErasable.mockResolvedValue({ success: true, version: 1, updatedAt: null });
   });
 
+  it('replaces data selection on plain clicks and extends it on Ctrl clicks', async () => {
+    const store = createTestStore();
+    mockClient.loadSceneBundle.mockResolvedValue({ geometries: [], data: [makeDatum('d-1'), makeDatum('d-2')], links: [] });
+    await store.loadScene('scene-1');
+    store.initCreationDraft();
+    store.updateCreationDraft({ step: 'data', dataMode: 'choose' });
+    store.toggleCreationDataSelection('d-1', false);
+    store.toggleCreationDataSelection('d-2', false);
+    expect(store.creationDraftState?.selectedDataIds).toEqual(['d-2']);
+    store.toggleCreationDataSelection('d-1', true);
+    expect(store.creationDraftState?.selectedDataIds).toEqual(['d-2', 'd-1']);
+    store.toggleCreationDataSelection('d-2', true);
+    expect(store.creationDraftState?.selectedDataIds).toEqual(['d-1']);
+    store.toggleCreationDataSelection('d-1', false);
+    expect(store.creationDraftState?.selectedDataIds).toEqual([]);
+  });
+
+  it('ignores additive selection when multiple geometries allow only one datum', async () => {
+    const store = createTestStore();
+    mockClient.loadSceneBundle.mockResolvedValue({ geometries: [], data: [makeDatum('d-1'), makeDatum('d-2')], links: [] });
+    await store.loadScene('scene-1');
+    store.initCreationDraft();
+    store.updateCreationDraft({ step: 'data', dataMode: 'choose', geometryMode: 'choose', selectedGeometryIds: ['g-1', 'g-2'] });
+    store.toggleCreationDataSelection('d-1', true);
+    store.toggleCreationDataSelection('d-2', true);
+    expect(store.creationDraftState?.selectedDataIds).toEqual(['d-2']);
+    store.toggleCreationDataSelection('d-2', true);
+    expect(store.creationDraftState?.selectedDataIds).toEqual([]);
+  });
+
   it('appends sticky new geometries and undoes the last one', () => {
     const store = createTestStore();
     store.initCreationDraft();
