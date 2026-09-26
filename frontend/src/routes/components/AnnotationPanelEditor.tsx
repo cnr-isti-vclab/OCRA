@@ -27,6 +27,8 @@ import { useAnnotationLinkView } from '../../features/annotation-link-view/useAn
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
 import { useAnnotationDeletionWizard } from '../../features/annotation-deletion/useAnnotationDeletionWizard';
 import { applyDeletionDataPick } from '../../features/annotation-deletion/applyDeletionDataPick';
+import AnnotationTrashPanel from '../../features/annotation-trash/AnnotationTrashPanel';
+import { useAnnotationTrash } from '../../features/annotation-trash/AnnotationTrashContext';
 import type {
   VocabularyConcept,
   VocabularyProperty,
@@ -107,8 +109,6 @@ export default function AnnotationPanelEditor({
     activeAnnotationSelection,
     activeSocialLocks,
     currentStreamId,
-    showErased,
-    setShowErased,
     sceneAnnotationClassPool,
     vocabularySchemes,
     vocabularyConcepts,
@@ -132,11 +132,11 @@ export default function AnnotationPanelEditor({
     deletionDraft,
     isDeletionWizardActive,
     updateData,
-    markDataNonErasable,
-    markGeometryNonErasable,
     startEditorLock,
     stopEditorLock,
   } = useAnnotationStore();
+
+  const { isOpen, openTrash } = useAnnotationTrash();
 
   const {
     visibleData,
@@ -376,31 +376,6 @@ export default function AnnotationPanelEditor({
     focusData(dataId, e.ctrlKey || e.metaKey);
   };
 
-  const handleRestoreData = async (datum: AnnotationData) => {
-    try {
-      await markDataNonErasable(datum.id);
-    } catch (err) {
-      console.error('Failed to restore annotation data:', err);
-      setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
-    }
-  };
-
-  const focusedRecoverableGeometryIds = useMemo(
-    () =>
-      [...focusedGeometryIds].filter((id) =>
-        isRecoverableRenderingMode(activeAnnotationSelection.renderingModeByGeometryId.get(id)),
-      ),
-    [activeAnnotationSelection.renderingModeByGeometryId, focusedGeometryIds],
-  );
-
-  const handleRestoreFocusedRecoverableGeometries = async () => {
-    try {
-      await Promise.all(focusedRecoverableGeometryIds.map((id) => markGeometryNonErasable(id)));
-    } catch (err) {
-      console.error('Failed to restore annotation geometry:', err);
-      setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_data'));
-    }
-  };
 
   const handleEditSave = async () => {
     if (!editingDraft) {
@@ -495,6 +470,10 @@ export default function AnnotationPanelEditor({
     };
   }, [stopEditorLock]);
 
+  if (isOpen) {
+    return <AnnotationTrashPanel />;
+  }
+
   return (
     <AnnotationPanelBase
       title="Annotations"
@@ -554,6 +533,12 @@ export default function AnnotationPanelEditor({
                 {operation === 'unlink' ? 'Unlink' : 'Erase'}
               </button>
             ))}
+            <button type="button" className="btn btn-sm btn-outline-info"
+              onClick={openTrash}
+              disabled={Boolean(creationDraft) || isCreationWizardActive || Boolean(deletionDraft) || isDeletionWizardActive}
+              aria-label="Open trash" title="Trash">
+              <i className="bi bi-trash" aria-hidden />
+            </button>
           </div>
           {!isCreationWizardActive && !isDeletionWizardActive ? (
             <AnnotationLinkViewModeToggle
@@ -565,20 +550,6 @@ export default function AnnotationPanelEditor({
         </>
       )}
     >
-
-      {!isCreationWizardActive && !isDeletionWizardActive && linkViewMode === 'showAll' ? (
-        <div className="mb-3">
-          <button
-            type="button"
-            className={`btn btn-sm w-100 ${showErased ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setShowErased(!showErased)}
-            aria-pressed={showErased}
-          >
-            <i className={`bi ${showErased ? 'bi-eye' : 'bi-eye-slash'} me-1`} aria-hidden />
-            Show geometry without links
-          </button>
-        </div>
-      ) : null}
 
       {visibleData.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
@@ -599,23 +570,6 @@ export default function AnnotationPanelEditor({
           {isDeletionGeometryPickActive ? (
             <div className="alert alert-info py-2 px-3 small mb-2">
               Selecting geometries for the annotation below. Other data rows are hidden until you press OK or Cancel.
-            </div>
-          ) : null}
-          {focusedRecoverableGeometryIds.length > 0 ? (
-            <div className="alert alert-secondary py-2 px-3 small mb-2 d-flex justify-content-between align-items-center gap-2">
-              <span>
-                Selected geometry is erased (ghost or orphan). Restore it to edit again.
-              </span>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary flex-shrink-0"
-                onClick={() => {
-                  void handleRestoreFocusedRecoverableGeometries();
-                }}
-              >
-                <i className="bi bi-arrow-counterclockwise me-1" aria-hidden />
-                Restore
-              </button>
             </div>
           ) : null}
           <div className="list-group">
@@ -692,20 +646,7 @@ export default function AnnotationPanelEditor({
                         ) : null}
                       </div>
                       <div className="d-flex gap-1 flex-shrink-0">
-                        {isRecoverable ? (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            title="Restore erased annotation data"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleRestoreData(datum);
-                            }}
-                            disabled={creating || isDeletionWizardActive}
-                          >
-                            <i className="bi bi-arrow-counterclockwise"></i>
-                          </button>
-                        ) : (
+                        {!isRecoverable ? (
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-secondary"
@@ -726,7 +667,7 @@ export default function AnnotationPanelEditor({
                           >
                             <i className="bi bi-pencil"></i>
                           </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <div

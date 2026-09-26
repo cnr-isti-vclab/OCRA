@@ -7,6 +7,7 @@ export default function AnnotationPanelBase({
   status,
   classFilter,
   toggle,
+  contentClassName,
   children,
 }: {
   title?: string;
@@ -15,6 +16,7 @@ export default function AnnotationPanelBase({
   status?: ReactNode;
   classFilter?: ReactNode;
   toggle?: ReactNode;
+  contentClassName?: string;
   children: ReactNode;
 }) {
   return (
@@ -31,7 +33,7 @@ export default function AnnotationPanelBase({
       {classFilter}
       {toggle}
 
-      <div className="flex-grow-1 overflow-auto">{children}</div>
+      <div className={`flex-grow-1 ${contentClassName ?? 'overflow-auto'}`} style={{ minHeight: 0 }}>{children}</div>
     </div>
   );
 }

@@ -1,0 +1,15 @@
+/**
+ * Shared entity colors for annotation workflows.
+ * Geometry uses Bootstrap primary; Data uses the warm OCRA accent.
+ */
+.annotation-data-accent {
+  --annotation-data-accent: #a85d00;
+  --annotation-data-accent-hover: #874a00;
+  --annotation-data-accent-active: #713e00;
+  --annotation-data-accent-rgb: 168, 93, 0;
+}
+
+.annotation-data-accent .list-group-item.active {
+  --bs-list-group-active-bg: var(--annotation-data-accent);
+  --bs-list-group-active-border-color: var(--annotation-data-accent);
+}

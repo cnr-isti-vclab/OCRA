@@ -10,6 +10,7 @@ import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
+import { useAnnotationTrash } from '../../features/annotation-trash/AnnotationTrashContext';
 import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/constants';
 import { registerCreationDraftGeometryFlush } from '../../features/annotation-creation/creationDraftGeometryFlush';
 import { purgeCreationGeometryDrafts } from '../../features/annotation-creation/purgeCreationGeometryDrafts';
@@ -117,7 +118,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       startEditorLock,
       stopEditorLock,
     } = useAnnotationStore();
-    const { visibleGeometries } = useAnnotationLinkView();
+    const { visibleGeometries: annotationVisibleGeometries } = useAnnotationLinkView();
+    const annotationTrash = useAnnotationTrash();
+    const visibleGeometries = annotationTrash.isOpen
+      ? annotationTrash.erasableGeometries
+      : annotationVisibleGeometries;
     const {
       creationDraft,
       isCreationWizardActive,
@@ -188,7 +193,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     // highlighted, but enabling edit here fights sticky draw and the post-geometry
     // pencil-off path. Sticky New also uses preserve so OpenLIME stays in create mode.
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
-      annotationMode === 'viewer' || isDeletionSelectingStep
+      annotationMode === 'viewer' || isDeletionSelectingStep || annotationTrash.isOpen
         ? 'preserve'
         : isCreationWizardActive
           ? 'preserve'
@@ -375,11 +380,14 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           new Set(),
           annotationClassFilterValues,
         );
-        return workbenchOpen
-          ? withWorkbenchDisplayNumbers(annotations, activeAnnotationSelection, geometryNumbers, dataNumbers)
+        const presented = annotationTrash.isOpen
+          ? annotations.map((annotation) => ({ ...annotation, semanticClass: null, structuralClass: 'trash', strokeDasharray: null }))
           : annotations;
+        return workbenchOpen
+          ? withWorkbenchDisplayNumbers(presented, activeAnnotationSelection, geometryNumbers, dataNumbers)
+          : presented;
       },
-      [visibleGeometries, activeAnnotationSelection, annotationClassFilterValues, revision, workbenchOpen, geometryNumbers, dataNumbers],
+      [visibleGeometries, activeAnnotationSelection, annotationClassFilterValues, revision, workbenchOpen, geometryNumbers, dataNumbers, annotationTrash.isOpen],
     );
 
     const semanticClassesForFilter = useMemo(() => {
@@ -418,6 +426,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     const highlightGeometryIds = useMemo(
       () => {
+        if (annotationTrash.isOpen) {
+          return annotationTrash.viewerSelectionGeometryIds;
+        }
         if (creationHighlightGeometryIds !== null) {
           return creationHighlightGeometryIds;
         }
@@ -431,6 +442,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         );
       },
       [
+        annotationTrash.isOpen,
+        annotationTrash.viewerSelectionGeometryIds,
         creationHighlightGeometryIds,
         deletionHighlightGeometryIds,
         focusedGeometryIds,
@@ -475,15 +488,21 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       [ghostGeometryIds, orphanGeometryIds],
     );
 
+    const trashGeometryIds = useMemo(
+      () => annotationTrash.isOpen ? annotationTrash.erasableGeometries.map((geometry) => geometry.id) : [],
+      [annotationTrash.erasableGeometries, annotationTrash.isOpen],
+    );
+
     const applyStructuralPresentation = useCallback(
       (annotationManager: OpenLimeAnnotationManager | null) => {
         applyOpenLimeStructuralPresentation(annotationManager, {
           geometryIdsUnderEditing: lockedGeometryIds,
+          geometryIdsTrash: trashGeometryIds,
           geometryIdsGhost: ghostGeometryIds,
           geometryIdsOrphan: orphanGeometryIds,
         });
       },
-      [ghostGeometryIds, lockedGeometryIds, orphanGeometryIds],
+      [ghostGeometryIds, lockedGeometryIds, orphanGeometryIds, trashGeometryIds],
     );
 
     const highlightGeometryIdsRef = useRef(highlightGeometryIds);
@@ -703,6 +722,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         // If it doesn't match, it is a real user selection; clear the expectation.
         expectedProgrammaticSelectionRef.current = null;
       }
+      if (annotationTrash.isOpen) {
+        annotationTrash.setViewerGeometrySelection(ids);
+        return;
+      }
+
       if (ids.length === 0) {
         if (isCreationGeometrySearch) {
           setCreationGeometrySelection([]);
@@ -1044,19 +1068,23 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     // The latter is emitted before the SVG synchronization pass has completed, so a
     // just-selected annotation can still have no measurable geometry at that point.
     useEffect(() => {
+      const isTrashGeometrySelection = annotationTrash.isOpen
+        && annotationTrash.viewerSelectionGeometryIds.length > 0;
       const isDeletionGeometrySelection = isDeletionSelectingStep
         && deletionDraft?.targetKind === 'geometry'
         && Boolean(deletionDraft.operation);
-      const selectedIds = isDeletionGeometrySelection
-        ? deletionDraft?.selectedEndpointIds ?? []
-        : creationDraft?.selectedGeometryIds ?? [];
-      if ((!isCreationGeometrySearch && !isDeletionGeometrySelection) || !viewerReady || selectedIds.length === 0) {
+      const selectedIds = isTrashGeometrySelection
+        ? annotationTrash.viewerSelectionGeometryIds
+        : isDeletionGeometrySelection
+          ? deletionDraft?.selectedEndpointIds ?? []
+          : creationDraft?.selectedGeometryIds ?? [];
+      if ((!isTrashGeometrySelection && !isCreationGeometrySearch && !isDeletionGeometrySelection) || !viewerReady || selectedIds.length === 0) {
         lastWizardGeometryFocusKeyRef.current = null;
         return;
       }
 
       const ids = normalizeIds(selectedIds);
-      const key = JSON.stringify([ids, annotationOverlayRightInset]);
+      const key = JSON.stringify([isTrashGeometrySelection ? 'trash' : 'workflow', ids, annotationOverlayRightInset]);
       if (lastWizardGeometryFocusKeyRef.current === key) {
         return;
       }
@@ -1072,7 +1100,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             duration: 250,
             padding: 0.08,
             insets: { right: annotationOverlayRightInset },
-            onlyIfNeeded: true,
+            onlyIfNeeded: !isTrashGeometrySelection,
           });
           if (result?.fullyVisible) lastWizardGeometryFocusKeyRef.current = key;
         });
@@ -1087,6 +1115,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     }, [
       annotationOverlayRightInset,
       annotationManagerRevision,
+      annotationTrash.isOpen,
+      annotationTrash.viewerSelectionGeometryIds,
       viewerAnnotationsForSync,
       creationDraft?.selectedGeometryIds,
       isCreationGeometrySearch,

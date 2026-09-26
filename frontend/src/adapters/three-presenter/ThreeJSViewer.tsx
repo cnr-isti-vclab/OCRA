@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
+import * as THREE from 'three';
 import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from 'three-presenter';
 import type { SceneDescription } from 'three-presenter';
 import type { ViewerAnnotation } from 'shared/scene-types';
@@ -21,6 +22,7 @@ export interface ThreeJSViewerRef {
   getPickingMode: () => boolean;
   getAnnotationManager: () => AnnotationManager;
   renderAnnotations: (annotations: ViewerAnnotation[]) => void;
+  focusAnnotations: (annotations: readonly ViewerAnnotation[]) => void;
   // Efficient environment setters (no scene reload)
   setBackgroundColor: (color: string) => void;
   setGroundVisible: (visible: boolean) => void;
@@ -110,6 +112,44 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       renderAnnotations: (annotations: ViewerAnnotation[]) => {
         if (!presenterRef.current) return;
         presenterRef.current.getAnnotationManager().render(annotations);
+      },
+      focusAnnotations: (annotations: readonly ViewerAnnotation[]) => {
+        const presenter = presenterRef.current;
+        if (!presenter || annotations.length === 0) return;
+        const bounds = new THREE.Box3();
+        for (const annotation of annotations) {
+          const points = annotation.type === 'point'
+            ? [annotation.geometry as [number, number, number]]
+            : annotation.geometry as [number, number, number][];
+          for (const point of points) {
+            bounds.expandByPoint(new THREE.Vector3(point[0], point[1], point[2]));
+          }
+        }
+        if (bounds.isEmpty()) return;
+        const center = bounds.getCenter(new THREE.Vector3());
+        const size = bounds.getSize(new THREE.Vector3());
+        const currentTarget = presenter.controls?.target ?? new THREE.Vector3();
+        const direction = presenter.camera.position.clone().sub(currentTarget);
+        if (direction.lengthSq() < 1e-12) direction.set(0, 0, 1);
+        const currentDistance = Math.max(direction.length(), 0.001);
+        direction.normalize();
+        const maxDimension = Math.max(size.x, size.y, size.z);
+        let distance = currentDistance;
+        if (maxDimension > 0 && presenter.camera instanceof THREE.PerspectiveCamera) {
+          const fov = THREE.MathUtils.degToRad(presenter.camera.fov);
+          distance = Math.max(maxDimension / (2 * Math.tan(fov / 2)) * 1.35, 0.001);
+        } else if (maxDimension > 0 && presenter.camera instanceof THREE.OrthographicCamera) {
+          const width = presenter.camera.right - presenter.camera.left;
+          const height = presenter.camera.top - presenter.camera.bottom;
+          presenter.camera.zoom = Math.min(
+            width / Math.max(size.x, 0.001),
+            height / Math.max(size.y, 0.001),
+          ) / 1.35;
+          presenter.camera.updateProjectionMatrix();
+        }
+        presenter.camera.position.copy(center.clone().add(direction.multiplyScalar(distance)));
+        presenter.controls?.target.copy(center);
+        presenter.controls?.update();
       },
       setBackgroundColor: (color: string) => {
         presenterRef.current?.setBackgroundColor(color);

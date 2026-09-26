@@ -586,9 +586,6 @@ export function AnnotationStoreProvider({
   );
 
   const setShowErased = useCallback((nextShowErased: boolean) => {
-    if (nextShowErased && linkViewMode !== 'showAll') {
-      return;
-    }
     const current = storeRef.current;
     if (!current) {
       return;
@@ -597,7 +594,7 @@ export function AnnotationStoreProvider({
       ...current.currentSelectionCriteria,
       showErased: nextShowErased,
     });
-  }, [linkViewMode]);
+  }, []);
 
   const setLinkViewMode = useCallback((mode: AnnotationLinkViewMode) => {
     setLinkViewModeState(mode);

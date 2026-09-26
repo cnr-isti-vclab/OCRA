@@ -5,6 +5,7 @@ import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scen
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
+import { useAnnotationTrash } from '../../features/annotation-trash/AnnotationTrashContext';
 import { CREATION_DRAFT_GEOMETRY_ID } from '../../features/annotation-creation/constants';
 import { draftShapesToViewerAnnotation } from '../../features/annotation-creation/draftGeometryToViewerAnnotation';
 import {
@@ -87,7 +88,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       startEditorLock,
       stopEditorLock,
     } = useAnnotationStore();
-    const { visibleGeometries } = useAnnotationLinkView();
+    const { visibleGeometries: annotationVisibleGeometries } = useAnnotationLinkView();
+    const annotationTrash = useAnnotationTrash();
+    const visibleGeometries = annotationTrash.isOpen
+      ? annotationTrash.erasableGeometries
+      : annotationVisibleGeometries;
     const {
       creationDraft,
       isCreationGeometryStep,
@@ -199,11 +204,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
     const viewerAnnotations = useMemo(
       () => {
-        const base = activeGeometriesToViewerAnnotations(
+        const mapped = activeGeometriesToViewerAnnotations(
           visibleGeometries,
           activeAnnotationSelection,
           focusedDataIds,
         );
+        const base = annotationTrash.isOpen
+          ? mapped.map((annotation) => ({ ...annotation, semanticClass: null, structuralClass: 'trash', strokeDasharray: null }))
+          : mapped;
         if (creationDraft?.geometryMode === 'new' && creationDraft.createdGeometries.length > 0) {
           const draftAnnotations = creationDraft.createdGeometries.flatMap((entry, index) => {
             const annotation = draftShapesToViewerAnnotation(
@@ -223,11 +231,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         }
         return base.filter((item) => item.id !== CREATION_DRAFT_GEOMETRY_ID);
       },
-      [visibleGeometries, activeAnnotationSelection, focusedDataIds, creationDraft],
+      [visibleGeometries, activeAnnotationSelection, focusedDataIds, creationDraft, annotationTrash.isOpen],
     );
 
     const highlightGeometryIds = useMemo(
       () => {
+        if (annotationTrash.isOpen) {
+          return annotationTrash.viewerSelectionGeometryIds;
+        }
         if (creationHighlightGeometryIds !== null) {
           return creationHighlightGeometryIds;
         }
@@ -241,6 +252,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         );
       },
       [
+        annotationTrash.isOpen,
+        annotationTrash.viewerSelectionGeometryIds,
         creationHighlightGeometryIds,
         deletionHighlightGeometryIds,
         focusedGeometryIds,
@@ -248,6 +261,22 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         activeAnnotationSelection,
       ],
     );
+    useEffect(() => {
+      if (!annotationTrash.isOpen || !viewerReady || annotationTrash.viewerSelectionGeometryIds.length === 0) return;
+      const selectedIds = new Set(annotationTrash.viewerSelectionGeometryIds);
+      const selectedAnnotations = viewerAnnotations.filter((annotation) => selectedIds.has(annotation.id));
+      const frame = requestAnimationFrame(() => {
+        (ref as React.RefObject<ThreeJSViewerRef>)?.current?.focusAnnotations(selectedAnnotations);
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [
+      annotationTrash.isOpen,
+      annotationTrash.viewerSelectionGeometryIds,
+      ref,
+      viewerAnnotations,
+      viewerReady,
+    ]);
+
 
     function normalizeIds(ids: string[]): string[] {
       return [...ids].sort();
@@ -465,6 +494,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           }
         }
         expectedProgrammaticSelectionRef.current = null;
+      }
+
+      if (annotationTrash.isOpen) {
+        annotationTrash.setViewerGeometrySelection(ids);
+        return;
       }
 
       if (ids.length === 0) {

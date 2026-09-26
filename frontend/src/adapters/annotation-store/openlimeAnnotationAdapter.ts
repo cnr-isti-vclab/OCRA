@@ -425,6 +425,7 @@ export function applyOpenLimeStructuralPresentation(
   manager: OpenLimeAnnotationManager | null,
   options: {
     geometryIdsUnderEditing?: string[];
+    geometryIdsTrash?: string[];
     geometryIdsGhost?: string[];
     geometryIdsOrphan?: string[];
   } = {},
@@ -434,6 +435,7 @@ export function applyOpenLimeStructuralPresentation(
   }
 
   const underEditing = new Set(options.geometryIdsUnderEditing ?? []);
+  const trash = new Set(options.geometryIdsTrash ?? []);
   const ghost = new Set(options.geometryIdsGhost ?? []);
   const orphan = new Set(options.geometryIdsOrphan ?? []);
   const allIds = manager.getAnnotations().map((a) => a.id);
@@ -441,6 +443,9 @@ export function applyOpenLimeStructuralPresentation(
   const resolveNextClass = (id: string): string | null => {
     if (underEditing.has(id)) {
       return 'underEditing';
+    }
+    if (trash.has(id)) {
+      return 'trash';
     }
     if (ghost.has(id)) {
       return 'ghost';

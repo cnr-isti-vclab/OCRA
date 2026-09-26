@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import './annotation-workbench.css';
+import '../../shared/ui/annotationEntityColors.css';
 import { annotationListSelection } from '../../utils/annotationListSelection';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import AnnotationCreationDataStep from '../annotation-creation/AnnotationCreationDataStep';
@@ -466,7 +467,7 @@ export default function AnnotationWorkbench({
         'annotation-workbench bg-white border-start shadow d-flex flex-column',
         isDetached ? 'is-detached' : '',
         isDeleteMode ? 'is-authoring-delete' : '',
-        (isCreateMode && isCreationDataStep) || (isDeleteMode && deletionDraft?.targetKind === 'data') ? 'is-authoring-data' : '',
+        (isCreateMode && isCreationDataStep) || (isDeleteMode && deletionDraft?.targetKind === 'data') ? 'is-authoring-data annotation-data-accent' : '',
       ].filter(Boolean).join(' ')}
       aria-label={isDeleteMode ? `${mode === 'erase' ? 'Erase' : 'Unlink'} workbench` : 'Annotation workbench'}
       style={isDetached && floatingPosition

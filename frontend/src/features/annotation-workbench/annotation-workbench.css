@@ -51,14 +51,6 @@
   font-weight: 600;
 }
 
-/* Geometry uses Bootstrap primary blue. Data uses a warm OCRA accent. */
-.annotation-workbench.is-authoring-data {
-  --annotation-data-accent: #a85d00;
-  --annotation-data-accent-hover: #874a00;
-  --annotation-data-accent-active: #713e00;
-  --annotation-data-accent-rgb: 168, 93, 0;
-}
-
 .annotation-workbench.is-authoring-data .btn-primary,
 .annotation-data-form-modal .btn-primary {
   --bs-btn-bg: var(--annotation-data-accent, #a85d00);
@@ -82,11 +74,6 @@
   --bs-btn-active-border-color: var(--annotation-data-accent-active);
   --bs-btn-disabled-color: var(--annotation-data-accent);
   --bs-btn-disabled-border-color: var(--annotation-data-accent);
-}
-
-.annotation-workbench.is-authoring-data .list-group-item.active {
-  --bs-list-group-active-bg: var(--annotation-data-accent);
-  --bs-list-group-active-border-color: var(--annotation-data-accent);
 }
 
 .annotation-workbench.is-authoring-data .text-primary,

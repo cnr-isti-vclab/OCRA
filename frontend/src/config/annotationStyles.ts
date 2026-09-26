@@ -43,6 +43,11 @@ const ORPHAN_COLOR = {
   background: 'rgba(248, 250, 252, 0.9)',
 } as const;
 
+const TRASH_COLOR = {
+  fill: 'rgba(186, 230, 253, 0.45)',
+  stroke: 'rgba(2, 132, 199, 1)',
+} as const;
+
 const SELECTED_COLOR = {
   fill: 'rgba(219, 234, 254, 0.5)',
   stroke: 'rgba(30, 58, 138, 1)',
@@ -83,6 +88,13 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
       fillOpacity: 1,
       strokeWidth: 2,
       filter: 'drop-shadow(0px 0px 6.0px rgba(255,0,0,1.0))',
+    },
+    trash: {
+      fill: TRASH_COLOR.fill,
+      stroke: TRASH_COLOR.stroke,
+      fillOpacity: 1,
+      strokeWidth: 2.5,
+      filter: 'drop-shadow(0px 0px 4px rgba(14,165,233,0.75))',
     },
     ghost: {
       fill: GHOST_COLOR.fill,

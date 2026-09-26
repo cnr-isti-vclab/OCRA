@@ -9,6 +9,7 @@ import type { OpenLIMEViewerRef } from '../adapters/openlime-viewer/OpenLIMEView
 import { getApiBase } from '../config/oauth';
 import { DigitalAsset } from './HDTPage.tsx';
 import { AnnotationStoreProvider } from '../context/AnnotationStoreContext';
+import { AnnotationTrashProvider } from '../features/annotation-trash/AnnotationTrashContext';
 import AnnotationStoreTestPanel from './components/AnnotationStoreTestPanel';
 import { useProjectStructuringAwareness } from '../hooks/useProjectStructuringAwareness';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
@@ -1724,7 +1725,9 @@ export default function ProjectPage() {
         sceneId={selectedSceneId}
         selectionPolicy={selectionPolicyForAnnotationMode(annotationMode)}
       >
-        {projectPageBody}
+        <AnnotationTrashProvider>
+          {projectPageBody}
+        </AnnotationTrashProvider>
       </AnnotationStoreProvider>
     );
   }
