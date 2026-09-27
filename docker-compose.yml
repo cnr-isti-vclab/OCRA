@@ -10,12 +10,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      # pg_isready only checks that the server accepts connections; it never
-      # authenticates, so a role that cannot log in still reports healthy.
-      test: ["CMD-SHELL", "psql -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'select 1' > /dev/null || exit 1"]
+      # Use pg_isready instead of psql for the database healthcheck: it confirms
+      # the server is accepting TCP connections without requiring a password,
+      # which is exactly what we need to gate dependent services.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -h 127.0.0.1 -p 5432 > /dev/null || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 15s
 
   mongodb:
     image: mongo:7.0

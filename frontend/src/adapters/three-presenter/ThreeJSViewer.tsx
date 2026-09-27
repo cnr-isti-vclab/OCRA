@@ -1,6 +1,10 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { ThreePresenter, AnnotationManager, LoadingProgress, DefaultUI } from 'three-presenter';
-import type { SceneDescription } from 'three-presenter';
+import type {
+  AnnotationCreationMode,
+  AnnotationGeometryCreatedCallback,
+  SceneDescription,
+} from 'three-presenter';
 import type { ViewerAnnotation } from 'shared/scene-types';
 import { OcraFileUrlResolver } from './OcraFileUrlResolver';
 import './three-skin-ocra.css'; // align 3D toolbar icons with the shared OpenLIME skin
@@ -19,6 +23,8 @@ export interface ThreeJSViewerRef {
   setOnPointPicked: (callback: ((point: [number, number, number]) => void) | null) => void;
   setPickingMode: (enabled: boolean) => void;
   getPickingMode: () => boolean;
+  setAnnotationCreationMode: (mode: AnnotationCreationMode) => void;
+  getAnnotationCreationMode: () => AnnotationCreationMode;
   getAnnotationManager: () => AnnotationManager;
   renderAnnotations: (annotations: ViewerAnnotation[]) => void;
   // Efficient environment setters (no scene reload)
@@ -38,6 +44,8 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
   onLoadError?: (modelId: string, error: Error) => void; // Model loading error
   onAnnotationSelectionChanged?: (ids: string[]) => void;
   onPickingModeChange?: (enabled: boolean) => void;
+  onAnnotationCreationModeChange?: (mode: AnnotationCreationMode) => void;
+  onAnnotationGeometryCreated?: AnnotationGeometryCreatedCallback;
   onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
   onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
 }>(
@@ -51,6 +59,8 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     onLoadError,
     onAnnotationSelectionChanged,
     onPickingModeChange,
+    onAnnotationCreationModeChange,
+    onAnnotationGeometryCreated,
     onAnnotationEditStart,
     onAnnotationUpdated,
   }, ref) => {
@@ -98,6 +108,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       },
       getPickingMode: () => {
         return presenterRef.current?.getPickingMode() ?? false;
+      },
+      setAnnotationCreationMode: (mode: AnnotationCreationMode) => {
+        presenterRef.current?.setAnnotationCreationMode(mode);
+      },
+      getAnnotationCreationMode: () => {
+        return presenterRef.current?.getAnnotationCreationMode() ?? null;
       },
       getAnnotationManager: () => {
         if (!presenterRef.current) {
@@ -212,6 +228,40 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         }
       };
     }, [onPickingModeChange]);
+
+    useEffect(() => {
+      const presenter = presenterRef.current;
+      if (!presenter) {
+        return;
+      }
+
+      presenter.onAnnotationGeometryCreated = onAnnotationGeometryCreated ?? null;
+      return () => {
+        if (presenter.onAnnotationGeometryCreated === onAnnotationGeometryCreated) {
+          presenter.onAnnotationGeometryCreated = null;
+        }
+      };
+    }, [onAnnotationGeometryCreated]);
+
+    useEffect(() => {
+      const presenter = presenterRef.current;
+      if (!presenter) {
+        return;
+      }
+
+      const originalCallback = presenter.onAnnotationCreationModeChange;
+      const wrappedCallback = (mode: AnnotationCreationMode) => {
+        onAnnotationCreationModeChange?.(mode);
+        originalCallback?.(mode);
+      };
+      presenter.onAnnotationCreationModeChange = wrappedCallback;
+
+      return () => {
+        if (presenter.onAnnotationCreationModeChange === wrappedCallback) {
+          presenter.onAnnotationCreationModeChange = originalCallback;
+        }
+      };
+    }, [onAnnotationCreationModeChange]);
 
     // Filter sceneDesc to exclude annotations (3D viewer doesn't need them for model loading)
     const filteredSceneDesc = useMemo(() => {

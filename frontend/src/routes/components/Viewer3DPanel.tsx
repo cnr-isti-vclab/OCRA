@@ -1,6 +1,10 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
-import { LoadingProgress } from 'three-presenter';
+import {
+  LoadingProgress,
+  type AnnotationCreationMode,
+  type AnnotationGeometryCreatedCallback,
+} from 'three-presenter';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
@@ -109,25 +113,20 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return;
       }
 
-      if (mode === 'point') {
-        viewer.setPickingMode(true);
-        setToolbarMode('point');
+      if (mode === 'point' || mode === 'line') {
+        viewer.setAnnotationCreationMode(mode);
+        setToolbarMode(mode);
         return;
       }
 
-      viewer.setPickingMode(false);
+      viewer.setAnnotationCreationMode(null);
       setToolbarMode('edit');
     }, [ref]);
 
-    useEffect(() => {
-      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
-      if (!viewer) {
-        return;
-      }
-
-      const handler = (point: [number, number, number]) => {
+    const annotationGeometryCreatedHandler = useCallback<AnnotationGeometryCreatedCallback>(
+      (type, geometry) => {
         void createAnnotation({
-          shapes: [{ type: 'ShapePoints', vertices: [point] }],
+          shapes: viewerGeometryToShapes(type, geometry),
           label: '',
           description: '',
           class: null,
@@ -135,18 +134,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         }).catch((err) => {
           console.error('Failed to create annotation from 3D viewer:', err);
         });
-      };
-
-      viewer.setOnPointPicked(handler);
-
-      return () => {
-        try {
-          viewer.setOnPointPicked(null);
-        } catch {
-          // ignore
-        }
-      };
-    }, [ref, createAnnotation]);
+      },
+      [createAnnotation],
+    );
 
     useEffect(() => {
       if (annotationToolsVisible) {
@@ -156,7 +146,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       if (!viewer) {
         return;
       }
-      viewer.setPickingMode(false);
+      viewer.setAnnotationCreationMode(null);
       setToolbarMode('edit');
     }, [annotationToolsVisible, ref]);
 
@@ -232,8 +222,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       });
     };
 
-    const handlePickingModeChange = (enabled: boolean) => {
-      setToolbarMode(enabled ? 'point' : 'edit');
+    const handleAnnotationCreationModeChange = (mode: AnnotationCreationMode) => {
+      setToolbarMode(mode ?? 'edit');
     };
 
     const handleAnnotationEditStart = (annotation: ViewerAnnotation) => {
@@ -313,7 +303,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onLoadComplete={onLoadComplete}
           onLoadError={onLoadError}
           onAnnotationSelectionChanged={handleAnnotationSelectionChanged}
-          onPickingModeChange={handlePickingModeChange}
+          onAnnotationCreationModeChange={handleAnnotationCreationModeChange}
+          onAnnotationGeometryCreated={annotationGeometryCreatedHandler}
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
         />
@@ -331,7 +322,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             <AnnotationToolbar
               mode={toolbarMode}
               onModeChange={applyToolbarMode}
-              disabledModes={['line', 'area']}
+              disabledModes={['area']}
             />
           </div>
         )}
