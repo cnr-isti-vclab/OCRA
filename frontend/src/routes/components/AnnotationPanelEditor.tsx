@@ -533,7 +533,7 @@ export default function AnnotationPanelEditor({
                 {operation === 'unlink' ? 'Unlink' : 'Erase'}
               </button>
             ))}
-            <button type="button" className="btn btn-sm btn-outline-info"
+            <button type="button" className="btn btn-sm btn-outline-dark"
               onClick={openTrash}
               disabled={Boolean(creationDraft) || isCreationWizardActive || Boolean(deletionDraft) || isDeletionWizardActive}
               aria-label="Open trash" title="Trash">
