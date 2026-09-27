@@ -307,6 +307,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onAnnotationGeometryCreated={annotationGeometryCreatedHandler}
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
+          annotationEditingEnabled={annotationToolsVisible && toolbarMode === 'edit'}
         />
         {annotationToolsVisible && (
           <div

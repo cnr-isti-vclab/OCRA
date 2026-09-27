@@ -25,6 +25,8 @@ export interface ThreeJSViewerRef {
   getPickingMode: () => boolean;
   setAnnotationCreationMode: (mode: AnnotationCreationMode) => void;
   getAnnotationCreationMode: () => AnnotationCreationMode;
+  setAnnotationEditingEnabled: (enabled: boolean) => void;
+  getAnnotationEditingEnabled: () => boolean;
   getAnnotationManager: () => AnnotationManager;
   renderAnnotations: (annotations: ViewerAnnotation[]) => void;
   // Efficient environment setters (no scene reload)
@@ -48,6 +50,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
   onAnnotationGeometryCreated?: AnnotationGeometryCreatedCallback;
   onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
   onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
+  annotationEditingEnabled?: boolean;
 }>(
   ({
     width = '100%',
@@ -63,6 +66,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     onAnnotationGeometryCreated,
     onAnnotationEditStart,
     onAnnotationUpdated,
+    annotationEditingEnabled = true,
   }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
@@ -115,6 +119,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       getAnnotationCreationMode: () => {
         return presenterRef.current?.getAnnotationCreationMode() ?? null;
       },
+      setAnnotationEditingEnabled: (enabled: boolean) => {
+        presenterRef.current?.setAnnotationEditingEnabled(enabled);
+      },
+      getAnnotationEditingEnabled: () => {
+        return presenterRef.current?.getAnnotationEditingEnabled() ?? false;
+      },
       getAnnotationManager: () => {
         if (!presenterRef.current) {
           throw new Error('ThreePresenter not initialized');
@@ -166,6 +176,10 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
         presenterRef.current?.dispose();
       };
     }, []);
+
+    useEffect(() => {
+      presenterRef.current?.setAnnotationEditingEnabled(annotationEditingEnabled);
+    }, [annotationEditingEnabled]);
 
     // Update callbacks when they change (without recreating presenter)
     useEffect(() => {
