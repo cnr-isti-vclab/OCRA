@@ -10,7 +10,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # pg_isready only checks that the server accepts connections; it never
+      # authenticates, so a role that cannot log in still reports healthy.
+      test: ["CMD-SHELL", "psql -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'select 1' > /dev/null || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 5

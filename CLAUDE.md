@@ -15,7 +15,7 @@ OCRA is a collaborative platform for annotation and management of 3D assets. It 
 | Frontend | React 19 + TypeScript, Vite, Bootstrap 5 | 3001 |
 | Backend | Node.js + Express, TypeScript via `tsx` | 3002 |
 | Auth | Keycloak (OAuth2 PKCE) | 8081 |
-| App DB | PostgreSQL 16 + Prisma ORM | 5432 |
+| App DB | PostgreSQL 15 + Prisma ORM | 5432 |
 | Content/Audit DB | MongoDB 7 (replica set `rs0`) | 27017 |
 
 ### Data stores and what lives where

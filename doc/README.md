@@ -10,10 +10,12 @@ This page is the index for technical documentation in `doc/`.
 
 ## Core Technical Guides
 
-- [Local Development Setup](./local-dev-setup.md)
+- [Development Workflows](../DEVELOPMENT.md)
+- [Local Development Setup (bare services)](./local-dev-setup.md)
 - [Frontend OpenLIME Integration](./frontend-openlime.md)
 - [Physical Object Metadata](./physical-object-metadata.md)
-- [Asset Grouping Proposal](./asset-grouping-proposal.md)
+- [Vocabulary and Terminology](./vocabulary.md)
+- [Reference Frames](./reference-frames.md)
 
 ## Domain and Use Cases
 
@@ -28,6 +30,8 @@ This page is the index for technical documentation in `doc/`.
 - [a03 Annotation Integration](./a03-annotation-integration.md)
 - [a04 Structuring Lock and Project Presence](./a04-structuring-lock.md)
 - [a05 Frontend Annotation API Client](./a05-frontend-annotation-api-client.md)
+- [a06 Active Annotations](./a06-active-annotations.md)
+- [Annotation Current Status](./annotation-current-status.md)
 
 ## Archived / Outdated
 
@@ -45,8 +49,8 @@ Non-essential or superseded docs are kept in:
    - `backend/src/app.ts`
 
 ## REST API documentation
-The REST API is documented via OpenAPI, which can be accessed at `http://localhost:3000/api-docs` when the backend is running locally.
+The REST API is documented via OpenAPI, which can be accessed at `http://localhost:3002/api-docs` when the backend is running locally.
 
 ---
 
-*Last reviewed: 2026-05-20*
+*Last reviewed: 2026-09-08*
