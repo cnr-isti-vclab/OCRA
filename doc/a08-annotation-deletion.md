@@ -28,8 +28,10 @@ The store rechecks the common relationships immediately before committing.
 
 ## Erase
 
-1. Optionally check **Erase full annotation** (geometry, data, and link). Default is off.
-2. Choose Geometry or Data and select one or more available endpoints.
+1. Choose Geometry or Data (or start from the current selection) and select one or more
+   available endpoints.
+2. Optionally check **Erase full annotation** (geometry, data, and link) on the selection
+   step. Default is off — same control whether you came from setup or a pre-selection.
 3. **Side-only erase** (checkbox off): press Erase to mark every active relationship of
    the selected endpoints erasable (including outside the current scene), then erase
    those endpoints. Counterparts stay available.

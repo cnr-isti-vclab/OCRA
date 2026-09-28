@@ -107,6 +107,13 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
       {confirming || draft.step === 'committing' ? <p role="status">Saving changes…</p> : draft.step === 'setup' ? (
         <>
           <p className="mb-0">Choose the type of items to {operation}.</p>
+          <div className="btn-group w-100">
+            <button className="btn btn-outline-primary" type="button" onClick={() => onStartDelete({ deleteLink: true, deleteGeometry: true, deleteData: false })}>Geometry</button>
+            <button className="btn btn-outline-primary annotation-data-action" type="button" onClick={() => onStartDelete({ deleteLink: true, deleteGeometry: false, deleteData: true })}>Data</button>
+          </div>
+        </>
+      ) : (
+        <>
           {operation === 'erase' ? (
             <div className={`border rounded px-3 py-2 ${eraseFullAnnotation ? 'border-primary bg-primary-subtle' : 'bg-body-secondary'}`}>
               <div className="form-check mb-0">
@@ -127,13 +134,6 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
               </div>
             </div>
           ) : null}
-          <div className="btn-group w-100">
-            <button className="btn btn-outline-primary" type="button" onClick={() => onStartDelete({ deleteLink: true, deleteGeometry: true, deleteData: false })}>Geometry</button>
-            <button className="btn btn-outline-primary annotation-data-action" type="button" onClick={() => onStartDelete({ deleteLink: true, deleteGeometry: false, deleteData: true })}>Data</button>
-          </div>
-        </>
-      ) : (
-        <>
           <h3 className="h6 mb-0 text-primary">{kind === 'geometry' ? 'Geometry' : 'Data'}</h3>
           <p className="mb-0">Select one or more {kind === 'geometry' ? 'geometries here or in the viewer' : 'data records here'}. {ids.length} selected.</p>
           <div className="list-group annotation-operation-list">
