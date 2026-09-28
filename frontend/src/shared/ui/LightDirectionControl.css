@@ -13,19 +13,19 @@
   height: 100%;
   overflow: hidden;
   box-sizing: border-box;
-  border: 8px solid #8297a8;
+  border: 8px solid #71879a;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 44%, #465766 0, #26333e 56%, #12191f 100%);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .38), inset 0 1px 5px rgba(0, 0, 0, .5);
+  background: radial-gradient(circle at 50% 42%, #ffffff 0, #eef4f8 56%, #d8e3eb 100%);
+  box-shadow: 0 4px 14px rgba(15, 36, 53, .28), inset 0 1px 5px rgba(72, 106, 130, .16);
   cursor: crosshair;
   touch-action: none;
 }
 .ocra-light-direction-control__pad:focus-visible { outline: 3px solid rgba(155, 214, 255, .78); outline-offset: 3px; }
-.ocra-light-direction-control__axis { position: absolute; display: block; background: rgba(210, 231, 244, .32); pointer-events: none; }
+.ocra-light-direction-control__axis { position: absolute; display: block; background: rgba(50, 86, 111, .25); pointer-events: none; }
 .ocra-light-direction-control__axis--vertical { top: 10%; bottom: 10%; left: calc(50% - .5px); width: 1px; }
 .ocra-light-direction-control__axis--horizontal { right: 10%; bottom: calc(50% - .5px); left: 10%; height: 1px; }
-.ocra-light-direction-control__halo { position: absolute; inset: 28%; border: 1px dashed rgba(198, 226, 243, .42); border-radius: 50%; pointer-events: none; }
+.ocra-light-direction-control__halo { position: absolute; inset: 28%; border: 1px dashed rgba(58, 95, 119, .32); border-radius: 50%; pointer-events: none; }
 .ocra-light-direction-control__samples { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.ocra-light-direction-control__samples circle { fill: #b6d8ec; fill-opacity: .8; stroke: #0b1116; stroke-width: .55; }
-.ocra-light-direction-control__dot { position: absolute; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #f5bd00; box-shadow: 0 1px 8px rgba(255, 198, 0, .9); transform: translate(-50%, -50%); pointer-events: none; }
+.ocra-light-direction-control__samples circle { fill: #1f6795; fill-opacity: .92; stroke: #fff; stroke-width: .85; }
+.ocra-light-direction-control__dot { position: absolute; width: 12px; height: 12px; border: 2px solid #1e2b34; border-radius: 50%; background: #f6c400; box-shadow: 0 1px 7px rgba(122, 91, 0, .48); transform: translate(-50%, -50%); pointer-events: none; }
 @media (max-width: 640px) { .ocra-light-direction-control { left: 52px; width: 126px; height: 126px; } }
