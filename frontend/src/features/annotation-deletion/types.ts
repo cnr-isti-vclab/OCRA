@@ -34,6 +34,11 @@ export interface DeletionPendingResolution {
 export interface AnnotationDeletionDraft extends AnnotationDeletionIntent {
   /** Explicit user operation and source selection, independent of the commit plan. */
   operation?: 'unlink' | 'erase';
+  /**
+   * When `operation === 'erase'`: also erase chosen counterparts (full annotation).
+   * Default false = side-only erase (selected endpoints + all incident links).
+   */
+  eraseFullAnnotation?: boolean;
   selectedEndpointIds?: string[];
   selectedCounterpartIds?: string[];
   step: AnnotationDeletionStep;

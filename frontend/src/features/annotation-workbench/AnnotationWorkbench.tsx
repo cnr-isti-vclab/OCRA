@@ -211,7 +211,12 @@ export default function AnnotationWorkbench({
   const seedDeletionDraft = useCallback(() => {
     if (deletionDraft) return;
     initDeletionDraft();
-    updateDeletionDraft({ operation: mode === 'erase' ? 'erase' : 'unlink', selectedEndpointIds: [], selectedCounterpartIds: [] });
+    updateDeletionDraft({
+      operation: mode === 'erase' ? 'erase' : 'unlink',
+      eraseFullAnnotation: false,
+      selectedEndpointIds: [],
+      selectedCounterpartIds: [],
+    });
     // Viewer geometry picks also focus linked data: prefer their geometry source.
     // An explicit primary Data selection takes precedence over contextual highlights.
     const kind = primaryAnnotationSelection?.kind

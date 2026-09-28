@@ -17,7 +17,7 @@ interface AnnotationDeletionPanelProps {
   confirming?: boolean;
 }
 
-/** Select endpoints, review unlink relationships when needed, then return to Annotations. */
+/** Select endpoints, review unlink/full-erase relationships when needed, then return to Annotations. */
 export default function AnnotationDeletionPanel({ draft, setupError, onStartDelete, onBack, onConfirmDelete, confirming = false }: AnnotationDeletionPanelProps) {
   const { allData, allGeometries, updateDeletionDraft, loadProjectLinksForDeletion, loadProjectData,
     addGeometryToDeletionBasket, addDataToDeletionBasket, deselectGeometryFromDeletionBasket,
@@ -31,6 +31,8 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
   const selected = new Set(ids);
   const counterparts = draft.selectedCounterpartIds ?? [];
   const operation = draft.operation ?? 'unlink';
+  const eraseFullAnnotation = Boolean(draft.eraseFullAnnotation);
+  const needsCounterpartReview = operation === 'unlink' || (operation === 'erase' && eraseFullAnnotation);
   const selectionKey = ids.join('|');
   const reviewSelection = useRef('');
   reviewSelection.current = kind + ':' + selectionKey;
@@ -42,21 +44,28 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
     setReviewing(false);
     setProjectLinks(null);
     setError(null);
-  }, [selectionKey, kind]);
+  }, [selectionKey, kind, eraseFullAnnotation]);
 
   const common = projectLinks ? commonAnnotationCounterparts(projectLinks, kind, ids) : [];
-  const affected = projectLinks ? annotationOperationLinks(projectLinks, kind, ids,
-    operation === 'unlink' ? counterparts : undefined) : [];
+  const affected = projectLinks ? annotationOperationLinks(
+    projectLinks,
+    kind,
+    ids,
+    needsCounterpartReview ? counterparts : undefined,
+  ) : [];
 
-  const reviewUnlink = async () => {
+  const beginCounterpartReview = async () => {
     const reviewingSelection = reviewSelection.current;
     setLoading(true);
     setError(null);
     try {
       const [links] = await Promise.all([loadProjectLinksForDeletion(), loadProjectData()]);
       if (reviewSelection.current !== reviewingSelection) return;
+      const commonIds = commonAnnotationCounterparts(links, kind, ids);
+      // 0 or 1 common counterpart: auto-select and skip forced multi-pick.
+      const autoCounterparts = commonIds.length <= 1 ? [...commonIds] : [];
       setProjectLinks(links);
-      updateDeletionDraft({ selectedCounterpartIds: [] });
+      updateDeletionDraft({ selectedCounterpartIds: autoCounterparts });
       setReviewing(true);
     } catch { setError('Could not load all project relationships. Please try again.'); }
     finally { setLoading(false); }
@@ -78,11 +87,40 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
     }
   };
 
+  const primaryDisabled = loading || ids.length === 0
+    || (reviewing && needsCounterpartReview && common.length > 1 && counterparts.length === 0);
+  const primaryLabel = loading
+    ? 'Loading…'
+    : operation === 'erase'
+      ? 'Erase'
+      : 'Unlink';
+  const onPrimaryClick = () => {
+    if (reviewing || !needsCounterpartReview) {
+      onConfirmDelete();
+      return;
+    }
+    void beginCounterpartReview();
+  };
+
   return (
     <div className="d-flex flex-column gap-3 small">
       {confirming || draft.step === 'committing' ? <p role="status">Saving changes…</p> : draft.step === 'setup' ? (
         <>
           <p className="mb-0">Choose the type of items to {operation}.</p>
+          {operation === 'erase' ? (
+            <div className="form-check mb-0">
+              <input
+                id="erase-full-annotation"
+                className="form-check-input"
+                type="checkbox"
+                checked={eraseFullAnnotation}
+                onChange={(event) => updateDeletionDraft({ eraseFullAnnotation: event.target.checked })}
+              />
+              <label className="form-check-label" htmlFor="erase-full-annotation">
+                Erase full annotation (geometry, data, and link)
+              </label>
+            </div>
+          ) : null}
           <div className="btn-group w-100">
             <button className="btn btn-outline-primary" type="button" onClick={() => onStartDelete({ deleteLink: true, deleteGeometry: true, deleteData: false })}>Geometry</button>
             <button className="btn btn-outline-primary annotation-data-action" type="button" onClick={() => onStartDelete({ deleteLink: true, deleteGeometry: false, deleteData: true })}>Data</button>
@@ -116,7 +154,19 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
                   ))}
                 </div>
               )}
-              <p className="mt-2 mb-0">{affected.length} relationships will be unlinked. Geometry and data remain available.</p>
+              {operation === 'erase' && eraseFullAnnotation ? (
+                <p className="mt-2 mb-0">
+                  {affected.length} relationship{affected.length === 1 ? '' : 's'} will be erased, along with the selected
+                  {' '}
+                  {kind === 'geometry' ? 'geometries' : 'data'}
+                  {counterparts.length > 0
+                    ? ` and ${counterparts.length} linked ${kind === 'geometry' ? 'data' : 'geometr'}${counterparts.length === 1 ? (kind === 'geometry' ? ' record' : 'y') : (kind === 'geometry' ? ' records' : 'ies')}`
+                    : ''}
+                  .
+                </p>
+              ) : (
+                <p className="mt-2 mb-0">{affected.length} relationships will be unlinked. Geometry and data remain available.</p>
+              )}
             </div>
           ) : null}
         </>
@@ -125,10 +175,13 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
       <div className="d-flex justify-content-between align-items-center gap-2">
         <button className="btn btn-outline-secondary" type="button" disabled={loading || confirming || draft.step === 'committing'} onClick={onBack}>Cancel</button>
         {draft.step === 'selecting' && !confirming ? (
-          <button className={reviewing || operation === 'erase' ? 'btn btn-primary' : 'btn btn-outline-primary'} type="button"
-            disabled={loading || ids.length === 0 || (reviewing && operation === 'unlink' && counterparts.length === 0)}
-            onClick={reviewing || operation === 'erase' ? onConfirmDelete : () => void reviewUnlink()}>
-            {loading ? 'Loading…' : operation === 'erase' ? 'Erase' : 'Unlink'}
+          <button
+            className={reviewing || !needsCounterpartReview ? 'btn btn-primary' : 'btn btn-outline-primary'}
+            type="button"
+            disabled={primaryDisabled}
+            onClick={onPrimaryClick}
+          >
+            {primaryLabel}
           </button>
         ) : null}
       </div>

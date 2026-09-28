@@ -1013,24 +1013,52 @@ export class AnnotationStore {
       const kind = snapshot.deleteGeometry ? 'geometry' : 'data';
       const ids = snapshot.selectedEndpointIds ?? [];
       if (ids.length === 0) return { ok: false, message: 'Select at least one item.' };
-      if (snapshot.operation === 'unlink') {
+      const fullErase = snapshot.operation === 'erase' && Boolean(snapshot.eraseFullAnnotation);
+      const counterparts = snapshot.selectedCounterpartIds ?? [];
+      if (snapshot.operation === 'unlink' || fullErase) {
         const common = new Set(commonAnnotationCounterparts(projectLinks, kind, ids));
-        const counterparts = snapshot.selectedCounterpartIds ?? [];
-        if (counterparts.length === 0 || counterparts.some((id) => !common.has(id))) {
+        // Full erase with no common relationships is valid (side + all incident links).
+        // Full erase with exactly one common counterpart auto-selected is also valid.
+        // Unlink and full erase with multiple commons require an explicit non-empty pick.
+        if (snapshot.operation === 'unlink') {
+          if (counterparts.length === 0 || counterparts.some((id) => !common.has(id))) {
+            return { ok: false, message: 'Relationships changed or none were selected. Review the common relationships.' };
+          }
+        } else if (common.size > 1) {
+          if (counterparts.length === 0 || counterparts.some((id) => !common.has(id))) {
+            return { ok: false, message: 'Relationships changed or none were selected. Review the common relationships.' };
+          }
+        } else if (counterparts.some((id) => !common.has(id))) {
           return { ok: false, message: 'Relationships changed or none were selected. Review the common relationships.' };
         }
       }
-      const links = annotationOperationLinks(projectLinks, kind, ids,
-        snapshot.operation === 'unlink' ? snapshot.selectedCounterpartIds ?? [] : undefined);
+      const filterCounterparts = snapshot.operation === 'unlink' || (fullErase && counterparts.length > 0)
+        ? counterparts
+        : undefined;
+      const links = annotationOperationLinks(projectLinks, kind, ids, filterCounterparts);
       const affectedIds = new Set(links.map((link) => link.id));
       for (const link of projectLinks) {
         if (this.linkMap.has(link.id) || affectedIds.has(link.id)) this.linkMap.set(link.id, link);
       }
+      let candidateGeometryIds: string[] = [];
+      let candidateDataIds: string[] = [];
+      if (snapshot.operation === 'erase') {
+        if (kind === 'geometry') {
+          candidateGeometryIds = [...ids];
+          candidateDataIds = fullErase ? [...counterparts] : [];
+        } else {
+          candidateDataIds = [...ids];
+          candidateGeometryIds = fullErase ? [...counterparts] : [];
+        }
+      }
       this.deletionDraft = {
         ...snapshot,
+        ...(fullErase
+          ? { deleteLink: true, deleteGeometry: true, deleteData: true }
+          : {}),
         candidateLinkIds: links.map((link) => link.id),
-        candidateGeometryIds: snapshot.operation === 'erase' && kind === 'geometry' ? [...ids] : [],
-        candidateDataIds: snapshot.operation === 'erase' && kind === 'data' ? [...ids] : [],
+        candidateGeometryIds,
+        candidateDataIds,
         restoreGeometryIds: [], restoreDataIds: [],
       };
     }

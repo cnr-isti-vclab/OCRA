@@ -220,6 +220,85 @@ describe('AnnotationStore deletion wizard commit', () => {
     expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
   });
 
+  it('full-erases a 1:1 geometry annotation including its linked data', async () => {
+    const store = createTestStore();
+    const links = [makeLink('l1', 'g1', 'd1')];
+    await seedScene(store, { geometries: [makeGeometry('g1')], data: [makeDatum('d1')], links });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft();
+    store.updateDeletionDraft({ operation: 'erase', eraseFullAnnotation: true });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ selectedCounterpartIds: ['d1'] });
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markLinkErasable).toHaveBeenCalledWith('l1', 0);
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g1', 0);
+    expect(mockClient.markDataErasable).toHaveBeenCalledWith('d1', 0);
+  });
+
+  it('full-erases only chosen counterparts when a geometry has multiple links', async () => {
+    const store = createTestStore();
+    const links = [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g1', 'd2'), makeLink('l3', 'g1', 'd3')];
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1'), makeDatum('d2'), makeDatum('d3')],
+      links,
+    });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft();
+    store.updateDeletionDraft({ operation: 'erase', eraseFullAnnotation: true });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ selectedCounterpartIds: ['d1', 'd2'] });
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markLinkErasable.mock.calls.map(([id]) => id).sort()).toEqual(['l1', 'l2']);
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g1', 0);
+    expect(mockClient.markDataErasable.mock.calls.map(([id]) => id).sort()).toEqual(['d1', 'd2']);
+    expect(store.linksById.get('l3')?.erasableAt).toBeNull();
+    expect(store.dataById.get('d3')?.erasableAt).toBeNull();
+  });
+
+  it('full-erases a chosen counterpart that still has relationships outside the selection', async () => {
+    const store = createTestStore();
+    // d1 is linked to g1 (selected) and g2 (outside). Choosing d1 still erases it.
+    const links = [makeLink('l1', 'g1', 'd1'), makeLink('l-extra', 'g2', 'd1')];
+    await seedScene(store, {
+      geometries: [makeGeometry('g1'), makeGeometry('g2')],
+      data: [makeDatum('d1')],
+      links,
+    });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft();
+    store.updateDeletionDraft({ operation: 'erase', eraseFullAnnotation: true });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ selectedCounterpartIds: ['d1'] });
+    expect(await store.commitDeletionDraft(emptyLocks)).toEqual({ ok: true });
+    expect(mockClient.markLinkErasable).toHaveBeenCalledWith('l1', 0);
+    expect(mockClient.markGeometryErasable).toHaveBeenCalledWith('g1', 0);
+    expect(mockClient.markDataErasable).toHaveBeenCalledWith('d1', 0);
+    // Outside link l-extra is not part of this operation's filtered set.
+    expect(mockClient.markLinkErasable.mock.calls.map(([id]) => id)).not.toContain('l-extra');
+  });
+
+  it('rejects full erase when multiple common counterparts exist but none were chosen', async () => {
+    const store = createTestStore();
+    const links = [makeLink('l1', 'g1', 'd1'), makeLink('l2', 'g1', 'd2')];
+    await seedScene(store, {
+      geometries: [makeGeometry('g1')],
+      data: [makeDatum('d1'), makeDatum('d2')],
+      links,
+    });
+    mockClient.loadProjectLinks.mockResolvedValue(links);
+    store.initDeletionDraft();
+    store.updateDeletionDraft({ operation: 'erase', eraseFullAnnotation: true });
+    store.beginDeletionWizard({ deleteLink: true, deleteGeometry: true, deleteData: false });
+    store.addGeometryToDeletionBasket('g1');
+    store.updateDeletionDraft({ selectedCounterpartIds: [] });
+    expect((await store.commitDeletionDraft(emptyLocks)).ok).toBe(false);
+    expect(mockClient.markLinkErasable).not.toHaveBeenCalled();
+  });
+
   it('retains the multi-selection and rolls back when erase fails', async () => {
     const store = createTestStore();
     const links = [makeLink('l1', 'g1', 'd1')];
