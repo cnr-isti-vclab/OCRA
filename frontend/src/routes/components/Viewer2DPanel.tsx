@@ -49,6 +49,8 @@ import {
 } from '../../shared/ui/AnnotationMessageModalCatalog';
 import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
+import ViewerToolbar, { type ViewerToolbarAction } from '../../shared/ui/ViewerToolbar';
+import LightDirectionControl, { type LightDirection } from '../../shared/ui/LightDirectionControl';
 import type { AnnotationMode } from '../../features/annotation-modes/resolveAnnotationMode';
 import { buildAnnotationDisplayNumbers } from '../../utils/annotationDisplayNumbers';
 import { isGeometryEditingSession } from '../../features/annotation-editing/isGeometryEditingSession';
@@ -167,6 +169,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     activeGeometriesRef.current = visibleGeometries;
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
+    const [toolbarActions, setToolbarActions] = useState<ViewerToolbarAction[]>([]);
+    const [lightControlOpen, setLightControlOpen] = useState(false);
+    const [lightDirection, setLightDirection] = useState<LightDirection>({ x: 0, y: 0 });
     const [annotationManagerRevision, setAnnotationManagerRevision] = useState(0);
     const [geometryEditingActive, setGeometryEditingActive] = useState(false);
     const geometryEditingSession = isGeometryEditingSession({
@@ -1343,49 +1348,74 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
 
     return (
       <div
-        style={{ position: 'relative', width: '100%', height: '100%' }}
+        style={{ position: 'relative', display: 'flex', width: '100%', height: '100%', minWidth: 0 }}
         onPointerDown={handleViewerPointerDown}
         onPointerUp={handleViewerPointerUpOrCancel}
         onPointerCancel={handleViewerPointerUpOrCancel}
       >
-        <OpenLIMEViewer
-          ref={ref}
-          sceneDesc={sceneDesc}
-          digitalAssets={digitalAssets}
-          annotationInteractionMode={annotationMode}
-          onReady={handleViewerReady}
-          onError={onError}
-          onAnnotationCreated={handleAnnotationCreated}
-          onAnnotationEditStart={handleAnnotationEditStart}
-          onAnnotationUpdated={handleAnnotationUpdated}
-          onAnnotationSelectionChanged={handleAnnotationSelectionChange}
-          onPencilActiveChange={handlePencilActiveChange}
-          onSettingsRequested={() => setSettingsOpen(true)}
-          annotationLabelVisibility={labelVisibility}
+        <ViewerToolbar
+          actions={toolbarActions.map((action) => action.id === 'light'
+            ? { ...action, active: lightControlOpen, title: 'Light direction' }
+            : action)}
+          label="2D viewer controls"
+          onAction={(actionId, event) => {
+            (ref as React.RefObject<OpenLIMEViewerRef>)?.current?.executeAction(actionId, event.nativeEvent);
+          }}
         />
-        {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 100,
-              pointerEvents: 'auto',
+        {lightControlOpen ? (
+          <LightDirectionControl
+            direction={lightDirection}
+            onClose={() => setLightControlOpen(false)}
+            onDirectionChange={(direction) => {
+              if ((ref as React.RefObject<OpenLIMEViewerRef>)?.current?.setLightDirection(direction.x, direction.y)) {
+                setLightDirection(direction);
+              }
             }}
-          >
-            <DeletionGeometryPickBar
-              selectedCount={deletionDraft.pendingResolution.selectedCounterpartIds.length}
-              endpointLabel={(() => {
-                const dataId = deletionDraft.pendingResolution.endpointId;
-                const datum = activeData.find((entry) => entry.id === dataId);
-                return datum?.label?.trim() || dataId;
-              })()}
-              onConfirm={confirmDeletionCounterpartPick}
-              onCancel={cancelDeletionPendingResolution}
-            />
-          </div>
+          />
         ) : null}
+        <div style={{ position: 'relative', flex: '1 1 auto', minWidth: 0, height: '100%' }}>
+          <OpenLIMEViewer
+            ref={ref}
+            sceneDesc={sceneDesc}
+            digitalAssets={digitalAssets}
+            onToolbarActionsChange={setToolbarActions}
+            onLightControlRequested={() => setLightControlOpen((open) => !open)}
+            onLightDirectionChange={setLightDirection}
+            annotationInteractionMode={annotationMode}
+            onReady={handleViewerReady}
+            onError={onError}
+            onAnnotationCreated={handleAnnotationCreated}
+            onAnnotationEditStart={handleAnnotationEditStart}
+            onAnnotationUpdated={handleAnnotationUpdated}
+            onAnnotationSelectionChanged={handleAnnotationSelectionChange}
+            onPencilActiveChange={handlePencilActiveChange}
+            onSettingsRequested={() => setSettingsOpen(true)}
+            annotationLabelVisibility={labelVisibility}
+          />
+          {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 100,
+                pointerEvents: 'auto',
+              }}
+            >
+              <DeletionGeometryPickBar
+                selectedCount={deletionDraft.pendingResolution.selectedCounterpartIds.length}
+                endpointLabel={(() => {
+                  const dataId = deletionDraft.pendingResolution.endpointId;
+                  const datum = activeData.find((entry) => entry.id === dataId);
+                  return datum?.label?.trim() || dataId;
+                })()}
+                onConfirm={confirmDeletionCounterpartPick}
+                onCancel={cancelDeletionPendingResolution}
+              />
+            </div>
+          ) : null}
+        </div>
         <AppMessageModal
           descriptor={messageModal}
           onClose={releaseConflictSnapshotsAndSync}

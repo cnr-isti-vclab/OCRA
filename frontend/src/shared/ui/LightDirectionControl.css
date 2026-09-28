@@ -1,0 +1,28 @@
+.ocra-light-direction-control {
+  position: absolute;
+  bottom: 14px;
+  left: 56px;
+  z-index: 35;
+  width: 184px;
+  padding: 6px;
+  background: transparent;
+  color: #f7f9fb;
+}
+.ocra-light-direction-control__header { display: flex; align-items: center; justify-content: space-between; margin: 0 5px -2px; cursor: grab; touch-action: none; user-select: none; }
+.ocra-light-direction-control__header:active { cursor: grabbing; }
+.ocra-light-direction-control__drag-handle { color: rgba(255, 255, 255, .78); font-size: 18px; }
+.ocra-light-direction-control__close { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 7px; background: rgba(20, 34, 46, .35); color: #fff; line-height: 1; cursor: pointer; }
+.ocra-light-direction-control__close .bi { display: block; line-height: 1; }
+.ocra-light-direction-control__close:hover { background: rgba(20, 34, 46, .7); color: #fff; }
+.ocra-light-direction-control__pad { position: relative; width: min(100%, 132px); aspect-ratio: 1; margin: 2px auto 14px; overflow: hidden; border: 1px solid #9aabba; border-radius: 50%; background: radial-gradient(circle at 50% 44%, #f9fbfc 0, #e8eff4 58%, #ccd8e1 100%); box-shadow: inset 0 1px 4px rgba(35, 59, 79, .16); cursor: crosshair; touch-action: none; }
+.ocra-light-direction-control__pad:focus-visible { outline: 3px solid rgba(18, 111, 180, .45); outline-offset: 3px; }
+.ocra-light-direction-control__axis { position: absolute; display: block; background: #5f7f9840; pointer-events: none; }
+.ocra-light-direction-control__axis--vertical { top: 10%; bottom: 10%; left: calc(50% - .5px); width: 1px; }
+.ocra-light-direction-control__axis--horizontal { right: 10%; bottom: calc(50% - .5px); left: 10%; height: 1px; }
+.ocra-light-direction-control__halo { position: absolute; inset: 28%; border: 1px dashed #7190a755; border-radius: 50%; pointer-events: none; }
+.ocra-light-direction-control__dot { position: absolute; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #e6a700; box-shadow: 0 2px 8px rgba(108, 75, 0, .42); transform: translate(-50%, -50%); pointer-events: none; }
+.ocra-light-direction-control__footer { display: flex; justify-content: center; margin-top: -8px; }
+.ocra-light-direction-control__footer button { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: rgba(20, 34, 46, .35); color: #ccecff; font: inherit; font-size: 13px; line-height: 1; cursor: pointer; }
+.ocra-light-direction-control__footer button .bi { display: block; line-height: 1; }
+.ocra-light-direction-control__footer button:hover { background: rgba(20, 34, 46, .7); }
+@media (max-width: 640px) { .ocra-light-direction-control { width: min(184px, calc(100vw - 24px)); } }

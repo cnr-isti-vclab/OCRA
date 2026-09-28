@@ -27,6 +27,28 @@ import type { AnnotationMode } from '../../features/annotation-modes/resolveAnno
 import type { OpenLimeLayout } from 'shared/types';
 import { isOpenLime2DAsset } from 'shared/openlime-layout';
 import { parseOpenLimeLayout, resolveOpenLimeImageLayout } from '../../utils/openLimeAsset.ts';
+import ViewerLayersPanel, {
+  type ViewerBackgroundLayer,
+  type ViewerLensLayer,
+} from '../../shared/ui/ViewerLayersPanel.tsx';
+import type { ViewerToolbarAction } from '../../shared/ui/ViewerToolbar.tsx';
+
+export interface OpenLimeLightDirection {
+  x: number;
+  y: number;
+}
+
+interface OpenLimeLightTool {
+  direction: OpenLimeLightDirection;
+  setDirection(x: number, y: number, duration?: number, source?: string): boolean;
+  setActive(active: boolean): boolean;
+  addEvent(event: 'change', callback: (direction: OpenLimeLightDirection) => void): void;
+}
+
+interface OpenLimeLayerSignals {
+  addEvent(event: 'ready', callback: () => void): void;
+  removeEvent(event: 'ready', callback: () => void): boolean;
+}
 
 const RTI_LAYOUT_PROBES = [
   { layout: 'tarzoom', fileName: 'plane_0.tzi' },
@@ -178,6 +200,9 @@ function getOcraAnnotation(anno: SimplifiedAnnotation): ViewerAnnotation {
 export interface OpenLIMEViewerRef {
   // Camera controls
   resetCamera: () => void;
+  executeAction: (id: string, event?: Event) => boolean;
+  /** Updates RTI illumination through OpenLIME's public light feature. */
+  setLightDirection: (x: number, y: number) => boolean;
 
   // Annotation CRUD operations
   getAllAnnotations: () => SimplifiedAnnotation[];
@@ -210,6 +235,12 @@ const OpenLIMEViewer = forwardRef<
     onPencilActiveChange?: (active: boolean) => void;
     /** Fired when the OpenLIME settings button is pressed. */
     onSettingsRequested?: () => void;
+    /** Publishes headless viewer actions to the application-owned toolbar. */
+    onToolbarActionsChange?: (actions: ViewerToolbarAction[]) => void;
+    /** Requests that the application-owned light direction control be toggled. */
+    onLightControlRequested?: () => void;
+    /** Publishes light movements made through the public OpenLIME light API. */
+    onLightDirectionChange?: (direction: OpenLimeLightDirection) => void;
     annotationInteractionMode?: AnnotationMode;
     annotationLabelVisibility?: OpenLimeLabelVisibility;
   }>(
@@ -226,6 +257,9 @@ const OpenLIMEViewer = forwardRef<
         onAnnotationEditStart,
         onPencilActiveChange,
         onSettingsRequested,
+        onToolbarActionsChange,
+        onLightControlRequested,
+        onLightDirectionChange,
         annotationInteractionMode = 'edit',
         annotationLabelVisibility = 'selected',
       },
@@ -233,7 +267,14 @@ const OpenLIMEViewer = forwardRef<
     ) => {
       const mountRef = useRef<HTMLDivElement | null>(null);
       const viewerRef = useRef<OpenLIME.Viewer | null>(null);
-      const uiRef = useRef<OpenLIME.UIBasic | null>(null);
+      const toolsRef = useRef<OpenLIME.ViewerTools | null>(null);
+      const scaleBarRef = useRef<OpenLIME.ScaleBar | null>(null);
+      const lensRuntimeRef = useRef<{
+        layer: OpenLIME.LayerLens;
+        controller: OpenLIME.ControllerFocusContext;
+        choices: Array<{ id: string; label: string; layer: OpenLIME.Layer }>;
+      } | null>(null);
+      const backgroundRuntimeRef = useRef<Array<{ id: string; label: string; layer: OpenLIME.Layer }>>([]);
       const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
       const onReadyRef = useRef<typeof onReady>(onReady);
       const onErrorRef = useRef<typeof onError>(onError);
@@ -244,44 +285,19 @@ const OpenLIMEViewer = forwardRef<
       const onAnnotationEditStartRef = useRef<typeof onAnnotationEditStart>(onAnnotationEditStart);
       const onPencilActiveChangeRef = useRef<typeof onPencilActiveChange>(onPencilActiveChange);
       const onSettingsRequestedRef = useRef<typeof onSettingsRequested>(onSettingsRequested);
-      /** Panel-driven `enableEditing` must not clear selection via UIBasic `pencilEnabled`. */
+      const onToolbarActionsChangeRef = useRef<typeof onToolbarActionsChange>(onToolbarActionsChange);
+      const onLightControlRequestedRef = useRef<typeof onLightControlRequested>(onLightControlRequested);
+      const onLightDirectionChangeRef = useRef<typeof onLightDirectionChange>(onLightDirectionChange);
+      const [layersPanelOpen, setLayersPanelOpen] = useState(false);
+      const [backgroundLayers, setBackgroundLayers] = useState<ViewerBackgroundLayer[]>([]);
+      const [lensLayers, setLensLayers] = useState<ViewerLensLayer[]>([]);
+      const [lensEnabled, setLensEnabled] = useState(false);
+      const [activeLensId, setActiveLensId] = useState<string | null>(null);
+      /** Panel-driven editing must preserve the current OCRA selection. */
       const skipDeselectOnPencilEnableRef = useRef(false);
 
       const notifyPencilActive = (active: boolean) => {
         onPencilActiveChangeRef.current?.(active);
-      };
-
-      const syncInfoButtonActiveState = (active: boolean) => {
-        const container = viewerRef.current?.containerElement as HTMLElement | undefined;
-        const infoButton = container?.querySelector?.('.openlime-button.openlime-info') as
-          | HTMLElement
-          | null
-          | undefined;
-        infoButton?.classList.toggle('openlime-info-active', active);
-      };
-
-      const scheduleInfoButtonActiveStateSync = (active: boolean, attempts = 8) => {
-        let remainingAttempts = attempts;
-
-        const apply = () => {
-          const container = viewerRef.current?.containerElement as HTMLElement | undefined;
-          const infoButton = container?.querySelector?.('.openlime-button.openlime-info') as
-            | HTMLElement
-            | null
-            | undefined;
-
-          if (infoButton) {
-            infoButton.classList.toggle('openlime-info-active', active);
-            return;
-          }
-
-          remainingAttempts -= 1;
-          if (remainingAttempts > 0) {
-            requestAnimationFrame(apply);
-          }
-        };
-
-        requestAnimationFrame(apply);
       };
 
       useEffect(() => {
@@ -319,6 +335,18 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         onSettingsRequestedRef.current = onSettingsRequested;
       }, [onSettingsRequested]);
+
+      useEffect(() => {
+        onToolbarActionsChangeRef.current = onToolbarActionsChange;
+      }, [onToolbarActionsChange]);
+
+      useEffect(() => {
+        onLightControlRequestedRef.current = onLightControlRequested;
+      }, [onLightControlRequested]);
+
+      useEffect(() => {
+        onLightDirectionChangeRef.current = onLightDirectionChange;
+      }, [onLightDirectionChange]);
 
       useEffect(() => {
         const manager = annotationManagerRef.current as
@@ -378,6 +406,18 @@ const OpenLIMEViewer = forwardRef<
         return () => {
           console.log('🛑 Disposing OpenLIME Viewer');
           resizeObserver?.disconnect();
+          toolsRef.current?.destroy();
+          toolsRef.current = null;
+          scaleBarRef.current?.destroy();
+          scaleBarRef.current = null;
+          const lensRuntime = lensRuntimeRef.current;
+          if (lensRuntime && viewerRef.current) {
+            viewerRef.current.pointerManager.offEvent(lensRuntime.controller);
+          }
+          lensRuntimeRef.current = null;
+          annotationManagerRef.current?.destroy();
+          annotationManagerRef.current = null;
+          onToolbarActionsChangeRef.current?.([]);
           if (viewerRef.current) {
             viewerRef.current.dispose?.();
             viewerRef.current = null;
@@ -432,10 +472,25 @@ const OpenLIMEViewer = forwardRef<
           };
 
           const viewer = viewerRef.current;
+          toolsRef.current?.destroy();
+          toolsRef.current = null;
+          scaleBarRef.current?.destroy();
+          scaleBarRef.current = null;
+          const previousLens = lensRuntimeRef.current;
+          if (previousLens) viewer.pointerManager.offEvent(previousLens.controller);
+          lensRuntimeRef.current = null;
+          annotationManagerRef.current?.destroy();
+          annotationManagerRef.current = null;
+          backgroundRuntimeRef.current = [];
+          setLayersPanelOpen(false);
+          setLensEnabled(false);
+          setLensLayers([]);
+          setActiveLensId(null);
           viewer.clearLayers();
 
 
           let scalePixelSize: number | null = null;
+          const backgroundRuntime: Array<{ id: string; label: string; layer: OpenLIME.Layer; relightable: boolean }> = [];
 
           // FIXME HOW TO HANDLE DIFFERENT PIXEL SIZES ACROSS LAYERS? SHOULD WE ENFORCE A SINGLE SCALE FOR THE WHOLE SCENE, OR ALLOW PER-LAYER SCALES?
 
@@ -518,7 +573,7 @@ const OpenLIMEViewer = forwardRef<
 
             // Add layer to viewer with appropriate options, including transformation matrix and pixel size if available
             const layerId = asset.id || `${layerType}-${i}`;
-            const layerOptions: any = {
+            const layerOptions: OpenLIME.LayerOptions = {
               label: asset.fileName || layerType,
               url,
               layout,
@@ -533,6 +588,12 @@ const OpenLIMEViewer = forwardRef<
 
             const layer = new OpenLIME.Layer(layerOptions);
             viewer.addLayer(layerId, layer);
+            backgroundRuntime.push({
+              id: layerId,
+              label: asset.fileName || layerType,
+              layer,
+              relightable: layerType === 'rti',
+            });
             console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url}), pixelSizeInMM=${pixelSizeInMM ?? 'n/a'}`);
           }
           //////////////////////////////////////
@@ -613,89 +674,140 @@ const OpenLIMEViewer = forwardRef<
             annotationManager.setInspectEnabled(true);
           }
 
-          // After all layers are added, setup the UI and annotation callbacks
-          const hasRelightableLayers = selectedAssets.some(
-            (assetIndex) => digitalAssets[assetIndex]?.type === 'rti',
-          );
+          backgroundRuntimeRef.current = backgroundRuntime;
+          setBackgroundLayers(backgroundRuntime.map(({ id, label, layer }) => ({
+            id,
+            label,
+            visible: layer.visible,
+            modes: layer.getModes(),
+            mode: layer.getMode(),
+          })));
 
-          // Before creating the UI create a lensLayer which could be activated for each layer, to be passed to the UIBasic interface
-          if (!uiRef.current) {
-            console.log("Create new OpenLIME.UIBasic");
-            const lensLayer = new OpenLIME.LayerLens({
-              layers: [],
-              camera: viewer.camera,
-              radius: 300,
-              borderEnable: true,
-              borderColor: [0.5, 0.5, 0.5, 1],
-              borderWidth: 5,
-            });
-            lensLayer.setVisible(false);
-            lensLayer.zindex = selectedAssets.length + 1; // Ensure lens is always on top
-            viewer.addLayer('lens', lensLayer);
-
-            // Here we are: create the UI
-            uiRef.current = new OpenLIME.UIBasic(viewer, {
-              showLightDirections: hasRelightableLayers,
-              pixelSize: scalePixelSize ?? undefined,
-              annotationManager: annotationManagerRef.current,
-              layerVisibilityMode: 'nonExclusive',
-              lensLayer: lensLayer,
-            });
-          } else if (scalePixelSize != null) {
-            const uiAny = uiRef.current as any;
-            uiAny.pixelSize = scalePixelSize;
-            if (uiAny.scalebar) {
-              uiAny.scalebar.pixelSize = scalePixelSize;
-            } else if ((OpenLIME as any).ScaleBar) {
-              uiAny.scalebar = new (OpenLIME as any).ScaleBar(scalePixelSize, viewer);
-            }
-          }
-
-          if (uiRef.current) {
-            uiRef.current.actions.zoomin.display = false;
-            uiRef.current.actions.zoomout.display = false;
-            uiRef.current.actions.light.display = hasRelightableLayers;
-            uiRef.current.toggleLightController(hasRelightableLayers);
-            // Geometry editing starts from selecting a geometry in OCRA. The OpenLIME
-            // pencil would be a competing, stateful entry point, so keep it unavailable.
-            uiRef.current.actions.pencil.display = false;
-            uiRef.current.actions.info.display = viewerOnlyMode;
-            uiRef.current.actions.settings.display = true;
-            console.log('🎬 Toolbar setup: pencil hidden');
-
-            // Inspection keeps annotations selectable in idle mode. OCRA promotes an
-            // editor's accepted selection to vertex editing through enableEditing().
-
-
-            // ── Marker selector panel ────────────────────────────────────────
-            uiRef.current.addEvent('pencilEnabled', () => {
-              if (annotationManagerRef.current && !skipDeselectOnPencilEnableRef.current) {
-                annotationManagerRef.current.deselectAll();
+          const hasRelightableLayers = backgroundRuntime.some((entry) => entry.relightable);
+          const tools = new OpenLIME.ViewerTools(viewer, { features: OpenLIME.basicViewerFeatures({
+            layers: { visibilityMode: 'nonExclusive', actionsVisible: false }, annotationManager,
+          }) });
+          toolsRef.current = tools;
+          tools.actions.update('zoomIn', { visible: false });
+          tools.actions.update('zoomOut', { visible: false });
+          tools.actions.update('rotate', { visible: false });
+          tools.actions.update('annotations', { visible: false, enabled: false });
+          tools.actions.update('fullscreen', { order: 20 });
+          tools.actions.update('light', {
+            visible: hasRelightableLayers,
+            order: 40,
+            title: 'Light direction',
+            execute: () => {
+              // OCRA owns light interaction through its dedicated control. Keeping the
+              // OpenLIME pointer controller inactive prevents direct canvas dragging.
+              const lightTool = tools.getFeature('light') as OpenLimeLightTool | null;
+              lightTool?.setActive(false);
+              onLightControlRequestedRef.current?.();
+            },
+          });
+          const lightTool = tools.getFeature('light') as OpenLimeLightTool | null;
+          const publishLightDirection = (direction: OpenLimeLightDirection) => {
+            const lightResponsiveModes = new Set(['light', 'diffuse', 'gray_diffuse', 'specular']);
+            for (const choice of lensRuntimeRef.current?.choices ?? []) {
+              if (lightResponsiveModes.has(choice.layer.getMode() ?? '')) {
+                choice.layer.setLight([direction.x, direction.y], 0);
               }
-              skipDeselectOnPencilEnableRef.current = false;
-              notifyPencilActive(true);
+            }
+            viewer.redraw();
+            onLightDirectionChangeRef.current?.(direction);
+          };
+          lightTool?.setActive(false);
+          lightTool?.addEvent('change', publishLightDirection);
+          if (lightTool) publishLightDirection(lightTool.direction);
+          tools.actions.register({ id: 'layers', title: 'Layers', order: 30, active: false, execute: () => {
+            setLayersPanelOpen((open) => {
+              const next = !open;
+              tools.actions.update('layers', { active: next });
+              return next;
             });
+          } });
+          tools.actions.register({
+            id: 'settings',
+            title: 'Settings',
+            order: 50,
+            execute: () => onSettingsRequestedRef.current?.(),
+          });
+          const publishToolbarActions = () => {
+            onToolbarActionsChangeRef.current?.(
+              tools.actions.list({ visibleOnly: true }).map(({ id, title, active, enabled }) => ({
+                id,
+                title,
+                active,
+                enabled,
+              })),
+            );
+          };
+          tools.actions.addEvent('change', publishToolbarActions);
+          publishToolbarActions();
 
-            uiRef.current.addEvent('pencilDisabled', () => {
-              notifyPencilActive(false);
-            });
+          if (scalePixelSize != null) {
+            scaleBarRef.current = new OpenLIME.ScaleBar(scalePixelSize, viewer);
+          }
 
-            uiRef.current.addEvent('settings', () => {
-              onSettingsRequestedRef.current?.();
-            });
+          viewer.redraw();
+          console.log('✅ OpenLIME base scene and external toolbar loaded successfully');
+          onReadyRef.current?.();
 
-            if (viewerOnlyMode) {
-              uiRef.current.toggleAnnotationInfo(true);
-              scheduleInfoButtonActiveStateSync(true);
+          // Build independent diagnostic RTI layers after their source shaders are ready.
+          const lensChoices: Array<{ id: string; label: string; layer: OpenLIME.Layer }> = [];
+          for (const background of backgroundRuntime.filter((entry) => entry.relightable)) {
+            if (background.layer.status !== 'ready') {
+              await new Promise<void>((resolve) => {
+                const signalLayer = background.layer as OpenLIME.Layer & OpenLimeLayerSignals;
+                const onReady = () => { signalLayer.removeEvent('ready', onReady); resolve(); };
+                signalLayer.addEvent('ready', onReady);
+              });
+            }
+            if (cancelled) return;
+            for (const diagnostic of [{ mode: 'light', label: 'Light' }, { mode: 'gray_diffuse', label: 'Gray diffuse' }]) {
+              const id = `lens:${background.id}:${diagnostic.mode}`;
+              const label = backgroundRuntime.length > 1 ? `${diagnostic.label} — ${background.label}` : diagnostic.label;
+
+              // Create a dedicated RTI layer per diagnostic mode so each variant keeps its own
+              // shader state and the lens can switch modes without reusing stale uniforms from the
+              // base relight layer. Use a real RTI layer instance, not a generic Layer.derive()
+              // clone, because the latter does not keep the RTI shader type needed for
+              // gray_diffuse / specular / normals rendering inside the lens.
+              const layer = new OpenLIME.Layer({ type: 'rti', sourceLayer: background.layer,
+                label,
+                transform: background.layer.transform.copy(), visible: false, zindex: backgroundRuntime.length + 1 });
+              layer.setMode(diagnostic.mode);
+
+              const lightState = background.layer.getControl?.('light')?.current?.value ?? [0, 0, 1];
+              // Keep the mode change visually consistent with the current relight direction.
+              if (Array.isArray(lightState)) {
+                layer.setLight(lightState, 0);
+              }
+              lensChoices.push({ id, label, layer });
             }
           }
+
+          if (cancelled) return;
+          if (lensChoices.length > 0) {
+            const lensLayer = new OpenLIME.LayerLens({ layers: lensChoices.map((choice) => choice.layer), camera: viewer.camera,
+              radius: 140, borderEnable: true, borderColor: [1, 0.79, 0.16, 1], borderWidth: 5,
+            });
+            lensLayer.zindex = backgroundRuntime.length + 2;
+            lensLayer.setVisible(false);
+            viewer.addLayer('lens', lensLayer);
+            const controller = new OpenLIME.ControllerFocusContext({ lensLayer, camera: viewer.camera, canvas: viewer.canvas, zoomAmount: 1.15 });
+            controller.active = false;
+            viewer.pointerManager.onEvent(controller);
+            lensLayer.controllers.push(controller);
+            lensRuntimeRef.current = { layer: lensLayer, controller, choices: lensChoices };
+          }
+
+          setLensLayers(lensChoices.map(({ id, label }) => ({ id, label })));
+          setActiveLensId(lensChoices[0]?.id ?? null);
 
           // Setup event listeners for annotation layer events (update, delete)
           //setupAnnotationLayerListeners();
 
-          viewer.redraw();
-          console.log('✅ OpenLIME scene loaded successfully');
-          onReadyRef.current?.();
         };
 
         void loadScene();
@@ -703,6 +815,46 @@ const OpenLIMEViewer = forwardRef<
           cancelled = true;
         };
       }, [sceneDesc, digitalAssets, annotationInteractionMode]);
+
+      const closeLayersPanel = () => {
+        setLayersPanelOpen(false);
+        toolsRef.current?.actions.update('layers', { active: false });
+      };
+
+      const setBackgroundVisibility = (id: string, visible: boolean) => {
+        const entry = backgroundRuntimeRef.current.find((candidate) => candidate.id === id);
+        if (!entry) return;
+        entry.layer.setVisible(visible);
+        setBackgroundLayers((layers) => layers.map((layer) => layer.id === id ? { ...layer, visible } : layer));
+        viewerRef.current?.redraw();
+      };
+
+      const setBackgroundMode = (id: string, mode: string) => {
+        const entry = backgroundRuntimeRef.current.find((candidate) => candidate.id === id);
+        if (!entry) return;
+        entry.layer.setMode(mode);
+        setBackgroundLayers((layers) => layers.map((layer) => layer.id === id ? { ...layer, mode } : layer));
+        viewerRef.current?.redraw();
+      };
+
+      const setInspectionLensEnabled = (enabled: boolean) => {
+        const runtime = lensRuntimeRef.current;
+        if (!runtime) return;
+        runtime.layer.setVisible(enabled);
+        runtime.controller.active = enabled;
+        setLensEnabled(enabled);
+        viewerRef.current?.redraw();
+      };
+
+      const setInspectionLensLayer = (id: string) => {
+        const runtime = lensRuntimeRef.current;
+        if (!runtime) return;
+        const index = runtime.choices.findIndex((choice) => choice.id === id);
+        if (index < 0) return;
+        runtime.layer.setActiveLayer(index);
+        setActiveLensId(id);
+        viewerRef.current?.redraw();
+      };
 
       // Helper function to get annotation layer
       const getAnnotationLayer = () => {
@@ -731,6 +883,17 @@ const OpenLIMEViewer = forwardRef<
             camera.setPosition(0, 0, 0, 1, 0);
             viewerRef.current.redraw();
           }
+        },
+
+        executeAction(id: string, event?: Event) {
+          return Boolean(toolsRef.current?.execute(id, event ?? null));
+        },
+
+        setLightDirection(x: number, y: number) {
+          const lightTool = toolsRef.current?.getFeature('light') as OpenLimeLightTool | null;
+          if (!lightTool) return false;
+          lightTool.setActive(false);
+          return lightTool.setDirection(x, y, 0, 'ocra-light-control');
         },
 
         getAllAnnotations(): SimplifiedAnnotation[] {
@@ -788,42 +951,14 @@ const OpenLIMEViewer = forwardRef<
         },
 
         enableEditing(enabled: boolean) {
+          const manager = annotationManagerRef.current;
+          if (!manager) return;
           const on = Boolean(enabled);
-          const ui = uiRef.current as any;
-          const manager = annotationManagerRef.current as any;
-          const wasAlreadyEditing = Boolean(manager?.active);
-
-          if (on) {
-            skipDeselectOnPencilEnableRef.current = true;
-          }
-
-          // Try the official UI pathway first (keeps controllers in sync).
-          if (ui && typeof ui.toggleAnnotations === 'function') {
-            ui.toggleAnnotations(on);
-          } else if (manager && typeof manager.toggle === 'function') {
-            manager.toggle(on);
-          } else if (manager && typeof manager.setMode === 'function') {
-            manager.setMode(on ? 'edit' : 'idle');
-          }
-
-          // `pencilEnabled` only fires on idle→edit; clear the guard if we were already editing.
-          if (on && wasAlreadyEditing) {
-            skipDeselectOnPencilEnableRef.current = false;
-          }
-
-          // Defensive: keep the pencil button visual state in sync even if
-          // modeChange events are missed for any reason.
-          const container = viewerRef.current?.containerElement as HTMLElement | undefined;
-          const pencilButton = container?.querySelector?.('.openlime-button.openlime-pencil') as
-            | HTMLElement
-            | null
-            | undefined;
-          pencilButton?.classList.toggle('openlime-pencil-active', on);
-
-          // UIBasic modeChange may not fire when already in 'edit' (e.g. panel focus ran first).
-          // Safe to notify here: onPencilActiveChange only updates toolbar visibility.
-          const isActive = Boolean(manager?.active);
-          notifyPencilActive(on ? isActive : false);
+          const wasAlreadyEditing = manager.active;
+          if (on) skipDeselectOnPencilEnableRef.current = true;
+          manager.toggle(on);
+          if (on && wasAlreadyEditing) skipDeselectOnPencilEnableRef.current = false;
+          notifyPencilActive(on ? manager.active : false);
         },
       }));
 
@@ -839,6 +974,18 @@ const OpenLIMEViewer = forwardRef<
               height: '100%',
               backgroundColor: '#404040',
             }}
+          />
+          <ViewerLayersPanel
+            open={layersPanelOpen}
+            backgroundLayers={backgroundLayers}
+            lensLayers={lensLayers}
+            lensEnabled={lensEnabled}
+            activeLensId={activeLensId}
+            onClose={closeLayersPanel}
+            onBackgroundVisibilityChange={setBackgroundVisibility}
+            onBackgroundModeChange={setBackgroundMode}
+            onLensEnabledChange={setInspectionLensEnabled}
+            onActiveLensChange={setInspectionLensLayer}
           />
         </div>
       );
