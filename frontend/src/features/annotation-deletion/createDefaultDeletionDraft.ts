@@ -7,6 +7,7 @@ export function createDefaultDeletionDraft(): AnnotationDeletionDraft {
     deleteLink: false,
     deleteGeometry: false,
     deleteData: false,
+    eraseFullAnnotation: false,
     targetKind: null,
     targetId: null,
     candidateLinkIds: [],

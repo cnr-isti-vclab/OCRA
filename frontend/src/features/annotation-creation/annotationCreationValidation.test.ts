@@ -14,6 +14,7 @@ import {
   canSwitchToGeometryChoose,
   canUseDataChooseMode,
   geometryResultCount,
+  hasDiscardableCreationDraftWork,
   isValidLinkCardinality,
   validateCreationDraftForCommit,
 } from './annotationCreationValidation';
@@ -293,5 +294,19 @@ describe('annotationCreationValidation (batch)', () => {
       dataMode: 'choose',
       selectedDataIds: ['d1'],
     })).ok).toBe(true);
+  });
+
+  it('detects discardable creation draft work', () => {
+    expect(hasDiscardableCreationDraftWork(draft())).toBe(false);
+    expect(hasDiscardableCreationDraftWork(draft({ geometryMode: 'new' }))).toBe(false);
+    expect(hasDiscardableCreationDraftWork(draft({
+      createdGeometries: [pointGeo('v1')],
+    }))).toBe(true);
+    expect(hasDiscardableCreationDraftWork(draft({
+      selectedGeometryIds: ['g1'],
+    }))).toBe(true);
+    expect(hasDiscardableCreationDraftWork(draft({
+      pendingDataLabel: 'Note',
+    }))).toBe(true);
   });
 });

@@ -28,14 +28,22 @@ The store rechecks the common relationships immediately before committing.
 
 ## Erase
 
-1. Choose Geometry or Data and select one or more available endpoints.
-2. Press Done to review the number of endpoints and active relationships affected.
-3. Press Done to unlink every active relationship of the selected endpoints,
-   including relationships outside the current scene, then mark those endpoints erasable.
-4. The selected endpoints disappear from the available set. Counterparts are
-   neither erased nor implicitly restored.
+1. Choose Geometry or Data (or start from the current selection) and select one or more
+   available endpoints.
+2. Optionally check **Erase full annotation** (geometry, data, and link) on the selection
+   step. Default is off — same control whether you came from setup or a pre-selection.
+3. **Side-only erase** (checkbox off): press Erase to mark every active relationship of
+   the selected endpoints erasable (including outside the current scene), then erase
+   those endpoints. Counterparts stay available.
+4. **Full annotation erase** (checkbox on): press Erase to load common counterparts
+   (same intersection rule as Unlink). With 0 or 1 common counterpart the choice is
+   automatic; with several, pick one or more. Confirm to erase:
+   - the selected endpoints,
+   - the chosen counterparts (even if they still have other links outside this operation),
+   - and the relationships between them.
+   Unchosen counterparts and their other links are left alone.
 
-Items without relationships can also be erased.
+Items without relationships can also be erased (side-only or full with an empty common set).
 
 ## Presentation and safety
 

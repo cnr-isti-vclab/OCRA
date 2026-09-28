@@ -18,6 +18,7 @@ import {
   canChangeCreationStepOrder,
   emptyPendingData,
   firstCreationStep,
+  hasDiscardableCreationDraftWork,
   isGeometryFirst,
   isOnSecondCreationStep,
 } from '../annotation-creation/annotationCreationValidation';
@@ -211,7 +212,12 @@ export default function AnnotationWorkbench({
   const seedDeletionDraft = useCallback(() => {
     if (deletionDraft) return;
     initDeletionDraft();
-    updateDeletionDraft({ operation: mode === 'erase' ? 'erase' : 'unlink', selectedEndpointIds: [], selectedCounterpartIds: [] });
+    updateDeletionDraft({
+      operation: mode === 'erase' ? 'erase' : 'unlink',
+      eraseFullAnnotation: false,
+      selectedEndpointIds: [],
+      selectedCounterpartIds: [],
+    });
     // Viewer geometry picks also focus linked data: prefer their geometry source.
     // An explicit primary Data selection takes precedence over contextual highlights.
     const kind = primaryAnnotationSelection?.kind
@@ -315,6 +321,13 @@ export default function AnnotationWorkbench({
       return;
     }
     if (isCreateMode && creationDraft) {
+      if (!hasDiscardableCreationDraftWork(creationDraft)) {
+        discardCreationDraft();
+        setSetupError(null);
+        setDiscardModal(null);
+        onClose();
+        return;
+      }
       setDiscardModal(new MessageModalDescriptor({
         tone: 'warning',
         title: 'Discard annotation draft?',
@@ -341,7 +354,7 @@ export default function AnnotationWorkbench({
       return;
     }
     onClose();
-  }, [creating, creationDraft, deleting, deletionDraft, isCreateMode, isDeleteMode, onClose]);
+  }, [creating, creationDraft, deleting, deletionDraft, discardCreationDraft, isCreateMode, isDeleteMode, onClose]);
 
   const discardAndClose = useCallback(() => {
     if (isCreateMode) {
