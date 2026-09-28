@@ -92,6 +92,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         ),
       [activeGeometries, activeAnnotationSelection, focusedDataIds],
     );
+    const viewerAnnotationsRef = useRef(viewerAnnotations);
+    viewerAnnotationsRef.current = viewerAnnotations;
 
     const highlightGeometryIds = useMemo(
       () =>
@@ -258,6 +260,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           editSnapshotsRef.current.delete(annotation.id);
         })
         .catch((err) => {
+          const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+          if (viewer) {
+            try {
+              viewer.renderAnnotations(viewerAnnotationsRef.current);
+            } catch (renderError) {
+              console.error('Failed to restore 3D annotation geometry:', renderError);
+            }
+          }
           if (err instanceof AnnotationApiError && err.status === 409) {
             setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_geometry'));
             return;
