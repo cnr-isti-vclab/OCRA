@@ -108,17 +108,23 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
         <>
           <p className="mb-0">Choose the type of items to {operation}.</p>
           {operation === 'erase' ? (
-            <div className="form-check mb-0">
-              <input
-                id="erase-full-annotation"
-                className="form-check-input"
-                type="checkbox"
-                checked={eraseFullAnnotation}
-                onChange={(event) => updateDeletionDraft({ eraseFullAnnotation: event.target.checked })}
-              />
-              <label className="form-check-label" htmlFor="erase-full-annotation">
-                Erase full annotation (geometry, data, and link)
-              </label>
+            <div className={`border rounded px-3 py-2 ${eraseFullAnnotation ? 'border-primary bg-primary-subtle' : 'bg-body-secondary'}`}>
+              <div className="form-check mb-0">
+                <input
+                  id="erase-full-annotation"
+                  className="form-check-input"
+                  type="checkbox"
+                  checked={eraseFullAnnotation}
+                  onChange={(event) => updateDeletionDraft({ eraseFullAnnotation: event.target.checked })}
+                  style={{ width: '1.15em', height: '1.15em', marginTop: '0.2em' }}
+                />
+                <label className="form-check-label fw-semibold" htmlFor="erase-full-annotation">
+                  Erase full annotation
+                  <span className={`d-block small fw-normal ${eraseFullAnnotation ? 'text-primary-emphasis' : 'text-muted'}`}>
+                    Geometry, data, and link
+                  </span>
+                </label>
+              </div>
             </div>
           ) : null}
           <div className="btn-group w-100">
