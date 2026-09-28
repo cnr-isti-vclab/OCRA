@@ -18,6 +18,7 @@ import {
   canChangeCreationStepOrder,
   emptyPendingData,
   firstCreationStep,
+  hasDiscardableCreationDraftWork,
   isGeometryFirst,
   isOnSecondCreationStep,
 } from '../annotation-creation/annotationCreationValidation';
@@ -320,6 +321,13 @@ export default function AnnotationWorkbench({
       return;
     }
     if (isCreateMode && creationDraft) {
+      if (!hasDiscardableCreationDraftWork(creationDraft)) {
+        discardCreationDraft();
+        setSetupError(null);
+        setDiscardModal(null);
+        onClose();
+        return;
+      }
       setDiscardModal(new MessageModalDescriptor({
         tone: 'warning',
         title: 'Discard annotation draft?',
@@ -346,7 +354,7 @@ export default function AnnotationWorkbench({
       return;
     }
     onClose();
-  }, [creating, creationDraft, deleting, deletionDraft, isCreateMode, isDeleteMode, onClose]);
+  }, [creating, creationDraft, deleting, deletionDraft, discardCreationDraft, isCreateMode, isDeleteMode, onClose]);
 
   const discardAndClose = useCallback(() => {
     if (isCreateMode) {

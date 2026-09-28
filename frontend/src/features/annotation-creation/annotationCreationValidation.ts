@@ -387,6 +387,30 @@ export function canChangeCreationStepOrder(
   );
 }
 
+/** True when closing the workbench would discard created/chosen items or pending data. */
+export function hasDiscardableCreationDraftWork(
+  draft: Pick<
+    AnnotationCreationDraft,
+    | 'createdGeometries'
+    | 'selectedGeometryIds'
+    | 'createdData'
+    | 'selectedDataIds'
+    | 'pendingDataLabel'
+    | 'pendingDataDescription'
+    | 'pendingDataClass'
+  >,
+): boolean {
+  return (
+    draft.createdGeometries.length > 0
+    || draft.selectedGeometryIds.length > 0
+    || draft.createdData.length > 0
+    || draft.selectedDataIds.length > 0
+    || draft.pendingDataLabel.trim().length > 0
+    || draft.pendingDataDescription.trim().length > 0
+    || Boolean(draft.pendingDataClass?.trim())
+  );
+}
+
 export function emptyPendingData(): Pick<
   AnnotationCreationDraft,
   'pendingDataLabel' | 'pendingDataDescription' | 'pendingDataClass' | 'pendingDataContent'
