@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AnnotationLink } from 'shared/annotation-types';
+import type { AnnotationGeometry, AnnotationLink } from 'shared/annotation-types';
 import { annotationListSelection } from '../../utils/annotationListSelection';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { commonAnnotationCounterparts, annotationOperationLinks } from '../../utils/annotationUnlinkSelection';
 import { buildAnnotationDisplayNumbers } from '../../utils/annotationDisplayNumbers';
+import { getAnnotationGeometryTypeLabel } from '../../utils/annotationGeometryTypeLabel';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 import { isEntityBlockedForDeletion } from './isEntityBlockedForDeletion';
 import type { AnnotationDeletionDraft, AnnotationDeletionIntent } from './types';
+
+function geometryListLabel(geometry: AnnotationGeometry): string {
+  return `Geometry ${getAnnotationGeometryTypeLabel(geometry)}`;
+}
 
 interface AnnotationDeletionPanelProps {
   draft: AnnotationDeletionDraft;
@@ -141,7 +146,9 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
               <button key={item.id} type="button" className={'list-group-item list-group-item-action text-start ' + (selected.has(item.id) ? 'active' : '')}
                 disabled={loading || (!selected.has(item.id) && blocked(item.id))} onClick={(event) => toggleEndpoint(item.id, event.ctrlKey || event.metaKey)} aria-pressed={selected.has(item.id)}>
                 <AnnotationIndexBadge kind={kind} number={(kind === 'geometry' ? geometryNumbers : dataNumbers).get(item.id) ?? 0} />
-                <span className="ms-2">{'label' in item ? item.label : 'Geometry'}</span>
+                <span className="ms-2">
+                  {'label' in item ? item.label : geometryListLabel(item)}
+                </span>
               </button>
             ))}
           </div>
@@ -150,14 +157,20 @@ export default function AnnotationDeletionPanel({ draft, setupError, onStartDele
               <h4 className="h6">Common relationships to {kind === 'geometry' ? 'Data' : 'Geometry'}</h4>
               {common.length === 0 ? <p className="text-muted">No active relationships are shared by all selected items.</p> : (
                 <div className="list-group">
-                  {common.map((id) => (
+                  {common.map((id) => {
+                    const geometry = kind === 'data' ? allGeometries.find((item) => item.id === id) : undefined;
+                    const label = kind === 'geometry'
+                      ? allData.find((item) => item.id === id)?.label ?? id
+                      : geometry ? geometryListLabel(geometry) : id;
+                    return (
                     <button key={id} type="button" aria-pressed={counterparts.includes(id)}
                       className={'list-group-item list-group-item-action text-start d-flex align-items-center gap-2 ' + (counterparts.includes(id) ? 'active' : '')}
                       onClick={(event) => updateDeletionDraft({ selectedCounterpartIds: annotationListSelection(counterparts, id, event.ctrlKey || event.metaKey) })}>
                       <AnnotationIndexBadge kind={kind === 'geometry' ? 'data' : 'geometry'} number={(kind === 'geometry' ? dataNumbers : geometryNumbers).get(id) ?? 0} />
-                      {kind === 'geometry' ? allData.find((item) => item.id === id)?.label ?? id : id}
+                      {label}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               {operation === 'erase' && eraseFullAnnotation ? (
