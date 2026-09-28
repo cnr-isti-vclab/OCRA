@@ -162,12 +162,40 @@
 	background-color: rgba(40, 40, 40, 0.6); /* grigio scuro semi-trasparente */
 }
 
+/*
+ * OpenLIME's ToolbarView wraps every SVG icon in a native button. Reset the
+ * browser button chrome so the OCRA toolbar keeps the same visual contract as
+ * the legacy toolbar, where SVGs were direct toolbar children.
+ */
+.openlime-toolbar .openlime-toolbar-action {
+	appearance: none;
+	box-sizing: border-box;
+	margin: 0;
+	border: 0;
+	padding: 0;
+	background: transparent !important;
+	color: inherit;
+	font: inherit;
+	line-height: 0;
+}
+
+.openlime-toolbar .openlime-toolbar-action:disabled {
+	opacity: 0.35;
+	filter: grayscale(1);
+}
+
+.openlime-toolbar .openlime-toolbar-action:focus-visible {
+	outline: 2px solid #ff0;
+	outline-offset: 2px;
+}
+
 .openlime-toolbar svg:not(:root) {
 	width: auto;
 	height: 5vh;
 	display: block;
 }
 
+.openlime-toolbar .openlime-toolbar-action:hover,
 .openlime-toolbar .openlime-button:hover {
 	cursor: pointer;
 	opacity: 70%;
