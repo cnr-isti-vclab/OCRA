@@ -4,6 +4,9 @@ interface ViewerSettingsModalProps {
   isOpen: boolean;
   labelVisibility: OpenLimeLabelVisibility;
   onLabelVisibilityChange: (mode: OpenLimeLabelVisibility) => void;
+  acquisitionLightsAvailable: boolean;
+  showAcquisitionLights: boolean;
+  onShowAcquisitionLightsChange: (show: boolean) => void;
   onClose: () => void;
 }
 
@@ -33,6 +36,9 @@ export default function ViewerSettingsModal({
   isOpen,
   labelVisibility,
   onLabelVisibilityChange,
+  acquisitionLightsAvailable,
+  showAcquisitionLights,
+  onShowAcquisitionLightsChange,
   onClose,
 }: ViewerSettingsModalProps) {
   if (!isOpen) {
@@ -94,6 +100,17 @@ export default function ViewerSettingsModal({
                 );
               })}
             </div>
+            <section className="mt-4" aria-labelledby="viewer-light-settings-title">
+              <div className="mb-2">
+                <div id="viewer-light-settings-title" className="fw-semibold text-dark">Light</div>
+                <div className="text-muted small">Show the directions used to acquire the active RTI dataset.</div>
+              </div>
+              <label className="form-check form-switch m-0">
+                <input className="form-check-input" type="checkbox" checked={showAcquisitionLights} disabled={!acquisitionLightsAvailable} onChange={(event) => onShowAcquisitionLightsChange(event.target.checked)} />
+                <span className="form-check-label">Show acquisition lights</span>
+              </label>
+              {!acquisitionLightsAvailable ? <div className="text-muted small mt-2">No acquisition light positions are available for the selected lens mode.</div> : null}
+            </section>
           </div>
           <div className="modal-footer border-0 pt-0">
             <button type="button" className="btn btn-primary" onClick={onClose}>

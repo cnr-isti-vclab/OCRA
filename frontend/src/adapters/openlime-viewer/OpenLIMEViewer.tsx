@@ -50,6 +50,23 @@ interface OpenLimeLayerSignals {
   removeEvent(event: 'ready', callback: () => void): boolean;
 }
 
+function parseRtiAcquisitionLightDirections(metadata: unknown): OpenLimeLightDirection[] {
+  if (!metadata || typeof metadata !== 'object') return [];
+  const lights = (metadata as { lights?: unknown }).lights;
+  if (!Array.isArray(lights)) return [];
+  const vectors: unknown[][] = typeof lights[0] === 'number'
+    ? Array.from({ length: Math.floor(lights.length / 3) }, (_, index) => lights.slice(index * 3, index * 3 + 3))
+    : lights.filter((light): light is unknown[] => Array.isArray(light));
+  return vectors.flatMap((vector) => {
+    const [x, y, z] = vector;
+    if (![x, y, z].every((value) => typeof value === 'number' && Number.isFinite(value))) return [];
+    const length = Math.hypot(x, y, z);
+    if (length === 0 || z < 0) return [];
+    const direction = { x: x / length, y: y / length };
+    return direction.x * direction.x + direction.y * direction.y <= 1.0001 ? [direction] : [];
+  });
+}
+
 const RTI_LAYOUT_PROBES = [
   { layout: 'tarzoom', fileName: 'plane_0.tzi' },
   { layout: 'deepzoom', fileName: 'plane_0.dzi' },
@@ -203,6 +220,8 @@ export interface OpenLIMEViewerRef {
   executeAction: (id: string, event?: Event) => boolean;
   /** Updates RTI illumination through OpenLIME's public light feature. */
   setLightDirection: (x: number, y: number) => boolean;
+  /** Toggles display of acquisition-light samples for the selected lens mode. */
+  setShowLensAcquisitionLights: (show: boolean) => boolean;
 
   // Annotation CRUD operations
   getAllAnnotations: () => SimplifiedAnnotation[];
@@ -241,6 +260,10 @@ const OpenLIMEViewer = forwardRef<
     onLightControlRequested?: () => void;
     /** Publishes light movements made through the public OpenLIME light API. */
     onLightDirectionChange?: (direction: OpenLimeLightDirection) => void;
+    /** Publishes visible RTI acquisition-light samples for the light control. */
+    onLensAcquisitionLightsChange?: (directions: OpenLimeLightDirection[]) => void;
+    /** Indicates whether the selected lens mode has acquisition-light data. */
+    onLensAcquisitionLightsAvailabilityChange?: (available: boolean) => void;
     annotationInteractionMode?: AnnotationMode;
     annotationLabelVisibility?: OpenLimeLabelVisibility;
   }>(
@@ -260,6 +283,8 @@ const OpenLIMEViewer = forwardRef<
         onToolbarActionsChange,
         onLightControlRequested,
         onLightDirectionChange,
+        onLensAcquisitionLightsChange,
+        onLensAcquisitionLightsAvailabilityChange,
         annotationInteractionMode = 'edit',
         annotationLabelVisibility = 'selected',
       },
@@ -272,7 +297,7 @@ const OpenLIMEViewer = forwardRef<
       const lensRuntimeRef = useRef<{
         layer: OpenLIME.LayerLens;
         controller: OpenLIME.ControllerFocusContext;
-        choices: Array<{ id: string; label: string; layer: OpenLIME.Layer }>;
+        choices: Array<{ id: string; label: string; layer: OpenLIME.Layer; acquisitionLights: OpenLimeLightDirection[] }>;
       } | null>(null);
       const backgroundRuntimeRef = useRef<Array<{ id: string; label: string; layer: OpenLIME.Layer }>>([]);
       const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
@@ -288,11 +313,14 @@ const OpenLIMEViewer = forwardRef<
       const onToolbarActionsChangeRef = useRef<typeof onToolbarActionsChange>(onToolbarActionsChange);
       const onLightControlRequestedRef = useRef<typeof onLightControlRequested>(onLightControlRequested);
       const onLightDirectionChangeRef = useRef<typeof onLightDirectionChange>(onLightDirectionChange);
+      const onLensAcquisitionLightsChangeRef = useRef<typeof onLensAcquisitionLightsChange>(onLensAcquisitionLightsChange);
+      const onLensAcquisitionLightsAvailabilityChangeRef = useRef<typeof onLensAcquisitionLightsAvailabilityChange>(onLensAcquisitionLightsAvailabilityChange);
       const [layersPanelOpen, setLayersPanelOpen] = useState(false);
       const [backgroundLayers, setBackgroundLayers] = useState<ViewerBackgroundLayer[]>([]);
       const [lensLayers, setLensLayers] = useState<ViewerLensLayer[]>([]);
       const [lensEnabled, setLensEnabled] = useState(false);
       const [activeLensId, setActiveLensId] = useState<string | null>(null);
+      const [showLensAcquisitionLights, setShowLensAcquisitionLights] = useState(false);
       /** Panel-driven editing must preserve the current OCRA selection. */
       const skipDeselectOnPencilEnableRef = useRef(false);
 
@@ -347,6 +375,14 @@ const OpenLIMEViewer = forwardRef<
       useEffect(() => {
         onLightDirectionChangeRef.current = onLightDirectionChange;
       }, [onLightDirectionChange]);
+
+      useEffect(() => {
+        onLensAcquisitionLightsChangeRef.current = onLensAcquisitionLightsChange;
+      }, [onLensAcquisitionLightsChange]);
+
+      useEffect(() => {
+        onLensAcquisitionLightsAvailabilityChangeRef.current = onLensAcquisitionLightsAvailabilityChange;
+      }, [onLensAcquisitionLightsAvailabilityChange]);
 
       useEffect(() => {
         const manager = annotationManagerRef.current as
@@ -486,6 +522,9 @@ const OpenLIMEViewer = forwardRef<
           setLensEnabled(false);
           setLensLayers([]);
           setActiveLensId(null);
+          setShowLensAcquisitionLights(false);
+          onLensAcquisitionLightsChangeRef.current?.([]);
+          onLensAcquisitionLightsAvailabilityChangeRef.current?.(false);
           viewer.clearLayers();
 
 
@@ -679,7 +718,7 @@ const OpenLIMEViewer = forwardRef<
             id,
             label,
             visible: layer.visible,
-            modes: layer.getModes(),
+            modes: layer.getModes().filter((mode) => mode !== 'normals'),
             mode: layer.getMode(),
           })));
 
@@ -754,7 +793,7 @@ const OpenLIMEViewer = forwardRef<
           onReadyRef.current?.();
 
           // Build independent diagnostic RTI layers after their source shaders are ready.
-          const lensChoices: Array<{ id: string; label: string; layer: OpenLIME.Layer }> = [];
+          const lensChoices: Array<{ id: string; label: string; layer: OpenLIME.Layer; acquisitionLights: OpenLimeLightDirection[] }> = [];
           for (const background of backgroundRuntime.filter((entry) => entry.relightable)) {
             if (background.layer.status !== 'ready') {
               await new Promise<void>((resolve) => {
@@ -764,6 +803,7 @@ const OpenLIMEViewer = forwardRef<
               });
             }
             if (cancelled) return;
+            const acquisitionLights = parseRtiAcquisitionLightDirections((background.layer as OpenLIME.Layer & { json?: unknown }).json);
             for (const diagnostic of [{ mode: 'light', label: 'Light' }, { mode: 'gray_diffuse', label: 'Gray diffuse' }]) {
               const id = `lens:${background.id}:${diagnostic.mode}`;
               const label = backgroundRuntime.length > 1 ? `${diagnostic.label} — ${background.label}` : diagnostic.label;
@@ -783,7 +823,7 @@ const OpenLIMEViewer = forwardRef<
               if (Array.isArray(lightState)) {
                 layer.setLight(lightState, 0);
               }
-              lensChoices.push({ id, label, layer });
+              lensChoices.push({ id, label, layer, acquisitionLights });
             }
           }
 
@@ -804,6 +844,7 @@ const OpenLIMEViewer = forwardRef<
 
           setLensLayers(lensChoices.map(({ id, label }) => ({ id, label })));
           setActiveLensId(lensChoices[0]?.id ?? null);
+          onLensAcquisitionLightsAvailabilityChangeRef.current?.((lensChoices[0]?.acquisitionLights.length ?? 0) > 0);
 
           // Setup event listeners for annotation layer events (update, delete)
           //setupAnnotationLayerListeners();
@@ -819,6 +860,11 @@ const OpenLIMEViewer = forwardRef<
       const closeLayersPanel = () => {
         setLayersPanelOpen(false);
         toolsRef.current?.actions.update('layers', { active: false });
+      };
+
+      const publishLensAcquisitionLights = (lensId: string | null, show: boolean) => {
+        const choice = lensRuntimeRef.current?.choices.find((candidate) => candidate.id === lensId);
+        onLensAcquisitionLightsChangeRef.current?.(show ? choice?.acquisitionLights ?? [] : []);
       };
 
       const setBackgroundVisibility = (id: string, visible: boolean) => {
@@ -853,7 +899,20 @@ const OpenLIMEViewer = forwardRef<
         if (index < 0) return;
         runtime.layer.setActiveLayer(index);
         setActiveLensId(id);
+        const hasAcquisitionLights = runtime.choices[index].acquisitionLights.length > 0;
+        const showLights = showLensAcquisitionLights && hasAcquisitionLights;
+        if (!showLights) setShowLensAcquisitionLights(false);
+        onLensAcquisitionLightsAvailabilityChangeRef.current?.(hasAcquisitionLights);
+        publishLensAcquisitionLights(id, showLights);
         viewerRef.current?.redraw();
+      };
+
+      const setShowAcquisitionLights = (show: boolean) => {
+        const choice = lensRuntimeRef.current?.choices.find((candidate) => candidate.id === activeLensId);
+        const enabled = show && Boolean(choice?.acquisitionLights.length);
+        setShowLensAcquisitionLights(enabled);
+        publishLensAcquisitionLights(activeLensId, enabled);
+        return enabled;
       };
 
       // Helper function to get annotation layer
@@ -894,6 +953,10 @@ const OpenLIMEViewer = forwardRef<
           if (!lightTool) return false;
           lightTool.setActive(false);
           return lightTool.setDirection(x, y, 0, 'ocra-light-control');
+        },
+
+        setShowLensAcquisitionLights(show: boolean) {
+          return setShowAcquisitionLights(show);
         },
 
         getAllAnnotations(): SimplifiedAnnotation[] {

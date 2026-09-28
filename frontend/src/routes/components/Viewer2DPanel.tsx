@@ -172,6 +172,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [toolbarActions, setToolbarActions] = useState<ViewerToolbarAction[]>([]);
     const [lightControlOpen, setLightControlOpen] = useState(false);
     const [lightDirection, setLightDirection] = useState<LightDirection>({ x: 0, y: 0 });
+    const [acquisitionLightDirections, setAcquisitionLightDirections] = useState<LightDirection[]>([]);
     const [annotationManagerRevision, setAnnotationManagerRevision] = useState(0);
     const [geometryEditingActive, setGeometryEditingActive] = useState(false);
     const geometryEditingSession = isGeometryEditingSession({
@@ -189,6 +190,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
+    const [acquisitionLightsAvailable, setAcquisitionLightsAvailable] = useState(false);
+    const [showAcquisitionLights, setShowAcquisitionLights] = useState(false);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const lastDraftGeometryViewerIdRef = useRef<string | null>(null);
@@ -1365,7 +1368,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         {lightControlOpen ? (
           <LightDirectionControl
             direction={lightDirection}
-            onClose={() => setLightControlOpen(false)}
+            acquisitionLightDirections={acquisitionLightDirections}
             onDirectionChange={(direction) => {
               if ((ref as React.RefObject<OpenLIMEViewerRef>)?.current?.setLightDirection(direction.x, direction.y)) {
                 setLightDirection(direction);
@@ -1381,6 +1384,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             onToolbarActionsChange={setToolbarActions}
             onLightControlRequested={() => setLightControlOpen((open) => !open)}
             onLightDirectionChange={setLightDirection}
+            onLensAcquisitionLightsChange={setAcquisitionLightDirections}
+            onLensAcquisitionLightsAvailabilityChange={(available) => {
+              setAcquisitionLightsAvailable(available);
+              if (!available) setShowAcquisitionLights(false);
+            }}
             annotationInteractionMode={annotationMode}
             onReady={handleViewerReady}
             onError={onError}
@@ -1425,6 +1433,12 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           isOpen={settingsOpen}
           labelVisibility={labelVisibility}
           onLabelVisibilityChange={setLabelVisibility}
+          acquisitionLightsAvailable={acquisitionLightsAvailable}
+          showAcquisitionLights={showAcquisitionLights}
+          onShowAcquisitionLightsChange={(show) => {
+            const enabled = (ref as React.RefObject<OpenLIMEViewerRef>)?.current?.setShowLensAcquisitionLights(show) ?? false;
+            setShowAcquisitionLights(enabled);
+          }}
           onClose={() => setSettingsOpen(false)}
         />
       </div>

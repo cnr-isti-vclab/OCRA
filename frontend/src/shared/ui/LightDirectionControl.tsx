@@ -8,7 +8,7 @@ export interface LightDirection {
 
 interface LightDirectionControlProps {
   direction: LightDirection;
-  onClose: () => void;
+  acquisitionLightDirections: readonly LightDirection[];
   onDirectionChange: (direction: LightDirection) => void;
 }
 
@@ -18,9 +18,10 @@ function clampToUnitCircle(x: number, y: number): LightDirection {
 }
 
 /** Application-owned, keyboard-accessible control for RTI illumination direction. */
-export default function LightDirectionControl({ direction, onClose, onDirectionChange }: LightDirectionControlProps) {
+export default function LightDirectionControl({ direction, acquisitionLightDirections, onDirectionChange }: LightDirectionControlProps) {
   const padRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
 
   const updateFromClientPoint = (clientX: number, clientY: number) => {
@@ -32,37 +33,71 @@ export default function LightDirectionControl({ direction, onClose, onDirectionC
     ));
   };
 
-  const onHeaderPointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (event.target instanceof Element && event.target.closest('button')) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const rect = event.currentTarget.parentElement?.getBoundingClientRect();
-    if (!rect) return;
-    dragRef.current = {
-      pointerId: event.pointerId,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-    };
+  const isLightCursor = (element: HTMLDivElement, clientX: number, clientY: number) => {
+    const rect = element.getBoundingClientRect();
+    const cursorX = rect.left + ((direction.x + 1) * rect.width) / 2;
+    const cursorY = rect.top + ((1 - direction.y) * rect.height) / 2;
+    return Math.hypot(clientX - cursorX, clientY - cursorY) <= 15;
   };
 
-  const onHeaderPointerMove = (event: PointerEvent<HTMLElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    setPosition({ x: Math.max(8, event.clientX - drag.offsetX), y: Math.max(8, event.clientY - drag.offsetY) });
+  const isDragBorder = (element: HTMLDivElement, clientX: number, clientY: number) => {
+    const rect = element.getBoundingClientRect();
+    return !isLightCursor(element, clientX, clientY)
+      && Math.hypot(clientX - rect.left - rect.width / 2, clientY - rect.top - rect.height / 2) >= rect.width / 2 - 10;
   };
 
-  const onHeaderPointerEnd = (event: PointerEvent<HTMLElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+  const updateCursor = (element: HTMLDivElement, clientX: number, clientY: number, dragging = false) => {
+    element.style.cursor = dragging ? 'grabbing' : isDragBorder(element, clientX, clientY) ? 'grab' : 'crosshair';
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const isDragging = isDragBorder(event.currentTarget, event.clientX, event.clientY);
+    activePointerIdRef.current = event.pointerId;
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (isDragging) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      updateCursor(event.currentTarget, event.clientX, event.clientY, true);
+      dragRef.current = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      return;
+    }
     updateFromClientPoint(event.clientX, event.clientY);
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      updateFromClientPoint(event.clientX, event.clientY);
+    if (activePointerIdRef.current !== event.pointerId) {
+      updateCursor(event.currentTarget, event.clientX, event.clientY);
+      return;
     }
+    const drag = dragRef.current;
+    if (drag?.pointerId === event.pointerId) {
+      updateCursor(event.currentTarget, event.clientX, event.clientY, true);
+      const viewerRect = event.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+      if (!viewerRect) return;
+      setPosition({
+        x: Math.max(8, event.clientX - viewerRect.left - drag.offsetX),
+        y: Math.max(8, event.clientY - viewerRect.top - drag.offsetY),
+      });
+      return;
+    }
+    updateFromClientPoint(event.clientX, event.clientY);
+  };
+
+  const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (activePointerIdRef.current !== event.pointerId) return;
+    activePointerIdRef.current = null;
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    updateCursor(event.currentTarget, event.clientX, event.clientY);
+  };
+
+  const onPointerLeave = (event: PointerEvent<HTMLDivElement>) => {
+    if (activePointerIdRef.current !== event.pointerId) event.currentTarget.style.cursor = 'crosshair';
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -78,13 +113,7 @@ export default function LightDirectionControl({ direction, onClose, onDirectionC
   };
 
   return (
-    <section className="ocra-light-direction-control" aria-label="Light direction" style={position ? { left: position.x, top: position.y } : undefined} onPointerDown={(event) => event.stopPropagation()}>
-      <header className="ocra-light-direction-control__header" onPointerDown={onHeaderPointerDown} onPointerMove={onHeaderPointerMove} onPointerUp={onHeaderPointerEnd} onPointerCancel={onHeaderPointerEnd}>
-        <span className="ocra-light-direction-control__drag-handle bi bi-grip-horizontal" aria-label="Drag light control" />
-        <button type="button" className="ocra-light-direction-control__close" onClick={onClose} aria-label="Close light direction control">
-          <span className="bi bi-x-lg" aria-hidden="true" />
-        </button>
-      </header>
+    <section className="ocra-light-direction-control" aria-label="Light direction" style={position ? { left: position.x, top: position.y, bottom: 'auto' } : undefined} onPointerDown={(event) => event.stopPropagation()}>
       <div
         ref={padRef}
         className="ocra-light-direction-control__pad"
@@ -94,22 +123,27 @@ export default function LightDirectionControl({ direction, onClose, onDirectionC
         aria-valuetext={`Horizontal ${direction.x.toFixed(2)}, vertical ${direction.y.toFixed(2)}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onPointerLeave={onPointerLeave}
         onKeyDown={onKeyDown}
       >
         <span className="ocra-light-direction-control__axis ocra-light-direction-control__axis--vertical" />
         <span className="ocra-light-direction-control__axis ocra-light-direction-control__axis--horizontal" />
         <span className="ocra-light-direction-control__halo" />
+        {acquisitionLightDirections.length > 0 ? (
+          <svg className="ocra-light-direction-control__samples" viewBox="0 0 100 100" aria-label="Acquisition light positions">
+            {acquisitionLightDirections.map((sample, index) => (
+              <circle key={index} cx={(sample.x + 1) * 50} cy={(1 - sample.y) * 50} r="1.7" />
+            ))}
+          </svg>
+        ) : null}
         <span
           className="ocra-light-direction-control__dot"
           style={{ left: `${(direction.x + 1) * 50}%`, top: `${(1 - direction.y) * 50}%` }}
           aria-hidden="true"
         />
       </div>
-      <footer className="ocra-light-direction-control__footer">
-        <button type="button" onClick={() => onDirectionChange({ x: 0, y: 0 })} aria-label="Reset light direction" title="Reset light direction">
-          <span className="bi bi-arrow-counterclockwise" aria-hidden="true" />
-        </button>
-      </footer>
     </section>
   );
 }

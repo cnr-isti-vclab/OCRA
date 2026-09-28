@@ -68,9 +68,12 @@ import { ProjectStructuringLockProvider } from './context/ProjectStructuringLock
  * - Route Guards: Components that control access to certain routes (like RequireAuth)
  */
 
-window.addEventListener('contextmenu', function(e) {
-  e.preventDefault()
-})
+const preventContextMenu = (event: MouseEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+};
+window.addEventListener('contextmenu', preventContextMenu, { capture: true });
+document.addEventListener('contextmenu', preventContextMenu, { capture: true });
 
 const router = createBrowserRouter([
 	// Root route: renders the main App component at "/"
