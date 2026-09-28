@@ -7,7 +7,7 @@
 .ocra-viewer-layers__header button:hover { background: #edf0f2; }
 .ocra-viewer-layers__box { margin: 0 0 12px; padding: 12px; border: 1px solid #dce1e5; border-radius: 7px; background: #f7f8f9; }
 .ocra-viewer-layers__box:last-child { margin-bottom: 0; }
-.ocra-viewer-layers__box legend { padding: 0 6px; font-weight: 700; }
+.ocra-viewer-layers__box legend { padding: 0 5px; color: #000; font-size: 14px; font-weight: 700; letter-spacing: .02em; line-height: 1.2; }
 .ocra-viewer-layers__box p { margin: 4px 0; color: #697078; }
 .ocra-viewer-layers__box small { display: block; margin-top: 10px; color: #697078; }
 .ocra-viewer-layers__row { display: grid; gap: 8px; margin-bottom: 10px; }
