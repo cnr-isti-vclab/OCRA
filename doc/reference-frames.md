@@ -17,23 +17,29 @@ Today, OCRA already stores asset placement information in scenes, but it does so
 
 In the current implementation, the result is workable for current features, but the conceptual model is incomplete:
 
-- HDT-level shared frames do not yet exist as first-class entities
+- there is no explicit HDT-wide spatial basis shared by scenes
 - scene frames are still implicit in flat asset transforms
 - asset-local coordinates and scene coordinates are not clearly separated
+- axis conventions and measurement units are not declared
 - 2D and 3D adapters enforce different transform rules
 - annotation geometry does not yet have a canonical anchoring model shared with scene asset placement
 
 This proposal addresses that gap.
 
+The proposal is deliberately staged.
+The first deliverable introduces a single HDT spatial basis and explicit scene-local frame trees.
+A richer graph of named, shared HDT frames is described as [future work](#future-work-named-hdt-frames).
+
 ## Goals
 
 The reference-frame system should:
 
-- define HDT-level shared coordinates explicitly
+- define an HDT-wide spatial basis explicitly
 - define scene coordinates explicitly, rather than implicitly through viewer adapters
+- declare axis conventions, handedness, and measurement units
 - work for both 3D and 2D scenes
 - support both minimal scenes with a single asset and complex spatial reconstructions with many distributed assets
-- allow hierarchical frames
+- allow hierarchical frames inside a scene
 - allow multiple scenes of the same HDT to share a common spatial basis
 - provide a canonical basis for asset placement
 - provide a canonical basis for annotation geometry anchoring
@@ -48,19 +54,22 @@ This proposal does not define:
 - rendering configuration details
 - a complete migration plan for all existing scene JSON payloads
 - a full annotation data-model redesign
+- a graph of named HDT-level frames in the first deliverable (see [Future Work](#future-work-named-hdt-frames))
 
 Those topics depend on this model, but are separate concerns.
 
 ## Conceptual Model
 
-The core idea is that OCRA should describe spatial structure as a graph of reference frames plus placements of assets and geometries within those frames.
+![Conceptual Model](ocra-reference-frames.svg)
+
+The core idea is that OCRA should describe spatial structure as a tree of reference frames plus placements of assets and geometries within those frames.
 
 There are four different concerns:
 
-1. HDT structure: shared frames that belong to the HDT as a whole.
-2. Scene structure: scene-local frames and their parent-child relationships.
+1. HDT space: the single shared 3D spatial basis of the HDT.
+2. Scene structure: scene-local frames, organized as a tree with exactly one root, optionally registered into the HDT space.
 3. Scene content placement: where an asset is placed within a scene-local frame.
-4. Geometry anchoring: which frame an annotation geometry is expressed in.
+4. Geometry anchoring: which scope and frame an annotation geometry is expressed in.
 
 These concerns should not be merged.
 
@@ -79,19 +88,24 @@ Examples:
 
 Frames are semantic and structural. They are not viewer state.
 
-## HDT Frames and Scene Frames
+## HDT Space and Scene Frames
 
 The proposal distinguishes two structural levels:
 
-- HDT-level frames, shared across scenes of the same HDT
+- the HDT space, a single 3D coordinate system shared by all scenes of the HDT
 - scene-local frames, owned by a specific scene
 
-In this proposal, the HDT spatial layer is 3D by definition.
-It represents the global spatial basis of the documented object or environment.
-Planar behavior is introduced only at the scene level, or in local frames that represent planar supports such as walls, panels, pages, or RTI/image-aligned surfaces.
+The HDT space is 3D by definition.
+It represents the global spatial basis of the documented object or environment, such as:
 
-This distinction matters because not all scenes are equal.
+- the physical object reference system
+- a reconstruction-wide origin
+- a museum installation layout
+- a retable, manuscript, wall, or architectural reference system
 
+Planar behavior is introduced only at the scene level, in scenes and scene-local frames that represent planar supports such as walls, panels, pages, or RTI/image-aligned surfaces.
+
+Not all scenes are equal.
 Some scenes are:
 
 - local working views
@@ -99,17 +113,15 @@ Some scenes are:
 - 2D documentary compositions
 - alternative alignments of the same assets
 
-At the same time, several scenes may still need to refer to a shared global basis, such as:
+For that reason, a scene can be either:
 
-- the physical object reference system
-- a reconstruction-wide origin
-- a museum installation layout
-- a retable, manuscript, wall, or architectural reference system
+- **registered**: its root frame is placed in the HDT space, so its content is spatially comparable with every other registered scene of the same HDT
+- **local**: its root frame is not related to the HDT space, and the scene is a self-contained working space
 
-For that reason, OCRA should not treat the top-level spatial origin as necessarily scene-local.
-Instead, it should support a shared HDT-level frame graph and allow scenes to attach to it.
+In the first deliverable the HDT space has no internal structure: it is just an origin, a set of axes, and a unit.
+Registered scenes relate to one another only through the transforms of their root frames into that space.
 
-## Why a Frame Graph Is Better Than Flat Asset Transforms
+## Frame Tree vs. Flat Asset Transforms
 
 The current flat model is sufficient only when every asset is placed directly in a single implicit scene coordinate system.
 
@@ -117,21 +129,64 @@ That becomes limiting when:
 
 - multiple assets belong to the same physical support
 - assets need to be aligned relative to a shared wall, panel, or object surface
-- annotations should survive asset replacement or re-registration
+- annotations should survive asset re-registration
 - 2D and 3D viewers need a common model
 - scene semantics matter, not just raw display transforms
 
-With a frame graph:
+With a frame tree:
 
 - shared local contexts become explicit
-- shared HDT-wide contexts become explicit
 - transforms can be composed structurally
 - placement logic is separated from asset identity and remains scene-owned
 - annotation geometry can attach to meaningful frames instead of incidental viewer coordinates
 
+## Axis Conventions
+
+All canonical coordinate systems in OCRA (HDT space, scene frames, and the intrinsic space of 3D assets unless declared otherwise) are:
+
+- **right-handed**
+- **Y-up**: `+Y` is the vertical direction, pointing up
+- **`+Z` toward the observer** of a planar support: for a planar frame, the support lies in the local XY plane and its visible face looks towards `+Z`
+
+This is the convention of Three.js, so the 3D adapter needs no axis swap.
+It is also the convention of the OpenLIME scene and layer coordinate systems (origin at the center, `+X` right, `+Y` up), so the 2D adapter needs no axis swap either.
+An identity-registered `planar2d` scene is therefore a vertical plane facing the default Three.js camera, and it looks the same in OpenLIME.
+
+Assets produced by pipelines that use a different convention (for example Z-up photogrammetry or GIS data) are handled by their placement transform, not by redefining the canonical axes.
+
+### Intrinsic Space of 2D Assets
+
+The intrinsic space of 2D assets (images, RTI datasets, derived raster layers) is the **OpenLIME layer space**:
+
+- unit: pixel of the full-resolution image
+- origin: center of the image
+- `+X` to the right, `+Y` up, `+Z` toward the observer
+
+Raster coordinates (the OpenLIME "image" space, also used by SVG annotations) have their origin at the top-left corner and `+Y` pointing down.
+For an image of `w × h` pixels, a raster position `(u, v)` maps to the intrinsic point:
+
+```txt
+(x, y, z) = (u - w/2, h/2 - v, 0)
+```
+
+This is exactly the mapping implemented by OpenLIME in `CoordinateSystem.fromLayerToImage` and its inverse.
+
+The Y-down to Y-up mapping is a reflection.
+It cannot be expressed by a similarity transform with positive scale, nor by a rotation without leaving the XY plane (a 180° rotation about X is a tilt, which `planar2d` forbids).
+For this reason it is never part of a stored transform: it is fixed once, by this definition, and applied by viewer adapters when converting to and from raster or SVG coordinates.
+
+Choosing the layer space rather than the raster space as canonical has three advantages:
+
+- an OCRA asset placement of a 2D asset is exactly an OpenLIME layer transform (layer to scene), without any correction
+- in Three.js, the same image rendered on a `PlaneGeometry(w, h)` (centered at the origin, lying in XY, facing `+Z`) occupies exactly the intrinsic space, so the same placement works in both viewers
+- rotation and scale in a placement act around the center of the image, which is the natural pivot for alignment in both viewers
+
+The mapping depends on the full-resolution image size `w × h`.
+That size is part of the asset metadata, and a re-processing of the asset that changes its dimensions (for example a crop) must be treated as a new intrinsic space, with its asset-scoped geometry converted accordingly.
+
 ## Proposed Canonical Transform Type
 
-The proposed canonical transform for HDT frames, scene frames, and asset placements is a 3D similarity transform:
+The proposed canonical transform for scene frames and asset placements is a 3D similarity transform:
 
 ```ts
 type Vec3 = [number, number, number];
@@ -155,61 +210,110 @@ This matches the convention used by Three.js and makes `[0, 0, 0, 1]` the identi
 
 ## Units and Geometric Scale
 
-The spatial model should distinguish clearly between:
+The spatial model distinguishes clearly between:
 
 - unit of measurement
 - geometric scale
 
 These are related mathematically, but they do not express the same concept.
 
-A unit of measurement describes the metric meaning of coordinates in a spatial context.
+A unit of measurement describes the physical meaning of coordinates in a spatial context.
 Examples:
 
 - an HDT may use meters to contextualize an object inside a church
 - a study scene may use millimeters for fine inspection and measurement
+- a 2D asset uses pixels, whose physical size may or may not be known
+- a 3D mesh may use millimeters, meters, inches, or an unknown unit
 
 Geometric scale, instead, is part of a transform.
-It describes how one frame is geometrically transformed relative to another.
+It describes how coordinates of one frame are mapped into another.
 
-For this reason, unit conversion should not be conceptually merged with ordinary geometric scaling, even if both operations introduce a multiplicative factor.
+### Units Are Semantic, Scales Are Explicit
 
-The recommended interpretation is:
+In OCRA, **units are metadata and never take part in transform composition**.
+Every factor needed to go from one space to another, including the factor between two different units, is stored explicitly in the `scale` of the corresponding transform.
 
-- `unit` is semantic metadata attached to a spatial context
-- `scale` is a geometric transform component
-- changing unit systems may result in a conversion factor in the composed transform, but that factor should be understood as unit conversion, not as arbitrary resizing
+For example, a scene in millimeters registered in an HDT in meters has `scale: 0.001` in the transform of its root frame.
 
-This distinction matters because:
+This choice keeps the model simple and robust:
 
-- measurements should remain meaningful and auditable
-- scene editing should not confuse metric conversion with visual or geometric deformation
-- the same object may be contextualized globally in meters and studied locally in millimeters without changing its semantic identity
+- composition is pure arithmetic on stored data; any consumer (viewer adapters, backend, export, measurement tools) can compose transforms without knowing about units
+- a forgotten unit conversion cannot silently produce a 1000× error, because there is no implicit conversion to forget
+- it follows the practice of the main 3D formats: glTF and Three.js have no units at all, and USD records `metersPerUnit` as metadata without applying it automatically when composing layers
+
+Units still matter: they give coordinates their physical meaning, they drive measurement display, and they allow OCRA to [check](#unit-consistency-validation) that stored scales are coherent.
+
+### Unit Declarations
+
+```ts
+type LengthUnit = {
+  metersPerUnit: number; // e.g. 0.001 for millimeters, 0.0254 for inches
+  symbol?: string;       // display label, e.g. 'mm', 'in'
+};
+```
+
+A unit is defined by its size in meters, not by a closed list of names.
+Any length unit is therefore supported, metric or not (inches, feet, Vienna inches for historical drawings, and so on), without a conversion table in the core model.
+
+Declarations:
+
+- the HDT space declares `unit: LengthUnit | null`
+- a scene declares `unit?: LengthUnit | null`; if omitted, it inherits the HDT unit
+- all frames of a scene share the scene unit; units never change inside a scene frame tree
+- a digital asset declares `unit: LengthUnit | null` for its intrinsic space
+- `null` means **uncalibrated**: coordinates have no known physical size
+
+For a 2D asset, the intrinsic coordinates are always pixels, and `unit` states the physical size of one pixel when it is known (for example `{ metersPerUnit: 0.0001 }` for 0.1 mm per pixel).
+For a 3D asset, `unit` states the unit of its model space, or `null` if it is unknown.
+
+### Unit Presets
+
+The only conversion table in OCRA is a list of presets used by the user interface, defined once in `shared/`:
+
+```ts
+const LENGTH_UNIT_PRESETS: Record<string, LengthUnit> = {
+  mm: { metersPerUnit: 0.001, symbol: 'mm' },
+  cm: { metersPerUnit: 0.01, symbol: 'cm' },
+  m: { metersPerUnit: 1, symbol: 'm' },
+  in: { metersPerUnit: 0.0254, symbol: 'in' },
+  ft: { metersPerUnit: 0.3048, symbol: 'ft' },
+};
+```
+
+Presets are a convenience for editing and display.
+Stored data always contains the full `LengthUnit`, so it remains interpretable if the preset list changes.
+
+### Expected Scale Between Units
+
+When both sides of a transform have a known unit, the scale that corresponds to a pure change of unit is:
+
+```txt
+expectedScale(child, parent) = child.metersPerUnit / parent.metersPerUnit
+```
+
+For example, from millimeters to meters `0.001 / 1 = 0.001`, and from inches to millimeters `0.0254 / 0.001 = 25.4`.
+
+OCRA uses this value in two places only, never in composition:
+
+- **editing**: when a scene is registered in the HDT, or a calibrated asset is placed in a scene, the editor proposes `expectedScale` as the initial `scale`
+- **validation**: the stored `scale` is compared with `expectedScale`; any remaining factor is a geometric scaling, which on a link between two calibrated spaces usually reveals a calibration or registration error
+
+When at least one side is uncalibrated, there is no expected scale.
+The stored `scale` is then itself the calibration: for example, the placement scale of an uncalibrated RTI in a millimeter scene states how many millimeters a pixel covers.
+It should be edited and audited as a calibration rather than as a visual resize, and once known it should preferably be recorded as the unit of the asset.
+
+### Changing a Unit
+
+Since units are not applied automatically, changing the unit of a scene or of the HDT is an explicit editing operation, with two possible meanings:
+
+- **relabel**: the numbers stay the same and the declared unit was wrong; the scene changes physical size, and the unit consistency check will report the scales that no longer match
+- **convert**: the physical geometry stays the same; the editor multiplies all coordinates expressed in that space (frame translations, placement scales, scene-scoped annotation vertices) by the conversion factor, and divides the scale of the link to the parent accordingly
+
+Converting touches annotation data, so the unit of a scene should be chosen when the scene is created and changed only rarely.
 
 ## Transform Composition
 
 The reference-frame model is useful only if transform composition is explicit and predictable.
-
-At a high level, every effective placement is obtained by composing transforms along the relevant chain:
-
-- from the asset intrinsic space to the chosen scene-local frame
-- from the scene-local frame to its parent scene frame, if any
-- from the scene root to the attached HDT frame, if the scene is registered into the HDT
-- from that HDT frame up to the HDT root
-
-Conceptually, if an asset is placed in a scene-local frame, the effective transform to the global HDT space is:
-
-```ts
-assetToHdt =
-  assetToSceneFrame
-  * sceneFrameToParent
-  * ...
-  * sceneRootToHdtFrame
-  * hdtFrameToParent
-  * ...
-  * hdtRoot
-```
-
-To avoid ambiguity, OCRA should adopt the following mathematical convention.
 
 Each `transformToParent` maps coordinates from a child frame to its parent frame.
 Given a point `p_child` expressed in the child frame, the corresponding point in the parent frame is:
@@ -220,9 +324,9 @@ p_parent = t + s R p_child
 
 where:
 
-- `t` is the translation vector expressed in the parent frame
+- `t` is the translation vector expressed in the parent frame, in parent units
 - `R` is the rotation from child frame to parent frame
-- `s` is the positive uniform scale
+- `s` is the positive uniform scale, including any change of unit
 
 This means:
 
@@ -234,7 +338,8 @@ The document assumes a consistent parent-relative composition model:
 
 - each frame stores its transform to its parent
 - each asset placement stores its transform to its owning scene frame
-- global coordinates are obtained by walking upward through the graph and composing all parent-relative transforms
+- each scene root stores its transform to the HDT space, if the scene is registered
+- global coordinates are obtained by walking upward through the tree and composing all parent-relative transforms
 
 If a transform from frame `C` to frame `B` is written as:
 
@@ -269,24 +374,30 @@ t_CA = t_BA + s_BA R_BA t_CB
 ```
 
 This is the composition rule that OCRA should use throughout the reference-frame system.
-It is also compatible with the 2D transform semantics currently used by OpenLIME.
+The parent always appears on the left.
+
+For an asset placed in a scene frame `F_n`, whose ancestors are `F_{n-1}, …, F_1` up to the scene root `F_0`, the effective transform to the HDT space is therefore:
+
+```txt
+T_asset→HDT = T_F0→HDT ∘ T_F1→F0 ∘ … ∘ T_Fn→Fn-1 ∘ T_asset→Fn
+```
 
 This has several practical consequences:
 
 - moving a parent frame moves all of its descendants
-- a scene can be re-registered in the HDT space by changing only the transform of its root frame
-- a shared HDT frame can be reused across scenes while each scene keeps its own local working frames
-- measurements and geometry exports can be computed in either local or global coordinates by choosing how far composition is evaluated
+- a scene can be re-registered in the HDT space by changing only the transform of its root frame, because every scene frame descends from the root
+- measurements and geometry exports can be computed in asset, frame, scene, or HDT coordinates by choosing how far composition is evaluated
 
 For planar 2D scenes, the same logic still applies.
 The difference is only that the allowed transforms are constrained to the planar subset.
 
-## Why Similarity Transform Instead of a General Affine Transform
+## Similarity Transform
 
 The proposal intentionally excludes:
 
 - non-uniform scale
 - shear
+- reflections
 - arbitrary 4x4 matrices as canonical storage
 
 Reasons:
@@ -297,81 +408,62 @@ Reasons:
 - annotation geometry behaves more predictably
 - the model stays compatible with both 3D viewers and 2D viewers
 
+The only reflection OCRA needs, the raster Y-down convention, is absorbed by the definition of the intrinsic space of 2D assets (see [Axis Conventions](#intrinsic-space-of-2d-assets)).
+
 If a future requirement truly needs arbitrary affine transforms, that should be introduced as a deliberate extension, not as the default canonical model.
 
 ## Proposed Spatial Model
 
-### HDT Frame
+### HDT Spatial Model
 
 ```ts
-type HdtFrame = {
-  id: string;
-  label: string;
-  parentFrameId?: string;
-  transformToParent: SimilarityTransform3;
+type HdtSpatialModel = {
+  unit: LengthUnit | null;
+  version: number;
 };
 ```
 
 Semantics:
 
-- `id` is stable and unique within the HDT
-- `label` is user-facing
-- `parentFrameId` defines the HDT-level frame graph
-- `transformToParent` maps coordinates from the frame to its parent
+- the HDT space is right-handed and Y-up, as defined in [Axis Conventions](#axis-conventions)
+- `unit` is the global measurement unit of the HDT, or `null` if the HDT space is uncalibrated
+- `version` supports OCC on spatial-model writes, consistently with the rest of OCRA content
 
-For the root HDT frame, `transformToParent` is still present by convention, but it must be the identity transform.
-This keeps serialization regular while avoiding a special-case shape for the root.
-
-The root HDT frame is the shared global basis for the HDT.
-It may be named `hdt-origin` by convention, but the name itself is not semantically important.
-HDT frames belong to the global 3D spatial layer and are not themselves classified as `planar2d`.
+In the first deliverable the HDT space has no named sub-frames.
+Its origin is the implicit root of every registered scene.
 
 ### Scene Frame
 
 ```ts
 type FrameConstraint = 'free3d' | 'planar2d';
 
-type SceneFrameBase = {
+type SceneFrame = {
   id: string;
   label: string;
+  parentFrameId?: string;
   transformToParent: SimilarityTransform3;
   constraint?: FrameConstraint;
 };
-
-type SceneFrame =
-  | (SceneFrameBase & {
-      parentFrameId: string;
-      parentHdtFrameId?: never;
-    })
-  | (SceneFrameBase & {
-      parentFrameId?: never;
-      parentHdtFrameId: string;
-    })
-  | (SceneFrameBase & {
-      parentFrameId?: never;
-      parentHdtFrameId?: never;
-    });
 ```
 
 Semantics:
 
 - `id` is stable and unique within the scene
 - `label` is user-facing
-- `parentFrameId` defines the scene-local frame graph
-- `parentHdtFrameId` allows a scene-local frame to attach directly to a shared HDT frame
+- `parentFrameId` defines the scene-local frame tree
 - `transformToParent` maps coordinates from the frame to its parent
 - `constraint` declares which transform subset is valid in that frame
 
 If `constraint` is absent, the frame is unconstrained and should be treated as equivalent to `free3d`.
 
-A scene frame must reference exactly one parent source:
+Every scene frame tree has exactly one root:
 
-- another scene frame, through `parentFrameId`
-- or an HDT frame, through `parentHdtFrameId`
-- or no parent, only if it is the scene root and the scene is purely local
+- the root frame is the only frame without `parentFrameId`
+- every other frame has a `parentFrameId` that references a frame of the same scene
+- the root's `transformToParent` is its registration into the HDT space if the scene is registered, and must be the identity if the scene is local
 
-In TypeScript this exclusivity can be expressed directly as a union, as shown above.
-Equivalent runtime validation can also be enforced in shared schemas such as Zod definitions.
+A single root is essential.
+It guarantees that the scene root is the common ancestor of every scene frame, so re-registering the root moves the whole scene, scene coordinates are well defined, and planarity can be validated entirely inside the scene.
 
 ### Asset Placement
 
@@ -387,25 +479,36 @@ Semantics:
 
 - `assetId` identifies the digital asset
 - `sceneFrameId` identifies the scene-local frame where the asset is placed
-- `transformInFrame` maps asset-local coordinates to the chosen scene-local frame
+- `transformInFrame` maps asset-local coordinates to the chosen scene-local frame; its `scale` includes the change from the asset unit to the scene unit, or the asset calibration if the asset is uncalibrated (see [Units](#expected-scale-between-units))
 
 Asset placements are always owned by a scene.
-An asset is never placed directly in the HDT spatial layer.
-If a scene wants to reuse an HDT frame, it should define a local scene frame derived from that HDT frame, often with identity transform.
-This keeps asset placement semantics aligned with scene interaction mode and scene-level validation.
+An asset is never placed directly in the HDT space.
+
+### Digital Asset Spatial Metadata
+
+```ts
+type DigitalAssetSpatialInfo =
+  | { dimensionality: '2d'; width: number; height: number; unit: LengthUnit | null }
+  | { dimensionality: '3d'; unit: LengthUnit | null };
+```
+
+This metadata belongs to the digital asset in the HDT asset pool, not to scenes.
+2D assets declare the full-resolution size needed by the [raster mapping](#intrinsic-space-of-2d-assets), and optionally the physical size of one pixel as `unit`.
+3D assets use their model space as-is (see [Model Origin Handling](#model-origin-handling)).
 
 ### Scene Description Skeleton
 
 ```ts
-type UnitLength = 'mm' | 'cm' | 'm';
-
 type SceneCoordinateProfile = 'free3d' | 'planar2d';
+
+type SceneRegistration = 'hdt' | 'local';
 
 type SceneDescriptionV2 = {
   id: string;
   label: string;
   coordinateProfile: SceneCoordinateProfile;
-  unit?: UnitLength;
+  registration: SceneRegistration;
+  unit?: LengthUnit | null;
   rootSceneFrameId: string;
   frames: SceneFrame[];
   assetPlacements: SceneAssetPlacement[];
@@ -415,24 +518,28 @@ type SceneDescriptionV2 = {
 This is intentionally focused on scene structure and placement.
 Rendering options, environment settings, and viewer state should remain separate sections.
 
-`coordinateProfile` is a scene-level summary of the intended interaction model.
-It does not redefine the HDT spatial layer.
-In particular, a `planar2d` scene is still registered inside the global 3D HDT space through one or more local planar frames.
-This distinction matters because `coordinateProfile` affects how asset placements in that scene are interpreted and validated, while the HDT layer remains only the shared global reference system.
-Its purpose is not to replace frame-level constraints, but to express the operational mode of the scene as a whole.
+`registration` declares whether the scene root is placed in the HDT space (`'hdt'`) or is a self-contained working space (`'local'`).
+Only registered scenes can be compared or combined spatially with other scenes.
 
-`unit` declares the intended measurement unit of the scene.
-If omitted, it should inherit from the HDT spatial model.
-This allows a scene to adopt a more convenient unit system for study or interaction without changing the meaning of the shared HDT spatial layer.
+`coordinateProfile` is a scene-level summary of the intended interaction model.
+It does not redefine the HDT space.
+In particular, a `planar2d` scene is still registered inside the global 3D HDT space through its root frame.
+Its purpose is not to replace frame-level constraints, but to express the operational mode of the scene as a whole.
 
 In practice, `coordinateProfile` can be used to:
 
 - select the appropriate viewer mode, such as planar 2D interaction versus free 3D interaction
 - define the expected editing and navigation behavior of the scene
 - enable scene-level validation rules that apply to the whole composition
-- classify the scene explicitly without having to infer its intent only from the frame graph
+- classify the scene explicitly without having to infer its intent only from the frame tree
 
-The frame graph remains the geometric source of truth.
+In a `planar2d` scene, every non-root frame is implicitly `planar2d`, and only 2D assets may be placed.
+Placing a 3D asset in a planar scene is rejected, because the planar viewer adapter cannot represent it.
+
+`unit` declares the measurement unit of the scene.
+If omitted, it inherits from the HDT spatial model.
+
+The frame tree remains the geometric source of truth.
 `coordinateProfile` is a scene-level declaration about how that geometry is intended to be used.
 
 In this proposal, `assetPlacements` is keyed effectively by `assetId` within a scene.
@@ -442,12 +549,6 @@ If OCRA later needs multiple placements of the same asset inside one scene, the 
 ### HDT Description Skeleton
 
 ```ts
-type HdtSpatialModel = {
-  rootHdtFrameId: string;
-  unit: UnitLength;
-  frames: HdtFrame[];
-};
-
 type HdtDocumentSpatialDescription = {
   spatialModel: HdtSpatialModel;
   scenes: SceneDescriptionV2[];
@@ -456,12 +557,10 @@ type HdtDocumentSpatialDescription = {
 
 This makes the ownership boundary explicit:
 
-- HDT frames belong to the HDT aggregate
+- the HDT space belongs to the HDT aggregate
 - scene frames belong to one scene
 - asset placements belong to one scene
 - assets participate in an HDT only through their placement inside one or more scenes
-
-The HDT `unit` should be treated as the canonical global measurement unit of the project spatial layer.
 
 ## Example
 
@@ -470,18 +569,17 @@ const scene = {
   id: 'scene-01',
   label: 'North Wall Documentation',
   coordinateProfile: 'planar2d',
+  registration: 'hdt',
   rootSceneFrameId: 'scene-origin',
   frames: [
     {
       id: 'scene-origin',
       label: 'Scene Origin',
-      parentHdtFrameId: 'hdt-origin',
       transformToParent: {
         translation: [0, 0, 0],
         rotation: [0, 0, 0, 1],
         scale: 1,
       },
-      constraint: 'planar2d',
     },
     {
       id: 'wall-01-frame',
@@ -492,7 +590,6 @@ const scene = {
         rotation: [0, 0, 0, 1],
         scale: 1,
       },
-      constraint: 'planar2d',
     },
   ],
   assetPlacements: [
@@ -502,7 +599,7 @@ const scene = {
       transformInFrame: {
         translation: [0, 0, 0],
         rotation: [0, 0, 0, 1],
-        scale: 1,
+        scale: 0.002, // calibration: 1 px = 0.002 scene units
       },
     },
   ],
@@ -513,16 +610,16 @@ const scene = {
 
 The proposal distinguishes clearly between the following coordinate domains:
 
-- asset-local coordinates
-- HDT-frame coordinates
+- asset-local (intrinsic) coordinates
 - scene-frame coordinates
 - scene-root coordinates
+- HDT coordinates
 - viewer coordinates
-- image/pixel coordinates
+- image/pixel (raster) coordinates
 
 Only the first four belong in the canonical spatial model.
 
-Viewer coordinates and pixel coordinates are adapter-level concerns.
+Viewer coordinates and raster coordinates are adapter-level concerns.
 
 ## Asset-Local Coordinates
 
@@ -531,35 +628,30 @@ Each asset has its own intrinsic coordinate system.
 Examples:
 
 - a 3D mesh has vertex coordinates in model space
-- an RTI/image asset has image-domain coordinates
-- a derived layer may have its own raster coordinate system
+- an RTI/image asset uses the centered, Y-up layer space defined above
+- a derived layer shares the intrinsic space of the asset it is derived from, when it has the same pixel grid
 
-The spatial model should not redefine those intrinsic coordinates.
+The spatial model should not redefine those intrinsic coordinates beyond the axis and unit declarations above.
 Instead, each scene places the asset-local coordinate system into one of its own scene-local frames.
 
 ## Annotation Geometry Anchoring
 
 The same reference-frame model should be reused for annotation geometry, but with a different scope from scene asset placement.
-As described in the annotation model, annotation geometry lives in the reference space of a scene or of a digital asset, not directly in the HDT spatial layer.
+As described in the annotation model, annotation geometry lives in the reference space of a scene or of a digital asset, not directly in the HDT space.
 
 The key distinction is between:
 
 - the owning scope of the geometry resource
-- the internal frame graph used by scenes and assets for their own spatial organization
+- the frame, inside that scope, in which the coordinates are expressed
 
 This matches the current annotation model in `doc/a00-annotation-model.md`, where `referenceType` and `referenceId` identify the owning scene or asset of the geometry record itself.
-They do not currently identify a sub-frame inside that scene or asset.
 
-A future geometry anchoring structure should look conceptually like this:
+The canonical geometry anchoring structure is:
 
 ```ts
-type GeometryAnchorRef =
-  | { scope: 'scene'; sceneId: string }
+type GeometryAnchor =
+  | { scope: 'scene'; sceneId: string; frameId?: string }
   | { scope: 'asset'; assetId: string };
-
-type GeometryAnchor = {
-  reference: GeometryAnchorRef;
-};
 
 type Geometry3D = {
   anchor: GeometryAnchor;
@@ -574,33 +666,32 @@ This means:
 - geometry can remain stable across viewer adapters
 - geometry can attach either to a scene reference space or to an asset reference space, depending on the use case
 
-The exact annotation schema can be defined later, but it should reuse the same frame identity system.
-For scene-scoped geometry, the current proposal assumes that coordinates are expressed directly in scene coordinates.
-In this document, "scene coordinates" means the coordinate system of the scene root frame.
-That is the natural reference space for scene-level geometry because the scene root is the unique frame that defines the scene spatial basis within the HDT.
-For asset-scoped geometry, the current proposal assumes that coordinates are expressed directly in the intrinsic asset space.
+Coordinate rules:
 
-This is also an intentional refinement of the current annotation model.
-Today, annotation geometry is scoped by `referenceType: 'scene' | 'asset'` plus a `referenceId` that identifies the owning scene or asset.
-For now, that remains sufficient: scene geometry is expressed in scene coordinates, and asset geometry is expressed in intrinsic asset coordinates.
+- for scene-scoped geometry, coordinates are expressed in the frame `frameId`; if `frameId` is omitted, they are expressed in the scene root frame ("scene coordinates")
+- for asset-scoped geometry, coordinates are expressed in the intrinsic space of the asset
+- for 2D assets and for frames of `planar2d` scenes, vertices have `z = 0`
 
-This is still an improvement over the current flat shape.
-The discriminated union makes the two scopes structurally distinct, `sceneId` and `assetId` are typed separately instead of being conflated into a single `referenceId`, and the canonical shape is ready to evolve cleanly if sub-scene frame anchoring is needed later.
+The optional `frameId` is introduced now, although it may remain unused at first, because it is what allows scene-scoped annotations to follow a support when its frame is re-registered.
+An annotation on a wall frame moves with the wall; an annotation expressed in scene-root coordinates does not.
+Adding the field now avoids a later migration of the annotation collections.
 
-In practical terms, the current OCRA/OpenLIME direction suggests the following interpretation:
+The discriminated union also makes the two scopes structurally distinct: `sceneId` and `assetId` are typed separately instead of being conflated into a single `referenceId`.
 
-- geometry with scene scope is expressed in scene coordinates
+In practical terms:
+
+- geometry with scene scope is expressed in scene coordinates, or in a named scene frame
 - geometry with asset scope is expressed in the intrinsic coordinate space of the asset
-- for 2D assets such as RTI datasets and images, the intrinsic asset space is typically the local image or layer space used by the viewer
-- for 3D assets, the intrinsic asset space is typically the model space of the mesh
+- for 2D assets such as RTI datasets and images, that is the centered, Y-up layer space; the OpenLIME adapter converts it to and from the raster (SVG) coordinates used by its annotation editor
+- for 3D assets, the intrinsic asset space is the model space of the mesh
 
-This is important because it suggests that OCRA may not need a heavy shared abstraction for intrinsic asset spaces immediately.
-At the current stage, scene scope and asset scope may already be sufficient, provided that each asset type documents clearly what its intrinsic coordinate space means.
+This suggests that OCRA does not need a heavy shared abstraction for intrinsic asset spaces immediately.
+Scene scope and asset scope are sufficient, provided that each asset type documents what its intrinsic coordinate space means.
 
 ## 2D and 3D Profiles
 
 The proposal supports both 3D and 2D scenes through explicit constraints.
-The HDT spatial layer remains 3D; the planar profile applies to scenes and scene-local frames that represent planar supports or planar interaction spaces.
+The HDT space remains 3D; the planar profile applies to scenes and scene-local frames that represent planar supports or planar interaction spaces.
 
 ### `free3d`
 
@@ -633,6 +724,8 @@ It forbids:
 - tilt around Y
 - non-uniform scale
 
+A planar rotation by angle `θ` (counter-clockwise, seen from `+Z`) is stored as the quaternion `[0, 0, sin(θ/2), cos(θ/2)]`.
+
 This profile is appropriate for:
 
 - RTI scenes
@@ -646,36 +739,39 @@ The scene model should be validated structurally and geometrically.
 
 ### General Validation
 
-- `rootHdtFrameId` must exist in HDT `frames`
-- `unit` must be declared on the HDT spatial model
+- `unit` must be present on the HDT spatial model, either as a `LengthUnit` or as `null`
+- every `metersPerUnit` must be finite and strictly greater than zero
 - `rootSceneFrameId` must exist in scene `frames`
-- every `hdtFrame.id` must be unique within the HDT
+- exactly one scene frame has no `parentFrameId`, and it is the frame referenced by `rootSceneFrameId`
 - every `frame.id` must be unique within the scene
-- an id should not be reused ambiguously across HDT and scene scopes if global lookup APIs are introduced
-- every `parentFrameId` must reference an existing frame
-- every `parentHdtFrameId` must reference an existing HDT frame
-- a scene frame must not define both `parentFrameId` and `parentHdtFrameId`
-- the frame graph must be acyclic
+- every `parentFrameId` must reference an existing frame of the same scene
+- the frame tree must be acyclic
+- if `registration` is `'local'`, the root `transformToParent` must be the identity
 - every `assetPlacements[].assetId` must reference an existing asset
 - every `assetPlacements[].sceneFrameId` must reference an existing scene-local frame
+- in a `planar2d` scene, every placed asset must be a 2D asset
+- every 2D asset must declare a positive `width` and `height`
 - every quaternion must be finite and non-zero
 - every quaternion should be normalized during validation or canonicalization
 - every scale must be finite and strictly greater than zero
 
-If a scene declares a different `unit` from the HDT unit, the implementation must treat the difference as a metric conversion between coordinate systems, not as an arbitrary scene deformation.
+### Unit Consistency Validation
+
+For every link whose two sides both have a known unit, OCRA compares the stored scale `s` with the [expected scale](#expected-scale-between-units):
+
+- scene root → HDT space, for registered scenes, with the scene unit and the HDT unit
+- scene frame → parent scene frame, where both sides share the scene unit, so the expected scale is `1`
+- asset → scene frame, with the asset unit and the scene unit
+
+If `|s / expectedScale - 1|` exceeds a configured tolerance (for example `1e-3`), OCRA reports a **warning**, not an error.
+Real registrations always carry a small residual, and a scale mismatch may also be intentional; the warning makes it visible and auditable instead of rejecting the data.
+
+Links with an uncalibrated side are not checked, because their scale is the calibration itself.
 
 ### Root Frame Validation
 
-The root HDT frame should be canonicalized as identity:
-
-- `translation = [0, 0, 0]`
-- `rotation = [0, 0, 0, 1]`
-- `scale = 1`
-
-This avoids ambiguity about what the global spatial basis means.
-
-A scene root does not need to be identity if it is registered relative to an HDT frame.
-That transform is precisely what expresses where the scene sits in the HDT spatial system.
+The scene root of a registered scene does not need to be identity.
+That transform is precisely what expresses where the scene sits in the HDT space, and it may include arbitrary 3D orientation even for a `planar2d` scene.
 
 ### `planar2d` Validation
 
@@ -685,7 +781,7 @@ For a frame or placement constrained as `planar2d`:
 - rotation must represent only a Z-axis rotation within a configured tolerance
 - scale must be positive
 
-In practice, validation should likely use numerical tolerances rather than exact equality.
+In practice, validation should use numerical tolerances rather than exact equality.
 
 Example tolerance policy:
 
@@ -694,22 +790,21 @@ Example tolerance policy:
 
 ### Composition Validation
 
-If a child frame is declared `planar2d`, its effective transform chain within the scene-local graph should also remain planar relative to the scene root.
+If a frame is `planar2d`, its effective transform to the scene root must also be planar.
+Because every scene frame descends from the single root, this check involves only scene-local transforms, and is fully decided by the scene itself.
 
-This means OCRA should reject or normalize cases where:
+In particular, OCRA should reject:
 
-- a planar child is attached under a tilted 3D parent
-- a nominally 2D scene becomes effectively non-planar through composition
+- a `planar2d` frame attached under a tilted `free3d` frame
+- a nominally 2D scene that becomes effectively non-planar through composition
 
-This rule matters because local validation alone is not enough.
-A transform may be locally planar but effectively non-planar relative to the scene root if its scene-local ancestors are not.
+The scope boundary is:
 
-The important scope boundary is this:
+- `planar2d` composition validation applies from each frame up to, but excluding, the scene root registration
+- the scene root transform into the HDT space may include arbitrary 3D orientation
 
-- `planar2d` composition validation applies inside the scene-local frame graph
-- the scene root transform into HDT space may still include arbitrary 3D orientation
-
-This is necessary because the scene root attachment is exactly what allows a planar scene to be positioned on an arbitrarily oriented support in the global 3D HDT layer, such as an inclined wall, a retable panel, or an architectural surface.
+This is what allows a planar scene to be positioned on an arbitrarily oriented support in the global 3D HDT space, such as an inclined wall, a retable panel, or an architectural surface.
+Since that registration is owned by the scene, no change outside the scene can make it non-planar.
 
 ## Canonicalization Rules
 
@@ -717,9 +812,9 @@ To keep data stable and diff-friendly, OCRA should canonicalize transforms on wr
 
 Suggested canonicalization:
 
-- normalize quaternions
+- normalize quaternions, with a non-negative `w` component
 - map nearly-zero numeric noise to exact zero when safe
-- canonicalize root HDT frame identity
+- canonicalize the root transform of local scenes to identity
 - canonicalize positive scale values
 - reject `-0` style output in serialized JSON if possible
 
@@ -727,33 +822,81 @@ Canonicalization should make equivalent transforms serialize the same way whenev
 
 ## Relationship With OpenLIME
 
-OpenLIME already uses an explicit coordinate-system pipeline internally:
+OpenLIME uses an explicit chain of coordinate systems (`CoordinateSystem.js`):
 
-- scene coordinates
-- layer coordinates
-- image coordinates
-- viewport coordinates
+- canvas HTML: origin top-left, Y down
+- viewport: origin bottom-left, Y up
+- center: origin at the viewport center, Y up
+- scene: origin at the dataset center, Y up; placed by the camera transform
+- layer: origin at the layer center, Y up; placed in the scene by the layer transform
+- image and layout: origin top-left, Y down
 
-It also uses a 2D transform model with:
+Its 2D transform (`Transform.js`) maps a point as:
 
-- translation in `x` and `y`
-- rotation angle `a`
-- uniform scale `z`
+```txt
+p' = (x, y) + z R(a) p
+```
 
-This proposal is compatible with that design.
+with translation `x, y`, rotation angle `a` in degrees (counter-clockwise, standard in a Y-up system), and uniform scale `z`.
+This is exactly the planar restriction of the OCRA convention `p_parent = t + s R p_child`.
 
-In the OCRA adapter:
+The OCRA canonical model maps onto OpenLIME as follows:
 
-- a `planar2d` scene frame chain can be projected to OpenLIME's planar transform
-- an asset placement can be converted into the corresponding OpenLIME layer transform
-- asset image coordinates remain separate from scene coordinates
+| OCRA | OpenLIME |
+|---|---|
+| 2D asset intrinsic space | layer space |
+| asset placement composed up to the scene root | layer transform |
+| scene-root coordinates | scene space |
+| raster/SVG annotation coordinates | image space |
+
+Conversions performed by the OpenLIME adapter:
+
+- planar transform: `x = t[0]`, `y = t[1]`, `z = s`, `a = 2 atan2(q[2], q[3])` converted to degrees
+- raster to intrinsic: `(u, v) → (u - w/2, h/2 - v, 0)`, and back
 
 This is important because OCRA should not expose OpenLIME's internal 2D transform shape as the canonical scene model.
 OpenLIME should be treated as one viewer adapter, not as the domain model.
 
+### Units and Measurement Tools
+
+OpenLIME follows the same principle as OCRA: units never take part in transforms.
+
+- each layer has a `pixelSize`, the physical size of one pixel in millimeters (`0` when unknown); OCRA reads it from the `pixelSizeInMM` field of the RTI header
+- the `Units` class (`ScaleBar.js`) holds a conversion table to millimeters, used only to format measurements for display
+- OpenLIME has no notion of a scene unit: `ScaleBar` computes the real size of a screen pixel as `pixelSize / cameraZoom`, and `Ruler` multiplies lengths measured in scene coordinates by `pixelSize`
+
+Both tools therefore assume that one scene unit is one pixel of a single layer, placed with scale `1`.
+In OCRA this is not true: scene coordinates are expressed in the scene unit, and layers are placed with their calibration scale.
+
+The mapping is:
+
+| OCRA | OpenLIME |
+|---|---|
+| `asset.unit.metersPerUnit` | `layer.pixelSize / 1000` |
+| placement scale `s` (composed up to the scene root) | `layer.transform.z` |
+| `scene.unit.metersPerUnit` | *no equivalent* |
+
+To keep measurements correct, the adapter passes to `ScaleBar` and `Ruler` the size of **one scene unit** in millimeters, not the pixel size of an asset:
+
+```txt
+measurePixelSize = scene.unit.metersPerUnit × 1000
+```
+
+For a millimeter scene this is `1`.
+With this value `Ruler` converts scene-coordinate lengths correctly, and `ScaleBar` stays correct because the camera zoom maps scene coordinates to the screen.
+Scenes with several assets at different resolutions, or with scaled layers, are measured consistently.
+If the scene is uncalibrated (`unit: null`), no `pixelSize` is passed and the tools report lengths in scene units, labeled as pixels by OpenLIME.
+
+The per-layer `pixelSize` should still be set from the asset unit, so that layer-level information remains available, but it must not drive the scene-level measurement tools.
+
+Camera zoom limits need no special handling: OpenLIME computes them from the scene bounding box and from the minimum layer scale (`Camera.updateBounds`), so layer scales different from `1` are supported.
+
+This replaces the current behavior of the OCRA adapter, which passes to `ScaleBar` the pixel size of the first asset that declares one, and is therefore wrong for every other asset whose resolution or placement scale differs.
+
 ## Relationship With three-presenter
 
 The proposed OCRA transform semantics are also compatible with `three-presenter`, and therefore with the standard local-transform model of Three.js.
+Because OCRA, OpenLIME, and Three.js share the same right-handed, Y-up convention, no axis conversion is needed between any of them.
 
 In practice, `three-presenter` applies model transforms through:
 
@@ -774,24 +917,33 @@ and with the parent-relative composition rule:
 T_CA = T_BA ∘ T_CB
 ```
 
-Therefore, an OCRA frame graph can be adapted naturally to a Three.js scene graph:
+Therefore, an OCRA frame tree can be adapted naturally to a Three.js scene graph:
 
-- each OCRA frame corresponds conceptually to a local transform relative to its parent
-- each asset placement corresponds conceptually to a local transform relative to its owning scene frame
+- each OCRA frame corresponds to a local transform relative to its parent
+- each asset placement corresponds to a local transform relative to its owning scene frame, with its scale copied as-is
 - global coordinates are obtained by composing local transforms upward through the hierarchy
 
-Two implementation notes are important:
+The same holds for 2D assets shown in 3D.
+If an image is rendered in Three.js on a `PlaneGeometry(w, h)`, that plane is centered at the origin, lies in XY, and faces `+Z`, so it coincides with the OpenLIME layer space.
+A `planar2d` scene can then be shown in both viewers from the same placements, and a 2D asset can be placed in a `free3d` scene without any special case.
+
+Some aspects of the current `three-presenter` API are broader than the canonical model and must be handled by the adapter:
 
 ### Rotation Representation
 
 The OCRA proposal uses quaternions as the canonical persisted representation for rotation.
-By contrast, `three-presenter` currently exposes model rotations mainly as Euler triples.
+By contrast, `three-presenter` currently exposes model rotations as Euler triples, in degrees or radians (with auto-detection when the unit is not declared).
 
 This does not create a mathematical incompatibility, but it does mean that:
 
-- OCRA can keep quaternions as the canonical format
-- the `three-presenter` adapter may need to convert quaternions to Euler angles for current APIs
+- OCRA keeps quaternions as the canonical format
+- the `three-presenter` adapter converts quaternions to Euler angles in radians, always declaring the unit, so auto-detection is never triggered
 - a future refinement could apply quaternions directly in the Three.js layer for closer alignment with the canonical model
+
+### Scale Representation
+
+`three-presenter` accepts a single number or a per-axis `[x, y, z]` scale.
+The adapter always emits a uniform scale; non-uniform scale is never produced from the canonical model.
 
 ### Model Origin Handling
 
@@ -801,9 +953,10 @@ This is useful in practice, but it is not the same thing as a canonical frame tr
 In particular:
 
 - `model_coord` is naturally compatible with the idea that the asset keeps its intrinsic reference space
-- `model_center` behaves more like a viewer-side or import-side normalization convenience
+- `model_center` shifts the model by its bounding-box center at load time, an offset that depends on the loaded geometry and is not recorded anywhere
 
-For this reason, origin-normalization options in `three-presenter` should be understood as adapter behavior or explicit derived transforms, rather than as the definition of the canonical asset reference space itself.
+For this reason, the canonical intrinsic space of a 3D asset is always its `model_coord` space, and the adapter always uses `model_coord`.
+If centering is desired, it should be computed once and stored as an explicit translation in the placement.
 
 ## Relationship With the Current OCRA Scene Model
 
@@ -815,10 +968,10 @@ Today, OCRA persists scene asset placement using flat fields such as:
 
 That format is useful as a temporary storage and adapter shape, but it is not expressive enough to model:
 
-- shared HDT-level reference frames
-- named scene-local frames derived from shared HDT frames
-- hierarchical frame composition
+- a shared HDT spatial basis
+- named hierarchical scene-local frames
 - canonical geometry anchoring
+- declared units and axis conventions
 - explicit 2D profile constraints
 
 For this reason, the current flat placement format should be considered transitional.
@@ -853,37 +1006,19 @@ That matters for:
 
 If a specific asset needs non-uniform deformation, that should be treated as an exceptional asset-specific rendering concern, not as the default scene-frame language.
 
-This choice is compatible with explicit measurement units.
-If a scene uses millimeters and the HDT uses meters, the resulting factor in the composed transform should be interpreted as a unit conversion between coordinate systems, not as arbitrary geometric distortion.
+This choice is compatible with explicit measurement units: a change of unit is itself a uniform scale, stored explicitly and checked against the declared units (see [Units](#expected-scale-between-units)).
 
 ## Recommended Implementation Direction
 
 When OCRA implements this proposal, the preferred direction is:
 
-1. introduce canonical frame and placement types in shared schema
-2. distinguish HDT frames from scene-local frames in that schema
-3. validate them in backend and shared runtime schemas
-4. adapt 3D and 2D viewers from the canonical model
-5. keep old flat transform fields only as temporary derived compatibility data if needed
-6. align annotation geometry anchoring with the same reference-system concepts, while preserving its scene-or-asset scope
+1. introduce canonical transform, frame, placement, and asset-spatial types in shared schema
+2. validate them in backend and shared runtime schemas
+3. adapt 3D and 2D viewers from the canonical model, including the raster-to-layer mapping for 2D assets
+4. keep old flat transform fields only as temporary derived compatibility data if needed
+5. align annotation geometry anchoring with the same reference-system concepts, while preserving its scene-or-asset scope
 
 This order keeps the architecture coherent and avoids maintaining parallel scene models longer than necessary.
-
-## Open Questions
-
-The following decisions should be resolved in the implementation deliverable:
-
-- whether asset placements should allow optional per-placement metadata such as confidence, provenance, or registration method
-- whether OCRA should preserve some technical helper frames produced by calibration, registration, or photogrammetry pipelines when those frames are stable and useful across scenes, or keep such pipeline-specific frames outside the core scene model
-- whether OCRA should model the intrinsic reference space of each asset explicitly as a common concept, or keep those details specific to each asset type such as 3D meshes, RTI datasets, and images
-
-At the moment, this last point may no longer be a true open question in the short term.
-The current annotation model already distinguishes scene-scoped and asset-scoped geometry, and the current OpenLIME integration already behaves as if 2D asset geometry lives in the local image/layer space of the dataset.
-Because of that, a reasonable near-term implementation choice is:
-
-- keep the concept of asset-scoped geometry explicit
-- keep the detailed definition of intrinsic asset coordinates asset-type-specific
-- defer any attempt to introduce a single unified `AssetReferenceSpace` abstraction until a concrete cross-type need appears
 
 ## Example: HDT in Meters, Study Scene in Millimeters
 
@@ -898,65 +1033,43 @@ A separate 2D study scene may instead use millimeters because:
 
 Conceptually:
 
-- the HDT spatial model uses `unit: 'm'`
-- the study scene uses `unit: 'mm'`
-- the study scene is still registered to the same HDT frame graph
-- the difference in unit is interpreted as metric conversion, not as arbitrary resizing of the object
+- the HDT spatial model uses meters
+- the study scene uses millimeters
+- the RTI is calibrated at 0.1 mm per pixel
+- the study scene is registered in the HDT space by its root frame
 
 For example:
 
 ```ts
 const hdtDocumentSpatialDescription = {
   spatialModel: {
-    rootHdtFrameId: 'hdt-origin',
-    unit: 'm',
-    frames: [
-      {
-        id: 'hdt-origin',
-        label: 'HDT Origin',
-        transformToParent: {
-          translation: [0, 0, 0],
-          rotation: [0, 0, 0, 1],
-          scale: 1,
-        },
-      },
-      {
-        id: 'retable-frame',
-        label: 'Retable',
-        parentFrameId: 'hdt-origin',
-        transformToParent: {
-          translation: [2.5, 0.8, 1.2],
-          rotation: [0, 0, 0, 1],
-          scale: 1,
-        },
-      },
-    ],
+    unit: { metersPerUnit: 1, symbol: 'm' },
+    version: 1,
   },
   scenes: [
     {
       id: 'retable-study-scene',
       label: 'Retable Study',
       coordinateProfile: 'planar2d',
-      unit: 'mm',
+      registration: 'hdt',
+      unit: { metersPerUnit: 0.001, symbol: 'mm' },
       rootSceneFrameId: 'scene-root',
       frames: [
         {
           id: 'scene-root',
           label: 'Scene Root',
-          parentHdtFrameId: 'retable-frame',
           transformToParent: {
-            translation: [0, 0, 0],
+            translation: [2.5, 0.8, 1.2], // HDT units (m)
             rotation: [0, 0, 0, 1],
-            scale: 1,
+            scale: 0.001, // mm → m
           },
-          constraint: 'planar2d',
         },
         {
           id: 'study-plane',
           label: 'Study Plane',
           parentFrameId: 'scene-root',
           transformToParent: {
-            translation: [0, 0, 0],
+            translation: [0, 0, 0], // scene units (mm)
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
@@ -965,12 +1078,12 @@ const hdtDocumentSpatialDescription = {
       ],
       assetPlacements: [
         {
-          assetId: 'retable-rti',
+          assetId: 'retable-rti', // asset unit: { metersPerUnit: 0.0001 } (0.1 mm per pixel)
           sceneFrameId: 'study-plane',
           transformInFrame: {
             translation: [0, 0, 0],
             rotation: [0, 0, 0, 1],
-            scale: 1,
+            scale: 0.1, // px (0.1 mm) → mm
           },
         },
       ],
@@ -983,138 +1096,85 @@ The important point is semantic:
 
 - the HDT remains globally expressed in meters
 - the scene operates in millimeters
-- the mathematical composition may include a factor of `1000`
-- that factor should be interpreted as unit conversion between coordinate systems, not as arbitrary scaling of the retable itself
+- `scene-root.transformToParent.scale` is `0.001`, stored explicitly; it equals the expected scale `0.001 / 1`, so the unit consistency check passes
+- the placement scale `0.1` equals the expected scale `0.0001 / 0.001` between the calibrated pixel and the millimeter
+- if the RTI were uncalibrated (`unit: null`), the same `0.1` would be stored, but it would be the only record of the calibration and would not be checked
+- composing the chain gives `0.1 × 1 × 0.001 = 0.0001`: one pixel covers 0.1 mm in the HDT space, without any implicit conversion
+- since the intrinsic space of the RTI is centered, the center of the image lands at the origin of `study-plane`
 
 ## Example: Retable Reconstruction With Two Compartments and Two Scenes
 
 To make the model concrete, consider an HDT with two 2D assets.
 Each asset represents one compartment of a retable.
-Each asset has its own intrinsic image origin and its own asset-local coordinates.
+Each asset has its own intrinsic image space and its own asset-local coordinates.
 The goal is to place them next to each other in order to reconstruct their original position in the retable.
 
-In this case, the spatial model should separate:
-
-- the HDT-wide origin
-- the retable reconstruction frame
-- the original location of each compartment in the retable
-- the placement of each digital asset into its corresponding compartment frame
-
-Two scenes will reuse the same HDT frame system:
+Two registered scenes share the same HDT space:
 
 - `retable-reconstruction-scene`: a scene that shows both compartments together
-- `left-compartment-study-scene`: a scene dedicated to the left compartment, but still registered in the same HDT spatial basis
-
-This is the key benefit of HDT frames: the semantic structure of the retable is defined once and reused across multiple scenes.
-The key rule remains that the assets themselves are still placed by scenes, not by the HDT.
+- `left-compartment-study-scene`: a scene dedicated to the left compartment
 
 ### Conceptual Structure
 
-The HDT-level structure:
+The HDT space:
 
-- `hdt-origin`: global basis shared by all scenes of the HDT
-- `retable-frame`: semantic frame for the reconstructed retable
-- `left-compartment-frame`: original location of the left compartment
-- `right-compartment-frame`: original location of the right compartment
+- a single origin in millimeters, at the center of the left compartment
 
-The scene-level structure:
+The reconstruction scene:
 
-- one reconstruction scene with its own planar local frames attached to the shared HDT frames
-- one left-compartment study scene with its own planar local frames attached to the same shared HDT structure
+- `scene-root`: registered at the HDT origin
+- `left-panel-plane` and `right-panel-plane`: the original locations of the compartment centers, children of the root
+- a helper frame for comparison guides
 
-The scene content:
+The study scene:
 
-- the reconstruction scene places the two assets into local planar frames derived from the shared compartment frames
-- the study scene reuses the same left compartment through its own local planar frame hierarchy
+- `scene-root`: registered at the location of the left compartment in the HDT space
+- a study plane and a helper overlay frame
 
 ### Example Model
 
 ```ts
 const hdtDocumentSpatialDescription = {
   spatialModel: {
-    rootHdtFrameId: 'hdt-origin',
-    unit: 'mm',
-    frames: [
-      {
-        id: 'hdt-origin',
-        label: 'HDT Origin',
-        transformToParent: {
-          translation: [0, 0, 0],
-          rotation: [0, 0, 0, 1],
-          scale: 1,
-        },
-      },
-      {
-        id: 'retable-frame',
-        label: 'Retable Reconstruction',
-        parentFrameId: 'hdt-origin',
-        transformToParent: {
-          translation: [0, 0, 0],
-          rotation: [0, 0, 0, 1],
-          scale: 1,
-        },
-      },
-      {
-        id: 'left-compartment-frame',
-        label: 'Left Compartment',
-        parentFrameId: 'retable-frame',
-        transformToParent: {
-          translation: [0, 0, 0],
-          rotation: [0, 0, 0, 1],
-          scale: 1,
-        },
-      },
-      {
-        id: 'right-compartment-frame',
-        label: 'Right Compartment',
-        parentFrameId: 'retable-frame',
-        transformToParent: {
-          translation: [1200, 0, 0],
-          rotation: [0, 0, 0, 1],
-          scale: 1,
-        },
-      },
-    ],
+    unit: { metersPerUnit: 0.001, symbol: 'mm' },
+    version: 1,
   },
   scenes: [
     {
       id: 'retable-reconstruction-scene',
       label: 'Retable Reconstruction',
       coordinateProfile: 'planar2d',
+      registration: 'hdt',
       rootSceneFrameId: 'scene-root',
       frames: [
         {
           id: 'scene-root',
           label: 'Scene Root',
-          parentHdtFrameId: 'retable-frame',
           transformToParent: {
             translation: [0, 0, 0],
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
         {
           id: 'left-panel-plane',
           label: 'Left Panel Plane',
-          parentHdtFrameId: 'left-compartment-frame',
+          parentFrameId: 'scene-root',
           transformToParent: {
             translation: [0, 0, 0],
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
         {
           id: 'right-panel-plane',
           label: 'Right Panel Plane',
-          parentHdtFrameId: 'right-compartment-frame',
+          parentFrameId: 'scene-root',
           transformToParent: {
-            translation: [0, 0, 0],
+            translation: [1200, 0, 0],
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
         {
           id: 'comparison-guide-frame',
@@ -1125,7 +1185,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
       ],
       assetPlacements: [
@@ -1135,7 +1194,7 @@ const hdtDocumentSpatialDescription = {
           transformInFrame: {
             translation: [0, 0, 0],
             rotation: [0, 0, 0, 1],
-            scale: 1,
+            scale: 0.1,
           },
         },
         {
@@ -1144,7 +1203,7 @@ const hdtDocumentSpatialDescription = {
           transformInFrame: {
             translation: [0, 0, 0],
             rotation: [0, 0, 0, 1],
-            scale: 1,
+            scale: 0.1,
           },
         },
       ],
@@ -1153,18 +1212,17 @@ const hdtDocumentSpatialDescription = {
       id: 'left-compartment-study-scene',
       label: 'Left Compartment Study',
       coordinateProfile: 'planar2d',
+      registration: 'hdt',
       rootSceneFrameId: 'scene-root',
       frames: [
         {
           id: 'scene-root',
           label: 'Scene Root',
-          parentHdtFrameId: 'left-compartment-frame',
           transformToParent: {
-            translation: [0, 0, 0],
+            translation: [0, 0, 0], // same location as left-panel-plane in the HDT space
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
         {
           id: 'left-study-plane',
@@ -1175,7 +1233,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
         {
           id: 'detail-overlay-frame',
@@ -1186,7 +1243,6 @@ const hdtDocumentSpatialDescription = {
             rotation: [0, 0, 0, 1],
             scale: 1,
           },
-          constraint: 'planar2d',
         },
       ],
       assetPlacements: [
@@ -1196,7 +1252,7 @@ const hdtDocumentSpatialDescription = {
           transformInFrame: {
             translation: [0, 0, 0],
             rotation: [0, 0, 0, 1],
-            scale: 1,
+            scale: 0.1,
           },
         },
       ],
@@ -1210,48 +1266,36 @@ const hdtDocumentSpatialDescription = {
 The meaning of this example is:
 
 - the HDT defines a shared reconstruction space
-- the retable has a semantic frame of its own
-- each compartment has a frame representing its original place in the reconstructed retable
-- the reconstruction scene derives local planar working frames from the shared compartment frames
-- the study scene reuses the same left-compartment HDT frame through its own local planar working frame
+- the reconstruction scene defines one frame per compartment, representing its original place in the retable
+- the study scene is registered in the same HDT space, at the location of the left compartment
 - each scene may still define additional local helper frames for overlays, guides, or temporary composition
 
 This separation is useful because it lets OCRA distinguish:
 
-- the semantics of the reconstruction
 - the digital asset identity
-- the registration transform of each asset
-- the shared HDT spatial structure reused across scenes
+- the calibration of each asset (pixel to millimeter)
+- the placement of each asset in its compartment frame
+- the registration of each scene in the shared HDT space
 - the scene-specific local structure used only by one scene
 
-It also keeps scene behavior coherent:
-
-- the HDT provides the shared global reference system
-- the scene defines the actual working frames for composition and interaction
-- the asset placement is always interpreted according to the owning scene
-
 If one asset later needs a better crop alignment, scale correction, or planar registration update, only its placement changes.
-If a new scene is added later, the existing HDT frames can be reused instead of redefining the retable structure from scratch.
-The retable structure itself does not need to be redefined scene by scene.
+If the whole reconstruction must be moved in the HDT space, only the root of the reconstruction scene changes.
 
-One detail is worth making explicit.
-In the reconstruction scene, `scene-root` is the scene anchor into the HDT graph, but it is not the common parent of every scene-local frame.
-Frames such as `left-panel-plane` and `right-panel-plane` attach directly to the shared HDT compartment frames because the goal is to preserve that semantic correspondence explicitly.
-So in this model, the scene root is the main attachment frame of the scene, not necessarily the unique ancestor of all scene-local frames.
+There is one limitation, and it is deliberate.
+The location of the left compartment is known in two places: as `left-panel-plane` in the reconstruction scene, and as the root registration of the study scene.
+The two values are consistent in this example, but nothing in the model ties them together: if the compartment position is refined in one scene, the other must be updated by hand.
+Sharing that structure once, by name, is exactly what [named HDT frames](#future-work-named-hdt-frames) would add.
 
 ### Annotation Implications
 
 In the same example:
 
 - an annotation internal to the left compartment may be anchored to `{ scope: 'scene', sceneId: 'left-compartment-study-scene' }`
-- an annotation internal to the right compartment may be anchored to the scene where that compartment is being studied
-- an annotation about the retable composition as a whole may be anchored to the reconstruction scene
-- a scene-specific helper geometry, if needed, is still expressed in the scene root coordinate system
+- an annotation about the right compartment in the reconstruction may be anchored to `{ scope: 'scene', sceneId: 'retable-reconstruction-scene', frameId: 'right-panel-plane' }`, so that it follows the compartment if its position is refined
+- an annotation about the retable composition as a whole may be anchored to the reconstruction scene, in scene-root coordinates
+- a geometry defined directly on the image of a compartment uses `{ scope: 'asset', assetId: 'asset-left-rti' }`
 
-If a geometry is defined directly in the intrinsic coordinate system of a digital asset rather than in a scene frame, it should use `{ scope: 'asset', assetId: <assetId> }`.
-
-This is one of the main advantages of introducing explicit HDT frames:
-scenes can derive meaningful working frames from the shared HDT structure, and annotations can then anchor to scene reference spaces or to asset-local reference spaces instead of only to viewer-local coordinates.
+Because both scenes are registered in the same HDT space, geometry from one scene can be transformed into the other by composing through the HDT space.
 
 ## Implementation in the OCRA Ecosystem
 
@@ -1272,6 +1316,7 @@ In the current backend implementation:
 - scenes are embedded inside that HDT document
 - scene asset placement is currently stored as flat `position`, `rotation`, and `scale`
 - annotation geometry, annotation data, and annotation links are already stored as separate MongoDB resources
+- 2D annotation vertices are stored in OpenLIME image (raster) coordinates, as produced by the SVG annotation editor: origin top-left, Y down, `z = 0`
 
 This is a good starting point.
 The main missing piece is not a new database technology, but a better canonical spatial structure inside the HDT content model.
@@ -1292,17 +1337,11 @@ In practice, the HDT document should evolve from:
 
 to:
 
-- digital asset pool
+- digital asset pool, with spatial metadata per asset
 - HDT spatial model
-- scene descriptions that contain scene-local frame graphs and asset placements
+- scene descriptions that contain scene-local frame trees and asset placements
 
 This means no separate database is required for the first implementation.
-The existing content database is already the natural ownership boundary for:
-
-- HDT frames
-- scene frames
-- scene asset placements
-- scene-level spatial metadata such as unit and coordinate profile
 
 ### Suggested MongoDB Shape
 
@@ -1313,7 +1352,7 @@ One coherent shape would be:
 type HdtDocumentV2 = {
   projectId: string;
   physicalObjectMetadata: PhysicalObjectMetadata;
-  digitalAssets: DigitalAsset[];
+  digitalAssets: (DigitalAsset & { spatial: DigitalAssetSpatialInfo })[];
   spatialModel: HdtSpatialModel;
   scenes: SceneDescriptionV2[];
   createdAt?: Date | string;
@@ -1325,34 +1364,17 @@ type HdtDocumentV2 = {
 
 With this structure:
 
-- HDT frames are stored once, at HDT scope
-- each scene keeps only its own local frame graph and asset placements
+- the HDT space is declared once, at HDT scope
+- each scene keeps only its own local frame tree and asset placements
 - asset placement remains scene-owned
-- the backend can validate the full spatial graph in one aggregate document
+- the backend can validate the full spatial structure in one aggregate document
 
-This is preferable to a separate `scene_frames` or `hdt_frames` collection in the first deliverable because:
+This is preferable to separate `scene_frames` collections in the first deliverable because:
 
 - the HDT document is already the aggregate root for scene structure
 - most operations need cross-validation between assets, scenes, and frames
-- keeping the graph embedded avoids transactional fragmentation across multiple Mongo documents
+- keeping the structure embedded avoids transactional fragmentation across multiple Mongo documents
 - OCRA is still under active development, so a coherent aggregate is better than premature normalization
-
-### Should OCRA Introduce Separate DB Structures?
-
-For the first implementation, the answer should be: no new database family, but yes to new logical structures inside MongoDB.
-
-Recommended:
-
-- add `spatialModel` as a first-class object inside the HDT document
-- replace flat scene asset transform fields with canonical `assetPlacements`
-- replace ad hoc scene-local transform assumptions with explicit `frames`
-
-Not recommended for now:
-
-- a separate PostgreSQL schema for frames
-- a separate MongoDB collection for HDT frames
-- a separate MongoDB collection for scene frames
-- a separate canonical storage of viewer-exported scene JSON
 
 Separate collections may become useful only later if OCRA needs one or more of the following:
 
@@ -1361,20 +1383,18 @@ Separate collections may become useful only later if OCRA needs one or more of t
 - high-frequency collaborative scene-structure editing
 - frame-level history or provenance records
 
-Until those needs become concrete, embedded storage is simpler and more consistent.
-
 ### Relationship With Annotation Storage
 
 The annotation persistence model does not need a parallel redesign.
 
 In the near term:
 
-- `annotationGeometry` can continue to store `referenceType` and `referenceId`
-- scene-scoped geometry still resolves to a scene
-- asset-scoped geometry still resolves to an asset
+- `annotationGeometry` continues to store `referenceType` and `referenceId`
+- an optional `referenceFrameId` is added for scene-scoped geometry, corresponding to `frameId` in [GeometryAnchor](#annotation-geometry-anchoring)
+- scene-scoped geometry without `referenceFrameId` is expressed in scene-root coordinates
+- asset-scoped geometry resolves to an asset, and is expressed in its intrinsic space
 
-This keeps the annotation collections separate, while allowing them to reuse the same scene-versus-asset distinction already defined in `doc/a00-annotation-model.md`.
-The field name `referenceId` is kept here to stay aligned with the current annotation payload shape.
+The field name `referenceId` is kept to stay aligned with the current annotation payload shape.
 In semantic terms, it corresponds to `sceneId` for scene-scoped geometry and to `assetId` for asset-scoped geometry.
 
 ### Derived Viewer Payloads
@@ -1391,7 +1411,7 @@ That means:
 This is important because:
 
 - the canonical model needs concepts that current viewers do not expose directly
-- different viewers flatten the scene graph in different ways
+- different viewers flatten the frame tree in different ways
 - viewer payloads are implementation-specific projections, not the shared project model
 
 ### Recommended Backend API Evolution
@@ -1399,13 +1419,9 @@ This is important because:
 The current backend already exposes scene and scene-asset endpoints under `/api/projects/{projectId}/hdt/...`.
 The new spatial model should extend that family rather than introduce a disconnected API namespace.
 
-The cleanest direction is to add explicit spatial subresources.
-
 Recommended read endpoints:
 
 - `GET /api/projects/{projectId}/hdt/spatial-model`
-- `GET /api/projects/{projectId}/hdt/frames`
-- `GET /api/projects/{projectId}/hdt/frames/{frameId}`
 - `GET /api/projects/{projectId}/hdt/scenes/{sceneId}/frames`
 - `GET /api/projects/{projectId}/hdt/scenes/{sceneId}/frames/{frameId}`
 - `GET /api/projects/{projectId}/hdt/scenes/{sceneId}/asset-placements`
@@ -1414,9 +1430,6 @@ Recommended read endpoints:
 Recommended write endpoints:
 
 - `PUT /api/projects/{projectId}/hdt/spatial-model`
-- `POST /api/projects/{projectId}/hdt/frames`
-- `PUT /api/projects/{projectId}/hdt/frames/{frameId}`
-- `DELETE /api/projects/{projectId}/hdt/frames/{frameId}`
 - `POST /api/projects/{projectId}/hdt/scenes/{sceneId}/frames`
 - `PUT /api/projects/{projectId}/hdt/scenes/{sceneId}/frames/{frameId}`
 - `DELETE /api/projects/{projectId}/hdt/scenes/{sceneId}/frames/{frameId}`
@@ -1424,8 +1437,10 @@ Recommended write endpoints:
 - `PUT /api/projects/{projectId}/hdt/scenes/{sceneId}/asset-placements/{assetId}`
 - `DELETE /api/projects/{projectId}/hdt/scenes/{sceneId}/asset-placements/{assetId}`
 
-In this full granular API, `GET/PUT /api/projects/{projectId}/hdt/spatial-model` should operate only on `HdtSpatialModel`, meaning the HDT frame graph and its unit.
+In this granular API, `GET/PUT /api/projects/{projectId}/hdt/spatial-model` operates only on `HdtSpatialModel`.
 Scene-local frames and asset placements are managed through the dedicated scene endpoints listed above.
+
+Every write carries the expected `version` of the resource it modifies and fails with a conflict if the stored version differs, consistently with the OCC model already used by annotation resources.
 
 These endpoint shapes intentionally assume at most one placement per `assetId` within a given scene.
 If OCRA later needs repeated placements of the same asset in one scene, these endpoints should move to `.../asset-placements/{placementId}` and the data model should introduce a dedicated placement identifier.
@@ -1437,13 +1452,13 @@ Dedicated spatial endpoints are preferable to updating whole scenes blindly beca
 - reduce accidental overwrites during concurrent editing
 - let the backend validate operations at the right structural level
 - make audit events more meaningful
-- avoid mixing environment settings, labels, and spatial graph mutations in one opaque payload
+- avoid mixing environment settings, labels, and spatial mutations in one opaque payload
 
 For example:
 
 - renaming a scene is not the same class of operation as rewiring a frame parent
 - changing a background color is not the same class of operation as moving an asset registration
-- deleting an HDT frame must trigger referential validation across all attached scenes
+- deleting a scene frame must trigger referential validation against child frames, placements, and frame-anchored annotations
 
 ### Minimal API Option
 
@@ -1456,11 +1471,12 @@ Minimum viable addition:
 
 Under that approach:
 
-- the frontend edits the whole spatial model as one aggregate
+- the frontend edits the whole spatial description as one aggregate
 - the backend performs full validation before persistence
+- the `PUT` must carry the expected `version`, otherwise concurrent editors silently overwrite each other's work
 - existing scene create/update endpoints can remain temporarily available
 
-In this minimal option, `GET/PUT /api/projects/{projectId}/hdt/spatial-model` should operate on the full `HdtDocumentSpatialDescription`, meaning both the HDT-level frame graph and the scene-level structures together.
+In this minimal option, `GET/PUT /api/projects/{projectId}/hdt/spatial-model` operates on the full `HdtDocumentSpatialDescription`, meaning both the HDT spatial model and the scene-level structures together.
 
 This is simpler to implement, but it should be treated as an intermediate step.
 As soon as frame editing becomes interactive, more granular spatial endpoints will be preferable.
@@ -1476,17 +1492,19 @@ Shared schema validation should cover:
 - quaternion length constraints
 - positive uniform scale
 - legal `planar2d` transform subsets
+- identity root transform for local scenes
 
 Backend aggregate validation should cover:
 
+- root existence and uniqueness
 - parent existence
-- root existence
-- acyclic frame graphs
-- scene-to-HDT attachment validity
-- asset placement references to existing scene frames
+- acyclic frame trees
+- planarity of composed `planar2d` chains relative to the scene root
+- asset placement references to existing scene frames and assets
+- compatibility between scene profile and asset dimensionality
 - uniqueness of `assetPlacements[].assetId` within each scene
-- prevention of deleting frames that are still referenced
-- annotation consistency checks when scene-scoped frame anchoring is introduced
+- prevention of deleting frames that are still referenced by frames, placements, or annotations
+- OCC version checks
 
 ### Migration Strategy
 
@@ -1494,12 +1512,14 @@ The migration should be structural, not additive.
 
 Recommended path:
 
-1. define canonical shared schemas for `SimilarityTransform3`, `HdtFrame`, `SceneFrame`, `SceneAssetPlacement`, `SceneDescriptionV2`, and `HdtSpatialModel`
-2. evolve the MongoDB HDT document shape to include the canonical spatial model
-3. migrate existing flat scene asset transforms into canonical `assetPlacements`
-4. update backend services so viewer payloads are generated from the canonical spatial model only
-5. update scene editing APIs to read and write the canonical model
-6. evolve annotation geometry references only when frame-level scene anchoring is actually needed
+1. define canonical shared schemas for `SimilarityTransform3`, `SceneFrame`, `SceneAssetPlacement`, `SceneDescriptionV2`, `DigitalAssetSpatialInfo`, and `HdtSpatialModel`
+2. evolve the MongoDB HDT document shape to include the canonical spatial model, and record `width` and `height` for every 2D asset
+3. migrate each existing scene into a frame tree with a single identity root, marked `registration: 'local'` unless its alignment with other scenes is known
+4. migrate existing flat scene asset transforms into canonical `assetPlacements` (Euler to quaternion, scale to uniform, `model_center` offsets to explicit translations)
+5. convert existing 2D annotation geometry from raster coordinates to the intrinsic layer space, `(u, v) → (u - w/2, h/2 - v)`, and move that conversion into the OpenLIME annotation adapter
+6. update backend services so viewer payloads are generated from the canonical spatial model only
+7. update scene editing APIs to read and write the canonical model
+8. add the optional `referenceFrameId` to annotation geometry
 
 During migration, the old flat `position` / `rotation` / `scale` representation may still be emitted as a derived compatibility projection for current viewers, but it should no longer be treated as canonical stored structure.
 
@@ -1507,14 +1527,81 @@ During migration, the old flat `position` / `rotation` / `scale` representation 
 
 A realistic first deliverable for OCRA would be:
 
-- add `spatialModel` to the HDT MongoDB document
-- upgrade `scenes[]` to the new frame-based structure
+- add `spatialModel` (unit and version) to the HDT MongoDB document
+- add spatial metadata, including image size, to digital assets
+- upgrade `scenes[]` to the single-root frame-tree structure
 - keep scene storage embedded in the HDT document
-- expose `GET` and `PUT` for `/hdt/spatial-model`
+- expose `GET` and `PUT` for `/hdt/spatial-model`, with OCC
 - keep viewer scene export fully derived
-- postpone frame-aware annotation payload changes until the spatial model is stable
+- store 2D annotation geometry in the intrinsic layer space
+- add the optional frame reference to annotation geometry, even if the UI does not use it yet
 
 This gives OCRA a clean canonical reference system without forcing an unnecessary database split too early.
+
+## Future Work: Named HDT Frames
+
+The first deliverable gives all registered scenes a common basis: the HDT space.
+That is enough to put different scenes in the same reference system.
+It does not let scenes share **structure** inside that space.
+
+As shown in the [retable example](#practical-interpretation), a meaningful location such as "the left compartment" must be repeated in every scene that uses it, and kept consistent by hand.
+
+A natural extension is a graph of named HDT frames, owned by the HDT and shared by all its scenes:
+
+```ts
+type HdtFrame = {
+  id: string;
+  label: string;
+  parentFrameId?: string; // another HDT frame; absent only for the HDT root
+  transformToParent: SimilarityTransform3;
+};
+
+type HdtSpatialModel = {
+  unit: LengthUnit | null;
+  version: number;
+  rootHdtFrameId: string;
+  frames: HdtFrame[];
+};
+```
+
+With it:
+
+- the HDT root frame replaces the implicit HDT origin of the first deliverable, and is always the identity
+- HDT frames describe the semantic structure of the documented object (retable, compartments, walls, installation layout)
+- a registered scene root attaches to any HDT frame through a `parentHdtFrameId`, instead of always attaching to the HDT origin
+- several scenes attached to the same HDT frame are re-registered together by changing that frame only
+- annotations and measurements can be expressed relative to named HDT structure
+
+Design constraints that should be preserved:
+
+- only the scene root may attach to an HDT frame; all other scene frames stay inside the scene tree, so that the single-root guarantees of the first deliverable still hold
+- HDT frames are always `free3d`; planarity stays a scene-level concern
+- assets are never placed directly in HDT frames; placements remain scene-owned
+- HDT frame edits affect every attached scene, so they need referential validation (no deletion of an attached frame) and meaningful audit events
+
+This extension is backward-compatible with the first deliverable.
+The existing implicit HDT origin becomes the HDT root frame, and every existing registered scene root becomes attached to it with its current transform unchanged.
+
+It should be introduced when OCRA has concrete HDTs with several registered scenes sharing the same physical structure.
+
+### Other Future Extensions
+
+- explicit `placementId`, to allow repeated placements of the same asset in one scene
+- per-placement metadata such as confidence, provenance, or registration method
+- separate MongoDB collections for spatial structures, if HDT documents become too large or require independent versioning
+
+## Open Questions
+
+The following decisions should be resolved in the implementation deliverable:
+
+- whether OCRA should preserve some technical helper frames produced by calibration, registration, or photogrammetry pipelines when those frames are stable and useful across scenes, or keep such pipeline-specific frames outside the core scene model
+- whether OCRA should model the intrinsic reference space of each asset explicitly as a common concept, or keep those details specific to each asset type such as 3D meshes, RTI datasets, and images
+
+For the last point, a reasonable near-term choice is:
+
+- keep the concept of asset-scoped geometry explicit
+- keep the detailed definition of intrinsic asset coordinates asset-type-specific, within the shared axis and unit declarations
+- defer any attempt to introduce a single unified `AssetReferenceSpace` abstraction until a concrete cross-type need appears
 
 ## Summary
 
@@ -1522,11 +1609,15 @@ The proposed direction is to make reference frames first-class in OCRA.
 
 The canonical scene model should:
 
-- represent a graph of named HDT-level frames
-- represent a graph of named scene-local frames
+- declare a single HDT space with explicit axes (right-handed, Y-up, shared with Three.js and OpenLIME) and unit
+- represent each scene as a tree of named frames with a single root, optionally registered in the HDT space
 - place assets into those frames using 3D similarity transforms
+- use the OpenLIME layer space (centered, Y-up, pixels) as the intrinsic space of 2D assets
+- treat units as semantic metadata, store every scale explicitly, and check scales against units
 - support both `free3d` and `planar2d` through explicit constraints
 - reuse the same frame identity system for annotation geometry
-- keep viewer-specific coordinate systems as adapter concerns
+- keep viewer-specific coordinate systems, including the raster Y-down convention, as adapter concerns
+
+Named, shared HDT frames are the natural next step once several scenes need to share the same physical structure.
 
 This provides a cleaner foundation for future scene editing, scene validation, 2D/3D interoperability, and annotation anchoring.

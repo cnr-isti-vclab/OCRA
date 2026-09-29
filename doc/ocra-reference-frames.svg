@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="670" viewBox="0 0 680 670" role="img">
+<title>OCRA reference frame model</title>
+<desc>HDT space (single 3D basis; named HDT frames are future work), scene frame tree with a single root registered into the HDT space, scene content (assets, placements, annotation geometry), and derived viewer adapters.</desc>
+<style>
+text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+.h { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.s { font-size: 12px; fill: #5F5E5A; }
+.pt { font-size: 14px; font-weight: 500; fill: #3C3489; } .ps { font-size: 12px; fill: #534AB7; }
+.tt { font-size: 14px; font-weight: 500; fill: #085041; } .tsb { font-size: 12px; fill: #0F6E56; }
+.gt { font-size: 14px; font-weight: 500; fill: #444441; } .gs { font-size: 12px; fill: #5F5E5A; }
+.p { fill: #EEEDFE; stroke: #534AB7; stroke-width: 0.5; }
+.te { fill: #E1F5EE; stroke: #0F6E56; stroke-width: 0.5; }
+.g { fill: #F1EFE8; stroke: #5F5E5A; stroke-width: 0.5; }
+.c { fill: none; stroke: #888780; stroke-width: 0.5; stroke-dasharray: 4 4; }
+.a { fill: none; stroke: #5F5E5A; stroke-width: 1.5; }
+.d { fill: none; stroke: #5F5E5A; stroke-width: 1.5; stroke-dasharray: 4 3; }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="680" height="670" fill="#FFFFFF"/>
+
+<rect class="c" x="40" y="40" width="600" height="110" rx="12"/>
+<text class="h" x="56" y="60">HDT space · 3D · right-handed, Y-up · canonical unit</text>
+<rect class="p" x="60" y="75" width="160" height="56" rx="8"/>
+<text class="pt" x="140" y="94" text-anchor="middle" dominant-baseline="central">HDT origin</text>
+<text class="ps" x="140" y="113" text-anchor="middle" dominant-baseline="central">Implicit, identity</text>
+<rect class="g" x="300" y="75" width="320" height="56" rx="8" stroke-dasharray="4 4"/>
+<text class="gt" x="460" y="94" text-anchor="middle" dominant-baseline="central">Named HDT frames</text>
+<text class="gs" x="460" y="113" text-anchor="middle" dominant-baseline="central">Future work</text>
+
+<rect class="c" x="40" y="190" width="600" height="110" rx="12"/>
+<text class="h" x="56" y="210">Scene · coordinateProfile free3d | planar2d</text>
+<rect class="p" x="60" y="225" width="160" height="56" rx="8"/>
+<text class="pt" x="140" y="244" text-anchor="middle" dominant-baseline="central">scene-root</text>
+<text class="ps" x="140" y="263" text-anchor="middle" dominant-baseline="central">Single root</text>
+<rect class="p" x="260" y="225" width="160" height="56" rx="8"/>
+<text class="pt" x="340" y="244" text-anchor="middle" dominant-baseline="central">study-plane</text>
+<text class="ps" x="340" y="263" text-anchor="middle" dominant-baseline="central">Local planar2d frame</text>
+<rect class="p" x="460" y="225" width="160" height="56" rx="8"/>
+<text class="pt" x="540" y="244" text-anchor="middle" dominant-baseline="central">overlay-frame</text>
+<text class="ps" x="540" y="263" text-anchor="middle" dominant-baseline="central">Helper frame</text>
+<line class="a" x1="258" y1="253" x2="224" y2="253" marker-end="url(#arrow)"/>
+<line class="a" x1="458" y1="253" x2="424" y2="253" marker-end="url(#arrow)"/>
+<line class="a" x1="140" y1="223" x2="140" y2="135" marker-end="url(#arrow)"/>
+<text class="s" x="150" y="176">registration: 'hdt' (arbitrary 3D allowed)</text>
+
+<rect class="c" x="40" y="340" width="600" height="110" rx="12"/>
+<text class="h" x="56" y="360">Scene content</text>
+<rect class="te" x="60" y="375" width="160" height="56" rx="8"/>
+<text class="tt" x="140" y="394" text-anchor="middle" dominant-baseline="central">Annotation geom.</text>
+<text class="tsb" x="140" y="413" text-anchor="middle" dominant-baseline="central">scope scene | asset</text>
+<rect class="te" x="260" y="375" width="160" height="56" rx="8"/>
+<text class="tt" x="340" y="394" text-anchor="middle" dominant-baseline="central">Asset</text>
+<text class="tsb" x="340" y="413" text-anchor="middle" dominant-baseline="central">Intrinsic coords · unit</text>
+<rect class="te" x="460" y="375" width="160" height="56" rx="8"/>
+<text class="tt" x="540" y="394" text-anchor="middle" dominant-baseline="central">Asset placement</text>
+<text class="tsb" x="540" y="413" text-anchor="middle" dominant-baseline="central">transformInFrame</text>
+<line class="d" x1="222" y1="403" x2="256" y2="403" marker-end="url(#arrow)"/>
+<line class="d" x1="140" y1="373" x2="140" y2="285" marker-end="url(#arrow)"/>
+<line class="a" x1="422" y1="403" x2="456" y2="403" marker-end="url(#arrow)"/>
+<path class="a" d="M540 373 L540 320 L380 320 L380 285" marker-end="url(#arrow)"/>
+
+<rect class="c" x="40" y="490" width="600" height="106" rx="12"/>
+<text class="h" x="56" y="510">Viewer adapters · derived, non-canonical</text>
+<line class="a" x1="340" y1="452" x2="340" y2="486" marker-end="url(#arrow)"/>
+<rect class="g" x="140" y="524" width="180" height="56" rx="8"/>
+<text class="gt" x="230" y="543" text-anchor="middle" dominant-baseline="central">three-presenter</text>
+<text class="gs" x="230" y="562" text-anchor="middle" dominant-baseline="central">free3d · quat → Euler</text>
+<rect class="g" x="360" y="524" width="180" height="56" rx="8"/>
+<text class="gt" x="450" y="543" text-anchor="middle" dominant-baseline="central">OpenLIME</text>
+<text class="gs" x="450" y="562" text-anchor="middle" dominant-baseline="central">planar2d · x, y, a, z</text>
+
+<text class="s" x="340" y="626" text-anchor="middle">Solid arrow: child → parent, p_parent = t + s·R·p_child (quat [x,y,z,w], s &gt; 0, unit changes included in s)</text>
+<text class="s" x="340" y="648" text-anchor="middle">Dashed arrow: space in which annotation geometry is expressed</text>
+</svg>
