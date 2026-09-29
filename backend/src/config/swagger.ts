@@ -1267,6 +1267,19 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           items: { type: 'number' },
           example: [0.42, 0.31, 0.12],
         },
+        AnnotationSurfacePath: {
+          type: 'object',
+          required: ['mode', 'controlVertices'],
+          description: 'Sparse controls used to regenerate a dense surface-following polyline.',
+          properties: {
+            mode: { type: 'string', enum: ['view-projected'] },
+            controlVertices: {
+              type: 'array',
+              minItems: 2,
+              items: { $ref: '#/components/schemas/AnnotationVertex3D' },
+            },
+          },
+        },
         AnnotationShapePoints: {
           type: 'object',
           required: ['type', 'vertices'],
@@ -1288,6 +1301,9 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
               type: 'array',
               minItems: 2,
               items: { $ref: '#/components/schemas/AnnotationVertex3D' },
+            },
+            surfacePath: {
+              $ref: '#/components/schemas/AnnotationSurfacePath',
             },
           },
         },

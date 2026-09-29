@@ -90,6 +90,12 @@ export function geometryToViewerAnnotation(
     strokeDasharray: semanticClass !== null && linkedClasses.length > 1 ? '8,6' : null,
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
+    surfacePath: shape.type === 'ShapePolyline' && shape.surfacePath
+      ? {
+          mode: shape.surfacePath.mode,
+          controlVertices: shape.surfacePath.controlVertices.map((vertex) => [...vertex] as [number, number, number]),
+        }
+      : undefined,
     description: datum?.description,
     createdAt: geometry.createdAt,
     createdBy: geometry.createdBy,

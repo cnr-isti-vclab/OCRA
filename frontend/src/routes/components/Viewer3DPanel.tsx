@@ -45,6 +45,16 @@ function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
   return shapes.map((shape) => ({
     ...shape,
     vertices: shape.vertices.map((vertex) => [vertex[0], vertex[1], vertex[2]]),
+    ...(shape.type === 'ShapePolyline' && shape.surfacePath
+      ? {
+          surfacePath: {
+            mode: shape.surfacePath.mode,
+            controlVertices: shape.surfacePath.controlVertices.map(
+              (vertex) => [vertex[0], vertex[1], vertex[2]] as [number, number, number],
+            ),
+          },
+        }
+      : {}),
   }));
 }
 
@@ -81,6 +91,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     activeGeometriesRef.current = activeGeometries;
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
+    const [surfaceFollowEnabled, setSurfaceFollowEnabled] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
 
     const viewerAnnotations = useMemo(
@@ -125,10 +136,17 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       setToolbarMode('edit');
     }, [ref]);
 
+    const toggleSurfaceFollow = useCallback(() => {
+      const enabled = !surfaceFollowEnabled;
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      viewer?.setLineSurfaceFollowEnabled(enabled);
+      setSurfaceFollowEnabled(enabled);
+    }, [ref, surfaceFollowEnabled]);
+
     const annotationGeometryCreatedHandler = useCallback<AnnotationGeometryCreatedCallback>(
-      (type, geometry) => {
+      (type, geometry, surfacePath) => {
         void createAnnotation({
-          shapes: viewerGeometryToShapes(type, geometry),
+          shapes: viewerGeometryToShapes(type, geometry, surfacePath),
           label: '',
           description: '',
           class: null,
@@ -243,7 +261,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     };
 
     const handleAnnotationUpdated = (annotation: ViewerAnnotation) => {
-      const nextShapes = viewerGeometryToShapes(annotation.type, annotation.geometry);
+      const nextShapes = viewerGeometryToShapes(
+        annotation.type,
+        annotation.geometry,
+        annotation.surfacePath,
+      );
       const snapshot = editSnapshotsRef.current.get(annotation.id);
       const baselineShapes =
         snapshot?.shapes ?? activeGeometriesRef.current.find((item) => item.id === annotation.id)?.shapes;
@@ -328,6 +350,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               transform: 'translateX(-50%)',
               zIndex: 100,
               pointerEvents: 'auto',
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
             <AnnotationToolbar
@@ -335,6 +359,18 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               onModeChange={applyToolbarMode}
               disabledModes={['area']}
             />
+            <div className="btn-group ms-2" role="group" aria-label="3D line path mode">
+              <button
+                type="button"
+                className={`btn btn-sm ${surfaceFollowEnabled ? 'btn-primary' : 'btn-outline-light'}`}
+                onClick={toggleSurfaceFollow}
+                aria-pressed={surfaceFollowEnabled}
+                title="Project new line segments onto the visible surface"
+              >
+                <i className="bi bi-bezier2 me-1" aria-hidden />
+                Surface follow
+              </button>
+            </div>
           </div>
         )}
         {loadingModels && Object.keys(modelLoadProgress).length > 0 && (

@@ -25,6 +25,8 @@ export interface ThreeJSViewerRef {
   getPickingMode: () => boolean;
   setAnnotationCreationMode: (mode: AnnotationCreationMode) => void;
   getAnnotationCreationMode: () => AnnotationCreationMode;
+  setLineSurfaceFollowEnabled: (enabled: boolean) => void;
+  getLineSurfaceFollowEnabled: () => boolean;
   setAnnotationEditingEnabled: (enabled: boolean) => void;
   getAnnotationEditingEnabled: () => boolean;
   getAnnotationManager: () => AnnotationManager;
@@ -118,6 +120,12 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       },
       getAnnotationCreationMode: () => {
         return presenterRef.current?.getAnnotationCreationMode() ?? null;
+      },
+      setLineSurfaceFollowEnabled: (enabled: boolean) => {
+        presenterRef.current?.setLineSurfaceFollowEnabled(enabled);
+      },
+      getLineSurfaceFollowEnabled: () => {
+        return presenterRef.current?.getLineSurfaceFollowEnabled() ?? false;
       },
       setAnnotationEditingEnabled: (enabled: boolean) => {
         presenterRef.current?.setAnnotationEditingEnabled(enabled);

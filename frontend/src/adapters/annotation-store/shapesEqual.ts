@@ -15,6 +15,16 @@ function verticesEqual(
   );
 }
 
+function surfacePathsEqual(
+  left: Extract<AnnotationShape, { type: 'ShapePolyline' }>['surfacePath'],
+  right: Extract<AnnotationShape, { type: 'ShapePolyline' }>['surfacePath'],
+): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  return left.mode === right.mode && verticesEqual(left.controlVertices, right.controlVertices);
+}
+
 export function shapesEqual(left: AnnotationShape[], right: AnnotationShape[]): boolean {
   if (left.length !== right.length) {
     return false;
@@ -24,6 +34,15 @@ export function shapesEqual(left: AnnotationShape[], right: AnnotationShape[]): 
     if (shape.type !== other.type) {
       return false;
     }
-    return verticesEqual(shape.vertices, other.vertices);
+    if (!verticesEqual(shape.vertices, other.vertices)) {
+      return false;
+    }
+    if (shape.type === 'ShapePolyline') {
+      if (other.type !== 'ShapePolyline') {
+        return false;
+      }
+      return surfacePathsEqual(shape.surfacePath, other.surfacePath);
+    }
+    return true;
   });
 }
