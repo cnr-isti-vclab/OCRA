@@ -1,0 +1,50 @@
+name: Mirror to ECHOES
+
+on:
+  push:
+  delete:
+  workflow_dispatch:
+  schedule:
+    # Daily reconciliation at 02:17 UTC in case an event-driven run was missed.
+    - cron: '17 2 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: echoes-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    # This file is copied to the destination, so only run it in the source repo.
+    if: github.repository == 'cnr-isti-vclab/OCRA'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Configure destination deploy key
+        env:
+          ECHOES_DEPLOY_KEY: ${{ secrets.ECHOES_MIRROR_DEPLOY_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ECHOES_DEPLOY_KEY" > ~/.ssh/echoes_mirror
+          chmod 600 ~/.ssh/echoes_mirror
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Mirror branches and tags
+        env:
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/echoes_mirror -o IdentitiesOnly=yes
+        run: |
+          git init --bare "$RUNNER_TEMP/ocra.git"
+          cd "$RUNNER_TEMP/ocra.git"
+
+          git remote add source https://github.com/cnr-isti-vclab/OCRA.git
+          git fetch --prune source \
+            '+refs/heads/*:refs/heads/*' \
+            '+refs/tags/*:refs/tags/*'
+
+          git push --force --prune \
+            git@github.com:ECHOES-ECCCH/Vertical-Application-OCRA.git \
+            'refs/heads/*:refs/heads/*' \
+            'refs/tags/*:refs/tags/*'
