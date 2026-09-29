@@ -1,6 +1,10 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ThreeJSViewer, { type ThreeJSViewerRef } from '../../adapters/three-presenter/ThreeJSViewer';
-import { LoadingProgress } from 'three-presenter';
+import {
+  LoadingProgress,
+  type AnnotationCreationMode,
+  type AnnotationGeometryCreatedCallback,
+} from 'three-presenter';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
@@ -55,6 +59,16 @@ function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
   return shapes.map((shape) => ({
     ...shape,
     vertices: shape.vertices.map((vertex) => [vertex[0], vertex[1], vertex[2]]),
+    ...(shape.type === 'ShapePolyline' && shape.surfacePath
+      ? {
+          surfacePath: {
+            mode: shape.surfacePath.mode,
+            controlVertices: shape.surfacePath.controlVertices.map(
+              (vertex) => [vertex[0], vertex[1], vertex[2]] as [number, number, number],
+            ),
+          },
+        }
+      : {}),
   }));
 }
 
@@ -130,9 +144,12 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
+    const [surfaceFollowEnabled, setSurfaceFollowEnabled] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const isCreationGeometryNewRef = useRef(isCreationGeometryNew);
     isCreationGeometryNewRef.current = isCreationGeometryNew;
+    const creationDrawingModeRef = useRef(creationDraft?.drawingMode ?? 'point');
+    creationDrawingModeRef.current = creationDraft?.drawingMode ?? 'point';
     const wasCreationGeometryNewRef = useRef(false);
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const linkingGeometryIds = creationDraft?.geometryMode === 'choose'
@@ -234,6 +251,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       [visibleGeometries, activeAnnotationSelection, focusedDataIds, creationDraft, annotationTrash.isOpen],
     );
 
+    const viewerAnnotationsRef = useRef(viewerAnnotations);
+    viewerAnnotationsRef.current = viewerAnnotations;
+
     const highlightGeometryIds = useMemo(
       () => {
         if (annotationTrash.isOpen) {
@@ -283,14 +303,22 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     }
 
     const resolveToolbarMode = useCallback(
-      (currentMode: AnnotationToolbarMode = toolbarMode): AnnotationToolbarMode =>
+      (
+        currentMode: AnnotationToolbarMode = creationDraft?.drawingMode ?? toolbarMode,
+      ): AnnotationToolbarMode =>
         resolveCreationToolbarMode(currentMode, {
           isCreationGeometryNew,
           isCreationGeometrySearch,
           hasDraftGeometry: isCreationPendingNewGeometry,
           defaultCreateMode: 'point',
         }),
-      [isCreationGeometryNew, isCreationGeometrySearch, isCreationPendingNewGeometry, toolbarMode],
+      [
+        creationDraft?.drawingMode,
+        isCreationGeometryNew,
+        isCreationGeometrySearch,
+        isCreationPendingNewGeometry,
+        toolbarMode,
+      ],
     );
 
     const applyToolbarMode = useCallback((mode: AnnotationToolbarMode) => {
@@ -299,17 +327,17 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return;
       }
 
-      if (mode === 'point') {
-        viewer.setPickingMode(true);
-        setToolbarMode('point');
+      if (mode === 'point' || mode === 'line') {
+        viewer.setAnnotationCreationMode(mode);
+        setToolbarMode(mode);
         return;
       }
 
-      viewer.setPickingMode(false);
+      viewer.setAnnotationCreationMode(null);
       setToolbarMode('edit');
     }, [ref]);
 
-    const keepCreationPointPickingActive = useCallback(() => {
+    const keepCreationDrawingActive = useCallback(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
       if (!viewer) {
         return;
@@ -318,46 +346,36 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         if (!isCreationGeometryNewRef.current) {
           return;
         }
-        viewer.setPickingMode(true);
-        setToolbarMode('point');
+        const mode = creationDrawingModeRef.current === 'line' ? 'line' : 'point';
+        viewer.setAnnotationCreationMode(mode);
+        setToolbarMode(mode);
       });
     }, [ref]);
 
-    useEffect(() => {
-      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
-      if (!viewer || !viewerReady) {
-        return;
-      }
-
-      const handler = (point: [number, number, number]) => {
-        if (!isCreationGeometryNew) {
+    const annotationGeometryCreatedHandler = useCallback<AnnotationGeometryCreatedCallback>(
+      (type, geometry, surfacePath) => {
+        if (!isCreationGeometryNewRef.current) {
           return;
         }
 
-        const viewerId = `${CREATION_DRAFT_GEOMETRY_ID}-${crypto.randomUUID()}`;
-        setCreationDraftGeometry(viewerId, [
-          { type: 'ShapePoints', vertices: [point] },
-        ]);
-        // Sticky New: stay in point-picking mode for the next geometry.
-        keepCreationPointPickingActive();
-      };
+        const viewerId = CREATION_DRAFT_GEOMETRY_ID + '-' + crypto.randomUUID();
+        setCreationDraftGeometry(
+          viewerId,
+          viewerGeometryToShapes(type, geometry, surfacePath),
+        );
+        // Point mode clears itself after a pick; line mode stays active.
+        // Re-applying the selected mode keeps Sticky New consistent for both.
+        keepCreationDrawingActive();
+      },
+      [keepCreationDrawingActive, setCreationDraftGeometry],
+    );
 
-      viewer.setOnPointPicked(handler);
-
-      return () => {
-        try {
-          viewer.setOnPointPicked(null);
-        } catch {
-          // ignore
-        }
-      };
-    }, [
-      ref,
-      viewerReady,
-      isCreationGeometryNew,
-      setCreationDraftGeometry,
-      keepCreationPointPickingActive,
-    ]);
+    const toggleSurfaceFollow = useCallback(() => {
+      const enabled = !surfaceFollowEnabled;
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      viewer?.setLineSurfaceFollowEnabled(enabled);
+      setSurfaceFollowEnabled(enabled);
+    }, [ref, surfaceFollowEnabled]);
 
     useEffect(() => {
       if (!viewerReady) {
@@ -369,7 +387,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
 
       if (!isCreationGeometryStep) {
-        viewer.setPickingMode(false);
+        viewer.setAnnotationCreationMode(null);
         setToolbarMode('edit');
         return;
       }
@@ -404,7 +422,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       }
 
       if (wasCreationGeometryNewRef.current && !isCreationGeometryNew) {
-        viewer.setPickingMode(false);
+        viewer.setAnnotationCreationMode(null);
         setToolbarMode('edit');
       }
       wasCreationGeometryNewRef.current = isCreationGeometryNew;
@@ -418,7 +436,9 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       if (!viewer) {
         return;
       }
-      viewer.setPickingMode(false);
+      viewer.setAnnotationCreationMode(null);
+      viewer.setLineSurfaceFollowEnabled(false);
+      setSurfaceFollowEnabled(false);
       setToolbarMode('edit');
     }, [isCreationGeometryStep, ref, viewerReady]);
 
@@ -662,17 +682,16 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
       });
     };
 
-    const handlePickingModeChange = (enabled: boolean) => {
-      if (isCreationGeometryNew) {
-        if (enabled) {
-          setToolbarMode('point');
-          return;
-        }
-        // Sticky New: re-arm point picking after each completed draft.
-        keepCreationPointPickingActive();
+    const handleAnnotationCreationModeChange = (mode: AnnotationCreationMode) => {
+      if (mode) {
+        setToolbarMode(mode);
         return;
       }
-      setToolbarMode(enabled ? 'point' : 'edit');
+      if (isCreationGeometryNewRef.current) {
+        keepCreationDrawingActive();
+        return;
+      }
+      setToolbarMode('edit');
     };
 
     const handleAnnotationEditStart = (annotation: ViewerAnnotation) => {
@@ -707,7 +726,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     };
 
     const handleAnnotationUpdated = (annotation: ViewerAnnotation) => {
-      const nextShapes = viewerGeometryToShapes(annotation.type, annotation.geometry);
+      const nextShapes = viewerGeometryToShapes(
+        annotation.type,
+        annotation.geometry,
+        annotation.surfacePath,
+      );
 
       const draftViewerId = lastCreatedGeometryViewerId(creationDraft);
       if (draftViewerId && annotation.id === draftViewerId) {
@@ -742,6 +765,14 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           editSnapshotsRef.current.delete(annotation.id);
         })
         .catch((err) => {
+          const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+          if (viewer) {
+            try {
+              viewer.renderAnnotations(viewerAnnotationsRef.current);
+            } catch (renderError) {
+              console.error('Failed to restore 3D annotation geometry:', renderError);
+            }
+          }
           if (err instanceof AnnotationApiError && err.status === 409) {
             setMessageModal(AnnotationMessageModalCatalog.fromError(err, 'update_geometry'));
             return;
@@ -787,9 +818,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onLoadComplete={onLoadComplete}
           onLoadError={onLoadError}
           onAnnotationSelectionChanged={handleAnnotationSelectionChanged}
-          onPickingModeChange={handlePickingModeChange}
+          onAnnotationCreationModeChange={handleAnnotationCreationModeChange}
+          onAnnotationGeometryCreated={annotationGeometryCreatedHandler}
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
+          annotationEditingEnabled={!isCreationGeometryNew || toolbarMode === 'edit'}
         />
         {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
           <div
@@ -812,6 +845,32 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               onConfirm={confirmDeletionCounterpartPick}
               onCancel={cancelDeletionPendingResolution}
             />
+          </div>
+        ) : null}
+        {isCreationGeometryNew && toolbarMode === 'line' ? (
+          <div
+            className="btn-group"
+            role="group"
+            aria-label="3D line path mode"
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              pointerEvents: 'auto',
+            }}
+          >
+            <button
+              type="button"
+              className={['btn btn-sm', surfaceFollowEnabled ? 'btn-primary' : 'btn-outline-light'].join(' ')}
+              onClick={toggleSurfaceFollow}
+              aria-pressed={surfaceFollowEnabled}
+              title="Project new line segments onto the visible surface"
+            >
+              <i className="bi bi-bezier2 me-1" aria-hidden />
+              Surface follow
+            </button>
           </div>
         ) : null}
         {loadingModels && Object.keys(modelLoadProgress).length > 0 && (

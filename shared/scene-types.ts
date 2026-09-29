@@ -24,6 +24,12 @@ export type ViewerAnnotationGeometry =
   | [number, number, number]           // Point
   | [number, number, number][]         // Line or Area (array of points)
 
+/** Sparse controls retained for a dense surface-following 3D polyline. */
+export interface ViewerSurfacePath {
+  mode: 'view-projected';
+  controlVertices: [number, number, number][];
+}
+
 /**
  * A single viewer annotation in the scene.
  *
@@ -50,6 +56,8 @@ export interface ViewerAnnotation {
   type: ViewerAnnotationShapeType;
   /** Geometric data for the annotation */
   geometry: ViewerAnnotationGeometry;
+  /** Optional sparse controls for a surface-following line. */
+  surfacePath?: ViewerSurfacePath;
   /** Optional creation timestamp */
   createdAt?: string;
   /** Optional user who created it */

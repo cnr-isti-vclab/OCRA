@@ -10,10 +10,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # Use pg_isready instead of psql for the database healthcheck: it confirms
+      # the server is accepting TCP connections without requiring a password,
+      # which is exactly what we need to gate dependent services.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -h 127.0.0.1 -p 5432 > /dev/null || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 15s
 
   mongodb:
     image: mongo:7.0

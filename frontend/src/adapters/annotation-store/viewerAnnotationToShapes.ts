@@ -1,5 +1,9 @@
 import type { AnnotationShape } from 'shared/annotation-types';
-import type { ViewerAnnotation, ViewerAnnotationGeometry } from 'shared/scene-types';
+import type {
+  ViewerAnnotation,
+  ViewerAnnotationGeometry,
+  ViewerSurfacePath,
+} from 'shared/scene-types';
 
 function isPointGeometry(
   geometry: ViewerAnnotationGeometry,
@@ -18,6 +22,7 @@ function isPointGeometry(
 export function viewerGeometryToShapes(
   type: ViewerAnnotation['type'],
   geometry: ViewerAnnotationGeometry,
+  surfacePath?: ViewerSurfacePath,
 ): AnnotationShape[] {
   if (type === 'point') {
     if (!isPointGeometry(geometry)) {
@@ -32,7 +37,20 @@ export function viewerGeometryToShapes(
 
   const vertices = geometry as [number, number, number][];
   if (type === 'line') {
-    return [{ type: 'ShapePolyline', vertices }];
+    return [{
+      type: 'ShapePolyline',
+      vertices,
+      ...(surfacePath
+        ? {
+            surfacePath: {
+              mode: surfacePath.mode,
+              controlVertices: surfacePath.controlVertices.map(
+                (vertex) => [...vertex] as [number, number, number],
+              ),
+            },
+          }
+        : {}),
+    }];
   }
   return [{ type: 'ShapePolygon', vertices }];
 }

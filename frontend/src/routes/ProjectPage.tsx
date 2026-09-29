@@ -1664,7 +1664,7 @@ export default function ProjectPage() {
                               id: asset.id,
                               label: asset.label || asset.title || asset.id,
                             }))}
-                            disabledGeometryToolbarModes={mode === '3d' ? ['line', 'area'] : []}
+                            disabledGeometryToolbarModes={mode === '3d' ? ['area'] : []}
                             onClose={closeAnnotationWorkbench}
                           />
                         ) : null}
