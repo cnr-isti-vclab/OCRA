@@ -153,7 +153,12 @@ npm run project-files:cleanup # remove orphan files from project_files/
 
 Swagger API docs are available at `http://localhost:3002/api-docs` when the backend is running.
 
-## Instructions for Claude Code
+## Instructions for Agents
 
 When working on this codebase, please adhere to the following principles (if existsing, otherwise use your best judgment):
 AGENTS.md
+
+Remember that I really prefer to avoid code bloating. I always prefer solutions that need less code with respect to ones that are implemented in more code. In particular, I do not want duplication of code or functionalities. Also check always for leftover files and functions and ask for their removal. 
+The less code you write the better it is. If sometimes I ask you something whose implementation requires you to write a lot of new code, please warn me before starting and, if possible, suggest solutions that would require less code.  Also always look for leftovers, like files or functions that are no more used.
+
+
