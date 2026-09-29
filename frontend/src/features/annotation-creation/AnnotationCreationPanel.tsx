@@ -1,12 +1,15 @@
 import type { ReactNode } from 'react';
 import type { AnnotationCreationDraft } from './types';
+import {
+  canCompleteDataStep,
+  canCompleteGeometryStep,
+} from './annotationCreationValidation';
 
 export type { AnnotationScopeOption } from './types';
 
 export interface AnnotationCreationActionBarProps {
   draft: AnnotationCreationDraft;
   creating: boolean;
-  onCreate: () => void;
   onBack: () => void;
   onNext: () => void;
   onCancel?: () => void;
@@ -20,15 +23,19 @@ export function AnnotationCreationActionBar({
   draft,
   creating,
   onBack,
-  onNext: _onNext,
+  onNext,
   onCancel,
   middleAction,
   nextButtonClassName,
 }: AnnotationCreationActionBarProps) {
   const isCommitting = draft.step === 'committing' || creating;
   const wizardActive = draft.step === 'geometry' || draft.step === 'data' || draft.step === 'committing';
-  // Geometry and data steps own Done in their New|Choose|Done groups.
   const showCommitStatus = isCommitting;
+  const doneEnabled = draft.step === 'geometry'
+    ? canCompleteGeometryStep(draft).ok
+    : draft.step === 'data'
+      ? canCompleteDataStep(draft).ok
+      : false;
 
   return (
     <div className="d-grid align-items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
@@ -53,7 +60,16 @@ export function AnnotationCreationActionBar({
           >
             Saving…
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className={['btn btn-outline-primary', nextButtonClassName].filter(Boolean).join(' ')}
+            disabled={!doneEnabled}
+            onClick={onNext}
+          >
+            <i className="bi bi-check-lg me-2" aria-hidden />Done
+          </button>
+        )}
       </div>
     </div>
   );

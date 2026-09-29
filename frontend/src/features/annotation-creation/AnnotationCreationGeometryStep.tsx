@@ -1,7 +1,6 @@
 import type { AnnotationCreationDraft, AnnotationDrawingMode } from './types';
 import {
   canAddMoreGeometry,
-  canCompleteGeometryStep,
   canSwitchToGeometryChoose,
   canUseGeometryChooseMode,
   dataResultCount,
@@ -20,7 +19,6 @@ interface AnnotationCreationGeometryStepProps {
   onGeometryModeChange: (mode: 'new' | 'choose') => void;
   onDrawingModeChange?: (mode: AnnotationDrawingMode) => void;
   onUndoLastCreatedGeometry: () => void;
-  onDone: () => void;
 }
 
 export default function AnnotationCreationGeometryStep({
@@ -31,12 +29,10 @@ export default function AnnotationCreationGeometryStep({
   onGeometryModeChange,
   onDrawingModeChange,
   onUndoLastCreatedGeometry,
-  onDone,
 }: AnnotationCreationGeometryStepProps) {
   const dataCount = dataResultCount(draft);
   const canChoose = canUseGeometryChooseMode(draft) && canSwitchToGeometryChoose(draft);
   const canCreateMore = canAddMoreGeometry(draft);
-  const doneEnabled = canCompleteGeometryStep(draft).ok && !creating;
   const isFirst = isGeometryFirst(draft);
 
   return (
@@ -82,14 +78,6 @@ export default function AnnotationCreationGeometryStep({
             onClick={() => onGeometryModeChange('choose')}
           >
             <i className="bi bi-list-check me-2" aria-hidden />Choose
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-primary"
-            disabled={!doneEnabled}
-            onClick={onDone}
-          >
-            <i className="bi bi-check-lg me-2" aria-hidden />Done
           </button>
         </div>
       </div>

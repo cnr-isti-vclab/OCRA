@@ -4,7 +4,6 @@ import type { AnnotationCreationDraft } from './types';
 import {
   allowsMultipleDataSelection,
   canAddMoreData,
-  canCompleteDataStep,
   canSwitchToDataChoose,
   canUseDataChooseMode,
   geometryResultCount,
@@ -26,7 +25,6 @@ interface AnnotationCreationDataStepProps {
   onOpenCreateModal: () => void;
   onDataModeChange: (mode: 'new' | 'choose') => void;
   onUndoLastCreatedData: () => void;
-  onDone: () => void;
 }
 
 export default function AnnotationCreationDataStep({
@@ -40,7 +38,6 @@ export default function AnnotationCreationDataStep({
   onOpenCreateModal,
   onDataModeChange,
   onUndoLastCreatedData,
-  onDone,
 }: AnnotationCreationDataStepProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const allowsMultiple = allowsMultipleDataSelection(draft);
@@ -48,7 +45,6 @@ export default function AnnotationCreationDataStep({
   const geometryCount = geometryResultCount(draft);
   const canChooseData = canUseDataChooseMode(draft) && canSwitchToDataChoose(draft);
   const canCreateMore = canAddMoreData(draft);
-  const doneEnabled = canCompleteDataStep(draft).ok && !creating;
   const isFirst = !isGeometryFirst(draft);
 
   const filteredCandidates = useMemo(() => {
@@ -103,14 +99,6 @@ export default function AnnotationCreationDataStep({
         onClick={() => onDataModeChange('choose')}
       >
         <i className="bi bi-list-check me-2" aria-hidden />Choose
-      </button>
-      <button
-        type="button"
-        className="btn btn-outline-primary"
-        disabled={!doneEnabled}
-        onClick={onDone}
-      >
-        <i className="bi bi-check-lg me-2" aria-hidden />Done
       </button>
     </div>
   );

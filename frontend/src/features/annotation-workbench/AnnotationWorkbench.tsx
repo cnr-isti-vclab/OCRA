@@ -610,7 +610,6 @@ export default function AnnotationWorkbench({
               onUndoLastCreatedGeometry={() => {
                 undoLastCreatedGeometry();
               }}
-              onDone={() => void next()}
             />
           </section>
         ) : null}
@@ -702,7 +701,6 @@ export default function AnnotationWorkbench({
               onUndoLastCreatedData={() => {
                 undoLastCreatedData();
               }}
-              onDone={() => void next()}
             />
           </section>
         ) : null}
@@ -714,7 +712,6 @@ export default function AnnotationWorkbench({
             <AnnotationCreationActionBar
               draft={creationDraft}
               creating={creating}
-              onCreate={() => {}}
               onBack={back}
               onNext={() => void next()}
               onCancel={requestClose}
