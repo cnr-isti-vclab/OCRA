@@ -68,12 +68,10 @@ describe('CachedVocabularyProvider', () => {
 
     await cached.search(' Oil   Paint ', { language: 'EN', limit: 10 });
     await cached.search('oil paint', { language: 'en', limit: 10 });
-    await cached.search('oil paint', { language: 'en', limit: 10, offset: 10 });
-    await cached.search('oil paint', { language: 'en', limit: 10, offset: 10 });
     await cached.getConcept('1', { language: 'en' });
     await cached.getConcept('https://example.test/1', { language: 'en' });
 
-    expect(provider.searchCalls).toBe(2);
+    expect(provider.searchCalls).toBe(1);
     expect(provider.conceptCalls).toBe(1);
   });
 

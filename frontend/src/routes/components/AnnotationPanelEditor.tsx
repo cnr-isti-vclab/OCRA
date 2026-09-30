@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AnnotationData } from 'shared/annotation-types';
+import type { AnnotationClassDisplay, AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
@@ -53,6 +53,7 @@ interface AnnotationDataDraft {
   label: string;
   description: string;
   annotationClass: string | null;
+  annotationClassDisplay: AnnotationClassDisplay | null;
   content: Record<string, unknown>;
 }
 
@@ -67,7 +68,7 @@ function EditDataModal({
 }: {
   draft: AnnotationDataDraft | null;
   onSave: () => void;
-  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass'>>) => void;
+  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass' | 'annotationClassDisplay'>>) => void;
   onCancel: () => void;
   vocabularySchemes: readonly VocabularyScheme[];
   vocabularyConcepts: readonly VocabularyConcept[];
@@ -85,6 +86,7 @@ function EditDataModal({
         label: draft.label,
         description: draft.description,
         annotationClass: draft.annotationClass,
+        annotationClassDisplay: draft.annotationClassDisplay,
       }}
       onChange={onChange}
       onSave={onSave}
@@ -389,6 +391,7 @@ export default function AnnotationPanelEditor({
         class: editingDraft.annotationClass?.trim().length
           ? editingDraft.annotationClass.trim()
           : null,
+        classDisplay: editingDraft.annotationClassDisplay,
       }, {
         expectedVersion: editingDraft.expectedVersion,
       });
@@ -434,6 +437,7 @@ export default function AnnotationPanelEditor({
       label: datum.label,
       description: datum.description ?? '',
       annotationClass: datum.class ?? null,
+      annotationClassDisplay: datum.classDisplay ?? null,
       content: { ...datum.content },
     });
     try {
@@ -686,7 +690,7 @@ export default function AnnotationPanelEditor({
                     {datum.description || ''}
                   </p>
                   <p className="mb-0 small" style={{ color: itemColors.text }}>
-                    <strong>Class:</strong> {datum.class ?? '(no class)'}
+                    <strong>Class:</strong> {datum.classDisplay?.preferredLabel ?? datum.class ?? '(no class)'}
                   </p>
                 </div>
               );

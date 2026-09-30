@@ -8,6 +8,7 @@ import type {
 export interface VocabularySearchOptions {
   language?: string;
   limit?: number;
+  offset?: number;
 }
 
 export interface VocabularyConceptOptions {

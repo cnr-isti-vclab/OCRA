@@ -27,8 +27,9 @@ export async function searchExternalVocabulary(
   language = 'en',
   limit = 20,
   signal?: AbortSignal,
+  offset = 0,
 ): Promise<VocabularySearchResult[]> {
-  const key = `${providerId}:${language.toLowerCase()}:${limit}:${query.normalize('NFKC').trim().toLowerCase()}`;
+  const key = `${providerId}:${language.toLowerCase()}:${limit}:${offset}:${query.normalize('NFKC').trim().toLowerCase()}`;
   const cached = searchCache.get(key);
   if (cached) {
     throwIfAborted(signal);
@@ -39,6 +40,7 @@ export async function searchExternalVocabulary(
   url.searchParams.set('q', query);
   url.searchParams.set('lang', language);
   url.searchParams.set('limit', String(limit));
+  url.searchParams.set('offset', String(offset));
   const response = await fetch(url, { credentials: 'include', signal });
   if (!response.ok) throw await responseError(response);
   const payload = await response.json() as VocabularySearchResponse;

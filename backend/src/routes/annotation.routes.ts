@@ -604,6 +604,19 @@ router.get('/:projectId/annotations/data/:dataId', requireAuth, getAnnotationDat
  *               class:
  *                 type: string
  *                 nullable: true
+ *               classDisplay:
+ *                 type: object
+ *                 nullable: true
+ *                 additionalProperties: false
+ *                 description: Optional display snapshot; class remains authoritative
+ *                 required: [provider, preferredLabel]
+ *                 properties:
+ *                   provider:
+ *                     type: string
+ *                   preferredLabel:
+ *                     type: string
+ *                   language:
+ *                     type: string
  *               content:
  *                 type: object
  *                 additionalProperties: true
@@ -661,6 +674,19 @@ router.post('/:projectId/annotations/data', requireAuth, createAnnotationDataHan
  *               class:
  *                 type: string
  *                 nullable: true
+ *               classDisplay:
+ *                 type: object
+ *                 nullable: true
+ *                 additionalProperties: false
+ *                 description: Optional display snapshot; class remains authoritative
+ *                 required: [provider, preferredLabel]
+ *                 properties:
+ *                   provider:
+ *                     type: string
+ *                   preferredLabel:
+ *                     type: string
+ *                   language:
+ *                     type: string
  *               content:
  *                 type: object
  *                 additionalProperties: true

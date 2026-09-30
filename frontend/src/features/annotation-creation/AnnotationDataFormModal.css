@@ -1,0 +1,118 @@
+.annotation-data-form-modal {
+  z-index: 2000;
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+
+.annotation-data-form-modal .modal-dialog {
+  --bs-modal-width: 760px;
+  height: calc(100dvh - 1.5rem);
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.annotation-data-form-modal .modal-content {
+  max-height: 100%;
+}
+
+.annotation-data-form-modal .modal-header,
+.annotation-data-form-modal .modal-footer {
+  flex: 0 0 auto;
+  padding: 0.65rem 0.9rem;
+}
+
+.annotation-data-form-modal .modal-title {
+  font-size: 1rem;
+}
+
+.annotation-data-form-modal .modal-body {
+  padding: 0.7rem 0.9rem;
+  overflow-y: auto;
+}
+
+.annotation-data-form-modal .form-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.annotation-data-form-modal .form-control,
+.annotation-data-form-modal .form-select,
+.annotation-data-form-modal .input-group-text {
+  min-height: 2.1rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.annotation-data-form-modal textarea.form-control {
+  min-height: 4.5rem;
+}
+
+.annotation-data-form-modal .form-text,
+.annotation-data-form-modal .small {
+  font-size: 0.74rem !important;
+}
+
+.annotation-data-form-modal .annotation-class-picker {
+  gap: 0.55rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__empty,
+.annotation-data-form-modal .annotation-class-picker__selection {
+  min-height: 3.1rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__selection {
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__selection-icon {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.95rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__sources {
+  gap: 0.4rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__source {
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__source-panel {
+  padding: 0.6rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__results {
+  max-height: 12rem;
+  margin-top: 0.55rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__result {
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.annotation-data-form-modal .annotation-class-picker__details {
+  padding: 0.5rem 0.6rem;
+}
+
+@media (max-height: 760px) {
+  .annotation-data-form-modal .modal-dialog {
+    height: calc(100dvh - 0.75rem);
+    margin-top: 0.375rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .annotation-data-form-modal textarea.form-control {
+    min-height: 3.5rem;
+  }
+
+  .annotation-data-form-modal .annotation-class-picker__results {
+    max-height: 9rem;
+  }
+}

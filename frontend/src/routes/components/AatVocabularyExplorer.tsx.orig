@@ -68,10 +68,7 @@ export default function AatVocabularyExplorer() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [query, language, page]);
-
-  const visibleResults = results.slice(0, SEARCH_PAGE_SIZE);
-  const hasNextPage = results.length > SEARCH_PAGE_SIZE;
+  }, [query, language]);
 
   const selectConcept = async (result: VocabularySearchResult) => {
     const requestId = requestTracker.current.begin();
@@ -155,7 +152,7 @@ export default function AatVocabularyExplorer() {
 
         {results.length > 0 ? (
           <div className="list-group mt-3">
-            {visibleResults.map((result) => (
+            {results.map((result) => (
               <button
                 type="button"
                 key={result.uri}
@@ -173,36 +170,6 @@ export default function AatVocabularyExplorer() {
               </button>
             ))}
           </div>
-        ) : null}
-        {results.length > 0 && (page > 0 || hasNextPage) ? (
-          <nav className="d-flex align-items-center justify-content-between gap-3 mt-2" aria-label="AAT result pages">
-            <span className="small text-muted">
-              Risultati {page * SEARCH_PAGE_SIZE + 1}–{page * SEARCH_PAGE_SIZE + visibleResults.length}
-              {' · '}pagina {page + 1}
-            </span>
-            <div className="btn-group btn-group-sm" role="group" aria-label="Paginazione risultati">
-              {page > 0 ? (
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
-                >
-                  <i className="bi bi-chevron-left me-1" aria-hidden />
-                  Precedenti
-                </button>
-              ) : null}
-              {hasNextPage ? (
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={() => setPage((currentPage) => currentPage + 1)}
-                >
-                  Mostra altri
-                  <i className="bi bi-chevron-right ms-1" aria-hidden />
-                </button>
-              ) : null}
-            </div>
-          </nav>
         ) : null}
 
         {loadingConcept ? (

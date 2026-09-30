@@ -42,6 +42,7 @@ import {
 } from 'shared/annotation-schema';
 import type { AnnotationImpactMetadata } from 'shared/annotation-events';
 import type {
+  AnnotationClassDisplay,
   AnnotationData,
   AnnotationGeometry,
   AnnotationLink,
@@ -189,6 +190,7 @@ export interface UpdateAnnotationDataInput {
   label?: string;
   description?: string;
   class?: string | null;
+  classDisplay?: AnnotationClassDisplay | null;
   content?: Record<string, unknown>;
 }
 
@@ -1150,6 +1152,7 @@ export async function createAnnotationData(
   visibilityType: AnnotationScopeType,
   visibilityId: string,
   userId: string,
+  classDisplay?: AnnotationClassDisplay | null,
 ): Promise<AnnotationServiceResult<string, CreateAnnotationDataErrorCode>> {
   if (!isNonEmptyString(userId) || !isNonEmptyString(visibilityId)) {
     return failResult('invalid_input');
@@ -1167,6 +1170,7 @@ export async function createAnnotationData(
     label,
     description,
     class: annotationClass,
+    ...(classDisplay !== undefined ? { classDisplay } : {}),
     content,
     visibilityType,
     visibilityId,
@@ -1208,12 +1212,17 @@ export async function updateAnnotationData(
     return failResult('data_not_found');
   }
 
+  const classChanged = updates.class !== undefined && updates.class !== existing.class;
+  const nextClassDisplay = classChanged && updates.classDisplay === undefined
+    ? null
+    : updates.classDisplay;
   const mutableFields = Object.fromEntries(
     Object.entries({
       label: updates.label,
       description: updates.description,
       class: updates.class,
       content: updates.content,
+      classDisplay: nextClassDisplay,
     }).filter(([, value]) => value !== undefined),
   );
 

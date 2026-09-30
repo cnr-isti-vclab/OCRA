@@ -5,6 +5,7 @@ import type {
   AnnotationSocialLockEvent,
 } from 'shared/annotation-events';
 import type {
+  AnnotationClassDisplay,
   AnnotationData,
   AnnotationGeometry,
   AnnotationLink,
@@ -145,6 +146,7 @@ export interface CreateAnnotationInput {
   label: string;
   description?: string;
   class: string | null;
+  classDisplay?: AnnotationClassDisplay | null;
   content: Record<string, unknown>;
   existingDataId?: string;
 }
@@ -153,6 +155,7 @@ export interface UpdateDataInput {
   label?: string;
   description?: string;
   class?: string | null;
+  classDisplay?: AnnotationClassDisplay | null;
   content?: Record<string, unknown>;
 }
 
@@ -1521,6 +1524,7 @@ export class AnnotationStore {
           label: requestedLabel.length > 0 ? requestedLabel : defaultLabel,
           description: entry.description,
           class: entry.class,
+          classDisplay: entry.classDisplay,
           content: entry.content,
           visibilityType: draftSnapshot.dataVisibility.visibilityType,
           visibilityId: draftSnapshot.dataVisibility.visibilityId,
@@ -1908,6 +1912,7 @@ export class AnnotationStore {
           label: requestedLabel.length > 0 ? requestedLabel : defaultLabel,
           description: input.description,
           class: input.class,
+          classDisplay: input.classDisplay,
           content: input.content,
           visibilityType: 'scene',
           visibilityId: this.sceneId,

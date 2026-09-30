@@ -50,8 +50,10 @@ export async function searchExternalVocabulary(req: Request, res: Response): Pro
     const language = queryValue(req.query.lang) ?? 'en';
     const rawLimit = queryValue(req.query.limit);
     const limit = rawLimit === undefined ? undefined : Number(rawLimit);
-    const results = await provider.search(query, { language, limit });
-    res.json({ provider: provider.metadata, query, language, results });
+    const rawOffset = queryValue(req.query.offset);
+    const offset = rawOffset === undefined ? undefined : Number(rawOffset);
+    const results = await provider.search(query, { language, limit, offset });
+    res.json({ provider: provider.metadata, query, language, offset: offset ?? 0, results });
   } catch (error) {
     sendVocabularyError(error, res);
   }

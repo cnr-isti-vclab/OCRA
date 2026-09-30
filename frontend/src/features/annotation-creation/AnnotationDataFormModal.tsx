@@ -1,14 +1,18 @@
+import { createPortal } from 'react-dom';
+import type { AnnotationClassDisplay } from 'shared/annotation-types';
 import type {
   VocabularyConcept,
   VocabularyProperty,
   VocabularyScheme,
 } from '../../types/vocabulary';
-import VocabularyClassPicker from '../../shared/ui/VocabularyClassPicker';
+import AnnotationClassPicker from '../../shared/ui/AnnotationClassPicker';
+import './AnnotationDataFormModal.css';
 
 export interface AnnotationDataFormValues {
   label: string;
   description: string;
   annotationClass: string | null;
+  annotationClassDisplay: AnnotationClassDisplay | null;
 }
 
 interface AnnotationDataFormModalProps {
@@ -36,7 +40,7 @@ export default function AnnotationDataFormModal({
   vocabularyConcepts,
   vocabularyProperties,
 }: AnnotationDataFormModalProps) {
-  return (
+  return createPortal(
     <div
       className="modal d-block annotation-data-form-modal"
       role="dialog"
@@ -47,13 +51,13 @@ export default function AnnotationDataFormModal({
         display: 'block',
       }}
     >
-      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ maxHeight: 'calc(100dvh - 2rem)' }}>
+      <div className="modal-dialog modal-lg modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title" id="annotation-data-form-title">{title}</h5>
           </div>
           <div className="modal-body">
-            <div className="mb-3">
+            <div className="mb-2">
               <label htmlFor="annotationLabel" className="form-label">
                 Label
               </label>
@@ -65,7 +69,7 @@ export default function AnnotationDataFormModal({
                 onChange={(e) => onChange({ label: e.target.value })}
               />
             </div>
-            <div className="mb-3">
+            <div className="mb-2">
               <label htmlFor="annotationDescription" className="form-label">
                 Description
               </label>
@@ -74,18 +78,28 @@ export default function AnnotationDataFormModal({
                 id="annotationDescription"
                 value={values.description}
                 onChange={(e) => onChange({ description: e.target.value })}
-                rows={6}
+                rows={4}
                 style={{ resize: 'vertical', overflowY: 'auto' }}
               />
             </div>
             <div className="mb-0">
               <label htmlFor="annotationClass" className="form-label">
-                Class
+                Classification
               </label>
-              <VocabularyClassPicker
+              <p className="small text-muted mb-2">
+                Choose a vocabulary and then a concept. The stable identifier is saved with the annotation;
+                the readable label is retained for display.
+              </p>
+              <AnnotationClassPicker
                 inputId="annotationClass"
-                value={values.annotationClass ?? ''}
-                onChange={(value) => onChange({ annotationClass: value })}
+                value={{
+                  identifier: values.annotationClass,
+                  display: values.annotationClassDisplay,
+                }}
+                onChange={(selection) => onChange({
+                  annotationClass: selection.identifier,
+                  annotationClassDisplay: selection.display,
+                })}
                 schemes={vocabularySchemes}
                 concepts={vocabularyConcepts}
                 properties={vocabularyProperties}
@@ -107,6 +121,7 @@ export default function AnnotationDataFormModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -48,6 +48,7 @@ vi.mock('../services/hdt-metadata.service.js', () => ({
 
 import { getPrismaClient } from '../../db.js';
 import { getMongoClient } from '../lib/mongo/client.js';
+import { conditionalUpdateAnnotationData } from '../repositories/annotation-data.repository.js';
 import { findAnnotationDataById } from '../repositories/annotation-data.repository.js';
 import { getAnnotationDataCollection } from '../repositories/annotation-data.repository.js';
 import { findAnnotationGeometryById } from '../repositories/annotation-geometry.repository.js';
@@ -72,6 +73,7 @@ import {
   markAnnotationGeometryNonErasable,
   markAnnotationLinkNonErasable,
   resolveAnnotationImpactForLink,
+  updateAnnotationData,
 } from '../services/annotation.service.js';
 
 function createCursorMock<T>(items: T[]) {
@@ -688,5 +690,69 @@ describe('annotation.service link restore semantics', () => {
       value: 8,
     });
     expect(linkCollection.findOneAndUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('annotation.service class display metadata', () => {
+  it('clears a stale display snapshot when the class changes without a replacement', async () => {
+    vi.resetAllMocks();
+    const existing = {
+      id: 'ad_aat',
+      projectId: 'project-1',
+      label: 'Technique',
+      description: '',
+      class: 'ocra-voc:painting',
+      classDisplay: {
+        provider: 'local',
+        preferredLabel: 'Painting',
+        language: 'en',
+      },
+      content: {},
+      visibilityType: 'asset' as const,
+      visibilityId: 'asset-1',
+      version: 2,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-04-24T10:00:00.000Z',
+      createdBy: 'user-1',
+      updatedAt: '2026-04-24T10:00:00.000Z',
+      updatedBy: 'user-1',
+    };
+    const updated = {
+      ...existing,
+      class: 'http://vocab.getty.edu/aat/300178684',
+      classDisplay: null,
+      version: 3,
+      updatedAt: '2026-04-25T10:00:00.000Z',
+      updatedBy: 'user-2',
+    };
+
+    vi.mocked(findAnnotationDataById).mockResolvedValue(existing as never);
+    vi.mocked(conditionalUpdateAnnotationData).mockResolvedValue({
+      ok: true,
+      code: 'updated',
+      document: updated,
+      expectedVersion: 2,
+      nextVersion: 3,
+    } as never);
+
+    await expect(updateAnnotationData(
+      'project-1',
+      'ad_aat',
+      2,
+      { class: 'http://vocab.getty.edu/aat/300178684' },
+      'user-2',
+    )).resolves.toEqual({ ok: true, value: 3 });
+
+    expect(conditionalUpdateAnnotationData).toHaveBeenCalledWith(
+      'ad_aat',
+      2,
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          class: 'http://vocab.getty.edu/aat/300178684',
+          classDisplay: null,
+        }),
+      }),
+    );
   });
 });

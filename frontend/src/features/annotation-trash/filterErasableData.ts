@@ -11,7 +11,8 @@ export function filterErasableData(
   return data.filter((datum) => {
     const classId = datum.class ?? '';
     const classLabel = classLabels.get(classId) ?? '';
-    return [datum.label, classId, classLabel]
+    const snapshotLabel = datum.classDisplay?.preferredLabel ?? '';
+    return [datum.label, classId, classLabel, snapshotLabel]
       .some((value) => value.toLocaleLowerCase().includes(needle));
   });
 }

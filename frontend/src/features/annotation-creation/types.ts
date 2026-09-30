@@ -1,4 +1,8 @@
-import type { AnnotationScopeType, AnnotationShape } from 'shared/annotation-types';
+import type {
+  AnnotationClassDisplay,
+  AnnotationScopeType,
+  AnnotationShape,
+} from 'shared/annotation-types';
 
 /**
  * Draft types for the annotation creation wizard (batch geo/data).
@@ -40,6 +44,7 @@ export interface CreatedDataDraft {
   label: string;
   description: string;
   class: string | null;
+  classDisplay?: AnnotationClassDisplay | null;
   content: Record<string, unknown>;
 }
 
@@ -77,5 +82,6 @@ export interface AnnotationCreationDraft {
   pendingDataLabel: string;
   pendingDataDescription: string;
   pendingDataClass: string | null;
+  pendingDataClassDisplay: AnnotationClassDisplay | null;
   pendingDataContent: Record<string, unknown>;
 }

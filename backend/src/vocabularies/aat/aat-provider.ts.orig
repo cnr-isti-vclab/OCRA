@@ -280,7 +280,7 @@ export class AatVocabularyProvider implements VocabularyProvider {
         const rightRank = rightLabel === foldedQuery ? 0 : rightLabel.startsWith(foldedQuery) ? 1 : 2;
         return leftRank - rightRank || leftLabel.localeCompare(rightLabel);
       })
-      .slice(offset, offset + limit);
+      .slice(0, limit);
   }
 
   async getConcept(uriOrId: string, options: VocabularyConceptOptions = {}): Promise<ExternalVocabularyConcept> {

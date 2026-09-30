@@ -37,7 +37,8 @@ export class CachedVocabularyProvider implements VocabularyProvider {
   async search(query: string, options: VocabularySearchOptions = {}): Promise<VocabularySearchResult[]> {
     const normalizedQuery = query.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
     const limit = options.limit ?? 20;
-    const key = `${this.metadata.id}:search:${normalizedLanguage(options.language)}:${limit}:${normalizedQuery}`;
+    const offset = options.offset ?? 0;
+    const key = `${this.metadata.id}:search:${normalizedLanguage(options.language)}:${limit}:${offset}:${normalizedQuery}`;
     const cached = await this.cache.get<VocabularySearchResult[]>(key);
     if (cached) return cached;
 

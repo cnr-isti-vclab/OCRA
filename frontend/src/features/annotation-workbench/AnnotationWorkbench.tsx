@@ -729,12 +729,14 @@ export default function AnnotationWorkbench({
             label: creationDraft.pendingDataLabel,
             description: creationDraft.pendingDataDescription,
             annotationClass: creationDraft.pendingDataClass,
+            annotationClassDisplay: creationDraft.pendingDataClassDisplay,
           }}
           saveDisabled={creationDraft.pendingDataLabel.trim().length === 0}
           onChange={(patch) => updateCreationDraft({
             ...(patch.label !== undefined ? { pendingDataLabel: patch.label } : {}),
             ...(patch.description !== undefined ? { pendingDataDescription: patch.description } : {}),
             ...(patch.annotationClass !== undefined ? { pendingDataClass: patch.annotationClass } : {}),
+            ...(patch.annotationClassDisplay !== undefined ? { pendingDataClassDisplay: patch.annotationClassDisplay } : {}),
           })}
           onSave={() => {
             const result = confirmPendingCreatedData();

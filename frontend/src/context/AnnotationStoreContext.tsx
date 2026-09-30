@@ -625,6 +625,7 @@ export function AnnotationStoreProvider({
   const sceneAnnotationClassPool = useMemo<SceneAnnotationClassOption[]>(() => {
     const geometryIdsByClass = new Map<string, Set<string>>();
     const dataCountsByClass = new Map<string, number>();
+    const displayLabelByClass = new Map<string, string>();
     const conceptByCurie = new Map(vocabularyConcepts.map((concept) => [concept.curie, concept]));
     let unclassifiedDataCount = 0;
     const unclassifiedGeometryIds = new Set<string>();
@@ -636,6 +637,9 @@ export function AnnotationStoreProvider({
           unclassifiedGeometryIds.add(geometryId);
         }
         continue;
+      }
+      if (datum.classDisplay?.preferredLabel && !displayLabelByClass.has(datum.class)) {
+        displayLabelByClass.set(datum.class, datum.classDisplay.preferredLabel);
       }
       dataCountsByClass.set(datum.class, (dataCountsByClass.get(datum.class) ?? 0) + 1);
 
@@ -651,7 +655,7 @@ export function AnnotationStoreProvider({
         const concept = conceptByCurie.get(curie);
         return {
           curie,
-          label: concept ? getVocabularyNodeLabel(concept) : curie,
+          label: concept ? getVocabularyNodeLabel(concept) : displayLabelByClass.get(curie) ?? curie,
           color: concept?.color || '#808080',
           dataCount,
           geometryCount: geometryIdsByClass.get(curie)?.size ?? 0,

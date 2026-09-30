@@ -34,7 +34,11 @@ import {
   updateAnnotationData,
   updateAnnotationGeometryShapes,
 } from '../services/annotation.service.js';
-import { annotationShapeSchema, annotationScopeTypeSchema } from 'shared/annotation-schema';
+import {
+  annotationClassDisplaySchema,
+  annotationShapeSchema,
+  annotationScopeTypeSchema,
+} from 'shared/annotation-schema';
 import type { AnnotationShape } from 'shared/annotation-types';
 
 function getCurrentUser(req: Request): User | null {
@@ -723,10 +727,20 @@ export async function createAnnotationDataHandler(req: Request, res: Response) {
     const label = typeof req.body?.label === 'string' ? req.body.label : null;
     const description = typeof req.body?.description === 'string' ? req.body.description : '';
     const annotationClass = req.body?.class === null || typeof req.body?.class === 'string' ? req.body.class : undefined;
+    const classDisplayResult = req.body?.classDisplay === undefined
+      ? undefined
+      : annotationClassDisplaySchema.nullable().safeParse(req.body.classDisplay);
     const content = isRecord(req.body?.content) ? req.body.content : null;
     const visibilityTypeResult = annotationScopeTypeSchema.safeParse(req.body?.visibilityType);
     const visibilityId = typeof req.body?.visibilityId === 'string' ? req.body.visibilityId : null;
-    if (!label || annotationClass === undefined || !content || !visibilityTypeResult.success || !visibilityId) {
+    if (
+      !label ||
+      annotationClass === undefined ||
+      (classDisplayResult && !classDisplayResult.success) ||
+      !content ||
+      !visibilityTypeResult.success ||
+      !visibilityId
+    ) {
       res.status(400).json({ error: 'Invalid annotation data payload' });
       return;
     }
@@ -740,6 +754,7 @@ export async function createAnnotationDataHandler(req: Request, res: Response) {
       visibilityTypeResult.data,
       visibilityId,
       currentUser.id,
+      classDisplayResult?.data,
     );
     if (!createResult.ok) {
       sendMappedError(req, res, createResult, {
@@ -789,11 +804,20 @@ export async function updateAnnotationDataHandler(req: Request, res: Response) {
       return;
     }
 
+    const classDisplayResult = req.body?.classDisplay === undefined
+      ? undefined
+      : annotationClassDisplaySchema.nullable().safeParse(req.body.classDisplay);
+    if (classDisplayResult && !classDisplayResult.success) {
+      res.status(400).json({ error: 'Invalid annotation data payload' });
+      return;
+    }
+
     const updates = {
       label: typeof req.body?.label === 'string' ? req.body.label : undefined,
       description: typeof req.body?.description === 'string' ? req.body.description : undefined,
       class: req.body?.class === null || typeof req.body?.class === 'string' ? req.body.class : undefined,
       content: isRecord(req.body?.content) ? req.body.content : undefined,
+      classDisplay: classDisplayResult?.data,
     };
     if (Object.values(updates).every((value) => value === undefined)) {
       res.status(400).json({ error: 'No mutable fields provided' });

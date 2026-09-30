@@ -42,7 +42,8 @@ describe('AatVocabularyProvider', () => {
     expect(query).toContain('luc:term "façade* AND detail*"');
     expect(query).toContain('(xl:prefLabel|xl:altLabel)');
     expect(query).toContain('GROUP BY ?subject');
-    expect(query).toContain('LIMIT 25');
+    expect(query).toContain('LIMIT 10');
+    expect(query).toContain('OFFSET 15');
     expect(query).toContain('langMatches(lang(?preferred), "fr")');
   });
 

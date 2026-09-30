@@ -54,6 +54,19 @@ export const annotationErasableFieldsSchema = z.object({
   erasableBy: z.string().min(1).nullable(),
 });
 
+/**
+ * Human-readable metadata captured when an annotation class is selected.
+ * `AnnotationData.class` remains the authoritative identifier; this object is
+ * only a display snapshot and must never be used for identity comparisons.
+ */
+export const annotationClassDisplaySchema = z
+  .object({
+    provider: z.string().trim().min(1).max(64),
+    preferredLabel: z.string().trim().min(1).max(500),
+    language: z.string().trim().min(1).max(35).optional(),
+  })
+  .strict();
+
 export const annotationGeometrySchema = annotationAuditFieldsSchema
   .merge(annotationVersionedFieldsSchema)
   .merge(annotationErasableFieldsSchema)
@@ -74,9 +87,19 @@ export const annotationDataSchema = annotationAuditFieldsSchema
     label: z.string().min(1),
     description: z.string(),
     class: z.string().min(1).nullable(),
+    classDisplay: annotationClassDisplaySchema.nullable().optional(),
     content: z.record(z.unknown()),
     visibilityType: annotationScopeTypeSchema,
     visibilityId: z.string().min(1),
+  })
+  .superRefine((datum, context) => {
+    if (datum.class === null && datum.classDisplay != null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['classDisplay'],
+        message: 'classDisplay requires a non-null class identifier',
+      });
+    }
   });
 
 export const annotationLinkSchema = annotationAuditFieldsSchema

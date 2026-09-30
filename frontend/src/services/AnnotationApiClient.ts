@@ -6,6 +6,7 @@ import type {
   AnnotationSocialLockEvent,
 } from 'shared/annotation-events';
 import type {
+  AnnotationClassDisplay,
   AnnotationData,
   AnnotationGeometry,
   AnnotationLink,
@@ -53,6 +54,7 @@ interface CreateDataInput {
   label: string;
   description?: string;
   class: string | null;
+  classDisplay?: AnnotationClassDisplay | null;
   content: Record<string, unknown>;
   visibilityType: AnnotationScopeType;
   visibilityId: string;
@@ -63,6 +65,7 @@ interface UpdateDataInput {
   label?: string;
   description?: string;
   class?: string | null;
+  classDisplay?: AnnotationClassDisplay | null;
   content?: Record<string, unknown>;
 }
 

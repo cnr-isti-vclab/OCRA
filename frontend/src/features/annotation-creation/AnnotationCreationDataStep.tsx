@@ -150,6 +150,9 @@ export default function AnnotationCreationDataStep({
                   {item.description ? (
                     <div className="small text-muted">{item.description}</div>
                   ) : null}
+                  {item.class ? (
+                    <div className="small text-primary-emphasis">{item.classDisplay?.preferredLabel ?? item.class}</div>
+                  ) : null}
                 </div>
               ))}
             </div>

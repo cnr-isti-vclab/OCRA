@@ -1,0 +1,489 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { AnnotationClassDisplay } from 'shared/annotation-types';
+import type {
+  ExternalVocabularyConcept,
+  VocabularySearchResult,
+} from 'shared/external-vocabulary';
+import type {
+  VocabularyConcept,
+  VocabularyProperty,
+  VocabularyScheme,
+} from '../../types/vocabulary';
+import {
+  createLatestRequestTracker,
+  getExternalVocabularyConcept,
+  searchExternalVocabulary,
+} from '../../services/ExternalVocabularyApi';
+import { getVocabularyNodeLabel } from '../../utils/vocabulary';
+import VocabularyClassPicker from './VocabularyClassPicker';
+import './AnnotationClassPicker.css';
+
+const SEARCH_DEBOUNCE_MS = 350;
+const SEARCH_PAGE_SIZE = 15;
+const SEARCH_PROBE_SIZE = SEARCH_PAGE_SIZE + 1;
+
+export interface AnnotationClassValue {
+  identifier: string | null;
+  display: AnnotationClassDisplay | null;
+}
+
+export interface ExternalVocabularyPickerSource {
+  id: string;
+  shortName: string;
+  name: string;
+  description: string;
+  icon?: string;
+  languages: ReadonlyArray<{ id: string; label: string }>;
+  defaultLanguage: string;
+}
+
+const DEFAULT_EXTERNAL_SOURCES: readonly ExternalVocabularyPickerSource[] = [
+  {
+    id: 'aat',
+    shortName: 'Getty AAT',
+    name: 'Getty Art & Architecture Thesaurus',
+    description: 'International concepts for art, architecture, materials and conservation.',
+    icon: 'bi-bank',
+    defaultLanguage: 'en',
+    languages: [
+      { id: 'en', label: 'English' },
+      { id: 'it', label: 'Italiano' },
+      { id: 'fr', label: 'Français' },
+      { id: 'de', label: 'Deutsch' },
+      { id: 'es', label: 'Español' },
+      { id: 'nl', label: 'Nederlands' },
+    ],
+  },
+];
+
+interface AnnotationClassPickerProps {
+  inputId: string;
+  value: AnnotationClassValue;
+  onChange: (value: AnnotationClassValue) => void;
+  schemes: readonly VocabularyScheme[];
+  concepts: readonly VocabularyConcept[];
+  properties?: readonly VocabularyProperty[];
+  externalSources?: readonly ExternalVocabularyPickerSource[];
+}
+
+function compactIdentifier(identifier: string): string {
+  const aatMatch = identifier.match(/^https?:\/\/vocab\.getty\.edu\/aat\/(\d+)$/i);
+  return aatMatch ? `aat:${aatMatch[1]}` : identifier;
+}
+
+function sourceIdForValue(value: AnnotationClassValue): string {
+  if (!value.identifier) return 'aat';
+  if (value.display?.provider === 'ocra-local') return 'local';
+  if (value.display?.provider) return value.display.provider;
+  if (value.identifier && /^https?:\/\/vocab\.getty\.edu\/aat\/\d+$/i.test(value.identifier)) {
+    return 'aat';
+  }
+  return 'local';
+}
+
+function SelectedClassCard({
+  value,
+  onClear,
+}: {
+  value: AnnotationClassValue;
+  onClear: () => void;
+}) {
+  if (!value.identifier) {
+    return (
+      <div className="annotation-class-picker__empty">
+        <i className="bi bi-tag" aria-hidden />
+        <span>No classification selected</span>
+      </div>
+    );
+  }
+
+  const label = value.display?.preferredLabel || compactIdentifier(value.identifier);
+  const provider = value.display?.provider === 'aat'
+    ? 'Getty AAT'
+    : value.display?.provider === 'ocra-local'
+      ? 'OCRA local'
+      : /^https?:\/\/vocab\.getty\.edu\/aat\/\d+$/i.test(value.identifier)
+        ? 'Getty AAT'
+        : 'Legacy / custom';
+
+  return (
+    <div className="annotation-class-picker__selection">
+      <div className="annotation-class-picker__selection-icon">
+        <i className="bi bi-bookmark-check" aria-hidden />
+      </div>
+      <div className="flex-grow-1 overflow-hidden">
+        <div className="d-flex align-items-center flex-wrap gap-2">
+          <strong className="text-break">{label}</strong>
+          <span className="badge rounded-pill text-bg-light border">{provider}</span>
+          {value.display?.language ? (
+            <span className="badge rounded-pill bg-primary-subtle text-primary-emphasis">
+              {value.display.language}
+            </span>
+          ) : null}
+        </div>
+        <div className="annotation-class-picker__identifier" title={value.identifier}>
+          {compactIdentifier(value.identifier)}
+        </div>
+      </div>
+      <button
+        type="button"
+        className="btn btn-sm btn-outline-secondary flex-shrink-0"
+        onClick={onClear}
+        aria-label="Remove classification"
+        title="Remove classification"
+      >
+        <i className="bi bi-x-lg" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+function ExternalVocabularyPanel({
+  source,
+  value,
+  onChange,
+}: {
+  source: ExternalVocabularyPickerSource;
+  value: AnnotationClassValue;
+  onChange: (value: AnnotationClassValue) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [language, setLanguage] = useState(source.defaultLanguage);
+  const [page, setPage] = useState(0);
+  const [results, setResults] = useState<VocabularySearchResult[]>([]);
+  const [details, setDetails] = useState<ExternalVocabularyConcept | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestTracker = useRef(createLatestRequestTracker());
+
+  useEffect(() => {
+    setLanguage(source.defaultLanguage);
+    setQuery('');
+    setPage(0);
+    setResults([]);
+    setDetails(null);
+    setError(null);
+  }, [source.defaultLanguage, source.id]);
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    const requestId = requestTracker.current.begin();
+    setError(null);
+    setResults([]);
+
+    if (trimmedQuery.length < 2) {
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      void searchExternalVocabulary(
+        source.id,
+        trimmedQuery,
+        language,
+        SEARCH_PROBE_SIZE,
+        controller.signal,
+        page * SEARCH_PAGE_SIZE,
+      )
+        .then((nextResults) => {
+          if (requestTracker.current.isLatest(requestId)) setResults(nextResults);
+        })
+        .catch((reason: unknown) => {
+          if (
+            requestTracker.current.isLatest(requestId)
+            && !(reason instanceof DOMException && reason.name === 'AbortError')
+          ) {
+            setError(reason instanceof Error ? reason.message : String(reason));
+            setResults([]);
+          }
+        })
+        .finally(() => {
+          if (requestTracker.current.isLatest(requestId)) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [language, page, query, source.id]);
+
+  const visibleResults = results.slice(0, SEARCH_PAGE_SIZE);
+  const hasNextPage = results.length > SEARCH_PAGE_SIZE;
+
+  const selectResult = (result: VocabularySearchResult) => {
+    setDetails(null);
+    onChange({
+      identifier: result.uri,
+      display: {
+        provider: source.id,
+        preferredLabel: result.preferredLabel,
+        ...(result.language ? { language: result.language } : {}),
+      },
+    });
+
+    const requestId = requestTracker.current.begin();
+    setLoadingDetails(true);
+    setError(null);
+    void getExternalVocabularyConcept(source.id, result.id, language)
+      .then((concept) => {
+        if (requestTracker.current.isLatest(requestId)) setDetails(concept);
+      })
+      .catch((reason: unknown) => {
+        if (requestTracker.current.isLatest(requestId)) {
+          setError(reason instanceof Error ? reason.message : String(reason));
+        }
+      })
+      .finally(() => {
+        if (requestTracker.current.isLatest(requestId)) setLoadingDetails(false);
+      });
+  };
+
+  return (
+    <div className="annotation-class-picker__source-panel">
+      <div className="row g-2">
+        <div className="col-sm">
+          <label htmlFor={`${source.id}-vocabulary-search`} className="form-label small fw-semibold">
+            Search concepts
+          </label>
+          <div className="input-group">
+            <span className="input-group-text bg-body"><i className="bi bi-search" /></span>
+            <input
+              id={`${source.id}-vocabulary-search`}
+              type="search"
+              className="form-control"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(0);
+              }}
+              placeholder="Term, synonym or numeric identifier…"
+              autoComplete="off"
+            />
+            {searching ? (
+              <span className="input-group-text bg-body">
+                <span className="spinner-border spinner-border-sm" role="status" aria-label="Searching" />
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="col-sm-4">
+          <label htmlFor={`${source.id}-vocabulary-language`} className="form-label small fw-semibold">
+            Preferred language
+          </label>
+          <select
+            id={`${source.id}-vocabulary-language`}
+            className="form-select"
+            value={language}
+            onChange={(event) => {
+              setLanguage(event.target.value);
+              setPage(0);
+            }}
+          >
+            {source.languages.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="form-text">Enter at least two characters. Preferred and alternative labels are searched.</div>
+
+      {error ? (
+        <div className="alert alert-warning py-2 px-3 mt-3 mb-0 small">
+          <i className="bi bi-exclamation-triangle me-2" aria-hidden />
+          {error}
+        </div>
+      ) : null}
+
+      {query.trim().length >= 2 && !searching && !error && results.length === 0 ? (
+        <div className="annotation-class-picker__notice">
+          No concepts found. Try a broader term or another language.
+        </div>
+      ) : null}
+
+      {results.length > 0 ? (
+        <>
+          <div
+            key={`${source.id}-${language}-${query}-${page}`}
+            className="annotation-class-picker__results"
+            role="listbox"
+            aria-label={`${source.name} results, page ${page + 1}`}
+          >
+          {visibleResults.map((result) => {
+            const selected = value.identifier === result.uri;
+            return (
+              <button
+                type="button"
+                role="option"
+                aria-selected={selected}
+                key={result.uri}
+                className={`annotation-class-picker__result ${selected ? 'is-selected' : ''}`}
+                onClick={() => selectResult(result)}
+              >
+                <span className="annotation-class-picker__result-main">
+                  <span className="fw-semibold">{result.preferredLabel}</span>
+                  <span className="small text-muted">
+                    {result.broaderLabel || result.hierarchyContext || `${source.shortName} concept`}
+                  </span>
+                  {result.matchedLabel && result.matchedLabel !== result.preferredLabel ? (
+                    <span className="small text-muted">Matched “{result.matchedLabel}”</span>
+                  ) : null}
+                </span>
+                <span className="annotation-class-picker__result-id">{result.id}</span>
+                <i className={`bi ${selected ? 'bi-check-circle-fill' : 'bi-chevron-right'}`} aria-hidden />
+              </button>
+            );
+          })}
+          </div>
+          {page > 0 || hasNextPage ? (
+            <nav className="annotation-class-picker__pagination" aria-label={`${source.name} result pages`}>
+              <span className="small text-muted">
+                Risultati {page * SEARCH_PAGE_SIZE + 1}–{page * SEARCH_PAGE_SIZE + visibleResults.length}
+                {' · '}pagina {page + 1}
+              </span>
+              <div className="btn-group btn-group-sm" role="group" aria-label="Paginazione risultati">
+                {page > 0 ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
+                  >
+                    <i className="bi bi-chevron-left me-1" aria-hidden />
+                    Precedenti
+                  </button>
+                ) : null}
+                {hasNextPage ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => setPage((currentPage) => currentPage + 1)}
+                  >
+                    Mostra altri
+                    <i className="bi bi-chevron-right ms-1" aria-hidden />
+                  </button>
+                ) : null}
+              </div>
+            </nav>
+          ) : null}
+        </>
+      ) : null}
+
+      {loadingDetails ? (
+        <div className="small text-muted d-flex align-items-center gap-2 mt-3">
+          <span className="spinner-border spinner-border-sm" role="status" />
+          Loading concept context…
+        </div>
+      ) : null}
+
+      {details && value.identifier === details.uri ? (
+        <details className="annotation-class-picker__details mt-3">
+          <summary>Concept details</summary>
+          <div className="pt-2 small">
+            {details.scopeNote ? <p className="mb-2">{details.scopeNote}</p> : null}
+            {details.broader.length ? (
+              <div className="text-muted mb-2">
+                <strong>Broader:</strong>{' '}
+                {details.broader.map((item) => item.preferredLabel).join(' · ')}
+              </div>
+            ) : null}
+            <a href={details.uri} target="_blank" rel="noreferrer">
+              Open canonical record <i className="bi bi-box-arrow-up-right ms-1" />
+            </a>
+          </div>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+export default function AnnotationClassPicker({
+  inputId,
+  value,
+  onChange,
+  schemes,
+  concepts,
+  properties = [],
+  externalSources = DEFAULT_EXTERNAL_SOURCES,
+}: AnnotationClassPickerProps) {
+  const sources = useMemo(
+    () => [
+      {
+        id: 'local',
+        shortName: 'OCRA local',
+        name: 'OCRA local vocabulary',
+        description: 'Project vocabulary and existing legacy classifications.',
+        icon: 'bi-diagram-3',
+      },
+      ...externalSources,
+    ],
+    [externalSources],
+  );
+  const [activeSourceId, setActiveSourceId] = useState(() => sourceIdForValue(value));
+
+  useEffect(() => {
+    if (value.identifier) setActiveSourceId(sourceIdForValue(value));
+  }, [value.display?.provider, value.identifier]);
+
+  const localNodes = useMemo(() => [...properties, ...concepts], [concepts, properties]);
+  const activeSource = sources.find((source) => source.id === activeSourceId) ?? sources[0];
+  const externalSource = externalSources.find((source) => source.id === activeSourceId) ?? null;
+
+  return (
+    <div className="annotation-class-picker">
+      <SelectedClassCard value={value} onClear={() => onChange({ identifier: null, display: null })} />
+
+      <div className="annotation-class-picker__sources" role="tablist" aria-label="Vocabulary source">
+        {sources.map((source) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSourceId === source.id}
+            key={source.id}
+            className={`annotation-class-picker__source ${activeSourceId === source.id ? 'is-active' : ''}`}
+            onClick={() => setActiveSourceId(source.id)}
+          >
+            <i className={`bi ${source.icon || 'bi-journal-bookmark'}`} aria-hidden />
+            <span>
+              <strong>{source.shortName}</strong>
+              <small>{source.description}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel" aria-label={activeSource?.name}>
+        {activeSourceId === 'local' ? (
+          <div className="annotation-class-picker__source-panel">
+            <VocabularyClassPicker
+              inputId={inputId}
+              value={sourceIdForValue(value) === 'local' ? value.identifier ?? '' : ''}
+              onChange={(identifier) => {
+                const normalized = identifier.trim();
+                const node = localNodes.find((candidate) => candidate.curie === normalized);
+                onChange({
+                  identifier: normalized || null,
+                  display: node
+                    ? {
+                        provider: 'ocra-local',
+                        preferredLabel: getVocabularyNodeLabel(node),
+                      }
+                    : null,
+                });
+              }}
+              schemes={schemes}
+              concepts={concepts}
+              properties={properties}
+              placeholder="Search the local vocabulary or enter a legacy identifier"
+            />
+          </div>
+        ) : externalSource ? (
+          <ExternalVocabularyPanel source={externalSource} value={value} onChange={onChange} />
+        ) : null}
+      </div>
+    </div>
+  );
+}

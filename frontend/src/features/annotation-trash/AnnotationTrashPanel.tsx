@@ -35,8 +35,16 @@ export default function AnnotationTrashPanel() {
     [erasableData],
   );
   const classLabels = useMemo(
-    () => new Map(vocabularyConcepts.map((concept) => [concept.curie, getVocabularyNodeLabel(concept)])),
-    [vocabularyConcepts],
+    () => {
+      const labels = new Map(vocabularyConcepts.map((concept) => [concept.curie, getVocabularyNodeLabel(concept)]));
+      for (const datum of erasableData) {
+        if (datum.class && datum.classDisplay?.preferredLabel && !labels.has(datum.class)) {
+          labels.set(datum.class, datum.classDisplay.preferredLabel);
+        }
+      }
+      return labels;
+    },
+    [erasableData, vocabularyConcepts],
   );
   const filteredData = useMemo(
     () => filterErasableData(erasableData, query, classLabels),

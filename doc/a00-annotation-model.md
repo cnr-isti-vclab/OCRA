@@ -201,7 +201,8 @@ Marking an entity as `erasable` communicates that the entity is now weak. It may
 | `projectId` | `string` | Identifier of the project this data belongs to. |
 | `label` | `string` | Short, non-empty label or title. Suitable for lists, legends, and quick-selection tools. |
 | `description` | `string` | Free-text description, notes, or scholarly references. May be empty. |
-| `class` | `string \| null` | Optional classification tag (e.g. `"damage"`, `"restoration"`, `"material"`, `"diagnostic"`). A controlled vocabulary may be enforced at application level. |
+| `class` | `string \| null` | Authoritative classification identifier. It may be a persistent vocabulary URI or a legacy OCRA identifier such as `ocra-voc:hole`. |
+| `classDisplay` | `{ provider, preferredLabel, language? } \| null` | Optional human-readable snapshot captured when the class is selected. It is presentation metadata and is never used as the classification identity. |
 | `content` | `object` | Open payload conforming to an ontology-defined structure. Semantics are defined externally. |
 | `visibilityType` | `"scene"` \| `"asset"` | Determines whether this record is scoped to a scene or a digital asset. **Immutable after creation.** |
 | `visibilityId` | `string` | Identifier of the target `HDTScene` or `DigitalAsset`. **Immutable after creation.** |
@@ -220,6 +221,9 @@ Marking an entity as `erasable` communicates that the entity is now weak. It may
 - `visibilityType` must be either `"scene"` or `"asset"`.
 - `visibilityId` must identify an existing scene or asset compatible with `visibilityType` at the time of creation.
 - `visibilityType` and `visibilityId` are immutable after creation.
+- `classDisplay` may be non-null only when `class` is non-null.
+- Equality, filtering, and vocabulary links use `class`; they must not use the display label.
+- Changing `class` without replacement display metadata clears the previous `classDisplay`.
 
 ### Lifecycle Semantics
 
@@ -237,9 +241,14 @@ Marking an entity as `erasable` communicates that the record is now weak. It may
 {
   "id": "data_def456",
   "projectId": "proj_xyz987",
-  "label": "Lacuna",
-  "description": "Small loss of material on the lower left area.",
-  "class": "damage",
+  "label": "Oil painting technique",
+  "description": "Technique identified on the selected area.",
+  "class": "http://vocab.getty.edu/aat/300178684",
+  "classDisplay": {
+    "provider": "aat",
+    "preferredLabel": "oil painting (technique)",
+    "language": "en"
+  },
   "content": {},
   "visibilityType": "scene",
   "visibilityId": "scene_id_xyz",

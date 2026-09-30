@@ -208,6 +208,40 @@ describe('AnnotationStore creation wizard commit', () => {
     ]);
   });
 
+  it('persists an AAT identifier and its display snapshot together', async () => {
+    const store = createTestStore();
+    mockClient.createGeometry.mockResolvedValue(makeGeometry('g-aat'));
+    mockClient.createData.mockResolvedValue(makeDatum('d-aat'));
+    mockClient.createLink.mockResolvedValue(makeLink('l-aat', 'g-aat', 'd-aat'));
+
+    store.initCreationDraft();
+    store.beginCreationWizard();
+    store.updateCreationDraft({ geometryMode: 'new' });
+    store.setCreationDraftGeometry('viewer-aat', testShapes);
+    await store.advanceCreationStep();
+    store.updateCreationDraft({
+      dataMode: 'new',
+      pendingDataLabel: 'Oil painting',
+      pendingDataClass: 'http://vocab.getty.edu/aat/300178684',
+      pendingDataClassDisplay: {
+        provider: 'aat',
+        preferredLabel: 'oil painting (technique)',
+        language: 'en',
+      },
+    });
+    expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
+
+    await expect(store.commitCreationDraft()).resolves.toEqual({ ok: true });
+    expect(mockClient.createData).toHaveBeenCalledWith(expect.objectContaining({
+      class: 'http://vocab.getty.edu/aat/300178684',
+      classDisplay: {
+        provider: 'aat',
+        preferredLabel: 'oil painting (technique)',
+        language: 'en',
+      },
+    }));
+  });
+
   it('rejects a second data record when multiple geometries exist', async () => {
     const store = createTestStore();
     store.initCreationDraft();

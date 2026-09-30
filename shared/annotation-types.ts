@@ -9,6 +9,7 @@
 import type { z } from 'zod';
 import {
   annotationAuditFieldsSchema,
+  annotationClassDisplaySchema,
   annotationDataSchema,
   annotationErasableFieldsSchema,
   annotationGeometrySchema,
@@ -40,6 +41,8 @@ export type AnnotationAuditFields = z.infer<typeof annotationAuditFieldsSchema>;
 export type AnnotationVersionedFields = z.infer<typeof annotationVersionedFieldsSchema>;
 
 export type AnnotationErasableFields = z.infer<typeof annotationErasableFieldsSchema>;
+export type AnnotationClassDisplay = z.infer<typeof annotationClassDisplaySchema>;
+
 
 export type AnnotationGeometry = z.infer<typeof annotationGeometrySchema>;
 

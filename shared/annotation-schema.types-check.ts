@@ -6,6 +6,7 @@ import {
   resolvedAnnotationSchema,
 } from './annotation-schema.ts';
 import type {
+  AnnotationClassDisplay,
   AnnotationData,
   AnnotationGeometry,
   AnnotationLink,
@@ -14,6 +15,12 @@ import type {
 } from './annotation-types.ts';
 
 const scope: AnnotationScopeType = annotationScopeTypeSchema.parse('scene');
+const classDisplay: AnnotationClassDisplay = {
+  provider: 'aat',
+  preferredLabel: 'oil painting (technique)',
+  language: 'en',
+};
+
 
 const geometry: AnnotationGeometry = annotationGeometrySchema.parse({
   id: 'geom_1',
@@ -52,6 +59,8 @@ const data: AnnotationData = annotationDataSchema.parse({
   updatedAt: '2026-03-11T10:00:00.000Z',
   updatedBy: 'user_1',
 });
+
+void classDisplay;
 
 const link: AnnotationLink = annotationLinkSchema.parse({
   id: 'link_1',
