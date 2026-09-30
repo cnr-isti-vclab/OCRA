@@ -53,6 +53,13 @@ Notes:
 - For local development without Docker, use the `frontend` and `backend` package.json scripts directly.
 - For production deployment, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
 
+## Getty AAT vocabulary
+
+The Vocabularies page includes an experimental Getty Art & Architecture Thesaurus explorer backed
+by OCRA's provider-neutral vocabulary API. Search is debounced and cached; selected concepts are
+identified by their canonical Getty URI. This area does not yet modify annotations, and the
+existing local TTL spike is retained. See [Getty AAT external vocabulary](doc/getty-aat.md).
+
 ## Documentation
 
 - [Technical documentation index](doc/README.md)

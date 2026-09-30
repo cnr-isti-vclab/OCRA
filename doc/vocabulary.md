@@ -52,7 +52,7 @@ from ECCCH, the manager may record it locally *pending* its addition upstream.
 
 ## Current state
 
-Two mechanisms exist. The documentation describes only the first, and the second holds all of the
+Three mechanisms exist. The original documentation describes only the first, while the second holds
 actual semantic content.
 
 **1. The registry — `Vocabulary` (PostgreSQL).** Four meaningful fields: `name`, `description`,
@@ -65,7 +65,14 @@ structure: concepts with `prefLabel`, `scopeNote`, `broader`, `inScheme`, plus p
 and properties. Served at `GET /api/vocabulary/concepts`, rendered by `TtlVocabularyWidget`. Both
 the module and the widget are marked `@spike`.
 
-The two never reference each other. Neither is reachable from an annotation: there are **no**
+**3. External vocabulary providers.** A provider-neutral API under
+`/api/vocabularies/:provider/...` currently registers Getty AAT. It supports search and concept
+inspection in a separate Vocabularies-page explorer, with server/frontend caches and graceful
+upstream failure handling. It deliberately does not yet write `AnnotationData`. See
+[Getty AAT external vocabulary](getty-aat.md).
+
+The registry and TTL spike never reference each other. None of the three mechanisms is reachable
+from an annotation: there are **no**
 references to concept CURIEs anywhere in `backend/src/repositories`, `backend/src/services` or
 `shared/`, and `doc/a00-annotation-model.md` describes the annotation `class` field as free text
 where "a controlled vocabulary *may* be enforced at application level" — it is not.

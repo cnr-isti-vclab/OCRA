@@ -62,6 +62,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       SWAGGER_PUBLIC_SERVER_URL: ${SWAGGER_PUBLIC_SERVER_URL:-}
       NODE_ENV: ${NODE_ENV:-production}
+      AAT_SPARQL_ENDPOINT: ${AAT_SPARQL_ENDPOINT:-https://vocab.getty.edu/sparql.json}
+      AAT_REQUEST_TIMEOUT_MS: ${AAT_REQUEST_TIMEOUT_MS:-8000}
+      VOCABULARY_SEARCH_CACHE_TTL_MS: ${VOCABULARY_SEARCH_CACHE_TTL_MS:-300000}
+      VOCABULARY_CONCEPT_CACHE_TTL_MS: ${VOCABULARY_CONCEPT_CACHE_TTL_MS:-3600000}
       # OAuth Configuration
       ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
       CLIENT_ID: ${CLIENT_ID:-react-oauth}

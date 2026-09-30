@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
 // @spike feature/vocabulary-color-spike — remove this import when vocabulary data is in DB
 import TtlVocabularyWidget from './components/TtlVocabularyWidget';
+import AatVocabularyExplorer from './components/AatVocabularyExplorer';
 
 /**
  * VOCABULARIES COMPONENT
@@ -134,6 +135,9 @@ export default function VocabularyList() {
           </Link>
         </div>
       </div>
+
+      {/* Isolated external-vocabulary test area; it does not write AnnotationData. */}
+      <AatVocabularyExplorer />
 
       {/* @spike feature/vocabulary-color-spike — remove <TtlVocabularyWidget /> when vocabulary data is in DB */}
       <TtlVocabularyWidget />

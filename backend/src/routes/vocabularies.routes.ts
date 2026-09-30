@@ -6,8 +6,22 @@ import {
   updateVocabulary,
   deleteVocabulary
 } from '../controllers/vocabularies.controller.js';
+import {
+  getExternalVocabularyBroader,
+  getExternalVocabularyConcept,
+  getExternalVocabularyNarrower,
+  listExternalVocabularyProviders,
+  searchExternalVocabulary,
+} from '../controllers/external-vocabularies.controller.js';
 
 const router = Router();
+
+// External vocabulary providers. Keep these routes before the legacy /:vocabularyId route.
+router.get('/providers', listExternalVocabularyProviders);
+router.get('/:providerId/search', searchExternalVocabulary);
+router.get('/:providerId/concepts/:conceptId/broader', getExternalVocabularyBroader);
+router.get('/:providerId/concepts/:conceptId/narrower', getExternalVocabularyNarrower);
+router.get('/:providerId/concepts/:conceptId', getExternalVocabularyConcept);
 
 // Get all vocabularies
 router.get('/', getAllVocabularies);
