@@ -133,6 +133,7 @@ export default function AnnotationPanelEditor({
     creating,
     creationDraft,
     isCreationWizardActive,
+    beginLinkExistingDataForGeometries,
     deletionDraft,
     isDeletionWizardActive,
     updateData,
@@ -172,8 +173,25 @@ export default function AnnotationPanelEditor({
     if (isDeletionWizardActive || deletionDraft) {
       return;
     }
+    if (focusedGeometryIds.size > 0) {
+      const result = beginLinkExistingDataForGeometries([...focusedGeometryIds]);
+      if (!result.ok) {
+        setMessageModal(new MessageModalDescriptor({
+          tone: 'warning',
+          title: 'Cannot annotate selection',
+          message: result.message,
+        }));
+        return;
+      }
+    }
     onOpenCreationWorkbench();
-  }, [deletionDraft, isDeletionWizardActive, onOpenCreationWorkbench]);
+  }, [
+    beginLinkExistingDataForGeometries,
+    deletionDraft,
+    focusedGeometryIds,
+    isDeletionWizardActive,
+    onOpenCreationWorkbench,
+  ]);
 
   const handleOpenDeletionWorkbench = useCallback((operation: 'unlink' | 'erase') => {
     if (isCreationWizardActive || isDeletionWizardActive || creationDraft || deletionDraft) {

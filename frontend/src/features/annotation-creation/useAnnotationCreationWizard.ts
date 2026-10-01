@@ -77,7 +77,7 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
   }, [isCreationDataSearch, loadProjectData]);
 
   const creationHighlightGeometryIds = useMemo(() => {
-    if (isCreationGeometrySearch && creationDraft) {
+    if (creationDraft?.geometryMode === 'choose') {
       return [...creationDraft.selectedGeometryIds];
     }
     if (creationDraft?.geometryMode === 'new' && creationDraft.createdGeometries.length > 0) {
@@ -89,7 +89,7 @@ export function useAnnotationCreationWizard(): AnnotationCreationWizardState & {
       return [lastId];
     }
     return null;
-  }, [creationDraft, isCreationGeometrySearch, isCreationPendingNewGeometry]);
+  }, [creationDraft, isCreationPendingNewGeometry]);
 
   return {
     creationDraft,
