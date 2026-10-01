@@ -104,8 +104,8 @@ export function buildAatSearchQuery(query: string, language: string, limit: numb
 SELECT ?subject ?matched ?preferred ?parents WHERE {
   {
     SELECT ?subject
-      (SAMPLE(?candidateMatched) AS ?matched)
-      (SAMPLE(?candidateParents) AS ?parents)
+      (MIN(?candidateMatched) AS ?matched)
+      (MIN(?candidateParents) AS ?parents)
     WHERE {
       ?termNode luc:term "${luceneExpression}" ;
         a xl:Label ;

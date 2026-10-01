@@ -18,7 +18,7 @@ import { getVocabularyNodeLabel } from '../../utils/vocabulary';
 import VocabularyClassPicker from './VocabularyClassPicker';
 import './AnnotationClassPicker.css';
 
-const SEARCH_DEBOUNCE_MS = 350;
+const SEARCH_DEBOUNCE_MS = 400;
 const SEARCH_PAGE_SIZE = 15;
 const SEARCH_PROBE_SIZE = SEARCH_PAGE_SIZE + 1;
 
@@ -213,7 +213,6 @@ function ExternalVocabularyPanel({
 
   const visibleResults = results.slice(0, SEARCH_PAGE_SIZE);
   const hasNextPage = results.length > SEARCH_PAGE_SIZE;
-
   const selectResult = (result: VocabularySearchResult) => {
     setDetails(null);
     onChange({
@@ -290,7 +289,9 @@ function ExternalVocabularyPanel({
         </div>
       </div>
 
-      <div className="form-text">Enter at least two characters. Preferred and alternative labels are searched.</div>
+      <div className="form-text">
+        Type at least two characters. Search starts after 400 ms; preferred and alternative labels are searched.
+      </div>
 
       {error ? (
         <div className="alert alert-warning py-2 px-3 mt-3 mb-0 small">
@@ -342,10 +343,10 @@ function ExternalVocabularyPanel({
           {page > 0 || hasNextPage ? (
             <nav className="annotation-class-picker__pagination" aria-label={`${source.name} result pages`}>
               <span className="small text-muted">
-                Risultati {page * SEARCH_PAGE_SIZE + 1}–{page * SEARCH_PAGE_SIZE + visibleResults.length}
-                {' · '}pagina {page + 1}
+                Results {page * SEARCH_PAGE_SIZE + 1}–{page * SEARCH_PAGE_SIZE + visibleResults.length}
+                {' · '}page {page + 1}
               </span>
-              <div className="btn-group btn-group-sm" role="group" aria-label="Paginazione risultati">
+              <div className="btn-group btn-group-sm" role="group" aria-label="Result pagination">
                 {page > 0 ? (
                   <button
                     type="button"
@@ -353,7 +354,7 @@ function ExternalVocabularyPanel({
                     onClick={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
                   >
                     <i className="bi bi-chevron-left me-1" aria-hidden />
-                    Precedenti
+                    Previous
                   </button>
                 ) : null}
                 {hasNextPage ? (
@@ -362,7 +363,7 @@ function ExternalVocabularyPanel({
                     className="btn btn-outline-primary"
                     onClick={() => setPage((currentPage) => currentPage + 1)}
                   >
-                    Mostra altri
+                    Show more
                     <i className="bi bi-chevron-right ms-1" aria-hidden />
                   </button>
                 ) : null}

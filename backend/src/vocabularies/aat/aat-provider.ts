@@ -17,7 +17,7 @@ const AAT_URI_PREFIX = 'http://vocab.getty.edu/aat/';
 const AAT_ID_PATTERN = /^300\d{6}$/;
 const LANGUAGE_PATTERN = /^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$/i;
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 1000;
 const MAX_OFFSET = 10_000;
 
 const PREFIXES = `PREFIX aat: <http://vocab.getty.edu/aat/>
@@ -104,8 +104,8 @@ export function buildAatSearchQuery(query: string, language: string, limit: numb
 SELECT ?subject ?matched ?preferred ?parents WHERE {
   {
     SELECT ?subject
-      (SAMPLE(?candidateMatched) AS ?matched)
-      (SAMPLE(?candidateParents) AS ?parents)
+      (MIN(?candidateMatched) AS ?matched)
+      (MIN(?candidateParents) AS ?parents)
     WHERE {
       ?termNode luc:term "${luceneExpression}" ;
         a xl:Label ;

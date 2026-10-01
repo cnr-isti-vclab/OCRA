@@ -177,10 +177,10 @@ export default function AatVocabularyExplorer() {
         {results.length > 0 && (page > 0 || hasNextPage) ? (
           <nav className="d-flex align-items-center justify-content-between gap-3 mt-2" aria-label="AAT result pages">
             <span className="small text-muted">
-              Risultati {page * SEARCH_PAGE_SIZE + 1}–{page * SEARCH_PAGE_SIZE + visibleResults.length}
-              {' · '}pagina {page + 1}
+              Results {page * SEARCH_PAGE_SIZE + 1}–{page * SEARCH_PAGE_SIZE + visibleResults.length}
+              {' · '}page {page + 1}
             </span>
-            <div className="btn-group btn-group-sm" role="group" aria-label="Paginazione risultati">
+            <div className="btn-group btn-group-sm" role="group" aria-label="Result pagination">
               {page > 0 ? (
                 <button
                   type="button"
@@ -188,7 +188,7 @@ export default function AatVocabularyExplorer() {
                   onClick={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
                 >
                   <i className="bi bi-chevron-left me-1" aria-hidden />
-                  Precedenti
+                  Previous
                 </button>
               ) : null}
               {hasNextPage ? (
@@ -197,7 +197,7 @@ export default function AatVocabularyExplorer() {
                   className="btn btn-outline-primary"
                   onClick={() => setPage((currentPage) => currentPage + 1)}
                 >
-                  Mostra altri
+                  Show more
                   <i className="bi bi-chevron-right ms-1" aria-hidden />
                 </button>
               ) : null}
