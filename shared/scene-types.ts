@@ -58,7 +58,7 @@ export interface ViewerAnnotation {
   type: ViewerAnnotationShapeType;
   /** Geometric data for the annotation */
   geometry: ViewerAnnotationGeometry;
-  /** Optional sparse controls for a surface-following line. */
+  /** Optional sparse controls for a surface-following line or area boundary. */
   surfacePath?: ViewerSurfacePath;
   /** Optional creation timestamp */
   createdAt?: string;

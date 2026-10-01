@@ -8,7 +8,7 @@ export default defineConfig({
       'shared/**/*.test.ts',
       'backend/src/vocabularies/**/*.test.ts',
       'frontend/src/services/ExternalVocabularyApi.test.ts',
-      'frontend/src/adapters/annotation-store/openlimeLabelParts.test.ts',
+      'frontend/src/adapters/annotation-store/**/*.test.ts',
       'frontend/src/features/annotation-creation/**/*.test.ts',
       'frontend/src/features/annotation-deletion/**/*.test.ts',
       'frontend/src/features/annotation-editing/**/*.test.ts',

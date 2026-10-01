@@ -36,21 +36,18 @@ export function viewerGeometryToShapes(
   }
 
   const vertices = geometry as [number, number, number][];
-  if (type === 'line') {
-    return [{
-      type: 'ShapePolyline',
-      vertices,
-      ...(surfacePath
-        ? {
-            surfacePath: {
-              mode: surfacePath.mode,
-              controlVertices: surfacePath.controlVertices.map(
-                (vertex) => [...vertex] as [number, number, number],
-              ),
-            },
+  return [{
+    type: type === 'line' ? 'ShapePolyline' : 'ShapePolygon',
+    vertices,
+    ...(surfacePath
+      ? {
+          surfacePath: {
+            mode: surfacePath.mode,
+            controlVertices: surfacePath.controlVertices.map(
+              (vertex) => [...vertex] as [number, number, number],
+            ),
           }
-        : {}),
-    }];
-  }
-  return [{ type: 'ShapePolygon', vertices }];
+        }
+      : {}),
+  }];
 }

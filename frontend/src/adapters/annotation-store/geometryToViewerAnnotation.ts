@@ -92,7 +92,7 @@ export function geometryToViewerAnnotation(
     strokeDasharray: structuralClass === 'orphan' ? '6,4' : multiDataDash,
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
-    surfacePath: shape.type === 'ShapePolyline' && shape.surfacePath
+    surfacePath: shape.type !== 'ShapePoints' && shape.surfacePath
       ? {
           mode: shape.surfacePath.mode,
           controlVertices: shape.surfacePath.controlVertices.map((vertex) => [...vertex] as [number, number, number]),

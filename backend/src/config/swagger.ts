@@ -1312,6 +1312,12 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           required: ['type', 'vertices'],
           properties: {
             type: { type: 'string', enum: ['ShapePolygon'] },
+            surfacePath: {
+              allOf: [
+                { $ref: '#/components/schemas/AnnotationSurfacePath' },
+                { properties: { controlVertices: { type: 'array', minItems: 3, items: { $ref: '#/components/schemas/AnnotationVertex3D' } } } },
+              ],
+            },
             vertices: {
               type: 'array',
               minItems: 3,

@@ -246,7 +246,10 @@ Bridge **domain geometries** ↔ **viewer DTOs** without pulling OpenLIME/three-
 ### 7.1 3D — `Viewer3DPanel` + `ThreeJSViewer`
 
 - Renders **active geometries** via `activeGeometriesToViewerAnnotations` → `renderAnnotations(ViewerAnnotation[])`.
-- **Create:** double-click / point-pick → `createAnnotation` with `ShapePoints`.
+- **Create:** shared workbench tools produce points, lines, and closed area boundaries. Single clicks place controls; double-click or Enter finishes a line/area, Escape cancels. Drafts use the normal workbench commit flow.
+- **Edit:** select a boundary in geometry-edit mode to drag controls, double-click an edge to insert a control (including the closing edge), or Delete/Backspace a selected control. Navigation is locked during dragging. Areas retain at least three distinct, non-collinear controls; invalid edits roll back.
+- **Surface follow:** optional view-projected boundary sampling retains sparse controls in `ShapePolyline.surfacePath` or `ShapePolygon.surfacePath`. Closed paths sample the last-to-first segment without storing a duplicate endpoint. Both controls and samples survive draft editing and save/reload.
+- **Area scope:** closed boundaries use an experimental client-side clipping-volume/stencil overlay. The boundary is triangulated in the current view with Three.js `ShapeUtils`/Earcut, extruded through the active camera range, and used to stencil a translucent overlay of visible model fragments. This is not yet depth-adapted to the full-resolution mesh, so opposite surfaces can still be included; holes, self-intersection validation, persistence metadata, and area measurement remain unfinished. Surface-follow sampling inherits the line projector's straight fallback where rays miss the mesh; it does not define a surface interior.
 - **Selection / focus:** syncs with panel; uses three-presenter `AnnotationManager` for highlight where available.
 - **Labels:** single string on `ViewerAnnotation.label` (joined / `(no data)`); **no** `setGeometryLabels` multi-label API yet (see a06).
 
@@ -285,21 +288,21 @@ OCRA currently uses **structural state only**, not semantic classes (Pattern A: 
 
 Wiring: `frontend/src/config/annotationStyles.ts` (`OPENLIME_ANNOTATION_STYLE_CONFIG`), `OpenLIMEViewer.tsx`, `openlimeAnnotationAdapter.ts` (sync, selection, `applyOpenLimeUnderEditing`), `viewerAnnotationToOpenLimeImport.ts`.
 
-### 7.4 Annotation type toolbar (`AnnotationToolbar`) — 2D
+### 7.4 Annotation type toolbar (`AnnotationToolbar`) — 2D and 3D
 
-Reusable React control for choosing how the user interacts with the OpenLIME annotation layer. **3D does not mount this yet** (3D create path remains point-only via three-presenter).
+Reusable React control shared by the annotation workbench in 2D and 3D. ThreePresenter supports Point, Line, Area (outline-only), and Edit.
 
 
 | Piece   | Path                                                           | Role                                                                                                                                  |
 | ------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | UI      | `frontend/src/components/AnnotationToolbar.tsx`                | Four modes: **Point**, **Line**, **Area**, **Edit** (Bootstrap icons, dark floating bar)                                              |
 | Mapping | `frontend/src/adapters/openlime-viewer/openlimeToolbarMode.ts` | `point` → disk marker; `line` → open polyline; `area` → closed polyline; `edit` → `enableEditing(true)` + `manager.setMode('edit')`   |
-| Host    | `Viewer2DPanel.tsx`                                            | Renders toolbar **only when** OpenLIME pencil is active (`pencilActive` from `onPencilActiveChange` / `OpenLIMEViewer.enableEditing`) |
+| Host    | `AnnotationWorkbench.tsx` / creation wizard                  | Shared drawing controls; viewer panels apply the selected mode |
 
 
-**Visibility:** bottom-centred overlay (`zIndex: 100`); not shown until the viewer is ready and the user has enabled annotations (OpenLIME pencil / UIBasic). Toolbar mode state lives in `Viewer2DPanel` (`toolbarMode`); changing mode calls `applyOpenLimeToolbarMode` on the live `ManagerSvgAnnotation`.
+**Visibility:** drawing controls belong to the creation workbench. Viewer panels coordinate creation and protected editing with workbench state. In 3D, a separate bottom-centred Surface follow toggle is available while drawing lines or area boundaries.
 
-**Goals:** shared component for a future 3D toolbar (same `AnnotationToolbarMode` type); centralize create/edit mode instead of keyboard shortcuts in OpenLIME.
+**3D mapping:** Point picks once; Line and Area share a sequence editor with open/closed boundaries. Edit enables protected vertex operations. `Viewer3DPanel` forwards workbench drawing modes to ThreePresenter.
 
 ---
 
@@ -364,8 +367,8 @@ Reusable React control for choosing how the user interacts with the OpenLIME ann
 | Multi-label per geometry (a06 `labels[]` / `selected[]`)        | **No** — comma-joined single label in adapters            |
 | Selection criteria GUI                                          | **No**                                                    |
 | Panel link/unlink                                               | **No** (store ready)                                      |
-| 3D polylines/polygons                                           | **No** (points only for create)                           |
-| 3D annotation toolbar                                           | **No** (reuse `AnnotationToolbar` planned)                |
+| 3D polylines/polygons                                           | Create/edit/save lines and area outlines; experimental area clipping overlay |
+| 3D annotation toolbar                                           | Shared workbench Point / Line / Area / Edit tools         |
 | OpenLIME semantic classes (`AnnotationData.class` → viewer)     | **No** — structural `selected` / `underEditing`; see §7.3 |
 | Legacy scene.json annotation `PUT` path                         | Removed (was unused on 3d/2d/test)                        |
 
@@ -391,7 +394,7 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 2. **Multi-label in viewers** — `buildGeometryLabelDisplay` → per-viewer `setGeometryLabels` (3D three-presenter, 2D OpenLIME).
 3. **Label style variants (team decision)** — OpenLIME `labelStyle` overrides (`textFillSelected`, under-editing label colours); align with panel `UNDER_EDITING_COLOR` vs canvas `underEditing` stroke.
 4. **Collaboration** — optional presence indicators in panel/viewer; stronger OpenLIME-side block when geometry is remotely locked (today: React modal + styling + delete guard only); optional server-side enforcement (not just advisory).
-5. **3D toolbar + shapes** — mount `AnnotationToolbar` on `Viewer3DPanel`; polylines/polygons create/edit; dedicated adapter module.
+5. **3D filled areas** — replace the client-side full-camera-range clipping prototype with full-resolution depth-adapted volumes, persistence metadata, and multi-volume/hole support.
 6. **Panel** — link/unlink, optional geometry rows, expose `getActiveResolvedTriples` on context.
 7. **Query UI** — editor for `SelectionCriteria`.
 8. **Semantic classes** — map `AnnotationData.class` → OpenLIME `semanticClasses`.
@@ -436,6 +439,4 @@ Rule of thumb from a06: **query** narrows the working set; **focus** narrows emp
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `?mode=test` | Loaded vs active counts, SSE log                                                                                                                                                                     |
 | `?mode=2d`   | Annotate/Unlink-Delete open workbench; dock/detach; toolbar point/line/area; panel select + social-lock modal; remote lock styling; two-browser editor lock overlap |
-| `?mode=3d`   | Annotate/Unlink-Delete open workbench; point create only; panel multi-select; viewer Ctrl multi-select; DeletionGeometryPickBar; active geometries render |
-
-
+| `?mode=3d`   | Annotate/Unlink-Delete open workbench; point/line/area creation and protected editing; panel multi-select; viewer Ctrl multi-select; DeletionGeometryPickBar; active geometries render |

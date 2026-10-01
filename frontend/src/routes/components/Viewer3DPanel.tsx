@@ -59,7 +59,7 @@ function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
   return shapes.map((shape) => ({
     ...shape,
     vertices: shape.vertices.map((vertex) => [vertex[0], vertex[1], vertex[2]]),
-    ...(shape.type === 'ShapePolyline' && shape.surfacePath
+    ...(shape.type !== 'ShapePoints' && shape.surfacePath
       ? {
           surfacePath: {
             mode: shape.surfacePath.mode,
@@ -327,7 +327,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return;
       }
 
-      if (mode === 'point' || mode === 'line') {
+      if (mode === 'point' || mode === 'line' || mode === 'area') {
         viewer.setAnnotationCreationMode(mode);
         setToolbarMode(mode);
         return;
@@ -346,7 +346,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         if (!isCreationGeometryNewRef.current) {
           return;
         }
-        const mode = creationDrawingModeRef.current === 'line' ? 'line' : 'point';
+        const drawingMode = creationDrawingModeRef.current;
+        const mode = drawingMode === 'area' || drawingMode === 'line' ? drawingMode : 'point';
         viewer.setAnnotationCreationMode(mode);
         setToolbarMode(mode);
       });
@@ -363,8 +364,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           viewerId,
           viewerGeometryToShapes(type, geometry, surfacePath),
         );
-        // Point mode clears itself after a pick; line mode stays active.
-        // Re-applying the selected mode keeps Sticky New consistent for both.
+        // Point mode clears itself after a pick; boundary modes stay active.
+        // Re-applying the selected mode keeps Sticky New consistent for all tools.
         keepCreationDrawingActive();
       },
       [keepCreationDrawingActive, setCreationDraftGeometry],
@@ -847,11 +848,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             />
           </div>
         ) : null}
-        {isCreationGeometryNew && toolbarMode === 'line' ? (
+        {isCreationGeometryNew && (toolbarMode === 'line' || toolbarMode === 'area') ? (
           <div
             className="btn-group"
             role="group"
-            aria-label="3D line path mode"
+            aria-label="3D boundary path mode"
             style={{
               position: 'absolute',
               bottom: '20px',
@@ -866,7 +867,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               className={['btn btn-sm', surfaceFollowEnabled ? 'btn-primary' : 'btn-outline-light'].join(' ')}
               onClick={toggleSurfaceFollow}
               aria-pressed={surfaceFollowEnabled}
-              title="Project new line segments onto the visible surface"
+              title="Project new boundary segments onto the visible surface (areas are outline-only)"
             >
               <i className="bi bi-bezier2 me-1" aria-hidden />
               Surface follow
