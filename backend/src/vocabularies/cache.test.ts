@@ -77,6 +77,22 @@ describe('CachedVocabularyProvider', () => {
     expect(provider.conceptCalls).toBe(1);
   });
 
+  it('keeps match modes in separate search cache entries', async () => {
+    const provider = new FakeProvider();
+    const cached = new CachedVocabularyProvider(provider, new InMemoryVocabularyCache(), {
+      searchTtlMs: 10_000,
+      conceptTtlMs: 10_000,
+    });
+
+    await cached.search('oil', { wholeWords: false, caseSensitive: false });
+    await cached.search('oil', { wholeWords: true, caseSensitive: false });
+    await cached.search('oil', { wholeWords: false, caseSensitive: true });
+    await cached.search('Oil', { wholeWords: false, caseSensitive: true });
+    await cached.search('Oil', { wholeWords: false, caseSensitive: false });
+
+    expect(provider.searchCalls).toBe(4);
+  });
+
   it('expires cache entries at their configured TTL', async () => {
     let now = 100;
     const provider = new FakeProvider();

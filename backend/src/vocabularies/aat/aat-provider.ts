@@ -85,12 +85,37 @@ function normalizeSearchText(value: string): string {
   return value.normalize('NFKC').trim().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ');
 }
 
-function buildLuceneExpression(query: string): string {
+function normalizeLiteralSearchText(value: string): string {
+  return value.normalize('NFKC').trim().replace(/\s+/g, ' ');
+}
+
+function buildLuceneExpression(query: string, wholeWords = false): string {
   return normalizeSearchText(query)
     .split(' ')
     .filter(Boolean)
-    .map((token) => `${token}*`)
+    .map((token) => wholeWords ? token : `${token}*`)
     .join(' AND ');
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function literalMatchFilter(
+  query: string,
+  options: Pick<VocabularySearchOptions, 'wholeWords' | 'caseSensitive'>,
+): string {
+  if (options.wholeWords) {
+    const escapedQuery = escapeRegex(normalizeLiteralSearchText(query));
+    const boundary = '[^\\p{L}\\p{N}_]';
+    const pattern = `(^|${boundary})${escapedQuery}(${boundary}|$)`;
+    const flags = options.caseSensitive ? '' : ', "i"';
+    return `\n      FILTER regex(STR(?candidateMatched), "${escapeSparqlString(pattern)}"${flags})`;
+  }
+  if (options.caseSensitive) {
+    return `\n      FILTER CONTAINS(STR(?candidateMatched), "${escapeSparqlString(normalizeLiteralSearchText(query))}")`;
+  }
+  return '';
 }
 
 function languageFilter(variable: string, language: string): string {
@@ -98,8 +123,15 @@ function languageFilter(variable: string, language: string): string {
   return `(langMatches(lang(${variable}), "${escapeSparqlString(language)}") || langMatches(lang(${variable}), "${escapeSparqlString(base)}") || langMatches(lang(${variable}), "en"))`;
 }
 
-export function buildAatSearchQuery(query: string, language: string, limit: number, offset = 0): string {
-  const luceneExpression = escapeSparqlString(buildLuceneExpression(query));
+export function buildAatSearchQuery(
+  query: string,
+  language: string,
+  limit: number,
+  offset = 0,
+  options: Pick<VocabularySearchOptions, 'wholeWords' | 'caseSensitive'> = {},
+): string {
+  const luceneExpression = escapeSparqlString(buildLuceneExpression(query, options.wholeWords));
+  const matchFilter = literalMatchFilter(query, options);
   return `${PREFIXES}
 SELECT ?subject ?matched ?preferred ?parents WHERE {
   {
@@ -112,6 +144,7 @@ SELECT ?subject ?matched ?preferred ?parents WHERE {
         xl:literalForm ?candidateMatched .
       ?subject (xl:prefLabel|xl:altLabel) ?termNode ;
         skos:inScheme aat: .
+      ${matchFilter}
       OPTIONAL { ?subject gvp:parentStringAbbrev ?candidateParents }
     }
     GROUP BY ?subject
@@ -204,6 +237,7 @@ export class AatVocabularyProvider implements VocabularyProvider {
 
   async search(query: string, options: VocabularySearchOptions = {}): Promise<VocabularySearchResult[]> {
     const normalizedQuery = normalizeSearchText(query);
+    const literalQuery = normalizeLiteralSearchText(query);
     if (normalizedQuery.length < 2) {
       throw new VocabularyInputError('q must contain at least 2 letters or digits');
     }
@@ -231,7 +265,13 @@ export class AatVocabularyProvider implements VocabularyProvider {
       }
     }
 
-    const bindings = await this.sparqlClient.query(buildAatSearchQuery(normalizedQuery, language, limit, offset));
+    const bindings = await this.sparqlClient.query(buildAatSearchQuery(
+      literalQuery,
+      language,
+      limit,
+      offset,
+      options,
+    ));
     const byUri = new Map<string, LabelBucket>();
 
     for (const binding of bindings) {

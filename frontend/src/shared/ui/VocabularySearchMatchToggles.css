@@ -1,0 +1,43 @@
+.vocabulary-search-toggle {
+  display: inline-grid;
+  min-width: 2.35rem;
+  padding-right: 0.55rem;
+  padding-left: 0.55rem;
+  place-items: center;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.vocabulary-search-toggle.active {
+  color: var(--bs-primary);
+  background: rgba(var(--bs-primary-rgb), 0.1);
+  border-color: var(--bs-primary);
+}
+
+.vocabulary-search-toggle__whole-word {
+  position: relative;
+  padding: 0 0.13rem;
+  border-bottom: 1px solid currentColor;
+  line-height: 1rem;
+}
+
+.vocabulary-search-toggle__whole-word::before,
+.vocabulary-search-toggle__whole-word::after {
+  position: absolute;
+  bottom: -1px;
+  width: 0.18rem;
+  height: 0.3rem;
+  border-top: 1px solid currentColor;
+  content: '';
+}
+
+.vocabulary-search-toggle__whole-word::before {
+  left: -0.1rem;
+  border-left: 1px solid currentColor;
+}
+
+.vocabulary-search-toggle__whole-word::after {
+  right: -0.1rem;
+  border-right: 1px solid currentColor;
+}

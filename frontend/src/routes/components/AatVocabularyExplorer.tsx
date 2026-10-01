@@ -8,6 +8,7 @@ import {
   getExternalVocabularyConcept,
   searchExternalVocabulary,
 } from '../../services/ExternalVocabularyApi';
+import VocabularySearchMatchToggles from '../../shared/ui/VocabularySearchMatchToggles';
 
 const SEARCH_DEBOUNCE_MS = 400;
 const SEARCH_PAGE_SIZE = 15;
@@ -17,6 +18,8 @@ export default function AatVocabularyExplorer() {
   const [query, setQuery] = useState('');
   const [language, setLanguage] = useState('en');
   const [page, setPage] = useState(0);
+  const [wholeWords, setWholeWords] = useState(false);
+  const [caseSensitive, setCaseSensitive] = useState(false);
   const [results, setResults] = useState<VocabularySearchResult[]>([]);
   const [selected, setSelected] = useState<ExternalVocabularyConcept | null>(null);
   const [searching, setSearching] = useState(false);
@@ -46,6 +49,7 @@ export default function AatVocabularyExplorer() {
         SEARCH_PROBE_SIZE,
         controller.signal,
         page * SEARCH_PAGE_SIZE,
+        { wholeWords, caseSensitive },
       )
         .then((nextResults) => {
           if (requestTracker.current.isLatest(requestId)) setResults(nextResults);
@@ -68,7 +72,7 @@ export default function AatVocabularyExplorer() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [query, language, page]);
+  }, [caseSensitive, language, page, query, wholeWords]);
 
   const visibleResults = results.slice(0, SEARCH_PAGE_SIZE);
   const hasNextPage = results.length > SEARCH_PAGE_SIZE;
@@ -118,13 +122,27 @@ export default function AatVocabularyExplorer() {
                 placeholder="e.g. oil paint, façade, 300015050"
                 autoComplete="off"
               />
+              <VocabularySearchMatchToggles
+                wholeWords={wholeWords}
+                caseSensitive={caseSensitive}
+                onWholeWordsChange={(enabled) => {
+                  setWholeWords(enabled);
+                  setPage(0);
+                }}
+                onCaseSensitiveChange={(enabled) => {
+                  setCaseSensitive(enabled);
+                  setPage(0);
+                }}
+              />
               {searching ? (
                 <span className="input-group-text">
                   <span className="spinner-border spinner-border-sm" role="status" aria-label="Searching" />
                 </span>
               ) : null}
             </div>
-            <div className="form-text">Type at least 2 characters. Search starts after 400 ms.</div>
+            <div className="form-text">
+              Type at least 2 characters. Search starts after 400 ms. Use Aa for case and ab for whole words.
+            </div>
           </div>
           <div className="col-md-3">
             <label htmlFor="aat-language" className="form-label">Preferred language</label>

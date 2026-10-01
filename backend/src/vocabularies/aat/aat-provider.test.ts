@@ -46,6 +46,23 @@ describe('AatVocabularyProvider', () => {
     expect(query).toContain('langMatches(lang(?preferred), "fr")');
   });
 
+  it('builds whole-word and case-sensitive literal filters independently', () => {
+    const wholeWords = buildAatSearchQuery('Oil paint', 'en', 10, 0, { wholeWords: true });
+    const caseSensitive = buildAatSearchQuery('Oil paint', 'en', 10, 0, { caseSensitive: true });
+    const both = buildAatSearchQuery('Oil paint', 'en', 10, 0, {
+      wholeWords: true,
+      caseSensitive: true,
+    });
+
+    expect(wholeWords).toContain('luc:term "Oil AND paint"');
+    expect(wholeWords).toContain('FILTER regex(STR(?candidateMatched)');
+    expect(wholeWords).toContain(', "i")');
+    expect(caseSensitive).toContain('luc:term "Oil* AND paint*"');
+    expect(caseSensitive).toContain('FILTER CONTAINS(STR(?candidateMatched), "Oil paint")');
+    expect(both).toContain('FILTER regex(STR(?candidateMatched)');
+    expect(both).not.toContain(', "i")');
+  });
+
   it('normalizes exact and partial search rows and disambiguation context', async () => {
     const client = new FakeSparqlClient([[
       {

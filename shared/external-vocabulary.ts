@@ -16,6 +16,11 @@ export interface VocabularySearchResult extends VocabularyConceptRef {
   hierarchyContext?: string;
 }
 
+export interface VocabularySearchMatchOptions {
+  wholeWords?: boolean;
+  caseSensitive?: boolean;
+}
+
 export interface ExternalVocabularyConcept extends VocabularyConceptRef {
   alternativeLabels: string[];
   broader: VocabularyConceptRef[];

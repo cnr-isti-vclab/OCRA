@@ -1,6 +1,7 @@
 import type {
   ExternalVocabularyConcept,
   VocabularyConceptResponse,
+  VocabularySearchMatchOptions,
   VocabularySearchResponse,
   VocabularySearchResult,
 } from 'shared/external-vocabulary';
@@ -28,8 +29,13 @@ export async function searchExternalVocabulary(
   limit = 20,
   signal?: AbortSignal,
   offset = 0,
+  matchOptions: VocabularySearchMatchOptions = {},
 ): Promise<VocabularySearchResult[]> {
-  const key = `${providerId}:${language.toLowerCase()}:${limit}:${offset}:${query.normalize('NFKC').trim().toLowerCase()}`;
+  const wholeWords = matchOptions.wholeWords === true;
+  const caseSensitive = matchOptions.caseSensitive === true;
+  const normalizedQuery = query.normalize('NFKC').trim();
+  const cacheQuery = caseSensitive ? normalizedQuery : normalizedQuery.toLowerCase();
+  const key = `${providerId}:${language.toLowerCase()}:${limit}:${offset}:${wholeWords}:${caseSensitive}:${cacheQuery}`;
   const cached = searchCache.get(key);
   if (cached) {
     throwIfAborted(signal);
@@ -41,6 +47,8 @@ export async function searchExternalVocabulary(
   url.searchParams.set('lang', language);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('offset', String(offset));
+  url.searchParams.set('wholeWords', String(wholeWords));
+  url.searchParams.set('caseSensitive', String(caseSensitive));
   const response = await fetch(url, { credentials: 'include', signal });
   if (!response.ok) throw await responseError(response);
   const payload = await response.json() as VocabularySearchResponse;

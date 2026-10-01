@@ -2,10 +2,11 @@ import type {
   ExternalVocabularyConcept,
   VocabularyConceptRef,
   VocabularyProviderSummary,
+  VocabularySearchMatchOptions,
   VocabularySearchResult,
 } from 'shared/external-vocabulary';
 
-export interface VocabularySearchOptions {
+export interface VocabularySearchOptions extends VocabularySearchMatchOptions {
   language?: string;
   limit?: number;
   offset?: number;

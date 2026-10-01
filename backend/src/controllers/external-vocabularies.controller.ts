@@ -11,6 +11,13 @@ function queryValue(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+function booleanQueryValue(value: unknown, name: string): boolean {
+  const normalized = queryValue(value)?.trim().toLowerCase();
+  if (normalized === undefined || normalized === 'false') return false;
+  if (normalized === 'true') return true;
+  throw new VocabularyInputError(`${name} must be true or false`);
+}
+
 function sendVocabularyError(error: unknown, res: Response): void {
   if (error instanceof VocabularyInputError) {
     res.status(400).json({ error: error.message, code: 'INVALID_VOCABULARY_REQUEST' });
@@ -52,7 +59,15 @@ export async function searchExternalVocabulary(req: Request, res: Response): Pro
     const limit = rawLimit === undefined ? undefined : Number(rawLimit);
     const rawOffset = queryValue(req.query.offset);
     const offset = rawOffset === undefined ? undefined : Number(rawOffset);
-    const results = await provider.search(query, { language, limit, offset });
+    const wholeWords = booleanQueryValue(req.query.wholeWords, 'wholeWords');
+    const caseSensitive = booleanQueryValue(req.query.caseSensitive, 'caseSensitive');
+    const results = await provider.search(query, {
+      language,
+      limit,
+      offset,
+      wholeWords,
+      caseSensitive,
+    });
     res.json({ provider: provider.metadata, query, language, offset: offset ?? 0, results });
   } catch (error) {
     sendVocabularyError(error, res);

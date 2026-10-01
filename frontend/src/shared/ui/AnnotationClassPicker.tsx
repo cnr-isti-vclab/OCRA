@@ -16,6 +16,7 @@ import {
 } from '../../services/ExternalVocabularyApi';
 import { getVocabularyNodeLabel } from '../../utils/vocabulary';
 import VocabularyClassPicker from './VocabularyClassPicker';
+import VocabularySearchMatchToggles from './VocabularySearchMatchToggles';
 import './AnnotationClassPicker.css';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -150,6 +151,8 @@ function ExternalVocabularyPanel({
   const [query, setQuery] = useState('');
   const [language, setLanguage] = useState(source.defaultLanguage);
   const [page, setPage] = useState(0);
+  const [wholeWords, setWholeWords] = useState(false);
+  const [caseSensitive, setCaseSensitive] = useState(false);
   const [results, setResults] = useState<VocabularySearchResult[]>([]);
   const [details, setDetails] = useState<ExternalVocabularyConcept | null>(null);
   const [searching, setSearching] = useState(false);
@@ -161,6 +164,8 @@ function ExternalVocabularyPanel({
     setLanguage(source.defaultLanguage);
     setQuery('');
     setPage(0);
+    setWholeWords(false);
+    setCaseSensitive(false);
     setResults([]);
     setDetails(null);
     setError(null);
@@ -187,6 +192,7 @@ function ExternalVocabularyPanel({
         SEARCH_PROBE_SIZE,
         controller.signal,
         page * SEARCH_PAGE_SIZE,
+        { wholeWords, caseSensitive },
       )
         .then((nextResults) => {
           if (requestTracker.current.isLatest(requestId)) setResults(nextResults);
@@ -209,7 +215,7 @@ function ExternalVocabularyPanel({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [language, page, query, source.id]);
+  }, [caseSensitive, language, page, query, source.id, wholeWords]);
 
   const visibleResults = results.slice(0, SEARCH_PAGE_SIZE);
   const hasNextPage = results.length > SEARCH_PAGE_SIZE;
@@ -262,6 +268,18 @@ function ExternalVocabularyPanel({
               placeholder="Term, synonym or numeric identifier…"
               autoComplete="off"
             />
+            <VocabularySearchMatchToggles
+              wholeWords={wholeWords}
+              caseSensitive={caseSensitive}
+              onWholeWordsChange={(enabled) => {
+                setWholeWords(enabled);
+                setPage(0);
+              }}
+              onCaseSensitiveChange={(enabled) => {
+                setCaseSensitive(enabled);
+                setPage(0);
+              }}
+            />
             {searching ? (
               <span className="input-group-text bg-body">
                 <span className="spinner-border spinner-border-sm" role="status" aria-label="Searching" />
@@ -290,7 +308,7 @@ function ExternalVocabularyPanel({
       </div>
 
       <div className="form-text">
-        Type at least two characters. Search starts after 400 ms; preferred and alternative labels are searched.
+        Type at least two characters. Search starts after 400 ms; use Aa for case and ab for whole words.
       </div>
 
       {error ? (
