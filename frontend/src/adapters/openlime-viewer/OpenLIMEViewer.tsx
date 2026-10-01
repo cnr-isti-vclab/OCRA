@@ -726,6 +726,9 @@ const OpenLIMEViewer = forwardRef<
           const tools = new OpenLIME.ViewerTools(viewer, { features: OpenLIME.basicViewerFeatures({
             layers: { visibilityMode: 'nonExclusive', actionsVisible: false }, annotationManager,
           }) });
+          const navigation = tools.getFeature('navigation') as { panzoom?: { activeModifiers: number[] } } | null;
+          // Modifier bitmask 3 keeps pan available during the Ctrl+Shift temporary override.
+          if (navigation?.panzoom) navigation.panzoom.activeModifiers = [0, 1, 3];
           toolsRef.current = tools;
           tools.actions.update('zoomIn', { visible: false });
           tools.actions.update('zoomOut', { visible: false });
