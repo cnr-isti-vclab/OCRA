@@ -161,4 +161,4 @@ AGENTS.md
 Remember that I really prefer to avoid code bloating. I always prefer solutions that need less code with respect to ones that are implemented in more code. In particular, I do not want duplication of code or functionalities. Also check always for leftover files and functions and ask for their removal. 
 The less code you write the better it is. If sometimes I ask you something whose implementation requires you to write a lot of new code, please warn me before starting and, if possible, suggest solutions that would require less code.  Also always look for leftovers, like files or functions that are no more used.
 
-
+It's not possible to modify directly the code for OpenLIME or ThreePresenter. Any changes or customizations should be done through configuration or by extending their functionality externally. You can suggest a prompt in English to be given to these systems for generating the desired behavior.
