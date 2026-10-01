@@ -228,6 +228,9 @@ describe('AnnotationStore creation wizard commit', () => {
         preferredLabel: 'oil painting (technique)',
         language: 'en',
       },
+      pendingDataAppearance: {
+        color: { hex: '#D32F2F', presetId: 'ocra.standard/damage' },
+      },
     });
     expect(store.confirmPendingCreatedData()).toEqual({ ok: true });
 
@@ -238,6 +241,9 @@ describe('AnnotationStore creation wizard commit', () => {
         provider: 'aat',
         preferredLabel: 'oil painting (technique)',
         language: 'en',
+      },
+      appearance: {
+        color: { hex: '#D32F2F', presetId: 'ocra.standard/damage' },
       },
     }));
   });

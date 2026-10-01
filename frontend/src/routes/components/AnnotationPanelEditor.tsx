@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AnnotationClassDisplay, AnnotationData } from 'shared/annotation-types';
+import type { AnnotationAppearance, AnnotationClassDisplay, AnnotationData } from 'shared/annotation-types';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 import { AnnotationApiError } from '../../services/AnnotationApiClient';
 import { getViewerHighlightGeometryIds } from '../../adapters/annotation-store/geometryToViewerAnnotation';
@@ -54,6 +54,7 @@ interface AnnotationDataDraft {
   description: string;
   annotationClass: string | null;
   annotationClassDisplay: AnnotationClassDisplay | null;
+  appearance: AnnotationAppearance | null;
   content: Record<string, unknown>;
 }
 
@@ -68,7 +69,7 @@ function EditDataModal({
 }: {
   draft: AnnotationDataDraft | null;
   onSave: () => void;
-  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass' | 'annotationClassDisplay'>>) => void;
+  onChange: (patch: Partial<Pick<AnnotationDataDraft, 'label' | 'description' | 'annotationClass' | 'annotationClassDisplay' | 'appearance'>>) => void;
   onCancel: () => void;
   vocabularySchemes: readonly VocabularyScheme[];
   vocabularyConcepts: readonly VocabularyConcept[];
@@ -87,6 +88,7 @@ function EditDataModal({
         description: draft.description,
         annotationClass: draft.annotationClass,
         annotationClassDisplay: draft.annotationClassDisplay,
+        appearance: draft.appearance,
       }}
       onChange={onChange}
       onSave={onSave}
@@ -392,6 +394,7 @@ export default function AnnotationPanelEditor({
           ? editingDraft.annotationClass.trim()
           : null,
         classDisplay: editingDraft.annotationClassDisplay,
+        appearance: editingDraft.appearance,
       }, {
         expectedVersion: editingDraft.expectedVersion,
       });
@@ -438,6 +441,7 @@ export default function AnnotationPanelEditor({
       description: datum.description ?? '',
       annotationClass: datum.class ?? null,
       annotationClassDisplay: datum.classDisplay ?? null,
+      appearance: datum.appearance ?? null,
       content: { ...datum.content },
     });
     try {

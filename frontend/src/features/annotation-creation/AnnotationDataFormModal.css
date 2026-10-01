@@ -101,6 +101,24 @@
   padding: 0.5rem 0.6rem;
 }
 
+.annotation-data-form-modal .annotation-color-picker__swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.annotation-data-form-modal .annotation-color-picker__custom {
+  max-width: 15rem;
+}
+
+.annotation-data-form-modal .annotation-color-picker__custom .form-control-color {
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  padding: 0.2rem;
+}
+
 @media (max-height: 760px) {
   .annotation-data-form-modal .modal-dialog {
     height: calc(100dvh - 0.75rem);

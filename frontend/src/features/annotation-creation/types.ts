@@ -1,4 +1,5 @@
 import type {
+  AnnotationAppearance,
   AnnotationClassDisplay,
   AnnotationScopeType,
   AnnotationShape,
@@ -45,6 +46,7 @@ export interface CreatedDataDraft {
   description: string;
   class: string | null;
   classDisplay?: AnnotationClassDisplay | null;
+  appearance?: AnnotationAppearance | null;
   content: Record<string, unknown>;
 }
 
@@ -83,5 +85,6 @@ export interface AnnotationCreationDraft {
   pendingDataDescription: string;
   pendingDataClass: string | null;
   pendingDataClassDisplay: AnnotationClassDisplay | null;
+  pendingDataAppearance: AnnotationAppearance | null;
   pendingDataContent: Record<string, unknown>;
 }

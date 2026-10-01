@@ -43,6 +43,7 @@ import {
 import type { AnnotationImpactMetadata } from 'shared/annotation-events';
 import type {
   AnnotationClassDisplay,
+  AnnotationAppearance,
   AnnotationData,
   AnnotationGeometry,
   AnnotationLink,
@@ -191,6 +192,7 @@ export interface UpdateAnnotationDataInput {
   description?: string;
   class?: string | null;
   classDisplay?: AnnotationClassDisplay | null;
+  appearance?: AnnotationAppearance | null;
   content?: Record<string, unknown>;
 }
 
@@ -1153,6 +1155,7 @@ export async function createAnnotationData(
   visibilityId: string,
   userId: string,
   classDisplay?: AnnotationClassDisplay | null,
+  appearance?: AnnotationAppearance | null,
 ): Promise<AnnotationServiceResult<string, CreateAnnotationDataErrorCode>> {
   if (!isNonEmptyString(userId) || !isNonEmptyString(visibilityId)) {
     return failResult('invalid_input');
@@ -1171,6 +1174,7 @@ export async function createAnnotationData(
     description,
     class: annotationClass,
     ...(classDisplay !== undefined ? { classDisplay } : {}),
+    ...(appearance !== undefined ? { appearance } : {}),
     content,
     visibilityType,
     visibilityId,
@@ -1223,6 +1227,7 @@ export async function updateAnnotationData(
       class: updates.class,
       content: updates.content,
       classDisplay: nextClassDisplay,
+      appearance: updates.appearance,
     }).filter(([, value]) => value !== undefined),
   );
 

@@ -45,6 +45,8 @@ export interface ViewerAnnotation {
   labelParts?: Array<{ type: 'badge' | 'text'; text: string } | { type: 'break' }>;
   /** Optional semantic class reference used by viewers for class-driven styling. */
   semanticClass?: string | null;
+  /** Optional display color resolved from linked data records. */
+  color?: string | null;
   /**
    * Optional structural class for presentation overlays (e.g. `ghost`, `underEditing`).
    * Applied on top of semantic styling by OpenLIME.

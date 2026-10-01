@@ -1,4 +1,5 @@
 import type { AnnotationGeometry, AnnotationShape } from 'shared/annotation-types';
+import { annotationColorStyleId } from 'shared/annotation-colors';
 import type {
   ViewerAnnotation,
   ViewerAnnotationGeometry,
@@ -62,12 +63,19 @@ export function geometryToViewerAnnotation(
 ): ViewerAnnotation {
   const shape = primaryShape(geometry);
   const dataIds = selection.dataIdsByGeometryId.get(geometry.id) ?? [];
-  const primaryDataId = [...focusedDataIds].find((id) => dataIds.includes(id)) ?? dataIds[0];
+  const preferredClass = semanticClassPreference.find((classId) =>
+    dataIds.some((dataId) => selection.dataById.get(dataId)?.class === classId),
+  );
+  const primaryDataId = [...focusedDataIds].find((id) => dataIds.includes(id))
+    ?? (preferredClass
+      ? dataIds.find((dataId) => selection.dataById.get(dataId)?.class === preferredClass)
+      : undefined)
+    ?? dataIds[0];
   const datum = primaryDataId ? selection.dataById.get(primaryDataId) : undefined;
-  const semanticClass =
-    semanticClassPreference.find((classId) =>
-      dataIds.some((dataId) => selection.dataById.get(dataId)?.class === classId),
-    ) ?? null;
+  const color = datum?.appearance?.color.hex
+    ?? dataIds.map((id) => selection.dataById.get(id)?.appearance?.color.hex).find(Boolean)
+    ?? null;
+  const semanticClass = color ? annotationColorStyleId(color) : preferredClass ?? null;
 
   const renderingMode = selection.renderingModeByGeometryId.get(geometry.id);
   const structuralClass = structuralClassForRenderingMode(renderingMode);
@@ -79,6 +87,7 @@ export function geometryToViewerAnnotation(
     id: geometry.id,
     label: pickDisplayLabel(geometry.id, selection, focusedDataIds),
     semanticClass,
+    color,
     structuralClass,
     strokeDasharray: structuralClass === 'orphan' ? '6,4' : multiDataDash,
     type: shapeToViewerType(shape),

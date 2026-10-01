@@ -150,6 +150,12 @@ describe('annotation schema', () => {
         preferredLabel: 'oil painting (technique)',
         language: 'en',
       },
+      appearance: {
+        color: {
+          hex: '#D32F2F',
+          presetId: 'ocra.standard/damage',
+        },
+      },
       content: {
         severity: 'medium',
       },
@@ -186,6 +192,7 @@ describe('annotation schema', () => {
 
     expect(typedData.visibilityType).toBe('asset');
     expect(typedData.classDisplay?.preferredLabel).toBe('oil painting (technique)');
+    expect(typedData.appearance?.color.hex).toBe('#D32F2F');
     expect(typedLink.dataId).toBe('data_1');
     expectTypeOf(data).toEqualTypeOf<AnnotationData>();
     expectTypeOf(link).toEqualTypeOf<AnnotationLink>();
@@ -216,6 +223,29 @@ describe('annotation schema', () => {
       class: null,
       classDisplay: { provider: 'aat', preferredLabel: 'oil painting (technique)' },
     }).success).toBe(false);
+  });
+
+  it('rejects malformed annotation colors', () => {
+    const result = annotationDataSchema.safeParse({
+      id: 'data_bad_color',
+      projectId: 'project_1',
+      label: 'Damage',
+      description: '',
+      class: null,
+      appearance: { color: { hex: 'red' } },
+      content: {},
+      visibilityType: 'asset',
+      visibilityId: 'asset_1',
+      version: 0,
+      erasableAt: null,
+      erasableBy: null,
+      createdAt: '2026-03-11T10:00:00.000Z',
+      createdBy: 'user_1',
+      updatedAt: '2026-03-11T10:00:00.000Z',
+      updatedBy: 'user_1',
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('rejects invalid annotation data and link payloads', () => {

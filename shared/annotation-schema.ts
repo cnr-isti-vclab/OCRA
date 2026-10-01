@@ -67,6 +67,15 @@ export const annotationClassDisplaySchema = z
   })
   .strict();
 
+export const annotationColorSchema = z.object({
+  hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  presetId: z.string().trim().min(1).max(128).optional(),
+}).strict();
+
+export const annotationAppearanceSchema = z.object({
+  color: annotationColorSchema,
+}).strict();
+
 export const annotationGeometrySchema = annotationAuditFieldsSchema
   .merge(annotationVersionedFieldsSchema)
   .merge(annotationErasableFieldsSchema)
@@ -88,6 +97,7 @@ export const annotationDataSchema = annotationAuditFieldsSchema
     description: z.string(),
     class: z.string().min(1).nullable(),
     classDisplay: annotationClassDisplaySchema.nullable().optional(),
+    appearance: annotationAppearanceSchema.nullable().optional(),
     content: z.record(z.unknown()),
     visibilityType: annotationScopeTypeSchema,
     visibilityId: z.string().min(1),

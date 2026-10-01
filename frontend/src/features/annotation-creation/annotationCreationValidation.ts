@@ -413,13 +413,14 @@ export function hasDiscardableCreationDraftWork(
 
 export function emptyPendingData(): Pick<
   AnnotationCreationDraft,
-  'pendingDataLabel' | 'pendingDataDescription' | 'pendingDataClass' | 'pendingDataClassDisplay' | 'pendingDataContent'
+  'pendingDataLabel' | 'pendingDataDescription' | 'pendingDataClass' | 'pendingDataClassDisplay' | 'pendingDataAppearance' | 'pendingDataContent'
 > {
   return {
     pendingDataLabel: '',
     pendingDataDescription: '',
     pendingDataClass: null,
     pendingDataClassDisplay: null,
+    pendingDataAppearance: null,
     pendingDataContent: {},
   };
 }
@@ -427,7 +428,7 @@ export function emptyPendingData(): Pick<
 export function pendingDataAsCreated(
   draft: Pick<
     AnnotationCreationDraft,
-    'pendingDataLabel' | 'pendingDataDescription' | 'pendingDataClass' | 'pendingDataClassDisplay' | 'pendingDataContent'
+    'pendingDataLabel' | 'pendingDataDescription' | 'pendingDataClass' | 'pendingDataClassDisplay' | 'pendingDataAppearance' | 'pendingDataContent'
   >,
 ): CreatedDataDraft | null {
   if (!isNonEmpty(draft.pendingDataLabel)) {
@@ -438,6 +439,7 @@ export function pendingDataAsCreated(
     description: draft.pendingDataDescription,
     class: draft.pendingDataClass,
     ...(draft.pendingDataClassDisplay ? { classDisplay: draft.pendingDataClassDisplay } : {}),
+    ...(draft.pendingDataAppearance ? { appearance: draft.pendingDataAppearance } : {}),
     content: draft.pendingDataContent,
   };
 }

@@ -693,8 +693,8 @@ describe('annotation.service link restore semantics', () => {
   });
 });
 
-describe('annotation.service class display metadata', () => {
-  it('clears a stale display snapshot when the class changes without a replacement', async () => {
+describe('annotation.service data metadata', () => {
+  it('clears a stale class display and persists appearance updates', async () => {
     vi.resetAllMocks();
     const existing = {
       id: 'ad_aat',
@@ -740,7 +740,10 @@ describe('annotation.service class display metadata', () => {
       'project-1',
       'ad_aat',
       2,
-      { class: 'http://vocab.getty.edu/aat/300178684' },
+      {
+        class: 'http://vocab.getty.edu/aat/300178684',
+        appearance: { color: { hex: '#D32F2F', presetId: 'ocra.standard/damage' } },
+      },
       'user-2',
     )).resolves.toEqual({ ok: true, value: 3 });
 
@@ -751,6 +754,7 @@ describe('annotation.service class display metadata', () => {
         $set: expect.objectContaining({
           class: 'http://vocab.getty.edu/aat/300178684',
           classDisplay: null,
+          appearance: { color: { hex: '#D32F2F', presetId: 'ocra.standard/damage' } },
         }),
       }),
     );

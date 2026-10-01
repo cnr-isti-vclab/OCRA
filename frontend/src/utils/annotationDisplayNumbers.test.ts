@@ -30,6 +30,37 @@ describe('annotation display numbers', () => {
     expect(geometryToViewerAnnotation(geometry, selection).strokeDasharray).toBe('8,6');
   });
 
+  it('resolves explicit data colors deterministically for linked geometries', () => {
+    const geometry: AnnotationGeometry = {
+      id: 'g-color', projectId: 'project', referenceType: 'scene', referenceId: 'scene',
+      shapes: [{ type: 'ShapePoints', vertices: [[0, 0, 0]] }],
+      createdAt: '2026-01-01T00:00:00.000Z', createdBy: 'user',
+      updatedAt: '2026-01-01T00:00:00.000Z', updatedBy: 'user',
+      version: 0, erasableAt: null, erasableBy: null,
+    };
+    const datum = (id: string, hex: string): AnnotationData => ({
+      id, label: id, projectId: 'project', description: '', class: null,
+      appearance: { color: { hex } }, content: {},
+      visibilityType: 'scene', visibilityId: 'scene',
+      createdAt: '2026-01-01T00:00:00.000Z', createdBy: 'user',
+      updatedAt: '2026-01-01T00:00:00.000Z', updatedBy: 'user',
+      version: 0, erasableAt: null, erasableBy: null,
+    });
+    const selection = {
+      ...createEmptyActiveSelection(),
+      dataById: new Map([
+        ['d-red', datum('d-red', '#D32F2F')],
+        ['d-blue', datum('d-blue', '#1976D2')],
+      ]),
+      dataIdsByGeometryId: new Map([['g-color', ['d-red', 'd-blue']]]),
+    };
+
+    expect(geometryToViewerAnnotation(geometry, selection).color).toBe('#D32F2F');
+    const focused = geometryToViewerAnnotation(geometry, selection, new Set(['d-blue']));
+    expect(focused.color).toBe('#1976D2');
+    expect(focused.semanticClass).toBe('ocra-color-1976d2');
+  });
+
   it('uses creation order with an id tie-breaker and excludes erased records', () => {
     const numbers = buildAnnotationDisplayNumbers([
       { id: 'g-c', createdAt: '2026-01-02T00:00:00.000Z', erasableAt: null },

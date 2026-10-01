@@ -1359,6 +1359,23 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             updatedBy: { type: 'string', example: 'cmuser123' },
           },
         },
+        AnnotationAppearance: {
+          type: 'object',
+          additionalProperties: false,
+          description: 'Optional display appearance inherited by linked geometries',
+          required: ['color'],
+          properties: {
+            color: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['hex'],
+              properties: {
+                hex: { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$', example: '#D32F2F' },
+                presetId: { type: 'string', example: 'ocra.standard/damage' },
+              },
+            },
+          },
+        },
         AnnotationData: {
           type: 'object',
           required: [
@@ -1398,6 +1415,10 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
                 preferredLabel: { type: 'string', example: 'oil painting (technique)' },
                 language: { type: 'string', example: 'en' },
               },
+            },
+            appearance: {
+              nullable: true,
+              allOf: [{ $ref: '#/components/schemas/AnnotationAppearance' }],
             },
             content: { type: 'object', additionalProperties: true, example: { severity: 'medium' } },
             visibilityType: { type: 'string', enum: ['scene', 'asset'], example: 'asset' },

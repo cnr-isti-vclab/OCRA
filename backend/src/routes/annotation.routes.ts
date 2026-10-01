@@ -617,6 +617,10 @@ router.get('/:projectId/annotations/data/:dataId', requireAuth, getAnnotationDat
  *                     type: string
  *                   language:
  *                     type: string
+ *               appearance:
+ *                 nullable: true
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/AnnotationAppearance'
  *               content:
  *                 type: object
  *                 additionalProperties: true
@@ -687,6 +691,10 @@ router.post('/:projectId/annotations/data', requireAuth, createAnnotationDataHan
  *                     type: string
  *                   language:
  *                     type: string
+ *               appearance:
+ *                 nullable: true
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/AnnotationAppearance'
  *               content:
  *                 type: object
  *                 additionalProperties: true

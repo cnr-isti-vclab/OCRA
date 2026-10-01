@@ -6,6 +6,7 @@ import OpenLIMEViewer, {
 import { applyOpenLimeToolbarMode } from '../../adapters/openlime-viewer/openlimeToolbarMode';
 import type { AnnotationToolbarMode } from '../../components/AnnotationToolbar';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
+import { annotationColorStyleId } from 'shared/annotation-colors';
 import type { AnnotationShape } from '../../../../shared/annotation-types';
 import { DigitalAsset } from '../HDTPage';
 import { useAnnotationStore } from '../../context/AnnotationStoreContext';
@@ -399,15 +400,25 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     );
 
     const semanticClassesForFilter = useMemo(() => {
-      if (annotationClassFilterValues.length === 0) {
-        return {};
-      }
-
       const classOptionsByCurie = new Map(
         sceneAnnotationClassPool.map((option) => [option.curie, option]),
       );
       type SemanticClassEntry = [string, Record<string, string>];
       const semanticClassEntries: SemanticClassEntry[] = [];
+
+      for (const annotation of viewerAnnotationsForSync) {
+        if (!annotation.color) continue;
+        semanticClassEntries.push([
+          annotationColorStyleId(annotation.color),
+          {
+            label: annotation.color,
+            stroke: annotation.color,
+            fill: hexToRgba(annotation.color, 0.3),
+            fillSelected: hexToRgba(annotation.color, 0.4),
+            strokeSelected: annotation.color,
+          },
+        ]);
+      }
 
       for (const classId of annotationClassFilterValues) {
         if (isUnclassifiedClassFilter(classId)) {
@@ -430,7 +441,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
 
       return Object.fromEntries(semanticClassEntries);
-    }, [annotationClassFilterValues, sceneAnnotationClassPool]);
+    }, [annotationClassFilterValues, sceneAnnotationClassPool, viewerAnnotationsForSync]);
 
     const highlightGeometryIds = useMemo(
       () => {

@@ -1,11 +1,12 @@
 import { createPortal } from 'react-dom';
-import type { AnnotationClassDisplay } from 'shared/annotation-types';
+import type { AnnotationAppearance, AnnotationClassDisplay } from 'shared/annotation-types';
 import type {
   VocabularyConcept,
   VocabularyProperty,
   VocabularyScheme,
 } from '../../types/vocabulary';
 import AnnotationClassPicker from '../../shared/ui/AnnotationClassPicker';
+import AnnotationColorPicker from '../../shared/ui/AnnotationColorPicker';
 import './AnnotationDataFormModal.css';
 
 export interface AnnotationDataFormValues {
@@ -13,6 +14,7 @@ export interface AnnotationDataFormValues {
   description: string;
   annotationClass: string | null;
   annotationClassDisplay: AnnotationClassDisplay | null;
+  appearance: AnnotationAppearance | null;
 }
 
 interface AnnotationDataFormModalProps {
@@ -103,6 +105,16 @@ export default function AnnotationDataFormModal({
                 schemes={vocabularySchemes}
                 concepts={vocabularyConcepts}
                 properties={vocabularyProperties}
+              />
+            </div>
+            <div className="mt-2">
+              <label className="form-label">Annotation color</label>
+              <p className="small text-muted mb-2">
+                Optional display color passed to linked geometries. Choose a standard role or a custom color.
+              </p>
+              <AnnotationColorPicker
+                value={values.appearance}
+                onChange={(appearance) => onChange({ appearance })}
               />
             </div>
           </div>
