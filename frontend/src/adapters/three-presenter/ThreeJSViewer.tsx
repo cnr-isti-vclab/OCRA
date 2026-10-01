@@ -30,6 +30,9 @@ export interface ThreeJSViewerRef {
   getLineSurfaceFollowEnabled: () => boolean;
   setAnnotationEditingEnabled: (enabled: boolean) => void;
   getAnnotationEditingEnabled: () => boolean;
+  setAnnotationsVisible: (visible: boolean) => void;
+  getAnnotationsVisible: () => boolean;
+  adaptSelectedLineToCurrentView: () => boolean;
   getAnnotationManager: () => AnnotationManager;
   renderAnnotations: (annotations: ViewerAnnotation[]) => void;
   focusAnnotations: (annotations: readonly ViewerAnnotation[]) => void;
@@ -136,6 +139,15 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       },
       getAnnotationEditingEnabled: () => {
         return presenterRef.current?.getAnnotationEditingEnabled() ?? false;
+      },
+      setAnnotationsVisible: (visible: boolean) => {
+        presenterRef.current?.setAnnotationsVisible(visible);
+      },
+      getAnnotationsVisible: () => {
+        return presenterRef.current?.getAnnotationsVisible() ?? true;
+      },
+      adaptSelectedLineToCurrentView: () => {
+        return presenterRef.current?.adaptSelectedLineToCurrentView() ?? false;
       },
       getAnnotationManager: () => {
         if (!presenterRef.current) {
