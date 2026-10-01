@@ -79,8 +79,9 @@ export const OPENLIME_ANNOTATION_STYLE_CONFIG = {
       fill: SELECTED_COLOR.fill,
       stroke: SELECTED_COLOR.stroke,
       fillOpacity: 1,
-      strokeWidth: 2,
-      filter: OPENLIME_ANNOTATION_SHADOW_FILTER,
+      strokeWidth: 4,
+      radiusScale: 1.5,
+      filter: 'drop-shadow(0px 0px 2px rgba(255,255,255,0.95)) drop-shadow(0px 0px 5px rgba(30,58,138,0.9))',
     },
     underEditing: {
       fill: UNDER_EDITING_COLOR.fill,
