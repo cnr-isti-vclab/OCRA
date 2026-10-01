@@ -101,7 +101,7 @@ export default function AatVocabularyExplorer() {
           the authoritative identity of every result.
         </p>
 
-        <div className="row g-2 align-items-end">
+        <div className="row g-2 align-items-start">
           <div className="col-md-9">
             <label htmlFor="aat-query" className="form-label">Search preferred and alternative terms</label>
             <div className="input-group">
