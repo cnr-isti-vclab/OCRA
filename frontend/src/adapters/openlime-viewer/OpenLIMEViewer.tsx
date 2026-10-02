@@ -420,6 +420,8 @@ const OpenLIMEViewer = forwardRef<
           }
 
           viewerRef.current = viewer;
+          const camera = viewer.camera as OpenLIME.Camera & { bounded?: boolean };
+          camera.bounded = false;
 
           resize();
           resizeObserver = new ResizeObserver(resize);
@@ -708,6 +710,12 @@ const OpenLIMEViewer = forwardRef<
 
           });
           annotationManagerRef.current = annotationManager;
+          // The SVG layer lives in a Shadow DOM, so label-part badge colors must be injected there:
+          // first badge is geometry (G*), following badges are data (D*).
+          (annotationManager.layer as unknown as { style: string }).style += `
+            .annotation-label-parts > circle { fill: #a85d00 !important; }
+            .annotation-label-parts > circle:first-of-type { fill: #0d6efd !important; }
+            .annotation-label-parts > text[text-anchor='middle'] { fill: #fff !important; }`;
           if (!viewerOnlyMode) {
             // Keep annotation picking available with the pencil off, without enabling edits.
             annotationManager.setInspectEnabled(true);
