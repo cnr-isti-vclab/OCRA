@@ -10,7 +10,7 @@ export const annotationVertex3DSchema = z.tuple([
   z.number(),
 ]);
 
-/** Sparse controls used to regenerate a dense surface-following polyline. */
+/** Sparse controls used to regenerate a dense surface-following line or area boundary. */
 export const annotationSurfacePathSchema = z.object({
   mode: z.literal('view-projected'),
   controlVertices: z.array(annotationVertex3DSchema).min(2),
@@ -30,6 +30,9 @@ export const annotationShapePolylineSchema = z.object({
 export const annotationShapePolygonSchema = z.object({
   type: z.literal('ShapePolygon'),
   vertices: z.array(annotationVertex3DSchema).min(3),
+  surfacePath: annotationSurfacePathSchema.extend({
+    controlVertices: z.array(annotationVertex3DSchema).min(3),
+  }).optional(),
 });
 
 export const annotationShapeSchema = z.discriminatedUnion('type', [

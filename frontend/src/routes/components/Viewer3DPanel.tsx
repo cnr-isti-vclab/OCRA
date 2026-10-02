@@ -59,7 +59,7 @@ function cloneShapes(shapes: AnnotationShape[]): AnnotationShape[] {
   return shapes.map((shape) => ({
     ...shape,
     vertices: shape.vertices.map((vertex) => [vertex[0], vertex[1], vertex[2]]),
-    ...(shape.type === 'ShapePolyline' && shape.surfacePath
+    ...(shape.type !== 'ShapePoints' && shape.surfacePath
       ? {
           surfacePath: {
             mode: shape.surfacePath.mode,
@@ -145,6 +145,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
     const [viewerReady, setViewerReady] = useState(false);
     const [surfaceFollowEnabled, setSurfaceFollowEnabled] = useState(false);
+    const [annotationsVisible, setAnnotationsVisible] = useState(true);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const isCreationGeometryNewRef = useRef(isCreationGeometryNew);
     isCreationGeometryNewRef.current = isCreationGeometryNew;
@@ -281,6 +282,40 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         activeAnnotationSelection,
       ],
     );
+
+    const selectedLineForAdaptation = useMemo(() => {
+      if (
+        toolbarMode !== 'edit'
+        || isCreationGeometryStep
+        || isDeletionSelectingStep
+        || annotationTrash.isOpen
+        || highlightGeometryIds.length !== 1
+      ) {
+        return null;
+      }
+      return viewerAnnotations.find(
+        (annotation) => annotation.id === highlightGeometryIds[0] && annotation.type === 'line',
+      ) ?? null;
+    }, [
+      annotationTrash.isOpen,
+      highlightGeometryIds,
+      isCreationGeometryStep,
+      isDeletionSelectingStep,
+      toolbarMode,
+      viewerAnnotations,
+    ]);
+
+    const toggleAnnotationsVisible = useCallback(() => {
+      const visible = !annotationsVisible;
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      viewer?.setAnnotationsVisible(visible);
+      setAnnotationsVisible(visible);
+    }, [annotationsVisible, ref]);
+
+    const adaptSelectedLineToCurrentView = useCallback(() => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      viewer?.adaptSelectedLineToCurrentView();
+    }, [ref]);
     useEffect(() => {
       if (!annotationTrash.isOpen || !viewerReady || annotationTrash.viewerSelectionGeometryIds.length === 0) return;
       const selectedIds = new Set(annotationTrash.viewerSelectionGeometryIds);
@@ -327,7 +362,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         return;
       }
 
-      if (mode === 'point' || mode === 'line') {
+      if (mode === 'point' || mode === 'line' || mode === 'area') {
         viewer.setAnnotationCreationMode(mode);
         setToolbarMode(mode);
         return;
@@ -346,7 +381,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
         if (!isCreationGeometryNewRef.current) {
           return;
         }
-        const mode = creationDrawingModeRef.current === 'line' ? 'line' : 'point';
+        const drawingMode = creationDrawingModeRef.current;
+        const mode = drawingMode === 'area' || drawingMode === 'line' ? drawingMode : 'point';
         viewer.setAnnotationCreationMode(mode);
         setToolbarMode(mode);
       });
@@ -363,8 +399,8 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           viewerId,
           viewerGeometryToShapes(type, geometry, surfacePath),
         );
-        // Point mode clears itself after a pick; line mode stays active.
-        // Re-applying the selected mode keeps Sticky New consistent for both.
+        // Point mode clears itself after a pick; boundary modes stay active.
+        // Re-applying the selected mode keeps Sticky New consistent for all tools.
         keepCreationDrawingActive();
       },
       [keepCreationDrawingActive, setCreationDraftGeometry],
@@ -847,11 +883,11 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
             />
           </div>
         ) : null}
-        {isCreationGeometryNew && toolbarMode === 'line' ? (
+        {isCreationGeometryNew && (toolbarMode === 'line' || toolbarMode === 'area') ? (
           <div
             className="btn-group"
             role="group"
-            aria-label="3D line path mode"
+            aria-label="3D boundary path mode"
             style={{
               position: 'absolute',
               bottom: '20px',
@@ -866,11 +902,46 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               className={['btn btn-sm', surfaceFollowEnabled ? 'btn-primary' : 'btn-outline-light'].join(' ')}
               onClick={toggleSurfaceFollow}
               aria-pressed={surfaceFollowEnabled}
-              title="Project new line segments onto the visible surface"
+              title="Project new boundary segments onto the visible surface (areas are outline-only)"
             >
               <i className="bi bi-bezier2 me-1" aria-hidden />
               Surface follow
             </button>
+          </div>
+        ) : null}
+        {viewerReady ? (
+          <div
+            className="btn-group"
+            role="group"
+            aria-label="3D annotation display actions"
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              zIndex: 100,
+              pointerEvents: 'auto',
+            }}
+          >
+            <button
+              type="button"
+              className={['btn btn-sm', annotationsVisible ? 'btn-outline-light' : 'btn-warning'].join(' ')}
+              onClick={toggleAnnotationsVisible}
+              aria-pressed={annotationsVisible}
+              title={annotationsVisible ? 'Hide annotations' : 'Show annotations'}
+            >
+              <i className={`bi ${annotationsVisible ? 'bi-eye' : 'bi-eye-slash'}`} aria-hidden />
+            </button>
+            {selectedLineForAdaptation ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-light"
+                onClick={adaptSelectedLineToCurrentView}
+                title="Adapt selected line to the visible surface from the current view"
+              >
+                <i className="bi bi-bezier2 me-1" aria-hidden />
+                Adapt line
+              </button>
+            ) : null}
           </div>
         ) : null}
         {loadingModels && Object.keys(modelLoadProgress).length > 0 && (

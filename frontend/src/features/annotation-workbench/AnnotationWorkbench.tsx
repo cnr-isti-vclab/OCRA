@@ -269,8 +269,8 @@ export default function AnnotationWorkbench({
           setSetupError(result.message);
         }
       }
-      // 3D is point-only for now; keep draft drawing mode on point when line/area are disabled.
-      if (disabledGeometryToolbarModes.includes('line') || disabledGeometryToolbarModes.includes('area')) {
+      // Only reset a drawing tool when the host actually disables it.
+      if (disabledGeometryToolbarModes.includes(creationDraft?.drawingMode ?? 'point')) {
         updateCreationDraft({ drawingMode: 'point' });
       }
       return;

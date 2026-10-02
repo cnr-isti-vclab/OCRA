@@ -37,8 +37,8 @@ export function shapesEqual(left: AnnotationShape[], right: AnnotationShape[]): 
     if (!verticesEqual(shape.vertices, other.vertices)) {
       return false;
     }
-    if (shape.type === 'ShapePolyline') {
-      if (other.type !== 'ShapePolyline') {
+    if (shape.type !== 'ShapePoints') {
+      if (other.type === 'ShapePoints') {
         return false;
       }
       return surfacePathsEqual(shape.surfacePath, other.surfacePath);

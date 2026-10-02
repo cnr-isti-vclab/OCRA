@@ -38,6 +38,9 @@ export function draftShapesToViewerAnnotation(
     strokeDasharray: '4,4',
     type: shapeToViewerType(shape),
     geometry: shapeToViewerGeometry(shape),
+    surfacePath: shape.type !== 'ShapePoints' && shape.surfacePath
+      ? structuredClone(shape.surfacePath)
+      : undefined,
     description: 'Unsaved annotation geometry draft',
     createdAt: new Date().toISOString(),
     createdBy: 'creation-draft',
