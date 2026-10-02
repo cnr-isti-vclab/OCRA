@@ -236,10 +236,10 @@ export default function VocabularyList() {
         </div>
       )}
 
-      <AatVocabularyExplorer />
-
       {/* @spike feature/vocabulary-color-spike — remove <TtlVocabularyWidget /> when vocabulary data is in DB */}
       <TtlVocabularyWidget />
+
+      <AatVocabularyExplorer />
 
     </div>
   );

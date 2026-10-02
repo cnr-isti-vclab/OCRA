@@ -775,9 +775,12 @@ export function AnnotationStoreProvider({
     sceneAnnotationClassPool,
   ]);
 
+  // Keyed by content: in 'all' mode the values array is rebuilt on every store update
+  // (e.g. a geometry save), which must not drop the current focus.
+  const annotationClassFilterKey = annotationClassFilterValues.join('\n');
   useEffect(() => {
     clearFocus();
-  }, [annotationClassFilterMode, annotationClassFilterValues, clearFocus]);
+  }, [annotationClassFilterMode, annotationClassFilterKey, clearFocus]);
 
   const selectActiveAnnotations = useCallback((criteria: SelectionCriteria = EMPTY_SELECTION_CRITERIA) => {
     storeRef.current?.selectActiveAnnotations(criteria);

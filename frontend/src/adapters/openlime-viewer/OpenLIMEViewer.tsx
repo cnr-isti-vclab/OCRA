@@ -45,6 +45,9 @@ interface OpenLimeLightTool {
   addEvent(event: 'change', callback: (direction: OpenLimeLightDirection) => void): void;
 }
 
+/** The Layer factory returns `Layer`, but RTI instances also expose `setLight`. */
+type OpenLimeRelightableLayer = OpenLIME.Layer & { setLight(light: number[], dt?: number): void };
+
 interface OpenLimeLayerSignals {
   addEvent(event: 'ready', callback: () => void): void;
   removeEvent(event: 'ready', callback: () => void): boolean;
@@ -58,8 +61,8 @@ function parseRtiAcquisitionLightDirections(metadata: unknown): OpenLimeLightDir
     ? Array.from({ length: Math.floor(lights.length / 3) }, (_, index) => lights.slice(index * 3, index * 3 + 3))
     : lights.filter((light): light is unknown[] => Array.isArray(light));
   return vectors.flatMap((vector) => {
-    const [x, y, z] = vector;
-    if (![x, y, z].every((value) => typeof value === 'number' && Number.isFinite(value))) return [];
+    const [x, y, z] = vector as number[];
+    if (![x, y, z].every(Number.isFinite)) return [];
     const length = Math.hypot(x, y, z);
     if (length === 0 || z < 0) return [];
     const direction = { x: x / length, y: y / length };
@@ -297,7 +300,7 @@ const OpenLIMEViewer = forwardRef<
       const lensRuntimeRef = useRef<{
         layer: OpenLIME.LayerLens;
         controller: OpenLIME.ControllerFocusContext;
-        choices: Array<{ id: string; label: string; layer: OpenLIME.Layer; acquisitionLights: OpenLimeLightDirection[] }>;
+        choices: Array<{ id: string; label: string; layer: OpenLimeRelightableLayer; acquisitionLights: OpenLimeLightDirection[] }>;
       } | null>(null);
       const backgroundRuntimeRef = useRef<Array<{ id: string; label: string; layer: OpenLIME.Layer }>>([]);
       const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
@@ -321,8 +324,6 @@ const OpenLIMEViewer = forwardRef<
       const [lensEnabled, setLensEnabled] = useState(false);
       const [activeLensId, setActiveLensId] = useState<string | null>(null);
       const [showLensAcquisitionLights, setShowLensAcquisitionLights] = useState(false);
-      /** Panel-driven editing must preserve the current OCRA selection. */
-      const skipDeselectOnPencilEnableRef = useRef(false);
 
       const notifyPencilActive = (active: boolean) => {
         onPencilActiveChangeRef.current?.(active);
@@ -659,6 +660,9 @@ const OpenLIMEViewer = forwardRef<
             // With singleEditMode, vertex handles are shown only when exactly
             // one annotation is selected; activeAnnotation returns null otherwise.
             singleEditMode: true,
+            // Keep all geometry changes deliberate: Ctrl/Command moves a vertex,
+            // while Shift continues to translate the complete annotation.
+            vertexDragModifier: 'ctrl',
             // Avoid per-annotation state capture during viewer redraws (can become O(N) at idle).
             enableState: false,
 
@@ -804,7 +808,7 @@ const OpenLIMEViewer = forwardRef<
           onReadyRef.current?.();
 
           // Build independent diagnostic RTI layers after their source shaders are ready.
-          const lensChoices: Array<{ id: string; label: string; layer: OpenLIME.Layer; acquisitionLights: OpenLimeLightDirection[] }> = [];
+          const lensChoices: Array<{ id: string; label: string; layer: OpenLimeRelightableLayer; acquisitionLights: OpenLimeLightDirection[] }> = [];
           for (const background of backgroundRuntime.filter((entry) => entry.relightable)) {
             if (background.layer.status !== 'ready') {
               await new Promise<void>((resolve) => {
@@ -826,7 +830,7 @@ const OpenLIMEViewer = forwardRef<
               // gray_diffuse / specular / normals rendering inside the lens.
               const layer = new OpenLIME.Layer({ type: 'rti', sourceLayer: background.layer,
                 label,
-                transform: background.layer.transform.copy(), visible: false, zindex: backgroundRuntime.length + 1 });
+                transform: background.layer.transform.copy(), visible: false, zindex: backgroundRuntime.length + 1 }) as OpenLimeRelightableLayer;
               layer.setMode(diagnostic.mode);
 
               const lightState = background.layer.getControl?.('light')?.current?.value ?? [0, 0, 1];
@@ -1028,10 +1032,7 @@ const OpenLIMEViewer = forwardRef<
           const manager = annotationManagerRef.current;
           if (!manager) return;
           const on = Boolean(enabled);
-          const wasAlreadyEditing = manager.active;
-          if (on) skipDeselectOnPencilEnableRef.current = true;
           manager.toggle(on);
-          if (on && wasAlreadyEditing) skipDeselectOnPencilEnableRef.current = false;
           notifyPencilActive(on ? manager.active : false);
         },
       }));

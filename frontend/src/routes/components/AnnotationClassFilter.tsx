@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type {
   AnnotationClassFilterMode,
   SceneAnnotationClassOption,
@@ -23,16 +23,6 @@ export default function AnnotationClassFilter({
   clearFilter: () => void;
 }) {
   const [classPoolExpanded, setClassPoolExpanded] = useState(false);
-  const [classPoolSearch, setClassPoolSearch] = useState('');
-  const visibleClassPool = useMemo(() => {
-    const needle = classPoolSearch.trim().toLowerCase();
-    if (!needle) {
-      return pool;
-    }
-    return pool.filter((option) =>
-      option.curie.toLowerCase().includes(needle) || option.label.toLowerCase().includes(needle),
-    );
-  }, [classPoolSearch, pool]);
 
   const poolId = `${idPrefix}-annotation-class-chip-pool`;
 
@@ -67,15 +57,8 @@ export default function AnnotationClassFilter({
         <div
           id={poolId}
           className="border rounded p-2 bg-light-subtle d-flex flex-column gap-2 overflow-auto"
-          style={{ maxHeight: '18rem' }}
+          style={{ maxHeight: '12rem' }}
         >
-          <input
-            type="text"
-            className="form-control form-control-sm"
-            value={classPoolSearch}
-            onChange={(e) => setClassPoolSearch(e.target.value)}
-            placeholder="Search among classes present in this scene"
-          />
           <div className="d-flex flex-wrap gap-2">
             <button
               type="button"
@@ -85,7 +68,7 @@ export default function AnnotationClassFilter({
             >
               ALL
             </button>
-            {visibleClassPool.map((option) => {
+            {pool.map((option) => {
               const selected = filterValues.includes(option.curie);
               return (
                 <button
