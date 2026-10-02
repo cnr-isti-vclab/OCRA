@@ -1,19 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type {
   AnnotationClassFilterMode,
   SceneAnnotationClassOption,
 } from '../../context/AnnotationStoreContext';
-import {
-  UNCLASSIFIED_ANNOTATION_CLASS,
-  isUnclassifiedClassFilter,
-} from '../../stores/annotation-class-filter';
+import { isUnclassifiedClassFilter } from '../../stores/annotation-class-filter';
 
 export default function AnnotationClassFilter({
   idPrefix,
   pool,
   filterMode,
   filterValues,
-  setFilterValues,
   toggleFilterValue,
   selectAllFilters,
   clearFilter,
@@ -22,23 +18,12 @@ export default function AnnotationClassFilter({
   pool: readonly SceneAnnotationClassOption[];
   filterMode: AnnotationClassFilterMode;
   filterValues: readonly string[];
-  setFilterValues: (values: string[]) => void;
   toggleFilterValue: (value: string) => void;
   selectAllFilters: () => void;
   clearFilter: () => void;
 }) {
   const [classPoolExpanded, setClassPoolExpanded] = useState(false);
   const [classPoolSearch, setClassPoolSearch] = useState('');
-  const [manualClassFilterInput, setManualClassFilterInput] = useState('');
-
-  useEffect(() => {
-    setManualClassFilterInput(
-      filterValues
-        .map((curie) => (isUnclassifiedClassFilter(curie) ? 'Unclassified' : curie))
-        .join(', '),
-    );
-  }, [filterValues]);
-
   const visibleClassPool = useMemo(() => {
     const needle = classPoolSearch.trim().toLowerCase();
     if (!needle) {
@@ -49,26 +34,14 @@ export default function AnnotationClassFilter({
     );
   }, [classPoolSearch, pool]);
 
-  const commitManualClassFilterInput = () => {
-    const values = manualClassFilterInput
-      .split(/[,\n]+/)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0)
-      .map((value) =>
-        value.toLowerCase() === 'unclassified' ? UNCLASSIFIED_ANNOTATION_CLASS : value,
-      );
-    setFilterValues(values);
-  };
-
-  const inputId = `${idPrefix}-annotation-class-filter-input`;
   const poolId = `${idPrefix}-annotation-class-chip-pool`;
 
   return (
     <div className="mb-3 d-flex flex-column gap-2">
       <div className="d-flex justify-content-between align-items-center gap-2">
-        <label htmlFor={inputId} className="form-label small fw-semibold mb-0">
+        <span className="form-label small fw-semibold mb-0">
           Class filter
-        </label>
+        </span>
         <div className="d-flex align-items-center gap-2">
           <button
             type="button"
@@ -90,24 +63,12 @@ export default function AnnotationClassFilter({
         </div>
       </div>
 
-      <input
-        id={inputId}
-        type="text"
-        className="form-control form-control-sm"
-        value={manualClassFilterInput}
-        onChange={(e) => setManualClassFilterInput(e.target.value)}
-        onBlur={commitManualClassFilterInput}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            commitManualClassFilterInput();
-          }
-        }}
-        placeholder="CURIEs separated by commas"
-      />
-
       {classPoolExpanded && (
-        <div id={poolId} className="border rounded p-2 bg-light-subtle d-flex flex-column gap-2">
+        <div
+          id={poolId}
+          className="border rounded p-2 bg-light-subtle d-flex flex-column gap-2 overflow-auto"
+          style={{ maxHeight: '18rem' }}
+        >
           <input
             type="text"
             className="form-control form-control-sm"

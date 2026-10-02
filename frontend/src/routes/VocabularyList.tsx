@@ -2,6 +2,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getApiBase } from '../config/oauth';
+import type { VocabularyProviderSummary } from 'shared/external-vocabulary';
+import { getExternalVocabularyProviders } from '../services/ExternalVocabularyApi';
 // @spike feature/vocabulary-color-spike — remove this import when vocabulary data is in DB
 import TtlVocabularyWidget from './components/TtlVocabularyWidget';
 import AatVocabularyExplorer from './components/AatVocabularyExplorer';
@@ -39,6 +41,7 @@ interface User {
 
 export default function VocabularyList() {
   const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
+  const [providers, setProviders] = useState<VocabularyProviderSummary[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +84,12 @@ export default function VocabularyList() {
           throw new Error(`Failed to fetch vocabularies: ${response.status}`);
         }
 
-        const data = await response.json();
+        const [data, externalProviders] = await Promise.all([
+          response.json(),
+          getExternalVocabularyProviders(),
+        ]);
         setVocabularies(data.vocabularies || []);
+        setProviders(externalProviders);
       } catch (e: any) {
         console.error('Failed to fetch data:', e);
         setError(e?.message ?? String(e));
@@ -136,14 +143,8 @@ export default function VocabularyList() {
         </div>
       </div>
 
-      {/* Isolated external-vocabulary test area; it does not write AnnotationData. */}
-      <AatVocabularyExplorer />
-
-      {/* @spike feature/vocabulary-color-spike — remove <TtlVocabularyWidget /> when vocabulary data is in DB */}
-      <TtlVocabularyWidget />
-
       {/* Vocabularies Table */}
-      {vocabularies.length === 0 ? (
+      {vocabularies.length === 0 && providers.length === 0 ? (
         <div className="card">
           <div className="card-body text-center py-5">
             <i className="bi bi-book display-1 text-muted mb-3"></i>
@@ -162,6 +163,7 @@ export default function VocabularyList() {
                   <tr>
                     <th>Name</th>
                     <th>Description</th>
+                    <th>Source</th>
                     <th>Visibility</th>
                     <th>Created</th>
                     <th>Updated</th>
@@ -178,6 +180,7 @@ export default function VocabularyList() {
                           {vocabulary.description}
                         </div>
                       </td>
+                      <td>OCRA</td>
                       <td>
                         {vocabulary.public ? (
                           <span className="badge bg-success">
@@ -203,6 +206,29 @@ export default function VocabularyList() {
                       </td>
                     </tr>
                   ))}
+                  {providers.map((provider) => (
+                    <tr key={`provider:${provider.id}`}>
+                      <td>
+                        <strong>{provider.name}</strong>
+                      </td>
+                      <td>
+                        <div style={{ maxWidth: '400px' }}>{provider.description}</div>
+                      </td>
+                      <td>
+                        <a href={provider.canonicalUriPrefix} target="_blank" rel="noreferrer">
+                          Getty
+                        </a>
+                      </td>
+                      <td>
+                        <span className="badge bg-success">
+                          <i className="bi bi-patch-check me-1"></i>
+                          Authoritative
+                        </span>
+                      </td>
+                      <td><small className="text-muted">—</small></td>
+                      <td><small className="text-muted">—</small></td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -210,19 +236,11 @@ export default function VocabularyList() {
         </div>
       )}
 
-      {/* Info Section */}
-      <div className="mt-4">
-        <div className="card bg-light">
-          <div className="card-body">
-            <h5 className="card-title">About Vocabularies</h5>
-            <p className="card-text mb-0">
-              Vocabularies are controlled lists of terms and definitions used for consistent 
-              annotation and classification across the system. They ensure standardized 
-              terminology in documentation and analysis.
-            </p>
-          </div>
-        </div>
-      </div>
+      <AatVocabularyExplorer />
+
+      {/* @spike feature/vocabulary-color-spike — remove <TtlVocabularyWidget /> when vocabulary data is in DB */}
+      <TtlVocabularyWidget />
+
     </div>
   );
 }

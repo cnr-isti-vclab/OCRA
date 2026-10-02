@@ -1,6 +1,8 @@
 import type {
   ExternalVocabularyConcept,
   VocabularyConceptResponse,
+  VocabularyProviderSummary,
+  VocabularyProvidersResponse,
   VocabularySearchMatchOptions,
   VocabularySearchResponse,
   VocabularySearchResult,
@@ -20,6 +22,13 @@ async function responseError(response: Response): Promise<Error> {
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException('The request was aborted', 'AbortError');
+}
+
+export async function getExternalVocabularyProviders(): Promise<VocabularyProviderSummary[]> {
+  const response = await fetch(`${getApiBase()}/api/vocabularies/providers`, { credentials: 'include' });
+  if (!response.ok) throw await responseError(response);
+  const payload = await response.json() as VocabularyProvidersResponse;
+  return Array.isArray(payload.providers) ? payload.providers : [];
 }
 
 export async function searchExternalVocabulary(

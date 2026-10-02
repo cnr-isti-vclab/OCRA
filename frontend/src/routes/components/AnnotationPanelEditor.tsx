@@ -119,7 +119,6 @@ export default function AnnotationPanelEditor({
     vocabularyProperties,
     annotationClassFilterMode,
     annotationClassFilterValues,
-    setAnnotationClassFilterValues,
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
@@ -526,7 +525,6 @@ export default function AnnotationPanelEditor({
           pool={sceneAnnotationClassPool}
           filterMode={annotationClassFilterMode}
           filterValues={annotationClassFilterValues}
-          setFilterValues={setAnnotationClassFilterValues}
           toggleFilterValue={toggleAnnotationClassFilterValue}
           selectAllFilters={selectAllAnnotationClassFilters}
           clearFilter={clearAnnotationClassFilter}

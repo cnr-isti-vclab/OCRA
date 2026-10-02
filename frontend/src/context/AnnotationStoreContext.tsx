@@ -107,7 +107,6 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   sceneAnnotationClassPool: SceneAnnotationClassOption[];
   annotationClassFilterMode: AnnotationClassFilterMode;
   annotationClassFilterValues: string[];
-  setAnnotationClassFilterValues: (values: string[]) => void;
   toggleAnnotationClassFilterValue: (curie: string) => void;
   selectAllAnnotationClassFilters: () => void;
   clearAnnotationClassFilter: () => void;
@@ -733,26 +732,6 @@ export function AnnotationStoreProvider({
     setCustomAnnotationClassFilterValues(poolValues.filter((value) => next.has(value)));
   }, [annotationClassFilterValues, clearAnnotationClassFilter, sceneAnnotationClassPool]);
 
-  const setAnnotationClassFilterValues = useCallback((values: string[]) => {
-    const poolValues = sceneAnnotationClassPool.map((option) => option.curie);
-    const validValues = new Set(poolValues);
-    const next = [...new Set(values.map((value) => value.trim()).filter((value) => validValues.has(value)))];
-
-    if (next.length === 0) {
-      clearAnnotationClassFilter();
-      return;
-    }
-
-    if (next.length === poolValues.length) {
-      setAnnotationClassFilterMode('all');
-      setCustomAnnotationClassFilterValues([]);
-      return;
-    }
-
-    setAnnotationClassFilterMode('custom');
-    setCustomAnnotationClassFilterValues(poolValues.filter((value) => next.includes(value)));
-  }, [clearAnnotationClassFilter, sceneAnnotationClassPool]);
-
   useEffect(() => {
     if (annotationClassFilterMode === 'none') {
       return;
@@ -1084,7 +1063,6 @@ export function AnnotationStoreProvider({
     sceneAnnotationClassPool,
     annotationClassFilterMode,
     annotationClassFilterValues,
-    setAnnotationClassFilterValues,
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,

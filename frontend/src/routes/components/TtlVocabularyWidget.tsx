@@ -20,7 +20,7 @@ import { getVocabularySchemeLabel } from '../../utils/vocabulary';
 
 export default function TtlVocabularyWidget() {
   const [data, setData] = useState<VocabularyCatalog | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCurie, setSelectedCurie] = useState<string | null>(null);
   const [selectedPropertyCurie, setSelectedPropertyCurie] = useState<string | null>(null);

@@ -35,6 +35,10 @@ export interface VocabularyProviderSummary {
   canonicalUriPrefix: string;
 }
 
+export interface VocabularyProvidersResponse {
+  providers: VocabularyProviderSummary[];
+}
+
 export interface VocabularySearchResponse {
   provider: VocabularyProviderSummary;
   query: string;

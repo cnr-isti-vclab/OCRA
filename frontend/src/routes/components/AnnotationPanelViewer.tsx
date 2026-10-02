@@ -18,7 +18,6 @@ export default function AnnotationPanelViewer() {
     sceneAnnotationClassPool,
     annotationClassFilterMode,
     annotationClassFilterValues,
-    setAnnotationClassFilterValues,
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
@@ -53,7 +52,6 @@ export default function AnnotationPanelViewer() {
           pool={sceneAnnotationClassPool}
           filterMode={annotationClassFilterMode}
           filterValues={annotationClassFilterValues}
-          setFilterValues={setAnnotationClassFilterValues}
           toggleFilterValue={toggleAnnotationClassFilterValue}
           selectAllFilters={selectAllAnnotationClassFilters}
           clearFilter={clearAnnotationClassFilter}

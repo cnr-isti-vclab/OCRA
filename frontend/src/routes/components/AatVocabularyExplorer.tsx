@@ -94,15 +94,15 @@ export default function AatVocabularyExplorer() {
   };
 
   return (
-    <section className="card border-primary mb-4" aria-labelledby="aat-explorer-title">
+    <section className="card border-primary mt-4 mb-4" aria-labelledby="aat-explorer-title">
       <div className="card-header bg-primary-subtle d-flex align-items-center gap-2">
-        <span className="badge bg-primary">external vocabulary</span>
+        <span className="badge bg-primary">authoritative vocabulary</span>
         <strong id="aat-explorer-title">Getty Art &amp; Architecture Thesaurus (AAT)</strong>
       </div>
       <div className="card-body">
         <p className="text-muted small">
-          Experimental search area. It does not modify annotations. Getty's canonical URI is
-          the authoritative identity of every result.
+          Getty AAT is an authoritative controlled vocabulary for cultural heritage.
+          Its canonical URI is the identity of every result.
         </p>
 
         <div className="row g-2 align-items-start">
