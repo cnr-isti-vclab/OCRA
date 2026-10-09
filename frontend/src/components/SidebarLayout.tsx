@@ -6,6 +6,7 @@ import { getApiBase } from '../config/oauth';
 import { useProjectStructuringLock } from '../context/ProjectStructuringLockContext';
 import type { User } from 'shared/types';
 import { isOpenLime2DAsset } from 'shared/openlime-layout';
+import { PROJECT_ASSETS_CHANGED_EVENT } from '../services/project-assets-events';
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -52,6 +53,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [has3d, setHas3d] = useState<boolean | null>(null);
   const [has2d, setHas2d] = useState<boolean | null>(null);
+  const [assetRefreshVersion, setAssetRefreshVersion] = useState(0);
   const { getProjectLockState, toggleProjectLock } = useProjectStructuringLock();
   const lockState = getProjectLockState(currentProjectId ?? undefined);
 
@@ -69,6 +71,20 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
         setHas2d(assets.some(isOpenLime2DAsset));
       })
       .catch(() => { setHas3d(null); setHas2d(null); });
+  }, [assetRefreshVersion, currentProjectId]);
+
+  useEffect(() => {
+    if (!currentProjectId) return;
+
+    const handleAssetsChanged = (event: Event) => {
+      const changedProjectId = (event as CustomEvent<{ projectId?: string }>).detail?.projectId;
+      if (changedProjectId === currentProjectId) {
+        setAssetRefreshVersion((version) => version + 1);
+      }
+    };
+
+    window.addEventListener(PROJECT_ASSETS_CHANGED_EVENT, handleAssetsChanged);
+    return () => window.removeEventListener(PROJECT_ASSETS_CHANGED_EVENT, handleAssetsChanged);
   }, [currentProjectId]);
 
   useEffect(() => {

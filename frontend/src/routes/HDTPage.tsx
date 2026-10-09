@@ -21,6 +21,7 @@ import {
 } from '../services/EchoesApi';
 import type { EchoesProjectStatus } from '../types';
 import { OPENLIME_RASTER_IMAGE_EXTENSIONS } from 'shared/openlime-layout';
+import { notifyProjectAssetsChanged } from '../services/project-assets-events';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -1340,6 +1341,7 @@ export default function HDTPage() {
 
       // 6) Refresh data and show success
       await fetchProjectAndMetadata();
+      notifyProjectAssetsChanged(projectId);
 
       const typeLabel = responseData.type === 'rti'
         ? 'RTI'
@@ -1487,6 +1489,7 @@ export default function HDTPage() {
 
       await updateHdtAsset(assetId, updatePayload);
       await fetchProjectAndMetadata();
+      notifyProjectAssetsChanged(projectId);
 
       const typeLabel = responseData.type === 'rti'
         ? 'RTI'
@@ -2275,6 +2278,7 @@ export default function HDTPage() {
                                           setDigitalAssets((prev) => prev.filter((a) => a.id !== asset.id));
 
                                           await fetchProjectAndMetadata();
+                                          notifyProjectAssetsChanged(projectId);
                                           setSuccessMessage(`✓ Asset "${displayName}" deleted successfully!`);
                                         } catch (err: any) {
                                           setError(err?.message || 'Failed to delete asset');
