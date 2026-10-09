@@ -12,7 +12,7 @@ export const annotationVertex3DSchema = z.tuple([
 
 /** Sparse controls used to regenerate a dense surface-following line or area boundary. */
 export const annotationSurfacePathSchema = z.object({
-  mode: z.literal('view-projected'),
+  mode: z.enum(['view-projected', 'mesh-geodesic']),
   controlVertices: z.array(annotationVertex3DSchema).min(2),
 });
 

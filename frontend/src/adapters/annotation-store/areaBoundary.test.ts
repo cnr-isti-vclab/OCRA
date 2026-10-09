@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { annotationGeometrySchema, annotationShapePolygonSchema } from 'shared/annotation-schema';
+import {
+  annotationGeometrySchema,
+  annotationShapePolygonSchema,
+  annotationShapePolylineSchema,
+} from 'shared/annotation-schema';
 import type { ViewerSurfacePath } from 'shared/scene-types';
 import { createEmptyActiveSelection } from '../../stores/annotation-selection';
 import { draftShapesToViewerAnnotation } from '../../features/annotation-creation/draftGeometryToViewerAnnotation';
@@ -12,6 +16,15 @@ const vertices: [number, number, number][] = [controls[0], [1, 0, 0], controls[1
 const surfacePath: ViewerSurfacePath = { mode: 'view-projected', controlVertices: controls };
 
 describe('3D area boundary persistence', () => {
+  it('accepts mesh-geodesic line controls', () => {
+    const meshPath: ViewerSurfacePath = {
+      mode: 'mesh-geodesic',
+      controlVertices: controls.slice(0, 2),
+    };
+    const shape = viewerGeometryToShapes('line', vertices, meshPath)[0];
+    expect(annotationShapePolylineSchema.parse(shape)).toEqual(shape);
+  });
+
   it('retains dense vertices and sparse controls through schema, draft, and saved viewer adapters', () => {
     const shapes = viewerGeometryToShapes('area', vertices, surfacePath);
     const geometry = annotationGeometrySchema.parse(JSON.parse(JSON.stringify({

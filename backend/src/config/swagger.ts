@@ -1272,7 +1272,7 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
           required: ['mode', 'controlVertices'],
           description: 'Sparse controls used to regenerate a dense surface-following polyline.',
           properties: {
-            mode: { type: 'string', enum: ['view-projected'] },
+            mode: { type: 'string', enum: ['view-projected', 'mesh-geodesic'] },
             controlVertices: {
               type: 'array',
               minItems: 2,

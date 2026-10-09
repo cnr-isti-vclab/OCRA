@@ -4,6 +4,7 @@ backend/node_modules
 .env.development
 dist
 .vite
+frontend/three-presenter/wasm/build
 .git
 .gitignore
 Dockerfile

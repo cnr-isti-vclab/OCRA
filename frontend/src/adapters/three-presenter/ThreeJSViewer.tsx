@@ -32,7 +32,10 @@ export interface ThreeJSViewerRef {
   getAnnotationEditingEnabled: () => boolean;
   setAnnotationsVisible: (visible: boolean) => void;
   getAnnotationsVisible: () => boolean;
+  setDebugEnabled: (enabled: boolean) => void;
+  getDebugEnabled: () => boolean;
   adaptSelectedLineToCurrentView: () => boolean;
+  adaptSelectedLineToGeodesic: () => Promise<boolean>;
   getAnnotationManager: () => AnnotationManager;
   renderAnnotations: (annotations: ViewerAnnotation[]) => void;
   focusAnnotations: (annotations: readonly ViewerAnnotation[]) => void;
@@ -58,6 +61,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
   onAnnotationEditStart?: (annotation: ViewerAnnotation) => void;
   onAnnotationUpdated?: (annotation: ViewerAnnotation) => void;
   annotationEditingEnabled?: boolean;
+  debug?: boolean;
 }>(
   ({
     width = '100%',
@@ -74,6 +78,7 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
     onAnnotationEditStart,
     onAnnotationUpdated,
     annotationEditingEnabled = true,
+    debug = false,
   }, ref) => {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const presenterRef = useRef<ThreePresenter | null>(null);
@@ -146,8 +151,17 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       getAnnotationsVisible: () => {
         return presenterRef.current?.getAnnotationsVisible() ?? true;
       },
+      setDebugEnabled: (enabled: boolean) => {
+        presenterRef.current?.setDebugEnabled(enabled);
+      },
+      getDebugEnabled: () => {
+        return presenterRef.current?.getDebugEnabled() ?? false;
+      },
       adaptSelectedLineToCurrentView: () => {
         return presenterRef.current?.adaptSelectedLineToCurrentView() ?? false;
+      },
+      adaptSelectedLineToGeodesic: async () => {
+        return presenterRef.current?.adaptSelectedLineToGeodesic() ?? false;
       },
       getAnnotationManager: () => {
         if (!presenterRef.current) {
@@ -217,7 +231,8 @@ const ThreeJSViewer = forwardRef<ThreeJSViewerRef, {
       const fileResolver = new OcraFileUrlResolver();
       presenterRef.current = new ThreePresenter({
         mount: mountRef.current,
-        fileUrlResolver: fileResolver
+        fileUrlResolver: fileResolver,
+        debug,
       });
       presenterRef.current.onPointPicked = onPointPickedRef.current;
 

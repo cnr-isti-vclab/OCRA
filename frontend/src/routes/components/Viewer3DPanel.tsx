@@ -38,7 +38,11 @@ import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
 } from '../../shared/ui/AnnotationMessageModalCatalog';
-import type { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
+import {
+  AppMessageModalCatalog,
+  type MessageModalDescriptor,
+} from '../../shared/ui/AppMessageModalModel';
+import { isThreePresenterDebugEnabled } from '../../config/appConfig';
 
 interface Viewer3DPanelProps {
   sceneDesc: SceneDescription | null;
@@ -146,6 +150,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
     const [viewerReady, setViewerReady] = useState(false);
     const [surfaceFollowEnabled, setSurfaceFollowEnabled] = useState(false);
     const [annotationsVisible, setAnnotationsVisible] = useState(true);
+    const [geodesicAdaptationPending, setGeodesicAdaptationPending] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const isCreationGeometryNewRef = useRef(isCreationGeometryNew);
     isCreationGeometryNewRef.current = isCreationGeometryNew;
@@ -314,8 +319,37 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
 
     const adaptSelectedLineToCurrentView = useCallback(() => {
       const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
-      viewer?.adaptSelectedLineToCurrentView();
+      const adapted = viewer?.adaptSelectedLineToCurrentView() ?? false;
+      if (!adapted) {
+        setMessageModal(AppMessageModalCatalog.warning(
+          'All points of the line must be inside the current view and visible on the model.',
+          'Line not adapted',
+        ));
+      }
     }, [ref]);
+
+    const adaptSelectedLineToGeodesic = useCallback(async () => {
+      const viewer = (ref as React.RefObject<ThreeJSViewerRef>)?.current;
+      if (!viewer || geodesicAdaptationPending) return;
+      setGeodesicAdaptationPending(true);
+      try {
+        const adapted = await viewer.adaptSelectedLineToGeodesic();
+        if (!adapted) {
+          setMessageModal(AppMessageModalCatalog.warning(
+            'The selected line changed before the surface path was ready. Select it and try again.',
+            'Line not adapted',
+          ));
+        }
+      } catch (error) {
+        setMessageModal(AppMessageModalCatalog.error(
+          'The mesh-geodesic path could not be computed.',
+          'Geodesic adaptation failed',
+          [error instanceof Error ? error.message : String(error)],
+        ));
+      } finally {
+        setGeodesicAdaptationPending(false);
+      }
+    }, [geodesicAdaptationPending, ref]);
     useEffect(() => {
       if (!annotationTrash.isOpen || !viewerReady || annotationTrash.viewerSelectionGeometryIds.length === 0) return;
       const selectedIds = new Set(annotationTrash.viewerSelectionGeometryIds);
@@ -859,6 +893,7 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
           onAnnotationEditStart={handleAnnotationEditStart}
           onAnnotationUpdated={handleAnnotationUpdated}
           annotationEditingEnabled={!isCreationGeometryNew || toolbarMode === 'edit'}
+          debug={isThreePresenterDebugEnabled()}
         />
         {isDeletionGeometryPickActive && deletionDraft?.pendingResolution?.endpointKind === 'data' ? (
           <div
@@ -932,15 +967,28 @@ const Viewer3DPanel = forwardRef<ThreeJSViewerRef, Viewer3DPanelProps>(
               <i className={`bi ${annotationsVisible ? 'bi-eye' : 'bi-eye-slash'}`} aria-hidden />
             </button>
             {selectedLineForAdaptation ? (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-light"
-                onClick={adaptSelectedLineToCurrentView}
-                title="Adapt selected line to the visible surface from the current view"
-              >
-                <i className="bi bi-bezier2 me-1" aria-hidden />
-                Adapt line
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-light"
+                  onClick={adaptSelectedLineToCurrentView}
+                  disabled={geodesicAdaptationPending}
+                  title="Project the selected line onto the visible surface from the current view"
+                >
+                  <i className="bi bi-camera me-1" aria-hidden />
+                  Adapt view
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-light"
+                  onClick={() => void adaptSelectedLineToGeodesic()}
+                  disabled={geodesicAdaptationPending}
+                  title="Adapt the selected line to an approximate geodesic over the mesh"
+                >
+                  <i className={`bi ${geodesicAdaptationPending ? 'bi-hourglass-split' : 'bi-bezier2'} me-1`} aria-hidden />
+                  {geodesicAdaptationPending ? 'Adapting...' : 'Geodesic'}
+                </button>
+              </>
             ) : null}
           </div>
         ) : null}

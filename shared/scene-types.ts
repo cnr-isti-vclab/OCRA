@@ -26,7 +26,7 @@ export type ViewerAnnotationGeometry =
 
 /** Sparse controls retained for a dense surface-following 3D polyline. */
 export interface ViewerSurfacePath {
-  mode: 'view-projected';
+  mode: 'view-projected' | 'mesh-geodesic';
   controlVertices: [number, number, number][];
 }
 

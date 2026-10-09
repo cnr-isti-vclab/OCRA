@@ -9,6 +9,7 @@ declare global {
       scope?: string;
       apiBase?: string;
       showEccchDebugOperations?: boolean;
+      showThreePresenterDebug?: boolean;
     };
   }
 }
@@ -28,6 +29,15 @@ export function isEccchDebugOperationsEnabled(): boolean {
   }
 
   return import.meta.env.DEV;
+}
+
+export function isThreePresenterDebugEnabled(): boolean {
+  const configured = getRuntimeAppConfig().showThreePresenterDebug;
+  if (typeof configured === 'boolean') {
+    return configured;
+  }
+
+  return true;
 }
 
 export {};

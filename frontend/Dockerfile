@@ -1,3 +1,10 @@
+# Build the optional geometry core with the same pinned toolchain used locally.
+FROM emscripten/emsdk:3.1.64 AS geometry-wasm
+WORKDIR /work
+COPY frontend/three-presenter/wasm wasm/
+RUN emcmake cmake -S wasm -B wasm/build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build wasm/build --target ocra-geometry --parallel
+
 # Build stage (Node LTS)
 FROM node:22-alpine AS build
 WORKDIR /app
@@ -19,6 +26,8 @@ COPY shared/ shared/
 
 # Copy frontend source and build
 COPY frontend/ frontend/
+COPY --from=geometry-wasm /work/src/geometry/generated/ocra-geometry.js frontend/three-presenter/src/geometry/generated/ocra-geometry.js
+COPY --from=geometry-wasm /work/src/geometry/generated/ocra-geometry.wasm frontend/three-presenter/src/geometry/generated/ocra-geometry.wasm
 # Build local file: dependencies before the app build so Vite can resolve them.
 RUN cd frontend/openlime && npm install && npm run rollup
 RUN cd frontend/three-presenter && npm install && npm run build
