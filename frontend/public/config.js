@@ -6,5 +6,6 @@ window.__APP_CONFIG__ = window.__APP_CONFIG__ || {
   clientId: 'react-oauth',
   redirectUri: 'http://localhost:3001',
   scope: 'openid profile email',
-  showEccchDebugOperations: true
+  showEccchDebugOperations: true,
+  showThreePresenterDebug: true
 };

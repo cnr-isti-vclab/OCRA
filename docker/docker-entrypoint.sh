@@ -11,7 +11,8 @@ window.__APP_CONFIG__ = {
   redirectUri: "${REDIRECT_URI:-}",
   scope: "${SCOPE:-}",
   apiBase: "${VITE_API_BASE:-http://localhost:3002}",
-  showEccchDebugOperations: ${SHOW_ECCCH_DEBUG_OPERATIONS:-false}
+  showEccchDebugOperations: ${SHOW_ECCCH_DEBUG_OPERATIONS:-false},
+  showThreePresenterDebug: ${THREE_PRESENTER_DEBUG:-true}
 };
 EOF
 
