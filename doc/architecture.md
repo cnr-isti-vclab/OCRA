@@ -25,16 +25,16 @@ flowchart LR
   U["User Browser"]
   F["Frontend SPA (React + Vite build)\nserved at :3001"]
   B["Backend API (Express + TypeScript)\nserved at :3002"]
-  K["Keycloak (OIDC/OAuth2)\n:8081"]
+  E["EGI Check-in (OIDC/OAuth2)\nexternal service"]
   P["PostgreSQL (Prisma)\nusers/projects/sessions/roles\nstructuring_locks/presence_leases/vocabularies"]
   MC["MongoDB ocra_content\nhdt_collection\nannotation_geometry/data/link"]
   MA["MongoDB ocra_audit\naudit events"]
   FS["Filesystem project_files\n3d-model/rti/tmp"]
 
   U --> F
-  F -->|OAuth authorize| K
+  F -->|OAuth authorize| E
   F -->|/api calls + SSE| B
-  B -->|OIDC token exchange| K
+  B -->|OIDC token exchange| E
   B --> P
   B --> MC
   B --> MA
@@ -96,10 +96,10 @@ flowchart LR
 
 ## 1) Authentication (OAuth2 PKCE + server-side session)
 
-1. Frontend starts PKCE and redirects to Keycloak.
-2. Keycloak redirects browser back with authorization code.
+1. Frontend starts PKCE and redirects to EGI Check-in.
+2. EGI Check-in redirects the browser back with an authorization code.
 3. Frontend calls `POST /api/oauth/token` (backend proxy).
-4. Backend exchanges code with Keycloak.
+4. Backend exchanges the code with EGI Check-in.
 5. Frontend calls `POST /api/sessions` with `userProfile + tokens`.
 6. Backend persists user/session in PostgreSQL and sets `session_id` cookie.
 
@@ -156,7 +156,7 @@ flowchart LR
 ## Deployment Modes
 
 - Docker Compose mode:
-  - Frontend `:3001`, Backend `:3002`, Keycloak `:8081`, PostgreSQL `:5432`, MongoDB `:27017`.
+  - Frontend `:3001`, Backend `:3002`, PostgreSQL `:5432`, MongoDB `:27017`; EGI Check-in is external.
 - Local mixed mode:
   - External services started via `npm run services:start`.
   - Frontend/backend run locally with workspace scripts.

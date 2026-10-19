@@ -4,7 +4,16 @@
  * Main server startup with the restructured application
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
+
+dotenv.config({
+  path: [
+    fileURLToPath(new URL('../.env.egi-demo', import.meta.url)),
+    fileURLToPath(new URL('./.env', import.meta.url)),
+  ],
+  quiet: true,
+});
 import { createApp } from './src/app.js';
 import { getBackendReadinessReport } from './src/lib/readiness.js';
 

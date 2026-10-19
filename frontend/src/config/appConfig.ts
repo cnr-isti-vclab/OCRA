@@ -1,8 +1,6 @@
 declare global {
   interface Window {
     __APP_CONFIG__?: {
-      providerUrl?: string;
-      realm?: string;
       issuer?: string;
       clientId?: string;
       redirectUri?: string;

@@ -19,81 +19,11 @@ function getUnexpectedSeedArg() {
 const MODEL_FILE_NAME = 'Galassi-Allegoria_della_disperazione-Scan2014.glb';
 const MODEL_SOURCE_PATH = path.join(REPO_ROOT, 'media', 'Example-Galassi', MODEL_FILE_NAME);
 
-const DEMO_USERS = [
-  {
-    id: 'cmj6yge6h0000rx01k3p8gxl3',
-    sub: 'cc927c12-8122-4191-9232-7a56bc02feed',
-    email: 'admin@ocra.it',
-    name: 'System Administrator',
-    username: 'administrator',
-    given_name: 'System',
-    family_name: 'Administrator',
-    sys_admin: true,
-    sys_creator: false,
-  },
-  {
-    id: 'cmj3xy3g90002rr2rmargdt5r',
-    sub: '2f594010-e6d2-4f7b-8f2f-3d427de0f12f',
-    email: 'conservator@example.com',
-    name: 'Pinco Pallino',
-    username: 'conservator',
-    given_name: 'Pinco',
-    family_name: 'Pallino',
-    sys_admin: false,
-    sys_creator: false,
-  },
-  {
-    id: 'cmseedstudent0001rr2r85g3a9ca',
-    sub: '4c421f42-1771-4d52-a4f5-0c1d6bb7d4de',
-    email: 'student@example.com',
-    name: 'Mario Rossi',
-    username: 'student',
-    given_name: 'Mario',
-    family_name: 'Rossi',
-    sys_admin: false,
-    sys_creator: false,
-  },
-  {
-    id: 'cmseedrestor0002rr2r85g3a9cb',
-    sub: '7b2fd98d-95b1-429b-bf54-83376d232625',
-    email: 'restorator@example.com',
-    name: 'Anna Bianchi',
-    username: 'restorator',
-    given_name: 'Anna',
-    family_name: 'Bianchi',
-    sys_admin: false,
-    sys_creator: false,
-  },
-  {
-    id: 'cmj3xy3fx0000rr2rauvw5k0s',
-    sub: 'f1f7db89-8a7f-4d74-a5da-1cf88c4fa1d2',
-    email: 'labhead@example.com',
-    name: 'Giulia Verdi',
-    username: 'lab-head',
-    given_name: 'Giulia',
-    family_name: 'Verdi',
-    sys_admin: false,
-    sys_creator: false,
-  },
-  {
-    id: 'cmj3xy3g40001rr2r85g3a9cc',
-    sub: '8b7ad097-5c74-440a-bc4c-2fd3c5267338',
-    email: 'director@example.com',
-    name: 'Roberto Neri',
-    username: 'museum-director',
-    given_name: 'Roberto',
-    family_name: 'Neri',
-    sys_admin: false,
-    sys_creator: true,
-  },
-] as const;
-
 const GALASSI_PROJECT = {
   id: 'cmnqiksr50002f6afihzdzzxc',
   name: 'Monumento ai caduti della prima guerra mondiale (monumento ai caduti a cippo)',
   description: '',
   public: false,
-  managerSub: 'cc927c12-8122-4191-9232-7a56bc02feed',
   createdAt: new Date('2026-04-08T20:42:07.889Z'),
   updatedAt: new Date('2026-04-08T20:42:26.728Z'),
 } as const;
@@ -187,10 +117,6 @@ function buildGalassiAuditEvents(managerSub: string) {
 ];
 }
 
-function shouldSeedDemoUsers() {
-  return process.env.RUN_DEMO_USERS_SEED === 'true';
-}
-
 function galassiEntryPoint(projectId: string) {
   return `/assets/projects/${projectId}/3d-model/${GALASSI_ASSET.id}/${MODEL_FILE_NAME}`;
 }
@@ -220,52 +146,6 @@ function buildGalassiScene(projectId: string) {
     enableControls: true,
     rotationUnits: 'rad',
   };
-}
-
-async function ensureUser(user: (typeof DEMO_USERS)[number]) {
-  const existing = await prisma.user.findFirst({
-    where: {
-      OR: [{ id: user.id }, { email: user.email }, { sub: user.sub }],
-    },
-  });
-
-  const data = {
-    sub: user.sub,
-    email: user.email,
-    name: user.name,
-    username: user.username,
-    given_name: user.given_name,
-    family_name: user.family_name,
-    sys_admin: user.sys_admin,
-    sys_creator: user.sys_creator,
-  };
-
-  if (existing) {
-    return prisma.user.update({
-      where: { id: existing.id },
-      data,
-    });
-  }
-
-  return prisma.user.create({
-    data: {
-      id: user.id,
-      ...data,
-    },
-  });
-}
-
-async function seedUsers() {
-  console.log('🌱 Seeding Keycloak-backed users into PostgreSQL...');
-
-  const users = [];
-  for (const user of DEMO_USERS) {
-    const persistedUser = await ensureUser(user);
-    users.push(persistedUser);
-    console.log(`  ✓ User '${user.username}' ready`);
-  }
-
-  return users;
 }
 
 async function resolveDemoProjectManager() {
@@ -504,14 +384,6 @@ async function main() {
   }
 
   console.log('🌱 Starting OCRA full demo seed...');
-  console.log('   Keycloak users are imported separately from keycloak/realm-export/demo-realm.json');
-  console.log('');
-
-  if (shouldSeedDemoUsers()) {
-    await seedUsers();
-  } else {
-    console.log('ℹ️  Demo user seed skipped (RUN_DEMO_USERS_SEED is not true)');
-  }
 
   const manager = await resolveDemoProjectManager();
 
@@ -524,18 +396,8 @@ async function main() {
   console.log('✅ OCRA demo seed completed');
   console.log(`   Project: ${project.name}`);
   console.log(`   Asset: ${MODEL_FILE_NAME}`);
-  console.log('   Keycloak realm: demo');
   console.log('');
   console.log(`👤 Project manager: ${manager.email} (${manager.sub})`);
-  if (shouldSeedDemoUsers()) {
-    console.log('👤 Demo users ready:');
-    console.log('   - administrator / admin@ocra.it');
-    console.log('   - museum-director / museum-director');
-    console.log('   - lab-head / lab-head');
-    console.log('   - conservator / conservator');
-    console.log('   - student / student');
-    console.log('   - restorator / restorator');
-  }
   console.log('');
 }
 

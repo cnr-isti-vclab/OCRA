@@ -5,7 +5,7 @@
 Docker Compose automatically uses `docker-compose.yml` and `docker-compose.override.yml`.
 
 ```bash
-docker compose up
+docker compose --env-file .env.egi-demo up
 ```
 Access: http://localhost:3001
 
@@ -31,42 +31,13 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.
 ### Configuration Files Structure
 
 - `docker-compose.yml`: Base configuration (Core services, no ports exposed).
-- `docker-compose.override.yml`: Development overrides (Local Keycloak, ports exposed, Prisma schema access).
-- `docker-compose.prod.yml`: Production overrides (Restart policies, networks, no Keycloak).
+- `docker-compose.override.yml`: Development overrides (ports exposed, Prisma schema access).
+- `docker-compose.prod.yml`: Production overrides (restart policies and networks).
 
-### Customizing for EGI / External Auth
+### EGI Check-in authentication
 
-If you are using an external Identity Provider (like EGI) instead of the local Keycloak:
-1. The `keycloak` service is NOT included in `docker-compose.yml` or `docker-compose.prod.yml`, so it won't start.
-2. Configure `backend` and `app` in `.env.prod` to point to the external provider:
-   - `ISSUER=https://aai.egi.eu/auth/realms/egi`
-   - `PROVIDER_URL=...`
-
-### Development Only: Configure Local Keycloak Client
-
-**Why?** Keycloak needs to know which URLs are allowed to redirect and which domains can make API calls.
-
-1. Start Keycloak: `docker compose up -d keycloak`
-2. Access admin console: `http://your-server:8081`
-3. Login with default credentials (`admin` / `admin`), or override via `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` in `.env.prod`
-4. Select **demo** realm from dropdown (top-left)
-5. Go to **Clients** → **react-oauth**
-6. Configure these settings:
-
-   | Setting | Value | Notes |
-   |---------|-------|-------|
-   | **Valid redirect URIs** | `http://your-server:3001/*` | Must include `/*` wildcard |
-   | **Valid post logout redirect URIs** | `http://your-server:3001/*` | Must match redirect URIs |
-   | **Web origins** | `http://your-server:3001` | NO trailing slash or `/*` |
-   | **PKCE Code Challenge Method** | `plain` or blank | Required for HTTP deployments |
-
-7. Click **Save**
-
-**PKCE Method Explanation:**
-- HTTP sites cannot use `crypto.subtle` API (browser security)
-- `plain` method works on HTTP (less secure but functional)
-- `S256` method requires HTTPS (more secure)
-- Leave blank to accept both methods
+Development uses the shared EGI Check-in Demo client from `.env.egi-demo`. Production requires a distinct client
+registered for the production HTTPS redirect URI and uses issuer `https://aai.egi.eu/auth/realms/egi`.
 
 ### Step 1: Create `.env.prod`
 
@@ -86,24 +57,21 @@ MONGO_CONTENT_DB=ocra_content
 SYS_ADMIN_EMAIL=admin@isti.cnr.it
 CORS_ORIGINS=https://ocra.isti.cnr.it
 NODE_ENV=production
-# Keep demo users/projects out of production by default
+# Keep the demo project out of production by default
 RUN_DEMO_PROJECT_SEED=false
-RUN_DEMO_USERS_SEED=false
 # Optional demo override: every authenticated user is treated as creator at runtime
 DEMO_ALL_USERS_CREATOR=true
 # Optional: when RUN_DEMO_PROJECT_SEED=true, assign the demo project to this real user
 # DEMO_PROJECT_MANAGER_EMAIL=real.creator@example.org
 
 # Auth
-ISSUER=https://ocra.isti.cnr.it/auth/realms/demo
-CLIENT_ID=react-oauth
+ISSUER=https://aai.egi.eu/auth/realms/egi
+CLIENT_ID=<EGI_PRODUCTION_CLIENT_ID>
 CLIENT_SECRET=<STRONG_SECRET>
 
 # Frontend
-PROVIDER_URL=https://ocra.isti.cnr.it/auth
-REALM=demo
 REDIRECT_URI=https://ocra.isti.cnr.it
-SCOPE=openid profile email
+SCOPE=openid voperson_id email profile entitlements
 # NOTE: VITE_API_BASE can be omitted when using reverse proxy
 # VITE_API_BASE=https://ocra.isti.cnr.it
 ```
@@ -134,7 +102,6 @@ For a production-like deployment where the Galassi demo project is useful but fa
 
 ```bash
 RUN_DEMO_PROJECT_SEED=true
-RUN_DEMO_USERS_SEED=false
 DEMO_PROJECT_MANAGER_EMAIL=<one email from backend/config/system-users.json>
 ```
 
@@ -183,13 +150,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Only needed if running a local Keycloak (development or self-hosted auth).
-    # For external IdPs (e.g. EGI), remove this block.
-    location /auth/ {
-        proxy_pass http://ocra-keycloak:8080/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
 }
 ```
 
@@ -208,7 +168,7 @@ Do not run `npm run seed` on production unless you intentionally want the local 
 | **Ports** | Published to host | Exposed to networks only |
 | **Networks** | Default bridge | host-proxy-net + internal-net |
 | **node_modules** | Volume mounted | Built into image |
-| **Keycloak** | Local (H2 database) | Not included |
+| **OIDC provider** | EGI Check-in Demo | EGI Check-in Production |
 | **Demo seed** | Demo users + project enabled by override | Disabled by default; project can be enabled without demo users |
 | **Passwords** | Default | Strong required |
 | **URLs** | localhost | domain.com |
@@ -263,7 +223,5 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.
 
 ## Notes
 
-- Keycloak is a **placeholder** for demo - replace with real auth server for production
 - Database backups should be automated
 - Use HTTPS in production (configure SSL in reverse proxy)
-- Keycloak uses built-in H2 database (simpler, fine for placeholder use)

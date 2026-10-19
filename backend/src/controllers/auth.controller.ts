@@ -1,11 +1,11 @@
 /**
  * AUTH CONTROLLER (TypeScript version)
  * 
- * Handles authentication-related API endpoints including audit logs and debug functions.
+ * Handles authentication-related audit endpoints.
  */
 
 import { Request, Response } from 'express';
-import { getUserAuditLog, getFullAuditLog, testUserInfo } from '../services/auth.service.js';
+import { getUserAuditLog, getFullAuditLog } from '../services/auth.service.js';
 
 /**
  * Get audit log for a specific user
@@ -79,35 +79,6 @@ export async function getFullAuditLogController(req: Request, res: Response): Pr
     console.error('Error getting full audit log:', error);
     res.status(500).json({
       error: 'Failed to retrieve full audit log',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-}
-
-/**
- * Debug endpoint to test userinfo from access token
- */
-export async function debugUserInfo(req: Request, res: Response): Promise<void> {
-  try {
-    const { accessToken } = req.params;
-    
-    if (!accessToken) {
-      res.status(400).json({
-        error: 'Access token is required'
-      });
-      return;
-    }
-
-    const userInfo = await testUserInfo(accessToken);
-    
-    res.json({
-      success: true,
-      userInfo
-    });
-  } catch (error) {
-    console.error('Error getting user info:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve user info',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

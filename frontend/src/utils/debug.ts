@@ -26,7 +26,7 @@ export function inspectBrowserStorage(): void {
     const key = localStorage.key(i);
     if (key) {
       const value = localStorage.getItem(key);
-      const isOAuthRelated = key.includes('oauth') || key.includes('keycloak') || key.includes('auth') || key.includes('demo') || key.includes('session');
+      const isOAuthRelated = key.includes('oauth') || key.includes('auth') || key.includes('demo') || key.includes('session');
       if (isOAuthRelated) {
         console.log(`  🔑 ${key}:`, value);
         oauthRelated.push(key);

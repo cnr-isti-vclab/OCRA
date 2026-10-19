@@ -16,7 +16,7 @@ The second part keeps the frontend integration notes for annotations.
 For development, OCRA can be used in two ways:
 
 - non-bare: the full stack runs through Docker Compose
-- bare: PostgreSQL, MongoDB, and Keycloak run through the local helper services, while frontend and backend run directly from the workspace
+- bare: PostgreSQL and MongoDB run through the local helper services, while frontend and backend run directly from the workspace
 
 ### Non-Bare Development
 
@@ -25,7 +25,7 @@ Use Docker Compose when you want the whole application stack managed inside cont
 Start the development stack:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+docker compose --env-file .env.egi-demo up --build -d
 ```
 
 Stop it:
@@ -34,11 +34,11 @@ Stop it:
 docker compose down
 ```
 
-This mode is the simplest one when you want backend, frontend, PostgreSQL, MongoDB, and Keycloak all aligned inside the same containerized environment.
+This mode runs backend, frontend, PostgreSQL and MongoDB in containers; authentication uses EGI Check-in Demo.
 
 ### Bare Development
 
-Use the bare mode when you want databases and Keycloak managed by helper services, but backend and frontend executed directly from the local workspace.
+Use the bare mode when you want databases managed by helper services, but backend and frontend executed directly from the local workspace.
 
 Start the local services:
 
@@ -61,7 +61,7 @@ Stop the local services when done:
 npm run services:stop
 ```
 
-This mode gives you faster iteration on backend and frontend code while keeping PostgreSQL, MongoDB, and Keycloak available through the local service containers.
+This mode gives you faster iteration on backend and frontend code while keeping PostgreSQL and MongoDB in local service containers.
 
 ## Resetting OCRA Databases
 
@@ -73,7 +73,7 @@ Use this when you want to wipe the Docker Compose PostgreSQL and MongoDB state a
 
 ```bash
 docker compose down -v
-docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+docker compose --env-file .env.egi-demo up --build -d
 npm run db:migrate:compose
 npm run mongo:init
 docker compose down
@@ -93,7 +93,7 @@ Use this when you want to wipe the bare PostgreSQL and MongoDB state and recreat
 
 ```bash
 npm run services:stop
-docker rm -f bare-ocra-postgres bare-ocra-mongo bare-keycloak 2>/dev/null || true
+docker rm -f bare-ocra-postgres bare-ocra-mongo 2>/dev/null || true
 docker volume rm ocra-postgres-data ocra-mongo-data 2>/dev/null || true
 bash scripts/start-services.sh
 npm run db:migrate:bare
@@ -103,7 +103,7 @@ npm run services:stop
 What this does:
 
 - stops the bare local services
-- removes the bare PostgreSQL, MongoDB, and Keycloak containers
+- removes the bare PostgreSQL and MongoDB containers
 - removes the named PostgreSQL and MongoDB volumes
 - recreates the local service containers
 - reapplies the Prisma schema for the bare database

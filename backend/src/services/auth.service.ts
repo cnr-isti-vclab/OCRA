@@ -48,16 +48,3 @@ export async function getFullAuditLog(limit: number = 50) {
   // Prefer Mongo for full audit log
   return await (await import('./audit.service.js')).getFullAuditLogFromMongo(limit);
 }
-
-/**
- * Test user info by access token (debug function)
- */
-export async function testUserInfo(accessToken: string) {
-  // This is a debug function that would normally call Keycloak's userinfo endpoint
-  // For now, return a placeholder response
-  return {
-    message: 'This is a debug endpoint',
-    accessToken: accessToken.substring(0, 20) + '...',
-    note: 'In a real implementation, this would validate the token with Keycloak'
-  };
-}

@@ -14,7 +14,7 @@ OCRA is a collaborative platform for annotation and management of 3D assets. It 
 |---|---|---|
 | Frontend | React 19 + TypeScript, Vite, Bootstrap 5 | 3001 |
 | Backend | Node.js + Express, TypeScript via `tsx` | 3002 |
-| Auth | Keycloak (OAuth2 PKCE) | 8081 |
+| Auth | EGI Check-in (OIDC Authorization Code + PKCE) | external |
 | App DB | PostgreSQL 15 + Prisma ORM | 5432 |
 | Content/Audit DB | MongoDB 7 (replica set `rs0`) | 27017 |
 
@@ -65,23 +65,23 @@ Project files (3D models, RTI images) are served at `/assets/projects/<projectId
 
 ```bash
 # Whole stack. Compose auto-loads docker-compose.override.yml, which publishes
-# the host ports and adds the local Keycloak. No source mounts, no hot-reload:
+# the host ports. Authentication uses EGI Check-in Demo. No source mounts, no hot-reload:
 # the frontend is a built dist/ served by Nginx.
-docker compose up --build -d app
+cp .env.egi-demo.example .env.egi-demo # then set CLIENT_SECRET
+docker compose --env-file .env.egi-demo up --build -d app
 
 # Same stack minus the `app` container, for native Vite HMR on :3001 (see DEVELOPMENT.md).
-# `keycloak` must be named: `backend` has no depends_on for it but blocks on OIDC discovery.
-docker compose up --build keycloak backend
+# EGI Check-in must be reachable because backend readiness checks OIDC discovery.
+docker compose --env-file .env.egi-demo up --build backend
 npm run dev:frontend
 ```
 
-Keycloak is defined **only** in the override, so `docker compose -f docker-compose.yml up`
-starts a stack with no identity provider and the backend never becomes ready.
+The local client secret belongs only in the ignored `.env.egi-demo` file.
 
 ### Option B — Bare services + local processes
 
 ```bash
-# Start Postgres, Mongo, Keycloak as standalone Docker containers
+# Start Postgres and Mongo as standalone Docker containers
 npm run services:start        # script: scripts/start-services.sh
 
 # Run backend and frontend locally (separate terminals)
@@ -145,8 +145,8 @@ npm run project-files:cleanup # remove orphan files from project_files/
 | `MONGO_URL` | mongodb://mongodb:27017/?replicaSet=rs0 | MongoDB connection |
 | `MONGO_AUDIT_DB` | ocra_audit | Audit events database |
 | `MONGO_CONTENT_DB` | ocra_content | Annotation content database |
-| `ISSUER` | http://localhost:8081/realms/demo | Keycloak realm URL |
-| `CLIENT_ID` | react-oauth | Keycloak client |
+| `ISSUER` | https://aai-demo.egi.eu/auth/realms/egi | EGI Check-in Demo issuer |
+| `CLIENT_ID` | b5998dc7-d012-4e12-a800-16e3bdf3d3c5 | Shared OCRA development client |
 | `CORS_ORIGINS` | http://localhost:3001 | Comma-separated allowed origins |
 | `PROJECT_FILES_PATH` | /app/project_files | Static asset root |
 | `SYS_ADMIN_EMAIL` | admin@ocra.it | Seeded system admin email |

@@ -67,11 +67,10 @@ services:
       VOCABULARY_SEARCH_CACHE_TTL_MS: ${VOCABULARY_SEARCH_CACHE_TTL_MS:-300000}
       VOCABULARY_CONCEPT_CACHE_TTL_MS: ${VOCABULARY_CONCEPT_CACHE_TTL_MS:-3600000}
       # OAuth Configuration
-      ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
-      CLIENT_ID: ${CLIENT_ID:-react-oauth}
-      CLIENT_SECRET: ${CLIENT_SECRET}
+      ISSUER: ${ISSUER:-https://aai-demo.egi.eu/auth/realms/egi}
+      CLIENT_ID: ${CLIENT_ID:-b5998dc7-d012-4e12-a800-16e3bdf3d3c5}
+      CLIENT_SECRET: ${CLIENT_SECRET:-}
       RUN_DEMO_PROJECT_SEED: ${RUN_DEMO_PROJECT_SEED:-false}
-      RUN_DEMO_USERS_SEED: ${RUN_DEMO_USERS_SEED:-false}
       DEMO_PROJECT_MANAGER_EMAIL: ${DEMO_PROJECT_MANAGER_EMAIL:-}
       DEMO_PROJECT_MANAGER_SUB: ${DEMO_PROJECT_MANAGER_SUB:-}
     depends_on:
@@ -98,12 +97,10 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: ocra-frontend
     environment:
-      PROVIDER_URL: ${PROVIDER_URL:-http://localhost:8081}
-      REALM: ${REALM:-demo}
-      ISSUER: ${ISSUER:-http://localhost:8081/realms/demo}
-      CLIENT_ID: ${CLIENT_ID:-react-oauth}
+      ISSUER: ${ISSUER:-https://aai-demo.egi.eu/auth/realms/egi}
+      CLIENT_ID: ${CLIENT_ID:-b5998dc7-d012-4e12-a800-16e3bdf3d3c5}
       REDIRECT_URI: ${REDIRECT_URI:-http://localhost:3001}
-      SCOPE: ${SCOPE:-openid profile email}
+      SCOPE: ${SCOPE:-openid voperson_id email profile entitlements}
       VITE_API_BASE: ${VITE_API_BASE:-http://localhost:3002}
       SHOW_ECCCH_DEBUG_OPERATIONS: ${SHOW_ECCCH_DEBUG_OPERATIONS:-true}
       THREE_PRESENTER_DEBUG: ${THREE_PRESENTER_DEBUG:-true}

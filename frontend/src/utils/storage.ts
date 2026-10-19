@@ -15,7 +15,7 @@ export function clearOAuthStorage(): void {
   const oauthKeys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.includes('oauth') || key.includes('keycloak') || key.includes('auth') || key.includes('demo') || key.includes('session'))) {
+    if (key && (key.includes('oauth') || key.includes('auth') || key.includes('demo') || key.includes('session'))) {
       oauthKeys.push(key);
     }
   }

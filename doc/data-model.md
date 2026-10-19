@@ -24,7 +24,7 @@ This is the main source of truth for identity, authorization, and project regist
 
 ## `User`
 - Primary key: `id` (cuid)
-- External identity key: `sub` (unique, from OAuth provider, e.g. Keycloak)
+- External identity key: `sub` (unique, from EGI Check-in)
 - Email: `email` (unique, from OAuth provider, used as login identifier)
 - Profile fields: `name`, `username`, `given_name`, `family_name`, `middle_name` (all optional, populated from OAuth claims)
 - Global privileges:

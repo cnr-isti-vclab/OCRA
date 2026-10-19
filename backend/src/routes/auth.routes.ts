@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { getAuditLog, getFullAuditLogController, debugUserInfo } from '../controllers/auth.controller.js';
+import { getAuditLog, getFullAuditLogController } from '../controllers/auth.controller.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -45,58 +45,6 @@ const router = express.Router();
  */
 router.get('/users/:userSub/audit', requireAuth, getAuditLog);
 
-/**
- * @openapi
- * /api/debug/userinfo/{accessToken}:
- *   get:
- *     summary: Debug user info (Development only)
- *     description: Debug endpoint to test userinfo retrieval from Keycloak. Returns simulated response for development.
- *     tags:
- *       - Authentication
- *     parameters:
- *       - in: path
- *         name: accessToken
- *         required: true
- *         schema:
- *           type: string
- *         description: |
- *           The access token to debug. **Development token example**:
- *           
- *           ```
- *           curl -X POST http://<keycloak-host>:8081/auth/realms/demo/protocol/openid-connect/token \
- *             -H "Content-Type: application/x-www-form-urlencoded" \
- *             -d "client_id=admin-cli&grant_type=password&username=Administrator&password=admin@ocra.it" | jq -r .access_token
- *           ```
- *         example: "eyJhbGciOiJSUzI1NiIs..."
- *     responses:
- *       200:
- *         description: Simulated user info response (development only)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 userInfo:
- *                   type: object
- *                   properties:
- *                     message:
- *                       type: string
- *                       example: "This is a debug endpoint"
- *                     accessToken:
- *                       type: string
- *                       example: "eyJhbGciOiJSUzI1NiIs..."
- *                     note:
- *                       type: string
- *                       example: "In a real implementation, this would validate the token with Keycloak"
- *       500:
- *         description: Error retrieving user info
- */
 router.get('/admin/audit', requireAuth, requireAdmin, getFullAuditLogController);
-
-
-router.get('/debug/userinfo/:accessToken', debugUserInfo);
 
 export default router;
