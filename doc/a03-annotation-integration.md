@@ -145,7 +145,7 @@ In Compose development, some of this may already happen during container startup
 For non-bare:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+docker compose --env-file .env.egi-demo -f docker-compose.yml -f docker-compose.override.yml up --build -d
 docker compose exec backend npm run seed
 ```
 
@@ -177,7 +177,7 @@ Use it after the base seed, once you have a valid `projectId`.
 For non-bare:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+docker compose --env-file .env.egi-demo -f docker-compose.yml -f docker-compose.override.yml up --build -d
 docker compose exec backend npm run seed:annotation -- <projectId>
 ```
 

@@ -56,6 +56,8 @@ Notes:
 Troubleshooting
 ---------------
 
+- EGI returns `invalid_client` during token exchange: Compose was started without the client secret. Confirm that
+  `CLIENT_SECRET` is set in `.env.egi-demo`, then restart with `docker compose --env-file .env.egi-demo up -d`.
 - Stale frontend assets in the browser: clear the browser cache, or rebuild the `app` image and restart it.
 - The backend appears to run different code than your edits: confirm whether you are hitting the baked container
   image or the native `tsx watch` process from the hybrid/bare workflow.
