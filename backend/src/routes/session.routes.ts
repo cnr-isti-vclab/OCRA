@@ -19,7 +19,7 @@ const router = express.Router();
  * /api/sessions:
  *   post:
  *     summary: Create OAuth user session
- *     description: Creates a new session from OAuth provider response (Keycloak). Sets HTTP-only session cookie.
+ *     description: Creates a new session from the OIDC provider response. Sets an HTTP-only session cookie.
  *     tags:
  *       - Session
  *     requestBody:

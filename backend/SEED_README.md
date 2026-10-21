@@ -6,14 +6,11 @@ This document explains how the database seeding works in OCRA.
 
 The `seed.ts` script is a local development/demo seed. The backend startup script runs it only when `RUN_DEMO_PROJECT_SEED=true`.
 
-Demo user creation is separately controlled by `RUN_DEMO_USERS_SEED=true`.
-
 It populates the database with:
 
-1. **Demo Projects** - 4 example projects including two with pre-populated 3D models
-2. **Demo Users** - 3 test users from the Keycloak demo realm
-3. **Project Roles** - Role assignments for demo users
-4. **Project Files** - Scene JSON files and 3D model files copied to project folders
+1. **Demo Project** - the Galassi example with a pre-populated 3D model
+2. **Project Role** - manager assignment to an existing EGI-authenticated user
+3. **Project Files** - scene JSON and 3D model files copied to the project folder
 
 ## Project Folder Population
 
@@ -77,14 +74,12 @@ To add a new project with pre-populated files:
 
 ## Running Manually
 
-In local Docker development, `docker-compose.override.yml` sets `RUN_DEMO_PROJECT_SEED=true`.
-It also sets `RUN_DEMO_USERS_SEED=true`, so the local Keycloak demo users match the seeded PostgreSQL users.
+The seed requires an existing `sys_admin` or `sys_creator` user. Alternatively, select an existing user explicitly:
 
 For production-like deployments you can seed only the Galassi demo project:
 
 ```bash
 RUN_DEMO_PROJECT_SEED=true
-RUN_DEMO_USERS_SEED=false
 DEMO_PROJECT_MANAGER_EMAIL=real.creator@example.org
 ```
 
@@ -100,4 +95,4 @@ docker-compose exec backend npm run seed
 
 Note: Running the seed script multiple times is safe - it uses `upsert` operations that won't create duplicates.
 
-Do not run this script in production unless you explicitly want the demo users and demo project content.
+Do not run this script in production unless you explicitly want the demo project content.

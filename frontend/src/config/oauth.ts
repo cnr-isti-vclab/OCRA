@@ -3,7 +3,7 @@ import { getRuntimeAppConfig } from './appConfig';
 /**
  * OAuth Configuration
  *
- * Central configuration for OAuth2 PKCE flow with Keycloak
+ * Central configuration for the OAuth2/OIDC PKCE flow with EGI Check-in.
  */
 
 const CANONICAL_LOCAL_FRONTEND_ORIGIN = 'http://localhost:3001';
@@ -19,14 +19,14 @@ export const OAUTH_CONFIG = new Proxy({} as any, {
     const config = {
       issuer: getRuntimeAppConfig().issuer
         ? getRuntimeAppConfig().issuer
-        : 'http://localhost:8081/realms/demo',
+        : 'https://aai-demo.egi.eu/auth/realms/egi',
       clientId: getRuntimeAppConfig().clientId
         ? getRuntimeAppConfig().clientId
-        : 'react-oauth',
+        : 'b5998dc7-d012-4e12-a800-16e3bdf3d3c5',
       redirectUri: getRedirectUri(), // Use dynamic redirect URI logic
       scope: getRuntimeAppConfig().scope
         ? getRuntimeAppConfig().scope
-        : 'openid profile email'
+        : 'openid voperson_id email profile entitlements'
     };
     return config[prop as keyof typeof config];
   }

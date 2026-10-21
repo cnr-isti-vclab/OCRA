@@ -36,7 +36,7 @@ describe.sequential('readiness endpoint', () => {
     vi.mocked(getMongoClient).mockResolvedValue(mongoClientMock as never);
     prismaMock.$queryRawUnsafe.mockResolvedValue([{ '?column?': 1 }]);
     mongoAdminMock.ping.mockResolvedValue({ ok: 1 });
-    process.env.ISSUER = 'https://keycloak.example.test/realms/ocra';
+    process.env.ISSUER = 'https://oidc.example.test/realms/ocra';
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       status: 200,

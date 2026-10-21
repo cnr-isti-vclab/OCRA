@@ -24,7 +24,7 @@ Stable OCRA releases, tags, documentation, and release notes are intended to be 
 - Frontend: React + TypeScript (Vite), Bootstrap UI — dev server on `:3001`.
 - Backend: Node.js + Express; Prisma + PostgreSQL for application data (users, sessions, projects) — API on `:3002`.
 - Audit store: **MongoDB 7.0** (audit events including login/logout/file uploads stored in Mongo collection). Backend uses Prisma only to enrich audit documents with user info (read-only).
-- Authentication: OAuth2 PKCE (Keycloak). Realm exports under `keycloak/realm-export/`.
+- Authentication: OpenID Connect Authorization Code + PKCE through EGI Check-in.
 
 ## Quick Start
 
@@ -35,13 +35,19 @@ Stable OCRA releases, tags, documentation, and release notes are intended to be 
    cd OCRA
    ```
 
-2. Start services with Docker Compose:
+2. Create the ignored local EGI configuration and set the client secret issued by the Federation Registry:
 
    ```bash
-   docker compose up --build -d app
+   cp .env.egi-demo.example .env.egi-demo
    ```
 
-3. Open the application:
+3. Start services with Docker Compose:
+
+   ```bash
+   docker compose --env-file .env.egi-demo up --build -d app
+   ```
+
+4. Open the application:
 
    - Frontend: `http://localhost:3001`
    - Backend API: `http://localhost:3002`

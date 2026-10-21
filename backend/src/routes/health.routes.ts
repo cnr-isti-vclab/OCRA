@@ -87,10 +87,10 @@ router.get('/', healthCheck);
  *                           example: true
  *                         issuer:
  *                           type: string
- *                           example: https://keycloak.example.test/realms/ocra
+ *                           example: https://aai-demo.egi.eu/auth/realms/egi
  *                         discoveryUrl:
  *                           type: string
- *                           example: https://keycloak.example.test/realms/ocra/.well-known/openid-configuration
+ *                           example: https://aai-demo.egi.eu/auth/realms/egi/.well-known/openid-configuration
  *                         latencyMs:
  *                           type: number
  *                           example: 12

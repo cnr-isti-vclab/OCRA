@@ -1,5 +1,5 @@
 ---
-description: "OCRA project coding assistant. Use when working on the OCRA 3D annotation platform: adding features, debugging, reviewing code, or understanding the codebase architecture, backend routes/controllers/services, frontend components/routes, HDT data model, Prisma schema, Keycloak auth, or Docker setup."
+description: "OCRA project coding assistant. Use when working on the OCRA 3D annotation platform: adding features, debugging, reviewing code, or understanding the codebase architecture, backend routes/controllers/services, frontend components/routes, HDT data model, Prisma schema, EGI Check-in auth, or Docker setup."
 tools: [read, edit, search, execute, todo]
 ---
 
@@ -8,9 +8,9 @@ You are a coding assistant specialized in the OCRA platform — a web applicatio
 ## Stack
 
 - **Frontend**: React 19, React Router 7, Vite, Bootstrap 5, TypeScript (ESM)
-- **Backend**: Express 4, TypeScript (ESM), Prisma 5 (PostgreSQL), MongoDB (raw driver), Keycloak OIDC/PKCE
+- **Backend**: Express 4, TypeScript (ESM), Prisma 5 (PostgreSQL), MongoDB (raw driver), EGI Check-in OIDC/PKCE
 - **Shared types**: `shared/types.ts` and `shared/scene-types.ts` — the API contract between front and back; extend these rather than duplicating type definitions
-- **Containerization**: Docker Compose — ports 3001 (frontend), 3002 (backend), 8081 (Keycloak), 5432 (PostgreSQL), 27017 (MongoDB)
+- **Containerization**: Docker Compose — ports 3001 (frontend), 3002 (backend), 5432 (PostgreSQL), 27017 (MongoDB); authentication is external
 
 ## Architecture
 
@@ -45,6 +45,6 @@ Authoritative domain documentation is in `doc/`. Ignore `doc/outdated_docs/` —
 - **MongoDB topology**: MongoDB is expected to run as a single-node replica set named `rs0` in both Docker Compose and bare-metal local setups.
 - **MongoDB connection strings**: use `MONGO_URL=mongodb://mongodb:27017/?replicaSet=rs0` for Docker Compose and `MONGO_URL=mongodb://localhost:27017/?replicaSet=rs0` for bare-metal local development.
 - **MongoDB bootstrap**: if MongoDB is recreated or volumes are reset, re-run the bootstrap flow so replica set initialization and collection/index setup are applied (`scripts/bootstrap-mongo.sh` or the higher-level startup scripts).
-- **Dev Compose seeding**: the full local demo bootstrap depends on `docker-compose.override.yml`; backend seeding runs only when `NODE_ENV=development`.
-- **Seed ownership and scope**: `backend/seed.ts` is the authoritative idempotent demo seed for PostgreSQL, MongoDB, and `project_files`; Keycloak demo users are imported separately from `keycloak/realm-export/demo-realm.json`.
-- **Keycloak dev issuer**: in Docker Compose development, the public issuer must stay `http://localhost:8081/realms/demo` while the backend reaches Keycloak over the internal service network; keep hostname/backchannel settings aligned to avoid token issuer mismatches during PKCE login.
+- **Dev Compose seeding**: demo-project seeding is opt-in and requires an existing EGI-authenticated manager.
+- **Seed ownership and scope**: `backend/seed.ts` is the authoritative idempotent demo seed for PostgreSQL, MongoDB, and `project_files`.
+- **EGI dev issuer**: local development uses `https://aai-demo.egi.eu/auth/realms/egi` and the shared client settings from `.env.egi-demo`.

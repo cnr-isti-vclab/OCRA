@@ -4,7 +4,7 @@
   "private": true,
   "description": "OAuth2 PKCE Demo with React Frontend and Node.js Backend",
   "scripts": {
-    "dev": "docker compose up -d",
+    "dev": "docker compose --env-file .env.egi-demo up -d",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
     "build": "cd frontend && npm run build",

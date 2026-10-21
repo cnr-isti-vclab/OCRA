@@ -16,7 +16,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique // Email must be unique across all users
   name      String?
-  username  String?  // Keycloak login username (e.g., student, conservator)
+  username  String?  // Preferred username from the OIDC provider
   given_name String? // First/given name
   family_name String? // Last/family name
   middle_name String? // Middle name

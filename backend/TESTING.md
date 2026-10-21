@@ -45,11 +45,6 @@ DATABASE_URL="postgresql://ocra_user:ocra_pass@localhost:5432/ocra_test?schema=p
 # MongoDB Test Database (for audit logs)
 MONGODB_URL="mongodb://localhost:27017/?replicaSet=rs0"
 
-# Other required variables
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=demo
-KEYCLOAK_CLIENT_ID=ocra-backend
-KEYCLOAK_CLIENT_SECRET=your-secret-here
 ```
 
 ### 2. Database Creation

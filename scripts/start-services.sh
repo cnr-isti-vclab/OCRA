@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "▶ Starting local services (Postgres, Mongo, Keycloak)..."
+echo "▶ Starting local services (Postgres and Mongo)..."
 
 container_exists() {
   docker ps -a --format '{{.Names}}' | grep -q "^$1$"
@@ -9,10 +9,6 @@ container_exists() {
 
 container_running() {
   docker ps --format '{{.Names}}' | grep -q "^$1$"
-}
-
-published_host_port() {
-  docker port "$1" "$2" 2>/dev/null || true
 }
 
 has_host_port() {
@@ -28,14 +24,6 @@ has_host_port() {
 
 container_env_contains() {
   docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" | grep -qx "$2"
-}
-
-container_cmd_contains() {
-  docker inspect --format '{{json .Config.Cmd}}' "$1" | grep -q -- "$2"
-}
-
-container_mounts_include() {
-  docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' "$1" | grep -qx "$2"
 }
 
 running_container_on_host_port() {
@@ -118,21 +106,6 @@ wait_for_postgres() {
   done
 
   echo "❌ PostgreSQL did not become ready in time." >&2
-  exit 1
-}
-
-wait_for_keycloak_oidc() {
-  local discovery_url="$1"
-
-  for _ in $(seq 1 90); do
-    if curl -fsS "${discovery_url}" >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 2
-  done
-
-  echo "❌ Keycloak OIDC discovery did not become ready in time." >&2
-  echo "   URL: ${discovery_url}" >&2
   exit 1
 }
 
@@ -226,56 +199,5 @@ fi
 
 echo "  - Bootstrapping MongoDB databases and collections..."
 bash "$(dirname "$0")/bootstrap-mongo.sh" "${MONGO_NAME}"
-
-KEYCLOAK_NAME="bare-keycloak"
-assert_port_available_for_container "${KEYCLOAK_NAME}" 8081 "bare Keycloak"
-
-if container_exists "${KEYCLOAK_NAME}"; then
-  recreate_keycloak=0
-
-  if ! has_host_port "${KEYCLOAK_NAME}" "8080/tcp" 8081; then
-    echo "  - Recreating ${KEYCLOAK_NAME} with published port 8081..."
-    recreate_keycloak=1
-  fi
-
-  if ! container_env_contains "${KEYCLOAK_NAME}" "KEYCLOAK_ADMIN=Administrator" || \
-     ! container_env_contains "${KEYCLOAK_NAME}" "KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it"; then
-    echo "  - Recreating ${KEYCLOAK_NAME} with expected admin credentials..."
-    recreate_keycloak=1
-  fi
-
-  if ! container_cmd_contains "${KEYCLOAK_NAME}" "--import-realm"; then
-    echo "  - Recreating ${KEYCLOAK_NAME} with realm import enabled..."
-    recreate_keycloak=1
-  fi
-
-  if ! container_mounts_include "${KEYCLOAK_NAME}" "/opt/keycloak/data/import"; then
-    echo "  - Recreating ${KEYCLOAK_NAME} with realm import mount..."
-    recreate_keycloak=1
-  fi
-
-  if [[ ${recreate_keycloak} -eq 1 ]]; then
-    docker rm -f "${KEYCLOAK_NAME}" >/dev/null 2>&1 || true
-  fi
-fi
-
-if ! container_exists "${KEYCLOAK_NAME}"; then
-  echo "  - Creating ${KEYCLOAK_NAME}..."
-  docker run -d \
-    --name "${KEYCLOAK_NAME}" \
-    -p 8081:8080 \
-    -e KEYCLOAK_ADMIN=Administrator \
-    -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \
-    -e KC_HOSTNAME=http://localhost:8081 \
-    -v keycloak-data:/opt/keycloak/data \
-    -v "$(pwd)/keycloak/realm-export:/opt/keycloak/data/import" \
-    quay.io/keycloak/keycloak:latest \
-    start-dev --import-realm >/dev/null
-else
-  ensure_started "${KEYCLOAK_NAME}"
-fi
-
-echo "  - Waiting for Keycloak OIDC readiness..."
-wait_for_keycloak_oidc "http://localhost:8081/realms/demo/.well-known/openid-configuration"
 
 echo "✅ All services started (or already running)."

@@ -73,8 +73,8 @@ assert_no_running_ocra_containers() {
   local name
 
   for name in \
-    ocra-postgres ocra-mongodb ocra-backend ocra-frontend ocra-keycloak \
-    bare-ocra-postgres bare-ocra-mongo bare-keycloak; do
+    ocra-postgres ocra-mongodb ocra-backend ocra-frontend \
+    bare-ocra-postgres bare-ocra-mongo; do
     if container_running "${name}"; then
       running+=("${name}")
     fi

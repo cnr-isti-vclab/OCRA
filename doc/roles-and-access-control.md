@@ -24,7 +24,7 @@ Bianca and Denise open the project and review the annotations. Bianca, as manage
 
 OCRA has two orthogonal levels of roles: **system-level** and **project-level**. System roles are global privileges stored as flags on the `User` entity. Project roles are per-project assignments stored in `ProjectRole`.
 
-OCRA supports both authenticated users (via Keycloak OIDC) and anonymous (unauthenticated) access to public content. Anonymous users have minimal read-only access and are not assignable to projects.
+OCRA supports both authenticated users (via EGI Check-in OIDC) and anonymous access to public content. Anonymous users have minimal read-only access and are not assignable to projects.
 
 Resolution order:
 1. `sys_admin` overrides all project-scoped checks.

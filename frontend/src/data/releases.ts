@@ -94,7 +94,7 @@ export const releases: Release[] = [
     date: 'Sep 2025',
     highlights: [
       'Core OCRA web application: React 19 frontend + Node.js/Express backend',
-      'Keycloak / ECHOES AAI-SSO integration (OAuth2 PKCE) for production-oriented access',
+      'ECHOES AAI-SSO integration (OAuth2 PKCE) for production-oriented access',
       'Project creation and role-based access management (manager / viewer)',
       'PostgreSQL and MongoDB persistence for projects, sessions, and audit events',
       'Initial 3D asset viewer with scene lighting controls',

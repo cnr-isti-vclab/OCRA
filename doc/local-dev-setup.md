@@ -1,13 +1,12 @@
 # Local Development Setup (without Docker Compose)
 
-Guide to run **Keycloak**, **PostgreSQL**, **MongoDB**, backend and frontend locally for development, without rebuilding Docker Compose on every change.
+Guide to run PostgreSQL and MongoDB in containers, with backend and frontend locally. Authentication uses EGI Check-in Demo.
 
 ## 1. Prerequisites
 
 - Docker and Docker CLI installed
 - Node.js and npm installed  
 - Free ports:
-  - Keycloak: `8081` (mapped to container `8080`)
   - PostgreSQL: `5432`
   - MongoDB: `27017`
   - Backend: `3002`
@@ -25,26 +24,21 @@ Repository cloned to:
 
 ## 2. Environment configuration
 
-### 2.1 Root `.env` (Optional)
+### 2.1 EGI Demo credentials
 
-At `OCRA/.env`:
+Copy the safe template and set the client secret issued by the Federation Registry:
 
-```env
-NODE_ENV=production
+```bash
+cp .env.egi-demo.example .env.egi-demo
 ```
 
-This file is minimal and mainly used for deployment configuration.
+`.env.egi-demo` is ignored by Git and is loaded by both Docker Compose and the native backend.
 
 ### 2.2 Backend `.env`
 
 At `OCRA/backend/.env`:
 
 ```env
-# Keycloak
-ISSUER=http://localhost:8081/realms/demo
-CLIENT_ID=react-oauth
-CLIENT_SECRET=
-
 # Backend
 PORT=3002
 CORS_ORIGINS=http://localhost:3001,http://localhost:5173
@@ -69,23 +63,12 @@ MONGO_CONTENT_DB=ocra_content
 PROJECT_FILES_PATH=../project_files
 ```
 
-Ensure `server.ts` imports `dotenv/config`:
-
-```ts
-import 'dotenv/config';
-```
-
-So that the backend reads `backend/.env`.
-
-The same file is also loaded by the `backend` service in `docker compose`, so
-application-level flags such as `DEMO_ALL_USERS_CREATOR=true` can live in one
-place for both bare metal and Compose. Docker-specific infrastructure settings
-like `DATABASE_URL`, `MONGO_URL`, and `ISSUER` are still overridden by
-`docker-compose.yml` inside the container.
+The backend loads `.env.egi-demo` first and then `backend/.env`. Keep OAuth credentials in the former and
+database/application settings in the latter. Compose overrides its container-specific infrastructure values.
 
 ***
 
-## 3. Start DB services and Keycloak
+## 3. Start database services
 
 ### 3.1 Clean up old PostgreSQL containers (if needed)
 
@@ -105,7 +88,7 @@ docker rm bare-ocra-postgres
 
 ### 3.2 Use the automated script (RECOMMENDED)
 
-The project includes scripts to start/stop all services with correct credentials:
+The project includes scripts to start/stop the database services with correct credentials:
 
 ```bash
 cd /home/<user>/git/OCRA
@@ -121,7 +104,6 @@ This will create or start:
 - `bare-ocra-postgres` with `ocra_user:ocra_pass@localhost:5432/ocra`
 - PostgreSQL test database `ocra_test` owned by `ocra_user`
 - `bare-ocra-mongo` at `localhost:27017` with single-node replica set `rs0`
-- `bare-keycloak` at `localhost:8081`
 
 ### 3.3 Manual PostgreSQL setup (alternative)
 
@@ -158,26 +140,6 @@ npm run mongo:init
 ```
 
 The `mongo:init` step is idempotent. It also initializes the single-node replica set `rs0`, so run it again if the container already existed before replica set support was introduced.
-
-### 3.5 Manual Keycloak setup (alternative)
-
-```bash
-docker run -d \
-  --name bare-keycloak \
-  -p 8081:8080 \
-  -e KEYCLOAK_ADMIN=Administrator \
-  -e KEYCLOAK_ADMIN_PASSWORD=admin@ocra.it \
-  -v keycloak-data:/opt/keycloak/data \
-  quay.io/keycloak/keycloak:latest \
-  start-dev
-```
-
-Verify all services:
-
-```bash
-docker ps                   # should list all three containers
-curl http://localhost:8081/ # should return Keycloak HTML
-```
 
 ***
 
@@ -358,36 +320,14 @@ The backend uses this path via `PROJECT_FILES_PATH` in `backend/.env`.
 
 ***
 
-## 7. Keycloak configuration (demo realm)
+## 7. EGI Check-in Demo configuration
 
-### 7.1 Access Keycloak Admin Console
-
-1. Open `http://localhost:8081/` in the browser
-2. Log in as admin:
-   - Username: `Administrator`
-   - Password: `admin@ocra.it`
-
-### 7.2 Import demo realm
-
-1. Create realm `demo`:
-   - Left menu → **Create Realm**
-   - Name: `demo` → **Create**
-2. Import demo configuration:
-   - Select realm `demo` (top-left dropdown)
-   - **Realm settings → Action → Partial import**
-   - Upload `keycloak/realm-export/demo-realm.json`
-   - Check **Users** and **Clients** → **Import**
-3. Verify the client:
-   - **Clients → react-oauth**
-   - Check that **Valid redirect URIs** includes `http://localhost:3001/*`
-   - Check that **Web origins** includes `http://localhost:3001`
-
-Reference OIDC endpoints:
+The shared OCRA development client is configured in `.env.egi-demo`. Its public OIDC settings are:
 
 ```text
-Issuer: http://localhost:8081/realms/demo
-Authorization: /protocol/openid-connect/auth
-Token: /protocol/openid-connect/token
+Issuer: https://aai-demo.egi.eu/auth/realms/egi
+Client ID: b5998dc7-d012-4e12-a800-16e3bdf3d3c5
+Redirect URI: http://localhost:3001
 ```
 
 ***
@@ -448,12 +388,8 @@ Using separate terminals allows you to:
 ### 9.1 Login process
 
 1. From the frontend, click **Login**
-2. Keycloak login page opens for realm `demo`
-3. Use demo credentials, for example:
-   ```text
-   username: museum-director
-   password: museum-director
-   ```
+2. EGI Check-in Demo opens
+3. Authenticate with the developer's own EGI identity
 
 ### 9.2 Grant creator permissions (if needed)
 
@@ -463,11 +399,11 @@ After first login, the user is created in the `users` table. If you need creator
 psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "
 UPDATE users 
 SET sys_admin = true, sys_creator = true 
-WHERE username = 'museum-director';
+WHERE email = '<developer-email>';
 "
 ```
 
-When logged in as `museum-director` you should see the button to create new projects.
+After logging in again, the developer should see the button to create new projects.
 
 ***
 
@@ -585,7 +521,6 @@ Check if ports are already in use:
 ```bash
 lsof -i :5432  # PostgreSQL
 lsof -i :27017 # MongoDB
-lsof -i :8081  # Keycloak
 lsof -i :3002  # Backend
 lsof -i :3001  # Frontend
 ```
@@ -627,7 +562,7 @@ psql postgresql://ocra_user:ocra_pass@localhost:5432/ocra -c "SELECT * FROM sess
 
 **Verify Docker services:**
 ```bash
-docker ps  # bare-ocra-postgres, bare-ocra-mongo, bare-keycloak should be 'Up'
+docker ps  # bare-ocra-postgres and bare-ocra-mongo should be 'Up'
 ```
 
 **Backend readiness:**
@@ -636,7 +571,8 @@ curl http://localhost:3002/health/ready
 curl http://localhost:3002/oauth/status
 ```
 
-With this setup you can develop locally with hot-reload (backend via `tsx watch`, frontend via Vite) using containers only for external services (Keycloak, PostgreSQL, MongoDB).
+With this setup you can develop locally with hot-reload (backend via `tsx watch`, frontend via Vite), using
+containers only for PostgreSQL and MongoDB and EGI Check-in Demo for authentication.
 
 ***
 
@@ -663,7 +599,7 @@ npm run install:backend
 If you prefer to run everything in containers (including frontend/backend):
 
 ```bash
-# Start all services including frontend/backend in containers
+# Start the application and databases in containers; authentication remains external
 npm run dev
 
 # View logs
