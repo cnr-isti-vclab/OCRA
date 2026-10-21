@@ -11,6 +11,19 @@ export interface Release {
  */
 export const releases: Release[] = [
   {
+    version: '202610',
+    date: 'Oct 2026',
+    highlights: [
+      'End-to-end Geometry–Data–Link annotation model with flexible many-to-many relationships and batch authoring workflows',
+      'Unified 2D and 3D annotation workbench for creating, editing, unlinking, and deleting annotations',
+      'Complete 3D geometry authoring with points, surface-following polylines, and surface-conforming areas',
+      'Non-destructive annotation lifecycle with relationship-aware soft deletion, ghost visualisation, trash, and restore',
+      'Provider-neutral controlled-vocabulary adapter, with Getty AAT as the first integration and advanced concept search',
+      'Developer authentication migrated from local Keycloak to federated EGI Check-in',
+      'Expanded cultural-heritage discovery and import workflows through Europeana and Wikidata',
+    ],
+  },
+  {
     version: '202607',
     date: 'Jul 2026',
     highlights: [
