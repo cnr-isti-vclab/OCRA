@@ -39,9 +39,10 @@ All three entities carry a `version` field for **OCC (Optimistic Concurrency Con
 
 ### Real-time events
 
-**SSE (Server-Sent Events)** — no WebSockets. Two independent event buses:
+**SSE (Server-Sent Events)** — no WebSockets. Three independent event buses:
 - **Annotation events** (`backend/src/lib/annotation-events.ts`): mutation broadcasts + in-memory social locks (presence/editor) keyed by project+scene+resource.
 - **Structuring events** (`backend/src/lib/structuring-events.ts`): broadcasts when the project-structuring lock state changes.
+- **Project catalog events** (`backend/src/lib/project-catalog-events.ts`): `project.catalog.created|updated|deleted`, so sidebars and project lists refresh.
 
 The **structuring lock** is database-backed (`StructuringLock` table) with a heartbeat TTL of 30 s and a `draining` → `exclusive` state machine. Frontend coordinator: `frontend/src/services/ProjectStructuringCoordinator.ts`.
 
@@ -56,6 +57,36 @@ Auth middleware (`backend/src/middleware/auth.ts`) resolves the session cookie �
 ### Static file serving
 
 Project files (3D models, RTI images) are served at `/assets/projects/<projectId>/…` from `PROJECT_FILES_PATH` (default: `/app/project_files`).
+
+### API surface and external integrations
+
+`createApp()` mounts the API router at `/api` (see `backend/src/routes/index.ts`); `/health`, `/ready` and the static `/assets/projects` sit outside it.
+
+| Prefix | Purpose |
+|---|---|
+| `/api/projects` | Projects, HDT metadata (`/:id/hdt`), annotations (`/:id/annotations`), concurrency |
+| `/api/users`, `/api/admin`, `/api/sessions`, `/api/oauth` | Accounts, administration, auth |
+| `/api/eccch` | ECHOES knowledge base — two-way: create or enrich a project from an ECHOES HDT/RDF twin, push back, delete |
+| `/api/arco`, `/api/wikidata`, `/api/europeana` | Read-only `search` + `detail` lookups for sourcing physical-object metadata |
+| `/api/vocabularies` | Stored vocabularies (CRUD) and external providers (`/:providerId/search`, concept broader/narrower) |
+| `/api/sparql-proxy` | SPARQL pass-through for the HDT/ECHOES side |
+| `/api/vocabulary` | `@spike` (`vocabulary-concepts.routes.ts`) — scheduled for removal, do not build on it |
+
+### Viewer submodules
+
+Two git submodules under `frontend/`, both checked out on their own branch:
+
+- `frontend/openlime` — OpenLIME 2D/RTI viewer, branch `ocra-integration`. OCRA-side glue: `frontend/src/adapters/openlime-viewer/`.
+- `frontend/three-presenter` — ThreePresenter 3D viewer, branch `devel`, with its own `AGENTS.md`. OCRA-side glue: `frontend/src/adapters/three-presenter/`.
+
+What may and may not be changed inside each one is stated under *Instructions for Agents* at the end of this file.
+
+Both must be built before Vite can resolve them, and again after every submodule update, or the dev server fails with *"Failed to resolve entry for package openlime"*:
+
+```bash
+npm run build:openlime          # also: npm run update:openlime
+npm run build:three-presenter   # also: npm run update:three-presenter
+```
 
 ### Code conventions
 
@@ -124,9 +155,12 @@ After editing `backend/prisma/schema.prisma`, always run `npm run db:generate`.
 
 ### Testing
 
-Tests require running Postgres and Mongo. Use `npm run services:start` to bring them up.
+There are two tiers. Pure unit tests need no databases; everything under `backend/src/test/` needs Postgres and Mongo running (`npm run services:start`).
 
 ```bash
+# Unit tier — no DB required (shared/, frontend stores, features, utils, adapters)
+npm run test:unit
+
 # Root script: only the comprehensive workflow e2e file
 npm test
 
@@ -148,6 +182,8 @@ Test databases: `ocra_test` (Postgres) and `ocra_audit_test` / `ocra_content_tes
 
 All tests run **sequentially** (`singleFork: true` in `backend/vitest.config.ts`) to avoid DB conflicts. Use `describe.sequential` in new test files.
 
+The unit tier is driven by `vitest.unit.config.ts` at the repo root, whose `include` is a **hand-maintained allowlist**: a new DB-free test file is silently never run until its path is added there.
+
 ### Misc
 
 ```bash
@@ -156,6 +192,8 @@ npm run services:stop         # stop bare service containers
 npm run mongo:init            # bootstrap Mongo collections
 npm run project-files:cleanup # remove orphan files from project_files/
 ```
+
+`cd backend && npm run project:package:export` / `:import` move a whole project (databases plus `project_files/`) between environments — see [`backend/doc/project-backup-and-restore.md`](backend/doc/project-backup-and-restore.md). From the root, `npm run project:inspect` dumps one project by id through the `backend` container, `npm run project:inspect:bare` against local services.
 
 `backend/seed.ts` (`cd backend && npm run seed`) is the authoritative idempotent demo seed for PostgreSQL, MongoDB and `project_files`; it is opt-in and needs an existing EGI-authenticated manager. MongoDB must run as the single-node replica set `rs0` in every setup — re-run `npm run mongo:init` whenever its volumes are reset.
 
@@ -179,8 +217,7 @@ Swagger API docs are available at `http://localhost:3002/api-docs` when the back
 
 ## Instructions for Agents
 
-When working on this codebase, please adhere to the following principles (if existsing, otherwise use your best judgment):
-AGENTS.md
+When working on this codebase, please adhere to the following principles:
 
 Remember that I really prefer to avoid code bloating. I always prefer solutions that need less code with respect to ones that are implemented in more code. In particular, I do not want duplication of code or functionalities. Also check always for leftover files and functions and ask for their removal. 
 The less code you write the better it is. If sometimes I ask you something whose implementation requires you to write a lot of new code, please warn me before starting and, if possible, suggest solutions that would require less code.  Also always look for leftovers, like files or functions that are no more used.
