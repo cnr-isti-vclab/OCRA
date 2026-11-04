@@ -24,7 +24,7 @@ OCRA is a collaborative platform for annotation and management of 3D assets. It 
 
 **MongoDB — two logical databases:**
 - `ocra_audit`: audit events (login/logout/file uploads). Repository: `backend/src/repositories/audit.repository.ts`.
-- `ocra_content`: annotation data in three collections — `annotation_geometry`, `annotation_data`, `annotation_link`. Repositories in `backend/src/repositories/annotation-*.repository.ts`.
+- `ocra_content`: the per-project **HDT document** (`hdt_collection`, one per `projectId` — physical-object metadata, digital assets, scenes, ECHOES context; repository `hdt.repository.ts`), plus annotation data in three collections — `annotation_geometry`, `annotation_data`, `annotation_link` (repositories in `backend/src/repositories/annotation-*.repository.ts`).
 
 Annotations are **not** in PostgreSQL. The Prisma client is only used in annotation code to enrich documents with user/project info.
 
@@ -56,6 +56,28 @@ Auth middleware (`backend/src/middleware/auth.ts`) resolves the session cookie �
 ### Static file serving
 
 Project files (3D models, RTI images) are served at `/assets/projects/<projectId>/…` from `PROJECT_FILES_PATH` (default: `/app/project_files`).
+
+### Code conventions
+
+**Backend** — `routes/*.routes.ts` → `controllers/*.controller.ts` → `services/*.service.ts` → `repositories/*.repository.ts`.
+
+- Every import carries the `.js` extension (strict ESM), even when importing `.ts` sources.
+- Filenames are `kebab-case` with the suffixes `.routes.ts`, `.controller.ts`, `.service.ts`, `.middleware.ts`, `.repository.ts`.
+- `createApp()` in `backend/src/app.ts` returns a configured, testable Express instance.
+- Routes carry Swagger JSDoc annotations.
+
+**Frontend** — `routes/` (pages) → `components/` (shared UI) → `services/` (API calls) → `adapters/` (viewer integrations).
+
+- Auth shell and PKCE redirect handling in `App.tsx`; API client and OAuth logic in `frontend/src/backend.ts`.
+- Domain-scoped code under `features/`, viewer integrations under `adapters/`, annotation state in `stores/`.
+
+**Shared** — `shared/types.ts` and `shared/scene-types.ts` are the API contract between front and back: extend them rather than redeclaring types on either side.
+
+`projectId` (the PostgreSQL `Project.id`) is the bridge key across PostgreSQL, MongoDB and the `project_files/` path segment.
+
+### Documentation
+
+Domain documentation is indexed in [`doc/README.md`](doc/README.md). `doc/outdated_docs/` is superseded — ignore it. `internaldoc/` holds project deliverables, not code guidance.
 
 ---
 
@@ -134,6 +156,8 @@ npm run services:stop         # stop bare service containers
 npm run mongo:init            # bootstrap Mongo collections
 npm run project-files:cleanup # remove orphan files from project_files/
 ```
+
+`backend/seed.ts` (`cd backend && npm run seed`) is the authoritative idempotent demo seed for PostgreSQL, MongoDB and `project_files`; it is opt-in and needs an existing EGI-authenticated manager. MongoDB must run as the single-node replica set `rs0` in every setup — re-run `npm run mongo:init` whenever its volumes are reset.
 
 ---
 
