@@ -30,7 +30,7 @@ import {
 } from './annotation-selection';
 import type { PrimaryAnnotationSelection } from '../types/annotationSelection';
 import { annotationListSelection } from '../utils/annotationListSelection';
-import type { AnnotationCreationDraft, AnnotationCreationRememberedSetup } from '../features/annotation-creation/types';
+import type { AnnotationCreationDraft, AnnotationCreationRememberedSetup, AnnotationDrawingMode } from '../features/annotation-creation/types';
 import { createDefaultCreationDraft } from '../features/annotation-creation/createDefaultCreationDraft';
 import { flushCreationDraftGeometry } from '../features/annotation-creation/creationDraftGeometryFlush';
 import { formatCreationCommitError } from '../features/annotation-creation/formatCreationCommitError';
@@ -97,7 +97,7 @@ import {
   isEntityBlockedForDeletion,
 } from '../features/annotation-deletion/isEntityBlockedForDeletion';
 
-export type { AnnotationCreationDraft } from '../features/annotation-creation/types';
+export type { AnnotationCreationDraft, AnnotationDrawingMode } from '../features/annotation-creation/types';
 export type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
 
 export type DeletionBasketAddResult =
@@ -290,11 +290,11 @@ export class AnnotationStore {
         || this.deletionDraft.step === 'committing');
   }
 
-  initCreationDraft(): void {
+  initCreationDraft(defaultDrawingMode?: AnnotationDrawingMode): void {
     if (this.deletionDraft) {
       return;
     }
-    let draft = createDefaultCreationDraft(this.sceneId);
+    let draft = createDefaultCreationDraft(this.sceneId, defaultDrawingMode);
     if (this.rememberedCreationSetup) {
       draft = applyRememberedCreationSetup(draft, this.rememberedCreationSetup);
     }

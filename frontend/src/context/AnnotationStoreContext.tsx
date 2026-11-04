@@ -43,6 +43,7 @@ import {
   type CreateAnnotationInput,
   type UpdateDataInput,
   type AnnotationCreationDraft,
+  type AnnotationDrawingMode,
   type AnnotationDeletionDraft,
   type DeletionBasketAddResult,
 } from '../stores/AnnotationStore';
@@ -115,7 +116,7 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   creating: boolean;
   creationDraft: Readonly<AnnotationCreationDraft> | null;
   isCreationWizardActive: boolean;
-  initCreationDraft: () => void;
+  initCreationDraft: (defaultDrawingMode?: AnnotationDrawingMode) => void;
   updateCreationDraft: (patch: Partial<AnnotationCreationDraft>) => void;
   discardCreationDraft: () => void;
   beginCreationWizard: () => { ok: true } | { ok: false; message: string };
@@ -815,8 +816,8 @@ export function AnnotationStoreProvider({
     await storeRef.current?.createAnnotation(input);
   }, []);
 
-  const initCreationDraft = useCallback(() => {
-    storeRef.current?.initCreationDraft();
+  const initCreationDraft = useCallback((defaultDrawingMode?: AnnotationDrawingMode) => {
+    storeRef.current?.initCreationDraft(defaultDrawingMode);
   }, []);
 
   const updateCreationDraft = useCallback((patch: Partial<AnnotationCreationDraft>) => {

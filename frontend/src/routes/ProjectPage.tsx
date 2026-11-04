@@ -1664,6 +1664,7 @@ export default function ProjectPage() {
                               id: asset.id,
                               label: asset.label || asset.title || asset.id,
                             }))}
+                            defaultDrawingMode={mode === '3d' ? 'point' : 'area'}
                             onClose={closeAnnotationWorkbench}
                           />
                         ) : null}

@@ -30,17 +30,3 @@ export function resolveCreationToolbarMode(
   }
   return 'edit';
 }
-
-export function creationToolbarDisabledModes(
-  isCreationGeometryNew: boolean,
-  isCreationGeometrySearch: boolean,
-  hasDraftGeometry = false,
-): AnnotationToolbarMode[] {
-  if (isCreationGeometryNew) {
-    return hasDraftGeometry ? [] : ['edit'];
-  }
-  if (isCreationGeometrySearch) {
-    return ['point', 'line', 'area'];
-  }
-  return [];
-}

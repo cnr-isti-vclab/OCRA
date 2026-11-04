@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  creationToolbarDisabledModes,
-  resolveCreationToolbarMode,
-} from './resolveCreationToolbarMode';
+import { resolveCreationToolbarMode } from './resolveCreationToolbarMode';
 
 describe('resolveCreationToolbarMode', () => {
   it('keeps the drawing tool during sticky new geometry creation', () => {
@@ -54,11 +51,5 @@ describe('resolveCreationToolbarMode', () => {
         isCreationGeometrySearch: false,
       }),
     ).toBe('edit');
-  });
-
-  it('lists disabled toolbar modes per wizard mode', () => {
-    expect(creationToolbarDisabledModes(true, false)).toEqual(['edit']);
-    expect(creationToolbarDisabledModes(true, false, true)).toEqual([]);
-    expect(creationToolbarDisabledModes(false, true)).toEqual(['point', 'line', 'area']);
   });
 });

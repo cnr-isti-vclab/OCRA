@@ -22,7 +22,7 @@ import {
   isGeometryFirst,
   isOnSecondCreationStep,
 } from '../annotation-creation/annotationCreationValidation';
-import type { AnnotationCreationStepOrder } from '../annotation-creation/types';
+import type { AnnotationCreationStepOrder, AnnotationDrawingMode } from '../annotation-creation/types';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
 import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-locks';
 import { isRecoverableRenderingMode } from '../../stores/annotation-rendering';
@@ -38,11 +38,8 @@ interface AnnotationWorkbenchProps {
   sceneId: string;
   sceneLabel?: string;
   sceneAssets?: Array<{ id: string; label: string }>;
-  /**
-   * Shape tools that are visible but not wired yet (e.g. line/area on 3D).
-   * Edit stays hidden in the workbench toolbar for both viewers.
-   */
-  disabledGeometryToolbarModes?: ReadonlyArray<'point' | 'line' | 'area' | 'edit'>;
+  /** Tool a fresh draft opens on; the viewer host chooses it (3D opens on point). */
+  defaultDrawingMode?: AnnotationDrawingMode;
   onClose: () => void;
 }
 
@@ -63,7 +60,7 @@ export default function AnnotationWorkbench({
   isDetached,
   onDetachedChange,
   mode,
-  disabledGeometryToolbarModes = [],
+  defaultDrawingMode,
   onClose: closeWorkbench,
 }: AnnotationWorkbenchProps) {
   const {
@@ -263,15 +260,11 @@ export default function AnnotationWorkbench({
         discardDeletionDraft();
       }
       if (!creationDraft) {
-        initCreationDraft();
+        initCreationDraft(defaultDrawingMode);
         const result = beginCreationWizard();
         if (!result.ok) {
           setSetupError(result.message);
         }
-      }
-      // Only reset a drawing tool when the host actually disables it.
-      if (disabledGeometryToolbarModes.includes(creationDraft?.drawingMode ?? 'point')) {
-        updateCreationDraft({ drawingMode: 'point' });
       }
       return;
     }
@@ -283,16 +276,15 @@ export default function AnnotationWorkbench({
   }, [
     beginCreationWizard,
     creationDraft,
+    defaultDrawingMode,
     deletionDraft,
     discardCreationDraft,
     discardDeletionDraft,
-    disabledGeometryToolbarModes,
     initCreationDraft,
     isCreateMode,
     isOpen,
     mode,
     seedDeletionDraft,
-    updateCreationDraft,
   ]);
 
   useEffect(() => {
@@ -600,7 +592,6 @@ export default function AnnotationWorkbench({
             <AnnotationCreationGeometryStep
               draft={creationDraft}
               creating={creating}
-              disabledToolbarModes={disabledGeometryToolbarModes}
               onGeometryModeChange={(geometryMode) => updateCreationDraft({
                 geometryMode,
                 selectedGeometryIds: geometryMode === 'choose' ? creationDraft.selectedGeometryIds : [],

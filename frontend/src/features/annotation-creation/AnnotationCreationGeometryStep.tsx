@@ -7,15 +7,12 @@ import {
   isGeometryFirst,
 } from './annotationCreationValidation';
 import AnnotationToolbar from '../../components/AnnotationToolbar';
-import type { AnnotationToolbarMode } from '../../components/AnnotationToolbar';
 
 interface AnnotationCreationGeometryStepProps {
   draft: AnnotationCreationDraft;
   creating?: boolean;
   /** Hide the shape toolbar (e.g. when the host already shows one). */
   showToolbar?: boolean;
-  /** Disable tools that are not wired yet (e.g. line/area on 3D). */
-  disabledToolbarModes?: ReadonlyArray<AnnotationToolbarMode>;
   onGeometryModeChange: (mode: 'new' | 'choose') => void;
   onDrawingModeChange?: (mode: AnnotationDrawingMode) => void;
   onUndoLastCreatedGeometry: () => void;
@@ -25,7 +22,6 @@ export default function AnnotationCreationGeometryStep({
   draft,
   creating = false,
   showToolbar = true,
-  disabledToolbarModes = [],
   onGeometryModeChange,
   onDrawingModeChange,
   onUndoLastCreatedGeometry,
@@ -105,7 +101,6 @@ export default function AnnotationCreationGeometryStep({
                 }
               }}
               hiddenModes={['edit']}
-              disabledModes={disabledToolbarModes}
             />
           ) : null}
           {draft.createdGeometries.length > 0 ? (
