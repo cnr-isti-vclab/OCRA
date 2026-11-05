@@ -27,8 +27,22 @@ Paths are under `/api/v1`; writes send an `Idempotency-Key`.
 |---|---|---|---|
 | 1 | Import from the Personal Space into a project | `GET /spaces/me`, `GET /spaces/me/assets`, `GET /assets/{id}/content` | Q1, Q2 |
 | 2 | Upload project binaries as MANAGED assets; import downloads them with the user's token | `POST /spaces/{spaceId}/assets/uploads`, `PUT` to `uploadUri`, `POST /assets/uploads/{id}/complete`, `GET /assets/{id}/content` | Q3, Q6, D1, D3 |
-| 3 | Publish annotations as an enrichment | upload the snapshot and the payload as in step 2, then `POST /hdts/{hdtId}/enrichments`, `GET /operations/{id}` | Q4, Q5, D2 |
+| 3 | Publish annotations as an enrichment | upload the snapshot and the payload as in step 2, then `POST /hdts/{hdtId}/enrichments`, `GET /operations/{id}` | Q4, Q5, Q7, D2 |
 | 4 | Revisions, semantic workspace, publication | not yet in the API | — |
+
+---
+
+## Transition
+
+OCRA reaches KBMS directly today (`ECHOES_KB_API_BASE`). Each flow moves to SEP once the platform covers it; until then OCRA uses both, with the same user token.
+
+| Flow | Served by |
+|---|---|
+| HDT registration, enrichment, HDT RDF read, public-repository queries | SEP |
+| Delete and unregister | KBMS, until the API has them |
+| User- and maintenance-graph queries | KBMS, until semantic queries reach those graphs |
+| HDT listing | KBMS, until `GET /hdts` works |
+| Content replacement | KBMS, until revisions are stable |
 
 ---
 
@@ -82,6 +96,7 @@ Proposal: keep the original package.
   - Is the 0.2 profile published, for example as SHACL, so OCRA can validate before uploading? Does it accept OCRA's vocabulary (`https://data.ocra.echoes.eu/ontology#`)?
   - Which `enrichmentType` token should OCRA use, e.g. `ocra:annotation`, and is that vocabulary registered anywhere?
 - **Q6 Upload limits.** What is the maximum object size per storage target, and are multipart or resumable uploads planned? 3D models and RTI packages can reach several gigabytes, which a single `PUT` handles poorly.
+- **Q7 Existing HDTs.** HDTs registered through KBMS `/hdt/register` have only a KBMS URI and no platform `hdtId`, so the enrichment endpoint cannot address them. Can SEP adopt them into its HDT directory, or must they be registered again, creating a second twin for the same object?
 
 ---
 
