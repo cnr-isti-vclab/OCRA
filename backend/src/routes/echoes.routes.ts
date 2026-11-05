@@ -1,7 +1,6 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import {
-  clearEchoesDevBearerHandler,
   createProjectFromEchoesHdtHandler,
   createProjectFromEchoesRdfHandler,
   duplicateProjectHdtAsNewInEchoesHandler,
@@ -13,7 +12,6 @@ import {
   listEchoesHdtsHandler,
   listEchoesNamedGraphsHandler,
   registerProjectHdtInEchoesHandler,
-  registerEchoesDevBearerHandler,
   replaceProjectHdtContentInEchoesHandler,
 } from '../controllers/echoes.controller.js';
 
@@ -348,68 +346,6 @@ router.post('/projects/:projectId/replace-content', replaceProjectHdtContentInEc
  */
 router.post('/projects/:projectId/duplicate-as-new-hdt', duplicateProjectHdtAsNewInEchoesHandler);
 
-
-// @spike echoes-kb-dev-bearer: remove when EGI login reliably provides the KB bearer for every authenticated session
-/**
- * @openapi
- * /api/eccch/dev/bearer:
- *   post:
- *     summary: Register a temporary ECCCH bearer for development
- *     description: |
- *       Development-only helper endpoint. Stores an override bearer token for the current authenticated OCRA session.
- *       This is a temporary bridge until the ECCCH bearer is obtained directly from the login flow.
- *       The override is session-wide and can be managed only by system administrators.
- *     tags:
- *       - ECCCH
- *     security:
- *       - sessionCookie: []
- *       - sessionBearer: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EchoesDevBearerRequest'
- *     responses:
- *       204:
- *         description: Bearer registered for the current session
- *       401:
- *         description: Authentication required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiErrorResponse'
- *       400:
- *         description: Missing bearer
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiErrorResponse'
- */
-router.post('/dev/bearer', registerEchoesDevBearerHandler);
-// @spike echoes-kb-dev-bearer: remove when EGI login reliably provides the KB bearer for every authenticated session
-/**
- * @openapi
- * /api/eccch/dev/bearer:
- *   delete:
- *     summary: Clear the temporary ECCCH bearer for development
- *     description: Removes the current session's development-only bearer override.
- *     tags:
- *       - ECCCH
- *     security:
- *       - sessionCookie: []
- *       - sessionBearer: []
- *     responses:
- *       204:
- *         description: Bearer override removed
- *       401:
- *         description: Authentication required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiErrorResponse'
- */
-router.delete('/dev/bearer', clearEchoesDevBearerHandler);
 
 // @spike feature/eccch-delete-debug: remove after ECCCH delete is no longer needed in production
 /**

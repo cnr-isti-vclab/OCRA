@@ -13,7 +13,6 @@ import type {
 } from '../types/index.js';
 import { createHDTDocument, addDigitalAsset, getHDTDocument, updateHdtEchoesContext } from './hdt-metadata.service.js';
 import { createManagedProject } from './project-creation.service.js';
-import { getEchoesDevBearerOverride } from './echoes-dev-bearer.service.js';
 import { ingestRemoteAssetIntoExistingAsset } from './remote-asset-ingestion.service.js';
 import { validateRemoteAssetSourceUrl } from './remote-asset-import.service.js';
 import { classifyPortableAssetType } from 'shared/openlime-layout';
@@ -629,11 +628,6 @@ function aggregateActiveEchoesNamedGraphBindings(
 }
 
 async function resolveEchoesBearer(sessionId: string): Promise<string | null> {
-  const devOverride = getEchoesDevBearerOverride(sessionId);
-  if (devOverride) {
-    return devOverride;
-  }
-
   const session = await getValidSession(sessionId);
   return session?.accessToken ?? null;
 }

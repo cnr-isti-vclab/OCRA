@@ -5,10 +5,6 @@ import { sendApiError } from '../lib/api-error.js';
 import { API_ERROR_CODES } from '../lib/api-error-codes.js';
 import { auditBestEffort } from '../utils/audit.js';
 import {
-  clearEchoesDevBearerOverride,
-  setEchoesDevBearerOverride,
-} from '../services/echoes-dev-bearer.service.js';
-import {
   createProjectFromEchoesHdt,
   createProjectFromEchoesRdf,
   deleteDigitalTwinInEchoes,
@@ -53,12 +49,6 @@ async function canUseEchoesImport(
   user: NonNullable<ReturnType<typeof getAuthenticatedUser>>,
 ): Promise<boolean> {
   return user.sys_admin || user.sys_creator === true;
-}
-
-function canManageEchoesDevBearer(
-  user: NonNullable<ReturnType<typeof getAuthenticatedUser>>,
-): boolean {
-  return user.sys_admin;
 }
 
 async function canPerformEchoesProjectAction(
@@ -476,45 +466,6 @@ export async function duplicateProjectHdtAsNewInEchoesHandler(req: Request, res:
       error instanceof Error ? error.message : 'Unknown error'
     );
   }
-}
-
-export async function registerEchoesDevBearerHandler(req: Request, res: Response): Promise<void> {
-  const user = getAuthenticatedUser(req);
-  const sessionId = getSessionId(req);
-  if (!user || !sessionId) {
-    return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
-  }
-
-  if (!canManageEchoesDevBearer(user)) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to register an ECCCH bearer for this action');
-  }
-
-  const bearer =
-    typeof req.body?.bearer === 'string' && req.body.bearer.trim()
-      ? req.body.bearer.trim()
-      : '';
-
-  if (!bearer) {
-    return sendEchoesError(req, res, 400, 'bearerRequired', 'bearer is required');
-  }
-
-  setEchoesDevBearerOverride(sessionId, bearer);
-  res.status(204).end();
-}
-
-export async function clearEchoesDevBearerHandler(req: Request, res: Response): Promise<void> {
-  const user = getAuthenticatedUser(req);
-  const sessionId = getSessionId(req);
-  if (!user || !sessionId) {
-    return sendEchoesError(req, res, 401, 'authenticationRequired', 'Authentication required');
-  }
-
-  if (!canManageEchoesDevBearer(user)) {
-    return sendEchoesError(req, res, 403, 'projectCreateDenied', 'Insufficient permissions to clear an ECCCH bearer for this action');
-  }
-
-  clearEchoesDevBearerOverride(sessionId);
-  res.status(204).end();
 }
 
 // @spike feature/eccch-delete-debug: remove after ECCCH delete is no longer needed in production

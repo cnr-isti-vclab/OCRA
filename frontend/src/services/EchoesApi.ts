@@ -126,33 +126,6 @@ async function readEchoesApiError(response: Response): Promise<EchoesApiError> {
   }
 }
 
-export async function registerEchoesDevBearer(input: {
-  bearer: string;
-}): Promise<void> {
-  const response = await fetch(`${getApiBase()}/api/eccch/dev/bearer`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: buildSessionHeaders(true),
-    body: JSON.stringify(input),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to register ECCCH bearer: ${await readErrorMessage(response)}`);
-  }
-}
-
-export async function clearEchoesDevBearer(): Promise<void> {
-  const response = await fetch(`${getApiBase()}/api/eccch/dev/bearer`, {
-    method: 'DELETE',
-    credentials: 'include',
-    headers: buildSessionHeaders(true),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to clear ECCCH bearer: ${await readErrorMessage(response)}`);
-  }
-}
-
 export async function deleteEchoesDigitalTwin(digitalTwinUri: string): Promise<EchoesDeleteDigitalTwinResponse> {
   const response = await fetch(`${getApiBase()}/api/eccch/dev/delete-digital-twin`, {
     method: 'POST',

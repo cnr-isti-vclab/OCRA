@@ -4,8 +4,6 @@ import { getCurrentUser } from '../backend';
 import {
   deleteEchoesDigitalTwin,
   fetchEchoesHdts,
-  clearEchoesDevBearer,
-  registerEchoesDevBearer,
 } from '../services/EchoesApi';
 import type { EchoesHdtListItem } from '../types';
 import EchoesHdtListWidget from '../shared/ui/EchoesHdtListWidget';
@@ -45,9 +43,6 @@ export default function Profile() {
 
   const [info, setInfo] = useState<CurrentUserInfo>(null);
   const [error, setError] = useState<string | null>(null);
-  const [echoesBearer, setEchoesBearer] = useState('');
-  const [echoesBearerBusy, setEchoesBearerBusy] = useState(false);
-  const [echoesBearerMessage, setEchoesBearerMessage] = useState<string | null>(null);
   const [echoesHdtItems, setEchoesHdtItems] = useState<EchoesHdtListItem[]>([]);
   const [echoesHdtListVisible, setEchoesHdtListVisible] = useState(false);
   const [echoesHdtListLoading, setEchoesHdtListLoading] = useState(false);
@@ -88,45 +83,6 @@ export default function Profile() {
       setEchoesHdtListError(error instanceof Error ? error.message : 'Failed to list registered ECCCH HDTs.');
     } finally {
       setEchoesHdtListLoading(false);
-    }
-  }
-
-  async function saveEchoesBearerOverride(): Promise<void> {
-    const trimmedBearer = echoesBearer.trim();
-    if (!trimmedBearer) {
-      setEchoesBearerMessage('Paste a bearer token before saving it.');
-      return;
-    }
-
-    try {
-      setEchoesBearerBusy(true);
-      setEchoesBearerMessage(null);
-      await registerEchoesDevBearer({
-        bearer: trimmedBearer,
-      });
-      setEchoesBearerMessage('Temporary ECCCH bearer saved for this session.');
-      await loadEchoesHdtList();
-    } catch (error: unknown) {
-      setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to save the bearer.');
-    } finally {
-      setEchoesBearerBusy(false);
-    }
-  }
-
-  async function clearEchoesBearerOverride(): Promise<void> {
-    try {
-      setEchoesBearerBusy(true);
-      setEchoesBearerMessage(null);
-      await clearEchoesDevBearer();
-      setEchoesBearer('');
-      setEchoesBearerMessage('Temporary ECCCH bearer removed from this session.');
-      setEchoesHdtItems([]);
-      setEchoesHdtListVisible(false);
-      setEchoesHdtListError(null);
-    } catch (error: unknown) {
-      setEchoesBearerMessage(error instanceof Error ? error.message : 'Failed to clear the bearer.');
-    } finally {
-      setEchoesBearerBusy(false);
     }
   }
 
@@ -228,54 +184,6 @@ export default function Profile() {
       <div className="card shadow-sm" style={{ maxWidth: 720 }}>
         <div className="card-body">
           <h2 className="h5 mb-3 text-secondary">Temporary ECCCH Debug Operations</h2>
-          <p className="text-muted small mb-3">
-            Temporary development bridge.<br/>
-            You can create an EGI token with <a href="https://aai-demo.egi.eu/token/" target="_blank" rel="noopener noreferrer">this link</a>.
-          </p>
-          <label htmlFor="profile-echoes-bearer" className="form-label">
-            EGI / ECCCH Bearer
-          </label>
-          <textarea
-            id="profile-echoes-bearer"
-            className="form-control"
-            rows={5}
-            value={echoesBearer}
-            onChange={(event) => setEchoesBearer(event.target.value)}
-            disabled={echoesBearerBusy}
-            placeholder="Paste the bearer token used in Swagger.  If OCRA already carries a valid ECCCH bearer from login, you can skip this step."
-          />
-          <div className="small text-muted mt-2">
-            This override is saved for the current OCRA session and applies to import and HDT synchronization debug flows.
-          </div>
-          <div className="d-flex gap-2 mt-3">
-            <button
-              type="button"
-              className="btn btn-outline-primary"
-              onClick={() => void saveEchoesBearerOverride()}
-              disabled={echoesBearerBusy}
-            >
-              {echoesBearerBusy ? 'Saving...' : 'Save Bearer'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => void clearEchoesBearerOverride()}
-              disabled={echoesBearerBusy}
-            >
-              Clear
-            </button>
-          </div>
-          {echoesBearerMessage && (
-            <div
-              className={`alert mt-3 mb-0 ${
-                echoesBearerMessage.includes('Failed') || echoesBearerMessage.includes('Paste')
-                  ? 'alert-warning'
-                  : 'alert-success'
-              }`}
-            >
-              {echoesBearerMessage}
-            </div>
-          )}
           {(info?.sys_admin || info?.sys_creator) ? (
             <EchoesHdtListWidget
               items={echoesHdtItems}

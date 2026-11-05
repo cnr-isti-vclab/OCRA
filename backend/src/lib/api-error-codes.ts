@@ -121,7 +121,6 @@ export const API_ERROR_CODES = {
   },
   echoes: {
     authenticationRequired: 'echoes.authentication_required',
-    bearerRequired: 'echoes.bearer_required',
     hdtUriRequired: 'echoes.hdt_uri_required',
     invalidHdtUri: 'echoes.invalid_hdt_uri',
     hdtNotFound: 'echoes.hdt_not_found',

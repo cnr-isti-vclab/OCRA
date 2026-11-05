@@ -910,16 +910,6 @@ to the audit trail. Admins can review audit logs via the audit endpoints.
             },
           },
         },
-        EchoesDevBearerRequest: {
-          type: 'object',
-          required: ['bearer'],
-          properties: {
-            bearer: {
-              type: 'string',
-              example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
-            },
-          },
-        },
         EchoesDeleteDigitalTwinRequest: {
           type: 'object',
           required: ['digitalTwinUri'],
