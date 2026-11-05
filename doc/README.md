@@ -16,7 +16,7 @@ This page is the index for technical documentation in `doc/`.
 - [Physical Object Metadata](./physical-object-metadata.md)
 - [Vocabulary and Terminology](./vocabulary.md)
 - [Reference Frames](./reference-frames.md)
-- [ECCCH Personal Space and Common Platform Integration](./eccch-personal-space.md)
+- [ECCCH Personal Space Integration](./eccch-personal-space.md)
 
 ## Domain and Use Cases
 
