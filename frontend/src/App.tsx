@@ -95,6 +95,11 @@ export default function App() {
     }
   };
 
+  const handleDifferentAccountLogin = async () => {
+    setError(null);
+    await startAuthFlow({ prompt: 'login' });
+  };
+
   if (loading) {
     return (
       <LandingBackground>
@@ -145,6 +150,14 @@ export default function App() {
           >
             {providerUserLabel ?? 'Sign in'}
           </button>
+          {continueAuthReady && (
+            <button
+              className="btn btn-outline-secondary w-100 fw-semibold py-2 mb-2"
+              onClick={() => void handleDifferentAccountLogin()}
+            >
+              Sign in with another account
+            </button>
+          )}
           <p className="text-center text-muted mb-4" style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}>
             via {OAUTH_CONFIG.issuer}
           </p>

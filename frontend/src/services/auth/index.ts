@@ -22,6 +22,5 @@ export {
 // Debug utilities
 export { 
   inspectBrowserStorage, 
-  checkLastLogout, 
   testAuthState 
 } from '../../utils/debug';

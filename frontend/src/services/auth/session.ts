@@ -4,9 +4,8 @@
  * Handles backend session operations including creation, validation, and cleanup
  */
 
-import { API_BASE, OAUTH_CONFIG } from '../../config/oauth';
+import { API_BASE } from '../../config/oauth';
 import { exchangeCodeForTokens, type AuthFlowResult } from './oauth';
-import { clearOAuthStorage, clearAllCookies, clearIndexedDB, clearCacheAPI } from '../../utils/storage';
 import type { CreateSessionRequest, User } from 'shared/types';
 
 async function createBackendSession(request: CreateSessionRequest): Promise<string> {
@@ -140,65 +139,27 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 /**
- * Logout - clear session from backend and redirect to OAuth provider logout
+ * Logout from OCRA while preserving the provider session for quick sign-in.
  */
 export async function logout(): Promise<void> {
-  console.log('🚀 Logout function called');
   const sessionId = localStorage.getItem('oauth_session_id');
-  console.log('📍 Session ID:', sessionId);
-  
+
   if (sessionId) {
     try {
-      console.log('🔄 Calling backend logout API...');
       // Delete session from backend (this also logs the logout event)
-      const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+      await fetch(`${API_BASE}/sessions/${sessionId}`, {
         method: 'DELETE',
-        credentials: 'include' // Include cookies in request
+        credentials: 'include'
       });
-      console.log('✅ Backend logout response:', response.status, response.ok);
     } catch (error) {
-      console.error('❌ Error during backend logout:', error);
+      console.error('Error during backend logout:', error);
       // Continue with local cleanup even if backend call fails
     }
   }
-  
-  // Clear local storage
+
   localStorage.removeItem('oauth_session_id');
   sessionStorage.removeItem('oauth_code_verifier');
-  
-  console.log('🧹 Local storage cleared');
-  console.log('✅ Backend logout successful, redirecting to OAuth logout...');
-  
-  // Clear all browser storage
-  clearOAuthStorage();
-  clearAllCookies(OAUTH_CONFIG.issuer);
-  clearIndexedDB();
-  clearCacheAPI();
-  
-  console.log('✅ All browser storage cleared');
-  
-  // For complete logout, we need to redirect to OAuth provider's logout URL
-  // and then back to our application
-  const logoutUrl = new URL(`${OAUTH_CONFIG.issuer.replace(/\/$/, '')}/protocol/openid-connect/logout`);
-  logoutUrl.searchParams.set('post_logout_redirect_uri', OAUTH_CONFIG.redirectUri);
-  logoutUrl.searchParams.set('client_id', OAUTH_CONFIG.clientId);
-  
-  console.log('🔗 Logout URL prepared:', logoutUrl.toString());
-  console.log('⏳ Waiting 0,5 seconds for console messages to be visible...');
-  console.log('💡 TIP: Keep DevTools open to see all logout messages');
-  
-  // Store logout completion in sessionStorage for debugging
-  sessionStorage.setItem('logout_debug', JSON.stringify({
-    timestamp: new Date().toISOString(),
-    logoutUrl: logoutUrl.toString(),
-    step: 'about_to_redirect'
-  }));
-  
-  // Wait longer for console messages to be visible before redirect
-  setTimeout(() => {
-    console.log('🚀 Now redirecting to OAuth provider logout...');
-    window.location.href = logoutUrl.toString();
-  }, 500);
+  window.location.assign('/');
 }
 
 /**
