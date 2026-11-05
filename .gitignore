@@ -3,6 +3,7 @@
 
 # Node / Vite
 node_modules/
+/build/
 dist/
 dist-standalone/
 .vite/
