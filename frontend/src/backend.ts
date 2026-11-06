@@ -2,6 +2,7 @@
 export {
   OAUTH_CONFIG,
   startAuthFlow,
+  forgetProviderSession,
   probeExistingProviderSession,
   relaySilentAuthCallbackToParent,
   completeAuthCodeFlow,

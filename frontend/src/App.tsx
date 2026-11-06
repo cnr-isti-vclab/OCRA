@@ -5,6 +5,7 @@ import {
   startAuthFlow,
   completeAuthCodeFlow,
   createSessionFromAuthResult,
+  forgetProviderSession,
   getCurrentUser,
   OAUTH_CONFIG,
   probeExistingProviderSession,
@@ -13,16 +14,15 @@ import {
 import { releases, type Release } from './data/releases';
 import type { OAuthUserProfile } from 'shared/types';
 
-function getContinueLabel(profile: OAuthUserProfile): string {
-  const identity = profile.username ?? profile.preferred_username ?? profile.name ?? profile.email;
-  return identity ? `Continue as ${identity}` : 'Continue';
+function getProviderIdentity(profile: OAuthUserProfile): string | null {
+  return profile.username ?? profile.preferred_username ?? profile.name ?? profile.email ?? null;
 }
 
 export default function App() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [providerUserLabel, setProviderUserLabel] = useState<string | null>(null);
+  const [providerUserIdentity, setProviderUserIdentity] = useState<string | null>(null);
   const [continueAuthReady, setContinueAuthReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +52,7 @@ export default function App() {
           } else {
             const providerSession = await probeExistingProviderSession();
             if (providerSession) {
-              setProviderUserLabel(getContinueLabel(providerSession.userProfile));
+              setProviderUserIdentity(getProviderIdentity(providerSession.userProfile));
               setContinueAuthReady(true);
             }
           }
@@ -79,7 +79,7 @@ export default function App() {
       const providerSession = await probeExistingProviderSession();
       if (!providerSession) {
         setContinueAuthReady(false);
-        setProviderUserLabel(null);
+        setProviderUserIdentity(null);
         await startAuthFlow();
         return;
       }
@@ -90,7 +90,7 @@ export default function App() {
     } catch (e: unknown) {
       console.error('Continue login failed:', e);
       setContinueAuthReady(false);
-      setProviderUserLabel(null);
+      setProviderUserIdentity(null);
       setError(e instanceof Error ? e.message : String(e));
     }
   };
@@ -148,15 +148,27 @@ export default function App() {
             style={{ backgroundColor: '#1a3f6b', color: '#fff', borderRadius: '0.5rem' }}
             onClick={() => void handleLoginAction()}
           >
-            {providerUserLabel ?? 'Sign in'}
+            {continueAuthReady
+              ? providerUserIdentity ? `Continue as ${providerUserIdentity}` : 'Continue'
+              : 'Sign in'}
           </button>
           {continueAuthReady && (
-            <button
-              className="btn btn-outline-secondary w-100 fw-semibold py-2 mb-2"
-              onClick={() => void handleDifferentAccountLogin()}
-            >
-              Sign in with another account
-            </button>
+            <>
+              <button
+                className="btn btn-outline-secondary w-100 fw-semibold py-2 mb-2"
+                onClick={() => void handleDifferentAccountLogin()}
+              >
+                Sign in with another account
+              </button>
+              <button
+                className="btn btn-outline-danger w-100 py-2 mb-2"
+                onClick={forgetProviderSession}
+              >
+                {providerUserIdentity
+                  ? `Forget ${providerUserIdentity} on this device`
+                  : 'Forget current account on this device'}
+              </button>
+            </>
           )}
           <p className="text-center text-muted mb-4" style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}>
             via {OAUTH_CONFIG.issuer}
