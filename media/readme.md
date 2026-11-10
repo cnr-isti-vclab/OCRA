@@ -1,3 +1,14 @@
+## OpenLIME package sample (SceneSession)
+
+`coin_hsh_openlime.zip` — same coin HSH RTI as `coin_hsh.zip`, plus `asset.json` at the archive root
+(`uri: "info.json"`, layout `deepzoom`). Upload it as a normal project file/RTI zip. Current ingestion
+still publishes `info.json` as `entryPointUrl`; the 2D viewer looks for a sibling `asset.json` and,
+when present, loads via `SceneSession` / `resolveUrl`.
+
+Folder copy (unzipped): `coin_hsh_openlime/`.
+
+---
+
 lion_crushing_a_serpent_t1k.glb
 Lion Crushing a Serpent" (https://skfb.ly/68s9T) by Rigsters is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
 

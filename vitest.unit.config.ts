@@ -9,6 +9,7 @@ export default defineConfig({
       'backend/src/vocabularies/**/*.test.ts',
       'frontend/src/services/ExternalVocabularyApi.test.ts',
       'frontend/src/adapters/annotation-store/**/*.test.ts',
+      'frontend/src/adapters/openlime-viewer/openlimeScenePackage.test.ts',
       'frontend/src/features/annotation-creation/**/*.test.ts',
       'frontend/src/features/annotation-deletion/**/*.test.ts',
       'frontend/src/features/annotation-editing/**/*.test.ts',

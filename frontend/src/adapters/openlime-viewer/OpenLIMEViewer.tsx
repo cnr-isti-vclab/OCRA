@@ -32,6 +32,16 @@ import ViewerLayersPanel, {
   type ViewerLensLayer,
 } from '../../shared/ui/ViewerLayersPanel.tsx';
 import type { ViewerToolbarAction } from '../../shared/ui/ViewerToolbar.tsx';
+import {
+  buildMinimalOpenLimeScene,
+  fetchOpenLimeAssetDocument,
+  isOpenLimeAssetPackage,
+  modelToOpenLimeTransform,
+  packageBaseUrlFromDocumentUrl,
+  resolveOpenLimeAssetDocumentUrl,
+  resolveOpenLimeSourceUrl,
+  toOpenLimeInstanceId,
+} from './openlimeScenePackage.ts';
 
 export interface OpenLimeLightDirection {
   x: number;
@@ -303,6 +313,7 @@ const OpenLIMEViewer = forwardRef<
         choices: Array<{ id: string; label: string; layer: OpenLimeRelightableLayer; acquisitionLights: OpenLimeLightDirection[] }>;
       } | null>(null);
       const backgroundRuntimeRef = useRef<Array<{ id: string; label: string; layer: OpenLIME.Layer }>>([]);
+      const sceneProjectionRef = useRef<OpenLIME.SceneProjection | null>(null);
       const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
       const onReadyRef = useRef<typeof onReady>(onReady);
       const onErrorRef = useRef<typeof onError>(onError);
@@ -449,6 +460,8 @@ const OpenLIMEViewer = forwardRef<
           toolsRef.current = null;
           scaleBarRef.current?.destroy();
           scaleBarRef.current = null;
+          sceneProjectionRef.current?.dispose();
+          sceneProjectionRef.current = null;
           const lensRuntime = lensRuntimeRef.current;
           if (lensRuntime && viewerRef.current) {
             viewerRef.current.pointerManager.offEvent(lensRuntime.controller);
@@ -515,6 +528,8 @@ const OpenLIMEViewer = forwardRef<
           toolsRef.current = null;
           scaleBarRef.current?.destroy();
           scaleBarRef.current = null;
+          sceneProjectionRef.current?.dispose();
+          sceneProjectionRef.current = null;
           const previousLens = lensRuntimeRef.current;
           if (previousLens) viewer.pointerManager.offEvent(previousLens.controller);
           lensRuntimeRef.current = null;
@@ -533,6 +548,7 @@ const OpenLIMEViewer = forwardRef<
 
           let scalePixelSize: number | null = null;
           const backgroundRuntime: Array<{ id: string; label: string; layer: OpenLIME.Layer; relightable: boolean }> = [];
+          let usedSceneSession = false;
 
           // FIXME HOW TO HANDLE DIFFERENT PIXEL SIZES ACROSS LAYERS? SHOULD WE ENFORCE A SINGLE SCALE FOR THE WHOLE SCENE, OR ALLOW PER-LAYER SCALES?
 
@@ -541,15 +557,17 @@ const OpenLIMEViewer = forwardRef<
           let selectedAssets: number[] = [];
           let matrices: OpenLIME.Transform[] = [];
           let urls: string[] = [];
+          const selectedModels: SceneDescription['models'] = [];
           sceneDesc.models.forEach((model) => {
             const assetId = model.id;
             const foundIndex = digitalAssets.findIndex(a => a.id === assetId);
             if (foundIndex != -1) {
               const asset = digitalAssets[foundIndex];
-              if (isOpenLime2DAsset(asset)) {
+              if (isOpenLime2DAsset(asset) || isOpenLimeAssetPackage(asset)) {
                 selectedAssets.push(foundIndex);
+                selectedModels.push(model);
                 matrices.push(getMatrix(model));
-                urls.push(asset.entryPointUrl);
+                urls.push(asset.entryPointUrl ?? '');
                 console.log(`🎬 Prepared asset for OpenLIME Viewer: ${asset.fileName} (ID: ${asset.id}), URL: ${asset.entryPointUrl}`);
               } else {
                 console.warn(`⚠️ Skipping asset ${asset.fileName} (ID: ${asset.id}): missing entryPointUrl or unsupported type (${asset.type})`);
@@ -559,84 +577,174 @@ const OpenLIMEViewer = forwardRef<
             }
           });
 
-          // Iterate over the selected assets and add them to the viewer with their corresponding transformation matrices, 
-          // while also attempting to read pixel size information from the asset's entry point URL if available
-          for (let i = 0; i < selectedAssets.length; i++) {
-            const asset = digitalAssets[selectedAssets[i]];
-            const matrix = matrices[i];
-            const url = normalizeAssetEntryPointUrl(urls[i]);
-            console.log(`🎬 Adding asset to OpenLIME Viewer: ${asset.fileName}, ${url}, matrix `, matrix);
+          const packageDocumentUrls = await Promise.all(
+            selectedAssets.map((index) => resolveOpenLimeAssetDocumentUrl(digitalAssets[index])),
+          );
+          if (cancelled) return;
+          const allPackages = selectedAssets.length > 0 && packageDocumentUrls.every((url) => Boolean(url));
 
-            // RTI datasets expose a JSON header; ordinary images derive their
-            // layout from explicit metadata or the entry-point filename.
-            let pixelSizeInMM: number | null = null;
-            const layerType = asset.type === 'rti' ? 'rti' : 'image';
-            let layout = layerType === 'rti' ? 'deepzoom' : resolveOpenLimeImageLayout(asset);
-            if (layerType === 'rti') {
-              try {
-                const response = await fetch(url);
-                if (response.ok) {
-                  const info = await response.json();
-                  const parsed = Number(info?.pixelSizeInMM);
-                  if (Number.isFinite(parsed) && parsed > 0) {
-                    pixelSizeInMM = parsed;
-                    if (scalePixelSize == null) {
-                      scalePixelSize = parsed;
-                    }
-                  }
+          if (allPackages) {
+            // New path: OCRA extracts the zip; OpenLIME receives asset documents + resolveUrl.
+            const baseUrlByAssetId = new Map<string, string>();
+            const assetsById: Record<string, Awaited<ReturnType<typeof fetchOpenLimeAssetDocument>>> = {};
+            const instances: Array<{
+              instanceId: string;
+              label?: string;
+              assetId: string;
+              transform: Record<string, unknown>;
+            }> = [];
 
-                  const declaredLayout = parseOpenLimeLayout(info?.layout);
-                  if (declaredLayout) {
-                    layout = declaredLayout;
-                  } else {
-                    const detectedLayout = await autodetectRtiLayout(url);
-                    if (detectedLayout) {
-                      layout = detectedLayout;
-                    } else {
-                      console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
-                    }
-                  }
+            for (let i = 0; i < selectedAssets.length; i++) {
+              const asset = digitalAssets[selectedAssets[i]];
+              const documentUrl = packageDocumentUrls[i]!;
+              const document = await fetchOpenLimeAssetDocument(documentUrl);
+              if (cancelled) return;
+              const baseUrl = packageBaseUrlFromDocumentUrl(documentUrl);
+              baseUrlByAssetId.set(document.id, baseUrl);
+              assetsById[document.id] = document;
+              instances.push({
+                instanceId: toOpenLimeInstanceId(selectedModels[i]!.id),
+                label: asset.fileName || asset.label || selectedModels[i]!.id,
+                assetId: document.id,
+                transform: modelToOpenLimeTransform(selectedModels[i]!, sceneDesc.rotationUnits),
+              });
+              console.log(`🎬 Prepared openlime-asset package: ${asset.id} → ${documentUrl}`);
+            }
 
-                  console.log(`🎬 Read RTI header from ${url}: pixelSizeInMM=${pixelSizeInMM}, layout=${layout}`);
+            const session = instances.length === 1
+              ? OpenLIME.SceneSession.openAsset(assetsById[instances[0]!.assetId]!)
+              : OpenLIME.SceneSession.open(
+                buildMinimalOpenLimeScene({
+                  sceneId: sceneDesc.projectId
+                    ? `urn:ocra:project:${sceneDesc.projectId}:scene`
+                    : 'urn:ocra:scene:default',
+                  instances,
+                }),
+                { assets: assetsById },
+              );
+
+            const projection = new OpenLIME.SceneProjection(session, viewer.canvas, {
+              createLayer: OpenLIME.createOpenLIMELayer,
+              createLens: (spec: unknown) => {
+                const lens = OpenLIME.createOpenLIMELens(spec) as OpenLIME.LayerLens & { borderEnable?: boolean };
+                lens.borderEnable = true;
+                return lens;
+              },
+              createController: (spec: { type: string; lensLayer: OpenLIME.Layer; camera: OpenLIME.Camera; canvas: OpenLIME.Canvas }) => {
+                const controller = OpenLIME.createOpenLIMEController(spec);
+                viewer.pointerManager.onEvent(controller);
+                return controller;
+              },
+              releaseController: (controller: OpenLIME.Controller) => {
+                viewer.pointerManager.offEvent(controller);
+              },
+              resolveUrl: (source: { uri?: string }, assetDoc: { id: string }) => {
+                const baseUrl = baseUrlByAssetId.get(assetDoc.id);
+                if (!baseUrl) {
+                  return source.uri ?? '';
                 }
-              } catch (error) {
-                console.warn(`⚠️ Could not read RTI header from ${url}:`, error);
-                const detectedLayout = await autodetectRtiLayout(url);
-                if (detectedLayout) {
-                  layout = detectedLayout;
-                  console.log(`🎬 Autodetected RTI layout for ${url}: ${layout}`);
-                } else {
-                  console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                return resolveOpenLimeSourceUrl(source, baseUrl);
+              },
+            });
+            sceneProjectionRef.current = projection;
+            usedSceneSession = true;
+
+            const projectedLayers = (viewer.canvas as OpenLIME.Canvas & {
+              layers: Record<string, OpenLIME.Layer & { type?: string; label?: string }>;
+            }).layers;
+            for (const [layerId, layer] of Object.entries(projectedLayers)) {
+              backgroundRuntime.push({
+                id: layerId,
+                label: layer.label || layerId,
+                layer,
+                relightable: layer.type === 'rti',
+              });
+            }
+            console.log(`🎬 Mounted SceneSession with ${instances.length} openlime-asset package(s)`);
+          } else {
+            if (packageDocumentUrls.some(Boolean)) {
+              console.warn('⚠️ Mixed openlime-asset packages and legacy assets; using legacy Layer loader for this scene');
+            }
+
+            // Iterate over the selected assets and add them to the viewer with their corresponding transformation matrices,
+            // while also attempting to read pixel size information from the asset's entry point URL if available
+            for (let i = 0; i < selectedAssets.length; i++) {
+              const asset = digitalAssets[selectedAssets[i]];
+              const matrix = matrices[i];
+              const url = normalizeAssetEntryPointUrl(urls[i]);
+              console.log(`🎬 Adding asset to OpenLIME Viewer: ${asset.fileName}, ${url}, matrix `, matrix);
+
+              // RTI datasets expose a JSON header; ordinary images derive their
+              // layout from explicit metadata or the entry-point filename.
+              let pixelSizeInMM: number | null = null;
+              const layerType = asset.type === 'rti' ? 'rti' : 'image';
+              let layout = layerType === 'rti' ? 'deepzoom' : resolveOpenLimeImageLayout(asset);
+              if (layerType === 'rti') {
+                try {
+                  const response = await fetch(url);
+                  if (response.ok) {
+                    const info = await response.json();
+                    const parsed = Number(info?.pixelSizeInMM);
+                    if (Number.isFinite(parsed) && parsed > 0) {
+                      pixelSizeInMM = parsed;
+                      if (scalePixelSize == null) {
+                        scalePixelSize = parsed;
+                      }
+                    }
+
+                    const declaredLayout = parseOpenLimeLayout(info?.layout);
+                    if (declaredLayout) {
+                      layout = declaredLayout;
+                    } else {
+                      const detectedLayout = await autodetectRtiLayout(url);
+                      if (detectedLayout) {
+                        layout = detectedLayout;
+                      } else {
+                        console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                      }
+                    }
+
+                    console.log(`🎬 Read RTI header from ${url}: pixelSizeInMM=${pixelSizeInMM}, layout=${layout}`);
+                  }
+                } catch (error) {
+                  console.warn(`⚠️ Could not read RTI header from ${url}:`, error);
+                  const detectedLayout = await autodetectRtiLayout(url);
+                  if (detectedLayout) {
+                    layout = detectedLayout;
+                    console.log(`🎬 Autodetected RTI layout for ${url}: ${layout}`);
+                  } else {
+                    console.warn(`⚠️ Could not autodetect RTI layout for ${url}, falling back to ${layout}`);
+                  }
                 }
               }
+
+              if (cancelled) return;
+
+              // Add layer to viewer with appropriate options, including transformation matrix and pixel size if available
+              const layerId = asset.id || `${layerType}-${i}`;
+              const layerOptions: OpenLIME.LayerOptions = {
+                label: asset.fileName || layerType,
+                url,
+                layout,
+                type: layerType,
+                ...(layerType === 'rti' ? { normals: false } : {}),
+                visible: i == 0,
+                zindex: selectedAssets.length - i, // THe top layer is the front one
+              };
+              if (pixelSizeInMM != null) {
+                layerOptions.pixelSize = pixelSizeInMM;
+              }
+
+              const layer = new OpenLIME.Layer(layerOptions);
+              viewer.addLayer(layerId, layer);
+              backgroundRuntime.push({
+                id: layerId,
+                label: asset.fileName || layerType,
+                layer,
+                relightable: layerType === 'rti',
+              });
+              console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url}), pixelSizeInMM=${pixelSizeInMM ?? 'n/a'}`);
             }
-
-            if (cancelled) return;
-
-            // Add layer to viewer with appropriate options, including transformation matrix and pixel size if available
-            const layerId = asset.id || `${layerType}-${i}`;
-            const layerOptions: OpenLIME.LayerOptions = {
-              label: asset.fileName || layerType,
-              url,
-              layout,
-              type: layerType,
-              ...(layerType === 'rti' ? { normals: false } : {}),
-              visible: i == 0,
-              zindex: selectedAssets.length - i, // THe top layer is the front one
-            };
-            if (pixelSizeInMM != null) {
-              layerOptions.pixelSize = pixelSizeInMM;
-            }
-
-            const layer = new OpenLIME.Layer(layerOptions);
-            viewer.addLayer(layerId, layer);
-            backgroundRuntime.push({
-              id: layerId,
-              label: asset.fileName || layerType,
-              layer,
-              relightable: layerType === 'rti',
-            });
-            console.log(`🎬 Added asset to OpenLIME Viewer: ${asset.fileName} (${url}), pixelSizeInMM=${pixelSizeInMM ?? 'n/a'}`);
           }
           //////////////////////////////////////
 
@@ -808,8 +916,9 @@ const OpenLIMEViewer = forwardRef<
           onReadyRef.current?.();
 
           // Build independent diagnostic RTI layers after their source shaders are ready.
+          // SceneSession packages declare lenses in the asset document; skip the ad-hoc RTI lens.
           const lensChoices: Array<{ id: string; label: string; layer: OpenLimeRelightableLayer; acquisitionLights: OpenLimeLightDirection[] }> = [];
-          for (const background of backgroundRuntime.filter((entry) => entry.relightable)) {
+          for (const background of usedSceneSession ? [] : backgroundRuntime.filter((entry) => entry.relightable)) {
             if (background.layer.status !== 'ready') {
               await new Promise<void>((resolve) => {
                 const signalLayer = background.layer as OpenLIME.Layer & OpenLimeLayerSignals;
