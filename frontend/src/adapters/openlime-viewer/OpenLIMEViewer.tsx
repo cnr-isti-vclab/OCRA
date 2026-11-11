@@ -35,6 +35,7 @@ import type { ViewerToolbarAction } from '../../shared/ui/ViewerToolbar.tsx';
 import {
   buildMinimalOpenLimeScene,
   fetchOpenLimeAssetDocument,
+  formatOpenLimeSceneLoadError,
   isOpenLimeAssetPackage,
   modelToOpenLimeTransform,
   packageBaseUrlFromDocumentUrl,
@@ -492,6 +493,17 @@ const OpenLIMEViewer = forwardRef<
             return;
           }
 
+          const reportLoadError = (error: unknown) => {
+            if (cancelled) {
+              return;
+            }
+            sceneProjectionRef.current?.dispose();
+            sceneProjectionRef.current = null;
+            const message = formatOpenLimeSceneLoadError(error);
+            console.error('❌ Failed to load OpenLIME scene:', error);
+            onErrorRef.current?.(new Error(message));
+          };
+
           const getMatrix = (model: SceneDescription['models'][number]) => {
             console.log(`Calculating transformation matrix for model ${model.id} with properties:`, model);
             const scale = Array.isArray(model.scale)
@@ -585,82 +597,87 @@ const OpenLIMEViewer = forwardRef<
 
           if (allPackages) {
             // New path: OCRA extracts the zip; OpenLIME receives asset documents + resolveUrl.
-            const baseUrlByAssetId = new Map<string, string>();
-            const assetsById: Record<string, Awaited<ReturnType<typeof fetchOpenLimeAssetDocument>>> = {};
-            const instances: Array<{
-              instanceId: string;
-              label?: string;
-              assetId: string;
-              transform: Record<string, unknown>;
-            }> = [];
+            try {
+              const baseUrlByAssetId = new Map<string, string>();
+              const assetsById: Record<string, Awaited<ReturnType<typeof fetchOpenLimeAssetDocument>>> = {};
+              const instances: Array<{
+                instanceId: string;
+                label?: string;
+                assetId: string;
+                transform: Record<string, unknown>;
+              }> = [];
 
-            for (let i = 0; i < selectedAssets.length; i++) {
-              const asset = digitalAssets[selectedAssets[i]];
-              const documentUrl = packageDocumentUrls[i]!;
-              const document = await fetchOpenLimeAssetDocument(documentUrl);
-              if (cancelled) return;
-              const baseUrl = packageBaseUrlFromDocumentUrl(documentUrl);
-              baseUrlByAssetId.set(document.id, baseUrl);
-              assetsById[document.id] = document;
-              instances.push({
-                instanceId: toOpenLimeInstanceId(selectedModels[i]!.id),
-                label: asset.fileName || asset.label || selectedModels[i]!.id,
-                assetId: document.id,
-                transform: modelToOpenLimeTransform(selectedModels[i]!, sceneDesc.rotationUnits),
+              for (let i = 0; i < selectedAssets.length; i++) {
+                const asset = digitalAssets[selectedAssets[i]];
+                const documentUrl = packageDocumentUrls[i]!;
+                const document = await fetchOpenLimeAssetDocument(documentUrl);
+                if (cancelled) return;
+                const baseUrl = packageBaseUrlFromDocumentUrl(documentUrl);
+                baseUrlByAssetId.set(document.id, baseUrl);
+                assetsById[document.id] = document;
+                instances.push({
+                  instanceId: toOpenLimeInstanceId(selectedModels[i]!.id),
+                  label: asset.fileName || asset.label || selectedModels[i]!.id,
+                  assetId: document.id,
+                  transform: modelToOpenLimeTransform(selectedModels[i]!, sceneDesc.rotationUnits),
+                });
+                console.log(`🎬 Prepared openlime-asset package: ${asset.id} → ${documentUrl}`);
+              }
+
+              const session = instances.length === 1
+                ? OpenLIME.SceneSession.openAsset(assetsById[instances[0]!.assetId]!)
+                : OpenLIME.SceneSession.open(
+                  buildMinimalOpenLimeScene({
+                    sceneId: sceneDesc.projectId
+                      ? `urn:ocra:project:${sceneDesc.projectId}:scene`
+                      : 'urn:ocra:scene:default',
+                    instances,
+                  }),
+                  { assets: assetsById },
+                );
+
+              const projection = new OpenLIME.SceneProjection(session, viewer.canvas, {
+                createLayer: OpenLIME.createOpenLIMELayer,
+                createLens: (spec: unknown) => {
+                  const lens = OpenLIME.createOpenLIMELens(spec) as OpenLIME.LayerLens & { borderEnable?: boolean };
+                  lens.borderEnable = true;
+                  return lens;
+                },
+                createController: (spec: { type: string; lensLayer: OpenLIME.Layer; camera: OpenLIME.Camera; canvas: OpenLIME.Canvas }) => {
+                  const controller = OpenLIME.createOpenLIMEController(spec);
+                  viewer.pointerManager.onEvent(controller);
+                  return controller;
+                },
+                releaseController: (controller: OpenLIME.Controller) => {
+                  viewer.pointerManager.offEvent(controller);
+                },
+                resolveUrl: (source: { uri?: string }, assetDoc: { id: string }) => {
+                  const baseUrl = baseUrlByAssetId.get(assetDoc.id);
+                  if (!baseUrl) {
+                    return source.uri ?? '';
+                  }
+                  return resolveOpenLimeSourceUrl(source, baseUrl);
+                },
               });
-              console.log(`🎬 Prepared openlime-asset package: ${asset.id} → ${documentUrl}`);
+              sceneProjectionRef.current = projection;
+              usedSceneSession = true;
+
+              const projectedLayers = (viewer.canvas as OpenLIME.Canvas & {
+                layers: Record<string, OpenLIME.Layer & { type?: string; label?: string }>;
+              }).layers;
+              for (const [layerId, layer] of Object.entries(projectedLayers)) {
+                backgroundRuntime.push({
+                  id: layerId,
+                  label: layer.label || layerId,
+                  layer,
+                  relightable: layer.type === 'rti',
+                });
+              }
+              console.log(`🎬 Mounted SceneSession with ${instances.length} openlime-asset package(s)`);
+            } catch (error) {
+              reportLoadError(error);
+              return;
             }
-
-            const session = instances.length === 1
-              ? OpenLIME.SceneSession.openAsset(assetsById[instances[0]!.assetId]!)
-              : OpenLIME.SceneSession.open(
-                buildMinimalOpenLimeScene({
-                  sceneId: sceneDesc.projectId
-                    ? `urn:ocra:project:${sceneDesc.projectId}:scene`
-                    : 'urn:ocra:scene:default',
-                  instances,
-                }),
-                { assets: assetsById },
-              );
-
-            const projection = new OpenLIME.SceneProjection(session, viewer.canvas, {
-              createLayer: OpenLIME.createOpenLIMELayer,
-              createLens: (spec: unknown) => {
-                const lens = OpenLIME.createOpenLIMELens(spec) as OpenLIME.LayerLens & { borderEnable?: boolean };
-                lens.borderEnable = true;
-                return lens;
-              },
-              createController: (spec: { type: string; lensLayer: OpenLIME.Layer; camera: OpenLIME.Camera; canvas: OpenLIME.Canvas }) => {
-                const controller = OpenLIME.createOpenLIMEController(spec);
-                viewer.pointerManager.onEvent(controller);
-                return controller;
-              },
-              releaseController: (controller: OpenLIME.Controller) => {
-                viewer.pointerManager.offEvent(controller);
-              },
-              resolveUrl: (source: { uri?: string }, assetDoc: { id: string }) => {
-                const baseUrl = baseUrlByAssetId.get(assetDoc.id);
-                if (!baseUrl) {
-                  return source.uri ?? '';
-                }
-                return resolveOpenLimeSourceUrl(source, baseUrl);
-              },
-            });
-            sceneProjectionRef.current = projection;
-            usedSceneSession = true;
-
-            const projectedLayers = (viewer.canvas as OpenLIME.Canvas & {
-              layers: Record<string, OpenLIME.Layer & { type?: string; label?: string }>;
-            }).layers;
-            for (const [layerId, layer] of Object.entries(projectedLayers)) {
-              backgroundRuntime.push({
-                id: layerId,
-                label: layer.label || layerId,
-                layer,
-                relightable: layer.type === 'rti',
-              });
-            }
-            console.log(`🎬 Mounted SceneSession with ${instances.length} openlime-asset package(s)`);
           } else {
             if (packageDocumentUrls.some(Boolean)) {
               console.warn('⚠️ Mixed openlime-asset packages and legacy assets; using legacy Layer loader for this scene');
@@ -975,7 +992,14 @@ const OpenLIMEViewer = forwardRef<
 
         };
 
-        void loadScene();
+        void loadScene().catch((error) => {
+          if (cancelled) {
+            return;
+          }
+          const message = formatOpenLimeSceneLoadError(error);
+          console.error('❌ Failed to load OpenLIME scene:', error);
+          onErrorRef.current?.(new Error(message));
+        });
         return () => {
           cancelled = true;
         };

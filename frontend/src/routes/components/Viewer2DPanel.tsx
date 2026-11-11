@@ -48,7 +48,7 @@ import AppMessageModal from '../../shared/ui/AppMessageModal';
 import {
   AnnotationMessageModalCatalog,
 } from '../../shared/ui/AnnotationMessageModalCatalog';
-import { MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
+import { AppMessageModalCatalog, MessageModalDescriptor } from '../../shared/ui/AppMessageModalModel';
 import ViewerSettingsModal from '../../shared/ui/ViewerSettingsModal';
 import ViewerToolbar, { type ViewerToolbarAction } from '../../shared/ui/ViewerToolbar';
 import LightDirectionControl, { type LightDirection } from '../../shared/ui/LightDirectionControl';
@@ -1402,7 +1402,13 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             }}
             annotationInteractionMode={annotationMode}
             onReady={handleViewerReady}
-            onError={onError}
+            onError={(err) => {
+              setMessageModal(AppMessageModalCatalog.error(
+                err.message || 'Failed to load the OpenLIME scene.',
+                'Failed to load OpenLIME scene',
+              ));
+              onError(err);
+            }}
             onAnnotationCreated={handleAnnotationCreated}
             onAnnotationEditStart={handleAnnotationEditStart}
             onAnnotationUpdated={handleAnnotationUpdated}

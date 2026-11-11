@@ -4,6 +4,7 @@ import {
   buildMinimalOpenLimeScene,
   isOpenLimeAssetPackage,
   modelToOpenLimeTransform,
+  formatOpenLimeSceneLoadError,
   openLimeAssetDocumentUrl,
   packageBaseUrlFromDocumentUrl,
   resolveOpenLimeSourceUrl,
@@ -70,6 +71,20 @@ describe('openlimeScenePackage', () => {
     expect(scene.assets).toHaveLength(2);
     expect(scene.assets[0]?.asset).toBe('urn:example:lime');
     expect(scene.id).toContain('wall');
+  });
+
+  it('formats SceneValidationError diagnostics for the user', () => {
+    const error = Object.assign(new Error('fallback'), {
+      name: 'SceneValidationError',
+      diagnostics: [
+        { severity: 'warning', path: '/x', message: 'ignored' },
+        { severity: 'error', path: '/nodes/rti/spatial', message: 'Invalid transform.' },
+        { severity: 'error', path: '/id', message: 'Asset id must be a URI or URN.' },
+      ],
+    });
+    expect(formatOpenLimeSceneLoadError(error)).toBe(
+      '/nodes/rti/spatial: Invalid transform.\n/id: Asset id must be a URI or URN.',
+    );
   });
 
   it('maps model transforms and sanitizes instance ids', () => {

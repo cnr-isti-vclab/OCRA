@@ -136,6 +136,28 @@ export function isOpenLimeAssetPackage(asset: DigitalAsset): boolean {
   return openLimeAssetDocumentUrl(asset) !== null;
 }
 
+/** User-facing message for SceneSession / package load failures. */
+export function formatOpenLimeSceneLoadError(error: unknown): string {
+  if (error && typeof error === 'object' && 'diagnostics' in error) {
+    const diagnostics = (error as { diagnostics?: Array<{ severity?: string; path?: string; message?: string }> }).diagnostics;
+    if (Array.isArray(diagnostics)) {
+      const lines = diagnostics
+        .filter((item) => item.severity === 'error')
+        .map((item) => {
+          const path = item.path ? `${item.path}: ` : '';
+          return `${path}${item.message ?? 'Unknown validation error'}`;
+        });
+      if (lines.length > 0) {
+        return lines.join('\n');
+      }
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return 'Failed to load the OpenLIME scene.';
+}
+
 /** Directory that contains asset.json — base for relative source URIs inside the zip. */
 export function packageBaseUrlFromDocumentUrl(documentUrl: string): string {
   const resolved = new URL(documentUrl, typeof window !== 'undefined' ? window.location.href : 'http://local.invalid');

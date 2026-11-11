@@ -942,8 +942,8 @@ export default function ProjectPage() {
                     console.log('📸 2D RTI viewer ready');
                   }}
                   onError={(err) => {
+                    // Viewer2DPanel already shows a modal; avoid replacing the whole page.
                     console.error('📸 2D RTI viewer error:', err);
-                    setError(`Failed to load RTI viewer from scene: ${err.message}, ${sceneDesc}`);
                   }}
                 />
               </Suspense>
