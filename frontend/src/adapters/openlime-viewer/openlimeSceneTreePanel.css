@@ -1,0 +1,53 @@
+/* SceneTree hosted inside the shared OCRA layers panel chrome. */
+.ocra-viewer-layers--scene .ocra-viewer-layers__body {
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  padding: 4px 10px 14px;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-tree {
+  margin: 0;
+  padding: 0 8px;
+  list-style: none;
+  background: transparent;
+  color: #212529;
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-tree ul {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-tree li {
+  list-style: none;
+  margin: 6px 0;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-node[data-effective='false'] {
+  opacity: 0.45;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-heading label,
+.ocra-viewer-layers--scene .openlime-scene-lens label,
+.ocra-viewer-layers--scene .openlime-scene-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-node select,
+.ocra-viewer-layers--scene .openlime-scene-control {
+  margin-left: 22px;
+}
+
+.ocra-viewer-layers--scene .openlime-scene-node select {
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  background: #fff;
+  color: #212529;
+  font: 13px/1.3 system-ui, sans-serif;
+}

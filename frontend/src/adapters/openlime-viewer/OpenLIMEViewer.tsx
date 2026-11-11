@@ -31,6 +31,8 @@ import ViewerLayersPanel, {
   type ViewerBackgroundLayer,
   type ViewerLensLayer,
 } from '../../shared/ui/ViewerLayersPanel.tsx';
+import '../../shared/ui/ViewerLayersPanel.css';
+import './openlimeSceneTreePanel.css';
 import type { ViewerToolbarAction } from '../../shared/ui/ViewerToolbar.tsx';
 import {
   buildMinimalOpenLimeScene,
@@ -315,6 +317,9 @@ const OpenLIMEViewer = forwardRef<
       } | null>(null);
       const backgroundRuntimeRef = useRef<Array<{ id: string; label: string; layer: OpenLIME.Layer }>>([]);
       const sceneProjectionRef = useRef<OpenLIME.SceneProjection | null>(null);
+      const sceneSessionRef = useRef<OpenLIME.SceneSession | null>(null);
+      const sceneTreeRef = useRef<OpenLIME.SceneTree | null>(null);
+      const sceneTreeHostRef = useRef<HTMLUListElement | null>(null);
       const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
       const onReadyRef = useRef<typeof onReady>(onReady);
       const onErrorRef = useRef<typeof onError>(onError);
@@ -331,6 +336,9 @@ const OpenLIMEViewer = forwardRef<
       const onLensAcquisitionLightsChangeRef = useRef<typeof onLensAcquisitionLightsChange>(onLensAcquisitionLightsChange);
       const onLensAcquisitionLightsAvailabilityChangeRef = useRef<typeof onLensAcquisitionLightsAvailabilityChange>(onLensAcquisitionLightsAvailabilityChange);
       const [layersPanelOpen, setLayersPanelOpen] = useState(false);
+      /** Same Layers toolbar entry: legacy flat panel vs OpenLIME SceneTree. */
+      const [layersUiMode, setLayersUiMode] = useState<'legacy' | 'scene'>('legacy');
+      const [sceneSessionEpoch, setSceneSessionEpoch] = useState(0);
       const [backgroundLayers, setBackgroundLayers] = useState<ViewerBackgroundLayer[]>([]);
       const [lensLayers, setLensLayers] = useState<ViewerLensLayer[]>([]);
       const [lensEnabled, setLensEnabled] = useState(false);
@@ -461,8 +469,11 @@ const OpenLIMEViewer = forwardRef<
           toolsRef.current = null;
           scaleBarRef.current?.destroy();
           scaleBarRef.current = null;
+          sceneTreeRef.current?.dispose();
+          sceneTreeRef.current = null;
           sceneProjectionRef.current?.dispose();
           sceneProjectionRef.current = null;
+          sceneSessionRef.current = null;
           const lensRuntime = lensRuntimeRef.current;
           if (lensRuntime && viewerRef.current) {
             viewerRef.current.pointerManager.offEvent(lensRuntime.controller);
@@ -497,8 +508,12 @@ const OpenLIMEViewer = forwardRef<
             if (cancelled) {
               return;
             }
+            sceneTreeRef.current?.dispose();
+            sceneTreeRef.current = null;
             sceneProjectionRef.current?.dispose();
             sceneProjectionRef.current = null;
+            sceneSessionRef.current = null;
+            setLayersUiMode('legacy');
             const message = formatOpenLimeSceneLoadError(error);
             console.error('❌ Failed to load OpenLIME scene:', error);
             onErrorRef.current?.(new Error(message));
@@ -540,8 +555,11 @@ const OpenLIMEViewer = forwardRef<
           toolsRef.current = null;
           scaleBarRef.current?.destroy();
           scaleBarRef.current = null;
+          sceneTreeRef.current?.dispose();
+          sceneTreeRef.current = null;
           sceneProjectionRef.current?.dispose();
           sceneProjectionRef.current = null;
+          sceneSessionRef.current = null;
           const previousLens = lensRuntimeRef.current;
           if (previousLens) viewer.pointerManager.offEvent(previousLens.controller);
           lensRuntimeRef.current = null;
@@ -549,6 +567,7 @@ const OpenLIMEViewer = forwardRef<
           annotationManagerRef.current = null;
           backgroundRuntimeRef.current = [];
           setLayersPanelOpen(false);
+          setLayersUiMode('legacy');
           setLensEnabled(false);
           setLensLayers([]);
           setActiveLensId(null);
@@ -638,14 +657,23 @@ const OpenLIMEViewer = forwardRef<
 
               const projection = new OpenLIME.SceneProjection(session, viewer.canvas, {
                 createLayer: OpenLIME.createOpenLIMELayer,
-                createLens: (spec: unknown) => {
-                  const lens = OpenLIME.createOpenLIMELens(spec) as OpenLIME.LayerLens & { borderEnable?: boolean };
+                createLens: (spec: { camera?: OpenLIME.Camera; geometry?: { radius?: number } }) => {
+                  const lens = OpenLIME.createOpenLIMELens({
+                    ...spec,
+                    camera: viewer.camera,
+                  }) as OpenLIME.LayerLens & { borderEnable?: boolean; controllers?: OpenLIME.Controller[] };
                   lens.borderEnable = true;
+                  if (!Array.isArray(lens.controllers)) lens.controllers = [];
                   return lens;
                 },
-                createController: (spec: { type: string; lensLayer: OpenLIME.Layer; camera: OpenLIME.Camera; canvas: OpenLIME.Canvas }) => {
-                  const controller = OpenLIME.createOpenLIMEController(spec);
+                createController: (spec: { type: string; lensLayer: OpenLIME.Layer & { controllers?: OpenLIME.Controller[] }; camera: OpenLIME.Camera; canvas: OpenLIME.Canvas }) => {
+                  const controller = OpenLIME.createOpenLIMEController({
+                    ...spec,
+                    camera: viewer.camera,
+                    canvas: viewer.canvas,
+                  });
                   viewer.pointerManager.onEvent(controller);
+                  spec.lensLayer.controllers?.push(controller);
                   return controller;
                 },
                 releaseController: (controller: OpenLIME.Controller) => {
@@ -660,7 +688,10 @@ const OpenLIMEViewer = forwardRef<
                 },
               });
               sceneProjectionRef.current = projection;
+              sceneSessionRef.current = session;
               usedSceneSession = true;
+              setLayersUiMode('scene');
+              setSceneSessionEpoch((epoch) => epoch + 1);
 
               const projectedLayers = (viewer.canvas as OpenLIME.Canvas & {
                 layers: Record<string, OpenLIME.Layer & { type?: string; label?: string }>;
@@ -1005,6 +1036,40 @@ const OpenLIMEViewer = forwardRef<
         };
       }, [sceneDesc, digitalAssets, annotationInteractionMode]);
 
+      // Mount OpenLIME SceneTree into the shared Layers panel when that mode is active.
+      useEffect(() => {
+        if (!layersPanelOpen || layersUiMode !== 'scene') {
+          return;
+        }
+        const session = sceneSessionRef.current;
+        const host = sceneTreeHostRef.current;
+        if (!session || !host) {
+          return;
+        }
+        sceneTreeRef.current?.dispose();
+        const tree = new OpenLIME.SceneTree(session, host);
+        // Surface command/reconcile failures (e.g. lens after RTI mode switch) to the user.
+        host.removeEventListener('change', tree.onChange);
+        const rawOnChange = tree.onChange.bind(tree);
+        tree.onChange = (event: Event) => {
+          try {
+            rawOnChange(event);
+          } catch (error) {
+            console.error('❌ OpenLIME scene tree action failed:', error);
+            tree.render();
+            onErrorRef.current?.(new Error(formatOpenLimeSceneLoadError(error)));
+          }
+        };
+        host.addEventListener('change', tree.onChange);
+        sceneTreeRef.current = tree;
+        return () => {
+          tree.dispose();
+          if (sceneTreeRef.current === tree) {
+            sceneTreeRef.current = null;
+          }
+        };
+      }, [layersPanelOpen, layersUiMode, sceneSessionEpoch]);
+
       const closeLayersPanel = () => {
         setLayersPanelOpen(false);
         toolsRef.current?.actions.update('layers', { active: false });
@@ -1183,18 +1248,34 @@ const OpenLIMEViewer = forwardRef<
               backgroundColor: '#404040',
             }}
           />
-          <ViewerLayersPanel
-            open={layersPanelOpen}
-            backgroundLayers={backgroundLayers}
-            lensLayers={lensLayers}
-            lensEnabled={lensEnabled}
-            activeLensId={activeLensId}
-            onClose={closeLayersPanel}
-            onBackgroundVisibilityChange={setBackgroundVisibility}
-            onBackgroundModeChange={setBackgroundMode}
-            onLensEnabledChange={setInspectionLensEnabled}
-            onActiveLensChange={setInspectionLensLayer}
-          />
+          {layersPanelOpen && layersUiMode === 'legacy' ? (
+            <ViewerLayersPanel
+              open
+              backgroundLayers={backgroundLayers}
+              lensLayers={lensLayers}
+              lensEnabled={lensEnabled}
+              activeLensId={activeLensId}
+              onClose={closeLayersPanel}
+              onBackgroundVisibilityChange={setBackgroundVisibility}
+              onBackgroundModeChange={setBackgroundMode}
+              onLensEnabledChange={setInspectionLensEnabled}
+              onActiveLensChange={setInspectionLensLayer}
+            />
+          ) : null}
+          {layersPanelOpen && layersUiMode === 'scene' ? (
+            <section className="ocra-viewer-layers ocra-viewer-layers--scene" aria-label="Scene graph">
+              <header className="ocra-viewer-layers__header">
+                <div>
+                  <strong>Layers</strong>
+                  <span>Scene graph</span>
+                </div>
+                <button type="button" aria-label="Close layers" onClick={closeLayersPanel}>×</button>
+              </header>
+              <div className="ocra-viewer-layers__body">
+                <ul ref={sceneTreeHostRef} className="openlime-scene-tree" />
+              </div>
+            </section>
+          ) : null}
         </div>
       );
     }
