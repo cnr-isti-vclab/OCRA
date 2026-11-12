@@ -15,6 +15,8 @@ export default defineConfig({
       'frontend/src/features/annotation-editing/**/*.test.ts',
       'frontend/src/features/annotation-link-view/**/*.test.ts',
       'frontend/src/features/annotation-trash/**/*.test.ts',
+      'frontend/src/features/scene-transform/**/*.test.ts',
+
       'frontend/src/stores/AnnotationStore.creation.test.ts',
       'frontend/src/stores/AnnotationStore.deletion.test.ts',
       'frontend/src/stores/annotation-rendering.test.ts',

@@ -22,6 +22,11 @@ import {
 import type { EchoesProjectStatus } from '../types';
 import { OPENLIME_RASTER_IMAGE_EXTENSIONS } from 'shared/openlime-layout';
 import { notifyProjectAssetsChanged } from '../services/project-assets-events';
+import SceneAssetTransformEditor from '../features/scene-transform/SceneAssetTransformEditor';
+import {
+  isAssetCompatibleWithSceneMode,
+  resolveSceneSpatialMode,
+} from '../features/scene-transform/sceneSpatialMode';
 
 /**
  * HDT (Heritage Digital Twin) Management Page
@@ -219,6 +224,7 @@ export default function HDTPage() {
   const [scenes, setScenes] = useState<SceneConfig[]>([]);
   const [editingScene, setEditingScene] = useState<any | null>(null);
   const [showSceneEditor, setShowSceneEditor] = useState(false);
+  const [expandedTransformAssetId, setExpandedTransformAssetId] = useState<string | null>(null);
 
   const [dataLoaded, setDataLoaded] = useState(false);
   const initialLoadRef = useRef(true);
@@ -664,7 +670,7 @@ export default function HDTPage() {
   const toScenePayload = (scene: SceneConfig): Record<string, any> => ({
     label: scene.label?.trim() || '',
     description: scene.description || '',
-    type: scene.type || '3D',
+    type: resolveSceneSpatialMode(scene, digitalAssets) || scene.type || '3D',
     isDefault: !!scene.isDefault,
     assets: Array.isArray(scene.assets) ? scene.assets : [],
     environment: scene.environment || {},
@@ -2530,6 +2536,7 @@ export default function HDTPage() {
                           groundColor: '#808080',
                         },
                       };
+                      setExpandedTransformAssetId(null);
                       setEditingScene(newScene);
                       setShowSceneEditor(true);
                     }}
@@ -2558,6 +2565,7 @@ export default function HDTPage() {
                                   className="btn btn-outline-primary"
                                   disabled={hdtReadOnlyWithoutProjectLock}
                                   onClick={() => {
+                                    setExpandedTransformAssetId(null);
                                     setEditingScene(scene);
                                     setShowSceneEditor(true);
                                   }}
@@ -2635,6 +2643,7 @@ export default function HDTPage() {
                           onClick={() => {
                             setShowSceneEditor(false);
                             setEditingScene(null);
+                            setExpandedTransformAssetId(null);
                           }}
                         ></button>
                       </div>
@@ -2684,64 +2693,125 @@ export default function HDTPage() {
                           </div>
                         ) : (
                           <>
-                            <p className="text-muted small">Select which assets to include in this scene:</p>
-                            <div className="list-group mb-3">
-                              {digitalAssets.map((asset) => {
-                                const isInScene = (editingScene.assets || []).some((a: any) => a.assetId === asset.id);
-                                return (
-                                  <div key={asset.id} className="list-group-item">
-                                    <div className="d-flex align-items-center">
-                                      <input
-                                        type="checkbox"
-                                        className="form-check-input me-3"
-                                        checked={isInScene}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
-                                            const newAssetRef = {
-                                              assetId: asset.id,
-                                              visible: true,
-                                            };
-                                            setEditingScene({
-                                              ...editingScene,
-                                              assets: [...(editingScene.assets || []), newAssetRef],
-                                            });
-                                          } else {
-                                            setEditingScene({
-                                              ...editingScene,
-                                              assets: (editingScene.assets || []).filter((a: any) => a.assetId !== asset.id),
-                                            });
-                                          }
-                                        }}
-                                      />
-                                      <div className="flex-grow-1">
-                                        <div>
-                                          <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
-                                          <span className="badge bg-secondary ms-2">{asset.type}</span>
+                            {(() => {
+                              const sceneMode = resolveSceneSpatialMode(editingScene, digitalAssets);
+                              return (
+                                <>
+                                  <p className="text-muted small mb-1">
+                                    Select which assets to include in this scene
+                                    {sceneMode ? (
+                                      <> (scene is <strong>{sceneMode}</strong>)</>
+                                    ) : null}
+                                    :
+                                  </p>
+                                  <div className="list-group mb-3">
+                                    {digitalAssets.map((asset) => {
+                                      const isInScene = (editingScene.assets || []).some((a: any) => a.assetId === asset.id);
+                                      const compatible = isAssetCompatibleWithSceneMode(asset.type, sceneMode);
+                                      const assetRef = (editingScene.assets || []).find((a: any) => a.assetId === asset.id);
+                                      const transformOpen = expandedTransformAssetId === asset.id;
+                                      return (
+                                        <div key={asset.id} className="list-group-item">
+                                          <div className="d-flex align-items-center">
+                                            <input
+                                              type="checkbox"
+                                              className="form-check-input me-3"
+                                              checked={isInScene}
+                                              disabled={!isInScene && !compatible}
+                                              title={
+                                                !isInScene && !compatible
+                                                  ? sceneMode
+                                                    ? `Only ${sceneMode} assets can be added to this scene`
+                                                    : 'This asset type cannot be placed in a scene'
+                                                  : undefined
+                                              }
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  if (!compatible) return;
+                                                  const newAssetRef = {
+                                                    assetId: asset.id,
+                                                    visible: true,
+                                                  };
+                                                  setEditingScene({
+                                                    ...editingScene,
+                                                    type: sceneMode || resolveSceneSpatialMode(
+                                                      { assets: [...(editingScene.assets || []), newAssetRef] },
+                                                      digitalAssets,
+                                                    ) || editingScene.type,
+                                                    assets: [...(editingScene.assets || []), newAssetRef],
+                                                  });
+                                                } else {
+                                                  const nextAssets = (editingScene.assets || []).filter(
+                                                    (a: any) => a.assetId !== asset.id,
+                                                  );
+                                                  setExpandedTransformAssetId((id) => (id === asset.id ? null : id));
+                                                  setEditingScene({
+                                                    ...editingScene,
+                                                    assets: nextAssets,
+                                                    type: resolveSceneSpatialMode(
+                                                      { ...editingScene, assets: nextAssets },
+                                                      digitalAssets,
+                                                    ) || undefined,
+                                                  });
+                                                }
+                                              }}
+                                            />
+                                            <div className="flex-grow-1">
+                                              <div>
+                                                <strong>{asset.fileName || asset.title || asset.label || '(unnamed)'}</strong>
+                                                <span className="badge bg-secondary ms-2">{asset.type}</span>
+                                              </div>
+                                              {asset.entrySize !== undefined && (
+                                                <small className="text-muted">
+                                                  {asset.entrySize
+                                                    ? `${(asset.entrySize / 1024 / 1024).toFixed(2)} MB`
+                                                    : '-'
+                                                  }
+                                                </small>
+                                              )}
+                                            </div>
+                                            {isInScene && sceneMode && (
+                                              <button
+                                                type="button"
+                                                className={`btn btn-sm ${transformOpen ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                                                disabled={hdtReadOnlyWithoutProjectLock}
+                                                onClick={() => {
+                                                  setExpandedTransformAssetId((id) => (id === asset.id ? null : asset.id));
+                                                }}
+                                              >
+                                                ⚙️ Transform
+                                              </button>
+                                            )}
+                                          </div>
+                                          {isInScene && sceneMode && transformOpen && assetRef && (
+                                            <SceneAssetTransformEditor
+                                              key={`${asset.id}-${sceneMode}`}
+                                              mode={sceneMode}
+                                              disabled={hdtReadOnlyWithoutProjectLock}
+                                              value={{
+                                                position: assetRef.position,
+                                                rotation: assetRef.rotation,
+                                                scale: assetRef.scale,
+                                              }}
+                                              onChange={(next) => {
+                                                setEditingScene({
+                                                  ...editingScene,
+                                                  assets: (editingScene.assets || []).map((a: any) =>
+                                                    a.assetId === asset.id
+                                                      ? { ...a, position: next.position, rotation: next.rotation, scale: next.scale }
+                                                      : a,
+                                                  ),
+                                                });
+                                              }}
+                                            />
+                                          )}
                                         </div>
-                                        {asset.entrySize !== undefined && (
-                                          <small className="text-muted">
-                                            {asset.entrySize
-                                              ? `${(asset.entrySize / 1024 / 1024).toFixed(2)} MB`
-                                              : '-'
-                                            }
-                                          </small>
-                                        )}
-                                      </div>
-                                      {isInScene && (
-                                        <button
-                                          className="btn btn-sm btn-outline-secondary"
-                                          onClick={() => {
-                                            alert('Transform controls coming soon! For now, assets use default position (0,0,0).');
-                                          }}
-                                        >
-                                          ⚙️ Transform
-                                        </button>
-                                      )}
-                                    </div>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })}
-                            </div>
+                                </>
+                              );
+                            })()}
                           </>
                         )}
 
@@ -2807,6 +2877,7 @@ export default function HDTPage() {
                           onClick={() => {
                             setShowSceneEditor(false);
                             setEditingScene(null);
+                            setExpandedTransformAssetId(null);
                           }}
                         >
                           Cancel
@@ -2845,6 +2916,7 @@ export default function HDTPage() {
                               await fetchProjectAndMetadata();
                               setShowSceneEditor(false);
                               setEditingScene(null);
+                              setExpandedTransformAssetId(null);
                               setSuccessMessage('✓ Scene saved');
                             } catch (err: any) {
                               setError(err?.message || 'Failed to save scene');
