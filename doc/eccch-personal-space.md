@@ -8,13 +8,13 @@ Design for the next implementation phase, not implemented. It targets the ECHOES
 
 ## Model
 
-- **One OCRA project ↔ one ECCCH project space ↔ one HDT**, so each space holds content for a single Digital Twin.
-- **The user's Personal Space** (`/api/v1/spaces/me`) is an import source for that user's own assets.
+- **One OCRA project ↔ one HDT, stored in the owner's Personal Space** (`/api/v1/spaces/me`). Each project has a single owner (D4); only the owner's token writes to the platform, so the HDT and all its assets belong to one identity. A Personal Space may hold several projects, since assets and enrichments are addressed individually.
+- **Any user's Personal Space** is also an import source for that user's own assets.
 - **Mongo stays the working store.** Annotation editing, OCC and SSE are unchanged; only explicit import, save and publish actions call the platform.
 - **Identity:** OCRA forwards the user's EGI Check-in access token to SEP, which handles KBMS authentication.
-- **Binaries live in the platform.** Every binary (3D models, RTI, images, including those first imported from a third-party URL) is uploaded as a MANAGED asset to the project space. The HDT records its `canonicalUri`, and its platform content route becomes the asset's `metadata.sourceUrl`. A project saved in the KB can therefore be opened by any OCRA instance, even when the instance that created it no longer exists.
+- **Binaries live in the platform.** Every binary (3D models, RTI, images, including those first imported from a third-party URL) is uploaded as a MANAGED asset to the owner's Personal Space. The HDT records its `canonicalUri`, and its platform content route becomes the asset's `metadata.sourceUrl`. A project saved in the KB can therefore be opened by any OCRA instance, even when the instance that created it no longer exists.
 - **`project_files/` is a working copy.** The platform keeps each asset's package as uploaded; the formats the viewers use are derived from it locally and never uploaded. Opening a KB project in another instance uses the existing ECHOES import: each package is downloaded from its `sourceUrl`, now with the user's EGI token, and ingested locally. The working copy must therefore be rebuildable from the package and the HDT metadata alone.
-- **Annotations** are published as an HDT enrichment: the payload (RDF, or the snapshot through a mapping profile, see Q5) is uploaded as a MANAGED asset, then submitted. Publishing stays manager-only.
+- **Annotations** are published as an HDT enrichment: the payload (RDF, or the snapshot through a mapping profile, see Q5) is uploaded as a MANAGED asset, then submitted. Saving and publishing are done by the owner; editors work in OCRA until then.
 - **Platform writes are asynchronous.** OCRA stores each returned operation id with the project, polls it, and shows pending, failed and reconciliation-required states.
 
 ---
@@ -26,8 +26,8 @@ Paths are under `/api/v1`; writes send an `Idempotency-Key`.
 | Step | Scope | Endpoints | Blocked by |
 |---|---|---|---|
 | 1 | Import from the Personal Space into a project | `GET /spaces/me`, `GET /spaces/me/assets`, `GET /assets/{id}/content` | Q1, Q2 |
-| 2 | Upload project binaries as MANAGED assets; import downloads them with the user's token | `POST /spaces/{spaceId}/assets/uploads`, `PUT` to `uploadUri`, `POST /assets/uploads/{id}/complete`, `GET /assets/{id}/content` | Q3, Q6, D1, D3 |
-| 3 | Publish annotations as an enrichment | upload the snapshot and the payload as in step 2, then `POST /hdts/{hdtId}/enrichments`, `GET /operations/{id}` | Q4, Q5, Q7, D2 |
+| 2 | Upload project binaries as MANAGED assets; import downloads them with the user's token | `POST /spaces/me/assets/uploads`, `PUT` to `uploadUri`, `POST /assets/uploads/{id}/complete`, `GET /assets/{id}/content` | Q4, Q6, D1, D3, D4 |
+| 3 | Publish annotations as an enrichment | upload the snapshot and the payload as in step 2, then `POST /hdts/{hdtId}/enrichments`, `GET /operations/{id}` | Q4, Q5, Q7, D2, D4 |
 | 4 | Revisions, semantic workspace, publication | not yet in the API | — |
 
 ---
@@ -75,6 +75,15 @@ OCRA deletes an uploaded package after extracting it, so at save time there is n
 
 Proposal: keep the original package.
 
+### D4 Project owner
+
+OCRA has no project owner today: authority comes from `ProjectRole`, and a project may have several managers. Platform writes need exactly one identity, because `/spaces/me` resolves to the caller's space and another manager's save would land in a different space.
+
+- **Who.** The manager who first saves the project to the platform becomes its owner; later saves are offered only to them.
+- **Where.** The owner's user id is stored in the HDT document's `echoesContext`, next to the HDT's platform identifiers. No Prisma change.
+- **Costs.** The owner's quota holds all the project's binaries, and the canonical assets are tied to that person's account.
+- **Transfer.** Assets cannot be moved between spaces. A new owner keeps the existing assets by `canonicalUri` and uploads only new or changed ones to their own space, so the project then spans two spaces. A clean move needs a project space (Q3).
+
 ## Questions for PCSS
 
 - **Q1 SEP base URL.** The contract's `servers` entry is `/`. OCRA needs the development, staging and production URLs, configured as one backend variable next to `ECHOES_KB_API_BASE`.
@@ -82,15 +91,15 @@ Proposal: keep the original package.
   - Does it accept tokens issued to OCRA's EGI clients (development and production), or must OCRA be registered as a trusted client? Assets record a `createdByClientId`.
   - What is the exact entitlement value, so OCRA can tell a user without VO membership why ECCCH actions are unavailable?
   - If OCRA's tokens are rejected, the fallback is a service principal. A service principal has no Personal Space, which rules out step 1.
-- **Q3 Project spaces.** The API reaches them only by `spaceId`; nothing creates, lists or manages them.
-  - Who creates a project space, and how does OCRA learn its `spaceId`? OCRA would store it in the HDT document's `echoesContext`.
-  - How are members granted? Under D6.3 the platform owns these permissions, so OCRA's managers and editors need a matching platform grant before they can upload or register assets.
+- **Q3 Project spaces.** Not a blocker: OCRA starts with the owner's Personal Space (D4) and would move to a project space once one can be used. The API reaches project spaces only by `spaceId`; nothing creates, lists or manages them.
+  - Who creates a project space, how does OCRA learn its `spaceId`, and how are members granted?
   - Is one space per OCRA project intended, or should an institution's projects share one institutional space?
+  - Will assets be movable from a Personal Space to a project space, or must they be uploaded again?
 - **Q4 Enrichment visibility.** HDT metadata has registration and synchronisation states but no publication state.
   - Does `POST /hdts/{hdtId}/enrichments` publish immediately, or land in a working context that a separate action publishes?
   - If immediate, OCRA keeps it as a manager-only "Publish". If it lands in a working context, editors can save to ECCCH and the manager publishes later, in step 4.
   - How is a published enrichment withdrawn? The API has no `DELETE`.
-  - Once an HDT is published, can other users read its MANAGED assets? Reading content needs asset-read permission, and a project opened in another instance is usually opened by someone other than its author.
+  - Once an HDT is published, can other users read its MANAGED assets? They sit in the owner's Personal Space, reading content needs asset-read permission, and a project opened in another instance is usually opened by someone other than its owner.
 - **Q5 Profile or mapping.** An enrichment must name a `semanticProfile` that validates it, e.g. `https://culturalheritagecloud.eu/profiles/hdto-enrichment/0.2`. An optional `mapping.profile` instead routes a source asset through a registered mapper.
   - OCRA has no annotation RDF today: annotations reach ECHOES only inside the project snapshot JSON. A native-RDF payload therefore means new serialisation code in OCRA; a mapping profile could consume the existing snapshot, but someone must write and host the mapper.
   - Is the 0.2 profile published, for example as SHACL, so OCRA can validate before uploading? Does it accept OCRA's vocabulary (`https://data.ocra.echoes.eu/ontology#`)?
@@ -100,4 +109,4 @@ Proposal: keep the original package.
 
 ---
 
-*Last reviewed: 2026-11-05*
+*Last reviewed: 2026-11-06*
