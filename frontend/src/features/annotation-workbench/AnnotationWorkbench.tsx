@@ -51,15 +51,14 @@ interface FloatingWorkbenchPosition {
 /**
  * Non-modal authoring surface for create and unlink/erase.
  * It deliberately leaves the viewer interactive while a draft is in progress.
- *
- * Scopes stay on scene defaults (see createDefaultCreationDraft) until we need
- * an asset/project scope picker again — do not reintroduce them casually.
  */
 export default function AnnotationWorkbench({
   isOpen,
   isDetached,
   onDetachedChange,
   mode,
+  sceneId,
+  sceneAssets = [],
   defaultDrawingMode,
   onClose: closeWorkbench,
 }: AnnotationWorkbenchProps) {
@@ -286,6 +285,32 @@ export default function AnnotationWorkbench({
     mode,
     seedDeletionDraft,
   ]);
+
+  useEffect(() => {
+    if (!isOpen || !isCreateMode || !creationDraft) {
+      return;
+    }
+    const assetIds = new Set(sceneAssets.map((asset) => asset.id));
+    const fallbackAssetId = sceneAssets[0]?.id;
+    const nextGeometryScope = creationDraft.geometryScope.referenceType === 'asset'
+      && !assetIds.has(creationDraft.geometryScope.referenceId)
+      ? (fallbackAssetId
+        ? { referenceType: 'asset' as const, referenceId: fallbackAssetId }
+        : { referenceType: 'scene' as const, referenceId: sceneId })
+      : null;
+    const nextDataVisibility = creationDraft.dataVisibility.visibilityType === 'asset'
+      && !assetIds.has(creationDraft.dataVisibility.visibilityId)
+      ? (fallbackAssetId
+        ? { visibilityType: 'asset' as const, visibilityId: fallbackAssetId }
+        : { visibilityType: 'scene' as const, visibilityId: sceneId })
+      : null;
+    if (nextGeometryScope || nextDataVisibility) {
+      updateCreationDraft({
+        ...(nextGeometryScope ? { geometryScope: nextGeometryScope } : {}),
+        ...(nextDataVisibility ? { dataVisibility: nextDataVisibility } : {}),
+      });
+    }
+  }, [creationDraft, isCreateMode, isOpen, sceneAssets, sceneId, updateCreationDraft]);
 
   useEffect(() => {
     if (!isOpen || !isCreateMode) {
@@ -591,7 +616,14 @@ export default function AnnotationWorkbench({
           <section aria-labelledby="annotation-geometry-step-title">
             <AnnotationCreationGeometryStep
               draft={creationDraft}
+              sceneId={sceneId}
+              sceneAssets={sceneAssets}
               creating={creating}
+              onGeometryScopeChange={(geometryScope) => updateCreationDraft({
+                geometryScope,
+                createdGeometries: [],
+                selectedGeometryIds: [],
+              })}
               onGeometryModeChange={(geometryMode) => updateCreationDraft({
                 geometryMode,
                 selectedGeometryIds: geometryMode === 'choose' ? creationDraft.selectedGeometryIds : [],
@@ -670,6 +702,8 @@ export default function AnnotationWorkbench({
           <section aria-label="Annotation data">
             <AnnotationCreationDataStep
               draft={creationDraft}
+              sceneId={sceneId}
+              sceneAssets={sceneAssets}
               candidates={searchableData}
               displayNumbersById={dataNumbers}
               creating={creating}
@@ -683,6 +717,12 @@ export default function AnnotationWorkbench({
                 setDataEditorOpen(true);
                 setSetupError(null);
               }}
+              onDataVisibilityChange={(dataVisibility) => updateCreationDraft({
+                dataVisibility,
+                createdData: [],
+                selectedDataIds: [],
+                ...emptyPendingData(),
+              })}
               onDataModeChange={(dataMode) => updateCreationDraft({
                 dataMode,
                 selectedDataIds: dataMode === 'choose' ? creationDraft.selectedDataIds : [],

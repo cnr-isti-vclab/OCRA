@@ -1660,10 +1660,13 @@ export default function ProjectPage() {
                             mode={annotationWorkbenchMode}
                             sceneId={selectedSceneId}
                             sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
-                            sceneAssets={digitalAssets.map((asset) => ({
-                              id: asset.id,
-                              label: asset.label || asset.title || asset.id,
-                            }))}
+                            sceneAssets={currentSceneModels.map((model) => {
+                              const asset = digitalAssets.find((candidate) => candidate.id === model.id);
+                              return {
+                                id: model.id,
+                                label: asset?.label || asset?.title || model.title || model.id,
+                              };
+                            })}
                             defaultDrawingMode={mode === '3d' ? 'point' : 'area'}
                             onClose={closeAnnotationWorkbench}
                           />
@@ -1673,10 +1676,13 @@ export default function ProjectPage() {
                             <AnnotationPanelEditor
                               sceneId={selectedSceneId ?? ''}
                               sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
-                              sceneAssets={digitalAssets.map((asset) => ({
-                                id: asset.id,
-                                label: asset.label || asset.title || asset.id,
-                              }))}
+                              sceneAssets={currentSceneModels.map((model) => {
+                                const asset = digitalAssets.find((candidate) => candidate.id === model.id);
+                                return {
+                                  id: model.id,
+                                  label: asset?.label || asset?.title || model.title || model.id,
+                                };
+                              })}
                               onOpenCreationWorkbench={openAnnotationWorkbench}
                               onOpenDeletionWorkbench={openDeletionWorkbench}
                             />

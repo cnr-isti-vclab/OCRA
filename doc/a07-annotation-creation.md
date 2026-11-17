@@ -22,7 +22,9 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 
 - **Draft until Done**: geometry/data drafts stay client-side until the second-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
 - **Authoring surface**: **`AnnotationWorkbench`** is the sole create UI for **2D and 3D**. Panel **Annotate** opens the workbench (docked by default; detachable). The panel itself is browse / edit / list only.
-- **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). **Scopes are hidden**; scene defaults from `createDefaultCreationDraft` (+ remembered drawing tool / step order) apply until an asset/project scope UI is needed again.
+- **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). **Geometry scope** and **data visibility** pickers choose `scene` (current scene id) or `asset` (scene assets; auto-selected when only one). Defaults remain scene+scene from `createDefaultCreationDraft` (+ remembered setup).
+- **2D coordinates**: OpenLIME stores vertices in the SVG annotation layer’s **image space** (not scene space). Scene-scoped geometry keeps those coords as drawn. Asset-scoped geometry remaps into the target asset layer’s image frame on create (and back on load), so the same asset stays aligned across scenes with different placements. Asset-scoped geometry is not painted if that asset is no longer in the scene.
+- **Remove asset from scene**: soft-deletes only **mixed** links (`scene`↔`asset` for that scene/asset pair). Pure scene+scene and asset+asset links are left intact.
 - **Per step — New | Choose | Done**:
   - **New**: sticky create (append geometries / confirm data into arrays). **Undo** drops the last created item. **Choose** is disabled once any creations exist on that side.
   - **Choose**: select existing entities (multi-select when the other side has at most one result). Remotely editor-locked entities are not selectable; chosen entities take a local editor lock while selected.
@@ -38,7 +40,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 - **Remembered setup**: drawing tool + step order (+ hidden scopes) remembered for the browser session (`sessionStorage` per project/scene when enabled).
 - **Link view during wizard**: filtering is bypassed so draft/chosen geometries stay visible.
 - **Commit failure**: partial artifacts are marked erasable (rollback); draft is restored for retry.
-- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view; scope picker UI (defaults only).
+- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view; 3D asset-placement coordinate transforms.
 
 ### Key modules
 
@@ -50,6 +52,8 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | Creation action bar | `frontend/src/features/annotation-creation/AnnotationCreationPanel.tsx` |
 | Geometry step UI | `frontend/src/features/annotation-creation/AnnotationCreationGeometryStep.tsx` |
 | Data step UI | `frontend/src/features/annotation-creation/AnnotationCreationDataStep.tsx` |
+| Scope picker | `frontend/src/features/annotation-creation/AnnotationScopePicker.tsx` |
+| Layer image-frame remap (2D) | `frontend/src/adapters/annotation-store/annotationPlacementTransform.ts` |
 | Chosen-entity locks | `frontend/src/features/annotation-creation/useCreationChosenEntityLocks.ts` |
 | Validation | `frontend/src/features/annotation-creation/annotationCreationValidation.ts` |
 | Link view | `frontend/src/features/annotation-link-view/` |

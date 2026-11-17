@@ -175,3 +175,30 @@ export async function deleteErasableAnnotationLinksByProjectId(projectId: string
   const result = await collection.deleteMany({ projectId, erasableAt: { $ne: null } });
   return result.deletedCount;
 }
+
+/** Soft-delete many non-erasable links (structuring / cascade). Skips OCC per link. */
+export async function markAnnotationLinksErasableByIds(
+  projectId: string,
+  linkIds: string[],
+  userId: string,
+  timestamp: string,
+) {
+  if (linkIds.length === 0) {
+    return 0;
+  }
+
+  const collection = await getAnnotationLinkCollection();
+  const result = await collection.updateMany(
+    { projectId, id: { $in: linkIds }, erasableAt: null },
+    {
+      $set: {
+        erasableAt: timestamp,
+        erasableBy: userId,
+        updatedAt: timestamp,
+        updatedBy: userId,
+      },
+      $inc: { version: 1 },
+    },
+  );
+  return result.modifiedCount;
+}

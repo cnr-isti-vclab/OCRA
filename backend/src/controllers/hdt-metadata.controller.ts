@@ -50,7 +50,12 @@ import {
 import { requireOwnedExclusiveStructuringLock } from '../middleware/project-structuring-lock.js';
 import { findAnnotationGeometriesByReference, deleteAnnotationGeometriesByReference } from '../repositories/annotation-geometry.repository.js';
 import { findAnnotationDataByVisibility, deleteAnnotationDataByVisibility } from '../repositories/annotation-data.repository.js';
-import { deleteAnnotationLinksByDataIds, deleteAnnotationLinksByGeometryIds } from '../repositories/annotation-link.repository.js';
+import {
+  deleteAnnotationLinksByDataIds,
+  deleteAnnotationLinksByGeometryIds,
+  findAnnotationLinksByGeometryIds,
+  markAnnotationLinksErasableByIds,
+} from '../repositories/annotation-link.repository.js';
 import { getPrismaClient } from '../../db.js';
 import { auditBestEffort } from '../utils/audit.js';
 import {
@@ -308,6 +313,52 @@ async function purgeAssetScopedAnnotations(projectId: string, assetId: string) {
     ignoreMissingMongoNamespace(deleteAnnotationGeometriesByReference(projectId, 'asset', assetId)),
     ignoreMissingMongoNamespace(deleteAnnotationDataByVisibility(projectId, 'asset', assetId)),
   ]);
+}
+
+/**
+ * Soft-delete mixed scene↔asset links for one scene/asset pair.
+ * Leaves scene+scene, asset+asset, and the geometry/data documents themselves.
+ */
+async function softDeleteMixedLinksForSceneAsset(
+  projectId: string,
+  sceneId: string,
+  assetId: string,
+  userId: string,
+) {
+  const [sceneGeometries, assetGeometries, sceneData, assetData] = await Promise.all([
+    ignoreMissingMongoNamespace(findAnnotationGeometriesByReference(projectId, 'scene', sceneId)),
+    ignoreMissingMongoNamespace(findAnnotationGeometriesByReference(projectId, 'asset', assetId)),
+    ignoreMissingMongoNamespace(findAnnotationDataByVisibility(projectId, 'scene', sceneId)),
+    ignoreMissingMongoNamespace(findAnnotationDataByVisibility(projectId, 'asset', assetId)),
+  ]);
+
+  const sceneGeometryIds = new Set((sceneGeometries ?? []).map((geometry: any) => geometry.id as string));
+  const assetGeometryIds = new Set((assetGeometries ?? []).map((geometry: any) => geometry.id as string));
+  const sceneDataIds = new Set((sceneData ?? []).map((datum: any) => datum.id as string));
+  const assetDataIds = new Set((assetData ?? []).map((datum: any) => datum.id as string));
+
+  const [sceneGeoLinks, assetGeoLinks] = await Promise.all([
+    ignoreMissingMongoNamespace(findAnnotationLinksByGeometryIds(projectId, [...sceneGeometryIds])),
+    ignoreMissingMongoNamespace(findAnnotationLinksByGeometryIds(projectId, [...assetGeometryIds])),
+  ]);
+
+  const mixedLinkIds = [...(sceneGeoLinks ?? []), ...(assetGeoLinks ?? [])]
+    .filter((link: any) => {
+      if (link.erasableAt !== null) return false;
+      const sceneGeoAssetData = sceneGeometryIds.has(link.geometryId) && assetDataIds.has(link.dataId);
+      const assetGeoSceneData = assetGeometryIds.has(link.geometryId) && sceneDataIds.has(link.dataId);
+      return sceneGeoAssetData || assetGeoSceneData;
+    })
+    .map((link: any) => link.id as string);
+
+  if (mixedLinkIds.length === 0) {
+    return 0;
+  }
+
+  const timestamp = new Date().toISOString();
+  return ignoreMissingMongoNamespace(
+    markAnnotationLinksErasableByIds(projectId, mixedLinkIds, userId, timestamp),
+  ) ?? 0;
 }
 
 // ============================================================================
@@ -1491,6 +1542,7 @@ export async function removeAssetFromSceneHandler(req: Request, res: Response) {
       return sendHdtError(req, res, 404, 'sceneDocumentNotFound', 'HDT document not found');
     }
 
+    await softDeleteMixedLinksForSceneAsset(projectId, sceneId, assetId, currentUser.sub);
     await generateSceneFile(projectId, sceneId);
 
     res.json(updatedDoc);

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { AnnotationData } from 'shared/annotation-types';
-import type { AnnotationCreationDraft } from './types';
+import type { AnnotationCreationDraft, AnnotationVisibilityDraft } from './types';
 import {
   allowsMultipleDataSelection,
   canAddMoreData,
@@ -11,9 +11,12 @@ import {
 } from './annotationCreationValidation';
 import { orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
+import AnnotationScopePicker, { type AnnotationScopePickerAsset } from './AnnotationScopePicker';
 
 interface AnnotationCreationDataStepProps {
   draft: AnnotationCreationDraft;
+  sceneId: string;
+  sceneAssets: readonly AnnotationScopePickerAsset[];
   candidates: readonly AnnotationData[];
   /** Optional presentation-only numbers for a workbench candidate list. */
   displayNumbersById?: ReadonlyMap<string, number>;
@@ -23,12 +26,15 @@ interface AnnotationCreationDataStepProps {
   onBlockedSelect?: () => void;
   onToggleDataSelection: (dataId: string, additive?: boolean) => void;
   onOpenCreateModal: () => void;
+  onDataVisibilityChange: (visibility: AnnotationVisibilityDraft) => void;
   onDataModeChange: (mode: 'new' | 'choose') => void;
   onUndoLastCreatedData: () => void;
 }
 
 export default function AnnotationCreationDataStep({
   draft,
+  sceneId,
+  sceneAssets,
   candidates,
   displayNumbersById,
   creating = false,
@@ -36,6 +42,7 @@ export default function AnnotationCreationDataStep({
   onBlockedSelect,
   onToggleDataSelection,
   onOpenCreateModal,
+  onDataVisibilityChange,
   onDataModeChange,
   onUndoLastCreatedData,
 }: AnnotationCreationDataStepProps) {
@@ -46,6 +53,7 @@ export default function AnnotationCreationDataStep({
   const canChooseData = canUseDataChooseMode(draft) && canSwitchToDataChoose(draft);
   const canCreateMore = canAddMoreData(draft);
   const isFirst = !isGeometryFirst(draft);
+  const scopeLocked = draft.createdData.length > 0 || draft.selectedDataIds.length > 0;
 
   const filteredCandidates = useMemo(() => {
     const ordered = displayNumbersById
@@ -116,7 +124,16 @@ export default function AnnotationCreationDataStep({
                 ? 'Optionally create or choose data to link, or Done to keep geometries only.'
                 : 'Create or choose data to link to the selected geometries.'}
         </p>
-        {modeControls}
+        <AnnotationScopePicker
+          label="Data visibility"
+          scopeType={draft.dataVisibility.visibilityType}
+          scopeId={draft.dataVisibility.visibilityId}
+          sceneId={sceneId}
+          assets={sceneAssets}
+          disabled={creating || scopeLocked}
+          onChange={({ type, id }) => onDataVisibilityChange({ visibilityType: type, visibilityId: id })}
+        />
+        <div className="mt-3">{modeControls}</div>
       </div>
 
       {draft.dataMode === 'new' ? (

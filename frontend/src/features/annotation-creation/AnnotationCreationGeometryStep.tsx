@@ -1,4 +1,4 @@
-import type { AnnotationCreationDraft, AnnotationDrawingMode } from './types';
+import type { AnnotationCreationDraft, AnnotationDrawingMode, AnnotationScopeDraft } from './types';
 import {
   canAddMoreGeometry,
   canSwitchToGeometryChoose,
@@ -7,12 +7,16 @@ import {
   isGeometryFirst,
 } from './annotationCreationValidation';
 import AnnotationToolbar from '../../components/AnnotationToolbar';
+import AnnotationScopePicker, { type AnnotationScopePickerAsset } from './AnnotationScopePicker';
 
 interface AnnotationCreationGeometryStepProps {
   draft: AnnotationCreationDraft;
+  sceneId: string;
+  sceneAssets: readonly AnnotationScopePickerAsset[];
   creating?: boolean;
   /** Hide the shape toolbar (e.g. when the host already shows one). */
   showToolbar?: boolean;
+  onGeometryScopeChange: (scope: AnnotationScopeDraft) => void;
   onGeometryModeChange: (mode: 'new' | 'choose') => void;
   onDrawingModeChange?: (mode: AnnotationDrawingMode) => void;
   onUndoLastCreatedGeometry: () => void;
@@ -20,8 +24,11 @@ interface AnnotationCreationGeometryStepProps {
 
 export default function AnnotationCreationGeometryStep({
   draft,
+  sceneId,
+  sceneAssets,
   creating = false,
   showToolbar = true,
+  onGeometryScopeChange,
   onGeometryModeChange,
   onDrawingModeChange,
   onUndoLastCreatedGeometry,
@@ -30,6 +37,7 @@ export default function AnnotationCreationGeometryStep({
   const canChoose = canUseGeometryChooseMode(draft) && canSwitchToGeometryChoose(draft);
   const canCreateMore = canAddMoreGeometry(draft);
   const isFirst = isGeometryFirst(draft);
+  const scopeLocked = draft.createdGeometries.length > 0 || draft.selectedGeometryIds.length > 0;
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -44,7 +52,16 @@ export default function AnnotationCreationGeometryStep({
                 ? 'Optionally create or choose geometry to link, or Done to keep data only.'
                 : 'Create or choose geometry to link to the selected data.'}
         </p>
-        <div className="btn-group w-100" role="group" aria-label="Geometry source">
+        <AnnotationScopePicker
+          label="Geometry scope"
+          scopeType={draft.geometryScope.referenceType}
+          scopeId={draft.geometryScope.referenceId}
+          sceneId={sceneId}
+          assets={sceneAssets}
+          disabled={creating || scopeLocked}
+          onChange={({ type, id }) => onGeometryScopeChange({ referenceType: type, referenceId: id })}
+        />
+        <div className="btn-group w-100 mt-3" role="group" aria-label="Geometry source">
           <button
             type="button"
             className={`btn ${draft.geometryMode === 'new' ? 'btn-primary' : 'btn-outline-primary'}`}

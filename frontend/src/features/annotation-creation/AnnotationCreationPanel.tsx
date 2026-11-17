@@ -75,8 +75,4 @@ export function AnnotationCreationActionBar({
   );
 }
 
-/**
- * Scope selectors were removed from the creation chrome (Phase B): scene defaults
- * from {@link createDefaultCreationDraft} + remembered setup are enough for now.
- * Reintroduce a dedicated scope UI here when asset/project scopes are needed again.
- */
+/** Action bar only; geometry/data scope pickers live in the creation steps. */
