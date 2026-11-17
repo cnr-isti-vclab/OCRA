@@ -36,12 +36,9 @@ import {
 import { viewerGeometryToShapes } from '../../adapters/annotation-store/viewerAnnotationToShapes';
 import {
   assetLayerImageFrame,
-  bindAnnotationLayerToAsset,
-  findAssetLayer,
-  readLayerImageFrame,
-  refreshAnnotationLayerTransform,
   sceneHasAsset,
-  transformShapesBetweenImageFrames,
+  transformShapesAssetImageToScene,
+  transformShapesSceneToAssetImage,
 } from '../../adapters/annotation-store/annotationPlacementTransform';
 import {
   applyOpenLimeStructuralPresentation,
@@ -108,7 +105,7 @@ type OpenLimeCanvasLike = {
   layers?: Record<string, unknown>;
 };
 
-/** OpenLIME draws in the SVG layer's image space; asset scope remaps into that asset's frame. */
+/** OpenLIME emits scene coords; asset scope stores asset image space. */
 function shapesForPersistence(
   shapes: AnnotationShape[],
   referenceType: 'scene' | 'asset' | undefined,
@@ -120,13 +117,12 @@ function shapesForPersistence(
     return shapes;
   }
   const manager = viewer.getAnnotationManager() as OpenLimeAnnotationManager | null;
-  const annotationFrame = readLayerImageFrame(manager?.layer as never);
   const canvas = (manager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
   const assetFrame = assetLayerImageFrame(canvas, referenceId, scene);
-  if (!annotationFrame || !assetFrame) {
+  if (!assetFrame) {
     return shapes;
   }
-  return transformShapesBetweenImageFrames(shapes, annotationFrame, assetFrame);
+  return transformShapesSceneToAssetImage(shapes, assetFrame);
 }
 
 /**
@@ -431,8 +427,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
         const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
         const canvas = (manager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
-        refreshAnnotationLayerTransform(manager?.layer as never, canvas);
-        const annotationFrame = readLayerImageFrame(manager?.layer as never);
         const geometriesInViewerSpace = visibleGeometries.flatMap((geometry) => {
           if (geometry.referenceType !== 'asset') {
             return [geometry];
@@ -440,8 +434,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           if (!sceneHasAsset(sceneDesc, geometry.referenceId)) {
             return [];
           }
-          // Never paint asset coords onto another layer without remap (wrong asset until next sync).
-          if (!annotationFrame || !canvas) {
+          if (!canvas) {
             return [];
           }
           const assetFrame = assetLayerImageFrame(canvas, geometry.referenceId, sceneDesc);
@@ -450,7 +443,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           }
           return [{
             ...geometry,
-            shapes: transformShapesBetweenImageFrames(geometry.shapes, assetFrame, annotationFrame),
+            shapes: transformShapesAssetImageToScene(geometry.shapes, assetFrame),
           }];
         });
         const annotations = activeGeometriesToViewerAnnotations(
@@ -482,8 +475,8 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       ],
     );
 
-    // Layer layouts often report size 0 until the first image decode; poll briefly so asset
-    // remap can run once frames are readable (without waiting for a user interaction).
+    // Asset layouts often report size 0 until the first image decode; poll so asset→scene
+    // remap can run once frames are readable.
     const assetIdsNeedingFrames = useMemo(() => {
       const ids = new Set<string>();
       for (const geometry of visibleGeometries) {
@@ -508,7 +501,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
         const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
         const canvas = (manager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
-        if (!readLayerImageFrame(manager?.layer as never) || !canvas) {
+        if (!canvas) {
           return false;
         }
         return assetIdsNeedingFrames.every((assetId) => Boolean(assetLayerImageFrame(canvas, assetId, sceneDesc)));
@@ -1172,49 +1165,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     );
 
     const knownCreationDraftViewerIdsRef = useRef<Set<string>>(new Set());
-
-    // Keep the SVG annotation layer on the scoped asset so new draws are already in asset image space.
-    useEffect(() => {
-      if (!viewerReady || !isCreationGeometryNew) {
-        return;
-      }
-      if (creationDraft?.geometryScope.referenceType !== 'asset') {
-        return;
-      }
-      const assetId = creationDraft.geometryScope.referenceId;
-      if (!assetId) {
-        return;
-      }
-      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
-      const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
-      const canvas = (manager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
-      bindAnnotationLayerToAsset(
-        manager?.layer as never,
-        findAssetLayer(canvas, assetId, sceneDesc),
-      );
-      return () => {
-        // Restore the default first base layer when leaving asset-scoped create.
-        const liveManager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
-        const liveCanvas = (liveManager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
-        const layers = liveCanvas?.layers;
-        if (!layers || !liveManager?.layer) {
-          return;
-        }
-        const firstBase = Object.values(layers).find((layer) => {
-          const candidate = layer as { getAnnotationById?: unknown; overlay?: boolean };
-          return typeof candidate.getAnnotationById !== 'function' && candidate.overlay !== true;
-        });
-        bindAnnotationLayerToAsset(liveManager.layer as never, firstBase as never);
-      };
-    }, [
-      annotationManagerRevision,
-      creationDraft?.geometryScope.referenceId,
-      creationDraft?.geometryScope.referenceType,
-      isCreationGeometryNew,
-      ref,
-      sceneDesc,
-      viewerReady,
-    ]);
 
     useEffect(() => {
       const draftViewerId = lastCreatedGeometryViewerId(creationDraft);

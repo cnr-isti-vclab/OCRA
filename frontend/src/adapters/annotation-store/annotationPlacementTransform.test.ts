@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  framesEqual,
   transformPointImageToScene,
   transformPointSceneToImage,
-  transformShapesBetweenImageFrames,
+  transformShapesAssetImageToScene,
+  transformShapesSceneToAssetImage,
 } from './annotationPlacementTransform';
 
-describe('annotationPlacementTransform (OpenLIME image frames)', () => {
-  const identityCentered: Parameters<typeof transformPointImageToScene>[1] = {
+describe('annotationPlacementTransform (scene ↔ asset image)', () => {
+  const identityCentered = {
     x: 0,
     y: 0,
     rotationDeg: 0,
@@ -24,7 +24,7 @@ describe('annotationPlacementTransform (OpenLIME image frames)', () => {
     expect(transformPointSceneToImage(scene, identityCentered)).toEqual(image);
   });
 
-  it('accounts for placement similarity when remapping frames', () => {
+  it('accounts for placement similarity', () => {
     const placed = {
       ...identityCentered,
       x: 100,
@@ -32,31 +32,21 @@ describe('annotationPlacementTransform (OpenLIME image frames)', () => {
       rotationDeg: 90,
       scale: 2,
     };
-    // Same image point on the placed asset → different scene than identity frame
-    const image: [number, number, number] = [100, 50, 0]; // asset center in image space
+    const image: [number, number, number] = [100, 50, 0]; // asset center
     const scene = transformPointImageToScene(image, placed);
-    // layer (0,0) → rot90/scale2 → (0,0) + T → (100, 50)
     expect(scene.map((n) => Number(n.toFixed(6)))).toEqual([100, 50, 0]);
     expect(transformPointSceneToImage(scene, placed).map((n) => Number(n.toFixed(6))))
       .toEqual([100, 50, 0]);
   });
 
-  it('keeps shapes unchanged when frames match', () => {
-    const shapes = [{ type: 'ShapePoints' as const, vertices: [[15, 2, 0] as [number, number, number]] }];
-    expect(transformShapesBetweenImageFrames(shapes, identityCentered, identityCentered)).toBe(shapes);
-    expect(framesEqual(identityCentered, identityCentered)).toBe(true);
-  });
-
-  it('remaps image coords from a placed frame into an identity frame', () => {
+  it('persists OpenLIME scene coords into asset image space', () => {
     const placed = { ...identityCentered, x: 100, y: 0, rotationDeg: 0, scale: 1 };
-    const shapes = transformShapesBetweenImageFrames(
-      [{ type: 'ShapePoints', vertices: [[100, 50, 0]] }],
+    const shapes = transformShapesSceneToAssetImage(
+      [{ type: 'ShapePoints', vertices: [[100, 0, 0]] }],
       placed,
-      identityCentered,
     );
-    // Center pixel on placed asset → scene (100,0) → identity image (100+100, 50) = (200, 50)? 
-    // image (100,50) on placed: layer (0,0) → scene (100, 0)
-    // scene (100,0) on identity: layer (100, 0) → image (200, 50)
-    expect(shapes[0]!.vertices[0]).toEqual([200, 50, 0]);
+    // scene (100,0) → layer (0,0) → image (100, 50)
+    expect(shapes[0]!.vertices[0]).toEqual([100, 50, 0]);
+    expect(transformShapesAssetImageToScene(shapes, placed)[0]!.vertices[0]).toEqual([100, 0, 0]);
   });
 });

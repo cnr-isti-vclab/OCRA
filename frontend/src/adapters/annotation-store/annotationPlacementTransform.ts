@@ -3,12 +3,10 @@ import type { SceneDescription } from 'shared/scene-types';
 import { toOpenLimeInstanceId } from '../openlime-viewer/openlimeScenePackage';
 
 /**
- * OpenLIME annotation vertices live in **layer image space** (origin top-left, Y down),
- * not scene space. The SVG annotation layer copies a base layer's layout+transform;
- * asset-scoped storage must use that asset's image frame.
- *
- * Conversion uses the full layer→scene similarity (placement ∘ assetToLocal, etc.),
- * never placement translation alone.
+ * With OpenLIME `coordinateSpace: 'scene'`, create/edit/draw use scene coords.
+ * Asset-scoped storage stays in that asset's **image space** (top-left, Y down);
+ * convert at the OCRA boundary via the asset layer's full similarity
+ * (placement ∘ assetToLocal, etc.).
  */
 export interface LayerImageFrame {
   x: number;
@@ -80,15 +78,6 @@ export function readLayerImageFrame(layer: OpenLimeLayerLike | null | undefined)
   };
 }
 
-export function framesEqual(a: LayerImageFrame, b: LayerImageFrame): boolean {
-  return a.x === b.x
-    && a.y === b.y
-    && a.rotationDeg === b.rotationDeg
-    && a.scale === b.scale
-    && a.width === b.width
-    && a.height === b.height;
-}
-
 /** Image (top-left, Y down) → scene (center, Y up) via layer transform. */
 export function transformPointImageToScene(
   point: [number, number, number],
@@ -129,16 +118,20 @@ function mapShapeVertices(
   }));
 }
 
-/** Remap OpenLIME image-space shapes between two layer frames (via scene). */
-export function transformShapesBetweenImageFrames(
+/** OpenLIME scene coords → asset image space for persistence. */
+export function transformShapesSceneToAssetImage(
   shapes: AnnotationShape[],
-  from: LayerImageFrame,
-  to: LayerImageFrame,
+  assetFrame: LayerImageFrame,
 ): AnnotationShape[] {
-  if (framesEqual(from, to)) return shapes;
-  return mapShapeVertices(shapes, (point) =>
-    transformPointSceneToImage(transformPointImageToScene(point, from), to),
-  );
+  return mapShapeVertices(shapes, (point) => transformPointSceneToImage(point, assetFrame));
+}
+
+/** Asset image space → OpenLIME scene coords for display. */
+export function transformShapesAssetImageToScene(
+  shapes: AnnotationShape[],
+  assetFrame: LayerImageFrame,
+): AnnotationShape[] {
+  return mapShapeVertices(shapes, (point) => transformPointImageToScene(point, assetFrame));
 }
 
 export function sceneHasAsset(
@@ -183,36 +176,4 @@ export function assetLayerImageFrame(
   scene: SceneDescription | null | undefined,
 ): LayerImageFrame | null {
   return readLayerImageFrame(findAssetLayer(canvas, assetId, scene));
-}
-
-/** Point the SVG annotation layer at an asset leaf so draws land in that asset's image space. */
-export function bindAnnotationLayerToAsset(
-  annotationLayer: OpenLimeLayerLike | null | undefined,
-  assetLayer: OpenLimeLayerLike | null | undefined,
-): void {
-  if (!annotationLayer || !assetLayer?.layout || !assetLayer.transform) return;
-  annotationLayer.layout = assetLayer.layout;
-  annotationLayer.transform = typeof assetLayer.transform.copy === 'function'
-    ? assetLayer.transform.copy() as OpenLimeLayerLike['transform']
-    : { ...assetLayer.transform };
-}
-
-/**
- * Annotation layers keep a transform *copy* of a base layer. Copy again from the base that
- * currently shares `layout`, so placement updates from SceneProjection stay in sync.
- */
-export function refreshAnnotationLayerTransform(
-  annotationLayer: OpenLimeLayerLike | null | undefined,
-  canvas: OpenLimeCanvasLike | null | undefined,
-): void {
-  if (!annotationLayer?.layout || !canvas?.layers) return;
-  const source = Object.values(canvas.layers).find((layer) => (
-    !isAnnotationLayer(layer)
-    && layer.layout === annotationLayer.layout
-    && layer.transform
-  ));
-  if (!source?.transform) return;
-  annotationLayer.transform = typeof source.transform.copy === 'function'
-    ? source.transform.copy() as OpenLimeLayerLike['transform']
-    : { ...source.transform };
 }

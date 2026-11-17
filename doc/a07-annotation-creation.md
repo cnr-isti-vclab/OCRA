@@ -23,7 +23,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 - **Draft until Done**: geometry/data drafts stay client-side until the second-step **Done**. Commit uses existing REST endpoints sequentially (no monolithic API, no transactions, no OCC on create).
 - **Authoring surface**: **`AnnotationWorkbench`** is the sole create UI for **2D and 3D**. Panel **Annotate** opens the workbench (docked by default; detachable). The panel itself is browse / edit / list only.
 - **Entry**: opens on the first side of **Geometry first / Data first** (toggle while drafts are empty). **Geometry scope** and **data visibility** pickers choose `scene` (current scene id) or `asset` (scene assets; auto-selected when only one). Defaults remain scene+scene from `createDefaultCreationDraft` (+ remembered setup).
-- **2D coordinates**: OpenLIME stores vertices in the SVG annotation layer’s **image space** (not scene space). Scene-scoped geometry keeps those coords as drawn. Asset-scoped geometry remaps into the target asset layer’s image frame on create (and back on load), so the same asset stays aligned across scenes with different placements. Asset-scoped geometry is not painted if that asset is no longer in the scene.
+- **2D coordinates**: OpenLIME is configured with `coordinateSpace: 'scene'` (create/edit/draw in shared scene space). Scene-scoped geometry is stored as scene coords. Asset-scoped geometry is converted to that asset’s **image space** on persist and back to scene on load (via the asset layer frame), so the same asset stays aligned across scenes with different placements. Asset-scoped geometry is not painted if that asset is no longer in the scene. Pre-change scene-scoped rows stored in first-layer image space need regen/migration.
 - **Remove asset from scene**: soft-deletes only **mixed** links (`scene`↔`asset` for that scene/asset pair). Pure scene+scene and asset+asset links are left intact.
 - **Per step — New | Choose | Done**:
   - **New**: sticky create (append geometries / confirm data into arrays). **Undo** drops the last created item. **Choose** is disabled once any creations exist on that side.
@@ -53,7 +53,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 | Geometry step UI | `frontend/src/features/annotation-creation/AnnotationCreationGeometryStep.tsx` |
 | Data step UI | `frontend/src/features/annotation-creation/AnnotationCreationDataStep.tsx` |
 | Scope picker | `frontend/src/features/annotation-creation/AnnotationScopePicker.tsx` |
-| Layer image-frame remap (2D) | `frontend/src/adapters/annotation-store/annotationPlacementTransform.ts` |
+| Scene ↔ asset-image remap (2D) | `frontend/src/adapters/annotation-store/annotationPlacementTransform.ts` |
 | Chosen-entity locks | `frontend/src/features/annotation-creation/useCreationChosenEntityLocks.ts` |
 | Validation | `frontend/src/features/annotation-creation/annotationCreationValidation.ts` |
 | Link view | `frontend/src/features/annotation-link-view/` |

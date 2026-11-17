@@ -811,6 +811,9 @@ const OpenLIMEViewer = forwardRef<
 
           const annotationManager = new OpenLIME.ManagerSvgAnnotation(viewer, {
             ...annotationStyleConfig,
+            // Multi-asset scenes: create/edit/draw in shared scene space (Y-up).
+            // Default OpenLIME is layer-image; OCRA remaps asset-scoped storage separately.
+            coordinateSpace: 'scene',
             labelVisibility: annotationLabelVisibility,
             activeMarker: 'disk',
             // With singleEditMode, vertex handles are shown only when exactly
