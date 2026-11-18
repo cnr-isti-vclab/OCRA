@@ -23,6 +23,7 @@ import type { EchoesProjectStatus } from '../types';
 import { OPENLIME_RASTER_IMAGE_EXTENSIONS } from 'shared/openlime-layout';
 import { notifyProjectAssetsChanged } from '../services/project-assets-events';
 import SceneAssetTransformEditor from '../features/scene-transform/SceneAssetTransformEditor';
+import { formatSceneAssetTransformSummary } from '../features/scene-transform/formatSceneAssetTransformSummary';
 import {
   isAssetCompatibleWithSceneMode,
   resolveSceneSpatialMode,
@@ -2602,24 +2603,59 @@ export default function HDTPage() {
                             {scene.description && (
                               <p className="card-text text-muted small">{scene.description}</p>
                             )}
-                            <div className="d-flex gap-3 text-muted small">
-                              <span>📦 {scene.assets?.length || 0} asset{(scene.assets?.length || 0) !== 1 ? 's' : ''}</span>
-                              {scene.environment?.backgroundColor && (
-                                <span>
-                                  🎨 <span
-                                    style={{
-                                      display: 'inline-block',
-                                      width: '12px',
-                                      height: '12px',
-                                      backgroundColor: scene.environment.backgroundColor,
-                                      border: '1px solid #ccc',
-                                      borderRadius: '2px',
-                                      verticalAlign: 'middle',
-                                    }}
-                                  ></span>
-                                </span>
-                              )}
-                            </div>
+                            {(() => {
+                              const sceneMode = resolveSceneSpatialMode(scene, digitalAssets);
+                              return (
+                                <>
+                                  <div className="d-flex gap-3 text-muted small mb-2">
+                                    <span>📦 {scene.assets?.length || 0} asset{(scene.assets?.length || 0) !== 1 ? 's' : ''}</span>
+                                    {sceneMode ? <span className="badge text-bg-light border">{sceneMode}</span> : null}
+                                    {scene.environment?.backgroundColor && (
+                                      <span>
+                                        🎨 <span
+                                          style={{
+                                            display: 'inline-block',
+                                            width: '12px',
+                                            height: '12px',
+                                            backgroundColor: scene.environment.backgroundColor,
+                                            border: '1px solid #ccc',
+                                            borderRadius: '2px',
+                                            verticalAlign: 'middle',
+                                          }}
+                                        ></span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  {(scene.assets?.length ?? 0) > 0 ? (
+                                    <ul className="list-unstyled small mb-0">
+                                      {(scene.assets || []).map((assetRef: any) => {
+                                        const asset = digitalAssets.find((candidate) => candidate.id === assetRef.assetId);
+                                        const label = asset?.fileName || asset?.title || asset?.label || assetRef.assetId;
+                                        const transformSummary = formatSceneAssetTransformSummary(
+                                          assetRef,
+                                          sceneMode || '3D',
+                                        );
+                                        return (
+                                          <li
+                                            key={assetRef.assetId}
+                                            className="d-flex align-items-baseline gap-2 mb-1"
+                                            title={`${label} — ${transformSummary}`}
+                                          >
+                                            <span className="fw-semibold text-truncate flex-shrink-1">{label}</span>
+                                            <span
+                                              className="text-muted font-monospace text-nowrap ms-auto"
+                                              style={{ fontSize: '0.75rem' }}
+                                            >
+                                              {transformSummary}
+                                            </span>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  ) : null}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
