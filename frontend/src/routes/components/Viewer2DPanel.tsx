@@ -390,12 +390,31 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       }
     }, [isDeletionSelectingStep, viewerReady, geometryEditingActive, ref]);
 
-    /** Enables editable selection for editor focus (not during creation wizard). */
+    // Trash must keep pan/zoom: pencil shares the exclusive pointer-tool group with navigation.
+    useEffect(() => {
+      if (!viewerReady || !annotationTrash.isOpen) {
+        return;
+      }
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      if (viewer?.getAnnotationManager()?.active) {
+        viewer.enableEditing(false);
+      }
+    }, [
+      annotationTrash.isOpen,
+      annotationTrash.viewerSelectionGeometryIds,
+      viewerReady,
+      geometryEditingActive,
+      ref,
+    ]);
+
+    /** Enables editable selection for editor focus (not during creation wizard / trash). */
     const enableAnnotationEditInteraction = useCallback(() => {
       if (
         annotationMode !== 'edit'
         || isDeletionSelectingStep
         || isCreationWizardActive
+        // Trash is inspect-only: enabling the pencil deactivates panzoom (same tool group).
+        || annotationTrash.isOpen
       ) {
         return null;
       }
@@ -410,6 +429,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       return manager;
     }, [
       annotationMode,
+      annotationTrash.isOpen,
       isCreationWizardActive,
       isDeletionSelectingStep,
       ref,
