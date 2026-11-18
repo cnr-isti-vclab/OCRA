@@ -24,6 +24,7 @@ export default defineConfig({
       'frontend/src/stores/annotation-rendering.test.ts',
       'frontend/src/stores/annotation-selection.test.ts',
       'frontend/src/stores/annotation-social-locks.test.ts',
+      'frontend/src/stores/resolveEditorLockOriginScope.test.ts',
       'frontend/src/utils/annotationDisplayNumbers.test.ts',
       'frontend/src/utils/annotationGeometryTypeLabel.test.ts',
       'frontend/src/utils/annotationListSelection.test.ts',

@@ -96,6 +96,7 @@ import {
   DELETION_NO_LINKS_MESSAGE,
   isEntityBlockedForDeletion,
 } from '../features/annotation-deletion/isEntityBlockedForDeletion';
+import { resolveEditorLockOriginScope } from './resolveEditorLockOriginScope';
 
 export type { AnnotationCreationDraft, AnnotationDrawingMode } from '../features/annotation-creation/types';
 export type { AnnotationDeletionDraft } from '../features/annotation-deletion/types';
@@ -1954,14 +1955,26 @@ export class AnnotationStore {
 
   // ── Social locks (thin delegates) ─────────────────────────────────────────
 
+  /** Asset-scoped entities announce with asset origin so other scenes get the lock via impact. */
+  private editorLockOriginScope(
+    resourceType: AnnotationEventResourceType,
+    resourceId: string,
+  ) {
+    return resolveEditorLockOriginScope(resourceType, resourceId, this.sceneId, {
+      getGeometry: (id) => this.geometryMap.get(id),
+      getData: (id) => this.dataMap.get(id),
+      getLink: (id) => this.linkMap.get(id),
+    });
+  }
+
   async notifyEditorLockStart(input: {
     resourceType: AnnotationEventResourceType;
     resourceId: string;
     activity?: string;
   }): Promise<void> {
+    const origin = this.editorLockOriginScope(input.resourceType, input.resourceId);
     await this.client.notifyEditorLockStart({
-      originScopeType: 'scene',
-      originScopeId: this.sceneId,
+      ...origin,
       resourceType: input.resourceType,
       resourceId: input.resourceId,
       activity: input.activity,
@@ -1973,9 +1986,9 @@ export class AnnotationStore {
     resourceId: string;
     activity?: string;
   }): Promise<void> {
+    const origin = this.editorLockOriginScope(input.resourceType, input.resourceId);
     await this.client.notifyEditorLockStop({
-      originScopeType: 'scene',
-      originScopeId: this.sceneId,
+      ...origin,
       resourceType: input.resourceType,
       resourceId: input.resourceId,
       activity: input.activity,

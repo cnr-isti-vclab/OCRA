@@ -451,6 +451,8 @@ Typical `impact` shapes:
 - asset-origin edit: `originScopeType: "asset"`, one affected asset, all scenes containing that asset
 - compatible mixed link edit: `originScopeType: "mixed"`, `originScopeId: null`, union of affected scenes/assets from the linked geometry and data
 
+**Frontend editor locks:** `AnnotationStore.notifyEditorLockStart/Stop` resolve `originScopeType` / `originScopeId` from the locked entity (`geometry.reference*` or `data.visibility*`). Asset-scoped edits therefore fan out to every open scene that contains that asset, so remote clients can show `underEditing` / block choose. Presence locks remain scene-scoped. Helper: `frontend/src/stores/resolveEditorLockOriginScope.ts`.
+
 ### Recommended Social-Lock Workflow
 
 Use social lock around editing intent, not around viewing.
