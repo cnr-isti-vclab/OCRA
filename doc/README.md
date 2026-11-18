@@ -32,6 +32,9 @@ This page is the index for technical documentation in `doc/`.
 - [a04 Structuring Lock and Project Presence](./a04-structuring-lock.md)
 - [a05 Frontend Annotation API Client](./a05-frontend-annotation-api-client.md)
 - [a06 Active Annotations](./a06-active-annotations.md)
+- [a07 Annotation Creation](./a07-annotation-creation.md)
+- [a08 Annotation Deletion](./a08-annotation-deletion.md)
+- [a09 3D Viewer Scope Wiring](./a09-3d-viewer-scope-wiring.md)
 - [Annotation Current Status](./annotation-current-status.md)
 
 ## Archived / Outdated

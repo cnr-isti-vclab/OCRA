@@ -40,7 +40,7 @@ Guided creation and link-aware visualization for OCRA’s decomposed annotation 
 - **Remembered setup**: drawing tool + step order (+ hidden scopes) remembered for the browser session (`sessionStorage` per project/scene when enabled).
 - **Link view during wizard**: filtering is bypassed so draft/chosen geometries stay visible.
 - **Commit failure**: partial artifacts are marked erasable (rollback); draft is restored for retry.
-- **Not implemented**: localStorage draft recovery on refresh; 3D line/area creation; explicit connector lines in link view; 3D asset-placement coordinate transforms.
+- **Not implemented**: localStorage draft recovery on refresh; explicit connector lines in link view; **3D** scene/asset coordinate remap, browse paint filter, and creation asset focus (see [`a09-3d-viewer-scope-wiring.md`](./a09-3d-viewer-scope-wiring.md)).
 
 ### Key modules
 
