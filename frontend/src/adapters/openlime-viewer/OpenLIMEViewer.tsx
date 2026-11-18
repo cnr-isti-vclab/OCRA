@@ -249,6 +249,12 @@ export interface OpenLIMEViewerRef {
 
   /** Enables/disables the OpenLIME pencil tool (annotation system). */
   enableEditing: (enabled: boolean) => void;
+
+  /**
+   * Creation focus: keep only these OpenLIME instance ids enabled.
+   * Pass `null` to restore the previous instance enabled flags.
+   */
+  setFocusedAssetInstances: (instanceIds: string[] | null) => void;
 }
 
 
@@ -318,6 +324,8 @@ const OpenLIMEViewer = forwardRef<
       const backgroundRuntimeRef = useRef<Array<{ id: string; label: string; layer: OpenLIME.Layer }>>([]);
       const sceneProjectionRef = useRef<OpenLIME.SceneProjection | null>(null);
       const sceneSessionRef = useRef<OpenLIME.SceneSession | null>(null);
+      /** Snapshot of instance.enabled before setFocusedAssetInstances; restored on null. */
+      const instanceFocusSnapshotRef = useRef<Record<string, boolean> | null>(null);
       const sceneTreeRef = useRef<OpenLIME.SceneTree | null>(null);
       const sceneTreeHostRef = useRef<HTMLUListElement | null>(null);
       const annotationManagerRef = useRef<OpenLIME.ManagerSvgAnnotation>(null);
@@ -474,6 +482,7 @@ const OpenLIMEViewer = forwardRef<
           sceneProjectionRef.current?.dispose();
           sceneProjectionRef.current = null;
           sceneSessionRef.current = null;
+          instanceFocusSnapshotRef.current = null;
           const lensRuntime = lensRuntimeRef.current;
           if (lensRuntime && viewerRef.current) {
             viewerRef.current.pointerManager.offEvent(lensRuntime.controller);
@@ -513,6 +522,7 @@ const OpenLIMEViewer = forwardRef<
             sceneProjectionRef.current?.dispose();
             sceneProjectionRef.current = null;
             sceneSessionRef.current = null;
+            instanceFocusSnapshotRef.current = null;
             setLayersUiMode('legacy');
             const message = formatOpenLimeSceneLoadError(error);
             console.error('❌ Failed to load OpenLIME scene:', error);
@@ -560,6 +570,7 @@ const OpenLIMEViewer = forwardRef<
           sceneProjectionRef.current?.dispose();
           sceneProjectionRef.current = null;
           sceneSessionRef.current = null;
+          instanceFocusSnapshotRef.current = null;
           const previousLens = lensRuntimeRef.current;
           if (previousLens) viewer.pointerManager.offEvent(previousLens.controller);
           lensRuntimeRef.current = null;
@@ -690,6 +701,7 @@ const OpenLIMEViewer = forwardRef<
               });
               sceneProjectionRef.current = projection;
               sceneSessionRef.current = session;
+              instanceFocusSnapshotRef.current = null;
               usedSceneSession = true;
               setLayersUiMode('scene');
               setSceneSessionEpoch((epoch) => epoch + 1);
@@ -1236,6 +1248,40 @@ const OpenLIMEViewer = forwardRef<
           const on = Boolean(enabled);
           manager.toggle(on);
           notifyPencilActive(on ? manager.active : false);
+        },
+
+        setFocusedAssetInstances(instanceIds: string[] | null) {
+          const session = sceneSessionRef.current as {
+            state?: { instances?: Record<string, { enabled?: boolean }> };
+            setInstanceEnabled?: (id: string, enabled: boolean) => void;
+          } | null;
+          const instances = session?.state?.instances;
+          if (!session?.setInstanceEnabled || !instances) return;
+
+          if (instanceIds == null) {
+            const snapshot = instanceFocusSnapshotRef.current;
+            instanceFocusSnapshotRef.current = null;
+            if (snapshot) {
+              for (const [id, enabled] of Object.entries(snapshot)) {
+                if (instances[id]) session.setInstanceEnabled(id, enabled);
+              }
+              return;
+            }
+            for (const id of Object.keys(instances)) {
+              session.setInstanceEnabled(id, true);
+            }
+            return;
+          }
+
+          if (!instanceFocusSnapshotRef.current) {
+            instanceFocusSnapshotRef.current = Object.fromEntries(
+              Object.entries(instances).map(([id, instance]) => [id, instance.enabled !== false]),
+            );
+          }
+          const allowed = new Set(instanceIds);
+          for (const id of Object.keys(instances)) {
+            session.setInstanceEnabled(id, allowed.has(id));
+          }
         },
       }));
 

@@ -51,6 +51,9 @@ import AppMessageModal from '../shared/ui/AppMessageModal';
 import { AnnotationMessageModalCatalog } from '../shared/ui/AnnotationMessageModalCatalog';
 import { getVocabularyNodeLabel } from '../utils/vocabulary';
 import type { PrimaryAnnotationSelection } from '../types/annotationSelection';
+import type { GeometryScopeFilterValue } from '../utils/geometryScopeFilter';
+
+export type { GeometryScopeFilterValue } from '../utils/geometryScopeFilter';
 
 export type AnnotationStoreLogTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -111,6 +114,9 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   toggleAnnotationClassFilterValue: (curie: string) => void;
   selectAllAnnotationClassFilters: () => void;
   clearAnnotationClassFilter: () => void;
+  /** Browse filter for painted geometries only (not annotation data). */
+  geometryScopeFilter: GeometryScopeFilterValue;
+  setGeometryScopeFilter: (filter: GeometryScopeFilterValue) => void;
   realtimeState: AnnotationRealtimeState;
   loadingAdditionalData: boolean;
   creating: boolean;
@@ -256,6 +262,7 @@ export function AnnotationStoreProvider({
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   const [annotationClassFilterMode, setAnnotationClassFilterMode] = useState<AnnotationClassFilterMode>('all');
   const [customAnnotationClassFilterValues, setCustomAnnotationClassFilterValues] = useState<string[]>([]);
+  const [geometryScopeFilter, setGeometryScopeFilter] = useState<GeometryScopeFilterValue>({ kind: 'all' });
   const [vocabularySchemes, setVocabularySchemes] = useState<VocabularyScheme[]>([]);
   const [vocabularyConcepts, setVocabularyConcepts] = useState<VocabularyConcept[]>([]);
   const [vocabularyProperties, setVocabularyProperties] = useState<VocabularyProperty[]>([]);
@@ -1070,6 +1077,8 @@ export function AnnotationStoreProvider({
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
+    geometryScopeFilter,
+    setGeometryScopeFilter,
     realtimeState,
     loadingAdditionalData: store?.loadingAdditionalData ?? false,
     creating: store?.creating ?? false,

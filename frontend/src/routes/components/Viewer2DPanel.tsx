@@ -40,6 +40,11 @@ import {
   transformShapesAssetImageToScene,
   transformShapesSceneToAssetImage,
 } from '../../adapters/annotation-store/annotationPlacementTransform';
+import { toOpenLimeInstanceId } from '../../adapters/openlime-viewer/openlimeScenePackage';
+import {
+  geometryMatchesScopeFilter,
+  type GeometryScopeFilterValue,
+} from '../../utils/geometryScopeFilter';
 import {
   applyOpenLimeStructuralPresentation,
   applyOpenLimeSelection,
@@ -140,6 +145,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       revision,
       sceneAnnotationClassPool,
       annotationClassFilterValues,
+      geometryScopeFilter,
       focusedDataIds,
       focusedGeometryIds,
       setFocusedGeometryIds,
@@ -159,6 +165,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       creationDraft,
       isCreationWizardActive,
       isCreationGeometryStep,
+      isCreationDataStep,
       isCreationGeometryNew,
       isCreationGeometrySearch,
       isCreationPendingNewGeometry,
@@ -168,6 +175,38 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       setCreationDraftGeometry,
       setCreationGeometrySelection,
     } = useAnnotationCreationWizard();
+
+    /** Browse filter, overridden while creating (scene→all assets; asset→that asset only). */
+    const paintGeometryScopeFilter = useMemo((): GeometryScopeFilterValue => {
+      if (isCreationWizardActive && creationDraft) {
+        const scope = isCreationDataStep
+          ? {
+              type: creationDraft.dataVisibility.visibilityType,
+              id: creationDraft.dataVisibility.visibilityId,
+            }
+          : {
+              type: creationDraft.geometryScope.referenceType,
+              id: creationDraft.geometryScope.referenceId,
+            };
+        if (scope.type === 'asset' && scope.id) {
+          return { kind: 'asset', assetId: scope.id };
+        }
+        return { kind: 'all' };
+      }
+      if (
+        geometryScopeFilter.kind === 'asset'
+        && !sceneHasAsset(sceneDesc, geometryScopeFilter.assetId)
+      ) {
+        return { kind: 'all' };
+      }
+      return geometryScopeFilter;
+    }, [
+      creationDraft,
+      geometryScopeFilter,
+      isCreationDataStep,
+      isCreationWizardActive,
+      sceneDesc,
+    ]);
     const {
       deletionDraft,
       isDeletionWizardActive,
@@ -426,6 +465,9 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         const manager = viewer?.getAnnotationManager() as OpenLimeAnnotationManager | null;
         const canvas = (manager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
         const geometriesInViewerSpace = visibleGeometries.flatMap((geometry) => {
+          if (!geometryMatchesScopeFilter(geometry, paintGeometryScopeFilter)) {
+            return [];
+          }
           if (geometry.referenceType !== 'asset') {
             return [geometry];
           }
@@ -459,6 +501,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       },
       [
         visibleGeometries,
+        paintGeometryScopeFilter,
         activeAnnotationSelection,
         annotationClassFilterValues,
         revision,
@@ -1439,6 +1482,44 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         viewer.enableEditing(false);
       }
     }, [isCreationGeometryStep, isCreationWizardActive, ref, viewerReady]);
+
+    // Creation authoring focus: hide other asset instances while scoped to one asset.
+    useEffect(() => {
+      const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
+      if (!viewerReady || !viewer?.setFocusedAssetInstances) {
+        return;
+      }
+
+      let focusAssetId: string | null = null;
+      if (isCreationWizardActive && creationDraft) {
+        if (isCreationDataStep) {
+          if (creationDraft.dataVisibility.visibilityType === 'asset') {
+            focusAssetId = creationDraft.dataVisibility.visibilityId;
+          }
+        } else if (creationDraft.geometryScope.referenceType === 'asset') {
+          focusAssetId = creationDraft.geometryScope.referenceId;
+        }
+      }
+
+      if (focusAssetId) {
+        viewer.setFocusedAssetInstances([toOpenLimeInstanceId(focusAssetId)]);
+      } else {
+        viewer.setFocusedAssetInstances(null);
+      }
+
+      return () => {
+        viewer.setFocusedAssetInstances(null);
+      };
+    }, [
+      creationDraft?.dataVisibility.visibilityId,
+      creationDraft?.dataVisibility.visibilityType,
+      creationDraft?.geometryScope.referenceId,
+      creationDraft?.geometryScope.referenceType,
+      isCreationDataStep,
+      isCreationWizardActive,
+      ref,
+      viewerReady,
+    ]);
 
     // Publish editor locks for active vertex edits and existing geometries reserved for linking.
     useEffect(() => {

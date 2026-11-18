@@ -22,6 +22,8 @@ import {
 } from '../../shared/ui/AppMessageModalModel';
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
+import AnnotationGeometryScopeFilter from './AnnotationGeometryScopeFilter';
+import AnnotationScopeChip from '../../shared/ui/AnnotationScopeChip';
 import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
 import { useAnnotationLinkView } from '../../features/annotation-link-view/useAnnotationLinkView';
 import AnnotationDataFormModal from '../../features/annotation-creation/AnnotationDataFormModal';
@@ -104,6 +106,9 @@ export default function AnnotationPanelEditor({
   onSelectionChanged,
   onOpenCreationWorkbench,
   onOpenDeletionWorkbench,
+  sceneId,
+  sceneLabel,
+  sceneAssets = [],
 }: AnnotationPanelEditorProps) {
   const {
     activeData,
@@ -122,6 +127,8 @@ export default function AnnotationPanelEditor({
     toggleAnnotationClassFilterValue,
     selectAllAnnotationClassFilters,
     clearAnnotationClassFilter,
+    geometryScopeFilter,
+    setGeometryScopeFilter,
     getLatestMutationForEntity,
     focusedGeometryIds,
     focusedDataIds,
@@ -520,15 +527,23 @@ export default function AnnotationPanelEditor({
         </div>
       }
       classFilter={isCreationWizardActive || isDeletionWizardActive ? null : (
-        <AnnotationClassFilter
-          idPrefix="annotation-editor"
-          pool={sceneAnnotationClassPool}
-          filterMode={annotationClassFilterMode}
-          filterValues={annotationClassFilterValues}
-          toggleFilterValue={toggleAnnotationClassFilterValue}
-          selectAllFilters={selectAllAnnotationClassFilters}
-          clearFilter={clearAnnotationClassFilter}
-        />
+        <>
+          <AnnotationGeometryScopeFilter
+            value={geometryScopeFilter}
+            sceneLabel={sceneLabel || sceneId}
+            assets={sceneAssets}
+            onChange={setGeometryScopeFilter}
+          />
+          <AnnotationClassFilter
+            idPrefix="annotation-editor"
+            pool={sceneAnnotationClassPool}
+            filterMode={annotationClassFilterMode}
+            filterValues={annotationClassFilterValues}
+            toggleFilterValue={toggleAnnotationClassFilterValue}
+            selectAllFilters={selectAllAnnotationClassFilters}
+            clearFilter={clearAnnotationClassFilter}
+          />
+        </>
       )}
       toggle={(
         <>
@@ -656,12 +671,18 @@ export default function AnnotationPanelEditor({
                 >
                   <div className="d-flex flex-column gap-1 w-100">
                     <div className="d-flex justify-content-between align-items-center w-100">
-                      <div className="d-flex gap-1 align-items-center">
+                      <div className="d-flex gap-1 align-items-center flex-wrap">
                         <span className={`badge ${linkedCount === 0 && !isRecoverable ? 'text-bg-light border' : 'bg-secondary'}`}>
                           {linkedCount === 0 && !isRecoverable
                             ? 'Available · no links'
                             : `${linkedCount} geom${linkedCount === 1 ? '' : 's'}`}
                         </span>
+                        <AnnotationScopeChip
+                          type={datum.visibilityType === 'asset' ? 'asset' : 'scene'}
+                          id={datum.visibilityId}
+                          sceneLabel={sceneLabel || sceneId}
+                          assets={sceneAssets}
+                        />
                         {isGhost ? (
                           <span className="badge text-bg-light border">ghost</span>
                         ) : null}

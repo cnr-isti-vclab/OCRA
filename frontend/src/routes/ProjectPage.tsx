@@ -1648,7 +1648,17 @@ export default function ProjectPage() {
                   <div className="h-100 d-flex flex-column overflow-hidden">
                     {annotationMode === 'viewer' ? (
                       <div className="h-100 overflow-auto">
-                        <AnnotationPanelViewer />
+                        <AnnotationPanelViewer
+                          sceneId={selectedSceneId ?? ''}
+                          sceneLabel={availableScenes.find((scene) => scene.id === selectedSceneId)?.label}
+                          sceneAssets={currentSceneModels.map((model) => {
+                            const asset = digitalAssets.find((candidate) => candidate.id === model.id);
+                            return {
+                              id: model.id,
+                              label: asset?.label || asset?.title || model.title || model.id,
+                            };
+                          })}
+                        />
                       </div>
                     ) : (
                       <>

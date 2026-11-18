@@ -27,6 +27,8 @@ export default defineConfig({
       'frontend/src/utils/annotationDisplayNumbers.test.ts',
       'frontend/src/utils/annotationGeometryTypeLabel.test.ts',
       'frontend/src/utils/annotationListSelection.test.ts',
+      'frontend/src/utils/annotationScopeLabel.test.ts',
+      'frontend/src/utils/geometryScopeFilter.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'build'],
     reporters: ['verbose'],

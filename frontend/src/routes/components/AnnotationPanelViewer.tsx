@@ -1,10 +1,20 @@
-import { useMemo } from 'react';
 import { useAnnotationViewerController } from './useAnnotationViewerController';
 import AnnotationPanelBase from './AnnotationPanelBase';
 import AnnotationClassFilter from './AnnotationClassFilter';
+import AnnotationGeometryScopeFilter from './AnnotationGeometryScopeFilter';
+import AnnotationScopeChip from '../../shared/ui/AnnotationScopeChip';
 import AnnotationLinkViewModeToggle from '../../components/AnnotationLinkViewModeToggle';
+import { useAnnotationStore } from '../../context/AnnotationStoreContext';
 
-export default function AnnotationPanelViewer() {
+export default function AnnotationPanelViewer({
+  sceneId = '',
+  sceneLabel,
+  sceneAssets = [],
+}: {
+  sceneId?: string;
+  sceneLabel?: string;
+  sceneAssets?: Array<{ id: string; label: string }>;
+}) {
   const {
     activeDataCount,
     activeGeometryCount,
@@ -26,6 +36,7 @@ export default function AnnotationPanelViewer() {
     panelShowsFilteredData,
     viewerShowsFilteredGeometries,
   } = useAnnotationViewerController();
+  const { geometryScopeFilter, setGeometryScopeFilter } = useAnnotationStore();
 
   const hasGeometrySelection = focusedGeometryIds.size > 0;
   const hasDataSelection = focusedDataIds.size > 0;
@@ -47,15 +58,23 @@ export default function AnnotationPanelViewer() {
         </div>
       )}
       classFilter={(
-        <AnnotationClassFilter
-          idPrefix="annotation-viewer"
-          pool={sceneAnnotationClassPool}
-          filterMode={annotationClassFilterMode}
-          filterValues={annotationClassFilterValues}
-          toggleFilterValue={toggleAnnotationClassFilterValue}
-          selectAllFilters={selectAllAnnotationClassFilters}
-          clearFilter={clearAnnotationClassFilter}
-        />
+        <>
+          <AnnotationGeometryScopeFilter
+            value={geometryScopeFilter}
+            sceneLabel={sceneLabel || sceneId}
+            assets={sceneAssets}
+            onChange={setGeometryScopeFilter}
+          />
+          <AnnotationClassFilter
+            idPrefix="annotation-viewer"
+            pool={sceneAnnotationClassPool}
+            filterMode={annotationClassFilterMode}
+            filterValues={annotationClassFilterValues}
+            toggleFilterValue={toggleAnnotationClassFilterValue}
+            selectAllFilters={selectAllAnnotationClassFilters}
+            clearFilter={clearAnnotationClassFilter}
+          />
+        </>
       )}
       toggle={(
         <AnnotationLinkViewModeToggle
@@ -93,7 +112,15 @@ export default function AnnotationPanelViewer() {
                     aria-pressed={isSelected}
                     title="Select to highlight linked geometry"
                   >
-                    <div className="fw-bold small mb-1">{data.label}</div>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <div className="fw-bold small text-truncate">{data.label}</div>
+                      <AnnotationScopeChip
+                        type={data.visibilityType === 'asset' ? 'asset' : 'scene'}
+                        id={data.visibilityId}
+                        sceneLabel={sceneLabel || sceneId}
+                        assets={sceneAssets}
+                      />
+                    </div>
                     {data.class ? (
                       <div className="small text-muted mb-2">{data.class}</div>
                     ) : null}

@@ -24,6 +24,7 @@ import {
 } from '../annotation-creation/annotationCreationValidation';
 import type { AnnotationCreationStepOrder, AnnotationDrawingMode } from '../annotation-creation/types';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
+import AnnotationScopeChip from '../../shared/ui/AnnotationScopeChip';
 import { isDataIdUnderRemoteEditorLock } from '../../stores/annotation-social-locks';
 import { isRecoverableRenderingMode } from '../../stores/annotation-rendering';
 import { isGeometryIdUnderRemoteEditorLock } from '../annotation-deletion/isEntityBlockedForDeletion';
@@ -58,6 +59,7 @@ export default function AnnotationWorkbench({
   onDetachedChange,
   mode,
   sceneId,
+  sceneLabel,
   sceneAssets = [],
   defaultDrawingMode,
   onClose: closeWorkbench,
@@ -686,6 +688,14 @@ export default function AnnotationWorkbench({
                       ) : null}
                     </span>
                     <span className="text-truncate" title={labels.join(', ') || 'Unlabelled geometry'}>{displayLabel}</span>
+                    <span className="ms-2 flex-shrink-0">
+                      <AnnotationScopeChip
+                        type={geometry.referenceType === 'asset' ? 'asset' : 'scene'}
+                        id={geometry.referenceId}
+                        sceneLabel={sceneLabel || sceneId}
+                        assets={sceneAssets}
+                      />
+                    </span>
                     {blocked ? <span className="badge text-bg-warning border ms-2 flex-shrink-0">In use</span> : null}
                     {!linkedGeometryIds.has(geometry.id) ? <span className="badge text-bg-light border ms-2 flex-shrink-0">Available · no links</span> : null}
                     <span className="small ms-2 flex-shrink-0">{geometry.shapes.length} shape{geometry.shapes.length === 1 ? '' : 's'}</span>
@@ -703,6 +713,7 @@ export default function AnnotationWorkbench({
             <AnnotationCreationDataStep
               draft={creationDraft}
               sceneId={sceneId}
+              sceneLabel={sceneLabel}
               sceneAssets={sceneAssets}
               candidates={searchableData}
               displayNumbersById={dataNumbers}

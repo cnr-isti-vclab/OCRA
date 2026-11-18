@@ -11,11 +11,13 @@ import {
 } from './annotationCreationValidation';
 import { orderByAnnotationDisplayNumber } from '../../utils/annotationDisplayNumbers';
 import AnnotationIndexBadge from '../../shared/ui/AnnotationIndexBadge';
+import AnnotationScopeChip from '../../shared/ui/AnnotationScopeChip';
 import AnnotationScopePicker, { type AnnotationScopePickerAsset } from './AnnotationScopePicker';
 
 interface AnnotationCreationDataStepProps {
   draft: AnnotationCreationDraft;
   sceneId: string;
+  sceneLabel?: string;
   sceneAssets: readonly AnnotationScopePickerAsset[];
   candidates: readonly AnnotationData[];
   /** Optional presentation-only numbers for a workbench candidate list. */
@@ -34,6 +36,7 @@ interface AnnotationCreationDataStepProps {
 export default function AnnotationCreationDataStep({
   draft,
   sceneId,
+  sceneLabel,
   sceneAssets,
   candidates,
   displayNumbersById,
@@ -238,8 +241,14 @@ export default function AnnotationCreationDataStep({
                         </span>
                       ) : null}
                       <div style={{ minWidth: 0 }}>
-                        <div className="fw-semibold d-flex align-items-center gap-2">
+                        <div className="fw-semibold d-flex align-items-center gap-2 flex-wrap">
                           <span>{datum.label}</span>
+                          <AnnotationScopeChip
+                            type={datum.visibilityType === 'asset' ? 'asset' : 'scene'}
+                            id={datum.visibilityId}
+                            sceneLabel={sceneLabel || sceneId}
+                            assets={sceneAssets}
+                          />
                           {blocked ? <span className="badge text-bg-warning">In use</span> : null}
                         </div>
                         {datum.description ? (
