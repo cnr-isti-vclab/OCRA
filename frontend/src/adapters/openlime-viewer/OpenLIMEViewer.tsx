@@ -643,17 +643,18 @@ const OpenLIMEViewer = forwardRef<
                 console.log(`🎬 Prepared openlime-asset package: ${asset.id} → ${documentUrl}`);
               }
 
-              const session = instances.length === 1
-                ? OpenLIME.SceneSession.openAsset(assetsById[instances[0]!.assetId]!)
-                : OpenLIME.SceneSession.open(
-                  buildMinimalOpenLimeScene({
-                    sceneId: sceneDesc.projectId
-                      ? `urn:ocra:project:${sceneDesc.projectId}:scene`
-                      : 'urn:ocra:scene:default',
-                    instances,
-                  }),
-                  { assets: assetsById },
-                );
+              // Always open a scene document so instance placement (translate/rotate/scale)
+              // is applied. openAsset() mounts with identity and would drop the model matrix
+              // for single-asset scenes.
+              const session = OpenLIME.SceneSession.open(
+                buildMinimalOpenLimeScene({
+                  sceneId: sceneDesc.projectId
+                    ? `urn:ocra:project:${sceneDesc.projectId}:scene`
+                    : 'urn:ocra:scene:default',
+                  instances,
+                }),
+                { assets: assetsById },
+              );
 
               const projection = new OpenLIME.SceneProjection(session, viewer.canvas, {
                 createLayer: OpenLIME.createOpenLIMELayer,

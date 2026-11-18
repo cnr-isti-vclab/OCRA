@@ -110,7 +110,6 @@ function shapesForPersistence(
   shapes: AnnotationShape[],
   referenceType: 'scene' | 'asset' | undefined,
   referenceId: string | undefined,
-  scene: SceneDescription | null,
   viewer: OpenLIMEViewerRef | null,
 ): AnnotationShape[] {
   if (referenceType !== 'asset' || !referenceId || !viewer) {
@@ -118,7 +117,7 @@ function shapesForPersistence(
   }
   const manager = viewer.getAnnotationManager() as OpenLimeAnnotationManager | null;
   const canvas = (manager as { viewer?: { canvas?: OpenLimeCanvasLike } } | null)?.viewer?.canvas;
-  const assetFrame = assetLayerImageFrame(canvas, referenceId, scene);
+  const assetFrame = assetLayerImageFrame(canvas, referenceId);
   if (!assetFrame) {
     return shapes;
   }
@@ -400,7 +399,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           viewerGeometryToShapes(viewerAnno.type, viewerAnno.geometry),
           creationDraft?.geometryScope.referenceType,
           creationDraft?.geometryScope.referenceId,
-          sceneDesc,
           viewer,
         ));
       });
@@ -437,7 +435,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
           if (!canvas) {
             return [];
           }
-          const assetFrame = assetLayerImageFrame(canvas, geometry.referenceId, sceneDesc);
+          const assetFrame = assetLayerImageFrame(canvas, geometry.referenceId);
           if (!assetFrame) {
             return [];
           }
@@ -504,7 +502,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         if (!canvas) {
           return false;
         }
-        return assetIdsNeedingFrames.every((assetId) => Boolean(assetLayerImageFrame(canvas, assetId, sceneDesc)));
+        return assetIdsNeedingFrames.every((assetId) => Boolean(assetLayerImageFrame(canvas, assetId)));
       };
 
       const notify = () => {
@@ -686,7 +684,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         viewerGeometryToShapes(anno.type, anno.geometry),
         creationDraft?.geometryScope.referenceType,
         creationDraft?.geometryScope.referenceId,
-        sceneDesc,
         viewer,
       );
       // Sticky New: keep prior completed drafts on the canvas; only drop the legacy overlay id.
@@ -809,7 +806,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             viewerGeometryToShapes(anno.type, anno.geometry),
             creationDraft?.geometryScope.referenceType,
             creationDraft?.geometryScope.referenceId,
-            sceneDesc,
             (ref as React.RefObject<OpenLIMEViewerRef>)?.current,
           ));
         }
@@ -823,7 +819,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
             viewerGeometryToShapes(anno.type, anno.geometry),
             creationDraft?.geometryScope.referenceType,
             creationDraft?.geometryScope.referenceId,
-            sceneDesc,
             (ref as React.RefObject<OpenLIMEViewerRef>)?.current,
           ));
         }
@@ -840,7 +835,6 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         viewerGeometryToShapes(anno.type, anno.geometry),
         persistedGeo?.referenceType,
         persistedGeo?.referenceId,
-        sceneDesc,
         (ref as React.RefObject<OpenLIMEViewerRef>)?.current,
       );
       const editSnapshot = editSnapshotsRef.current.get(anno.id);

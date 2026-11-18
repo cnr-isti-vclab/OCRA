@@ -149,7 +149,6 @@ function isAnnotationLayer(layer: OpenLimeLayerLike): boolean {
 export function findAssetLayer(
   canvas: OpenLimeCanvasLike | null | undefined,
   assetId: string,
-  scene: SceneDescription | null | undefined,
 ): OpenLimeLayerLike | null {
   const layers = canvas?.layers;
   if (!layers) return null;
@@ -159,21 +158,12 @@ export function findAssetLayer(
     if (isAnnotationLayer(layer)) return false;
     return key === instanceId || key.startsWith(`${instanceId}/`);
   });
-  if (prefixed[0]) return prefixed[0][1];
-
-  // SceneSession.openAsset uses synthetic instance id "asset".
-  const onlyModel = scene?.models?.length === 1 ? scene.models[0] : null;
-  if (onlyModel?.id === assetId) {
-    const base = Object.values(layers).find((layer) => !isAnnotationLayer(layer));
-    return base ?? null;
-  }
-  return null;
+  return prefixed[0]?.[1] ?? null;
 }
 
 export function assetLayerImageFrame(
   canvas: OpenLimeCanvasLike | null | undefined,
   assetId: string,
-  scene: SceneDescription | null | undefined,
 ): LayerImageFrame | null {
-  return readLayerImageFrame(findAssetLayer(canvas, assetId, scene));
+  return readLayerImageFrame(findAssetLayer(canvas, assetId));
 }
