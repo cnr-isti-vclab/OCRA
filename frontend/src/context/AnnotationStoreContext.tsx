@@ -84,6 +84,8 @@ export interface AnnotationStoreContextValue extends AnnotationFocusState {
   currentSelectionCriteria: Readonly<SelectionCriteria>;
   selectActiveAnnotations: (criteria?: SelectionCriteria) => void;
   sceneAnnotationClassPool: SceneAnnotationClassOption[];
+  /** Every concept of the loaded vocabularies, used/unused alike. */
+  vocabularyConcepts: VocabularyConcept[];
   annotationClassFilterMode: AnnotationClassFilterMode;
   annotationClassFilterValues: string[];
   setAnnotationClassFilterValues: (values: string[]) => void;
@@ -773,6 +775,7 @@ export function AnnotationStoreProvider({
     currentSelectionCriteria,
     selectActiveAnnotations,
     sceneAnnotationClassPool,
+    vocabularyConcepts,
     annotationClassFilterMode,
     annotationClassFilterValues,
     setAnnotationClassFilterValues,

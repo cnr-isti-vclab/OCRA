@@ -3,9 +3,8 @@ import OpenLIMEViewer, {
   type OpenLIMEViewerRef,
 } from '../../adapters/openlime-viewer/OpenLIMEViewer';
 import { applyOpenLimeToolbarMode } from '../../adapters/openlime-viewer/openlimeToolbarMode';
-import AnnotationToolbar, {
-  type AnnotationToolbarMode,
-} from '../../components/AnnotationToolbar';
+import LabelingFrame, { useLabelingSession } from '../../features/labeling/LabelingFrame';
+import { toOpenLimeMode, type LabelingTool } from '../../features/labeling/LabelingChrome';
 import Sam2Overlay from '../../features/sam2/Sam2Overlay';
 import type { SceneDescription, ViewerAnnotation } from '../../../../shared/scene-types';
 import type { AnnotationShape } from '../../../../shared/annotation-types';
@@ -101,50 +100,34 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
     const expectedProgrammaticSelectionRef = useRef<string[] | null>(null);
     const editSnapshotsRef = useRef<Map<string, GeometryEditSnapshot>>(new Map());
     const isPointerDownRef = useRef(false);
-    // Sam2Overlay measures/captures against this
-    const panelContainerRef = useRef<HTMLDivElement>(null);
     // Always-current refs for use inside pointer event handlers (avoids stale closures).
     const focusedGeometryIdsRef = useRef(focusedGeometryIds);
     focusedGeometryIdsRef.current = focusedGeometryIds;
     const activeGeometriesRef = useRef(activeGeometries);
     activeGeometriesRef.current = activeGeometries;
-    const [toolbarMode, setToolbarMode] = useState<AnnotationToolbarMode>('edit');
+    const [toolbarMode, setToolbarMode] = useState<LabelingTool>('edit');
     const [viewerReady, setViewerReady] = useState(false);
     const [pencilActive, setPencilActive] = useState(false);
     const [messageModal, setMessageModal] = useState<MessageModalDescriptor | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [labelVisibility, setLabelVisibility] = useState<OpenLimeLabelVisibility>('selected');
+    const labelingSession = useLabelingSession();
     const geometryEditorLockIdsRef = useRef<Set<string>>(new Set());
     const pendingConflictGeometryIdsRef = useRef<Set<string>>(new Set());
     const selectionInteractionMode: OpenLimeSelectionInteractionMode =
       annotationMode === 'viewer' || !pencilActive ? 'preserve' : 'edit';
 
     const applyToolbarMode = useCallback(
-      (mode: AnnotationToolbarMode) => {
+      (mode: LabelingTool) => {
         setToolbarMode(mode);
         const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current;
         const manager = viewer?.getAnnotationManager();
         if (!viewer || !manager) {
           return;
         }
-        applyOpenLimeToolbarMode(manager, viewer, mode);
+        applyOpenLimeToolbarMode(manager, viewer, toOpenLimeMode(mode));
       },
       [ref],
-    );
-
-    const handleSam2Accept = useCallback(
-      (shapes: AnnotationShape[]) => {
-        void createAnnotation({
-          shapes,
-          label: '',
-          description: '',
-          class: null,
-          content: {},
-        }).catch((err) => {
-          console.error('Failed to create SAM2 annotation:', err);
-        });
-      },
-      [createAnnotation],
     );
 
     const handlePencilActiveChange = useCallback((active: boolean) => {
@@ -161,7 +144,7 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       if (!viewer || !manager) {
         return null;
       }
-      setToolbarMode('edit');
+      setToolbarMode((mode) => (mode === 'assign' ? mode : 'edit'));
       applyOpenLimeToolbarMode(manager, viewer, 'edit');
       return manager;
     }, [annotationMode, ref]);
@@ -203,20 +186,21 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         if (!option) {
           continue;
         }
+        const color = labelingSession.colorOf(classId) ?? option.color;
         semanticClassEntries.push([
           classId,
           {
             label: option.label,
-            stroke: option.color,
-            fill: hexToRgba(option.color, 0.3),
-            fillSelected: hexToRgba(option.color, 0.4),
-            strokeSelected: option.color,
+            stroke: color,
+            fill: hexToRgba(color, 0.3),
+            fillSelected: hexToRgba(color, 0.4),
+            strokeSelected: color,
           },
         ]);
       }
 
       return Object.fromEntries(semanticClassEntries);
-    }, [annotationClassFilterValues, sceneAnnotationClassPool]);
+    }, [annotationClassFilterValues, sceneAnnotationClassPool, labelingSession.colorOf]);
 
     const highlightGeometryIds = useMemo(
       () =>
@@ -254,10 +238,22 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         shapes: viewerGeometryToShapes(anno.type, anno.geometry),
         label: anno.label || '',
         description: anno.description ?? '',
-        class: null,
+        class: labelingSession.activeClass,
         content: {},
       }).catch((err) => {
         console.error('Failed to create 2D annotation:', err);
+      });
+    };
+
+    const handleSam2Accept = (shapes: AnnotationShape[]) => {
+      void createAnnotation({
+        shapes,
+        label: '',
+        description: '',
+        class: labelingSession.activeClass,
+        content: {},
+      }).catch((err) => {
+        console.error('Failed to create SAM2 annotation:', err);
       });
     };
 
@@ -400,10 +396,11 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
         clearFocus();
         return;
       }
-      setFocusSelection({
-        geometryIds: ids,
-        dataIds: dataIdsForFocusedGeometries(ids, activeAnnotationSelection),
-      });
+      const dataIds = dataIdsForFocusedGeometries(ids, activeAnnotationSelection);
+      if (toolbarMode === 'assign' && annotationMode === 'edit') {
+        labelingSession.assignActiveClass(dataIds);
+      }
+      setFocusSelection({ geometryIds: ids, dataIds });
     };
 
     const runStoreOpenLimeSync = (annotationManager: OpenLimeAnnotationManager) => {
@@ -622,69 +619,62 @@ const Viewer2DPanel = forwardRef<OpenLIMEViewerRef, Viewer2DPanelProps>(
       );
     }
 
-    const isSam2Mode = annotationMode === 'edit' && pencilActive && viewerReady && toolbarMode === 'sam2';
+    const labeling = annotationMode === 'edit' && pencilActive && viewerReady;
+    const viewer = (ref as React.RefObject<OpenLIMEViewerRef>)?.current ?? null;
 
     return (
-      <div
-        ref={panelContainerRef}
-        style={{ position: 'relative', width: '100%', height: '100%' }}
-        onPointerDown={handleViewerPointerDown}
-        onPointerUp={handleViewerPointerUpOrCancel}
-        onPointerCancel={handleViewerPointerUpOrCancel}
+      <LabelingFrame
+        enabled={labeling}
+        session={labelingSession}
+        tool={toolbarMode}
+        onToolChange={applyToolbarMode}
+        labelVisibility={labelVisibility}
+        onLabelVisibilityChange={setLabelVisibility}
+        viewer={viewer}
       >
-        <OpenLIMEViewer
-          ref={ref}
-          sceneDesc={sceneDesc}
-          digitalAssets={digitalAssets}
-          annotationInteractionMode={annotationMode}
-          onReady={handleViewerReady}
-          onError={onError}
-          onAnnotationCreated={handleAnnotationCreated}
-          onAnnotationEditStart={handleAnnotationEditStart}
-          onAnnotationUpdated={handleAnnotationUpdated}
-          onAnnotationSelectionChanged={handleAnnotationSelectionChange}
-          onPencilActiveChange={handlePencilActiveChange}
-          onSettingsRequested={() => setSettingsOpen(true)}
-          annotationLabelVisibility={labelVisibility}
-        />
-
-        {isSam2Mode && (
-          <Sam2Overlay
-            viewer={(ref as React.RefObject<OpenLIMEViewerRef>)?.current ?? null}
+        <div
+          style={{ position: 'relative', width: '100%', height: '100%' }}
+          onPointerDown={handleViewerPointerDown}
+          onPointerUp={handleViewerPointerUpOrCancel}
+          onPointerCancel={handleViewerPointerUpOrCancel}
+        >
+          <OpenLIMEViewer
+            ref={ref}
             sceneDesc={sceneDesc}
             digitalAssets={digitalAssets}
-            container={panelContainerRef.current}
-            onAccept={handleSam2Accept}
+            annotationInteractionMode={annotationMode}
+            onReady={handleViewerReady}
+            onError={onError}
+            onAnnotationCreated={handleAnnotationCreated}
+            onAnnotationEditStart={handleAnnotationEditStart}
+            onAnnotationUpdated={handleAnnotationUpdated}
+            onAnnotationSelectionChanged={handleAnnotationSelectionChange}
+            onPencilActiveChange={handlePencilActiveChange}
+            onSettingsRequested={() => setSettingsOpen(true)}
+            annotationLabelVisibility={labelVisibility}
           />
-        )}
-
-        {annotationMode === 'edit' && pencilActive && viewerReady && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 100,
-              pointerEvents: 'auto',
-            }}
-          >
-            <AnnotationToolbar mode={toolbarMode} onModeChange={applyToolbarMode} />
-          </div>
-        )}
-
-        <AppMessageModal
-          descriptor={messageModal}
-          onClose={releaseConflictSnapshotsAndSync}
-          onAction={releaseConflictSnapshotsAndSync}
-        />
-        <ViewerSettingsModal
-          isOpen={settingsOpen}
-          labelVisibility={labelVisibility}
-          onLabelVisibilityChange={setLabelVisibility}
-          onClose={() => setSettingsOpen(false)}
-        />
-      </div>
+          {labeling && toolbarMode === 'sam2' && (
+            <Sam2Overlay
+              viewer={viewer}
+              sceneDesc={sceneDesc}
+              digitalAssets={digitalAssets}
+              onAccept={handleSam2Accept}
+              activeClass={labelingSession.activeRow}
+            />
+          )}
+          <AppMessageModal
+            descriptor={messageModal}
+            onClose={releaseConflictSnapshotsAndSync}
+            onAction={releaseConflictSnapshotsAndSync}
+          />
+          <ViewerSettingsModal
+            isOpen={settingsOpen}
+            labelVisibility={labelVisibility}
+            onLabelVisibilityChange={setLabelVisibility}
+            onClose={() => setSettingsOpen(false)}
+          />
+        </div>
+      </LabelingFrame>
     );
   }
 );

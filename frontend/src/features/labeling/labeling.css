@@ -1,0 +1,287 @@
+/* TagLab-style chrome around the 2D viewer while labeling (pencil on). */
+
+.labeling {
+  --lb-bg: rgb(55, 55, 55);
+  --lb-panel: rgb(40, 40, 40);
+  --lb-raised: rgb(70, 70, 70);
+  --lb-checked: rgb(100, 100, 100);
+  --lb-border: rgb(85, 85, 85);
+  --lb-text: #fff;
+  --lb-muted: rgb(170, 170, 170);
+  --lb-accent: rgb(0, 160, 255);
+  color: var(--lb-text);
+  font-size: 13px;
+}
+
+/* ---- top bar ---- */
+.labeling-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 12px;
+  background: var(--lb-bg);
+  border-bottom: 1px solid var(--lb-border);
+  white-space: nowrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.labeling-header label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  cursor: pointer;
+}
+.labeling-header input[type='checkbox'] {
+  accent-color: var(--lb-accent);
+}
+.labeling-header input[type='range'] {
+  width: 140px;
+  accent-color: rgb(200, 200, 200);
+}
+.labeling-header .labeling-readout {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.labeling-header .labeling-readout span {
+  min-width: 70px;
+}
+
+/* ---- left tool strip ---- */
+.labeling-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 44px;
+  padding: 6px 0;
+  background: var(--lb-bg);
+  border-right: 1px solid var(--lb-border);
+  flex-shrink: 0;
+}
+.labeling-tools button {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--lb-text);
+  font-size: 19px;
+  padding: 0;
+}
+.labeling-tools button:hover {
+  border-color: darkgray;
+}
+.labeling-tools button[aria-pressed='true'] {
+  background: var(--lb-checked);
+}
+.labeling-tools hr {
+  width: 28px;
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid rgb(120, 120, 120);
+  opacity: 1;
+}
+
+/* ---- right dock ---- */
+.labeling-dock {
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  background: var(--lb-bg);
+  border-left: 1px solid var(--lb-border);
+  flex-shrink: 0;
+  min-height: 0;
+}
+.labeling-dock section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 6px 8px;
+}
+.labeling-dock section.labeling-labels {
+  flex: 1;
+}
+.labeling-dock h6 {
+  margin: 0;
+  padding: 7px 2px 5px;
+  font-size: 13px;
+  font-weight: 400;
+}
+.labeling-dock .labeling-box {
+  background: var(--lb-panel);
+  border: 1px solid var(--lb-border);
+}
+.labeling-dock-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.labeling-dock button {
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--lb-text);
+}
+.labeling-dock button:hover:not(:disabled) {
+  border-color: darkgray;
+}
+.labeling-dock button:disabled {
+  opacity: 0.35;
+}
+.labeling-add {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.labeling-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  background: var(--lb-panel);
+  color: var(--lb-text);
+  border: 1px solid var(--lb-border);
+  border-radius: 0;
+}
+.labeling-input::placeholder {
+  color: var(--lb-muted);
+}
+.labeling-add input[type='color'] {
+  width: 28px;
+  padding: 0;
+  border: 1px solid var(--lb-border);
+  background: none;
+}
+.labeling-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--lb-muted);
+}
+.labeling-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.labeling-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.labeling-table th {
+  position: sticky;
+  top: 0;
+  background: var(--lb-raised);
+  font-weight: 400;
+  text-align: center;
+  padding: 3px 4px;
+  border-right: 1px solid var(--lb-border);
+}
+.labeling-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid rgb(50, 50, 50);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.labeling-table tbody tr {
+  cursor: pointer;
+}
+.labeling-table tbody tr:hover {
+  background: rgb(60, 60, 60);
+}
+.labeling-table tbody tr.active {
+  background: var(--lb-checked);
+}
+.labeling-table .labeling-row-remove {
+  padding: 0 2px;
+  line-height: 1;
+}
+.labeling-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  vertical-align: middle;
+}
+.labeling-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  padding: 8px 10px;
+  min-height: 70px;
+}
+.labeling-info dt {
+  font-weight: 400;
+  color: var(--lb-muted);
+}
+.labeling-info dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* OpenLIME's own toolbar (pencil, home, layers) is folded behind the strip's
+   "viewer controls" button; shown, it stays usable above overlays like SAM2's */
+.labeling-viewer .openlime-toolbar {
+  z-index: 60;
+}
+.labeling-viewer.viewer-controls-hidden .openlime-toolbar {
+  display: none;
+}
+
+/* ---- tool message panel (inside the viewer, bottom-left) ---- */
+.labeling-message {
+  position: absolute;
+  left: 10px;
+  bottom: 75px;
+  z-index: 100;
+  max-width: 340px;
+  padding: 6px 10px;
+  background: rgba(40, 40, 40, 0.8);
+  color: #fff;
+  border-radius: 5px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  pointer-events: auto;
+}
+.labeling-message-title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-style: italic;
+  text-align: left;
+}
+.labeling-message-title + * {
+  margin-top: 6px;
+}
+.labeling-message p {
+  margin: 0 0 6px;
+}
+.labeling-message p:last-child {
+  margin-bottom: 0;
+}
+.labeling-message kbd {
+  padding: 0 4px;
+  background: rgb(85, 85, 85);
+  font-size: 11px;
+}
+.labeling-message .labeling-status {
+  color: #93c5fd;
+}
+.labeling-message .labeling-error {
+  color: #f87171;
+}
+.labeling-message .labeling-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}

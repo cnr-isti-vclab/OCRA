@@ -1,0 +1,55 @@
+# Optional SAM2 click-to-segment for RTI assets in the 2D viewer. Add it on top
+# of either stack:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sam2.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.sam2.yml up -d --build
+#
+# sam2 needs an NVIDIA GPU and the NVIDIA Container Toolkit. SAM2_MODEL_SIZE
+# (tiny | small | base_plus | large) is baked into the image at build time.
+services:
+  sam2:
+    build:
+      context: ./sam2-service
+      args:
+        MODEL_SIZE: ${SAM2_MODEL_SIZE:-tiny}
+    container_name: ocra-sam2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # the browser calls this one; it renders the RTI and asks sam2 for every inference
+  rti-seg:
+    build:
+      context: ./rti-seg
+    container_name: ocra-rti-seg
+    environment:
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+    ports:
+      - "5004:5004"
+    # the backend's /app/project_files, whether it is a volume or a bind mount
+    volumes_from:
+      - backend:ro
+    volumes:
+      - rti_seg_cache:/app/derived
+    depends_on:
+      sam2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5004/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  rti_seg_cache:

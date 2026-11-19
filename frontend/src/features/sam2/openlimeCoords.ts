@@ -21,17 +21,6 @@ export function clientPointToImagePixel(
   }
 }
 
-export function containerPointToImagePixel(
-  manager: OpenLIME.ManagerSvgAnnotation | null | undefined,
-  container: HTMLElement | null | undefined,
-  containerX: number,
-  containerY: number,
-): { x: number; y: number } | null {
-  if (!container) return null;
-  const rect = container.getBoundingClientRect();
-  return clientPointToImagePixel(manager, containerX + rect.left, containerY + rect.top);
-}
-
 export function imagePixelToContainerPoint(
   manager: OpenLIME.ManagerSvgAnnotation | null | undefined,
   pixelX: number,
@@ -45,34 +34,4 @@ export function imagePixelToContainerPoint(
   } catch {
     return null;
   }
-}
-
-export function captureViewerCanvas(container: HTMLElement | null | undefined): Promise<Blob | null> {
-  if (!container) return Promise.resolve(null);
-  const glCanvas = container.querySelector('canvas') as HTMLCanvasElement | null;
-  if (!glCanvas) return Promise.resolve(null);
-
-  const cssWidth = container.clientWidth;
-  const cssHeight = container.clientHeight;
-
-  return new Promise((resolve) => {
-    try {
-      if (glCanvas.width === cssWidth && glCanvas.height === cssHeight) {
-        glCanvas.toBlob((blob) => resolve(blob ?? null), 'image/jpeg', 0.92);
-        return;
-      }
-      const offscreen = document.createElement('canvas');
-      offscreen.width = cssWidth;
-      offscreen.height = cssHeight;
-      const ctx = offscreen.getContext('2d');
-      if (!ctx) {
-        resolve(null);
-        return;
-      }
-      ctx.drawImage(glCanvas, 0, 0, cssWidth, cssHeight);
-      offscreen.toBlob((blob) => resolve(blob ?? null), 'image/jpeg', 0.92);
-    } catch {
-      resolve(null);
-    }
-  });
 }

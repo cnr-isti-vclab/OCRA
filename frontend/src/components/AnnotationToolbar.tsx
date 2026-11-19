@@ -1,5 +1,5 @@
 /** Shared annotation drawing / edit modes for 2D and 3D viewers. */
-export type AnnotationToolbarMode = 'point' | 'line' | 'area' | 'edit' | 'sam2';
+export type AnnotationToolbarMode = 'point' | 'line' | 'area' | 'edit';
 
 export interface AnnotationToolbarProps {
   mode: AnnotationToolbarMode;
@@ -18,10 +18,11 @@ const TOOL_BUTTONS: ReadonlyArray<{
   { mode: 'line', label: 'Line', icon: 'bi-slash-lg' },
   { mode: 'area', label: 'Area', icon: 'bi-pentagon' },
   { mode: 'edit', label: 'Edit', icon: 'bi-pencil' },
-  { mode: 'sam2', label: 'SAM2', icon: 'bi-magic' },
 ];
 
-/** Reusable toolbar for choosing annotation geometry type or edit/select mode. */
+/**
+ * Reusable toolbar for choosing annotation geometry type or edit/select mode.
+ */
 export default function AnnotationToolbar({
   mode,
   onModeChange,
