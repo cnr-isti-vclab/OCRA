@@ -2,19 +2,19 @@
 
 ## Status
 
-Design for the next implementation phase, not implemented. It targets the ECHOES Cloud Platform API 0.16.0 (experimental), the User Personal Space model of D6.3, and the flow demonstrated by VTL in D16.1: import from the Personal Space, register an HDT, enrich it with REFERENCED and MANAGED assets.
+Design for the next implementation phase, not implemented. It targets the ECHOES Cloud Platform API 0.16.0 (experimental), the User Personal Space model of D6.3, and the flow demonstrated by VTL in D16.1: import from the Personal Space, register an HDT, enrich it with REFERENCED and MANAGED assets. VTL's code is the reference client: [`echoesPlatformClient.js`](https://github.com/ECHOES-ECCCH/Vertical-Application-VTL/blob/master/portal-ui/src/custom/services/echoes/echoesPlatformClient.js) for the calls and payloads, [`EchoesPlatformRepository.java`](https://github.com/ECHOES-ECCCH/Vertical-Application-VTL/blob/master/portal-bl/src/main/java/pl/psnc/vtl/portal/repositories/echoes/EchoesPlatformRepository.java) for server-side import.
 
 ---
 
 ## Model
 
-- **One OCRA project ↔ one HDT, stored in the owner's Personal Space** (`/api/v1/spaces/me`). Each project has a single owner (D4); only the owner's token writes to the platform, so the HDT and all its assets belong to one identity. A Personal Space may hold several projects, since assets and enrichments are addressed individually.
+- **One OCRA project ↔ one HDT, stored in the owner's Personal Space** (`/spaces/me`). The HDT is registered with the physical object's URI as `heritageEntityUri` and the OCRA project URL as `projectUri`, and found again with `GET /hdts?scope=MINE&search=<heritageEntityUri>`. Each project has a single owner (D4); only the owner's token writes to the platform, so the HDT and all its assets belong to one identity. A Personal Space may hold several projects, since assets and enrichments are addressed individually.
 - **Any user's Personal Space** is also an import source for that user's own assets.
 - **Mongo stays the working store.** Annotation editing, OCC and SSE are unchanged; only explicit import, save and publish actions call the platform.
 - **Identity:** OCRA forwards the user's EGI Check-in access token to the platform, which validates it by introspection and handles KBMS authentication; VTL works the same way with its own Check-in client. Users stay keyed on `sub` (`voperson_id`), never on email.
 - **Binaries live in the platform.** Every binary (3D models, RTI, images, including those first imported from a third-party URL) is uploaded as a MANAGED asset to the owner's Personal Space. The HDT records its `canonicalUri` (`https://id.culturalheritagecloud.eu/assets/<uuid>`), and its platform content route becomes the asset's `metadata.sourceUrl`. A project saved in the KB can therefore be opened by any OCRA instance, even when the instance that created it no longer exists.
 - **`project_files/` is a working copy.** The platform keeps each asset's package as uploaded; the formats the viewers use are derived from it locally and never uploaded. Opening a KB project in another instance uses the existing ECHOES import: each package is downloaded from its `sourceUrl`, now with the user's EGI token, and ingested locally. The working copy must therefore be rebuildable from the package and the HDT metadata alone.
-- **Annotations** are published as an HDT enrichment: the payload (RDF, or the snapshot through a mapping profile, see Q5) is uploaded as a MANAGED asset, then submitted. Saving and publishing are done by the owner; editors work in OCRA until then.
+- **Assets and annotations are attached by enrichment.** The registered mapping `https://culturalheritagecloud.eu/mappings/hdto-digital-object/0.1` links any asset to the HDT as `HP29_has_digital_object_part`, with a free `enrichmentType` label. OCRA uses it for every binary and for the project snapshot, so annotations reach the KB as a file with no new RDF code. Annotations as queryable statements need their own payload (Q5). Saving is done by the owner; editors work in OCRA until then.
 - **Platform writes are asynchronous.** OCRA stores each returned operation id with the project, polls it while the owner's session is valid, and shows pending, failed and reconciliation-required states; an operation still pending when the session ends is polled again at the owner's next login, since the platform has no delegated token for long-running work yet.
 - **No deletion.** Platform assets can only be archived; archived assets keep their quota and HDT links. OCRA never offers to delete what it saved.
 
@@ -22,14 +22,15 @@ Design for the next implementation phase, not implemented. It targets the ECHOES
 
 ## Steps
 
-Application paths are under `/platform/v1` (`/api/v1` is the platform's internal prefix); writes send an `Idempotency-Key`.
+Application paths are under `/platform/v1` (`/api/v1` is the platform's internal prefix). Writes send an `Idempotency-Key` derived from the request content (e.g. `hdtId` + SHA-256), so a retry reuses it. Each enrichment is checked afterwards with a SPARQL query on `HP29` through `POST /semantic-queries`.
 
 | Step | Scope | Endpoints | Blocked by |
 |---|---|---|---|
-| 1 | Import from the Personal Space into a project | `GET /spaces/me`, `GET /spaces/me/assets`, `GET /assets/{id}/content` | Q1, Q2 |
-| 2 | Upload project binaries as MANAGED assets; import downloads them with the user's token | `POST /spaces/me/assets/uploads`, `PUT` to `uploadUri`, `POST /assets/uploads/{id}/complete`, `GET /assets/{id}/content` | Q4, Q6, D1, D3, D4 |
-| 3 | Publish annotations as an enrichment | upload the snapshot and the payload as in step 2, then `POST /hdts/{hdtId}/enrichments`, `GET /operations/{id}` | Q4, Q5, Q7, D2, D4 |
-| 4 | Revisions, semantic workspace, publication | not yet in the API | — |
+| 1 | Import from the Personal Space into a project: MANAGED content with the user's token, REFERENCED content from its `externalUri` | `GET /spaces/me/assets`, `GET /assets/{id}`, `GET /assets/{id}/content` | Q1, Q2 |
+| 2 | Upload project binaries as MANAGED assets | `POST /spaces/me/assets/uploads` (name, type, size, SHA-256), `PUT` to `uploadUri` with `requiredHeaders`, `POST /assets/uploads/{id}/complete` | Q4, Q6, D1, D3, D4 |
+| 3 | Register the HDT and attach binaries and snapshot as digital objects | `POST /hdts`, `GET /hdts?scope=MINE`, `POST /hdts/{hdtId}/enrichments`, `GET /operations/{id}` | Q4, Q7, D2, D4 |
+| 4 | Annotations as queryable statements | an annotation payload through `POST /hdts/{hdtId}/enrichments` | Q5 |
+| 5 | Revisions, semantic workspace, publication | not yet in the API | — |
 
 ---
 
@@ -97,16 +98,16 @@ OCRA has no project owner today: authority comes from `ProjectRole`, and a proje
   - Will assets be movable from a Personal Space to a project space, or must they be uploaded again?
 - **Q4 Enrichment visibility.** HDT metadata has registration and synchronisation states but no publication state.
   - Does `POST /hdts/{hdtId}/enrichments` publish immediately, or land in a working context that a separate action publishes?
-  - If immediate, OCRA keeps it as a manager-only "Publish". If it lands in a working context, editors can save to ECCCH and the manager publishes later, in step 4.
+  - If immediate, OCRA keeps it as a manager-only "Publish". If it lands in a working context, editors can save to ECCCH and the manager publishes later, in step 5.
   - The Portal's Semantic Private Workspace already imports an RDF asset, previews it and publishes it to an HDT. Will the Cloud Platform API expose it? It would give OCRA the save-then-publish split.
   - How is a published enrichment corrected or withdrawn? The API has no `DELETE`, and the publication lifecycle is still open.
   - Once an HDT is published, can other users read its MANAGED assets? They sit in the owner's Personal Space, reading content needs asset-read permission, and a project opened in another instance is usually opened by someone other than its owner.
-- **Q5 Profile or mapping.** An enrichment must name a `semanticProfile` that validates it, e.g. `https://culturalheritagecloud.eu/profiles/hdto-enrichment/0.2`. An optional `mapping.profile` instead routes a source asset through a registered mapper.
+- **Q5 Annotation payload.** An enrichment must name a `semanticProfile` that validates it, e.g. `https://culturalheritagecloud.eu/profiles/hdto-enrichment/0.2`. An optional `mapping.profile` instead routes a source asset through a registered mapper; the only one in use, `hdto-digital-object/0.1`, links an asset without reading its content.
   - OCRA has no annotation RDF today: annotations reach ECHOES only inside the project snapshot JSON. A native-RDF payload therefore means new serialisation code in OCRA; a mapping profile could consume the existing snapshot, but someone must write and host the mapper.
   - SHACL shapes and a common validation call are planned (CyI, FORTH). Will they cover the 0.2 profile, so OCRA can validate before uploading? Does it accept OCRA's vocabulary (`https://data.ocra.echoes.eu/ontology#`)?
-  - Which `enrichmentType` token should OCRA use, e.g. `ocra:annotation`, and is that vocabulary registered anywhere?
+  - Is `enrichmentType` a free label (VTL sends `DIGITAL_OBJECT` and `OCR`) or a controlled vocabulary? OCRA would send `ANNOTATION` for the snapshot.
 - **Q6 Upload limits.** What is the maximum object size per storage target, and are multipart or resumable uploads planned? 3D models and RTI packages can reach several gigabytes, which a single `PUT` handles poorly. Is range retrieval on `GET /assets/{id}/content` planned, as the Paris meeting listed?
-- **Q7 Existing HDTs.** HDTs registered through KBMS `/hdt/register` have only a KBMS URI and no platform `hdtId`, so the enrichment endpoint cannot address them. Can SEP adopt them into its HDT directory, or must they be registered again, creating a second twin for the same object?
+- **Q7 Existing HDTs.** HDTs registered through KBMS `/hdt/register` have only a KBMS URI and no platform `hdtId`, so the enrichment endpoint cannot address them, and `GET /hdts?scope=MINE` does not find them. Can SEP adopt them into its HDT directory, or must they be registered again, creating a second twin for the same object?
 
 ---
 
