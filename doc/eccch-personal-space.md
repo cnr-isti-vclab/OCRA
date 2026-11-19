@@ -2,7 +2,7 @@
 
 ## Status
 
-Design for the next implementation phase, not implemented. It targets the ECHOES Common Platform API 0.16.0 (experimental) and the User Personal Space model of D6.3.
+Design for the next implementation phase, not implemented. It targets the ECHOES Cloud Platform API 0.16.0 (experimental), the User Personal Space model of D6.3, and the flow demonstrated by VTL in D16.1: import from the Personal Space, register an HDT, enrich it with REFERENCED and MANAGED assets.
 
 ---
 
@@ -11,17 +11,18 @@ Design for the next implementation phase, not implemented. It targets the ECHOES
 - **One OCRA project ↔ one HDT, stored in the owner's Personal Space** (`/api/v1/spaces/me`). Each project has a single owner (D4); only the owner's token writes to the platform, so the HDT and all its assets belong to one identity. A Personal Space may hold several projects, since assets and enrichments are addressed individually.
 - **Any user's Personal Space** is also an import source for that user's own assets.
 - **Mongo stays the working store.** Annotation editing, OCC and SSE are unchanged; only explicit import, save and publish actions call the platform.
-- **Identity:** OCRA forwards the user's EGI Check-in access token to SEP, which handles KBMS authentication.
-- **Binaries live in the platform.** Every binary (3D models, RTI, images, including those first imported from a third-party URL) is uploaded as a MANAGED asset to the owner's Personal Space. The HDT records its `canonicalUri`, and its platform content route becomes the asset's `metadata.sourceUrl`. A project saved in the KB can therefore be opened by any OCRA instance, even when the instance that created it no longer exists.
+- **Identity:** OCRA forwards the user's EGI Check-in access token to the platform, which validates it by introspection and handles KBMS authentication; VTL works the same way with its own Check-in client. Users stay keyed on `sub` (`voperson_id`), never on email.
+- **Binaries live in the platform.** Every binary (3D models, RTI, images, including those first imported from a third-party URL) is uploaded as a MANAGED asset to the owner's Personal Space. The HDT records its `canonicalUri` (`https://id.culturalheritagecloud.eu/assets/<uuid>`), and its platform content route becomes the asset's `metadata.sourceUrl`. A project saved in the KB can therefore be opened by any OCRA instance, even when the instance that created it no longer exists.
 - **`project_files/` is a working copy.** The platform keeps each asset's package as uploaded; the formats the viewers use are derived from it locally and never uploaded. Opening a KB project in another instance uses the existing ECHOES import: each package is downloaded from its `sourceUrl`, now with the user's EGI token, and ingested locally. The working copy must therefore be rebuildable from the package and the HDT metadata alone.
 - **Annotations** are published as an HDT enrichment: the payload (RDF, or the snapshot through a mapping profile, see Q5) is uploaded as a MANAGED asset, then submitted. Saving and publishing are done by the owner; editors work in OCRA until then.
-- **Platform writes are asynchronous.** OCRA stores each returned operation id with the project, polls it, and shows pending, failed and reconciliation-required states.
+- **Platform writes are asynchronous.** OCRA stores each returned operation id with the project, polls it while the owner's session is valid, and shows pending, failed and reconciliation-required states; an operation still pending when the session ends is polled again at the owner's next login, since the platform has no delegated token for long-running work yet.
+- **No deletion.** Platform assets can only be archived; archived assets keep their quota and HDT links. OCRA never offers to delete what it saved.
 
 ---
 
 ## Steps
 
-Paths are under `/api/v1`; writes send an `Idempotency-Key`.
+Application paths are under `/platform/v1` (`/api/v1` is the platform's internal prefix); writes send an `Idempotency-Key`.
 
 | Step | Scope | Endpoints | Blocked by |
 |---|---|---|---|
@@ -34,7 +35,7 @@ Paths are under `/api/v1`; writes send an `Idempotency-Key`.
 
 ## Transition
 
-OCRA reaches KBMS directly today (`ECHOES_KB_API_BASE`). Each flow moves to SEP once the platform covers it; until then OCRA uses both, with the same user token.
+OCRA reaches KBMS directly today (`ECHOES_KB_API_BASE`). Applications are expected to use only the Cloud Platform API, and KBMS has no per-graph authorisation yet, so each flow moves to SEP once the platform covers it; until then OCRA uses both, with the same user token.
 
 | Flow | Served by |
 |---|---|
@@ -86,27 +87,27 @@ OCRA has no project owner today: authority comes from `ProjectRole`, and a proje
 
 ## Questions for PCSS
 
-- **Q1 SEP base URL.** The contract's `servers` entry is `/`. OCRA needs the development, staging and production URLs, configured as one backend variable next to `ECHOES_KB_API_BASE`.
-- **Q2 Token acceptance.** SEP validates EGI access tokens by introspection and requires active ECHOES VO membership with the `member` entitlement.
-  - Does it accept tokens issued to OCRA's EGI clients (development and production), or must OCRA be registered as a trusted client? Assets record a `createdByClientId`.
-  - What is the exact entitlement value, so OCRA can tell a user without VO membership why ECCCH actions are unavailable?
-  - If OCRA's tokens are rejected, the fallback is a service principal. A service principal has no Personal Space, which rules out step 1.
-- **Q3 Project spaces.** Not a blocker: OCRA starts with the owner's Personal Space (D4) and would move to a project space once one can be used. The API reaches project spaces only by `spaceId`; nothing creates, lists or manages them.
+- **Q1 Base URL.** Staging is `https://api-staging.culturalheritagecloud.eu`. OCRA still needs the production URL, configured as one backend variable next to `ECHOES_KB_API_BASE`.
+- **Q2 Token acceptance.** VTL shows that a Check-in Demo token from an application's own client is accepted.
+  - Must OCRA's clients (development and production) be registered anywhere first? Assets record a `createdByClientId`.
+  - Which entitlement in `vo.echoes.eu` grants access? The mapping of VO groups to platform roles is not finalised; OCRA needs it to tell a user without membership why ECCCH actions are unavailable.
+- **Q3 Project spaces.** Not a blocker: OCRA starts with the owner's Personal Space (D4) and would move to a project space once one can be used. The API reaches project spaces only by `spaceId`; nothing creates, lists or manages them. The Paris meeting agreed on a shared project concept (owner, collaborators, read and edit permissions, HDT associations) that matches OCRA's projects.
   - Who creates a project space, how does OCRA learn its `spaceId`, and how are members granted?
   - Is one space per OCRA project intended, or should an institution's projects share one institutional space?
   - Will assets be movable from a Personal Space to a project space, or must they be uploaded again?
 - **Q4 Enrichment visibility.** HDT metadata has registration and synchronisation states but no publication state.
   - Does `POST /hdts/{hdtId}/enrichments` publish immediately, or land in a working context that a separate action publishes?
   - If immediate, OCRA keeps it as a manager-only "Publish". If it lands in a working context, editors can save to ECCCH and the manager publishes later, in step 4.
-  - How is a published enrichment withdrawn? The API has no `DELETE`.
+  - The Portal's Semantic Private Workspace already imports an RDF asset, previews it and publishes it to an HDT. Will the Cloud Platform API expose it? It would give OCRA the save-then-publish split.
+  - How is a published enrichment corrected or withdrawn? The API has no `DELETE`, and the publication lifecycle is still open.
   - Once an HDT is published, can other users read its MANAGED assets? They sit in the owner's Personal Space, reading content needs asset-read permission, and a project opened in another instance is usually opened by someone other than its owner.
 - **Q5 Profile or mapping.** An enrichment must name a `semanticProfile` that validates it, e.g. `https://culturalheritagecloud.eu/profiles/hdto-enrichment/0.2`. An optional `mapping.profile` instead routes a source asset through a registered mapper.
   - OCRA has no annotation RDF today: annotations reach ECHOES only inside the project snapshot JSON. A native-RDF payload therefore means new serialisation code in OCRA; a mapping profile could consume the existing snapshot, but someone must write and host the mapper.
-  - Is the 0.2 profile published, for example as SHACL, so OCRA can validate before uploading? Does it accept OCRA's vocabulary (`https://data.ocra.echoes.eu/ontology#`)?
+  - SHACL shapes and a common validation call are planned (CyI, FORTH). Will they cover the 0.2 profile, so OCRA can validate before uploading? Does it accept OCRA's vocabulary (`https://data.ocra.echoes.eu/ontology#`)?
   - Which `enrichmentType` token should OCRA use, e.g. `ocra:annotation`, and is that vocabulary registered anywhere?
-- **Q6 Upload limits.** What is the maximum object size per storage target, and are multipart or resumable uploads planned? 3D models and RTI packages can reach several gigabytes, which a single `PUT` handles poorly.
+- **Q6 Upload limits.** What is the maximum object size per storage target, and are multipart or resumable uploads planned? 3D models and RTI packages can reach several gigabytes, which a single `PUT` handles poorly. Is range retrieval on `GET /assets/{id}/content` planned, as the Paris meeting listed?
 - **Q7 Existing HDTs.** HDTs registered through KBMS `/hdt/register` have only a KBMS URI and no platform `hdtId`, so the enrichment endpoint cannot address them. Can SEP adopt them into its HDT directory, or must they be registered again, creating a second twin for the same object?
 
 ---
 
-*Last reviewed: 2026-11-06*
+*Last reviewed: 2026-11-19*

@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       'shared/**/*.test.ts',
       'backend/src/vocabularies/**/*.test.ts',
+      'backend/src/test/metrics.api.test.ts',
       'frontend/src/services/ExternalVocabularyApi.test.ts',
       'frontend/src/adapters/annotation-store/**/*.test.ts',
       'frontend/src/features/annotation-creation/**/*.test.ts',

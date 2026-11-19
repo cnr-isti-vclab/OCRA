@@ -142,6 +142,7 @@ flowchart LR
   - Readiness: `/ready`, `/health/ready`, `/api/ready`
   - Project listing and metadata: `GET /api/projects`, `GET /api/projects/:projectId` (public projects only for anonymous)
   - Static assets: `/assets/projects/...` (served by `express.static`, no auth check at HTTP level)
+- Monitoring: `GET /metrics` — Prometheus metrics for the ECHOES monitoring platform; requires `Authorization: Bearer $METRICS_TOKEN`, disabled (404) when unset. See [Monitoring](./monitoring.md).
 - Authenticated (`requireAuth` middleware):
   - Sessions, users, admin, vocabularies, all HDT and annotation APIs.
 - Manager-restricted (requires project `manager` role or `sys_admin`):

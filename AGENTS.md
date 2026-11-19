@@ -212,6 +212,7 @@ npm run project-files:cleanup # remove orphan files from project_files/
 | `CORS_ORIGINS` | http://localhost:3001 | Comma-separated allowed origins |
 | `PROJECT_FILES_PATH` | /app/project_files | Static asset root |
 | `SYS_ADMIN_EMAIL` | admin@ocra.it | Seeded system admin email |
+| `METRICS_TOKEN` | (unset) | Bearer token for `GET /metrics` (Prometheus); unset disables the endpoint |
 
 Swagger API docs are available at `http://localhost:3002/api-docs` when the backend is running.
 

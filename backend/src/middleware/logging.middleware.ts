@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { recordHttpRequest } from '../services/metrics.service.js';
 
 /**
  * Logging Middleware (TypeScript version)
@@ -21,6 +22,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     const duration = Date.now() - start;
     const statusEmoji = res.statusCode >= 400 ? '❌' : res.statusCode >= 300 ? '⚠️' : '✅';
     console.log(`📤 ${statusEmoji} ${res.statusCode} ${req.method} ${req.path} - ${duration}ms`);
+    recordHttpRequest(req, res.statusCode, duration);
     
     // Call original end method
     return originalEnd(...args);

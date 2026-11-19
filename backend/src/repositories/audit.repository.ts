@@ -23,15 +23,22 @@ export async function getAuditCollection() {
   return collection;
 }
 
-export async function aggregateLatestLoginDocs(limit: number) {
+export async function aggregateLatestLoginDocs(limit: number, since?: Date) {
   const collection = await getAuditCollection();
   return collection.aggregate([
     { $match: { action: { $in: ['auth.login', 'login'] } } },
-    { $match: { success: true } },
+    { $match: since ? { success: true, ts: { $gte: since } } : { success: true } },
     { $sort: { ts: -1 } },
     { $group: { _id: '$userSub', createdAt: { $first: '$ts' } } },
     { $project: { userSub: '$_id', createdAt: 1, _id: 0 } },
     { $limit: limit }
+  ]).toArray();
+}
+
+export async function countAuditEventsByAction() {
+  const collection = await getAuditCollection();
+  return collection.aggregate<{ _id: string; count: number }>([
+    { $group: { _id: '$action', count: { $sum: 1 } } },
   ]).toArray();
 }
 

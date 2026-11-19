@@ -21,7 +21,7 @@
     "install:backend": "cd backend && npm install",
     "db:migrate": "cd backend && npx prisma migrate dev",
     "db:migrate:bare": "cd backend && npx prisma migrate dev",
-    "db:migrate:compose": "cd backend && DATABASE_URL='postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public' DIRECT_URL='postgresql://postgres:postgres@localhost:5432/oauth_demo?schema=public' npx prisma migrate dev",
+    "db:migrate:compose": "cd backend && PGPASS=$(grep -s '^POSTGRES_PASSWORD=' ../.env.egi-demo | cut -d= -f2-) && URL=\"postgresql://postgres:${PGPASS:-postgres}@localhost:5432/oauth_demo?schema=public\" && DATABASE_URL=\"$URL\" DIRECT_URL=\"$URL\" npx prisma migrate dev",
     "db:test:bootstrap": "bash scripts/bootstrap-test-db.sh",
     "db:generate": "cd backend && npx prisma generate",
     "db:studio": "cd backend && npx prisma studio",
