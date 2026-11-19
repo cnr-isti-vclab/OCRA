@@ -20,24 +20,24 @@ const TOKEN = 'test-metrics-token';
 
 describe.sequential('metrics endpoint', () => {
   const prismaMock = {
-    $queryRawUnsafe: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
-    user: { count: vi.fn().mockResolvedValue(5) },
-    session: { count: vi.fn().mockResolvedValue(2) },
-    projectPresenceLease: { findMany: vi.fn().mockResolvedValue([{ userId: 'u1' }]) },
-    project: { findMany: vi.fn().mockResolvedValue([{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }]) },
-    projectRole: { groupBy: vi.fn().mockResolvedValue([{ role: 'manager', _count: { _all: 3 } }]) },
+    $queryRawUnsafe: async () => [{ '?column?': 1 }],
+    user: { count: async () => 5 },
+    session: { count: async () => 2 },
+    projectPresenceLease: { findMany: async () => [{ userId: 'u1' }] },
+    project: { findMany: async () => [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }] },
+    projectRole: { groupBy: async () => [{ role: 'manager', _count: { _all: 3 } }] },
   };
 
   const collectionMock = {
-    createIndex: vi.fn().mockResolvedValue('ok'),
-    countDocuments: vi.fn().mockResolvedValue(1),
-    aggregate: vi.fn((pipeline: Array<Record<string, unknown>>) => ({
+    createIndex: async () => 'ok',
+    countDocuments: async () => 1,
+    aggregate: (pipeline: Array<Record<string, unknown>>) => ({
       toArray: async () => ('$sort' in (pipeline[2] ?? {})
         ? [{ userSub: 's1', createdAt: new Date() }]
         : [{ _id: 'auth.login', count: 7 }]),
-    })),
+    }),
   };
-  const dbMock = { collection: vi.fn(() => collectionMock) };
+  const dbMock = { collection: () => collectionMock };
 
   beforeEach(() => {
     process.env.METRICS_TOKEN = TOKEN;
@@ -46,7 +46,7 @@ describe.sequential('metrics endpoint', () => {
     vi.mocked(getMongoClient).mockResolvedValue({ db: () => ({ admin: () => ({ ping: async () => ({ ok: 1 }) }) }) } as never);
     vi.mocked(getAuditDb).mockResolvedValue(dbMock as never);
     vi.mocked(getContentDb).mockResolvedValue(dbMock as never);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', async () => ({
       ok: true,
       status: 200,
       json: async () => ({ issuer: process.env.ISSUER, token_endpoint: 't', userinfo_endpoint: 'u' }),
