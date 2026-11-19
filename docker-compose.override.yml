@@ -1,18 +1,18 @@
 services:
   postgres:
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   mongodb:
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     healthcheck:
       interval: 60s
 
   backend:
     ports:
-      - "3002:3002"
-      - "5555:5555"
+      - "127.0.0.1:3002:3002"
+      - "127.0.0.1:5555:5555"
     environment:
       NODE_ENV: development
     volumes:
@@ -22,7 +22,7 @@ services:
 
   app:
     ports:
-      - "3001:80"
+      - "127.0.0.1:3001:80"
 
 volumes:
   backend_node_modules:

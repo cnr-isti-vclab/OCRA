@@ -18,8 +18,11 @@ has_host_port() {
   local bindings
 
   # Use effective runtime port mappings rather than requested HostConfig bindings.
+  # Only a loopback-only binding counts: containers published on all interfaces get recreated.
   bindings="$(docker inspect --format '{{json .NetworkSettings.Ports}}' "${container_name}")"
-  [[ "${bindings}" == *"\"${container_port}\""* && "${bindings}" == *"\"HostPort\":\"${host_port}\""* ]]
+  [[ "${bindings}" == *"\"${container_port}\""* \
+    && "${bindings}" == *"\"HostIp\":\"127.0.0.1\",\"HostPort\":\"${host_port}\""* \
+    && "${bindings}" != *"0.0.0.0"* && "${bindings}" != *"\"::\""* ]]
 }
 
 container_env_contains() {
@@ -152,7 +155,7 @@ if ! container_exists "${POSTGRES_NAME}"; then
     -e POSTGRES_USER=ocra_user \
     -e POSTGRES_PASSWORD=ocra_pass \
     -e POSTGRES_DB=ocra \
-    -p 5432:5432 \
+    -p 127.0.0.1:5432:5432 \
     -v ocra-postgres-data:/var/lib/postgresql/data \
     postgres:16 >/dev/null
 else
@@ -189,7 +192,7 @@ if ! container_exists "${MONGO_NAME}"; then
   echo "  - Creating ${MONGO_NAME}..."
   docker run -d \
     --name "${MONGO_NAME}" \
-    -p 27017:27017 \
+    -p 127.0.0.1:27017:27017 \
     -v ocra-mongo-data:/data/db \
     mongo:7 \
     --replSet rs0 --bind_ip_all >/dev/null

@@ -53,7 +53,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-oauth_demo}?schema=public}
       MONGO_URL: mongodb://mongodb:27017/?replicaSet=rs0
       MONGO_AUDIT_DB: ${MONGO_AUDIT_DB:-ocra_audit}
       MONGO_CONTENT_DB: ${MONGO_CONTENT_DB:-ocra_content}
@@ -61,6 +61,7 @@ services:
       SYS_ADMIN_EMAIL: ${SYS_ADMIN_EMAIL:-admin@ocra.it}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       SWAGGER_PUBLIC_SERVER_URL: ${SWAGGER_PUBLIC_SERVER_URL:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
       NODE_ENV: ${NODE_ENV:-production}
       AAT_SPARQL_ENDPOINT: ${AAT_SPARQL_ENDPOINT:-https://vocab.getty.edu/sparql.json}
       AAT_REQUEST_TIMEOUT_MS: ${AAT_REQUEST_TIMEOUT_MS:-8000}
@@ -104,7 +105,7 @@ services:
       VITE_API_BASE: ${VITE_API_BASE:-http://localhost:3002}
       SHOW_ECCCH_DEBUG_OPERATIONS: ${SHOW_ECCCH_DEBUG_OPERATIONS:-true}
       THREE_PRESENTER_DEBUG: ${THREE_PRESENTER_DEBUG:-true}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/oauth_demo?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-oauth_demo}?schema=public}
     depends_on:
       postgres:
         condition: service_healthy

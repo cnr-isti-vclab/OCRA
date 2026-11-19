@@ -36,6 +36,7 @@
     "mongodb": "^5.9.0",
     "multer": "^2.0.2",
     "n3": "^1.26.0",
+    "prom-client": "^15.1.3",
     "shared": "*",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0"
