@@ -116,7 +116,7 @@ describe('serializeHdtDocumentAsEchoesRdf', () => {
     expect(rdf).toContain('<rdf:Description rdf:about="https://example.org/heritage/project-1">');
     expect(rdf).toContain(`<${ECHOES_HDTO_CURIE_HP1_HAS_DIGITAL_TWIN} rdf:resource="https://example.org/hdt/project-1"/>`);
     expect(rdf).toContain('<dc:title>Test Heritage Entity</dc:title>');
-    expect(rdf).toContain('<dc:identifier>https://example.org/identifier/project-1</dc:identifier>');
+    expect(rdf).not.toContain('<dc:identifier>');
     expect(rdf).toContain('<rdf:Description rdf:about="https://example.org/hdt/project-1">');
     expect(rdf).not.toContain(ECHOES_HDTO_CURIE_HP3_IS_DIGITAL_TWIN_COMPONENT_OF);
     expect(rdf).toContain('<rdf:Description rdf:about="https://assets.example.org/id/model.glb">');
