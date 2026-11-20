@@ -13,12 +13,6 @@ import { getCurrentUser } from '../services/auth/session';
 export function inspectBrowserStorage(): void {
   console.log('🔍 === BROWSER STORAGE INSPECTION ===');
   
-  // Check for logout debug info first
-  const logoutDebug = sessionStorage.getItem('logout_debug');
-  if (logoutDebug) {
-    console.log('🚪 Last logout attempt:', JSON.parse(logoutDebug));
-  }
-  
   // Check localStorage
   console.log('📦 localStorage:');
   const oauthRelated = [];
@@ -74,29 +68,6 @@ export function inspectBrowserStorage(): void {
 }
 
 /**
- * Check last logout attempt debug info
- */
-export function checkLastLogout(): void {
-  console.log('🚪 === LOGOUT DEBUG INFO ===');
-  const logoutDebug = sessionStorage.getItem('logout_debug');
-  if (logoutDebug) {
-    const debug = JSON.parse(logoutDebug);
-    console.log('📅 Last logout timestamp:', debug.timestamp);
-    console.log('🔗 Logout URL used:', debug.logoutUrl);
-    console.log('📍 Step reached:', debug.step);
-    
-    // Calculate time since logout
-    const logoutTime = new Date(debug.timestamp);
-    const now = new Date();
-    const timeDiff = Math.round((now.getTime() - logoutTime.getTime()) / 1000);
-    console.log(`⏱️ Time since logout: ${timeDiff} seconds ago`);
-  } else {
-    console.log('❌ No logout debug info found');
-  }
-  console.log('🚪 === END LOGOUT DEBUG ===');
-}
-
-/**
  * Test authentication state
  */
 export async function testAuthState(): Promise<void> {
@@ -142,6 +113,5 @@ export async function testAuthState(): Promise<void> {
 // Make debug functions available globally for browser console
 if (typeof window !== 'undefined') {
   (window as any).inspectBrowserStorage = inspectBrowserStorage;
-  (window as any).checkLastLogout = checkLastLogout;
   (window as any).testAuthState = testAuthState;
 }

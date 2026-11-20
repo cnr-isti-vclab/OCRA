@@ -89,6 +89,14 @@ export async function startAuthFlow(options: StartAuthFlowOptions = {}): Promise
   window.location.href = authorizationUrl;
 }
 
+/** End the provider SSO session on a shared device. */
+export function forgetProviderSession(): void {
+  const logoutUrl = new URL(`${OAUTH_CONFIG.issuer.replace(/\/$/, '')}/protocol/openid-connect/logout`);
+  logoutUrl.searchParams.set('post_logout_redirect_uri', OAUTH_CONFIG.redirectUri);
+  logoutUrl.searchParams.set('client_id', OAUTH_CONFIG.clientId);
+  window.location.assign(logoutUrl.toString());
+}
+
 /**
  * Detect whether the current window is an iframe callback carrying a silent-auth response.
  */

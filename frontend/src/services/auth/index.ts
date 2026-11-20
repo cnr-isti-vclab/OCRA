@@ -7,7 +7,7 @@
 export { OAUTH_CONFIG } from '../../config/oauth';
 
 // OAuth flow functions
-export { startAuthFlow, probeExistingProviderSession, relaySilentAuthCallbackToParent } from './oauth';
+export { startAuthFlow, forgetProviderSession, probeExistingProviderSession, relaySilentAuthCallbackToParent } from './oauth';
 
 // Session management functions
 export { 
@@ -22,6 +22,5 @@ export {
 // Debug utilities
 export { 
   inspectBrowserStorage, 
-  checkLastLogout, 
   testAuthState 
 } from '../../utils/debug';
