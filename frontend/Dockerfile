@@ -33,13 +33,18 @@ RUN cd frontend/openlime && npm install && npm run rollup
 RUN cd frontend/three-presenter && npm install && npm run build
 RUN npm run build --workspace frontend
 
-# Runtime stage (latest Nginx on Alpine)
-FROM nginx:alpine
+# Runtime stage: non-root Nginx on Alpine, port 8080 (also runs under OpenShift's random UID)
+FROM nginxinc/nginx-unprivileged:alpine
 WORKDIR /usr/share/nginx/html
 COPY --from=build /app/frontend/dist/ .
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/docker-entrypoint.sh /docker-entrypoint.d/99-app-config.sh
-RUN chmod +x /docker-entrypoint.d/99-app-config.sh
 # Provide a default config.js if none is mounted
 COPY frontend/public/config.js /usr/share/nginx/html/config.js
-EXPOSE 80
+# The entrypoint rewrites config.js at startup: writable by the nginx user (Compose)
+# and by group 0, which OpenShift's random UID belongs to
+USER root
+RUN chmod +x /docker-entrypoint.d/99-app-config.sh \
+  && chown -R 101:0 /usr/share/nginx/html && chmod -R g+w /usr/share/nginx/html
+USER 101
+EXPOSE 8080

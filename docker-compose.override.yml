@@ -22,7 +22,7 @@ services:
 
   app:
     ports:
-      - "127.0.0.1:3001:80"
+      - "127.0.0.1:3001:8080"
 
 volumes:
   backend_node_modules:

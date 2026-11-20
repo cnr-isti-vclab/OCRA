@@ -139,7 +139,7 @@ server {
     server_name ocra.isti.cnr.it;
 
     location / {
-        proxy_pass http://ocra-frontend:80;
+        proxy_pass http://ocra-frontend:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }

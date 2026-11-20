@@ -28,7 +28,7 @@ services:
       SHOW_ECCCH_DEBUG_OPERATIONS: ${SHOW_ECCCH_DEBUG_OPERATIONS:-false}
       THREE_PRESENTER_DEBUG: ${THREE_PRESENTER_DEBUG:-false}
     expose:
-      - "80"
+      - "8080"
     networks:
       - internal-net
       - host-proxy-net
