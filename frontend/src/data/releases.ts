@@ -11,6 +11,16 @@ export interface Release {
  */
 export const releases: Release[] = [
   {
+    version: '202611',
+    date: 'Nov 2026',
+    highlights: [
+      'Clearer EGI sign-out: continue as the current user, switch account, or forget the account on shared devices',
+      'Prometheus metrics endpoint for the ECHOES monitoring platform',
+      'Hardened deployment: non-root frontend container, local-only development ports, no default database password',
+      '3D annotation creation now starts with the point tool',
+    ],
+  },
+  {
     version: '202610',
     date: 'Oct 2026',
     highlights: [

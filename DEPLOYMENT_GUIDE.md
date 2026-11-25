@@ -221,6 +221,15 @@ docker compose exec postgres pg_dump -U postgres ocra_production > backup.sql
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
+## Releasing
+
+Releases are named `VYYYYMM` (e.g. `V202611`) and deployed from `main`.
+
+1. On `devel`, add an entry at the top of `frontend/src/data/releases.ts` (shown on the landing page) and commit it.
+2. Merge `devel` into `main` and push `main`.
+3. On the server: `git pull && git submodule update --init --recursive`, then run the Update command above. Never use `down -v`: it deletes the databases and project files.
+4. Once the deployment works, tag the deployed commit: `git tag -a VYYYYMM -m "OCRA release YYYYMM" main && git push origin VYYYYMM`.
+
 ## Notes
 
 - Database backups should be automated
